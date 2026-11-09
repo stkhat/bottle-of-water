@@ -7,3 +7,4 @@ playwright-report
 reports
 data/raw
 .stryker-tmp
+.vitest

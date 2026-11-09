@@ -20,6 +20,9 @@
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run lint && npm run format:check",
     "test": "vitest run --project unit",
+    "test:browser": "vitest run --project browser",
+    "test:manifest": "vitest run --project manifest",
+    "test:all": "npm test && npm run test:browser",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -29,13 +32,17 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^26.6.6",
+    "@vitest/browser-playwright": "^5.1.0",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.14.0",
+    "playwright": "^1.65.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0",
+    "vitest-browser-preact": "^2.0.0",
     "wxt": "^0.21.5"
   }
 }
