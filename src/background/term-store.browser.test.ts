@@ -279,22 +279,54 @@ describe("recordEncounters", () => {
     expect(occurrences.map((o) => o.origin)).toEqual(["saved"]);
   });
 
+  const encounter = (i: number) =>
+    store.recordEncounters(ARTICLE, [
+      {
+        termId: "en:dough",
+        sentence: `Sentence ${i}.`,
+        pos: { textQuote: `${i}` },
+      },
+    ]);
+
   it("keeps the newest 50 occurrences of a term", async () => {
     await store.saveTerm(dough());
     for (let i = 1; i <= 55; i++) {
       tick();
-      await store.recordEncounters(ARTICLE, [
-        {
-          termId: "en:dough",
-          sentence: `Sentence ${i}.`,
-          pos: { textQuote: `${i}` },
-        },
-      ]);
+      await encounter(i);
     }
     const occurrences = await store.occurrencesOf("en:dough");
     expect(occurrences).toHaveLength(50);
     expect(occurrences[0]!.sentence).toBe("Sentence 55.");
-    expect(occurrences[49]!.sentence).toBe("Sentence 6.");
+    expect(occurrences[48]!.sentence).toBe("Sentence 7.");
+  });
+
+  it("never drops the sentence a term was saved from to make room", async () => {
+    await store.saveTerm(dough());
+    for (let i = 1; i <= 55; i++) {
+      tick();
+      await encounter(i);
+    }
+    const occurrences = await store.occurrencesOf("en:dough");
+    expect(occurrences).toHaveLength(50);
+    expect(occurrences.at(-1)).toMatchObject({
+      sentence: "Knead the dough.",
+      origin: "saved",
+    });
+    expect(occurrences.filter((o) => o.origin === "encountered")).toHaveLength(
+      49,
+    );
+  });
+
+  it("keeps every saved sentence even when they fill the 50", async () => {
+    for (let i = 1; i <= 51; i++) {
+      tick();
+      await store.saveTerm(dough({ sentence: `Saved ${i}.` }));
+    }
+    tick();
+    await encounter(1);
+    const occurrences = await store.occurrencesOf("en:dough");
+    expect(occurrences).toHaveLength(51);
+    expect(occurrences.every((o) => o.origin === "saved")).toBe(true);
   });
 });
 

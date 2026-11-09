@@ -129,7 +129,7 @@ export interface TermStoreOptions {
 
 export const termId = (lang: string, key: string) => `${lang}:${key}`;
 
-/** Occurrences kept per term; the oldest go first. */
+/** Occurrences kept per term; the oldest encounters go first, saved ones stay. */
 export const MAX_OCCURRENCES = 50;
 
 const EXPORT_FORMAT = "lingo-export";
@@ -225,11 +225,15 @@ export function createTermStore(
       .where("[termId+seenAt]")
       .between([id, Dexie.minKey], [id, Dexie.maxKey]);
 
-  /** Keeps the newest `MAX_OCCURRENCES` of a term. */
+  /**
+   * Keeps at most `MAX_OCCURRENCES` of a term by dropping the oldest encounters.
+   * Sentences the term was saved from count toward the limit but are never dropped.
+   */
   async function trimOccurrences(id: string) {
     const count = await db.occurrences.where("termId").equals(id).count();
     if (count <= MAX_OCCURRENCES) return;
     const oldest = await occurrencesByAge(id)
+      .filter((o) => o.origin === "encountered")
       .limit(count - MAX_OCCURRENCES)
       .primaryKeys();
     await db.occurrences.bulkDelete(oldest);
