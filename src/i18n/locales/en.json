@@ -20,5 +20,13 @@
   "dictionary.cambridge": "Cambridge",
   "dictionary.wiktionary": "Wiktionary",
   "dictionary.reverso": "Reverso",
-  "dictionary.wordreference": "WordReference"
+  "dictionary.wordreference": "WordReference",
+  "lookup.kind.word": "Word",
+  "lookup.kind.phrase": "Phrase",
+  "lookup.status.learning": "Learning",
+  "lookup.status.known": "Known",
+  "lookup.status.new": "New · not saved",
+  "hover.addLearning": "+ Learning",
+  "hover.known": "Known",
+  "hover.hint": "Click the word for details"
 }
