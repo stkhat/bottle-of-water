@@ -1,0 +1,123 @@
+import type { CSSProperties } from "preact";
+import type { Settings } from "../../core/settings";
+import { t, type MessageKey } from "../../i18n/t";
+import { color } from "./styles";
+
+export type HighlightCategory = keyof Settings["highlight"];
+
+export interface HighlightChipsProps {
+  /** Mock Main's transcript header (`video`) or mock Article's page card. */
+  look: "video" | "article";
+  /** Which categories are highlighted (`settings.highlight`). */
+  highlight: Settings["highlight"];
+  onToggle: (category: HighlightCategory) => void;
+}
+
+const CHIPS: readonly {
+  id: HighlightCategory;
+  label: MessageKey;
+  swatch: CSSProperties;
+}[] = [
+  {
+    id: "new",
+    label: "card.chip.new",
+    swatch: { boxShadow: "inset 0 -3px 0 #2F6FE4", background: "#EAF0FD" },
+  },
+  {
+    id: "learning",
+    label: "card.chip.learning",
+    swatch: { background: "#D3F1E5", boxShadow: "inset 0 -3px 0 #0F9F7E" },
+  },
+  {
+    id: "known",
+    label: "card.chip.known",
+    swatch: { boxShadow: "inset 0 -3px 0 #A3A8B7", background: "#F1F2F5" },
+  },
+];
+
+const LOOK: Record<
+  HighlightChipsProps["look"],
+  { on: CSSProperties; off: CSSProperties }
+> = {
+  video: {
+    on: {
+      background: color.white,
+      color: color.ink,
+      border: "1px solid #8C92A3",
+      fontWeight: 600,
+    },
+    off: {
+      background: "transparent",
+      color: color.muted,
+      border: "1px dashed #C9CDD6",
+    },
+  },
+  article: {
+    on: {
+      background: color.surfaceGray,
+      color: color.ink,
+      border: "1px solid #A3A8B7",
+    },
+    off: {
+      background: "transparent",
+      color: color.muted,
+      border: `1px dashed ${color.lineStrong}`,
+    },
+  },
+};
+
+/** "Highlight" and a toggle chip per category. */
+export function HighlightChips(props: HighlightChipsProps) {
+  const look = LOOK[props.look];
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        flexWrap: "wrap",
+      }}
+    >
+      <span
+        style={{ fontSize: "12px", color: color.muted, marginRight: "2px" }}
+      >
+        {t("card.highlight")}
+      </span>
+      {CHIPS.map((c) => {
+        const pressed = props.highlight[c.id];
+        return (
+          <button
+            key={c.id}
+            type="button"
+            aria-pressed={pressed}
+            onClick={() => props.onToggle(c.id)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              height: "32px",
+              padding: "0 10px",
+              margin: 0,
+              borderRadius: "999px",
+              font: "inherit",
+              fontSize: "13px",
+              cursor: "pointer",
+              ...(pressed ? look.on : look.off),
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: "16px",
+                height: "12px",
+                borderRadius: "3px",
+                ...c.swatch,
+              }}
+            ></span>
+            {t(c.label)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

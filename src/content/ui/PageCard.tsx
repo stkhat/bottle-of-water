@@ -1,35 +1,15 @@
 import type { Settings } from "../../core/settings";
-import { t, type MessageKey } from "../../i18n/t";
-
-type Category = keyof Settings["highlight"];
+import { t } from "../../i18n/t";
+import {
+  HighlightChips,
+  type HighlightCategory,
+} from "../../ui/lookup/HighlightChips";
 
 export interface PageCardProps {
   /** Which categories are highlighted (`settings.highlight`). */
   highlight: Settings["highlight"];
-  onToggle: (category: Category) => void;
+  onToggle: (category: HighlightCategory) => void;
 }
-
-const CHIPS: readonly {
-  id: Category;
-  label: MessageKey;
-  swatch: Record<string, string>;
-}[] = [
-  {
-    id: "new",
-    label: "card.chip.new",
-    swatch: { boxShadow: "inset 0 -3px 0 #2F6FE4", background: "#EAF0FD" },
-  },
-  {
-    id: "learning",
-    label: "card.chip.learning",
-    swatch: { background: "#D3F1E5", boxShadow: "inset 0 -3px 0 #0F9F7E" },
-  },
-  {
-    id: "known",
-    label: "card.chip.known",
-    swatch: { boxShadow: "inset 0 -3px 0 #A3A8B7", background: "#F1F2F5" },
-  },
-];
 
 // `all: initial` must come first so page styles inherited through the shadow host cannot leak in.
 const ROOT_STYLE =
@@ -63,64 +43,7 @@ export function PageCard({ highlight: on, onToggle }: PageCardProps) {
           {t("card.pageStatus")}
         </span>
       </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          style={{ fontSize: "12px", color: "#5A6075", marginRight: "2px" }}
-        >
-          {t("card.highlight")}
-        </span>
-        {CHIPS.map((c) => {
-          const pressed = on[c.id];
-          return (
-            <button
-              key={c.id}
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => onToggle(c.id)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                height: "32px",
-                padding: "0 10px",
-                borderRadius: "999px",
-                font: "inherit",
-                fontSize: "13px",
-                cursor: "pointer",
-                ...(pressed
-                  ? {
-                      background: "#F1F2F5",
-                      color: "#14182B",
-                      border: "1px solid #A3A8B7",
-                    }
-                  : {
-                      background: "transparent",
-                      color: "#5A6075",
-                      border: "1px dashed #D5D8E0",
-                    }),
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "16px",
-                  height: "12px",
-                  borderRadius: "3px",
-                  ...c.swatch,
-                }}
-              ></span>
-              {t(c.label)}
-            </button>
-          );
-        })}
-      </div>
+      <HighlightChips look="article" highlight={on} onToggle={onToggle} />
     </div>
   );
 }
