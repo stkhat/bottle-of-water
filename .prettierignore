@@ -1,0 +1,13 @@
+node_modules
+.output
+.wxt
+coverage
+test-results
+playwright-report
+reports
+data/raw
+.stryker-tmp
+package-lock.json
+docs
+.claude
+CLAUDE.md
