@@ -84,7 +84,7 @@ export function createYouTubeAdapter(
   const pollMs = options.pollMs ?? 250;
   const playerRequestWaitMs = options.playerRequestWaitMs ?? 1500;
   const captureTimeoutMs = options.captureTimeoutMs ?? 10_000;
-  const playerResponseTimeoutMs = options.playerResponseTimeoutMs ?? 10_000;
+  const playerResponseTimeoutMs = options.playerResponseTimeoutMs ?? 30_000;
 
   const captures = new Map<string, Capture>();
   const waiters = new Set<(videoId: string) => void>();

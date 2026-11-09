@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BrowserContext } from "@playwright/test";
+import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
 import {
   FIXTURE_VIDEO_ID,
@@ -14,8 +15,8 @@ import { test, expect } from "./fixtures";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WATCH = `https://www.youtube.com/watch?v=${FIXTURE_VIDEO_ID}`;
 const subtitles = path.join(here, "../src/core/subtitles/fixtures/youtube");
-const cueCount = (file: string) =>
-  parseYouTubeJson3(readFileSync(path.join(subtitles, file), "utf8")).length;
+const cues = (file: string) =>
+  parseYouTubeJson3(readFileSync(path.join(subtitles, file), "utf8"));
 
 /**
  * Serves youtube.com from fixtures: the watch-page skeleton (with Trusted Types
@@ -68,9 +69,13 @@ async function routeYouTube(context: BrowserContext) {
   });
 }
 
-test("the content script gets the original and the Japanese subtitles of a YouTube video", async ({
+test("on a YouTube video, Lingo gets the original and Japanese subtitles and hides YouTube's captions", async ({
   context,
 }) => {
+  const en = cues("en.json3");
+  const translated = alignByOverlap(en, cues("ja.json3"), {
+    lang: "ja",
+  }).filter((t) => t !== "").length;
   await routeYouTube(context);
   const page = await context.newPage();
   const logs: string[] = [];
@@ -80,8 +85,10 @@ test("the content script gets the original and the Japanese subtitles of a YouTu
   await expect
     .poll(() => logs.filter((line) => line.startsWith("Lingo:")))
     .toEqual([
-      `Lingo: ${FIXTURE_VIDEO_ID} .en ${cueCount("en.json3")} cues; translation siteTrack ${cueCount("ja.json3")} cues`,
+      `Lingo: ${FIXTURE_VIDEO_ID}: ${en.length} lines, translation siteTrack on ${translated}`,
     ]);
+  // Lingo shows its own subtitles instead (a style element: Trusted Types allow it).
+  await expect(page.locator("#ytp-caption-window-container")).toBeHidden();
   expect(
     await page.evaluate(
       () =>
