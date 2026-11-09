@@ -1,39 +1,50 @@
-import { test, expect } from "./fixtures";
+import { test, expect, sendToBackground } from "./fixtures";
 
 declare global {
   interface Window {
-    /** performance.now() when the card's host appeared and when it got its unsaved count. */
+    /** performance.now() when the card's host appeared and when the first highlight came. */
     lingoTimes?: { mounted?: number; analyzed?: number };
   }
 }
 
-/** Records when the card mounts and when the background's analysis reaches it. */
+/** Records when the card mounts and when the background's analysis is highlighted. */
 function watchCard() {
   const times: { mounted?: number; analyzed?: number } = {};
   window.lingoTimes = times;
   new MutationObserver(() => {
-    const host = document.querySelector("lingo-page-card");
-    if (host && times.mounted === undefined) times.mounted = performance.now();
     if (
-      host?.hasAttribute("data-lingo-unsaved") &&
-      times.analyzed === undefined
+      document.querySelector("lingo-page-card") &&
+      times.mounted === undefined
     )
+      times.mounted = performance.now();
+  }).observe(document, { subtree: true, childList: true });
+  const poll = () => {
+    if ((CSS.highlights.get("lingo-new")?.size ?? 0) > 0)
       times.analyzed = performance.now();
-  }).observe(document, { subtree: true, childList: true, attributes: true });
+    else requestAnimationFrame(poll);
+  };
+  requestAnimationFrame(poll);
 }
 
 async function analyzeTime(page: import("@playwright/test").Page) {
-  const host = page.locator("lingo-page-card");
-  await expect(host).toHaveAttribute("data-lingo-unsaved", /^[1-9]\d*$/, {
-    timeout: 20_000,
-  });
+  await expect
+    .poll(() => page.evaluate(() => window.lingoTimes?.analyzed), {
+      timeout: 20_000,
+    })
+    .toBeDefined();
   const times = await page.evaluate(() => window.lingoTimes);
   return Math.round(times!.analyzed! - times!.mounted!);
 }
 
 test("the content script gets the page analyzed by the background", async ({
   context,
+  extensionId,
 }) => {
+  // New words are highlighted once the analysis comes back.
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { highlight: { new: true } },
+  });
   await context.addInitScript(watchCard);
 
   // The first analysis loads the packs in the background (cold); the second reuses them.

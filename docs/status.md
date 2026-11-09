@@ -9,8 +9,9 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 - M0 done (spec in English, phase changes, mock artboards for the missing screens — awaiting review)
 - M2 data import is built on `feat/phase-1` (packs in `public/packs/`, readers in `src/core/packs/`); see "Data" below
 - M3 foundation is built on `feat/phase-1`: settings, BrowserEnv, tokenizer, language pack, dictionary, classifier, TermStore (IndexedDB), sync codec + BrowserSyncBackend, typed messaging and the background wiring
-- Current milestone: M4 (shared lookup UI parts)
-- Performance (E2E, built extension): the first `analyze` after a service-worker start loads only the `en` pack (3.8 MB, including `en/vocab.json`) in ~80–125 ms; before the vocabulary was split from the dictionary it loaded ~10 MB in ~215–270 ms. Later calls take 5–25 ms. The dictionary (6.7 MB in 4 shards) loads on the first `lookup`: ~115–130 ms after an `analyze`, ~180–190 ms when it is the first message. Possible later optimizations: load the dictionary in the background once `analyze` is done; analyze only when highlighting is on
+- M4 shared lookup UI parts are built on `feat/phase-1`
+- Current milestone: M5 article UI ([plans/2026-11-09-m5-article-ui.md](plans/2026-11-09-m5-article-ui.md)). Tasks 1–3 done: run conditions and page language, the page text model with visibility batching, highlights (CSS Custom Highlight API) following the category toggles in the settings. The content script also asks the background to load the dictionary after the first `analyze` (`warmDictionary`)
+- Performance (E2E, built extension): the first `analyze` after a service-worker start loads only the `en` pack (3.8 MB, including `en/vocab.json`) in ~80–125 ms; before the vocabulary was split from the dictionary it loaded ~10 MB in ~215–270 ms. Later calls take 5–25 ms. The dictionary (6.7 MB in 4 shards) loads on the first `lookup`: ~115–130 ms after an `analyze`, ~180–190 ms when it is the first message. Possible later optimizations: analyze only when highlighting is on. The dictionary is now loaded right after the first `analyze` on an article page (`warmDictionary`)
 - Firefox build: `web-ext lint` warns that `data_collection_permissions` is missing from the manifest; add it before any Firefox release
 
 ## Decisions on 2026-11-09
@@ -42,3 +43,4 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - How the Language Reactor extension looks on youtube.com is unchecked (only the web player was checked)
 - `storage.sync` holds about 12,400 English terms, not the 15,000–20,000 the spec estimated (see "Data"). Decide whether that is enough or whether the sync format should change
 - Firefox: support for highlight underlines (`text-decoration` in the Highlight API), whether a translation API exists for extensions, when MV3 host permissions are granted
+- TODO (Firefox): `supportsHighlightUnderline()` in `src/content/article/highlighter.ts` always returns true. Detect whether `::highlight()` draws `text-decoration` there; when it does not, the highlighter already switches to background colors only. Also check that a content script can set `document.adoptedStyleSheets` and `CSS.highlights` in Firefox (Xray wrappers)

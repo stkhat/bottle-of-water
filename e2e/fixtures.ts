@@ -39,3 +39,25 @@ export const test = base.extend<{
 });
 
 export const expect = test.expect;
+
+/**
+ * Sends a request to the background from an extension page, as the popup and the
+ * options page do, and returns the reply (`{ ok, value }` or `{ ok, error }`).
+ */
+export async function sendToBackground(
+  context: BrowserContext,
+  extensionId: string,
+  request: { type: string } & Record<string, unknown>,
+): Promise<unknown> {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  // The extension page's own `chrome.runtime`; the test drives Chromium directly.
+  const reply = await page.evaluate((message) => {
+    const { chrome: api } = globalThis as unknown as {
+      chrome: { runtime: { sendMessage(m: unknown): Promise<unknown> } };
+    };
+    return api.runtime.sendMessage(message);
+  }, request);
+  await page.close();
+  return reply;
+}
