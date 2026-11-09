@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBuiltInTranslator, type TranslatorGlobal } from "./translate";
+import {
+  builtInTranslatorAvailable,
+  createBuiltInTranslator,
+  type TranslatorGlobal,
+} from "./translate";
 
 function fakeGlobal(
   availability: string,
@@ -67,5 +71,30 @@ describe("createBuiltInTranslator", () => {
     expect(
       await createBuiltInTranslator("en", "ja", g).translate("figure out"),
     ).toBeUndefined();
+  });
+});
+
+describe("builtInTranslatorAvailable", () => {
+  it("is true when the pair is available or can be downloaded", async () => {
+    for (const availability of ["available", "downloadable", "downloading"])
+      expect(
+        await builtInTranslatorAvailable(
+          "en",
+          "ja",
+          fakeGlobal(availability).g,
+        ),
+      ).toBe(true);
+  });
+
+  it("is false without the API, for an unavailable pair, or when it fails", async () => {
+    expect(await builtInTranslatorAvailable("en", "ja", {})).toBe(false);
+    expect(
+      await builtInTranslatorAvailable("en", "ja", fakeGlobal("unavailable").g),
+    ).toBe(false);
+    const { g } = fakeGlobal("available");
+    g.Translator!.availability = vi.fn(async () => {
+      throw new Error("no");
+    });
+    expect(await builtInTranslatorAvailable("en", "ja", g)).toBe(false);
   });
 });

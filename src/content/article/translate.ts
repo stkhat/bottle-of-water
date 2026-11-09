@@ -71,3 +71,24 @@ export function createBuiltInTranslator(
     },
   };
 }
+
+/**
+ * Whether the built-in translator can translate `from` into `to` here, now or after
+ * its model is downloaded (spec: "Choosing a translation", source 3).
+ */
+export async function builtInTranslatorAvailable(
+  from: string,
+  to: string,
+  g: TranslatorGlobal = globalThis as TranslatorGlobal,
+): Promise<boolean> {
+  if (!g.Translator) return false;
+  try {
+    const availability = await g.Translator.availability({
+      sourceLanguage: from,
+      targetLanguage: to,
+    });
+    return availability !== "unavailable";
+  } catch {
+    return false;
+  }
+}
