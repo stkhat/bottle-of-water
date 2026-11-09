@@ -24,3 +24,4 @@
 - Playwright's Firefox fails to launch on the dev Mac (macOS 27). Locally run `VITEST_BROWSERS=chromium npm run test:browser`; CI covers Firefox.
 - `VITEST_BROWSERS` takes a comma-separated list (`chromium`, `firefox`).
 - Only Chromium can load an unpacked extension, so E2E runs on Chromium only.
+- YouTube captions come from the recorded fixtures, answered like the real `/api/timedtext` (empty without a PO token) by `tests/youtube-timedtext.ts`: a Vite middleware in browser tests, `context.route` in E2E. The fake player API (`e2e/fake-youtube-player.ts`) and the 4-second clip (`e2e/fixtures/video.webm`) are shared by both.
