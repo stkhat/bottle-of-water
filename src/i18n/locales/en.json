@@ -16,5 +16,9 @@
   "card.highlight": "Highlight",
   "card.chip.new": "New",
   "card.chip.learning": "Learning",
-  "card.chip.known": "Known"
+  "card.chip.known": "Known",
+  "dictionary.cambridge": "Cambridge",
+  "dictionary.wiktionary": "Wiktionary",
+  "dictionary.reverso": "Reverso",
+  "dictionary.wordreference": "WordReference"
 }
