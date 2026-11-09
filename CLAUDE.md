@@ -7,9 +7,17 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 1. **Design spec**: [docs/specs/2026-11-08-language-learning-extension-design.md](docs/specs/2026-11-08-language-learning-extension-design.md)
 2. **Current status and next steps**: [docs/status.md](docs/status.md)
 3. **Roadmap**: [docs/plans/2026-11-09-roadmap.md](docs/plans/2026-11-09-roadmap.md)
-4. **UI mock (Claude Design)**: https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS
+4. **Testing policy**: [docs/testing.md](docs/testing.md)
+5. **Tooling, CI/CD, release**: [docs/development.md](docs/development.md)
+6. **UI mock (Claude Design)**: https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS
    - Private (owner only). Read it with the Artifact tool's `read`: `project/canvas.json` and each screen — `project/Main.dc.html` (YouTube), `project/Article.dc.html` (article), `project/Toolbar.dc.html` (toolbar popup), `project/Settings.dc.html` (settings page)
    - **When the spec and the mock disagree, the mock wins.** When the mock changes, update the spec's "UI spec (follows the mock)" to match
+
+## Commands
+- `npm run dev`: dev build with reload
+- `npm run check`: typecheck, lint, format, CLAUDE.md line limit (150)
+- `npm test`: unit tests; `npm run test:browser`: real-browser tests (`VITEST_BROWSERS=chromium` locally)
+- `npm run build`: production build; `npm run test:e2e:build`: build + Playwright E2E
 
 ## Constraints
 - **The developer runs no servers** (the extension will be public). Data lives only on the device (IndexedDB) and in the user's own browser sync (`storage.sync`: a Google account in Chrome, a Mozilla account in Firefox)

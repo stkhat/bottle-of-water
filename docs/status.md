@@ -5,6 +5,7 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 ## Where we are
 - Design (brainstorm) and the UI mock are done
 - Roadmap for phase 1 + phase 2: [plans/2026-11-09-roadmap.md](plans/2026-11-09-roadmap.md)
+- M1 dev environment is built (WXT scaffold, lint, unit/browser/manifest/E2E tests, CLAUDE.md check, CI workflows); CI has not run on GitHub yet
 - Current milestone: M0 (spec in English, phase changes, mock artboards for the missing screens)
 
 ## Decisions on 2026-11-09
