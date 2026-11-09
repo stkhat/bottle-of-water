@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cleanShort, parseEjdict, vocabularyOf } from "./ejdict.mjs";
+import { stringifyPack } from "./common.mjs";
+import { cleanShort, parseEjdict, shardDict, vocabularyOf } from "./ejdict.mjs";
 
 const fixture = readFileSync(
   join(import.meta.dirname, "fixtures", "ejdict.txt"),
@@ -71,8 +72,8 @@ describe("parseEjdict", () => {
 });
 
 describe("vocabularyOf", () => {
-  it("is the single-word headwords", () => {
-    expect(vocabularyOf(parseEjdict(fixture)).sort()).toEqual([
+  it("is the single-word headwords, sorted", () => {
+    expect(vocabularyOf(parseEjdict(fixture))).toEqual([
       "color",
       "colour",
       "dough",
@@ -80,5 +81,55 @@ describe("vocabularyOf", () => {
       "may",
       "the",
     ]);
+  });
+});
+
+describe("shardDict", () => {
+  const dict = parseEjdict(fixture);
+  const keys = Object.keys(dict).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const bytes = (value: Record<string, unknown>) =>
+    Buffer.byteLength(stringifyPack(value));
+  // Room for about two entries per shard.
+  const maxBytes = 2 * Math.max(...keys.map((k) => bytes({ [k]: dict[k] })));
+  const { index, shards } = shardDict(dict, maxBytes);
+
+  it("splits the headwords in sorted order into consecutive shards", () => {
+    expect(shards.length).toBeGreaterThan(1);
+    expect(shards.flatMap((s) => Object.keys(s.dict))).toEqual(keys);
+  });
+  it("keeps every shard file within the size limit", () => {
+    for (const shard of shards)
+      expect(bytes(shard.dict)).toBeLessThanOrEqual(maxBytes);
+  });
+  it("names the shards dict-1.json, dict-2.json, … and indexes their first and last headwords", () => {
+    expect(index.shards).toEqual(
+      shards.map((shard, i) => {
+        const shardKeys = Object.keys(shard.dict);
+        return {
+          file: `dict-${i + 1}.json`,
+          first: shardKeys[0],
+          last: shardKeys.at(-1),
+        };
+      }),
+    );
+    expect(shards.map((s) => s.file)).toEqual(index.shards.map((s) => s.file));
+  });
+  it("fills each shard as far as the limit allows, so the split is the same every run", () => {
+    for (const [i, shard] of shards.slice(0, -1).entries()) {
+      const next = shards[i + 1]!.dict;
+      const firstOfNext = Object.keys(next)[0]!;
+      expect(
+        bytes({ ...shard.dict, [firstOfNext]: next[firstOfNext] }),
+      ).toBeGreaterThan(maxBytes);
+    }
+    expect(shardDict(dict, maxBytes)).toEqual({ index, shards });
+  });
+  it("keeps a small dictionary in one shard", () => {
+    expect(shardDict(dict, 1e9).index).toEqual({
+      shards: [{ file: "dict-1.json", first: keys[0], last: keys.at(-1) }],
+    });
+  });
+  it("fails when one entry alone is over the limit", () => {
+    expect(() => shardDict(dict, 10)).toThrow("over 10 bytes");
   });
 });

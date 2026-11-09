@@ -4,7 +4,6 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fetchText, isMain, RAW_DIR, readPack, writePack } from "./common.mjs";
-import { vocabularyOf } from "./ejdict.mjs";
 
 const API = "https://en.wiktionary.org/w/api.php";
 const PREFIX = "Frequency_lists/TV/2006";
@@ -121,7 +120,7 @@ async function main() {
   const rows = [];
   for (const title of await listPages())
     rows.push(...parseFrequencyWikitext(await readPage(title)));
-  const vocab = vocabularyOf(readPack("en-ja/dict.json"));
+  const vocab = readPack("en/vocab.json");
   const freq = buildFrequency(rows, readPack("en/lemmas.json"), vocab);
   writePack("en/freq.json", freq);
   console.log(

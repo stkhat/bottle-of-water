@@ -1,17 +1,21 @@
 // Prints the numbers recorded in docs/status.md ("Data").
 // Usage: node scripts/data/stats.mjs   (after npm run data:build)
-import { statSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { isMain, PACKS_DIR, readPack } from "./common.mjs";
-import { vocabularyOf } from "./ejdict.mjs";
+import { readDictPacks } from "./ejdict.mjs";
 
-const FILES = [
-  "en/lemmas.json",
-  "en/ipa.json",
-  "en/freq.json",
-  "en/pos.json",
-  "en-ja/dict.json",
-];
+/** Every file under public/packs/, as paths relative to it, sorted. */
+function packFiles(dir = PACKS_DIR) {
+  return readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const path = join(dir, entry.name);
+      return entry.isDirectory()
+        ? packFiles(path)
+        : [relative(PACKS_DIR, path)];
+    })
+    .sort();
+}
 
 /** Share of the top `top` base forms of the frequency list that have IPA. */
 export function ipaCoverage(freq, ipa, top) {
@@ -21,12 +25,12 @@ export function ipaCoverage(freq, ipa, top) {
 }
 
 function main() {
-  const dict = readPack("en-ja/dict.json");
+  const dict = readDictPacks();
   const freq = readPack("en/freq.json");
   const ipa = readPack("en/ipa.json");
   const { words, withIpa, ratio } = ipaCoverage(freq, ipa, 20000);
   console.log(
-    `Vocabulary (single-word headwords): ${vocabularyOf(dict).length}`,
+    `Vocabulary (single-word headwords): ${readPack("en/vocab.json").length}`,
   );
   console.log(`Dictionary headwords: ${Object.keys(dict).length}`);
   console.log(
@@ -41,7 +45,7 @@ function main() {
     `IPA coverage, top ${words} base forms: ${withIpa} (${(ratio * 100).toFixed(1)}%)`,
   );
   let total = 0;
-  for (const file of FILES) {
+  for (const file of packFiles()) {
     const size = statSync(join(PACKS_DIR, file)).size;
     total += size;
     console.log(`${file}: ${(size / 1e6).toFixed(2)} MB`);

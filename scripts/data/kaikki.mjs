@@ -4,7 +4,7 @@ import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { isMain, RAW_DIR, readPack, writePack } from "./common.mjs";
-import { vocabularyOf } from "./ejdict.mjs";
+import { readDictPacks } from "./ejdict.mjs";
 
 export const KAIKKI_PATH = join(RAW_DIR, "kaikki-en.jsonl");
 
@@ -217,8 +217,8 @@ export async function importKaikki(path, vocab, dict = {}) {
 }
 
 async function main() {
-  const dict = readPack("en-ja/dict.json");
-  const vocab = vocabularyOf(dict);
+  const dict = readDictPacks();
+  const vocab = readPack("en/vocab.json");
   const path = process.argv[2] ?? KAIKKI_PATH;
   const { lemmas, ipa, pos, stats } = await importKaikki(path, vocab, dict);
   writePack("en/lemmas.json", lemmas);

@@ -23,7 +23,7 @@ export interface DictionaryProvider {
 }
 
 export interface EnJaDictionaryData {
-  /** en-ja/dict.json */
+  /** en-ja/dict-<n>.json, merged */
   dict: DictPack;
   /** en/pos.json */
   pos: PosPack;

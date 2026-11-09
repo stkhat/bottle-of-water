@@ -18,16 +18,37 @@ export const TEST_PACKS: PackFiles = {
     ],
     ipa: { loaf: "/loʊf/" },
     pos: { loaf: ["noun"], ferment: ["verb"], crust: ["noun"] },
+    vocab: ["crust", "ferment", "loaf", "the", "yeast"],
   },
   "en-ja": {
     dict: {
-      the: ["その", ["その"]],
-      loaf: ["パンのひと塊", ["パンのひと塊"]],
-      ferment: ["発酵する", ["発酵する"]],
-      yeast: ["酵母", ["酵母"]],
       crust: ["パンの皮", ["パンの皮"]],
+      ferment: ["発酵する", ["発酵する"]],
+      loaf: ["パンのひと塊", ["パンのひと塊"]],
+      the: ["その", ["その"]],
+      yeast: ["酵母", ["酵母"]],
     },
   },
+};
+
+const { crust, ferment, loaf, the, yeast } = TEST_PACKS["en-ja"].dict;
+
+/** The bundled files behind TEST_PACKS, by path: the dictionary is split into two shards. */
+export const TEST_FILES: Readonly<Record<string, unknown>> = {
+  ...Object.fromEntries(
+    Object.entries(TEST_PACKS.en).map(([file, value]) => [
+      `/packs/en/${file}.json`,
+      value,
+    ]),
+  ),
+  "/packs/en-ja/index.json": {
+    shards: [
+      { file: "dict-1.json", first: "crust", last: "loaf" },
+      { file: "dict-2.json", first: "the", last: "yeast" },
+    ],
+  },
+  "/packs/en-ja/dict-1.json": { crust, ferment, loaf },
+  "/packs/en-ja/dict-2.json": { the, yeast },
 };
 
 /**
@@ -36,15 +57,15 @@ export const TEST_PACKS: PackFiles = {
  */
 export function stubPackLoader(fail: ReadonlySet<PackName> = new Set()) {
   const fetchJson = vi.fn(async (path: string) => {
-    const [, , name, file] = path.split("/") as [
-      string,
-      string,
-      PackName,
-      string,
-    ];
+    const name = path.split("/")[2] as PackName;
     if (fail.has(name)) throw new Error(`could not load ${name}`);
-    const files = TEST_PACKS[name] as Record<string, unknown>;
-    return files[file.replace(".json", "")];
+    if (!Object.hasOwn(TEST_FILES, path)) throw new Error(`not found: ${path}`);
+    return TEST_FILES[path];
   });
   return Object.assign(createPackLoader(fetchJson), { fetchJson });
+}
+
+/** The pack files `loadPack` has read so far, sorted. */
+export function filesRead(loadPack: ReturnType<typeof stubPackLoader>) {
+  return loadPack.fetchJson.mock.calls.map(([path]) => path).sort();
 }

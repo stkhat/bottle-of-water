@@ -1,24 +1,58 @@
-// Smoke test over the generated pack files in public/packs/ (npm run data:build).
+// Smoke test over the generated pack files in public/packs/ (npm run data:build),
+// read through the real pack loader.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildFreqIndex, rankOf } from "./frequency";
 import { ipaFor } from "./ipa";
 import { lemmatize } from "./lemmatize";
+import { createPackLoader } from "./load";
 import { lookup } from "./lookup";
-import type { DictPack, FreqPack, IpaPack, LemmaPack, PosPack } from "./types";
-import { vocabularyOf } from "./vocabulary";
+import type { DictPack, ShardIndex } from "./types";
 
-const packs = join(import.meta.dirname, "..", "..", "..", "public", "packs");
-const read = <T>(path: string): T =>
-  JSON.parse(readFileSync(join(packs, path), "utf8")) as T;
+const publicDir = join(import.meta.dirname, "..", "..", "..", "public");
+const read = (path: string): unknown =>
+  JSON.parse(readFileSync(join(publicDir, path), "utf8"));
+const loadPack = createPackLoader(async (path) => read(path));
 
-const dict = read<DictPack>("en-ja/dict.json");
-const lemmas = read<LemmaPack>("en/lemmas.json");
-const ipa = read<IpaPack>("en/ipa.json");
-const pos = read<PosPack>("en/pos.json");
-const freq = read<FreqPack>("en/freq.json");
-const vocab = vocabularyOf(dict);
+const { lemmas, ipa, pos, freq, vocab: vocabList } = await loadPack("en");
+const { dict } = await loadPack("en-ja");
+const vocab = new Set(vocabList);
+const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+describe("generated dictionary shards", () => {
+  const index = read("packs/en-ja/index.json") as ShardIndex;
+  const shards = index.shards.map(
+    (s) => read(`packs/en-ja/${s.file}`) as DictPack,
+  );
+
+  it("are listed in order with their first and last headwords", () => {
+    expect(index.shards.length).toBeGreaterThan(1);
+    index.shards.forEach((entry, i) => {
+      const keys = Object.keys(shards[i]!).sort(byCodeUnit);
+      expect(entry).toEqual({
+        file: `dict-${i + 1}.json`,
+        first: keys[0],
+        last: keys.at(-1),
+      });
+      if (i > 0) expect(entry.first > index.shards[i - 1]!.last).toBe(true);
+    });
+  });
+  it("hold every headword once", () => {
+    const total = shards.reduce((n, s) => n + Object.keys(s).length, 0);
+    expect(Object.keys(dict)).toHaveLength(total);
+    expect(total).toBeGreaterThan(40000);
+  });
+});
+
+describe("generated vocabulary", () => {
+  it("is the dictionary's single-word headwords, sorted", () => {
+    const singleWords = Object.keys(dict)
+      .filter((key) => !key.includes(" "))
+      .sort(byCodeUnit);
+    expect(vocabList).toEqual(singleWords);
+  });
+});
 
 describe("generated packs", () => {
   it("lemmatize inflected forms", () => {

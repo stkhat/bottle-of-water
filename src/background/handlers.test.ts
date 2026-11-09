@@ -19,7 +19,7 @@ import type {
   SourceInput,
   TermStore,
 } from "./term-store";
-import { stubPackLoader } from "./test-packs";
+import { filesRead, stubPackLoader } from "./test-packs";
 
 type FakeStore = { [K in keyof TermStore]: Mock<TermStore[K]> };
 
@@ -79,15 +79,17 @@ const SOURCE: SourceInput = {
 let store: FakeStore;
 let sync: { status: Mock<() => Promise<SyncStatus>> };
 let handle: Handle;
+let loadPack: ReturnType<typeof stubPackLoader>;
 
 beforeEach(() => {
   fakeBrowser.reset();
   store = fakeStore();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
+  loadPack = stubPackLoader();
   handle = createHandlers({
     store,
     settings: { get: getSettings, set: setSettings },
-    resources: createLanguageResources(stubPackLoader()),
+    resources: createLanguageResources(loadPack),
     sync,
     env: () => createBrowserEnv("chrome", {}),
   });
@@ -299,6 +301,13 @@ describe("handlers: analyze", () => {
     expect(result.unsaved).toEqual(["ferment"]);
   });
 
+  it("does not load the dictionary", async () => {
+    await value({ type: "analyze", lang: "en", blocks: ["The loaf."] });
+    expect(
+      filesRead(loadPack).filter((p) => p.startsWith("/packs/en-ja/")),
+    ).toEqual([]);
+  });
+
   it("uses the known level from the settings", async () => {
     await setSettings({ knownLevel: 2000 });
     expect(
@@ -463,6 +472,12 @@ describe("handlers: lookup", () => {
       here: [],
       elsewhere: [],
     });
+  });
+
+  it("loads the dictionary on the first lookup", async () => {
+    expect(filesRead(loadPack)).toEqual([]);
+    await value({ type: "lookup", lang: "en", key: "loaf", kind: "word" });
+    expect(filesRead(loadPack)).toContain("/packs/en-ja/index.json");
   });
 
   it("looks up in the dictionary of the native language from the settings", async () => {

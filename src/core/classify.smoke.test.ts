@@ -4,18 +4,19 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
 import { createEnglishPack } from "./language-pack";
-import { vocabularyOf } from "./packs/vocabulary";
-import type { DictPack, FreqPack, IpaPack, LemmaPack } from "./packs/types";
+import { createPackLoader } from "./packs/load";
 
-const packs = join(import.meta.dirname, "..", "..", "public", "packs");
-const read = <T>(path: string): T =>
-  JSON.parse(readFileSync(join(packs, path), "utf8")) as T;
+const publicDir = join(import.meta.dirname, "..", "..", "public");
+const loadPack = createPackLoader(async (path) =>
+  JSON.parse(readFileSync(join(publicDir, path), "utf8")),
+);
 
+const en = await loadPack("en");
 const pack = createEnglishPack({
-  lemmas: read<LemmaPack>("en/lemmas.json"),
-  freq: read<FreqPack>("en/freq.json"),
-  ipa: read<IpaPack>("en/ipa.json"),
-  vocab: vocabularyOf(read<DictPack>("en-ja/dict.json")),
+  lemmas: en.lemmas,
+  freq: en.freq,
+  ipa: en.ipa,
+  vocab: new Set(en.vocab),
 });
 const classifier = createClassifier(pack);
 

@@ -8,7 +8,17 @@ export type IpaPack = Readonly<Record<string, string>>;
 export type FreqPack = readonly string[];
 /** en/pos.json: word → parts of speech. */
 export type PosPack = Readonly<Record<string, readonly string[]>>;
-/** en-ja/dict.json: headword → [short gloss, senses]. */
+/** en/vocab.json: the words Lingo knows (single-word dictionary headwords), sorted. */
+export type VocabPack = readonly string[];
+/** en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. */
 export type DictPack = Readonly<
   Record<string, readonly [short: string, senses: readonly string[]]>
 >;
+/** en-ja/index.json: the dictionary's shards, in headword order. */
+export interface ShardIndex {
+  readonly shards: readonly {
+    readonly file: string;
+    readonly first: string;
+    readonly last: string;
+  }[];
+}

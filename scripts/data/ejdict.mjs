@@ -1,13 +1,32 @@
-// EJDict-hand (public domain) → public/packs/en-ja/dict.json
+// EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>}.json and
+// public/packs/en/vocab.json
 // Usage: node scripts/data/ejdict.mjs   (downloads missing raw files into data/raw/ejdict/)
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { fetchText, isMain, RAW_DIR, writePack } from "./common.mjs";
+import {
+  fetchText,
+  isMain,
+  PACKS_DIR,
+  RAW_DIR,
+  readPack,
+  stringifyPack,
+  writePack,
+} from "./common.mjs";
 
 const COMMIT = "2dd9e71ffcefce89b4d946ce07bf51fa0573aac0";
 const BASE_URL = `https://raw.githubusercontent.com/kujirahand/EJDict/${COMMIT}/src/`;
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 export const EJDICT_DIR = join(RAW_DIR, "ejdict");
+/** Largest dictionary shard file. AMO's linter refuses text files over 5 MB. */
+export const SHARD_MAX_BYTES = 2_000_000;
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** Removes 《…》 notes (nested too), 『』 marks and 〈C〉/〈U〉, and cuts at the first `;`. */
 export function cleanShort(sense) {
@@ -67,9 +86,77 @@ export function parseEjdict(text) {
   return dict;
 }
 
-/** The words Lingo knows: single-word headwords. */
+/** The words Lingo knows: single-word headwords, sorted by code unit. */
 export function vocabularyOf(dict) {
-  return Object.keys(dict).filter((key) => !key.includes(" "));
+  return Object.keys(dict)
+    .filter((key) => !key.includes(" "))
+    .sort(byCodeUnit);
+}
+
+/**
+ * Splits the dictionary into shards of consecutive headwords (sorted by code unit),
+ * each filled as far as `maxBytes` allows once written with stringifyPack, so the
+ * split only changes when the data does.
+ */
+export function shardDict(dict, maxBytes = SHARD_MAX_BYTES) {
+  const bytes = (value) => Buffer.byteLength(stringifyPack(value));
+  // stringifyPack writes "{\n", the lines joined by ",\n", then "\n}\n".
+  const lineBytes = (key) =>
+    Buffer.byteLength(`${JSON.stringify(key)}:${JSON.stringify(dict[key])}`);
+  const groups = [];
+  let keys = [];
+  let size = 0;
+  for (const key of Object.keys(dict).sort(byCodeUnit)) {
+    const line = lineBytes(key) + 2;
+    if (3 + line > maxBytes)
+      throw new Error(`The entry "${key}" alone is over ${maxBytes} bytes`);
+    if (keys.length > 0 && 3 + size + line > maxBytes) {
+      groups.push(keys);
+      keys = [];
+      size = 0;
+    }
+    keys.push(key);
+    size += line;
+  }
+  if (keys.length > 0) groups.push(keys);
+  const shards = groups.map((group, i) => ({
+    file: `dict-${i + 1}.json`,
+    dict: Object.fromEntries(group.map((key) => [key, dict[key]])),
+  }));
+  for (const shard of shards)
+    if (bytes(shard.dict) > maxBytes)
+      throw new Error(`${shard.file} is over ${maxBytes} bytes`);
+  return {
+    index: {
+      shards: groups.map((group, i) => ({
+        file: shards[i].file,
+        first: group[0],
+        last: group.at(-1),
+      })),
+    },
+    shards,
+  };
+}
+
+/** Writes the dictionary shards, their index and the vocabulary; removes old shards. */
+export function writeDictPacks(dict) {
+  const dir = join(PACKS_DIR, "en-ja");
+  if (existsSync(dir))
+    for (const name of readdirSync(dir))
+      if (/^dict(-\d+)?\.json$/.test(name)) rmSync(join(dir, name));
+  const { index, shards } = shardDict(dict);
+  for (const shard of shards) writePack(`en-ja/${shard.file}`, shard.dict);
+  writePack("en-ja/index.json", index);
+  writePack("en/vocab.json", vocabularyOf(dict));
+  return { index, shards };
+}
+
+/** Reads the written dictionary back from its shards, as one object. */
+export function readDictPacks() {
+  const { shards } = readPack("en-ja/index.json");
+  return Object.fromEntries(
+    shards.flatMap(({ file }) => Object.entries(readPack(`en-ja/${file}`))),
+  );
 }
 
 async function download() {
@@ -88,9 +175,10 @@ async function main() {
     readFileSync(join(EJDICT_DIR, `${letter}.txt`), "utf8"),
   ).join("\n");
   const dict = parseEjdict(text);
-  writePack("en-ja/dict.json", dict);
+  const { shards } = writeDictPacks(dict);
   console.log(
-    `dict.json: ${Object.keys(dict).length} headwords, ${vocabularyOf(dict).length} single words`,
+    `en-ja: ${Object.keys(dict).length} headwords in ${shards.length} shards; ` +
+      `en/vocab.json: ${vocabularyOf(dict).length} single words`,
   );
 }
 

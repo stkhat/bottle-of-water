@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PackName } from "../core/packs/load";
 import { createLanguageResources } from "./language-resources";
-import { stubPackLoader as stubLoader } from "./test-packs";
+import { filesRead, stubPackLoader as stubLoader } from "./test-packs";
 
 describe("createLanguageResources", () => {
-  it("builds the English pack from the bundled packs, with the dictionary's vocabulary", async () => {
+  it("builds the English pack from the bundled packs, with their vocabulary", async () => {
     const resources = createLanguageResources(stubLoader());
     const pack = await resources.pack("en");
     expect(pack.lang).toBe("en");
@@ -51,12 +51,28 @@ describe("createLanguageResources", () => {
     expect(await resources.classifier("en")).toBe(classifier);
     const dictionary = await resources.dictionary("en", "ja");
     expect(await resources.dictionary("en", "ja")).toBe(dictionary);
-    expect(loadPack.fetchJson.mock.calls.map(([path]) => path).sort()).toEqual([
-      "/packs/en-ja/dict.json",
+    expect(filesRead(loadPack)).toEqual([
+      "/packs/en-ja/dict-1.json",
+      "/packs/en-ja/dict-2.json",
+      "/packs/en-ja/index.json",
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
       "/packs/en/pos.json",
+      "/packs/en/vocab.json",
+    ]);
+  });
+
+  it("builds the English pack and the classifier without the dictionary", async () => {
+    const loadPack = stubLoader();
+    const resources = createLanguageResources(loadPack);
+    await resources.classifier("en");
+    expect(filesRead(loadPack)).toEqual([
+      "/packs/en/freq.json",
+      "/packs/en/ipa.json",
+      "/packs/en/lemmas.json",
+      "/packs/en/pos.json",
+      "/packs/en/vocab.json",
     ]);
   });
 
@@ -67,12 +83,18 @@ describe("createLanguageResources", () => {
   });
 
   it("tries again after a failed load", async () => {
-    const failing = new Set<PackName>(["en-ja"]);
+    const failing = new Set<PackName>(["en", "en-ja"]);
     const loadPack = stubLoader(failing);
     const resources = createLanguageResources(loadPack);
-    await expect(resources.pack("en")).rejects.toThrow("could not load en-ja");
+    await expect(resources.pack("en")).rejects.toThrow("could not load en");
+    await expect(resources.dictionary("en", "ja")).rejects.toThrow(
+      "could not load",
+    );
     failing.clear();
     expect((await resources.pack("en")).lang).toBe("en");
+    expect((await resources.dictionary("en", "ja")).short("loaf")).toBe(
+      "パンのひと塊",
+    );
   });
 
   it("rejects languages it has no packs for", async () => {

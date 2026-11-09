@@ -18,9 +18,11 @@
 | `public/packs/en/ipa.json` | `{ [word]: string }` | US IPA: the first `sounds[].ipa` whose tags include `General-American` or `US` (a phonemic `/…/` one first); else the first phonemic one without accent tags or dialect notes (shared by all accents; a stressed or strong form counts). Words without one are left out |
 | `public/packs/en/freq.json` | `string[]` | base forms in rank order (index 0 = rank 1). A form's rank counts for its base form; a base takes its best rank. Top 30,000 |
 | `public/packs/en/pos.json` | `{ [word]: string[] }` | parts of speech kaikki lists for the word (noun, verb, adj → "adjective", adv → "adverb", phrase, prep → "preposition", …), for labeling meanings |
-| `public/packs/en-ja/dict.json` | `{ [headword]: [short: string, senses: string[]] }` | EJDict. Headword lowercase, variants expanded to separate keys. `senses` = the meaning split on ` / `, trimmed. `short` = the first sense with `《…》` notes and `『』` marks removed, cut at the first `;` |
+| `public/packs/en/vocab.json` | `string[]` | the vocabulary: EJDict single-word headwords, sorted by code unit. Lets the English pack (and `analyze`) load without the dictionary |
+| `public/packs/en-ja/dict-<n>.json` | `{ [headword]: [short: string, senses: string[]] }` | EJDict, split into shards of consecutive headwords (sorted by code unit), each filled up to 2,000,000 bytes, numbered from 1. Headword lowercase, variants expanded to separate keys. `senses` = the meaning split on ` / `, trimmed. `short` = the first sense with `《…》` notes and `『』` marks removed, cut at the first `;` |
+| `public/packs/en-ja/index.json` | `{ shards: { file, first, last }[] }` | the shards in order, with each one's first and last headword |
 
-Vocabulary ("the words Lingo knows") = EJDict single-word headwords. Multi-word EJDict headwords are kept in `dict.json` (phrases, used by saved-phrase lookups now and phrase detection in phase 2).
+Vocabulary ("the words Lingo knows") = EJDict single-word headwords. Multi-word EJDict headwords are kept in the dictionary shards (phrases, used by saved-phrase lookups now and phrase detection in phase 2). Every pack file stays under 4 MB (`scripts/data/pack-sizes.test.ts`), because AMO's linter rejects text files over 5 MB. The loader reads the index, then all shards at once, and merges them into one dictionary.
 
 ## Readers (`src/core/packs/`)
 - `lemmatize(form, lemmas, vocab)`: lowercase; if `form` is in vocab return `[form]`, plus any bases from `lemmas[form]`; else bases from `lemmas[form]`; else `[]`. Handles `’`/`'` and trailing possessive `'s`
@@ -29,7 +31,7 @@ Vocabulary ("the words Lingo knows") = EJDict single-word headwords. Multi-word 
 - `lookup(term, dict, pos)`: `{ short, senses: { pos?: string, text: string }[] }`. Part-of-speech labels: if `pos[term]` has exactly one entry, every sense gets it; if several, infer per sense from the Japanese gloss ending and accept only labels in `pos[term]` (verb: ends with a verb ending such as する/る/う/く/す/つ/む/ぶ/ぐ/ぬ or contains `…を`; adjective: ends with な/い/の/的な; adverb: ends with に/く/て/と), otherwise no label
 
 ## Tasks
-1. EJDict import: fetch the 26 files into `data/raw/ejdict/`, `scripts/data/ejdict.mjs` → `dict.json`. Unit tests on a fixture TSV (variants, ` / ` split, short cleanup). Commit script + tests (+ output only after task 4)
+1. EJDict import: fetch the 26 files into `data/raw/ejdict/`, `scripts/data/ejdict.mjs` → the dictionary shards, their index and `vocab.json`. Unit tests on a fixture TSV (variants, ` / ` split, short cleanup). Commit script + tests (+ output only after task 4)
 2. kaikki import: `scripts/data/kaikki.mjs` streaming `readline` over the JSONL → `lemmas.json`, `ipa.json`, `pos.json`, restricted to the vocabulary from task 1. Unit tests on a small fixture JSONL (loaves → loaf, ferments → ferment, alternative/obsolete forms ignored, GA IPA chosen over RP-only)
 3. Frequency import: `scripts/data/frequency.mjs` (MediaWiki API, cached into `data/raw/freq-en/`), parse the wikitext tables, map forms to bases with `lemmas.json`, write `freq.json`. Fixture test for the wikitext parser and the best-rank rule
 4. Readers in `src/core/packs/` with tests (fixtures + a smoke test over the real files: ferments → ferment, loaves → loaf, dough has IPA `/doʊ/`, `figure out` is in dict, rank of "the" is 1-ish). `npm run data:build` runs tasks 1–3. Commit the generated files

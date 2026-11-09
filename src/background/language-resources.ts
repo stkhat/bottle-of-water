@@ -5,7 +5,6 @@ import {
 } from "../core/dictionary";
 import { createEnglishPack, type LanguagePack } from "../core/language-pack";
 import type { LoadPack } from "../core/packs/load";
-import { vocabularyOf } from "../core/packs/vocabulary";
 
 /** The language pack, classifier and dictionary of each language, built on first use. */
 export interface LanguageResources {
@@ -19,8 +18,8 @@ export interface LanguageResources {
  * service worker): nothing is loaded until a resource is first asked for, overlapping
  * calls share one build, and a failed build is forgotten so the next call tries again.
  *
- * English words come from the en-ja dictionary's headwords (the vocabulary), so the
- * English pack loads both `en` and `en-ja`.
+ * The English pack (and so `analyze`) needs only the `en` pack, whose vocabulary is the
+ * en-ja dictionary's single-word headwords; the dictionary loads on the first lookup.
  */
 export function createLanguageResources(loadPack: LoadPack): LanguageResources {
   const builds = new Map<string, Promise<unknown>>();
@@ -39,12 +38,12 @@ export function createLanguageResources(loadPack: LoadPack): LanguageResources {
     if (lang !== "en")
       return Promise.reject(new Error(`No language pack for ${lang}`));
     return once("pack:en", async () => {
-      const [en, enJa] = await Promise.all([loadPack("en"), loadPack("en-ja")]);
+      const en = await loadPack("en");
       return createEnglishPack({
         lemmas: en.lemmas,
         freq: en.freq,
         ipa: en.ipa,
-        vocab: vocabularyOf(enJa.dict),
+        vocab: new Set(en.vocab),
       });
     });
   }
