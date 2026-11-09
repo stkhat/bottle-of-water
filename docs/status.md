@@ -6,7 +6,9 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 - Design (brainstorm) and the UI mock are done
 - Roadmap for phase 1 + phase 2: [plans/2026-11-09-roadmap.md](plans/2026-11-09-roadmap.md)
 - M1 dev environment is built (WXT scaffold, lint, unit/browser/manifest/E2E tests, CLAUDE.md check, CI workflows); CI has not run on GitHub yet
-- Current milestone: M0 (spec in English, phase changes, mock artboards for the missing screens)
+- M0 done (spec in English, phase changes, mock artboards for the missing screens — awaiting review)
+- Current milestone: M1 PR and CI, then M2 (data import)
+- Firefox build: `web-ext lint` warns that `data_collection_permissions` is missing from the manifest; add it before any Firefox release
 
 ## Decisions on 2026-11-09
 - Tatoeba example sentences and Anki/CSV export moved to phase 3
