@@ -26,6 +26,8 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - File sizes: `en/lemmas.json` 1.25 MB, `en/ipa.json` 0.79 MB, `en/freq.json` 0.21 MB, `en/pos.json` 1.04 MB, `en-ja/dict.json` 6.68 MB; total 9.97 MB
 - A form that is itself a dictionary word (is, does, has, this) keeps a base only when its own kaikki entry says "form of <base>" in a non-rare inflection sense, and that sense is a verb inflection or the EJDict gloss names the base. So is → be, does → do, has → have, lives → life/live; this and news have no base. Forms outside the vocabulary still take every base whose entry lists them
 - EJDict has no phrasal verbs as headwords (no "figure out"); its multi-word headwords are compounds such as "figure of speech"
+- Sync capacity (`src/core/sync/codec.capacity.test.ts`, the spec's format: lines sorted by key, base36 minutes, gzip, base64): **12,402 English terms fit in 102,400 bytes**; 20,000 terms take 170,367 bytes. Data: the most frequent base forms, saved over one year in sessions and "save all" batches, 55% known / 40% learning / 5% removed, fixed seed. The settings key and other languages share the same 100 KB
+  - Measured alternatives on the same data (not adopted): lines sorted by update time with time deltas, ~14,800 terms; the same with keys, statuses and times in separate columns, ~16,300; hours instead of minutes, ~13,600. None fits 20,000; the key text itself takes most of the space
 
 ## Before publishing
 - Privacy policy page on a public URL (this repo is private)
@@ -35,5 +37,5 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 ## Open / not made yet
 - Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search: added 2026-11-09, **awaiting the user's review** (those screens are built only after it)
 - How the Language Reactor extension looks on youtube.com is unchecked (only the web player was checked)
-- How many words fit in `storage.sync` after compression (estimated 15,000–20,000) is not measured with real data
+- `storage.sync` holds about 12,400 English terms, not the 15,000–20,000 the spec estimated (see "Data"). Decide whether that is enough or whether the sync format should change
 - Firefox: support for highlight underlines (`text-decoration` in the Highlight API), whether a translation API exists for extensions, when MV3 host permissions are granted

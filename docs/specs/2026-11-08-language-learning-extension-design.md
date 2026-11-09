@@ -197,7 +197,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
 - **Rough capacity**
   - Uncompressed: **~6,000 words**
-  - Compressed: **~15,000–20,000 words** (English; to be verified with real data)
+  - Compressed: **~12,400 words** (English, measured 2026-11-09 with realistic save times; 20,000 words take ~170 KB)
   - Words within the frequency level do not count
   - When the limit gets close, demote words saved by "save all" to "this device only"
 - Merge: per word, the newer update time wins; deletions are tombstones. Pick up other devices' changes with `storage.onChanged`
