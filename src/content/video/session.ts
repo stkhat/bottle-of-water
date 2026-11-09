@@ -21,7 +21,7 @@ import {
   type TranslationProvider,
 } from "../article/translate";
 import { createStore, type Store } from "../ui/store";
-import type { PlatformAdapter, VideoCaptions } from "./platform";
+import type { PlatformAdapter } from "./platform";
 
 /** Cues classified per `analyze` request. */
 const BATCH = 50;
@@ -94,7 +94,6 @@ export interface VideoSession {
 interface Watch {
   id: string;
   controller: AbortController;
-  captions?: VideoCaptions;
   /** The site's translation track, looked up by time for the subtitle. */
   timedTranslation: Cue[] | null;
   stopTracking?: () => void;
@@ -227,7 +226,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const site =
       translation.source === "siteTrack" ||
       translation.source === "siteAutoTranslate";
-    w.captions = { ...captions, cues };
     // Merged sentences no longer match the fragments' timing: show the aligned text.
     w.timedTranslation = site && !asr ? translation.cues : null;
     store.set({
@@ -245,7 +243,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         settings.nativeLang,
       );
     if (store.get().enabled) adapter.hideSiteCaptions(true);
-    await startTracking(w);
+    startTracking(w).catch(warn);
     await analyzeAll(w);
   }
 
