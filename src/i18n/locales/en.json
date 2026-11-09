@@ -46,5 +46,8 @@
   "dict.elsewhere": "Seen elsewhere · {count}",
   "dict.notSavedNote": "Not saved yet. Save it as Learning or Known and Lingo will remember where you see it next.",
   "dict.source.video": "Video",
-  "dict.source.page": "Web page"
+  "dict.source.page": "Web page",
+  "phrase.save": "Save “{text}” as a phrase",
+  "phrase.learning": "+ Learning",
+  "phrase.known": "Known"
 }
