@@ -275,6 +275,18 @@ Phase 1 publishes only the Chrome version, but the structure must not need rewri
 - Chrome Web Store, addons.mozilla.org (AMO) for Firefox, Edge Add-ons for Edge
 - AMO reviews built and minified code, so source code and build instructions must be submitted
 
+### Chrome Web Store requirements (checked 2026-11-09)
+No outright blocker. Decisions and requirements:
+- **Subtitles (decided)**: keep YouTube and Netflix. Subtitle tracks are processed in memory only and never written to storage; only the sentence in which a saved word appears is stored (as an occurrence). Policy risk: "do not facilitate unauthorized access to content" / copyrighted content. Language Reactor does the same on the store. Prepare a written justification for review
+- **Host access (decided)**: keep the content script on all sites (`<all_urls>`), accepting an in-depth review (can take weeks). Write a justification (article highlighting on any page the user reads)
+- **Sentence history, phase 2 (decided)**: on by default, as in the mock. Browsing activity may be collected only for a user-facing feature described prominently in the store listing and in the UI, so the listing and Settings must describe it clearly, and it stays on the device
+- **Privacy policy (required)**: any extension that handles user data needs a privacy policy URL, even when data stays on the device. Recorded sources (URL, title) and sentences count as user data. Disclose: what is stored locally, that word status goes through the browser's sync, that nothing is sent to the developer. Include the Limited Use compliance statement. Host it somewhere public without a server (e.g. GitHub Pages; this repo is private, so a separate public page is needed)
+- **2026 policy update (in force since 2026-08-01)**: data collected must be necessary for the single purpose and prominently disclosed
+- **Code**: no remotely hosted code (everything bundled, including the MAIN-world scripts); no obfuscation (minification is fine). Hooking page fetch/XHR/`JSON.parse` is not prohibited but needs a justification
+- **Single purpose**: "learn vocabulary on the videos and articles you read" — keep every feature framed around it
+- **Listing**: icon, screenshots and a description are mandatory; no keyword lists ("YouTube Netflix …"); "works with YouTube and Netflix" wording only, no third-party logos
+- **Account**: 2-Step Verification; trader / non-trader declaration (EU DSA) — the user decides before publishing
+
 ## Phases
 1. **Phase 1 (MVP)**
    - Foundation (en language pack incl. IPA, en→ja dictionary, TermStore and sync, classification)
