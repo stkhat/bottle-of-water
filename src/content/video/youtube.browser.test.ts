@@ -78,11 +78,22 @@ describe("the watch page", () => {
   it("finds the player, its parts and the columns", () => {
     expect(adapter.playerElement()).toBe(page.player);
     expect(adapter.video()).toBe(page.video);
-    expect(adapter.controlsElement()?.className).toBe("ytp-right-controls");
+    const controls = adapter.controlsPoint();
+    expect(controls?.parent.className).toBe("ytp-right-controls-left");
+    expect(controls?.before?.classList.contains("ytp-settings-button")).toBe(
+      true,
+    );
     expect(adapter.belowVideoElement()?.id).toBe("below");
     const side = adapter.sideColumn();
     expect(side?.parent.id).toBe("secondary-inner");
     expect(side?.before?.id).toBe("related");
+  });
+
+  it("puts the player buttons first in the right-hand controls without a settings button", () => {
+    page.player.querySelector(".ytp-settings-button")!.remove();
+    const controls = adapter.controlsPoint();
+    expect(controls?.parent.className).toBe("ytp-right-controls");
+    expect(controls?.before?.className).toBe("ytp-right-controls-left");
   });
 
   it("reads the video id, title and URL", () => {

@@ -27,6 +27,8 @@ export interface HandlerDeps {
   resources: LanguageResources;
   sync: Pick<SyncBackend, "status">;
   env(): BrowserEnv;
+  /** `runtime.openOptionsPage`. */
+  openOptionsPage(): Promise<void>;
 }
 
 /** Answers one message. Never rejects: failures come back as `{ ok: false }`. */
@@ -68,11 +70,16 @@ export function createHandlers({
   resources,
   sync,
   env,
+  openOptionsPage,
 }: HandlerDeps): Handle {
   const handlers: Handlers = {
     getSettings: () => settings.get(),
     setSettings: ({ patch }) => settings.set(patch),
     getBrowserEnv: async () => env(),
+    async openOptions() {
+      await openOptionsPage();
+      return null;
+    },
 
     async analyze({ lang, blocks }) {
       const [pack, classifier, terms, { knownLevel }] = await Promise.all([

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cueAt, cueIndexAt, mergeAsrFragments } from "./cues";
+import { cueAt, cueIndexAt, lastStartedIndex, mergeAsrFragments } from "./cues";
 import type { Cue } from "./types";
 import { parseYouTubeJson3 } from "./youtube-json3";
 
@@ -49,6 +49,23 @@ describe("cueIndexAt / cueAt", () => {
     expect(cueAt(asr, 29000)?.text).toBe(
       "how are you it's been great hasn't it",
     );
+  });
+});
+
+describe("lastStartedIndex", () => {
+  const cues = [
+    cue(1000, 2000, "a"),
+    cue(2000, 3000, "b"),
+    cue(4000, 5000, "c"),
+  ];
+
+  it("is the last cue that started by a time, also in gaps and after the end", () => {
+    expect(lastStartedIndex(cues, 999)).toBe(-1);
+    expect(lastStartedIndex(cues, 1000)).toBe(0);
+    expect(lastStartedIndex(cues, 2500)).toBe(1);
+    expect(lastStartedIndex(cues, 3500)).toBe(1);
+    expect(lastStartedIndex(cues, 9000)).toBe(2);
+    expect(lastStartedIndex([], 0)).toBe(-1);
   });
 });
 

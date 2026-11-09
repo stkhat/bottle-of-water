@@ -2,6 +2,7 @@ import { render } from "preact";
 import { browser } from "wxt/browser";
 import { watchSettings } from "../../background/settings-store";
 import { startArticle } from "../../content/article/article";
+import { isVideoSite } from "../../content/article/should-run";
 import { ArticleUi } from "../../content/ui/ArticleUi";
 import { send } from "../../messaging/client";
 import { isPageRequest, UNSUPPORTED_PAGE } from "../../messaging/page-protocol";
@@ -10,6 +11,8 @@ export default defineContentScript({
   matches: ["<all_urls>"],
   cssInjectionMode: "ui",
   async main(ctx) {
+    // The video UI runs there and answers the popup.
+    if (isVideoSite(location.hostname)) return;
     const started = startArticle({
       send,
       watchSettings,

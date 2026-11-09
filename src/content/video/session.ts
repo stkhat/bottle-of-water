@@ -1,9 +1,14 @@
 import type { SourceInput } from "../../background/term-store";
-import type { Category, Span, TermStatus } from "../../core/classify";
-import type { Settings } from "../../core/settings";
+import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
+import {
+  mergeSettings,
+  type Settings,
+  type SettingsPatch,
+} from "../../core/settings";
 import {
   cueAt,
   cueIndexAt,
+  lastStartedIndex,
   mergeAsrFragments,
 } from "../../core/subtitles/cues";
 import {
@@ -14,14 +19,31 @@ import {
 import type { Cue } from "../../core/subtitles/types";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
-import type { PageSummary } from "../../messaging/page-protocol";
+import {
+  UNSUPPORTED_PAGE,
+  type PageRequest,
+  type PageSummary,
+} from "../../messaging/page-protocol";
+import {
+  dictionaryLinks,
+  type DictionaryLink,
+} from "../../ui/lookup/externalDictionaries";
+import type { HighlightCategory } from "../../ui/lookup/HighlightChips";
+import type { WordStatus } from "../../ui/lookup/HoverCard";
+import { describeTerm, type TermCard } from "../article/describe";
+import type { Box } from "../article/geometry";
+import { hostBlocked } from "../article/should-run";
 import {
   builtInTranslatorAvailable,
   createBuiltInTranslator,
   type TranslationProvider,
 } from "../article/translate";
 import { createStore, type Store } from "../ui/store";
+import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
+
+/** Voices for speaking a learning language; others use the language code itself. */
+const SPEECH_LANG: Readonly<Record<string, string>> = { en: "en-US" };
 
 /** Cues classified per `analyze` request. */
 const BATCH = 50;
@@ -37,6 +59,39 @@ export interface VideoDeps {
   createTranslator?(from: string, to: string): TranslationProvider;
   /** Default: asks the built-in translator. */
   translatorAvailable?(from: string, to: string): Promise<boolean>;
+  /** How long the pointer rests on a word before its card shows (ms). */
+  hoverDelayMs?: number;
+}
+
+/** A term in the subtitles: the cue and the index of its span in that cue's spans. */
+export interface WordRef {
+  cue: number;
+  span: number;
+}
+
+/** The hover card over a word in the subtitle. */
+export interface VideoHover {
+  ref: WordRef;
+  /** The word's box in the viewport. */
+  anchor: Box;
+  card: TermCard;
+}
+
+/** A line of the video with the term, for the window's "In this video". */
+export interface VideoLine {
+  cue: number;
+  timeMs: number;
+  text: string;
+}
+
+/** The dictionary window for the clicked word. */
+export interface VideoPanel {
+  ref: WordRef;
+  card: TermCard;
+  here: VideoLine[];
+  dictionaries: DictionaryLink[];
+  /** Counts the times the window opened (not the words shown in an open one). */
+  opened: number;
 }
 
 /** What the video UI shows for the current video. */
@@ -60,6 +115,8 @@ export interface VideoState {
   translations: string[];
   /** The cue playing; -1 between cues, during ads and while off. */
   current: number;
+  /** The transcript's card: the cue that started last; -1 before the first, during ads and while off. */
+  card: number;
   /** The translation the subtitle shows at the playing time. */
   subtitleTranslation: string;
   /** Distinct unsaved new words in the whole video (classified so far). */
@@ -68,6 +125,12 @@ export interface VideoState {
   done: PageSummary["done"];
   /** The "Video finished" card. */
   endCard: boolean;
+  hover: VideoHover | null;
+  panel: VideoPanel | null;
+  /** The Lingo menu above the ^ button. */
+  menuOpen: boolean;
+  /** The player is in fullscreen: the site's captions show instead (phase 1). */
+  fullscreen: boolean;
 }
 
 /** The UI's view of the video: its state and what its controls do. */
@@ -81,10 +144,37 @@ export interface VideoApp {
   saveAll(status: TermStatus): void;
   undoSaveAll(): void;
   closeEndCard(): void;
+  /** The pointer entered a word of the subtitle (its box in the viewport). */
+  enterWord(ref: WordRef, anchor: Box): void;
+  /** The pointer left the word. */
+  leaveWord(): void;
+  /** The pointer entered the hover card: keep it. */
+  keepHover(): void;
+  /** The pointer left the hover card: hide it soon. */
+  releaseHover(): void;
+  /** A word of the subtitle was clicked: its dictionary window opens. */
+  clickWord(ref: WordRef): void;
+  /** The hover card's "+ Learning" / "Known". */
+  setHoverStatus(status: TermStatus): void;
+  /** The window's Learning / Known / Remove. */
+  setPanelStatus(status: WordStatus): void;
+  speak(): void;
+  closePanel(): void;
+  /** A line of the window's "In this video" was clicked. */
+  seekTo(ms: number): void;
+  toggleHighlight(category: HighlightCategory): void;
+  /** The menu's and the transcript's switches. */
+  changeSettings(patch: SettingsPatch): void;
+  /** "Open all settings". */
+  openSettings(): void;
+  setMenuOpen(open: boolean): void;
+  setFullscreen(on: boolean): void;
 }
 
 export interface VideoSession {
   readonly app: VideoApp;
+  /** Answers the popup about this video (see `page-protocol.ts`). */
+  handlePageRequest(request: PageRequest): Promise<PageSummary>;
   /** Classifies the current video's cues again (after saved terms changed). */
   reanalyze(): Promise<void>;
   stop(): void;
@@ -96,6 +186,8 @@ interface Watch {
   controller: AbortController;
   /** The site's translation track, looked up by time for the subtitle. */
   timedTranslation: Cue[] | null;
+  /** Joins the lines of a translation cue. */
+  translationJoiner: string;
   stopTracking?: () => void;
   played: Set<number>;
   /** "key\ncue index" already recorded. */
@@ -118,7 +210,11 @@ function warn(error: unknown) {
   if (!isAbort(error)) console.warn("Lingo:", error);
 }
 
-function fresh(settings: Settings, videoId: string | null): VideoState {
+function fresh(
+  settings: Settings,
+  videoId: string | null,
+  fullscreen: boolean,
+): VideoState {
   return {
     settings,
     videoId,
@@ -129,12 +225,20 @@ function fresh(settings: Settings, videoId: string | null): VideoState {
     translationSource: "none",
     translations: [],
     current: -1,
+    card: -1,
     subtitleTranslation: "",
     unsaved: 0,
     done: null,
     endCard: false,
+    hover: null,
+    panel: null,
+    menuOpen: false,
+    fullscreen,
   };
 }
+
+const sameTerm = (span: Span, key: string, kind: TermKind) =>
+  span.key === key && span.kind === kind;
 
 /**
  * Runs the video UI's logic on a video site: per video, reads the subtitles through the
@@ -145,14 +249,28 @@ function fresh(settings: Settings, videoId: string | null): VideoState {
 export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const { adapter } = deps;
   let settings = await deps.send({ type: "getSettings" });
-  const store = createStore<VideoState>(fresh(settings, null));
+  const store = createStore<VideoState>(fresh(settings, null, false));
   let watch: Watch | undefined;
   let translator: TranslationProvider | undefined;
   let warmed = false;
 
   const lang = () => settings.learningLang;
+  const hostname = () => {
+    try {
+      return new URL(adapter.url()).hostname;
+    } catch {
+      return "";
+    }
+  };
   const siteOn = () =>
-    settings.sites[adapter.platform as "youtube" | "netflix"] !== false;
+    settings.sites[adapter.platform as "youtube" | "netflix"] !== false &&
+    !hostBlocked(hostname(), settings);
+
+  /** Our subtitles replace the site's while there are some, Lingo is on and not in fullscreen. */
+  function syncSiteCaptions() {
+    const { status, enabled, fullscreen } = store.get();
+    adapter.hideSiteCaptions(status === "ready" && enabled && !fullscreen);
+  }
 
   const source = (): SourceInput => ({
     platform: adapter.platform,
@@ -167,7 +285,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const id = siteOn() ? (adapter.videoId() ?? null) : null;
     if (watch && watch.id === id) return;
     close();
-    store.set(fresh(settings, id));
+    hover.cancel();
+    store.set(fresh(settings, id, store.get().fullscreen));
     if (!id) {
       adapter.hideSiteCaptions(false);
       return;
@@ -176,6 +295,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       id,
       controller: new AbortController(),
       timedTranslation: null,
+      translationJoiner: " ",
       played: new Set(),
       recorded: new Set(),
       saved: new Set(),
@@ -228,6 +348,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       translation.source === "siteAutoTranslate";
     // Merged sentences no longer match the fragments' timing: show the aligned text.
     w.timedTranslation = site && !asr ? translation.cues : null;
+    w.translationJoiner = joinerFor(translation.lang);
     store.set({
       status: "ready",
       cues,
@@ -242,7 +363,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         lang(),
         settings.nativeLang,
       );
-    if (store.get().enabled) adapter.hideSiteCaptions(true);
+    if (store.get().enabled && !store.get().fullscreen)
+      adapter.hideSiteCaptions(true);
     startTracking(w).catch(warn);
     await analyzeAll(w);
   }
@@ -286,18 +408,25 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const ms = video.currentTime * 1000;
     const following = state.enabled && !adapter.adShowing();
     const current = following ? cueIndexAt(state.cues, ms) : -1;
+    const card = following ? lastStartedIndex(state.cues, ms) : -1;
     let subtitleTranslation = "";
     if (following)
       subtitleTranslation = w.timedTranslation
-        ? flat(cueAt(w.timedTranslation, ms)?.text ?? "")
+        ? (cueAt(w.timedTranslation, ms)?.text ?? "")
+            .split("\n")
+            .join(w.translationJoiner)
         : current >= 0
           ? (state.translations[current] ?? "")
           : "";
     if (
       current !== state.current ||
+      card !== state.card ||
       subtitleTranslation !== state.subtitleTranslation
-    )
-      store.set({ current, subtitleTranslation });
+    ) {
+      // The word under the pointer went with its line.
+      if (current !== state.current && !onCard) hover.cancel();
+      store.set({ current, card, subtitleTranslation });
+    }
     if (current >= 0 && !w.played.has(current)) {
       w.played.add(current);
       void played(w, current).catch(warn);
@@ -339,16 +468,20 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const count = store.get().cues.length;
     for (let from = 0; from < count; from += BATCH) {
       if (watch !== w) return;
-      await analyze(w, from, Math.min(count, from + BATCH));
+      const batch = [];
+      for (let i = from; i < Math.min(count, from + BATCH); i++) batch.push(i);
+      await analyze(w, batch);
     }
   }
 
-  async function analyze(w: Watch, from: number, to: number) {
-    const cues = store.get().cues.slice(from, to);
+  /** Classifies the cues at `indices` (one request). */
+  async function analyze(w: Watch, indices: number[]) {
+    if (indices.length === 0) return;
+    const all = store.get().cues;
     const result = await deps.send({
       type: "analyze",
       lang: lang(),
-      blocks: cues.map((c) => c.text),
+      blocks: indices.map((i) => all[i]!.text),
     });
     if (!warmed) {
       // Load the dictionary now so the first lookup does not wait for it.
@@ -358,14 +491,15 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (watch !== w) return;
     for (const key of result.saved) w.saved.add(key);
     const spans = [...store.get().spans];
-    cues.forEach((_, i) => {
-      spans[from + i] = result.spans[i] ?? [];
+    indices.forEach((cue, i) => {
+      spans[cue] = result.spans[i] ?? [];
     });
     store.set({ spans });
     updateCounts(w);
-    const playedHere = [];
-    for (let i = from; i < to; i++) if (w.played.has(i)) playedHere.push(i);
-    recordEncounters(w, playedHere);
+    recordEncounters(
+      w,
+      indices.filter((i) => w.played.has(i)),
+    );
   }
 
   /** Tells the background which saved terms the played cues have. */
@@ -450,6 +584,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       s.category === "new" && saved.has(s.key) ? status : undefined,
     );
     store.set({ done: { count, target: status } });
+    await refreshOpenCards();
   }
 
   async function undoSaveAll(w: Watch) {
@@ -463,6 +598,191 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
     );
     store.set({ done: null });
+    await refreshOpenCards();
+  }
+
+  // Words: the hover card and the dictionary window.
+  let translatorForTerms: TranslationProvider | undefined;
+  const termTranslator = () =>
+    (translatorForTerms ??= (deps.createTranslator ?? createBuiltInTranslator)(
+      lang(),
+      settings.nativeLang,
+    ));
+
+  /** The span `ref` points at, with its text as written. */
+  function spanOf(ref: WordRef) {
+    const { cues, spans } = store.get();
+    const cue = cues[ref.cue];
+    const span = spans[ref.cue]?.[ref.span];
+    if (!cue || !span) return undefined;
+    return { cue, span, surface: flat(cue.text.slice(span.start, span.end)) };
+  }
+
+  async function describe(ref: WordRef): Promise<TermCard | undefined> {
+    const found = spanOf(ref);
+    if (!found) return undefined;
+    return describeTerm(
+      { key: found.span.key, kind: found.span.kind, surface: found.surface },
+      {
+        send: deps.send,
+        lang: lang(),
+        sourceUrl: adapter.url(),
+        translator: termTranslator(),
+      },
+    );
+  }
+
+  /** Every line with the term, in order. */
+  function linesWith(key: string, kind: TermKind): VideoLine[] {
+    const { cues, spans } = store.get();
+    const lines: VideoLine[] = [];
+    spans.forEach((list, cue) => {
+      if (!list?.some((s) => sameTerm(s, key, kind))) return;
+      lines.push({
+        cue,
+        timeMs: cues[cue]!.startMs,
+        text: flat(cues[cue]!.text),
+      });
+    });
+    return lines;
+  }
+
+  function panelState(ref: WordRef, card: TermCard, opened: number) {
+    return {
+      ref,
+      card,
+      here: linesWith(card.key, card.kind),
+      dictionaries: dictionaryLinks(card.head, settings.dictionaries, {
+        from: lang(),
+        to: settings.nativeLang,
+      }),
+      opened,
+    };
+  }
+
+  let hoverTicket = 0;
+  const hover = createHoverIntent<string>(
+    {
+      show(id) {
+        const [cue, span] = id.split(":").map(Number) as [number, number];
+        const ref = { cue, span };
+        const anchor = pendingAnchor;
+        const ticket = ++hoverTicket;
+        void describe(ref)
+          .then((card) => {
+            if (ticket !== hoverTicket || !card || !anchor) return;
+            store.set({ hover: { ref, anchor, card } });
+          })
+          .catch(warn);
+      },
+      hide() {
+        hoverTicket++;
+        onCard = false;
+        if (store.get().hover) store.set({ hover: null });
+      },
+    },
+    { showDelayMs: deps.hoverDelayMs },
+  );
+  let pendingAnchor: Box | undefined;
+  /** The pointer is on the hover card. */
+  let onCard = false;
+
+  let panelTicket = 0;
+  let opened = 0;
+  async function openPanel(ref: WordRef) {
+    const ticket = ++panelTicket;
+    const card = await describe(ref);
+    if (ticket !== panelTicket || !card) return;
+    if (!store.get().panel) opened++;
+    store.set({ panel: panelState(ref, card, opened) });
+  }
+
+  /** Looks the term up again where the hover card or the window shows it. */
+  async function refreshCards(key: string, kind: TermKind) {
+    const { hover: shown, panel } = store.get();
+    if (shown && shown.card.key === key && shown.card.kind === kind) {
+      const card = await describe(shown.ref);
+      const now = store.get().hover;
+      if (card && now?.ref === shown.ref)
+        store.set({ hover: { ...now, card } });
+    }
+    if (panel && panel.card.key === key && panel.card.kind === kind) {
+      const ticket = panelTicket;
+      const card = await describe(panel.ref);
+      if (card && ticket === panelTicket && store.get().panel)
+        store.set({ panel: panelState(panel.ref, card, panel.opened) });
+    }
+  }
+
+  /** Looks up again whatever the hover card and the window show. */
+  async function refreshOpenCards() {
+    const { hover: shown, panel } = store.get();
+    for (const card of [shown?.card, panel?.card])
+      if (card) await refreshCards(card.key, card.kind);
+  }
+
+  /** Saves, changes or removes the term at `ref`; every line with it follows. */
+  async function changeStatus(
+    w: Watch,
+    ref: WordRef,
+    card: TermCard,
+    to: WordStatus,
+  ) {
+    const { key, kind } = card;
+    if (card.status === to) return;
+    if (to === "new") {
+      await deps.send({ type: "removeTerm", id: card.termId });
+      w.saved.delete(key);
+      // Unsaved, each occurrence is new or known again by the level.
+      await analyze(
+        w,
+        linesWith(key, kind).map((l) => l.cue),
+      );
+    } else {
+      if (card.status === "new") {
+        const found = spanOf(ref);
+        if (!found) return;
+        const { translations, current, subtitleTranslation } = store.get();
+        const translation =
+          translations[ref.cue] ||
+          (current === ref.cue ? subtitleTranslation : "");
+        await deps.send({
+          type: "saveTerm",
+          lang: lang(),
+          key,
+          display: found.surface,
+          kind,
+          status: to,
+          source: source(),
+          sentence: flat(found.cue.text),
+          ...(translation ? { translation } : {}),
+          pos: { timeMs: found.cue.startMs },
+        });
+        // Saving recorded this line already.
+        w.recorded.add(`${key}\n${ref.cue}`);
+        w.saved.add(key);
+      } else {
+        await deps.send({ type: "setStatus", id: card.termId, status: to });
+      }
+      if (watch !== w) return;
+      recategorize(w, (s) => (sameTerm(s, key, kind) ? to : undefined));
+    }
+    await refreshCards(key, kind);
+  }
+
+  function speak() {
+    const head = store.get().panel?.card.head;
+    if (!head || typeof speechSynthesis === "undefined") return;
+    const utterance = new SpeechSynthesisUtterance(head);
+    utterance.lang = SPEECH_LANG[lang()] ?? lang();
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  }
+
+  function changeSettings(patch: SettingsPatch) {
+    settings = mergeSettings(patch, settings);
+    store.set({ settings });
+    run(() => deps.send({ type: "setSettings", patch }));
   }
 
   // One change to saved terms at a time, in the order asked.
@@ -481,8 +801,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     store,
     setEnabled(on) {
       if (store.get().enabled === on) return;
-      store.set({ enabled: on });
-      if (store.get().status === "ready") adapter.hideSiteCaptions(on);
+      hover.cancel();
+      store.set({ enabled: on, ...(!on && { panel: null }) });
+      if (store.get().status === "ready") syncSiteCaptions();
       const video = adapter.video();
       if (watch && video) update(watch, video);
     },
@@ -496,6 +817,65 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (watch) watch.endClosed = true;
       store.set({ endCard: false });
     },
+    enterWord(ref, anchor) {
+      pendingAnchor = anchor;
+      hover.enter(`${ref.cue}:${ref.span}`);
+    },
+    leaveWord: () => hover.leave(),
+    keepHover() {
+      onCard = true;
+      hover.keep();
+    },
+    releaseHover() {
+      onCard = false;
+      hover.release();
+    },
+    clickWord(ref) {
+      hover.cancel();
+      void openPanel(ref).catch(warn);
+    },
+    setHoverStatus(status) {
+      const shown = store.get().hover;
+      if (shown)
+        withWatch((w) => changeStatus(w, shown.ref, shown.card, status));
+    },
+    setPanelStatus(status) {
+      const panel = store.get().panel;
+      if (panel)
+        withWatch((w) => changeStatus(w, panel.ref, panel.card, status));
+    },
+    speak,
+    closePanel() {
+      panelTicket++;
+      store.set({ panel: null });
+    },
+    seekTo(ms) {
+      adapter.seek(ms).catch(warn);
+    },
+    toggleHighlight(category) {
+      changeSettings({
+        highlight: { [category]: !settings.highlight[category] },
+      });
+    },
+    changeSettings,
+    openSettings() {
+      deps.send({ type: "openOptions" }).catch(warn);
+    },
+    setMenuOpen(open) {
+      if (store.get().menuOpen !== open) store.set({ menuOpen: open });
+    },
+    setFullscreen(on) {
+      if (store.get().fullscreen === on) return;
+      hover.cancel();
+      store.set({ fullscreen: on });
+      if (store.get().status === "ready") syncSiteCaptions();
+    },
+  };
+
+  const summary = (): PageSummary => {
+    const state = store.get();
+    if (state.status !== "ready") return UNSUPPORTED_PAGE;
+    return { supported: true, unsaved: state.unsaved, done: state.done };
   };
 
   const offNavigate = adapter.onNavigate(open);
@@ -512,6 +892,13 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   return {
     app,
+    handlePageRequest(request) {
+      if (request.type === "pageSaveAll")
+        withWatch((w) => saveAll(w, request.status));
+      else if (request.type === "pageUndo") withWatch(undoSaveAll);
+      // Answer after everything asked before has been done.
+      return queue.then(summary);
+    },
     async reanalyze() {
       const w = watch;
       if (w) await analyzeAll(w);
@@ -519,6 +906,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     stop() {
       offNavigate();
       unwatch();
+      hover.cancel();
       close();
       adapter.hideSiteCaptions(false);
     },

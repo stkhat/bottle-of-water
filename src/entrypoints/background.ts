@@ -22,6 +22,7 @@ export default defineBackground(() => {
     resources: createLanguageResources(loadPack),
     sync,
     env: () => createBrowserEnv(),
+    openOptionsPage: () => browser.runtime.openOptionsPage(),
   });
 
   // Registered synchronously so a message that wakes the worker is not missed.

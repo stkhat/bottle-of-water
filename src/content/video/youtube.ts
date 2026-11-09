@@ -268,8 +268,15 @@ export function createYouTubeAdapter(
         "#movie_player video.html5-main-video",
       ),
     playerElement: player,
-    controlsElement: () =>
-      doc.querySelector<HTMLElement>("#movie_player .ytp-right-controls"),
+    controlsPoint() {
+      const controls = doc.querySelector("#movie_player .ytp-right-controls");
+      if (!controls) return null;
+      // Next to the site's gear, as in mock Main.
+      const settings = controls.querySelector(".ytp-settings-button");
+      return settings?.parentElement
+        ? { parent: settings.parentElement, before: settings }
+        : { parent: controls, before: controls.firstElementChild };
+    },
     belowVideoElement: () => doc.getElementById("below"),
     sideColumn() {
       const parent = doc.getElementById("secondary-inner");

@@ -119,6 +119,7 @@ export function testBackground(initial: Partial<Settings> = {}) {
   let settings = mergeSettings(initial, DEFAULT_SETTINGS);
   const db = openLingoDb(`lingo-content-test-${Date.now()}-${dbCount++}`);
   const store = createTermStore(db);
+  let optionsOpened = 0;
   const handle = createHandlers({
     store,
     settings: {
@@ -145,6 +146,9 @@ export function testBackground(initial: Partial<Settings> = {}) {
       }),
     },
     env: () => createBrowserEnv(),
+    openOptionsPage: async () => {
+      optionsOpened++;
+    },
   });
   const requests: Request[] = [];
   const sendFn = (async (request: Request) => {
@@ -164,6 +168,8 @@ export function testBackground(initial: Partial<Settings> = {}) {
       );
     },
     settings: () => settings,
+    /** How many times the options page was opened. */
+    optionsOpened: () => optionsOpened,
     async close() {
       db.close();
       await db.delete();

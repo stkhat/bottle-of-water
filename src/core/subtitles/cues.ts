@@ -2,10 +2,10 @@ import { normalizeCueText } from "./text";
 import type { Cue } from "./types";
 
 /**
- * Index of the cue playing at `ms` in cues sorted by start time, or -1.
- * A cue covers [startMs, endMs). When cues overlap, the one that started last wins.
+ * Index of the last cue (sorted by start time) that started at or before `ms`, or -1
+ * before the first one.
  */
-export function cueIndexAt(cues: readonly Cue[], ms: number): number {
+export function lastStartedIndex(cues: readonly Cue[], ms: number): number {
   let lo = 0;
   let hi = cues.length - 1;
   let found = -1;
@@ -18,6 +18,15 @@ export function cueIndexAt(cues: readonly Cue[], ms: number): number {
       hi = mid - 1;
     }
   }
+  return found;
+}
+
+/**
+ * Index of the cue playing at `ms` in cues sorted by start time, or -1.
+ * A cue covers [startMs, endMs). When cues overlap, the one that started last wins.
+ */
+export function cueIndexAt(cues: readonly Cue[], ms: number): number {
+  const found = lastStartedIndex(cues, ms);
   if (found < 0) return -1;
   return ms < (cues[found] as Cue).endMs ? found : -1;
 }

@@ -36,8 +36,11 @@ const LOOK = {
       alignItems: "center",
       gap: "6px",
       textAlign: "center",
+      // Clicks around the lines reach the video.
+      pointerEvents: "none",
     },
     line: {
+      pointerEvents: "auto",
       margin: 0,
       padding: "4px 14px",
       borderRadius: "8px",
@@ -48,6 +51,7 @@ const LOOK = {
       fontWeight: 500,
     },
     translation: {
+      pointerEvents: "auto",
       margin: 0,
       padding: "3px 12px",
       borderRadius: "8px",

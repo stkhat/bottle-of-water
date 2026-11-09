@@ -45,8 +45,8 @@ export interface PlatformAdapter {
   url(): string;
   video(): HTMLVideoElement | null;
   playerElement(): HTMLElement | null;
-  /** The player bar's right-hand controls, where the L and ^ buttons go. */
-  controlsElement(): HTMLElement | null;
+  /** Where the L and ^ buttons go in the player bar's right-hand controls. */
+  controlsPoint(): InsertionPoint | null;
   /** The area under the player (subtitle position "Below video"). */
   belowVideoElement(): HTMLElement | null;
   /** Where the transcript goes in the side column, or null without one. */

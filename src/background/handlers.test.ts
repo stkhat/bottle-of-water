@@ -79,6 +79,7 @@ const SOURCE: SourceInput = {
 let store: FakeStore;
 let sync: { status: Mock<() => Promise<SyncStatus>> };
 let handle: Handle;
+let openOptionsPage: Mock<() => Promise<void>>;
 let loadPack: ReturnType<typeof stubPackLoader>;
 
 beforeEach(() => {
@@ -86,12 +87,14 @@ beforeEach(() => {
   store = fakeStore();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
   loadPack = stubPackLoader();
+  openOptionsPage = vi.fn(async () => {});
   handle = createHandlers({
     store,
     settings: { get: getSettings, set: setSettings },
     resources: createLanguageResources(loadPack),
     sync,
     env: () => createBrowserEnv("chrome", {}),
+    openOptionsPage,
   });
 });
 
@@ -122,6 +125,11 @@ describe("handlers: routing", () => {
       syncName: "Chrome sync",
       extensionsPage: "chrome://extensions",
     });
+  });
+
+  it("opens the options page for openOptions (content scripts cannot)", async () => {
+    expect(await value({ type: "openOptions" })).toBeNull();
+    expect(openOptionsPage).toHaveBeenCalledTimes(1);
   });
 
   it("answers syncStatus from the sync backend", async () => {

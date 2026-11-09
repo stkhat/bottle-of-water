@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type { Settings } from "../../core/settings";
 import videoUrl from "../../../e2e/fixtures/video.webm?url";
 import type { Cue } from "../../core/subtitles/types";
 import { termId } from "../../core/term-id";
@@ -70,7 +71,7 @@ function fakeSite(
     url: () => `https://www.youtube.com/watch?v=${id}`,
     video: () => video,
     playerElement: () => null,
-    controlsElement: () => null,
+    controlsPoint: () => null,
     belowVideoElement: () => null,
     sideColumn: () => null,
     adShowing: () => ad,
@@ -112,25 +113,48 @@ async function start(
     translatorAvailable?: boolean;
     /** Runs against the background before the session starts. */
     before?: (bg: ReturnType<typeof testBackground>) => Promise<unknown>;
+    settings?: Partial<Settings>;
   } = {},
 ) {
   const video = await createVideo();
   const site = fakeSite(video, captions);
   const bg = testBackground({
     highlight: { new: true, learning: true, known: false },
+    ...options.settings,
   });
   cleanups.push(() => bg.close());
   await options.before?.(bg);
+  const settingsListeners = new Set<(settings: Settings) => void>();
   const session: VideoSession = await startVideo({
     send: bg.send,
     adapter: site.adapter,
-    watchSettings: () => () => {},
+    watchSettings(listener) {
+      settingsListeners.add(listener);
+      return () => settingsListeners.delete(listener);
+    },
     createTranslator: () =>
       options.translator ?? { translate: async () => undefined },
     translatorAvailable: async () => options.translatorAvailable ?? false,
   });
   cleanups.push(() => session.stop());
-  return { video, site, bg, session, state: () => session.app.store.get() };
+  /** Changes the stored settings and tells the session, as storage.onChanged does. */
+  async function changeSettings(
+    patch: Parameters<typeof bg.send>[0] & {
+      type: "setSettings";
+    },
+  ) {
+    const next = await bg.send(patch);
+    for (const listener of settingsListeners) listener(next);
+  }
+  return {
+    video,
+    site,
+    bg,
+    session,
+    app: session.app,
+    changeSettings,
+    state: () => session.app.store.get(),
+  };
 }
 
 /** Moves the playhead while paused and waits for the session to notice. */
@@ -180,6 +204,22 @@ describe("a video with subtitles", () => {
     await seekTo(video, 2.8);
     await expect.poll(() => state().current).toBe(2);
     expect(state().subtitleTranslation).toBe("ぴりっとしたパンだ。");
+  });
+
+  it("joins the lines of a Japanese translation without spaces", async () => {
+    const { state } = await start({
+      vid1: captionsOf(CUES, {
+        source: "siteTrack",
+        lang: "ja",
+        cues: [
+          { startMs: 0, endMs: 1000, text: "イーストは\nぴりっとした匂い。" },
+        ],
+      }),
+    });
+    await ready(state);
+    await expect
+      .poll(() => state().subtitleTranslation)
+      .toBe("イーストはぴりっとした匂い。");
   });
 
   it("follows the cues while the video plays", async () => {
@@ -488,5 +528,301 @@ describe("a video without subtitles in the learning language", () => {
     const { state, site } = await start({ vid1: undefined });
     await expect.poll(() => state().status).toBe("unavailable");
     expect(site.log.hidden).toEqual([]);
+  });
+});
+
+describe("the transcript card", () => {
+  it("stays on the line that started last, also in the gap after it", async () => {
+    const { state, video } = await start();
+    await ready(state);
+    await expect.poll(() => state().card).toBe(0);
+    await seekTo(video, 2.2);
+    await expect.poll(() => state().current).toBe(-1);
+    expect(state().card).toBe(1);
+    await seekTo(video, 2.8);
+    await expect.poll(() => state().card).toBe(2);
+  });
+
+  it("is -1 while Lingo is off", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await expect.poll(() => state().card).toBe(0);
+    app.setEnabled(false);
+    expect(state().card).toBe(-1);
+  });
+});
+
+/** The span of `key` in cue `cue`. */
+function refOf(state: () => VideoState, cue: number, key: string) {
+  const spans = state().spans[cue] ?? [];
+  const span = spans.findIndex((s) => s.key === key);
+  if (span < 0) throw new Error(`${key} not in cue ${cue}`);
+  return { cue, span };
+}
+
+const classified = (state: () => VideoState) =>
+  expect.poll(() => state().spans.every((s) => s !== null)).toBe(true);
+
+const BOX = { left: 10, top: 20, right: 60, bottom: 40 };
+
+describe("words in the subtitles", () => {
+  it("shows a word's card after the pointer rests on it, and hides it after it leaves", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    expect(state().hover).toBeNull();
+    await expect.poll(() => state().hover?.card.head).toBe("tangy");
+    expect(state().hover).toMatchObject({
+      anchor: BOX,
+      card: { status: "new", short: "ぴりっとした、酸味のある" },
+    });
+    app.leaveWord();
+    await expect.poll(() => state().hover).toBeNull();
+  });
+
+  it("hides the card when its line ends, unless the pointer is on the card", async () => {
+    const { state, app, video } = await start();
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => state().current).toBe(0);
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    await seekTo(video, 1.2);
+    await expect.poll(() => state().hover).toBeNull();
+
+    app.enterWord(refOf(state, 1, "knead"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.keepHover();
+    await seekTo(video, 2.8);
+    expect(state().hover?.card.head).toBe("knead");
+  });
+
+  it("a click opens the dictionary window with the term's lines in this video", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    const ref = refOf(state, 0, "tangy");
+    app.clickWord(ref);
+    await expect.poll(() => state().panel?.card.head).toBe("tangy");
+    expect(state().panel).toMatchObject({
+      ref,
+      here: [
+        { cue: 0, timeMs: 0, text: "The yeast smells tangy." },
+        { cue: 2, timeMs: 2500, text: "It is a tangy loaf." },
+      ],
+    });
+    expect(state().panel!.dictionaries.map((d) => d.label)).toEqual([
+      "Cambridge",
+      "Wiktionary",
+      "Reverso",
+      "WordReference",
+    ]);
+    app.closePanel();
+    expect(state().panel).toBeNull();
+  });
+
+  it("saves a word from the window with the line, its time and the translation shown", async () => {
+    const { state, app, bg } = await start();
+    await ready(state);
+    await classified(state);
+    expect(state().unsaved).toBe(4);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.status).toBe("new");
+    app.setPanelStatus("learning");
+    await expect.poll(() => state().panel?.card.status).toBe("learning");
+    expect(bg.sent("saveTerm")).toEqual([
+      expect.objectContaining({
+        key: "tangy",
+        display: "tangy",
+        kind: "word",
+        status: "learning",
+        sentence: "The yeast smells tangy.",
+        translation: "イーストはぴりっとした匂い。",
+        pos: { timeMs: 0 },
+        source: {
+          platform: "youtube",
+          url: "https://www.youtube.com/watch?v=vid1",
+          title: "Title of vid1",
+          lang: "en",
+        },
+      }),
+    ]);
+    // Both lines with the word change at once.
+    const category = (cue: number) =>
+      state().spans[cue]!.find((s) => s.key === "tangy")?.category;
+    expect([category(0), category(2)]).toEqual(["learning", "learning"]);
+    expect(state().unsaved).toBe(3);
+
+    app.setPanelStatus("known");
+    await expect.poll(() => category(2)).toBe("known");
+    expect(bg.sent("setStatus")).toHaveLength(1);
+
+    app.setPanelStatus("new");
+    await expect.poll(() => category(0)).toBe("new");
+    expect(bg.sent("removeTerm")).toHaveLength(1);
+    await expect.poll(() => state().panel?.card.status).toBe("new");
+    expect(state().unsaved).toBe(4);
+  });
+
+  it("does not record the line the word was saved from again", async () => {
+    const { state, app, bg, video } = await start();
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => state().current).toBe(0);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel).not.toBeNull();
+    app.setPanelStatus("learning");
+    await expect.poll(() => state().panel?.card.status).toBe("learning");
+    await seekTo(video, 2.8);
+    const items = () => bg.sent("recordEncounters").flatMap((r) => r.items);
+    await expect
+      .poll(() => items().map((i) => i.pos))
+      .toEqual([{ timeMs: 2500 }]);
+  });
+
+  it("the hover card's buttons save the word", async () => {
+    const { state, app, bg } = await start();
+    await ready(state);
+    await classified(state);
+    app.enterWord(refOf(state, 1, "knead"), BOX);
+    await expect.poll(() => state().hover?.card.head).toBe("knead");
+    app.setHoverStatus("known");
+    await expect.poll(() => state().hover?.card.status).toBe("known");
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "knead",
+      status: "known",
+      sentence: "Knead the dough.",
+      pos: { timeMs: 1000 },
+    });
+    expect(bg.sent("saveTerm")[0]).not.toHaveProperty("translation");
+  });
+
+  it("seeks to a line of the window", async () => {
+    const { app, site } = await start();
+    app.seekTo(2500);
+    expect(site.log.seeks).toEqual([2500]);
+  });
+});
+
+describe("settings from the video UI", () => {
+  it("toggles a highlight category and saves it", async () => {
+    const { state, app, bg } = await start();
+    await ready(state);
+    app.toggleHighlight("known");
+    expect(state().settings.highlight).toEqual({
+      new: true,
+      learning: true,
+      known: true,
+    });
+    await expect.poll(() => bg.settings().highlight.known).toBe(true);
+  });
+
+  it("changes the subtitle position and the translation switches", async () => {
+    const { state, app, bg } = await start();
+    await ready(state);
+    app.changeSettings({
+      subtitlePosition: "belowVideo",
+      transcriptTranslation: false,
+    });
+    expect(state().settings).toMatchObject({
+      subtitlePosition: "belowVideo",
+      transcriptTranslation: false,
+      subtitleTranslation: true,
+    });
+    await expect.poll(() => bg.settings().subtitlePosition).toBe("belowVideo");
+    expect(bg.settings().transcriptTranslation).toBe(false);
+  });
+
+  it("opens the options page", async () => {
+    const { app, bg } = await start();
+    app.openSettings();
+    await expect.poll(() => bg.optionsOpened()).toBe(1);
+  });
+
+  it("opens and closes the menu", async () => {
+    const { state, app } = await start();
+    expect(state().menuOpen).toBe(false);
+    app.setMenuOpen(true);
+    expect(state().menuOpen).toBe(true);
+    app.setMenuOpen(false);
+    expect(state().menuOpen).toBe(false);
+  });
+});
+
+describe("where Lingo runs", () => {
+  it("not on a site in Never run on", async () => {
+    const { state, site } = await start(undefined, {
+      settings: { neverRunOn: ["youtube.com"] },
+    });
+    expect(state().status).toBe("idle");
+    expect(site.log.loads).toBe(0);
+  });
+
+  it("not on a site switched off in the popup, and again once it is back on", async () => {
+    const { state, site, changeSettings } = await start(undefined, {
+      settings: { disabledSites: ["www.youtube.com"] },
+    });
+    expect(state().status).toBe("idle");
+    await changeSettings({ type: "setSettings", patch: { disabledSites: [] } });
+    await ready(state);
+    expect(site.log.loads).toBe(1);
+    await changeSettings({
+      type: "setSettings",
+      patch: { sites: { youtube: false } },
+    });
+    expect(state().status).toBe("idle");
+    expect(site.log.hidden.at(-1)).toBe(false);
+  });
+});
+
+describe("fullscreen", () => {
+  it("gives the site's captions back in fullscreen", async () => {
+    const { state, app, site } = await start();
+    await ready(state);
+    expect(site.log.hidden).toEqual([true]);
+    app.setFullscreen(true);
+    expect(state().fullscreen).toBe(true);
+    expect(site.log.hidden.at(-1)).toBe(false);
+    app.setFullscreen(false);
+    expect(site.log.hidden.at(-1)).toBe(true);
+  });
+});
+
+describe("the popup's requests", () => {
+  it("answers for the video: unsaved words, save all and undo", async () => {
+    const { state, session } = await start();
+    await ready(state);
+    await classified(state);
+    expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
+      supported: true,
+      unsaved: 4,
+      done: null,
+    });
+    expect(
+      await session.handlePageRequest({
+        type: "pageSaveAll",
+        status: "learning",
+      }),
+    ).toEqual({
+      supported: true,
+      unsaved: 0,
+      done: { count: 4, target: "learning" },
+    });
+    expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
+      supported: true,
+      unsaved: 4,
+      done: null,
+    });
+  });
+
+  it("is not supported without subtitles", async () => {
+    const { state, session } = await start({ vid1: undefined });
+    await expect.poll(() => state().status).toBe("unavailable");
+    expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
+      supported: false,
+      unsaved: 0,
+      done: null,
+    });
   });
 });

@@ -14,11 +14,22 @@ const VIDEO_SITES = ["youtube.com", "netflix.com"];
 export const MIN_DETECT_SAMPLE = 200;
 
 /** True when `hostname` is `entry` or one of its subdomains, ignoring case. */
-function onHost(hostname: string, entry: string): boolean {
+export function onHost(hostname: string, entry: string): boolean {
   const host = hostname.toLowerCase();
   const site = entry.trim().toLowerCase();
   return site !== "" && (host === site || host.endsWith(`.${site}`));
 }
+
+/** The host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too). */
+export function hostBlocked(hostname: string, settings: Settings): boolean {
+  return [...settings.neverRunOn, ...settings.disabledSites].some((entry) =>
+    onHost(hostname, entry),
+  );
+}
+
+/** The video UI owns this host (YouTube, Netflix and their subdomains). */
+export const isVideoSite = (hostname: string): boolean =>
+  VIDEO_SITES.some((entry) => onHost(hostname, entry));
 
 /**
  * Whether the article UI may run on a host, before the page language is known: not on
@@ -30,12 +41,7 @@ export function articlesAllowedOn(
   settings: Settings,
 ): boolean {
   if (!settings.sites.articles) return false;
-  const blocked = [
-    ...VIDEO_SITES,
-    ...settings.neverRunOn,
-    ...settings.disabledSites,
-  ];
-  return !blocked.some((entry) => onHost(hostname, entry));
+  return !isVideoSite(hostname) && !hostBlocked(hostname, settings);
 }
 
 export interface RunInput {

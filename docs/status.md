@@ -1,6 +1,6 @@
 # Status
 
-Updated whenever a milestone moves. Last update: 2026-11-09.
+Updated whenever a milestone moves. Last update: 2026-11-10.
 
 ## Where we are
 - Design (brainstorm) and the UI mock are done
@@ -11,7 +11,7 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 - M3 foundation is built on `feat/phase-1`: settings, BrowserEnv, tokenizer, language pack, dictionary, classifier, TermStore (IndexedDB), sync codec + BrowserSyncBackend, typed messaging and the background wiring
 - M4 shared lookup UI parts are built on `feat/phase-1`
 - M5 article UI is built on `feat/phase-1` ([plans/2026-11-09-m5-article-ui.md](plans/2026-11-09-m5-article-ui.md)): run conditions and page language, the page text model with visibility batching, highlights (CSS Custom Highlight API), the hover card, the dictionary panel (status changes, speech, external dictionaries, "On this page", "Seen elsewhere"), phrase selection, the page card's highlight chips bound to the settings, the end-of-article card with save all + Undo, re-occurrence recording, re-analysis when the known level changes, and the `pageSummary` / `pageSaveAll` / `pageUndo` requests the popup (M7) will send to the tab (`src/messaging/page-protocol.ts`). Compared with the mock in screenshots (hover card, panel, phrase bar, end card)
-- Next milestone: M6 video UI
+- M6 video UI is in progress on `feat/phase-1` ([plans/2026-11-09-m6-video-ui.md](plans/2026-11-09-m6-video-ui.md)). Done on YouTube (Tasks 0–5): caption fixtures and findings ([notes/youtube-captions.md](notes/youtube-captions.md)), subtitle parsers, the translation choice, the MAIN-world caption hooks and the adapter, the per-video session, and the UI: the subtitle in the video or below it, the transcript (highlight chips, translation switch, playing card, click to seek), the green-outlined L and ^ buttons with the Lingo menu, the hover card, the dictionary window ("In this video" with times), status changes with the line, its time and the translation shown, the "Video finished" card with save all + Undo, and the popup's page requests. Compared with mock Main in screenshots (components and the built extension on the routed fixture page). Next: Netflix (Task 6) and the real-site check (Task 7)
 - Performance (E2E, built extension): the first `analyze` after a service-worker start loads only the `en` pack (3.8 MB, including `en/vocab.json`) in ~80–125 ms; before the vocabulary was split from the dictionary it loaded ~10 MB in ~215–270 ms. Later calls take 5–25 ms. The dictionary (6.7 MB in 4 shards) loads on the first `lookup`: ~115–130 ms after an `analyze`, ~180–190 ms when it is the first message. Possible later optimizations: analyze only when highlighting is on. The dictionary is now loaded right after the first `analyze` on an article page (`warmDictionary`)
 - Firefox build: `web-ext lint` warns that `data_collection_permissions` is missing from the manifest; add it before any Firefox release
 
@@ -40,6 +40,7 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling
 
 ## Open / not made yet
+- Video UI: only checked on the routed YouTube fixture page; real YouTube (controls that auto-hide, theater mode, the narrow single-column layout, YouTube re-rendering the player bar) is checked in Task 7
 - Article UI: changes made in another tab (saving a word there) show on an open page only after it is classified again (reload, or a known-level change). Re-analyzing when the tab becomes visible again would cover it
 - Article UI: the hover card's notes line has no etymology or related words (no data); it shows the base form of an inflected word ("loaves → loaf") and, for a phrase, its main word's translation
 - E2E: a Playwright mouse drag selects no text on `e2e/pages/article-en.html` in headless Chromium, even without the extension (it does on simpler pages and in the browser tests), and Shift+click selected nothing on the Linux CI runner, so the E2E test selects the phrase with the Selection API (mouse selection is covered by the browser tests)

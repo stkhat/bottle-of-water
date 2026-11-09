@@ -54,7 +54,9 @@ export type Request =
   | { type: "exportJson" }
   | { type: "importJson"; json: string }
   /** Saved terms of a language (no tombstones), for the word list. */
-  | { type: "listTerms"; lang: string };
+  | { type: "listTerms"; lang: string }
+  /** Opens the options page (content scripts cannot open it themselves). */
+  | { type: "openOptions" };
 
 export type RequestType = Request["type"];
 export type RequestOf<T extends RequestType> = Extract<Request, { type: T }>;
@@ -115,6 +117,7 @@ export interface ResponseMap {
   exportJson: string;
   importJson: ImportResult;
   listTerms: TermRecord[];
+  openOptions: null;
 }
 
 export type ResponseOf<T extends RequestType> = ResponseMap[T];
