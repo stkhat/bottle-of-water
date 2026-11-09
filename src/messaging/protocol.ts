@@ -24,6 +24,8 @@ export type Request =
   | { type: "getBrowserEnv" }
   /** Classifies blocks of text (paragraphs, subtitle lines) of one language. */
   | { type: "analyze"; lang: string; blocks: string[] }
+  /** Loads the dictionary from `lang` to the native language ahead of the first lookup. */
+  | { type: "warmDictionary"; lang: string }
   /**
    * The dictionary entry, saved status and occurrences of a term. `sourceUrl` is the
    * page or video the user is on; its occurrences come back as `here`.
@@ -96,6 +98,7 @@ export interface ResponseMap {
    */
   getBrowserEnv: BrowserEnv;
   analyze: AnalyzeResult;
+  warmDictionary: null;
   lookup: LookupResult;
   saveTerm: TermRecord;
   setStatus: TermRecord;

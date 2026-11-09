@@ -365,6 +365,14 @@ const VIDEO: SourceRecord = {
   lastSeen: 0,
 };
 
+describe("handlers: warmDictionary", () => {
+  it("loads the dictionary of the native language before any lookup", async () => {
+    expect(filesRead(loadPack)).toEqual([]);
+    expect(await value({ type: "warmDictionary", lang: "en" })).toBeNull();
+    expect(filesRead(loadPack)).toContain("/packs/en-ja/index.json");
+  });
+});
+
 describe("handlers: lookup", () => {
   beforeEach(() => {
     store.termIndex.mockResolvedValue(new Map([["loaf", "learning"]]));

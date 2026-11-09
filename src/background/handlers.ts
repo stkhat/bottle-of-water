@@ -87,6 +87,12 @@ export function createHandlers({
       return { spans, unsaved: unsavedKeys(spans.flat()) };
     },
 
+    async warmDictionary({ lang }) {
+      const { nativeLang } = await settings.get();
+      await resources.dictionary(lang, nativeLang);
+      return null;
+    },
+
     async lookup({ lang, key, sourceUrl }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
