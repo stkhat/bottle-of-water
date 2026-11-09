@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC fixture. Not recorded from Netflix (it needs a login).
+  The English [CC] track of the synthetic manifest (manifest.json, format dfxp-ls-sdh),
+  written in the shape of sample.ttml: tick times, <br/> line breaks, an SDH cue in
+  brackets. The text is made up; it runs over the first 40 seconds of e2e/fixtures/talk.webm.
+-->
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:tts="http://www.w3.org/ns/ttml#styling" ttp:profile="http://www.netflix.com/ns/ttml/profile/dfxp-ls-sdh" ttp:tickRate="10000000" ttp:timeBase="media" xml:lang="en">
+  <head>
+    <styling>
+      <style xml:id="style0" tts:fontFamily="Arial" tts:fontSize="100%" tts:color="white" tts:textAlign="center"/>
+      <style xml:id="style1" tts:fontStyle="italic" tts:fontFamily="Arial" tts:color="white"/>
+    </styling>
+    <layout>
+      <region xml:id="region0" tts:extent="80.00% 80.00%" tts:origin="10.00% 10.00%" tts:displayAlign="after"/>
+    </layout>
+  </head>
+  <body>
+    <div>
+      <p begin="10000000t" end="40000000t" region="region0" style="style0" xml:id="subtitle0">Good evening, and welcome back to the workshop.</p>
+      <p begin="45000000t" end="80000000t" region="region0" style="style0" xml:id="subtitle1">Tonight we talk about creativity in the classroom.</p>
+      <p begin="85000000t" end="120000000t" region="region0" style="style0" xml:id="subtitle2">Every child has an extraordinary imagination.</p>
+      <p begin="125000000t" end="160000000t" region="region0" style="style0" xml:id="subtitle3">We should nurture it,<br/>not stifle it.</p>
+      <p begin="165000000t" end="200000000t" region="region0" style="style1" xml:id="subtitle4">[audience applauds]</p>
+      <p begin="205000000t" end="240000000t" region="region0" style="style0" xml:id="subtitle5">Mistakes are part of learning.</p>
+      <p begin="245000000t" end="280000000t" region="region0" style="style0" xml:id="subtitle6">If you are not prepared to be wrong,</p>
+      <p begin="285000000t" end="320000000t" region="region0" style="style0" xml:id="subtitle7">you will never come up with anything original.</p>
+      <p begin="325000000t" end="360000000t" region="region0" style="style0" xml:id="subtitle8">That is the heart of the matter.</p>
+      <p begin="365000000t" end="400000000t" region="region0" style="style0" xml:id="subtitle9">Thank you.</p>
+    </div>
+  </body>
+</tt>
