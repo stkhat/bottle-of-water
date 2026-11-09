@@ -78,20 +78,48 @@ describe("the watch page", () => {
     expect(adapter.video()).toBe(page.video);
   });
 
-  it("puts the player buttons before the audio & subtitles button", () => {
+  /** The row of the bar's right-hand buttons, and the wrapper of one of them. */
+  const row = () =>
+    page.controls()!.querySelector("[data-uia='control-next']")!.parentElement!
+      .parentElement!;
+  const wrapper = (uia: string) =>
+    page.controls()!.querySelector(`[data-uia='${uia}']`)!.parentElement!;
+
+  it("puts the player buttons in the control bar's row, before the audio & subtitles button's wrapper", () => {
     const point = adapter.controlsPoint();
-    expect(point?.parent).toBe(page.controls);
-    expect(
-      point?.before?.querySelector("[data-uia='control-audio-subtitle']"),
-    ).not.toBeNull();
+    expect(point?.parent).toBe(row());
+    expect(point?.before).toBe(wrapper("control-audio-subtitle"));
   });
 
-  it("has no place for the buttons while Netflix hides its control bar", () => {
+  it("keeps to the row while a button's wrapper holds more than the button", () => {
+    // Netflix can add a tooltip or a panel next to a button.
+    const tip = document.createElement("div");
+    tip.textContent = "Audio & Subtitles";
+    wrapper("control-audio-subtitle").append(tip);
+    const point = adapter.controlsPoint();
+    expect(point?.parent).toBe(row());
+    expect(point?.before).toBe(wrapper("control-audio-subtitle"));
+  });
+
+  it("falls back to the playback speed and then the full screen button", () => {
+    wrapper("control-audio-subtitle").remove();
+    expect(adapter.controlsPoint()?.before).toBe(wrapper("control-speed"));
+    wrapper("control-speed").remove();
+    expect(adapter.controlsPoint()?.before).toBe(
+      wrapper("control-fullscreen-enter"),
+    );
+    expect(adapter.controlsPoint()?.parent).toBe(row());
+  });
+
+  it("has no place for the buttons while Netflix removes its control bar, and finds the new bar", () => {
     adapter.controlsPoint();
     page.showControls(false);
     expect(adapter.controlsPoint()).toBeNull();
     page.showControls(true);
-    expect(adapter.controlsPoint()?.parent).toBe(page.controls);
+    expect(adapter.controlsPoint()?.parent).toBe(row());
+    expect(adapter.controlsPoint()?.before).toBe(
+      wrapper("control-audio-subtitle"),
+    );
   });
 
   it("reads the watch id, the title and the URL", () => {
@@ -175,19 +203,44 @@ describe("the watch page", () => {
 describe("a page without Netflix's control bar", () => {
   beforeEach(() => start({ controls: false }));
 
+  const group = () => adapter.controlsPoint()?.parent as HTMLElement;
+  const shown = () => getComputedStyle(group()).visibility;
+
   it("floats the player buttons at the bottom right of the player while the pointer moves", async () => {
     const point = adapter.controlsPoint();
-    const group = point?.parent as HTMLElement;
-    expect(group.parentElement).toBe(page.player);
+    expect(point?.parent.parentElement).toBe(page.player);
     expect(point?.before).toBeNull();
-    const shown = () => getComputedStyle(group).visibility;
     expect(shown()).toBe("hidden");
     page.player.dispatchEvent(
       new PointerEvent("pointermove", { bubbles: true }),
     );
     expect(shown()).toBe("visible");
     await expect.poll(shown).toBe("hidden");
-    expect(adapter.controlsPoint()?.parent).toBe(group);
+  });
+
+  it("sees the pointer move even when the page stops it from bubbling", () => {
+    expect(shown()).toBe("hidden");
+    const stop = (event: Event) => event.stopPropagation();
+    page.player.addEventListener("pointermove", stop);
+    page.player.addEventListener("mousemove", stop);
+    page.video.dispatchEvent(
+      new PointerEvent("pointermove", { bubbles: true }),
+    );
+    expect(shown()).toBe("visible");
+  });
+
+  it("drops the floating group once a control bar shows up", () => {
+    const floating = group();
+    page.fake.showControls(true); // no bar: the page has none
+    const bar = document.createElement("div");
+    bar.innerHTML =
+      '<div><button data-uia="control-audio-subtitle"></button></div>' +
+      '<div><button data-uia="control-fullscreen-enter"></button></div>';
+    page.player.append(bar);
+    expect(adapter.controlsPoint()?.parent).toBe(bar);
+    expect(floating.isConnected).toBe(false);
+    bar.remove();
+    expect(adapter.controlsPoint()).toBeNull();
   });
 });
 

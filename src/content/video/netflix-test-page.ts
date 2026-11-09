@@ -40,8 +40,12 @@ export interface TestPage {
   player: HTMLElement;
   video: HTMLVideoElement;
   captions: HTMLElement;
-  /** The control bar; Netflix shows it only while the pointer moves. */
-  controls: HTMLElement;
+  /**
+   * The control bar while it is shown. Netflix builds it while the pointer moves and
+   * removes it when the pointer stops (here after `controlsIdleMs`).
+   */
+  controls(): HTMLElement | null;
+  /** Builds a new control bar or removes it, as the pointer would. */
   showControls(on: boolean): void;
   fake: FakeNetflixControl;
   navigate(next: FakeNetflixOptions): void;
@@ -59,7 +63,13 @@ const text = (value: string) => document.createTextNode(value);
 
 /** Builds the page skeleton and installs the fake player (it parses the manifest now). */
 export function createTestPage(
-  options: { manifest?: string; controls?: boolean } = {},
+  options: {
+    manifest?: string;
+    /** False: a page without a recognizable control bar. */
+    controls?: boolean;
+    /** Default: a minute, so the bar stays until the test removes it. */
+    controlsIdleMs?: number;
+  } = {},
 ): TestPage {
   const video = el("video", {
     src: videoUrl,
@@ -75,33 +85,6 @@ export function createTestPage(
       el("span", {}, text("Netflix's own subtitle")),
     ),
   );
-  const controls = el(
-    "div",
-    { class: "watch-video--bottom-controls-container" },
-    el(
-      "div",
-      { "data-uia": "video-title" },
-      el("h4", {}, text(SHOW)),
-      el("span", {}, text("E1")),
-      el("span", {}, text(EPISODE)),
-    ),
-    el(
-      "div",
-      { class: "control-slot" },
-      el("button", {
-        "data-uia": "control-audio-subtitle",
-        "aria-label": "Audio & Subtitles",
-      }),
-    ),
-    el(
-      "div",
-      { class: "control-slot" },
-      el("button", {
-        "data-uia": "control-fullscreen-enter",
-        "aria-label": "Full screen",
-      }),
-    ),
-  );
   const playerView = el(
     "div",
     {
@@ -115,7 +98,6 @@ export function createTestPage(
       captions,
     ),
   );
-  if (options.controls !== false) playerView.append(controls);
   const root = el(
     "div",
     { class: "watch-video", "data-uia": "watch-video" },
@@ -126,22 +108,29 @@ export function createTestPage(
     movieId: MOVIE_ID,
     manifest: options.manifest ?? testManifest(),
     metadata: METADATA,
+    ...(options.controls === false
+      ? {}
+      : {
+          controlBar: {
+            idleMs: options.controlsIdleMs ?? 60_000,
+            title: [SHOW, "E1", EPISODE],
+          },
+        }),
   });
   const fake = (window as unknown as { lingoFakeNetflix: FakeNetflixControl })
     .lingoFakeNetflix;
+  if (options.controls !== false) fake.showControls(true);
   return {
     root,
     player: playerView,
     video,
     captions,
-    controls,
-    showControls(on) {
-      if (on) playerView.append(controls);
-      else controls.remove();
-    },
+    controls: () => fake.controls(),
+    showControls: (on) => fake.showControls(on),
     fake,
     navigate: (next) => fake.navigate({ ...next, changeUrl: false }),
     remove() {
+      fake.showControls(false);
       root.remove();
       delete (window as unknown as Record<string, unknown>).netflix;
     },

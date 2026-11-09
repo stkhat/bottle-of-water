@@ -307,27 +307,53 @@ export function createNetflixAdapter(
       group.style.visibility = "hidden";
     }, idleMs);
   };
-  doc.addEventListener("pointermove", onPointerMove, { passive: true });
+  // On the window, capturing: the page cannot keep the moves from Lingo.
+  const POINTER = ["pointermove", "mousemove"] as const;
+  for (const type of POINTER)
+    win.addEventListener(type, onPointerMove, { capture: true, passive: true });
   cleanups.push(() => {
-    doc.removeEventListener("pointermove", onPointerMove);
+    for (const type of POINTER)
+      win.removeEventListener(type, onPointerMove, { capture: true });
     clearTimeout(idleTimer);
   });
 
   /** The control bar has been seen on this page: it is only hidden when missing. */
   let barSeen = false;
 
+  /**
+   * Before the anchor's slot in the row of buttons: the slot is the row's child that
+   * holds the anchor, and the row the anchor's closest ancestor that holds another of
+   * the bar's buttons (Netflix wraps each button, and the row also has spacers). On a
+   * bar with a single button, the outermost wrapper that holds only the button.
+   */
+  function before(anchor: Element): InsertionPoint {
+    for (
+      let slot: Element = anchor, row = anchor.parentElement;
+      row && row !== doc.body;
+      slot = row, row = row.parentElement
+    ) {
+      const others = row.querySelectorAll(SELECTORS.controlButton.join(", "));
+      if ([...others].some((button) => !slot.contains(button)))
+        return { parent: row, before: slot };
+    }
+    let slot = anchor;
+    while (
+      slot.parentElement?.parentElement &&
+      slot.parentElement.childElementCount === 1
+    )
+      slot = slot.parentElement;
+    return { parent: slot.parentElement!, before: slot };
+  }
+
   function controlsPoint(): InsertionPoint | null {
     const anchor = query(doc, SELECTORS.controlsAnchor);
     if (anchor?.parentElement) {
-      barSeen = true;
-      // Before the button's slot: the outermost wrapper that holds only the button.
-      let slot: Element = anchor;
-      while (
-        slot.parentElement?.parentElement &&
-        slot.parentElement.childElementCount === 1
-      )
-        slot = slot.parentElement;
-      return { parent: slot.parentElement!, before: slot };
+      if (!barSeen) {
+        barSeen = true;
+        // The buttons live in the bar from now on.
+        doc.querySelector("lingo-netflix-controls")?.remove();
+      }
+      return before(anchor);
     }
     if (barSeen) return null;
     const group = floating();

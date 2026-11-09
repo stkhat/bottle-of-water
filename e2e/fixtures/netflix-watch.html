@@ -5,6 +5,8 @@
   DOM, with the class names and data-uia attributes Lingo looks for (see
   src/content/video/netflix-site.ts and docs/notes/netflix.md). The <style> block is not
   Netflix's: it only lays out a full-window player with a control bar at the bottom.
+  The control bar is not here: as on netflix.com, it is built while the pointer moves
+  and removed when it stops, by the fake player (e2e/fake-netflix-player.ts).
   For E2E: serve it at https://www.netflix.com/watch/* with context.route.
 -->
 <html lang="en">
@@ -46,17 +48,27 @@
         font-size: 32px;
         text-shadow: 0 0 4px #000;
       }
-      .watch-video--bottom-controls-container {
+      [data-uia="controls-standard"] {
         position: absolute;
         left: 0;
         right: 0;
         bottom: 0;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+      }
+      /* The row with the left buttons, the title and the right buttons. */
+      [data-uia="controls-standard"] > div > div > div:last-child {
         height: 96px;
         display: flex;
         align-items: center;
         gap: 16px;
         padding: 0 24px;
-        background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+      }
+      [data-uia="controls-standard"] > div > div > div:last-child > div {
+        display: flex;
+        align-items: center;
+      }
+      [data-uia="controls-standard"] > div > div > div:last-child > div > div:empty {
+        width: 8px;
       }
       [data-uia="video-title"] {
         flex: 1;
@@ -67,7 +79,7 @@
       [data-uia="video-title"] h4 {
         margin: 0;
       }
-      .controls button {
+      [data-uia^="control-"] {
         width: 48px;
         height: 48px;
         background: none;
@@ -91,33 +103,6 @@
               <div class="player-timedtext-text-container">
                 <span>Netflix's own subtitle</span>
               </div>
-            </div>
-          </div>
-          <div class="watch-video--bottom-controls-container controls">
-            <div data-uia="video-title">
-              <h4>Lingo Test Show</h4>
-              <span>E1</span><span>Pilot</span>
-            </div>
-            <div class="medium">
-              <button
-                data-uia="control-audio-subtitle"
-                aria-label="Audio &amp; Subtitles"
-              >
-                CC
-              </button>
-            </div>
-            <div class="medium">
-              <button data-uia="control-speed" aria-label="Playback Speed">
-                1x
-              </button>
-            </div>
-            <div class="medium">
-              <button
-                data-uia="control-fullscreen-enter"
-                aria-label="Full screen"
-              >
-                FS
-              </button>
             </div>
           </div>
         </div>

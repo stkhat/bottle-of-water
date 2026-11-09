@@ -36,11 +36,15 @@ interface Part {
   host: HTMLElement;
   /** Where the host belongs now; null when its place is not on the page. */
   point(): InsertionPoint | null;
-  /** Moves in the current second, so a site that keeps moving it cannot start a loop. */
-  moves: { second: number; count: number };
+  /**
+   * Moves back into the same parent in the current second, so a site that keeps taking
+   * the host out cannot start a loop. A new parent (a control bar the site built again)
+   * is not counted.
+   */
+  moves: { second: number; count: number; parent: Element | null };
 }
 
-/** The most a part is moved back in one second. */
+/** The most a part is moved back into the same parent in one second. */
 const MAX_MOVES_PER_SECOND = 10;
 
 const boxOf = (element: Element | null | undefined): Box | null => {
@@ -75,7 +79,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     const root = host.attachShadow({ mode: "open" });
     render(ui, root);
     roots.push(root);
-    parts.push({ host, point, moves: { second: 0, count: 0 } });
+    parts.push({ host, point, moves: { second: 0, count: 0, parent: null } });
     return host;
   }
 
@@ -146,7 +150,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
           at.before === host ||
           at.before === host.nextElementSibling);
       if (placed) continue;
-      if (moves.second !== second) Object.assign(moves, { second, count: 0 });
+      if (moves.second !== second || moves.parent !== at.parent)
+        Object.assign(moves, { second, count: 0, parent: at.parent });
       if (++moves.count > MAX_MOVES_PER_SECOND) continue;
       at.parent.insertBefore(host, at.before);
     }

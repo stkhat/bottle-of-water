@@ -21,8 +21,10 @@ export const SELECTORS = {
   captions: [".player-timedtext"],
   /**
    * A button in the right-hand group of the control bar; the L and ^ buttons go before
-   * it (the audio & subtitles button plays the part of YouTube's gear). The bar is
-   * shown only while the pointer moves.
+   * it (the audio & subtitles button plays the part of YouTube's gear). Netflix builds
+   * the bar (`[data-uia='controls-standard']`) while the pointer moves and removes it
+   * when the pointer stops. Its class names are hashed: only data-uia and the
+   * structure count.
    */
   controlsAnchor: [
     "[data-uia='control-audio-subtitle']",
@@ -31,6 +33,8 @@ export const SELECTORS = {
     "[data-uia='control-fullscreen-exit']",
     ".button-nfplayerSubtitles",
   ],
+  /** Any of the control bar's buttons: the row of buttons is the anchor's closest ancestor holding another. */
+  controlButton: ["[data-uia^='control-']"],
   /** The title in the control bar ("Show", "E1", "Episode" as separate children). */
   title: ["[data-uia='video-title']", ".video-title"],
 } as const;

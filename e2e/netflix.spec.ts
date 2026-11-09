@@ -84,6 +84,8 @@ async function routeNetflix(context: BrowserContext) {
     movieId: FIXTURE_MOVIE_ID,
     manifest: fixtureManifest(),
     metadata: METADATA,
+    // Built while the pointer moves, removed 3 s after it stops, as on netflix.com.
+    controlBar: { idleMs: 3000, title: ["Lingo Test Show", "E1", "Pilot"] },
   };
   // Only on netflix.com (the init script runs on extension pages too).
   await context.addInitScript({
@@ -99,6 +101,15 @@ const inVideo = (page: Page) =>
   });
 const lButton = (page: Page) =>
   page.getByRole("button", { name: en["video.toggle"] });
+const controlBar = (page: Page) =>
+  page.locator("[data-uia='controls-standard']");
+/** Moves the pointer over the video, so Netflix shows its control bar. */
+async function moveOverVideo(page: Page) {
+  const viewport = page.viewportSize()!;
+  await page.mouse.move(viewport.width / 3, viewport.height / 2);
+  await page.mouse.move(viewport.width / 3 + 10, viewport.height / 2 + 10);
+  await expect(controlBar(page)).toBeVisible();
+}
 const card = (page: Page, text: string) =>
   transcript(page).getByRole("button", { name: text });
 const currentTime = (page: Page) =>
@@ -151,24 +162,41 @@ test("the subtitle shows the playing line with its Japanese line; Netflix's own 
   const box = (await transcript(page).boundingBox())!;
   const viewport = page.viewportSize()!;
   expect(box.x + box.width).toBeCloseTo(viewport.width - 16, 0);
-  const bar = (await page
-    .locator(".watch-video--bottom-controls-container")
-    .boundingBox())!;
+  await moveOverVideo(page);
+  const bar = (await controlBar(page).boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
+});
 
-  // The L and ^ buttons sit in the control bar, before the audio & subtitles button.
-  const buttons = page.locator(
-    ".watch-video--bottom-controls-container > lingo-player-buttons",
-  );
-  await expect(buttons).toBeVisible();
-  expect(
-    await buttons.evaluate(
+test("the L and ^ buttons come and go with Netflix's control bar, before the audio & subtitles button", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const buttons = page.locator("lingo-player-buttons");
+  /** The buttons sit in the bar's row of buttons, before the audio & subtitles button's wrapper. */
+  const inRow = () =>
+    buttons.evaluate(
       (el) =>
-        el.nextElementSibling?.querySelector(
-          "[data-uia='control-audio-subtitle']",
-        ) !== null,
-    ),
-  ).toBe(true);
+        el.nextElementSibling?.firstElementChild?.getAttribute("data-uia") ===
+          "control-audio-subtitle" &&
+        el.parentElement?.querySelector("[data-uia='control-next']") !== null,
+    );
+  await moveOverVideo(page);
+  await expect(lButton(page)).toBeVisible();
+  expect(await inRow()).toBe(true);
+
+  // The pointer stops: Netflix removes the bar, and the buttons go with it.
+  await page.mouse.move(5, 5);
+  await expect(controlBar(page)).toHaveCount(0, { timeout: 10_000 });
+  await expect(buttons).toHaveCount(0);
+
+  // It moves again: a new bar, with the buttons in it, still working.
+  await moveOverVideo(page);
+  await expect(lButton(page)).toBeVisible();
+  expect(await inRow()).toBe(true);
+  const menu = page.getByRole("button", { name: en["video.menu"] });
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
 });
 
 test("a transcript card seeks to its line", async ({
@@ -188,6 +216,7 @@ test("the L button turns Lingo off: Netflix's subtitles come back", async ({
   extensionId,
 }) => {
   const page = await openAtLine(context, extensionId);
+  await moveOverVideo(page);
   const l = lButton(page);
   await l.click();
   await expect(l).toHaveAttribute("aria-pressed", "false");
