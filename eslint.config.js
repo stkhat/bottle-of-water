@@ -15,6 +15,7 @@ export default tseslint.config(
       "reports",
       "data/raw",
       ".stryker-tmp",
+      ".vitest",
     ],
   },
   js.configs.recommended,
