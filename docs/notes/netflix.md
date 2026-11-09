@@ -35,17 +35,26 @@ The fixtures stay synthetic (`src/core/subtitles/fixtures/netflix/`): the subtit
 - **Subtitle "In video"**: as on YouTube, 64 px above the player's bottom. Netflix's control bar (about 100–120 px) may cover it while shown.
 - Netflix's subtitles are hidden with `.player-timedtext { display: none !important }` in a `<style>` element while Lingo shows its own.
 
+## Working on netflix.com (2026-11-10, after the manifest fix)
+Checked on the same episode in the user's Chrome with only Lingo enabled:
+- The manifest is read and both tracks load (English closed captions and Japanese subtitles).
+- The subtitle over the video, with the Japanese line playing at that time; Netflix's own subtitles are hidden (so the `<style>` element is allowed).
+- Transcript cards with translations and "Now playing"; a card click seeks through the player API (`video.currentTime` checked).
+- Clicking a word opens the dictionary window (e.g. "asked → ask", verb), left of the transcript panel with a 12 px overlap.
+
+Then fixed, not yet checked again: the L and ^ buttons in the control bar (above), and transcript cards as sentences. Closed captions split one sentence across cues ("DID YOU EVEN INTERVIEW THIS WOMAN" / "BEFORE YOU ASKED HER TO MOVE IN?"), which gave fragment cards and Japanese lines on the wrong card; cards now join such cues (`sentenceCards` in `src/core/subtitles/cues.ts`) and the subtitle in the video still shows one cue at a time.
+
 ## Still to check on netflix.com
-1. Subtitles, translation and transcript once the manifest is read (the 2026-11-10 check stopped at "no tracks").
+1. Sentence cards and their Japanese lines on real closed captions (cues joined across a pause under 1.5 s, speaker dashes kept apart).
 2. Whether the English `imsc1.1` file (tried first) looks like the Japanese one or splits lines into `<p>` elements like the DFXP; if it gives no cues, Lingo moves on to `dfxp-ls-sdh`.
 3. Whether tracks other than the selected ones can come with `hydrated: false` and no `downloadables` (titles with many languages); such tracks are dropped, so the native-language translation could be missing.
 4. Subtitle CDN hosts (`*.nflxvideo.net`) answer the content script's `fetch` with CORS for `https://www.netflix.com` (Chrome and Firefox); else the page fetch is used.
-5. Subtitle times match `video.currentTime` (no offset), including on titles with ads (ad tier: `adShowing()` always returns false; ads may break timing).
-6. `netflix.appContext.state.playerApp.getAPI().videoPlayer`: `getAllPlayerSessionIds()` has an id containing `watch`; `getVideoPlayerBySessionId(id).seek(ms)` and `.getMovieId()`.
+5. Subtitle times on titles with ads (ad tier: `adShowing()` always returns false; ads may break timing). Without ads they matched.
+6. `getMovieId()` of the session player (seeking works).
 7. Title: `playerApp.getState().videoPlayer.videoMetadata[movieId]._metadata.video` with `title` and `seasons[].episodes[]` (`id`, `seq`, `title`); fallback `[data-uia='video-title']`.
-8. The L and ^ buttons in the control bar with a real pointer (after the 2026-11-10 fix).
+8. The L and ^ buttons in the control bar with a real pointer (after the 2026-11-10 fix), and the menu above them.
 9. The URL changes to `/watch/<episode id>` between episodes and the manifest's `movieId` equals that id (if the URL names a show, the playing title from `getMovieId()` is used).
 10. `ended` fires at the end of an episode (Netflix may show its post-play screen or move on first), so the "Video finished" card may not show.
 11. Fullscreen: which element Netflix makes fullscreen; Lingo hides its parts in fullscreen and shows Netflix's subtitles.
-12. Netflix's content security policy allows the `<style>` element Lingo adds (to hide its subtitles); clicks on Lingo's parts do not reach the player (play/pause).
-13. Layout: the overlay transcript, the dictionary window (opens over the player's right edge, so over the transcript), the end card (top right, over the transcript's top), and the subtitle against the control bar.
+12. Clicks on Lingo's parts do not reach the player (play/pause).
+13. Layout: the end card (top right, over the transcript's top) and the subtitle against the control bar.
