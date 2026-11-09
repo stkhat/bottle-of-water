@@ -13,6 +13,7 @@ export default tseslint.config(
       "test-results",
       "playwright-report",
       "reports",
+      "e2e/pages",
       "data/raw",
       ".stryker-tmp",
       ".vitest",

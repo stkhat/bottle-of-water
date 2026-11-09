@@ -12,3 +12,4 @@ docs
 .claude
 CLAUDE.md
 .vitest
+e2e/pages
