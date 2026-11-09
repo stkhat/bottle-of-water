@@ -1,0 +1,126 @@
+import type { TextBlock } from "./page-text";
+
+export interface VisibleBlocks {
+  /** Watches blocks; each is analyzed once, when it first comes near the viewport. */
+  add(blocks: readonly TextBlock[]): void;
+  /** Stops watching blocks (and drops them if they wait for analysis). */
+  remove(blocks: readonly TextBlock[]): void;
+  disconnect(): void;
+}
+
+export interface VisibleBlocksOptions {
+  /** Most blocks per `analyze` call. */
+  maxBlocks?: number;
+  /** Most characters per `analyze` call; a longer block goes alone. */
+  maxChars?: number;
+  /** How far around the viewport counts as near (IntersectionObserver rootMargin). */
+  rootMargin?: string;
+}
+
+const byDocumentOrder = (a: TextBlock, b: TextBlock) =>
+  a.element === b.element
+    ? 0
+    : a.element.compareDocumentPosition(b.element) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+      ? -1
+      : 1;
+
+/** Takes the first batch off `queue` (in place) within the limits. */
+function takeBatch(
+  queue: TextBlock[],
+  maxBlocks: number,
+  maxChars: number,
+): TextBlock[] {
+  let count = 0;
+  let chars = 0;
+  while (
+    count < queue.length &&
+    count < maxBlocks &&
+    (count === 0 || chars + queue[count]!.text.length <= maxChars)
+  ) {
+    chars += queue[count]!.text.length;
+    count++;
+  }
+  return queue.splice(0, count);
+}
+
+/**
+ * Hands blocks to `analyze` as they come within half a viewport of the visible area
+ * (IntersectionObserver), in document order, in batches of at most 20 blocks and
+ * 20,000 characters. One batch is analyzed at a time; a failed batch is skipped.
+ */
+export function watchVisibleBlocks(
+  analyze: (batch: TextBlock[]) => Promise<unknown>,
+  options: VisibleBlocksOptions = {},
+): VisibleBlocks {
+  const {
+    maxBlocks = 20,
+    maxChars = 20_000,
+    rootMargin = "50% 0px 50% 0px",
+  } = options;
+  const watched = new Map<Element, TextBlock>();
+  const queue: TextBlock[] = [];
+  let running = false;
+  let stopped = false;
+
+  async function pump() {
+    if (running) return;
+    running = true;
+    try {
+      while (queue.length > 0 && !stopped) {
+        queue.sort(byDocumentOrder);
+        const batch = takeBatch(queue, maxBlocks, maxChars);
+        try {
+          await analyze(batch);
+        } catch (error) {
+          console.warn("Lingo:", error);
+        }
+      }
+    } finally {
+      running = false;
+    }
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const block = watched.get(entry.target);
+        if (!block) continue;
+        observer.unobserve(entry.target);
+        watched.delete(entry.target);
+        queue.push(block);
+      }
+      void pump();
+    },
+    { rootMargin },
+  );
+
+  return {
+    add(blocks) {
+      for (const block of blocks) {
+        const previous = watched.get(block.element);
+        if (previous === block) continue;
+        watched.set(block.element, block);
+        if (previous) observer.unobserve(block.element);
+        observer.observe(block.element);
+      }
+    },
+    remove(blocks) {
+      for (const block of blocks) {
+        if (watched.get(block.element) === block) {
+          watched.delete(block.element);
+          observer.unobserve(block.element);
+        }
+        const i = queue.indexOf(block);
+        if (i >= 0) queue.splice(i, 1);
+      }
+    },
+    disconnect() {
+      stopped = true;
+      observer.disconnect();
+      watched.clear();
+      queue.length = 0;
+    },
+  };
+}
