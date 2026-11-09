@@ -135,7 +135,7 @@ Development pair: learning language = English, native language = Japanese, sites
 | Part | Role | Phase 1 implementation |
 |---|---|---|
 | `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list and IPA table built from kaikki (Wiktionary) |
-| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled) |
+| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label |
 | `TranslationProvider` | Translating one subtitle line / sentence. Several implementations tried in order ("Choosing a translation") | ① the site's translated subtitles (from `PlatformAdapter`) ② the browser's built-in translator (Chrome: Translator API). If neither exists, no translation |
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation | YouTube / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
@@ -152,14 +152,14 @@ Development pair: learning language = English, native language = Japanese, sites
   - Detect the end of an article with an IntersectionObserver on the last element of the body
 
 ### Data sources
-Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files into `src/assets/packs/<lang>/`, which are committed. Notices go in About and `THIRD_PARTY_NOTICES.md`.
+Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files into `public/packs/<lang>/` (copied into the build and read by the background with `runtime.getURL`), which are committed. Notices go in About and `THIRD_PARTY_NOTICES.md`.
 
 | File | Source | Size | Used for |
 |---|---|---|---|
 | EJDict-hand `src/*.txt` (26 files) | github.com/kujirahand/EJDict (pinned commit) | ~5 MB total | en→ja translations, English phrase list |
 | kaikki English JSONL | kaikki.org/dictionary/English/ | ~3.4 GB (streamed; only processed output is kept) | inflection → base form, US IPA, phrases |
 | kaikki Spanish JSONL | kaikki.org/dictionary/Spanish/ | ~1.1 GB | Spanish inflections, IPA, English glosses (phase 2) |
-| Frequency lists (en, es) | Wiktionary frequency lists (CC BY-SA); the exact pages are chosen in the data-import milestone and recorded here | < 1 MB each | frequency rank |
+| Frequency lists | Wiktionary "Frequency lists/TV/2006" (en, 41k words from TV and movie scripts) and "Frequency lists/Spanish/Mixed 730K" (es); CC BY-SA | < 1 MB each | frequency rank |
 
 ### Choosing a translation
 Use the site's translation when it has one; fall back to the browser's built-in translator only when it doesn't. Site translations are often human-made and need no on-device processing.
