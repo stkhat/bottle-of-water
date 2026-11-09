@@ -51,7 +51,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - Status buttons: Learning / Known / Remove ("Not saved" when unsaved)
   - Meanings by part of speech
   - External dictionary links: Cambridge / Wiktionary / Reverso / WordReference (each can be turned on/off in settings; **users cannot add their own dictionary URLs**)
-  - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there)
+  - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there). On a page the list has every sentence with the term, the clicked one included, as in the mock; clicking one scrolls to it
   - "Seen elsewhere": occurrences in other sources. For unsaved words, explain that saving starts recording
 - **No "Ask AI" button (links to ChatGPT / Claude) in phase 1**
 
@@ -80,7 +80,9 @@ Development pair: learning language = English, native language = Japanese, sites
 - Find the hovered word with `caretPositionFromPoint`
 - When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known"
 - A small card at the top right shows Lingo's state and highlight toggles
-- **When the reader scrolls to the end of the article**, a "You reached the end" card appears in that card's place (same content as "Save all"; closing it with × brings back the original card)
+  - On real pages the card sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header) and the dictionary panel 152px below the card's top, as in the mock
+- The clicked word gets the mock's green outline (drawn by Lingo's UI over the page, since `::highlight()` cannot draw outlines)
+- **When the reader scrolls to the end of the article** (the last paragraph of the `article` with the most text, else `main`), a "You reached the end" card appears in that card's place (same content as "Save all"; closing it with × brings back the original card, and it does not come back on that page view). It is drawn above the dictionary panel, which it overlaps as in the mock
 
 ### Save all (save every unsaved word on the page at once)
 - Target: words on the page/video that are **not saved yet** (saved words keep their status; words within the frequency level are not counted)
