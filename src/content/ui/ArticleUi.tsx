@@ -5,6 +5,7 @@ import type { Box } from "../article/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
+import { PhraseBar } from "../../ui/lookup/PhraseBar";
 import { color } from "../../ui/lookup/styles";
 import { PageCard } from "./PageCard";
 import { useStore } from "./store";
@@ -94,7 +95,7 @@ function Outline({ box }: { box: Box }) {
 /** Everything Lingo shows on an article page, inside its shadow root. */
 export function ArticleUi({ app }: { app: ArticleApp }) {
   const state = useStore(app.store);
-  const { settings, hover, panel } = state;
+  const { settings, hover, panel, phrase } = state;
 
   return (
     <>
@@ -156,6 +157,18 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           />
         </Floating>
       )}
+      {phrase && (
+        // Pressing the bar's buttons must not clear the page's selection.
+        <Floating anchor={phrase.anchor} onMouseDown={keepSelection}>
+          <PhraseBar
+            text={phrase.text}
+            onLearning={() => app.savePhrase("learning")}
+            onKnown={() => app.savePhrase("known")}
+          />
+        </Floating>
+      )}
     </>
   );
 }
+
+const keepSelection = (event: MouseEvent) => event.preventDefault();

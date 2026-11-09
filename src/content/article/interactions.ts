@@ -7,6 +7,8 @@ export interface InteractionCallbacks {
   hideHover(): void;
   /** A word was clicked. */
   click(ref: SpanRef): void;
+  /** The page's selection settled (the pointer is up); undefined when it is collapsed. */
+  selection(range: Range | undefined): void;
   escape(): void;
   /** The page or an element in it scrolled, or the window was resized. */
   scroll(): void;
@@ -17,6 +19,8 @@ export interface InteractionOptions {
   hoverDelayMs?: number;
   /** How long the card stays after the pointer leaves the word and the card (ms). */
   hideDelayMs?: number;
+  /** How long the selection must stay unchanged before it is read (ms). */
+  selectionDelayMs?: number;
 }
 
 export interface Interactions {
@@ -43,14 +47,18 @@ const same = (a: SpanRef | undefined, b: SpanRef | undefined) =>
   (!!a && !!b && a.block === b.block && a.span.start === b.span.start);
 
 /**
- * Turns pointer, keyboard and scroll events on the page into hover, click, Escape and
- * scroll callbacks. The pointer is read once per animation frame. A word's card
+ * Turns pointer, selection, keyboard and scroll events on the page into hover, click,
+ * selection, Escape and scroll callbacks. The pointer is read once per animation frame. A word's card
  * shows after the pointer rests on it for `hoverDelayMs` (250 ms) and goes
  * `hideDelayMs` (200 ms) after the pointer leaves both the word and the card.
  */
 export function watchInteractions(
   cb: InteractionCallbacks,
-  { hoverDelayMs = 250, hideDelayMs = 200 }: InteractionOptions = {},
+  {
+    hoverDelayMs = 250,
+    hideDelayMs = 200,
+    selectionDelayMs = 100,
+  }: InteractionOptions = {},
 ): Interactions {
   /** The word under the pointer. */
   let candidate: SpanRef | undefined;
@@ -60,6 +68,9 @@ export function watchInteractions(
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   let frame: number | undefined;
   let lastMove: PointerEvent | undefined;
+  /** A button is down on the page: the selection is still being made. */
+  let pressed = false;
+  let selectionTimer: ReturnType<typeof setTimeout> | undefined;
 
   function hideNow() {
     clearTimeout(showTimer);
@@ -108,7 +119,31 @@ export function watchInteractions(
   }
 
   function onPointerDown(event: PointerEvent) {
-    if (!inLingoUi(event)) hideNow();
+    if (inLingoUi(event)) return;
+    pressed = true;
+    hideNow();
+  }
+
+  function readSelection(delay: number) {
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(() => {
+      const selection = getSelection();
+      cb.selection(
+        selection && selection.rangeCount > 0 && !selection.isCollapsed
+          ? selection.getRangeAt(0)
+          : undefined,
+      );
+    }, delay);
+  }
+
+  function onPointerUp() {
+    if (!pressed) return;
+    pressed = false;
+    readSelection(0);
+  }
+
+  function onSelectionChange() {
+    if (!pressed) readSelection(selectionDelayMs);
   }
 
   function onClick(event: MouseEvent) {
@@ -138,6 +173,8 @@ export function watchInteractions(
   const passive = { capture: true, passive: true } as const;
   document.addEventListener("pointermove", onPointerMove, passive);
   document.addEventListener("pointerdown", onPointerDown, passive);
+  document.addEventListener("pointerup", onPointerUp, passive);
+  document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("scroll", onScroll, passive);
@@ -156,10 +193,13 @@ export function watchInteractions(
     stop() {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
+      clearTimeout(selectionTimer);
       if (frame !== undefined) cancelAnimationFrame(frame);
       if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);
       document.removeEventListener("pointermove", onPointerMove, passive);
       document.removeEventListener("pointerdown", onPointerDown, passive);
+      document.removeEventListener("pointerup", onPointerUp, passive);
+      document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("scroll", onScroll, passive);

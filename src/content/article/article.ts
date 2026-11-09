@@ -18,7 +18,9 @@ import {
 import { watchInteractions } from "./interactions";
 import {
   createBlockIndex,
+  snapSelection,
   spanAtPoint,
+  type Snapped,
   type SpanMap,
   type SpanRef,
 } from "./locate";
@@ -78,11 +80,19 @@ export interface PanelState {
   outline: Box[];
 }
 
+/** The bar over a selection of words that saves them as a phrase. */
+export interface PhraseState {
+  anchor: Box;
+  /** The selected words as written. */
+  text: string;
+}
+
 /** What the UI shows. */
 export interface ArticleState {
   settings: Settings;
   hover: HoverState | null;
   panel: PanelState | null;
+  phrase: PhraseState | null;
 }
 
 /** The UI's view of the page: its state and what its controls do. */
@@ -100,6 +110,8 @@ export interface ArticleApp {
   closePanel(): void;
   /** Scrolls to the panel's "On this page" sentence. */
   goToSentence(index: number): void;
+  /** The phrase bar's "+ Learning" / "Known". */
+  savePhrase(status: TermStatus): void;
   toggleHighlight(category: HighlightCategory): void;
 }
 
@@ -165,6 +177,7 @@ export async function startArticle(
     settings,
     hover: null,
     panel: null,
+    phrase: null,
   });
 
   const source = (): SourceInput => ({
@@ -365,6 +378,63 @@ export async function startArticle(
     }
   }
 
+  // Phrase bar.
+  let phrase: Snapped | undefined;
+
+  const snappedRange = (s: Snapped) => rangeOf(s.block, s.start, s.end);
+
+  function onSelection(range: Range | undefined) {
+    const snapped = range && snapSelection(range, index, spans);
+    phrase = snapped;
+    if (!snapped) {
+      if (store.get().phrase) store.set({ phrase: null });
+      return;
+    }
+    const whole = snappedRange(snapped);
+    if (
+      range.compareBoundaryPoints(Range.START_TO_START, whole) !== 0 ||
+      range.compareBoundaryPoints(Range.END_TO_END, whole) !== 0
+    ) {
+      // Show what will be saved: the whole words.
+      const selection = getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(whole);
+    }
+    const [anchor] = wordBoxes(whole);
+    if (!anchor) return;
+    store.set({
+      phrase: {
+        anchor,
+        text: collapseSpaces(
+          snapped.block.text.slice(snapped.start, snapped.end),
+        ),
+      },
+    });
+  }
+
+  async function savePhrase(snapped: Snapped, status: TermStatus) {
+    const { block, start, end } = snapped;
+    const sentence = sentenceAt(block.text, start, end, lang);
+    await deps.send({
+      type: "saveTerm",
+      lang,
+      key: snapped.spans.map((s) => s.key).join(" "),
+      display: collapseSpaces(block.text.slice(start, end)),
+      kind: "phrase",
+      status,
+      source: source(),
+      sentence,
+      pos: { textQuote: sentence },
+    });
+    if (phrase === snapped) {
+      phrase = undefined;
+      getSelection()?.removeAllRanges();
+      store.set({ phrase: null });
+    }
+    // The phrase may be anywhere on the page: classify again to find it.
+    await reanalyze();
+  }
+
   function speak() {
     const head = store.get().panel?.card.head;
     if (!head || typeof speechSynthesis === "undefined") return;
@@ -375,9 +445,11 @@ export async function startArticle(
   }
 
   function onScroll() {
-    const { panel } = store.get();
+    const { panel, phrase: bar } = store.get();
     if (panel && panelRef)
       store.set({ panel: { ...panel, outline: outlineOf(panelRef) } });
+    const anchor = phrase && wordBoxes(snappedRange(phrase))[0];
+    if (bar && anchor) store.set({ phrase: { ...bar, anchor } });
   }
 
   const app: ArticleApp = {
@@ -401,6 +473,10 @@ export async function startArticle(
         block: "center",
         behavior: "smooth",
       });
+    },
+    savePhrase(status) {
+      const snapped = phrase;
+      if (snapped) run(() => savePhrase(snapped, status));
     },
     toggleHighlight(category) {
       const on = !settings.highlight[category];
@@ -450,6 +526,7 @@ export async function startArticle(
     showHover: (ref) => void showHover(ref).catch(warn),
     hideHover,
     click: (ref) => void openPanel(ref).catch(warn),
+    selection: onSelection,
     escape() {
       if (store.get().panel) closePanel();
     },
