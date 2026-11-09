@@ -25,10 +25,13 @@ afterEach(cleanUp);
 const bar = () => page.getByText(/^Save “.*” as a phrase$/);
 /** The bar's box: the root around its label. */
 const barBox = () => bar().element().parentElement!.getBoundingClientRect();
-const barButton = (name: string) =>
-  page
+/** A button of the bar, once the bar shows. */
+async function barButton(name: string) {
+  await expect.element(bar()).toBeVisible();
+  return page
     .elementLocator(bar().element().parentElement!)
     .getByRole("button", { name });
+}
 
 describe("phrase bar", () => {
   it("snaps a selection to whole words and shows the bar above it", async () => {
@@ -50,7 +53,7 @@ describe("phrase bar", () => {
   it("saves the selected words as a phrase and highlights it", async () => {
     const { root, background } = await setup(ARTICLE);
     await dragSelect(root, "rise", 0, "fall", 4);
-    await barButton("+ Learning").click();
+    await (await barButton("+ Learning")).click();
     await expect.poll(() => bar().query()).toBeNull();
     expect(getSelection()!.isCollapsed).toBe(true);
     const sentence = "So you can trace each rise and fall back to its cause.";
@@ -80,7 +83,7 @@ describe("phrase bar", () => {
   it("keys a phrase by its words' base forms", async () => {
     const { root, background } = await setup(ARTICLE);
     await dragSelect(root, "bake", 0, "loaves", 6);
-    await barButton("Known").click();
+    await (await barButton("Known")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
       key: "bake loaf",
@@ -95,7 +98,7 @@ describe("phrase bar", () => {
       translator: { translate: async (text) => `訳: ${text}` },
     });
     await dragSelect(root, "rise", 0, "fall", 4);
-    await barButton("+ Learning").click();
+    await (await barButton("+ Learning")).click();
     await expect
       .poll(() => highlighted("lingo-learning"))
       .toEqual(["rise and fall"]);

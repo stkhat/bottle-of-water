@@ -169,6 +169,7 @@ describe("dictionary panel", () => {
   it("sits on the right, below the page card", async () => {
     const { root } = await setup(ARTICLE);
     await clickOn(root, "tedious");
+    await expect.element(dictionary()).toBeVisible();
     const box = dictionary().element().getBoundingClientRect();
     expect(box.right).toBeCloseTo(innerWidth - 16, 0);
     expect(box.top).toBeCloseTo(168, 0);
