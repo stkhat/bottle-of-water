@@ -3,6 +3,12 @@ import preact from "@preact/preset-vite";
 import { playwright } from "@vitest/browser-playwright";
 import { WxtVitest } from "wxt/testing/vitest-plugin";
 
+// Playwright's Firefox may not launch on some dev machines; e.g. VITEST_BROWSERS=chromium
+const browsers = (process.env.VITEST_BROWSERS ?? "chromium,firefox")
+  .split(",")
+  .map((b) => b.trim())
+  .filter(Boolean) as ("chromium" | "firefox")[];
+
 export default defineConfig({
   test: {
     projects: [
@@ -24,7 +30,7 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright(),
-            instances: [{ browser: "chromium" }, { browser: "firefox" }],
+            instances: browsers.map((browser) => ({ browser })),
           },
         },
       },

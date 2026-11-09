@@ -6,5 +6,5 @@
     "jsxImportSource": "preact",
     "resolveJsonModule": true
   },
-  "include": [".wxt/wxt.d.ts", "src", "scripts", "tests", "*.ts"]
+  "include": [".wxt/wxt.d.ts", "src", "scripts", "tests", "e2e", "*.ts"]
 }
