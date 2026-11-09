@@ -3,6 +3,7 @@ import preact from "@preact/preset-vite";
 import { playwright } from "@vitest/browser-playwright";
 import type { Plugin } from "vite";
 import { WxtVitest } from "wxt/testing/vitest-plugin";
+import { netflixSubtitleBody } from "./tests/netflix-subtitles.ts";
 import { timedtextBody } from "./tests/youtube-timedtext.ts";
 
 // Playwright's Firefox may not launch on some dev machines; e.g. VITEST_BROWSERS=chromium
@@ -26,6 +27,26 @@ function timedtextFixtures(): Plugin {
   };
 }
 
+/**
+ * Answers Netflix subtitle URLs from the synthetic fixtures (see tests/netflix-subtitles.ts).
+ * The browser tests point the manifest's CDN URLs at /lingo-nflx/ on the test server.
+ */
+function netflixFixtures(): Plugin {
+  return {
+    name: "lingo-netflix-fixtures",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = new URL(req.url ?? "/", "http://localhost");
+        if (url.pathname !== "/lingo-nflx/") return next();
+        const body = netflixSubtitleBody(url);
+        res.statusCode = body === undefined ? 404 : 200;
+        res.setHeader("content-type", "text/plain; charset=UTF-8");
+        res.end(body ?? "");
+      });
+    },
+  };
+}
+
 export default defineConfig({
   test: {
     projects: [
@@ -39,7 +60,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [preact(), timedtextFixtures()],
+        plugins: [preact(), timedtextFixtures(), netflixFixtures()],
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.{ts,tsx}"],

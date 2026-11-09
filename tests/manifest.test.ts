@@ -41,7 +41,7 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
     expect(manifest().host_permissions).toBeUndefined();
   });
 
-  test("injects the article script everywhere and the YouTube scripts on www.youtube.com only", () => {
+  test("injects the article script everywhere and the video scripts on their sites only", () => {
     expect(
       manifest().content_scripts?.map(({ matches, js, world, run_at }) => ({
         matches,
@@ -56,7 +56,13 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
         world: undefined,
         run_at: undefined,
       },
-      // The page-world hook must run before YouTube's own scripts.
+      // The page-world hooks must run before the sites' own scripts.
+      {
+        matches: ["*://www.netflix.com/*"],
+        js: ["content-scripts/netflix-main.js"],
+        world: "MAIN",
+        run_at: "document_start",
+      },
       {
         matches: ["*://www.youtube.com/*"],
         js: ["content-scripts/youtube-main.js"],
