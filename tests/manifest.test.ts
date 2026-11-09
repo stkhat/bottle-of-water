@@ -5,7 +5,12 @@ type Manifest = {
   manifest_version: number;
   permissions?: string[];
   host_permissions?: string[];
-  content_scripts?: { matches: string[] }[];
+  content_scripts?: {
+    matches: string[];
+    js?: string[];
+    world?: string;
+    run_at?: string;
+  }[];
   browser_specific_settings?: { gecko?: { id?: string } };
   background?: { service_worker?: string; scripts?: string[] };
 };
@@ -36,9 +41,34 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
     expect(manifest().host_permissions).toBeUndefined();
   });
 
-  test("injects the content script on all URLs only", () => {
-    expect(manifest().content_scripts?.map((c) => c.matches)).toEqual([
-      ["<all_urls>"],
+  test("injects the article script everywhere and the YouTube scripts on www.youtube.com only", () => {
+    expect(
+      manifest().content_scripts?.map(({ matches, js, world, run_at }) => ({
+        matches,
+        js,
+        world,
+        run_at,
+      })),
+    ).toEqual([
+      {
+        matches: ["<all_urls>"],
+        js: ["content-scripts/content.js"],
+        world: undefined,
+        run_at: undefined,
+      },
+      // The page-world hook must run before YouTube's own scripts.
+      {
+        matches: ["*://www.youtube.com/*"],
+        js: ["content-scripts/youtube-main.js"],
+        world: "MAIN",
+        run_at: "document_start",
+      },
+      {
+        matches: ["*://www.youtube.com/*"],
+        js: ["content-scripts/youtube.js"],
+        world: undefined,
+        run_at: "document_start",
+      },
     ]);
   });
 });
