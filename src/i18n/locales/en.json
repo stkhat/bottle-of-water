@@ -1,0 +1,20 @@
+{
+  "app.name": "Lingo",
+  "app.languagePair": "English → Japanese",
+  "popup.openSettings": "Open settings",
+  "settings.title": "Settings",
+  "settings.navLabel": "Settings sections",
+  "settings.section.languages": "Languages",
+  "settings.section.level": "New-word level",
+  "settings.section.highlighting": "Highlighting",
+  "settings.section.dictionaries": "Dictionaries and AI",
+  "settings.section.video": "Video subtitles",
+  "settings.section.sites": "Sites",
+  "settings.section.sync": "Sync and backup",
+  "settings.section.about": "About",
+  "card.pageStatus": "English page · EN → JA",
+  "card.highlight": "Highlight",
+  "card.chip.new": "New",
+  "card.chip.learning": "Learning",
+  "card.chip.known": "Known"
+}
