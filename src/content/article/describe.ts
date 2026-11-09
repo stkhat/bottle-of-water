@@ -1,4 +1,4 @@
-import type { TermKind } from "../../core/classify";
+import type { Category, TermKind } from "../../core/classify";
 import type { Sense } from "../../core/dictionary";
 import type { send as sendFn } from "../../messaging/client";
 import type { OccurrenceView } from "../../messaging/protocol";
@@ -14,11 +14,18 @@ export interface TermCard {
   short?: string;
   /** Phrases: the main word and its translation; words: the form seen → its base. */
   sub?: string;
+  /** The saved status; "new" while the term is not saved. */
   status: WordStatus;
+  /** Not saved, but known by its frequency (the known level): shown as Known. */
+  knownByLevel?: true;
   termId: string;
   senses: Sense[];
   elsewhere: OccurrenceView[];
 }
+
+/** The status the hover card shows: a word known by its frequency shows as Known. */
+export const shownStatus = (card: TermCard): WordStatus =>
+  card.knownByLevel ? "known" : card.status;
 
 /** The phrase's longest word (the first on a tie): "figure" in "figure out". */
 export function mainWord(phrase: string): string {
@@ -52,7 +59,7 @@ export interface DescribeDeps {
  * main word's translation.
  */
 export async function describeTerm(
-  term: { key: string; kind: TermKind; surface: string },
+  term: { key: string; kind: TermKind; surface: string; category?: Category },
   { send, lang, sourceUrl, translator }: DescribeDeps,
 ): Promise<TermCard> {
   const lookup = (key: string, kind: TermKind) =>
@@ -83,6 +90,8 @@ export async function describeTerm(
     ...(short !== undefined && { short }),
     ...(sub !== undefined && { sub }),
     status: found.status,
+    ...(found.status === "new" &&
+      term.category === "known" && { knownByLevel: true as const }),
     termId: found.termId,
     senses: entry?.senses ?? [],
     elsewhere: found.elsewhere,

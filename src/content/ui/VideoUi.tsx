@@ -7,6 +7,7 @@ import { LingoMenu } from "../../ui/video/LingoMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
 import { Transcript } from "../../ui/video/Transcript";
+import { shownStatus } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { dictionaryFrame, menuPlacement } from "../video/placement";
 import type { VideoApp, VideoState } from "../video/session";
@@ -318,7 +319,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
           <HoverCard
             variant="video"
             kind={hover.card.kind}
-            status={hover.card.status}
+            status={shownStatus(hover.card)}
             head={hover.card.head}
             ipa={hover.card.ipa}
             short={hover.card.short}

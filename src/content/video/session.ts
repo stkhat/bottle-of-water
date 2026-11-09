@@ -635,7 +635,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const found = spanOf(ref);
     if (!found) return undefined;
     return describeTerm(
-      { key: found.span.key, kind: found.span.kind, surface: found.surface },
+      {
+        key: found.span.key,
+        kind: found.span.kind,
+        surface: found.surface,
+        category: found.span.category,
+      },
       {
         send: deps.send,
         lang: lang(),

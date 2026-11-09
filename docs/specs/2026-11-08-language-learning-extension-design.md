@@ -36,7 +36,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Inflected forms are matched to the base form (ferments → ferment, loaves → loaf)
 
 ### Shared: hover card
-- Kind (Word / Phrase) and current status
+- Kind (Word / Phrase) and current status. Shown for every word in the vocabulary, also those known by their frequency (within the known level, not saved): they show as **Known**, with "Known" pressed; pressing it saves them as Known, "+ Learning" as Learning
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
 - Buttons: "+ Learning", "Known"
 - For phrases, a saved phrase that matches is shown (automatic detection of dictionary phrases is phase 2)

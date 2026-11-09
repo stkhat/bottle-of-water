@@ -658,6 +658,20 @@ describe("words in the subtitles", () => {
     await expect.poll(() => state().hover).toBeNull();
   });
 
+  it("shows the card of a word known by its frequency, as known but not saved", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    const ref = refOf(state, 0, "the");
+    expect(state().spans[0]![ref.span]!.category).toBe("known");
+    app.enterWord(ref, BOX);
+    await expect.poll(() => state().hover?.card.head).toBe("the");
+    expect(state().hover?.card).toMatchObject({
+      status: "new",
+      knownByLevel: true,
+    });
+  });
+
   it("hides the card when its line ends, unless the pointer is on the card", async () => {
     const { state, app, video } = await start();
     await ready(state);

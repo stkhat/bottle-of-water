@@ -233,6 +233,26 @@ test("hovering a word shows its card; clicking it opens the dictionary window", 
     .toBeCloseTo(LINE_CUE.startMs / 1000, 1);
 });
 
+test("hovering a word known by its frequency shows its card as Known", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  // "and in all of the people here;": the third line of LINE's card.
+  await page.evaluate(() => {
+    document.querySelector("video")!.currentTime = 56.5;
+  });
+  const word = inVideo(page).getByText("people", { exact: true });
+  await word.hover();
+  await expect(page.getByText(en["hover.hint"])).toBeVisible();
+  // Not saved, but known by its frequency: Known, as the mock's statuses go.
+  const card = page.locator("lingo-video");
+  await expect(
+    card.getByRole("button", { name: en["hover.known"], exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(card.getByText(en["lookup.status.new"])).toHaveCount(0);
+});
+
 test("+ Learning in the window highlights the word everywhere and survives a reload", async ({
   context,
   extensionId,

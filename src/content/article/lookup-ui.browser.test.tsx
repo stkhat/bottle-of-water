@@ -84,6 +84,25 @@ describe("hover card", () => {
     await expect.poll(() => hoverCard().query()).toBeNull();
   });
 
+  it("shows a word known by its frequency as Known; Known saves it", async () => {
+    const { root, background } = await setup(ARTICLE);
+    await pointAt(root, "feel");
+    await expect.element(hoverCard()).toBeVisible();
+    const card = page.elementLocator(hoverCard().element().parentElement!);
+    await expect
+      .element(card.getByText("Known", { exact: true }).first())
+      .toBeVisible();
+    expect(card.getByText("New · not saved").query()).toBeNull();
+    const known = card.getByRole("button", { name: "Known" });
+    await expect.element(known).toHaveAttribute("aria-pressed", "true");
+    await known.click();
+    await expect.poll(() => background.sent("saveTerm").length).toBe(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "feel",
+      status: "known",
+    });
+  });
+
   it("shows nothing over words Lingo does not know", async () => {
     const { root } = await setup("<p>Zorbles wibble the dough.</p>");
     await pointAt(root, "wibble");

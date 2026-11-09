@@ -365,7 +365,12 @@ export async function startArticle(
 
   const describe = (ref: SpanRef) =>
     describeTerm(
-      { key: ref.span.key, kind: ref.span.kind, surface: surfaceOf(ref) },
+      {
+        key: ref.span.key,
+        kind: ref.span.kind,
+        surface: surfaceOf(ref),
+        category: ref.span.category,
+      },
       { send: deps.send, lang, sourceUrl: location.href, translator },
     );
 

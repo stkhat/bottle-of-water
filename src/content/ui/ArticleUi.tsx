@@ -1,4 +1,5 @@
 import type { ArticleApp } from "../article/article";
+import { shownStatus } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
@@ -119,7 +120,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           <HoverCard
             variant="article"
             kind={hover.card.kind}
-            status={hover.card.status}
+            status={shownStatus(hover.card)}
             head={hover.card.head}
             ipa={hover.card.ipa}
             short={hover.card.short}
