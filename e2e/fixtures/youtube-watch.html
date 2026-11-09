@@ -1,0 +1,498 @@
+<!doctype html>
+<!--
+  Trimmed skeleton of a YouTube watch page (www.youtube.com/watch?v=iG9CE55wbtY),
+  captured 2026-11-10 in Playwright Chromium at 1400x900, logged out, en-US.
+  Kept: the element tree from ytd-app down to #movie_player (video, caption container,
+  settings menu shell, controls), #below and #secondary. Removed: scripts, styles,
+  images, SVG paths, the progress bar, comments, recommendation contents and most
+  attributes. The <style> block is not YouTube's: it only lays out the two columns.
+  For E2E: serve it at https://www.youtube.com/watch* with context.route.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      Do schools kill creativity? | Sir Ken Robinson | TED - YouTube
+    </title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Roboto, Arial, sans-serif;
+      }
+      #columns {
+        display: flex;
+        gap: 16px;
+        padding: 12px 16px;
+      }
+      #primary {
+        flex: 1;
+        min-width: 0;
+      }
+      #secondary {
+        width: 385px;
+        flex: none;
+      }
+      #movie_player {
+        position: relative;
+        aspect-ratio: 4 / 3;
+        background: #000;
+        overflow: hidden;
+      }
+      .html5-video-container,
+      video.html5-main-video {
+        width: 100%;
+        height: 100%;
+      }
+      .ytp-caption-window-container {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .ytp-chrome-bottom {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        height: 48px;
+      }
+      .ytp-chrome-controls {
+        display: flex;
+        justify-content: space-between;
+        height: 100%;
+      }
+      .ytp-left-controls,
+      .ytp-right-controls,
+      .ytp-right-controls-left,
+      .ytp-right-controls-right {
+        display: flex;
+        align-items: center;
+      }
+      .ytp-button {
+        width: 48px;
+        height: 40px;
+        background: none;
+        border: 0;
+        color: #fff;
+      }
+      .ytp-popup,
+      .ytp-chrome-top {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <ytd-app>
+      <div id="content" class="style-scope ytd-app">
+        <ytd-page-manager id="page-manager" class="style-scope ytd-app">
+          <ytd-watch-flexy
+            class="style-scope ytd-page-manager watch-root-element"
+            video-id="iG9CE55wbtY"
+            default-layout
+            is-two-columns_
+            default-two-column-layout
+            role="main"
+          >
+            <div id="columns" class="style-scope ytd-watch-flexy">
+              <div id="primary" class="style-scope ytd-watch-flexy">
+                <div id="primary-inner" class="style-scope ytd-watch-flexy">
+                  <div id="player" class="style-scope ytd-watch-flexy">
+                    <div
+                      id="player-container-outer"
+                      class="style-scope ytd-watch-flexy"
+                    >
+                      <div
+                        id="player-container-inner"
+                        class="style-scope ytd-watch-flexy"
+                      >
+                        <div
+                          id="player-container"
+                          class="style-scope ytd-watch-flexy"
+                        >
+                          <ytd-player
+                            id="ytd-player"
+                            class="style-scope ytd-watch-flexy"
+                          >
+                            <div id="container" class="style-scope ytd-player">
+                              <div
+                                class="html5-video-player ytp-transparent ytp-exp-bottom-control-flexbox ytp-modern-caption ytp-exp-ppp-update ytp-livebadge-color ytp-grid-scrollable ytp-delhi-modern ytp-delhi-modern-icons ytp-delhi-horizontal-volume-controls ytp-delhi-modern-compact-controls ad-created ytp-fit-cover-video ytp-fine-scrubbing-exp ytp-cards-teaser-dismissible ytp-hide-info-bar ytp-large-width-mode ytp-disable-bottom-gradient ytp-autonav-endscreen-cancelled-state ytp-rounded-miniplayer-not-regular-wide-video ytp-hide-fullscreen-title ytp-fullscreen-metadata-top ytp-heat-map ytp-iv-drawer-enabled playing-mode ytp-autohide ytp-autohide-active"
+                                tabindex="-1"
+                                id="movie_player"
+                                aria-label="YouTube Video Player"
+                              >
+                                <div class="html5-video-container">
+                                  <video
+                                    tabindex="-1"
+                                    class="video-stream html5-main-video"
+                                  ></video>
+                                </div>
+                                <div class="ytp-chrome-top"></div>
+                                <div class="video-ads ytp-ad-module"></div>
+                                <div
+                                  class="ytp-caption-window-container"
+                                  id="ytp-caption-window-container"
+                                ></div>
+                                <div
+                                  class="ytp-popup ytp-settings-menu"
+                                  id="ytp-id-5"
+                                >
+                                  <div
+                                    class="ytp-focus-trap-before"
+                                    tabindex="0"
+                                  ></div>
+                                  <div class="ytp-popup-content">
+                                    <div class="ytp-panel">
+                                      <div
+                                        class="ytp-panel-menu"
+                                        role="menu"
+                                      ></div>
+                                    </div>
+                                  </div>
+                                  <div
+                                    class="ytp-focus-trap-after"
+                                    tabindex="0"
+                                  ></div>
+                                </div>
+                                <div class="ytp-chrome-bottom">
+                                  <div class="ytp-progress-bar-container"></div>
+                                  <div class="ytp-chrome-controls">
+                                    <div class="ytp-left-controls">
+                                      <button
+                                        class="ytp-play-button ytp-button"
+                                        aria-keyshortcuts="k"
+                                        data-title-no-tooltip="Pause"
+                                        data-tooltip-title="Pause (k)"
+                                        aria-label="Pause (k)"
+                                      >
+                                        <svg
+                                          height="36"
+                                          viewBox="0 0 36 36"
+                                          width="36"
+                                        ></svg></button
+                                      ><a
+                                        class="ytp-prev-button ytp-button"
+                                        role="button"
+                                        tabindex="0"
+                                        ><svg
+                                          height="24"
+                                          viewBox="0 0 24 24"
+                                          width="24"
+                                        ></svg></a
+                                      ><a
+                                        class="ytp-next-button ytp-button ytp-playlist-ui"
+                                        role="button"
+                                        tabindex="0"
+                                        data-tooltip-title="Next (SHIFT+n)"
+                                        data-title-no-tooltip="Next"
+                                        aria-keyshortcuts="SHIFT+n"
+                                        aria-label="Next (SHIFT+n)"
+                                        href="https://www.youtube.com/watch?v=qp0HIF3SfI4"
+                                        ><svg
+                                          height="24"
+                                          viewBox="0 0 24 24"
+                                          width="24"
+                                        ></svg></a
+                                      ><span class="ytp-volume-area"
+                                        ><div class="ytp-mute-button">
+                                          <button
+                                            class="ytp-volume-icon ytp-button"
+                                            aria-keyshortcuts="m"
+                                            data-tooltip-title="Mute (m)"
+                                            aria-label="Mute (m)"
+                                            data-title-no-tooltip="Mute"
+                                          >
+                                            <svg
+                                              height="24"
+                                              viewBox="0 0 24 24"
+                                              width="24"
+                                            ></svg>
+                                          </button>
+                                        </div>
+                                        <div
+                                          class="ytp-volume-panel"
+                                          data-tooltip-title="Volume"
+                                          role="slider"
+                                          tabindex="0"
+                                          aria-label="Volume"
+                                        >
+                                          <div class="ytp-volume-slider">
+                                            <div
+                                              class="ytp-volume-slider-handle"
+                                            ></div>
+                                          </div></div
+                                      ></span>
+                                      <div class="ytp-time-display notranslate">
+                                        <div
+                                          class="ytp-time-wrapper ytp-time-wrapper-delhi"
+                                        >
+                                          <div
+                                            class="ytp-time-contents"
+                                            role="button"
+                                            tabindex="0"
+                                            aria-label="0 Minutes 2 Seconds of 20 Minutes 3 Seconds"
+                                          >
+                                            <span
+                                              class="ytp-time-clip-icon"
+                                              aria-label="Clip"
+                                              ><svg
+                                                height="100%"
+                                                viewBox="0 0 24 24"
+                                                width="100%"
+                                              ></svg></span
+                                            ><span class="ytp-time-current"
+                                              >0:02</span
+                                            ><span class="ytp-time-separator">
+                                              / </span
+                                            ><span class="ytp-time-duration"
+                                              >20:03</span
+                                            >
+                                          </div>
+                                          <button
+                                            class="ytp-live-badge ytp-button"
+                                          >
+                                            Live
+                                          </button>
+                                        </div>
+                                        <span
+                                          class="ytp-clip-watch-full-video-button-separator"
+                                          >•</span
+                                        ><span
+                                          class="ytp-clip-watch-full-video-button"
+                                          >Watch full video</span
+                                        >
+                                      </div>
+                                      <div class="ytp-chapter-container">
+                                        <button
+                                          class="ytp-chapter-title ytp-button"
+                                        >
+                                          <span class="ytp-chapter-title-prefix"
+                                            >•</span
+                                          >
+                                          <div
+                                            class="ytp-chapter-title-content"
+                                            data-tooltip-title="View chapter"
+                                            title="View chapter"
+                                            aria-label="Introduction"
+                                          >
+                                            Introduction
+                                          </div>
+                                          <div
+                                            class="ytp-chapter-title-chevron"
+                                          >
+                                            <svg
+                                              height="100%"
+                                              viewBox="0 0 24 24"
+                                              width="100%"
+                                            ></svg>
+                                          </div>
+                                        </button>
+                                      </div>
+                                      <div class="ytp-chapter-container">
+                                        <button
+                                          class="ytp-chapter-title ytp-button ytp-chapter-container-disabled"
+                                        >
+                                          <span class="ytp-chapter-title-prefix"
+                                            >•</span
+                                          >
+                                          <div
+                                            class="ytp-chapter-title-content"
+                                            data-tooltip-title="View key moments"
+                                            aria-label="View key moments"
+                                          ></div>
+                                          <div
+                                            class="ytp-chapter-title-chevron"
+                                          >
+                                            <svg
+                                              height="100%"
+                                              viewBox="0 0 24 24"
+                                              width="100%"
+                                            ></svg>
+                                          </div>
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div class="ytp-right-controls">
+                                      <div class="ytp-right-controls-left">
+                                        <button
+                                          class="ytp-expand-right-bottom-section-button ytp-button"
+                                          aria-label="Expand"
+                                          data-title-no-tooltip="Expand"
+                                          aria-expanded="false"
+                                          data-tooltip-title="Expand"
+                                        >
+                                          <svg
+                                            height="100%"
+                                            viewBox="0 0 32 32"
+                                            width="100%"
+                                          ></svg></button
+                                        ><button
+                                          class="ytp-button ytp-autonav-toggle delhi-fast-follow-autonav-toggle"
+                                          data-tooltip-title="Autoplay is on"
+                                          aria-label="Autoplay is on"
+                                        >
+                                          <div
+                                            class="ytp-autonav-toggle-button-container"
+                                          >
+                                            <div
+                                              class="ytp-autonav-toggle-button"
+                                            ></div>
+                                          </div></button
+                                        ><button
+                                          class="ytp-subtitles-button ytp-button"
+                                          aria-keyshortcuts="c"
+                                          data-tooltip-title="Subtitles/closed captions (c)"
+                                          data-title-no-tooltip="Subtitles/closed captions"
+                                          aria-pressed="true"
+                                          aria-label="Subtitles/closed captions unavailable"
+                                        >
+                                          <div
+                                            class="ytp-subtitles-button-icon"
+                                          >
+                                            <svg
+                                              height="24"
+                                              viewBox="0 0 24 24"
+                                              width="24"
+                                            ></svg>
+                                          </div></button
+                                        ><button
+                                          class="ytp-button ytp-settings-button"
+                                          aria-expanded="false"
+                                          aria-haspopup="true"
+                                          data-tooltip-title="Settings"
+                                          aria-label="Settings"
+                                        >
+                                          <svg
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            width="24"
+                                          ></svg>
+                                        </button>
+                                      </div>
+                                      <div class="ytp-right-controls-right">
+                                        <button
+                                          class="ytp-size-button ytp-button"
+                                          aria-keyshortcuts="t"
+                                          data-tooltip-title="Theater mode (t)"
+                                          data-title-no-tooltip="Theater mode"
+                                          aria-label="Theater mode (t)"
+                                        >
+                                          <svg
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            width="24"
+                                          ></svg></button
+                                        ><button
+                                          class="ytp-remote-button ytp-button"
+                                          data-tooltip-title="Play on TV"
+                                          aria-haspopup="true"
+                                          aria-label="Play on TV"
+                                        >
+                                          <svg
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            width="24"
+                                          ></svg></button
+                                        ><button
+                                          class="ytp-fullscreen-button ytp-button"
+                                          aria-keyshortcuts="f"
+                                          data-title-no-tooltip="Full screen"
+                                          data-tooltip-title="Full screen (f)"
+                                          aria-label="Full screen (f)"
+                                        >
+                                          <svg
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            width="24"
+                                          ></svg>
+                                        </button>
+                                      </div>
+                                      <button
+                                        class="ytp-pip-button ytp-button"
+                                        data-tooltip-title="Picture-in-picture"
+                                        data-title-no-tooltip="Picture-in-picture"
+                                      >
+                                        <svg
+                                          height="24"
+                                          viewBox="0 0 24 24"
+                                          width="24"
+                                        ></svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </ytd-player>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="below" class="style-scope ytd-watch-flexy">
+                    <div class="box style-scope ytd-watch-flexy">
+                      <ytd-watch-metadata
+                        class="watch-active-metadata style-scope"
+                      >
+                        <div
+                          id="above-the-fold"
+                          class="style-scope ytd-watch-metadata"
+                        >
+                          <div
+                            id="title-row"
+                            class="style-scope ytd-watch-metadata"
+                          >
+                            <div
+                              id="title"
+                              class="style-scope ytd-watch-metadata"
+                            >
+                              <h1 class="style-scope ytd-watch-metadata">
+                                Do schools kill creativity? | Sir Ken Robinson |
+                                TED
+                              </h1>
+                            </div>
+                          </div>
+                        </div>
+                      </ytd-watch-metadata>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="secondary" class="style-scope ytd-watch-flexy">
+                <div
+                  id="secondary-inner"
+                  class="box style-scope ytd-watch-flexy"
+                >
+                  <div id="panels" class="style-scope ytd-watch-flexy"></div>
+                  <div
+                    id="chat-container"
+                    class="style-scope ytd-watch-flexy"
+                  ></div>
+                  <ytd-playlist-panel-renderer
+                    id="playlist"
+                    class="style-scope ytd-watch-flexy"
+                  ></ytd-playlist-panel-renderer>
+                  <div
+                    id="inline-panels"
+                    class="style-scope ytd-watch-flexy"
+                  ></div>
+                  <div
+                    id="persistent-panel-container"
+                    class="style-scope ytd-watch-flexy"
+                  ></div>
+                  <div
+                    id="donation-shelf"
+                    class="style-scope ytd-watch-flexy"
+                  ></div>
+                  <div id="related" class="style-scope ytd-watch-flexy">
+                    <a href="/watch?v=arj7oStGLkU"
+                      >Inside the Mind of a Master Procrastinator | Tim Urban |
+                      TED</a
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ytd-watch-flexy>
+        </ytd-page-manager>
+      </div>
+    </ytd-app>
+  </body>
+</html>
