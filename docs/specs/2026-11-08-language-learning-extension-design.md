@@ -40,6 +40,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
 - Buttons: "+ Learning", "Known"
 - For phrases, a saved phrase that matches is shown (automatic detection of dictionary phrases is phase 2)
+- EJDict has almost no phrasal verbs or idioms (no "figure out", "from scratch"). When a phrase is not in the bundled dictionary, its short translation comes from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
 
 ### Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
@@ -295,7 +296,7 @@ No outright blocker. Decisions and requirements:
    - Video UI for YouTube and Netflix (two columns + dictionary window, subtitle position and translation toggles, L button and arrow menu, site-first translation)
    - Toolbar popup, settings page, word list page
 2. **Phase 2**
-   - Automatic detection of phrases in the dictionary
+   - Automatic detection of phrases in the dictionary (phrase list from Wiktionary's English idioms and phrasal verbs, made of vocabulary words; where no Japanese translation exists, the English definition is shown)
    - Searching past occurrences (local corpus)
    - Fullscreen support
    - Per-video word list tab
