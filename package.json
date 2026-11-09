@@ -26,7 +26,8 @@
     "test:e2e:build": "npm run build && playwright test",
     "test:all": "npm test && npm run test:browser",
     "postinstall": "wxt prepare",
-    "check:claude-md": "node scripts/check-claude-md.mjs"
+    "check:claude-md": "node scripts/check-claude-md.mjs",
+    "test:mutation": "stryker run"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -36,6 +37,8 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.0",
     "@preact/preset-vite": "^2.10.6",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "@types/node": "^26.6.6",
     "@vitest/browser-playwright": "^5.1.0",
     "eslint": "^10.14.0",
@@ -47,6 +50,7 @@
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0",
     "vitest-browser-preact": "^2.0.0",
+    "web-ext": "^10.8.0",
     "wxt": "^0.21.5"
   }
 }
