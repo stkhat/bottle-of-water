@@ -1,5 +1,6 @@
 import { Dexie } from "dexie";
 import type { TermIndex, TermKind, TermStatus } from "../core/classify";
+import { fromMinutes, toMinutes, type SyncRecord } from "../core/sync/codec";
 import {
   normalizeUrl,
   sourceId,
@@ -74,7 +75,14 @@ export interface ImportResult {
 /** What changed: the terms themselves (status, added, removed) or only their occurrences. */
 export type ChangeKind = "terms" | "occurrences";
 
-export type ChangeListener = (lang: string, kind: ChangeKind) => void;
+/** `"sync"` for changes applied from another device's synced data, `"local"` otherwise. */
+export type ChangeOrigin = "local" | "sync";
+
+export type ChangeListener = (
+  lang: string,
+  kind: ChangeKind,
+  origin: ChangeOrigin,
+) => void;
 
 export interface TermStore {
   /** Creates or updates a term and records where it was saved. The source is mandatory. */
@@ -116,9 +124,20 @@ export interface TermStore {
    * tombstones count like any version); sources and occurrences are joined.
    */
   importJson(json: string): Promise<ImportResult>;
+  /**
+   * Applies synced versions that are newer (by whole minutes) than this copy's:
+   * status and update time only. Creates missing terms without a source, and leaves
+   * tombstones for removals. Listeners hear `"sync"`. Returns how many were applied.
+   */
+  applySynced(lang: string, records: readonly SyncRecord[]): Promise<number>;
+  /** Languages that have terms or tombstones. */
+  languages(): Promise<string[]>;
   getMeta(key: MetaKey): Promise<number | undefined>;
   setMeta(key: MetaKey, value: number): Promise<void>;
-  /** Called after every committed change, once per language. Returns an unsubscribe function. */
+  /**
+   * Called after every committed change, once per language, with where the change
+   * came from. Returns an unsubscribe function.
+   */
   onChange(listener: ChangeListener): () => void;
 }
 
@@ -175,12 +194,12 @@ export function createTermStore(
   const indexes = new Map<string, Promise<TermIndex>>();
   const tables = [db.terms, db.sources, db.occurrences];
 
-  function notify(changes: Changes) {
+  function notify(changes: Changes, origin: ChangeOrigin) {
     for (const [lang, kind] of changes.entries()) {
       if (kind === "terms") indexes.delete(lang);
       for (const listener of listeners) {
         try {
-          listener(lang, kind);
+          listener(lang, kind, origin);
         } catch (error) {
           console.error(error);
         }
@@ -189,10 +208,13 @@ export function createTermStore(
   }
 
   /** Runs `fn` in one read-write transaction, then tells listeners what changed. */
-  async function mutate<T>(fn: (changes: Changes) => Promise<T>): Promise<T> {
+  async function mutate<T>(
+    fn: (changes: Changes) => Promise<T>,
+    origin: ChangeOrigin = "local",
+  ): Promise<T> {
     const changes = new Changes();
     const result = await db.transaction("rw", tables, () => fn(changes));
-    notify(changes);
+    notify(changes, origin);
     return result;
   }
 
@@ -513,6 +535,47 @@ export function createTermStore(
 
         return result;
       });
+    },
+
+    applySynced(lang, records) {
+      return mutate(async (changes) => {
+        let applied = 0;
+        for (const record of records) {
+          const id = termId(lang, record.key);
+          const existing = await db.terms.get(id);
+          if (
+            existing &&
+            toMinutes(existing.updatedAt) >= record.updatedMinutes
+          )
+            continue;
+          const at = fromMinutes(record.updatedMinutes);
+          if (record.status === "removed" && isLive(existing)) {
+            await tombstone(existing, at);
+          } else {
+            const kept = isLive(existing) && record.status !== "removed";
+            await db.terms.put({
+              ...(existing ? deliberate(existing) : {}),
+              id,
+              lang,
+              key: record.key,
+              display: existing?.display ?? record.key,
+              kind:
+                existing?.kind ??
+                (record.key.includes(" ") ? "phrase" : "word"),
+              status: record.status,
+              createdAt: kept ? existing.createdAt : at,
+              updatedAt: at,
+            });
+          }
+          changes.add(lang, "terms");
+          applied++;
+        }
+        return applied;
+      }, "sync");
+    },
+
+    async languages() {
+      return (await db.terms.orderBy("lang").uniqueKeys()) as string[];
     },
 
     async getMeta(key) {

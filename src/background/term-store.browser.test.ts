@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SyncRecord } from "../core/sync/codec";
 import { openLingoDb, type LingoDb } from "./db";
 import {
   createTermStore,
@@ -512,10 +513,10 @@ describe("onChange", () => {
     await store.saveAll("fr", ["pain"], "known", { ...ARTICLE, lang: "fr" });
     await store.removeTerm("en:dough");
     expect(listener.mock.calls).toEqual([
-      ["en", "terms"],
-      ["en", "terms"],
-      ["fr", "terms"],
-      ["en", "terms"],
+      ["en", "terms", "local"],
+      ["en", "terms", "local"],
+      ["fr", "terms", "local"],
+      ["en", "terms", "local"],
     ]);
   });
 
@@ -526,7 +527,7 @@ describe("onChange", () => {
     await store.recordEncounters(ARTICLE, [
       { termId: "en:dough", sentence: "New.", pos: { textQuote: "New" } },
     ]);
-    expect(listener.mock.calls).toEqual([["en", "occurrences"]]);
+    expect(listener.mock.calls).toEqual([["en", "occurrences", "local"]]);
   });
 
   it("stays quiet when nothing changed", async () => {
@@ -548,6 +549,136 @@ describe("onChange", () => {
     unsubscribe();
     await store.saveTerm(dough());
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("applySynced", () => {
+  const MIN = 60_000;
+  const synced = (
+    key: string,
+    status: SyncRecord["status"],
+    updatedMinutes: number,
+  ): SyncRecord => ({ key, status, updatedMinutes });
+
+  it("creates terms it does not have, with no source", async () => {
+    const count = await store.applySynced("en", [
+      synced("dough", "learning", 100),
+      synced("figure out", "known", 101),
+    ]);
+    expect(count).toBe(2);
+    expect(await store.listTerms("en")).toEqual([
+      {
+        id: "en:dough",
+        lang: "en",
+        key: "dough",
+        display: "dough",
+        kind: "word",
+        status: "learning",
+        createdAt: 100 * MIN,
+        updatedAt: 100 * MIN,
+      },
+      {
+        id: "en:figure out",
+        lang: "en",
+        key: "figure out",
+        display: "figure out",
+        kind: "phrase",
+        status: "known",
+        createdAt: 101 * MIN,
+        updatedAt: 101 * MIN,
+      },
+    ]);
+    expect(await store.occurrencesOf("en:dough")).toEqual([]);
+  });
+
+  it("changes the status of an older local term and keeps the rest", async () => {
+    time = 100 * MIN;
+    await store.saveTerm(figureOut());
+    await store.applySynced("en", [synced("figure out", "known", 101)]);
+    const [term] = await store.listTerms("en");
+    expect(term).toMatchObject({
+      display: "figured out",
+      status: "known",
+      createdAt: 100 * MIN,
+      updatedAt: 101 * MIN,
+    });
+    expect(await store.occurrencesOf("en:figure out")).toHaveLength(1);
+  });
+
+  it("leaves a local term that is as new or newer alone", async () => {
+    time = 100 * MIN + 30_000;
+    await store.saveTerm(dough());
+    const count = await store.applySynced("en", [
+      synced("dough", "known", 100),
+    ]);
+    expect(count).toBe(0);
+    expect((await store.listTerms("en"))[0]).toMatchObject({
+      status: "learning",
+      updatedAt: time,
+    });
+  });
+
+  it("removes a term, its occurrences and its bulk mark", async () => {
+    time = 100 * MIN;
+    await store.saveTerm(dough());
+    await store.saveAll("en", ["bread"], "known", ARTICLE);
+    await store.applySynced("en", [
+      synced("dough", "removed", 101),
+      synced("bread", "removed", 101),
+    ]);
+    expect(await store.listTerms("en")).toEqual([]);
+    const tombstones = await store.listTerms("en", { includeRemoved: true });
+    expect(tombstones.map((t) => [t.key, t.status, t.updatedAt])).toEqual([
+      ["bread", "removed", 101 * MIN],
+      ["dough", "removed", 101 * MIN],
+    ]);
+    expect(tombstones[0]).not.toHaveProperty("bulk");
+    expect(await store.occurrencesOf("en:dough")).toEqual([]);
+  });
+
+  it("keeps a removal it did not know as a tombstone", async () => {
+    await store.applySynced("en", [synced("crust", "removed", 50)]);
+    expect(await store.listTerms("en")).toEqual([]);
+    expect(await store.listTerms("en", { includeRemoved: true })).toMatchObject(
+      [{ key: "crust", status: "removed", updatedAt: 50 * MIN }],
+    );
+  });
+
+  it("brings a removed term back when the synced version is newer", async () => {
+    time = 100 * MIN;
+    await store.saveTerm(dough());
+    await store.removeTerm("en:dough");
+    await store.applySynced("en", [synced("dough", "known", 101)]);
+    expect(await store.listTerms("en")).toMatchObject([
+      { key: "dough", status: "known", createdAt: 101 * MIN },
+    ]);
+  });
+
+  it("makes a synced change to a bulk term an ordinary one", async () => {
+    time = 100 * MIN;
+    await store.saveAll("en", ["bread"], "learning", ARTICLE);
+    await store.applySynced("en", [synced("bread", "known", 101)]);
+    const [term] = await store.listTerms("en");
+    expect(term).not.toHaveProperty("bulk");
+    expect(term).not.toHaveProperty("batchId");
+  });
+
+  it("tells listeners the change came from sync", async () => {
+    const listener = vi.fn();
+    store.onChange(listener);
+    await store.applySynced("en", [synced("dough", "known", 1)]);
+    await store.applySynced("en", [synced("dough", "known", 1)]);
+    expect(listener.mock.calls).toEqual([["en", "terms", "sync"]]);
+  });
+});
+
+describe("languages", () => {
+  it("lists the languages that have terms or tombstones", async () => {
+    expect(await store.languages()).toEqual([]);
+    await store.saveTerm(dough());
+    await store.saveTerm(dough({ lang: "fr", key: "pain" }));
+    await store.removeTerm("fr:pain");
+    expect(await store.languages()).toEqual(["en", "fr"]);
   });
 });
 
@@ -706,8 +837,8 @@ describe("importJson", () => {
       other.onChange(listener);
       await other.importJson(json);
       expect(listener.mock.calls.sort()).toEqual([
-        ["en", "terms"],
-        ["fr", "terms"],
+        ["en", "terms", "local"],
+        ["fr", "terms", "local"],
       ]);
     });
   });
