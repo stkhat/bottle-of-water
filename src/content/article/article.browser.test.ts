@@ -49,7 +49,7 @@ function fakeDeps(settings: Settings) {
               category: CATEGORIES[t.text.toLowerCase()] ?? "ignored",
             })),
         );
-        return { spans, unsaved: [] };
+        return { spans, unsaved: [], saved: [] };
       }
       if (request.type === "warmDictionary") return null;
       throw new Error(`unexpected ${request.type}`);

@@ -322,7 +322,10 @@ describe("dictionary panel", () => {
 
 describe("page card", () => {
   it("switches highlight categories in the settings", async () => {
-    const { background, changeSettings } = await setup(ARTICLE);
+    // The whole article is in view: keep the end card from taking the card's place.
+    const { background, changeSettings } = await setup(ARTICLE, {
+      settings: { offerSaveAllAtEnd: false },
+    });
     const chip = page.getByRole("button", { name: "New", exact: true });
     await expect.element(chip).toHaveAttribute("aria-pressed", "false");
     await chip.click();

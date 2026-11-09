@@ -64,6 +64,8 @@ export interface AnalyzeResult {
   spans: Span[][];
   /** Distinct keys of unsaved new terms over all blocks, in order of appearance. */
   unsaved: string[];
+  /** Distinct keys of saved terms over all blocks, in order of appearance. */
+  saved: string[];
 }
 
 /** One sentence a term was saved from or met again in, with where it came from. */

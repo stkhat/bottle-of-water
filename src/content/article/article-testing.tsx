@@ -19,6 +19,8 @@ export async function cleanUp() {
 export interface SetupOptions {
   settings?: Partial<Settings>;
   translator?: TranslationProvider;
+  /** Runs before the page starts, e.g. to save terms. */
+  before?: (background: ReturnType<typeof testBackground>) => Promise<void>;
 }
 
 /** Text nodes under `root` in order. */
@@ -51,6 +53,7 @@ export function rangeOfText(root: Node, text: string, nth = 0): Range {
 export async function setup(html: string, options: SetupOptions = {}) {
   const background = testBackground(options.settings);
   cleanups.push(() => background.close());
+  await options.before?.(background);
 
   const root = document.createElement("div");
   root.style.cssText =
@@ -93,8 +96,8 @@ export async function setup(html: string, options: SetupOptions = {}) {
   expect(session).toBeDefined();
   cleanups.push(() => session.stop());
 
-  const blocks = session.pageText.blocks().length;
-  await expect.poll(() => session.spans.size).toBe(blocks);
+  // The first batch: every block near the viewport.
+  await expect.poll(() => session.spans.size).toBeGreaterThan(0);
 
   return {
     background,

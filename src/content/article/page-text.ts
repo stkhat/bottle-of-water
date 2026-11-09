@@ -30,7 +30,7 @@ export interface BlockChange {
 const SKIPPED =
   "script, style, noscript, template, textarea, input, select, code, pre, [contenteditable], svg, math";
 
-/** Lingo's own hosts (`lingo-page-card`, …). Their UI lives in shadow roots. */
+/** Lingo's own hosts (`lingo-article`, …). Their UI lives in shadow roots. */
 const isLingoElement = (node: Node): boolean =>
   node instanceof Element && node.localName.startsWith("lingo-");
 

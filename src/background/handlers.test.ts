@@ -279,8 +279,13 @@ describe("handlers: errors", () => {
 });
 
 describe("handlers: analyze", () => {
-  it("classifies each block and lists the distinct unsaved keys", async () => {
-    store.termIndex.mockResolvedValue(new Map([["crust", "learning"]]));
+  it("classifies each block and lists the distinct unsaved and saved keys", async () => {
+    store.termIndex.mockResolvedValue(
+      new Map([
+        ["crust", "learning"],
+        ["the", "known"],
+      ]),
+    );
     const blocks = ["The loaves ferments.", "Yeast ferments the crust."];
     const result = await value({ type: "analyze", lang: "en", blocks });
     expect(store.termIndex).toHaveBeenCalledWith("en");
@@ -299,6 +304,8 @@ describe("handlers: analyze", () => {
       ],
     ]);
     expect(result.unsaved).toEqual(["ferment"]);
+    // "loaf" is known by its rank, not saved.
+    expect(result.saved).toEqual(["the", "crust"]);
   });
 
   it("does not load the dictionary", async () => {
@@ -318,6 +325,7 @@ describe("handlers: analyze", () => {
         [],
       ],
       unsaved: ["yeast"],
+      saved: [],
     });
   });
 });

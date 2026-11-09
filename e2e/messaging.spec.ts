@@ -12,10 +12,7 @@ function watchCard() {
   const times: { mounted?: number; analyzed?: number } = {};
   window.lingoTimes = times;
   new MutationObserver(() => {
-    if (
-      document.querySelector("lingo-page-card") &&
-      times.mounted === undefined
-    )
+    if (document.querySelector("lingo-article") && times.mounted === undefined)
       times.mounted = performance.now();
   }).observe(document, { subtree: true, childList: true });
   const poll = () => {

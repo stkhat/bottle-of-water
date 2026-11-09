@@ -4,6 +4,7 @@ import type { ArticleApp } from "../article/article";
 import type { Box } from "../article/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
+import { EndCard } from "../../ui/lookup/EndCard";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { PhraseBar } from "../../ui/lookup/PhraseBar";
 import { color } from "../../ui/lookup/styles";
@@ -99,7 +100,6 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
 
   return (
     <>
-      <PageCard highlight={settings.highlight} onToggle={app.toggleHighlight} />
       {panel && (
         <>
           {panel.outline.map((box, i) => (
@@ -136,6 +136,34 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
             onClose={app.closePanel}
           />
         </>
+      )}
+      {/* Above the panel: the end card is taller than the page card (mock z-order). */}
+      {state.endCard ? (
+        <div
+          style={{
+            position: "fixed",
+            zIndex: TOP_LAYER,
+            top: `${CARD_INSET}px`,
+            right: `${CARD_INSET}px`,
+          }}
+        >
+          <EndCard
+            kind="article"
+            saveAll={{
+              unsavedCount: state.unsaved,
+              done: state.done,
+              onAddLearning: () => app.saveAll("learning"),
+              onMarkKnown: () => app.saveAll("known"),
+              onUndo: app.undoSaveAll,
+            }}
+            onClose={app.closeEndCard}
+          />
+        </div>
+      ) : (
+        <PageCard
+          highlight={settings.highlight}
+          onToggle={app.toggleHighlight}
+        />
       )}
       {hover && (
         <Floating

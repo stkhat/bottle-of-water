@@ -13,7 +13,7 @@ test("page styles do not leak into the card", async ({ context }) => {
 test("the extension does not leak CSS into the page", async ({ context }) => {
   const page = await context.newPage();
   await page.goto("/hostile.html");
-  await expect(page.locator("lingo-page-card")).toHaveCount(1);
+  await expect(page.locator("lingo-article")).toHaveCount(1);
   await expect(page.locator("#page-text")).toHaveCSS("color", "rgb(255, 0, 0)");
   const injected = await page.evaluate(
     () => document.head.querySelectorAll("style, link[rel=stylesheet]").length,

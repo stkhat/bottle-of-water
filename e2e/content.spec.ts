@@ -33,7 +33,7 @@ test("no card appears on a Japanese page", async ({ context }) => {
   // Prove the extension is live first: the content script runs on the English page.
   const live = await context.newPage();
   await live.goto("/article-en.html");
-  await expect(live.locator("lingo-page-card")).toHaveCount(1);
+  await expect(live.locator("lingo-article")).toHaveCount(1);
 
   // The card is mounted asynchronously after the content script runs at document_idle,
   // so a plain count check right after goto could pass before the script even ran.
@@ -42,7 +42,7 @@ test("no card appears on a Japanese page", async ({ context }) => {
   const page = await context.newPage();
   await page.goto("/article-ja.html");
   await settle(page);
-  await expect(page.locator("lingo-page-card")).toHaveCount(0);
+  await expect(page.locator("lingo-article")).toHaveCount(0);
 });
 
 test("with New switched on, new words are highlighted", async ({
@@ -117,7 +117,7 @@ test("nothing runs on a host in neverRunOn", async ({
   const page = await context.newPage();
   await page.goto("http://127.0.0.1:4719/article-en.html");
   await settle(page);
-  await expect(page.locator("lingo-page-card")).toHaveCount(0);
+  await expect(page.locator("lingo-article")).toHaveCount(0);
   expect(await highlighted(page, "lingo-new")).toBeUndefined();
   expect(await page.evaluate(() => document.adoptedStyleSheets.length)).toBe(0);
 });

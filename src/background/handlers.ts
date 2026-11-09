@@ -84,7 +84,11 @@ export function createHandlers({
       const spans: Span[][] = blocks.map((block) =>
         classifier.classify(pack.tokenize(block), { terms, knownLevel }),
       );
-      return { spans, unsaved: unsavedKeys(spans.flat()) };
+      const all = spans.flat();
+      const saved = new Set(
+        all.filter((s) => terms.has(s.key)).map((s) => s.key),
+      );
+      return { spans, unsaved: unsavedKeys(all), saved: [...saved] };
     },
 
     async warmDictionary({ lang }) {
