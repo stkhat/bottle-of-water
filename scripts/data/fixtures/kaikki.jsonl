@@ -13,4 +13,6 @@
 {"word": "zzyzx", "lang_code": "en", "pos": "noun", "forms": [{"form": "zzyzxes", "tags": ["plural"]}], "sounds": [{"tags": ["US"], "ipa": "/ˈzaɪzɪks/"}]}
 {"word": "dough", "lang_code": "fro", "pos": "noun", "forms": [{"form": "doughe", "tags": ["plural"]}], "sounds": [{"tags": ["US"], "ipa": "/x/"}]}
 {"word": "the", "lang_code": "en", "pos": "article", "forms": [{"form": "thē", "tags": ["canonical"]}], "sounds": [{"tags": ["US", "stressed"], "ipa": "/ðiː/"}]}
+{"word": "we'll", "lang_code": "en", "pos": "adv", "forms": [{"form": "better", "tags": ["comparative"]}], "senses": [{"glosses": ["Misspelling of well."], "tags": ["alt-of", "misspelling"], "alt_of": [{"word": "well"}]}]}
+{"word": "i", "lang_code": "en", "pos": "character", "forms": [{"form": "is", "tags": ["plural"]}], "senses": [{"glosses": ["The ninth letter of the English alphabet."], "tags": ["letter", "lowercase"]}]}
 {"word": "the", "lang_code": "en", "pos": "adv"

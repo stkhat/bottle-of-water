@@ -16,6 +16,8 @@ const vocab = [
   "may",
   "monday",
   "the",
+  "we'll",
+  "i",
 ];
 
 describe("importKaikki", () => {
@@ -44,6 +46,10 @@ describe("importKaikki", () => {
     ]) {
       expect(result.lemmas).not.toHaveProperty(form);
     }
+  });
+  it("ignores the forms of entries that are only misspellings, and of letters", () => {
+    expect(result.lemmas.better).toEqual(["good", "well"]);
+    expect(result.lemmas).not.toHaveProperty("is");
   });
   it("ignores forms equal to the base, multi-word forms and bases outside the vocabulary", () => {
     for (const form of ["sheep", "more good", "zzyzxes", "figures of speech"]) {
@@ -80,7 +86,7 @@ describe("importKaikki", () => {
     expect(result.pos).not.toHaveProperty("zzyzx");
   });
   it("counts lines it cannot parse instead of failing", () => {
-    expect(result.stats).toEqual({ entries: 15, unparsable: 1 });
+    expect(result.stats).toEqual({ entries: 17, unparsable: 1 });
   });
 });
 

@@ -26,6 +26,8 @@ const IGNORED_TAGS = new Set([
   "pronunciation-spelling",
   "nonstandard",
 ]);
+// Entries whose forms are not inflections of a real word: letters and symbols.
+const NO_FORMS_POS = new Set(["character", "symbol"]);
 const US_TAGS = new Set(["General-American", "US"]);
 const POS_LABELS = {
   adj: "adjective",
@@ -56,6 +58,21 @@ function newBucket() {
   };
 }
 
+// An entry that is only a misspelling (or obsolete, dialectal…) of another word
+// does not give its forms to its headword ("we'll": misspelling of well → better).
+function hasOwnForms(entry) {
+  if (NO_FORMS_POS.has(entry.pos)) return false;
+  const senses = entry.senses ?? [];
+  return !(
+    senses.length > 0 &&
+    senses.every((sense) =>
+      (sense.tags ?? []).some(
+        (tag) => tag !== "alternative" && IGNORED_TAGS.has(tag),
+      ),
+    )
+  );
+}
+
 function addEntry(bucket, base, entry) {
   if (typeof entry.pos === "string") {
     const label = posLabel(entry.pos);
@@ -67,6 +84,7 @@ function addEntry(bucket, base, entry) {
     bucket.anyIpa ??= sound.ipa;
     if (sound.ipa.startsWith("/")) bucket.phonemicIpa ??= sound.ipa;
   }
+  if (!hasOwnForms(entry)) return;
   for (const { form, tags = [] } of entry.forms ?? []) {
     if (typeof form !== "string") continue;
     if (!tags.some((tag) => INFLECTION_TAGS.has(tag))) continue;
