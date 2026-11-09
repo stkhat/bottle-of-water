@@ -211,10 +211,12 @@ test("hovering a word shows its card; clicking it opens the dictionary window", 
     window.getByRole("heading", { name: "creativity" }),
   ).toBeVisible();
   await expect(window.getByText(/^In this video · \d+$/)).toBeVisible();
-  // The window does not cover the subtitle.
+  // The window does not cover the subtitle, and only 12px of the transcript.
   const win = (await window.boundingBox())!;
   const sub = (await inVideo(page).boundingBox())!;
   expect(win.y + win.height).toBeLessThanOrEqual(sub.y);
+  const side = (await transcript(page).boundingBox())!;
+  expect(win.x + win.width).toBeCloseTo(side.x + 12, 0);
 
   // A line of "In this video" seeks there.
   await page.evaluate(() => {

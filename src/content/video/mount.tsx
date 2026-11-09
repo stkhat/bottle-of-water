@@ -80,10 +80,14 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   }
 
   /** The player buttons' host, once made. */
-  const made: { buttons?: HTMLElement } = {};
+  const made: { buttons?: HTMLElement; transcript?: HTMLElement } = {};
   const geometry: VideoGeometry = {
     player: () => boxOf(adapter.playerElement()),
     buttons: () => boxOf(made.buttons?.isConnected ? made.buttons : null),
+    transcript: () => {
+      const box = boxOf(made.transcript?.isConnected ? made.transcript : null);
+      return box && box.bottom > box.top ? box : null;
+    },
   };
 
   part(
@@ -104,7 +108,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     },
     <BelowVideoUi app={app} />,
   );
-  part(
+  made.transcript = part(
     "lingo-transcript",
     // Clickable inside a frame that lets clicks through to the video (Netflix).
     "display: block; margin-bottom: 12px; pointer-events: auto;",

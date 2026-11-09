@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page as browserPage, userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../core/settings";
 import type { Cue } from "../../core/subtitles/types";
@@ -358,6 +358,54 @@ describe("mountVideoUi", () => {
       .getBoundingClientRect();
     expect(win.bottom).toBeLessThanOrEqual(subtitle.top);
     expect(inside("lingo-video")!.textContent).toContain("In this video · 1");
+  });
+
+  it("ends the dictionary window 12px into the transcript beside the video", async () => {
+    // YouTube's two columns (e2e/fixtures/youtube-watch.html) at 1400px wide.
+    await browserPage.viewport(1400, 900);
+    const columns = document.createElement("style");
+    columns.textContent = `
+      #columns { display: flex; gap: 16px; padding: 12px 16px; }
+      #primary { flex: 1; min-width: 0; }
+      #secondary { width: 385px; flex: none; }
+    `;
+    document.head.append(columns);
+    page.player.style.width = "";
+    page.player.style.height = "540px";
+    const { store } = mount();
+    await expect
+      .poll(() => inside("lingo-transcript")?.querySelector("aside"))
+      .not.toBeNull();
+    store.set({
+      panel: {
+        ref: { cue: 0, span: 1 },
+        card: {
+          key: "tangy",
+          kind: "word",
+          head: "tangy",
+          status: "learning",
+          termId: "en:tangy",
+          senses: [],
+          elsewhere: [],
+        },
+        here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+        dictionaries: [],
+        opened: 1,
+      },
+    });
+    await expect
+      .poll(() => inside("lingo-video")?.querySelector("aside"))
+      .not.toBeNull();
+    const win = inside("lingo-video")!
+      .querySelector("aside")!
+      .getBoundingClientRect();
+    const transcript = host("lingo-transcript").getBoundingClientRect();
+    const player = page.player.getBoundingClientRect();
+    expect(transcript.left).toBeGreaterThan(player.right);
+    expect(win.right).toBeCloseTo(transcript.left + 12, 0);
+    expect(win.left).toBeLessThan(player.right);
+    columns.remove();
+    await browserPage.viewport(414, 896);
   });
 
   it("shows the end card when the video ends", async () => {

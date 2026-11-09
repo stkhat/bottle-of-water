@@ -12,18 +12,37 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 /**
- * Where the dictionary window opens, from the player's box (mock Main). With the
- * subtitle in the video it sits over the video's right edge and ends above the
- * subtitle (60% down the video); with the subtitle below, it is taller.
+ * How far the window's right edge goes past the transcript's left edge (mock Main:
+ * the window ends at 1100, the transcript starts at 1088). With the subtitle below the
+ * video the window is taller and ends 28px before the transcript instead.
+ */
+const INTO_TRANSCRIPT = { inVideo: 12, belowVideo: -28 };
+
+/** The transcript is beside the video: to its right and level with it. */
+const beside = (player: Box, transcript: Box) =>
+  transcript.left >= player.left + (player.right - player.left) / 2 &&
+  transcript.top < player.bottom;
+
+/**
+ * Where the dictionary window opens (mock Main). It sits over the right part of the
+ * video, its right edge 12px into the transcript beside the video (at the video's right
+ * edge without one), and ends above the subtitle in the video (60% down the video);
+ * with the subtitle below the video, it is taller and stops short of the transcript.
  */
 export function dictionaryFrame(
   player: Box,
   position: Settings["subtitlePosition"],
   viewport: { width: number; height: number },
+  transcript?: Box | null,
 ): { left: number; top: number; height: number } {
   const inVideo = position === "inVideo";
+  const into = INTO_TRANSCRIPT[position];
+  const right =
+    transcript && beside(player, transcript)
+      ? transcript.left + into
+      : player.right + into - INTO_TRANSCRIPT.inVideo;
   const left = clamp(
-    player.right - (inVideo ? 164 : 204),
+    right - WINDOW_WIDTH,
     EDGE,
     viewport.width - WINDOW_WIDTH - EDGE,
   );

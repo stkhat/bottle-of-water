@@ -44,7 +44,7 @@ Development pair: learning language = English, native language = Japanese, sites
 
 ### Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
-  - Video: a window over the page (when subtitles are inside the video, placed so it does not cover them)
+  - Video: a window over the right part of the video, its right edge just past the transcript's left edge (at the video's right edge without a transcript), so it covers almost none of the transcript; when subtitles are inside the video, placed so it does not cover them
   - Article: a panel floating on the right side of the screen
 - Contents
   - Headword, kind, pronunciation playback (`speechSynthesis`), **IPA**, notes, short translation

@@ -20,6 +20,8 @@ export interface VideoGeometry {
   player(): Box | null;
   /** The L and ^ buttons. */
   buttons(): Box | null;
+  /** Lingo's transcript, while it shows. */
+  transcript(): Box | null;
 }
 
 /** Sizes the UI follows. */
@@ -206,7 +208,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
     const player = geometry.player();
     const viewport = { width: innerWidth, height: innerHeight };
     return player
-      ? dictionaryFrame(player, position, viewport)
+      ? dictionaryFrame(player, position, viewport, geometry.transcript())
       : { left: viewport.width - 376, top: 64, height: 400 };
   }, [panel?.opened]);
   if (!showing(state) || state.fullscreen) return null;
