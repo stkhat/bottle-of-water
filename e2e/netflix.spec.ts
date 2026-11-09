@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BrowserContext, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { cueAt } from "../src/core/subtitles/cues";
+import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseTtml } from "../src/core/subtitles/ttml";
 import {
@@ -34,9 +34,11 @@ const LINE_INDEX = EN.findIndex((c) => flat(c.text) === LINE);
 const LINE_CUE = EN[LINE_INDEX]!;
 /** What the subtitle shows under it: the Japanese line playing at that time. */
 const LINE_JA = cueAt(JA, LINE_CUE.startMs)!.text.replaceAll("\n", "");
+/** The transcript's cards are sentences (two cues of the fixture make one). */
+const CARDS = sentenceCards(EN).cards;
 /** The card whose translation joins two Japanese lines' worth of English. */
 const PAIR_INDEX = 1;
-const PAIR_JA = alignByOverlap(EN, JA, { lang: "ja" })[PAIR_INDEX]!;
+const PAIR_JA = alignByOverlap(CARDS, JA, { lang: "ja" })[PAIR_INDEX]!;
 
 const METADATA = {
   title: "Lingo Test Show",
@@ -157,7 +159,9 @@ test("the subtitle shows the playing line with its Japanese line; Netflix's own 
   // (two English lines share one Japanese line; it goes to the second).
   expect(PAIR_JA).toContain("創造性");
   await expect(card(page, LINE)).toHaveAttribute("aria-current", "true");
-  await expect(card(page, flat(EN[PAIR_INDEX]!.text))).toContainText(PAIR_JA);
+  await expect(card(page, flat(CARDS[PAIR_INDEX]!.text))).toContainText(
+    PAIR_JA,
+  );
   // At the right of the player, clear of Netflix's control bar.
   const box = (await transcript(page).boundingBox())!;
   const viewport = page.viewportSize()!;
@@ -272,7 +276,7 @@ test("the next episode gets its own subtitles", async ({
     { movieId: "80000002", manifest: JSON.stringify(manifest) },
   );
   // Without a Japanese track, the fixture's Japanese lines are gone.
-  await expect(card(page, flat(EN[PAIR_INDEX]!.text))).not.toContainText(
+  await expect(card(page, flat(CARDS[PAIR_INDEX]!.text))).not.toContainText(
     PAIR_JA,
   );
   await card(page, LINE).click();

@@ -39,9 +39,17 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     status: "ready",
     enabled: true,
     cues: CUES,
+    lines: CUES.map((cue, card) => ({
+      startMs: cue.startMs,
+      endMs: cue.endMs,
+      card,
+      start: 0,
+      end: cue.text.length,
+    })),
     spans: SPANS,
     translationSource: "siteTrack",
     translations: ["イーストはぴりっとした匂い。", "生地をこねる。"],
+    line: 0,
     current: 0,
     card: 0,
     subtitleTranslation: "イーストはぴりっとした匂い。",
@@ -253,6 +261,30 @@ describe("mountVideoUi", () => {
     );
     tangy.click();
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
+  });
+
+  it("shows only the playing line's part of a sentence card, with the card's word refs", async () => {
+    // "The yeast smells" and "tangy." are two lines of one card.
+    const { spy } = mount(
+      readyState({
+        lines: [
+          { startMs: 0, endMs: 500, card: 0, start: 0, end: 16 },
+          { startMs: 500, endMs: 1000, card: 0, start: 17, end: 23 },
+          { startMs: 1000, endMs: 2000, card: 1, start: 0, end: 16 },
+        ],
+        line: 1,
+        panel: null,
+      }),
+    );
+    const subtitle = () =>
+      inside("lingo-video-player")?.querySelector("[role=region] p");
+    await expect.poll(() => subtitle()?.textContent).toBe("tangy.");
+    const tangy = subtitle()!.querySelector<HTMLElement>("[data-span]")!;
+    expect(tangy.textContent).toBe("tangy");
+    tangy.click();
+    expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
+    // The whole sentence in the transcript.
+    expect(text("lingo-transcript")).toContain("The yeast smells tangy.");
   });
 
   it("keeps the player buttons in the bar when the site rebuilds its controls", async () => {

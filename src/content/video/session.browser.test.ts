@@ -285,6 +285,83 @@ describe("a video with subtitles", () => {
   });
 });
 
+describe("sentence cards", () => {
+  /** A sentence that goes on in the next cue, then one of its own. */
+  const SPLIT: Cue[] = [
+    { startMs: 0, endMs: 1000, text: "The yeast smells" },
+    { startMs: 1000, endMs: 2000, text: "tangy." },
+    { startMs: 2500, endMs: 3500, text: "Knead the dough." },
+  ];
+  const SPLIT_JA: Cue[] = [
+    { startMs: 0, endMs: 1500, text: "イーストは" },
+    { startMs: 1500, endMs: 2000, text: "ぴりっとした匂い。" },
+    { startMs: 2500, endMs: 3500, text: "生地をこねる。" },
+  ];
+
+  it("makes a card of each sentence, with the translated lines it overlaps", async () => {
+    const { state, bg } = await start({
+      vid1: captionsOf(SPLIT, {
+        source: "siteTrack",
+        lang: "ja",
+        cues: SPLIT_JA,
+      }),
+    });
+    await ready(state);
+    expect(state().cues).toEqual([
+      { startMs: 0, endMs: 2000, text: "The yeast smells tangy." },
+      { startMs: 2500, endMs: 3500, text: "Knead the dough." },
+    ]);
+    expect(state().translations).toEqual([
+      "イーストはぴりっとした匂い。",
+      "生地をこねる。",
+    ]);
+    // Each cue is still a line in the video: a part of its card.
+    expect(state().lines).toEqual([
+      { startMs: 0, endMs: 1000, card: 0, start: 0, end: 16 },
+      { startMs: 1000, endMs: 2000, card: 0, start: 17, end: 23 },
+      { startMs: 2500, endMs: 3500, card: 1, start: 0, end: 16 },
+    ]);
+    await expect.poll(() => bg.sent("analyze").length).toBe(1);
+    expect(bg.sent("analyze")[0]!.blocks).toEqual([
+      "The yeast smells tangy.",
+      "Knead the dough.",
+    ]);
+  });
+
+  it("shows each cue in the video with the translated line playing at its time", async () => {
+    const { state, video } = await start({
+      vid1: captionsOf(SPLIT, {
+        source: "siteTrack",
+        lang: "ja",
+        cues: SPLIT_JA,
+      }),
+    });
+    await ready(state);
+    await expect.poll(() => state().line).toBe(0);
+    expect(state()).toMatchObject({
+      current: 0,
+      card: 0,
+      subtitleTranslation: "イーストは",
+    });
+
+    await seekTo(video, 1.7);
+    await expect.poll(() => state().line).toBe(1);
+    expect(state()).toMatchObject({
+      current: 0,
+      card: 0,
+      subtitleTranslation: "ぴりっとした匂い。",
+    });
+
+    await seekTo(video, 2.2);
+    await expect.poll(() => state().line).toBe(-1);
+    expect(state()).toMatchObject({ current: -1, card: 0 });
+
+    await seekTo(video, 2.8);
+    await expect.poll(() => state().line).toBe(2);
+    expect(state()).toMatchObject({ current: 1, card: 1 });
+  });
+});
+
 describe("the end of the video", () => {
   it("offers to save every unsaved new word, and undoes it", async () => {
     const { state, video, session } = await start();

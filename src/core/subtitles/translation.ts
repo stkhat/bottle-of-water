@@ -1,3 +1,4 @@
+import { isSoundLabel } from "./cues";
 import type { Cue, Track } from "./types";
 
 /**
@@ -54,7 +55,8 @@ export interface AlignOptions {
 /**
  * Translated text for each original cue (transcript cards), in the same order as `original`.
  * Each translated cue goes to the original cue it overlaps most in time (ties go to the
- * earlier one); several landing on one cue are joined in time order. Translated cues that
+ * earlier one), except that a spoken line goes to a sound label such as "(Laughter)" only
+ * when it overlaps nothing else; several landing on one cue are joined in time order. Translated cues that
  * overlap no original cue are dropped, and line breaks are flattened. Original cues that get
  * nothing map to "". When every translated cue starts exactly where an original cue starts
  * (YouTube auto-translation keeps the original's timing), cues are mapped one to one.
@@ -102,7 +104,10 @@ function firstStartingAtOrAfter(cues: readonly Cue[], ms: number): number {
   return lo;
 }
 
-/** Index of the original cue that overlaps `t` the most, or -1 when none does. */
+/**
+ * Index of the original cue that overlaps `t` the most, or -1 when none does. A spoken
+ * line skips sound labels when it overlaps a spoken cue too.
+ */
 function mostOverlapping(
   original: readonly Cue[],
   t: Cue,
@@ -111,15 +116,15 @@ function mostOverlapping(
   // Only cues starting in (t.start - longest, t.end) can overlap t.
   const from = firstStartingAtOrAfter(original, t.startMs - longestMs);
   const to = firstStartingAtOrAfter(original, t.endMs);
-  let best = -1;
-  let bestOverlap = 0;
+  const spokenLine = !isSoundLabel(t.text);
+  const best = { any: -1, anyOverlap: 0, spoken: -1, spokenOverlap: 0 };
   for (let i = from; i < to; i++) {
     const o = original[i] as Cue;
     const overlap = Math.min(o.endMs, t.endMs) - Math.max(o.startMs, t.startMs);
-    if (overlap > bestOverlap) {
-      bestOverlap = overlap;
-      best = i;
-    }
+    if (overlap > best.anyOverlap)
+      Object.assign(best, { any: i, anyOverlap: overlap });
+    if (spokenLine && overlap > best.spokenOverlap && !isSoundLabel(o.text))
+      Object.assign(best, { spoken: i, spokenOverlap: overlap });
   }
-  return best;
+  return best.spoken >= 0 ? best.spoken : best.any;
 }

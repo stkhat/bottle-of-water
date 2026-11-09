@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BrowserContext, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { cueAt } from "../src/core/subtitles/cues";
+import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
 import {
@@ -30,8 +30,11 @@ const LINE_INDEX = EN.findIndex((c) => flat(c.text) === LINE);
 const LINE_CUE = EN[LINE_INDEX]!;
 /** What the subtitle shows under it: the Japanese line playing at that time. */
 const LINE_JA = cueAt(JA, LINE_CUE.startMs)!.text.replaceAll("\n", "");
-/** What its transcript card shows: the Japanese line it overlaps most. */
-const CARD_JA = alignByOverlap(EN, JA, { lang: "ja" })[LINE_INDEX]!;
+/** The transcript's cards are sentences; LINE starts one that goes on for two more cues. */
+const CARDS = sentenceCards(EN).cards;
+const CARD_INDEX = CARDS.findIndex((c) => flat(c.text).startsWith(LINE));
+/** What its transcript card shows: the Japanese lines that overlap it most. */
+const CARD_JA = alignByOverlap(CARDS, JA, { lang: "ja" })[CARD_INDEX]!;
 
 /**
  * Serves youtube.com from fixtures: the watch-page skeleton (with Trusted Types

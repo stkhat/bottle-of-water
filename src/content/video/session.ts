@@ -10,6 +10,9 @@ import {
   cueIndexAt,
   lastStartedIndex,
   mergeAsrFragments,
+  oneLinePerCard,
+  sentenceCards,
+  type SubtitleLine,
 } from "../../core/subtitles/cues";
 import {
   alignByOverlap,
@@ -106,14 +109,21 @@ export interface VideoState {
   status: "idle" | "loading" | "ready" | "unavailable";
   /** Lingo is on for this video (the L button). */
   enabled: boolean;
-  /** The original subtitles (auto-generated ones merged into sentences). */
+  /**
+   * The transcript's cards: the original subtitles as sentences (cues that go on joined,
+   * auto-generated fragments merged). Spans, translations and word refs are per card.
+   */
   cues: Cue[];
+  /** The lines the video shows, each a part of a card (one per original cue). */
+  lines: SubtitleLine[];
   /** Spans of each cue's text; null until the cue is classified. */
   spans: (Span[] | null)[];
   translationSource: TranslationChoice["source"];
   /** The translation of each cue, for the transcript ("" when none). */
   translations: string[];
-  /** The cue playing; -1 between cues, during ads and while off. */
+  /** The line playing; -1 between lines, during ads and while off. */
+  line: number;
+  /** The card of the line playing; -1 between lines, during ads and while off. */
   current: number;
   /** The transcript's card: the cue that started last; -1 before the first, during ads and while off. */
   card: number;
@@ -221,9 +231,11 @@ function fresh(
     status: videoId ? "loading" : "idle",
     enabled: true,
     cues: [],
+    lines: [],
     spans: [],
     translationSource: "none",
     translations: [],
+    line: -1,
     current: -1,
     card: -1,
     subtitleTranslation: "",
@@ -337,11 +349,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       return;
     }
     const asr = captions.track.kind === "asr";
-    const cues = asr
-      ? mergeAsrFragments(captions.cues, {
-          joiner: joinerFor(captions.track.lang),
-        })
-      : captions.cues;
+    const joiner = joinerFor(captions.track.lang);
+    const { cards: cues, lines } = asr
+      ? oneLinePerCard(mergeAsrFragments(captions.cues, { joiner }))
+      : sentenceCards(captions.cues, { joiner });
     const { translation } = captions;
     const site =
       translation.source === "siteTrack" ||
@@ -352,6 +363,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     store.set({
       status: "ready",
       cues,
+      lines,
       spans: cues.map(() => null),
       translationSource: translation.source,
       translations: site
@@ -407,7 +419,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const state = store.get();
     const ms = video.currentTime * 1000;
     const following = state.enabled && !adapter.adShowing();
-    const current = following ? cueIndexAt(state.cues, ms) : -1;
+    const line = following ? cueIndexAt(state.lines, ms) : -1;
+    const current = state.lines[line]?.card ?? -1;
     const card = following ? lastStartedIndex(state.cues, ms) : -1;
     let subtitleTranslation = "";
     if (following)
@@ -419,13 +432,13 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
           ? (state.translations[current] ?? "")
           : "";
     if (
-      current !== state.current ||
+      line !== state.line ||
       card !== state.card ||
       subtitleTranslation !== state.subtitleTranslation
     ) {
       // The word under the pointer went with its line.
-      if (current !== state.current && !onCard) hover.cancel();
-      store.set({ current, card, subtitleTranslation });
+      if (line !== state.line && !onCard) hover.cancel();
+      store.set({ line, current, card, subtitleTranslation });
     }
     if (current >= 0 && !w.played.has(current)) {
       w.played.add(current);

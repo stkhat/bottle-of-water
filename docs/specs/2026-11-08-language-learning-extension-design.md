@@ -69,6 +69,7 @@ Development pair: learning language = English, native language = Japanese, sites
     - "Open all settings" (settings page)
 - Transcript
   - Each card shows the original with the translation below it. The playing card is emphasized and auto-scrolled; clicking a card seeks there
+  - Each card is a **sentence**: subtitle cues that do not end a sentence (. ? ! … ♪, maybe before a closing quote) are joined with the next cue when it starts less than 1.5 s later, up to 3 cues and about 25 words. Sound labels ("[MUSIC]") stay alone; a cue starting with a speaker's dash ("- …") starts a card, and a cue with two speakers' lines ends one. The subtitle in the video still shows one cue at a time
   - Header: "Highlight" category toggles and the transcript translation switch
 - No instructions text under the video
 - **When the video ends**, a "Video finished" card appears top right (same content as "Save all" below)
@@ -177,7 +178,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - Pick one per video and never switch midway. When a video uses the site's translation, lines without a translation are not filled in by the built-in translator (meanings would overlap and the phrasing would clash)
 - **Timing**: a site's native-language track has different line breaks and timestamps from the original (especially Japanese subtitles on Netflix)
   - Subtitle translation: look up the translation track separately by playback position and show the translation on screen at that moment as is
-  - Transcript cards: assign each translated cue to the original card it overlaps most in time; join them if several land on one card
+  - Transcript cards: assign each translated cue to the card (sentence) it overlaps most in time (ties to the earlier card); join them if several land on one card. A spoken line goes to a sound-label card only when it overlaps no other card
   - YouTube's auto-translation comes back with the same breaks as the original, so map it one to one
 - The occurrence's `translation` stores the translation shown at that time
 - Articles have no site translation, so only the built-in translator is used

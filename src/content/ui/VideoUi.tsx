@@ -44,31 +44,68 @@ const boxOf = (element: Element): Box => {
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 };
 
+/**
+ * The playing line: its part of the card's text, and the card's spans in it (cut to the
+ * line), with their indices in the card's spans.
+ */
+function playingLine(state: VideoState) {
+  const line = state.lines[state.line];
+  const cue = line ? state.cues[line.card] : undefined;
+  if (!line || !cue) return undefined;
+  const spans = state.spans[line.card] ?? null;
+  const shown = (spans ?? []).flatMap((span, index) =>
+    span.end > line.start && span.start < line.end
+      ? [
+          {
+            index,
+            span: {
+              ...span,
+              start: Math.max(span.start, line.start) - line.start,
+              end: Math.min(span.end, line.end) - line.start,
+            },
+          },
+        ]
+      : [],
+  );
+  return {
+    card: line.card,
+    text: cue.text.slice(line.start, line.end),
+    spans: spans && shown.map((each) => each.span),
+    index: shown.map((each) => each.index),
+  };
+}
+
 function Subtitle(props: {
   app: VideoApp;
   state: VideoState;
   variant: "inVideo" | "belowVideo";
 }) {
   const { app, state } = props;
-  const cue = state.cues[state.current];
+  const line = playingLine(state);
   const { panel, settings } = state;
+  const ref = (span: number) => ({
+    cue: line?.card ?? -1,
+    span: line?.index[span] ?? -1,
+  });
+  const selected =
+    line && panel?.ref.cue === line.card
+      ? line.index.indexOf(panel.ref.span)
+      : -1;
   return (
     <SubtitleOverlay
       variant={props.variant}
       // Below the video the box stays between lines, so the page does not jump.
-      text={cue?.text ?? " "}
-      spans={cue ? (state.spans[state.current] ?? null) : []}
+      text={line?.text ?? " "}
+      spans={line ? line.spans : []}
       highlight={settings.highlight}
-      translation={cue ? state.subtitleTranslation : ""}
+      translation={line ? state.subtitleTranslation : ""}
       showTranslation={settings.subtitleTranslation}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
-      selected={panel?.ref.cue === state.current ? panel.ref.span : null}
-      onWordEnter={(span, element) =>
-        app.enterWord({ cue: state.current, span }, boxOf(element))
-      }
+      selected={selected >= 0 ? selected : null}
+      onWordEnter={(span, element) => app.enterWord(ref(span), boxOf(element))}
       onWordLeave={app.leaveWord}
-      onWordClick={(span) => app.clickWord({ cue: state.current, span })}
+      onWordClick={(span) => app.clickWord(ref(span))}
     />
   );
 }
@@ -82,7 +119,7 @@ export function InPlayerUi(props: { app: VideoApp; geometry: VideoGeometry }) {
     showing(state) &&
     !state.fullscreen &&
     settings.subtitlePosition === "inVideo" &&
-    state.current >= 0;
+    state.line >= 0;
   const player = geometry.player();
   const buttons = geometry.buttons();
   const menu =
