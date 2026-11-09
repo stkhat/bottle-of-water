@@ -7,6 +7,7 @@ import { ipaFor } from "./ipa";
 import { lemmatize } from "./lemmatize";
 import { lookup } from "./lookup";
 import type { DictPack, FreqPack, IpaPack, LemmaPack, PosPack } from "./types";
+import { vocabularyOf } from "./vocabulary";
 
 const packs = join(import.meta.dirname, "..", "..", "..", "public", "packs");
 const read = <T>(path: string): T =>
@@ -17,7 +18,7 @@ const lemmas = read<LemmaPack>("en/lemmas.json");
 const ipa = read<IpaPack>("en/ipa.json");
 const pos = read<PosPack>("en/pos.json");
 const freq = read<FreqPack>("en/freq.json");
-const vocab = new Set(Object.keys(dict).filter((key) => !key.includes(" ")));
+const vocab = vocabularyOf(dict);
 
 describe("generated packs", () => {
   it("lemmatize inflected forms", () => {
