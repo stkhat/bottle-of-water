@@ -13,7 +13,7 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 - Screens without a mock (word list page, per-video word list tab, fullscreen, past-occurrence search) get mock artboards first; they are implemented after the user reviews them
 
 ## Open / not made yet
-- Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search (in progress, awaiting review)
+- Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search: added 2026-11-09, **awaiting the user's review** (those screens are built only after it)
 - How the Language Reactor extension looks on youtube.com is unchecked (only the web player was checked)
 - IPA comes from Wiktionary (kaikki); coverage not measured yet
 - How many words fit in `storage.sync` after compression (estimated 15,000–20,000) is not measured with real data
