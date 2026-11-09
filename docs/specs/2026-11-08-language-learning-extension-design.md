@@ -116,9 +116,19 @@ Development pair: learning language = English, native language = Japanese, sites
     - "Your own cloud storage" shows Coming later
   - **About**: version, data license notices
 
-### Word list page (a page inside the extension)
-- Filtering, changing status, list of sources and occurrences (the mock is not made yet)
-- JSON export/import lives in Settings → Sync and backup
+### Word list page (a page inside the extension; mock `Word list page`, awaiting review)
+- Opens in a new tab from "Word list" in the toolbar popup
+- Header: Lingo, "Word list", language pair, **Export / Import** (the same JSON as in Settings)
+- Filters: search (words and meanings), status (All / Learning / Known), kind (All / Words / Phrases), sort (Recently seen / A–Z / Most seen)
+- List columns: Word (with a Phrase tag), Meaning, Status, Seen (number of occurrences), Last seen
+- Selecting a row shows a details panel on the right: headword, kind, pronunciation playback, IPA, short translation, status buttons (Learning / Known / Remove), and "Where you saw it · N" (each occurrence with its source, time or date, the sentence, and a link back to the spot; the occurrence where it was saved is marked "Saved here")
+
+### Phase 2 screens (mock, awaiting review)
+- **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
+- **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows only the translation switch and "Open all settings"
+- **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
+  - The dictionary window shows "Seen elsewhere · N" for unsaved words too, from the local sentence history. When the word is saved, those occurrences become part of its history
+  - Settings gets a **Sentence history** section: "Keep sentence history" switch (on by default; never synced; Never run on sites are not kept), space used with a bar (cap 50 MB; the oldest pages are removed first), the number of pages and videos, and "Clear" (saved words and their sources stay)
 
 ## Architecture (MV3 / TypeScript / WXT + Preact, UI inside Shadow DOM)
 
