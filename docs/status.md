@@ -5,9 +5,12 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 ## Where we are
 - Design (brainstorm) and the UI mock are done
 - Roadmap for phase 1 + phase 2: [plans/2026-11-09-roadmap.md](plans/2026-11-09-roadmap.md)
-- M1 dev environment is built (WXT scaffold, lint, unit/browser/manifest/E2E tests, CLAUDE.md check, CI workflows); CI has not run on GitHub yet
+- M1 dev environment: PR #1 (`chore/dev-env`), CI green on Linux / macOS / Windows
 - M0 done (spec in English, phase changes, mock artboards for the missing screens — awaiting review)
 - M2 data import is built on `feat/phase-1` (packs in `public/packs/`, readers in `src/core/packs/`); see "Data" below
+- M3 foundation is built on `feat/phase-1`: settings, BrowserEnv, tokenizer, language pack, dictionary, classifier, TermStore (IndexedDB), sync codec + BrowserSyncBackend, typed messaging and the background wiring
+- Current milestone: M4 (shared lookup UI parts)
+- Performance (E2E, built extension): the first `analyze` after a service-worker start loads ~10 MB of packs in ~240 ms (up to ~450 ms under load); later calls take 5–35 ms. Possible later optimizations: ship the vocabulary separately from `dict.json`; analyze only when highlighting is on
 - Firefox build: `web-ext lint` warns that `data_collection_permissions` is missing from the manifest; add it before any Firefox release
 
 ## Decisions on 2026-11-09
