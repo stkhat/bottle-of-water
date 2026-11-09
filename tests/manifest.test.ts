@@ -100,3 +100,27 @@ describe("firefox-mv3 manifest specifics", () => {
     expect(m.background?.scripts).toBeDefined();
   });
 });
+
+// The self-reload for `npm run build:check` (src/background/self-reload.ts) is dev only.
+describe("check build", () => {
+  const backgroundOf = (dir: string) =>
+    readFileSync(`.output/${dir}/background.js`, "utf8");
+
+  test.each(["chrome-mv3", "firefox-mv3"])(
+    "%s (production) has no self-reload and no build id",
+    (dir) => {
+      expect(backgroundOf(dir)).not.toContain("build-id");
+      expect(existsSync(`.output/${dir}/build-id.txt`)).toBe(false);
+    },
+  );
+
+  test("npm run build:check writes the build id into .output/lingo-check", () => {
+    const path = ".output/lingo-check/build-id.txt";
+    if (!existsSync(path)) {
+      throw new Error(`${path} not found. Build first: npm run build:check`);
+    }
+    expect(readFileSync(path, "utf8")).toMatch(/^\d{4}-\d\d-\d\dT\S+ \S+\n$/);
+    expect(backgroundOf("lingo-check")).toContain("build-id.txt");
+    expect(readManifest("lingo-check").manifest_version).toBe(3);
+  });
+});

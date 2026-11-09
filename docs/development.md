@@ -21,6 +21,7 @@
 | `npm test` | unit tests |
 | `npm run test:browser` | browser-mode tests (set `VITEST_BROWSERS=chromium` to skip Firefox) |
 | `npm run build` / `npm run build:firefox` | build to `.output/chrome-mv3` / `.output/firefox-mv3` |
+| `npm run build:check` | self-reloading Chrome build in `.output/lingo-check` (see below) |
 | `npm run test:manifest` | check both built manifests |
 | `npm run test:e2e:build` | build, then run E2E |
 | `npm run zip` / `npm run zip:firefox` | store-ready zips in `.output/` |
@@ -29,6 +30,21 @@
 ## How E2E loads the extension
 `e2e/fixtures.ts` launches Playwright's bundled Chromium (`channel: "chromium"`) with `--load-extension` pointing at `.output/chrome-mv3`. Stable Chrome 137+ ignores `--load-extension`, so it cannot be used. The extension id is read from the service worker URL. Pages come from a static server (`e2e/serve.mjs`).
 
+## Checking in your own Chrome
+`npm run build:check` builds Chrome in mode `check` (to `.output/chrome-mv3-check`), copies it into `.output/lingo-check` (overwriting changed files, deleting ones the build no longer has) and writes `build-id.txt` (time and commit) last.
+
+1. Once: `chrome://extensions` → Developer mode → Load unpacked → `.output/lingo-check`.
+2. After that, run `npm run build:check`; the extension reloads itself (no click on reload).
+
+How: in mode `check` only, the service worker reads `build-id.txt` every 2 s while it runs and calls `runtime.reload()` when it changes. It also checks once each time the worker starts, against the id stored in `storage.session` by the previous start, so a build copied in while the worker slept is picked up when it wakes. Other builds leave this code out (`npm run test:manifest` checks it).
+
+Limits:
+- The worker sleeps after about 30 s without events, and then nothing polls. The reload happens on its next start: open a YouTube or Netflix page, or the popup.
+- Open pages keep the old content scripts until they are reloaded.
+- The folder loaded before this change has no self-reload: click reload on it once.
+- A build that breaks the service worker cannot reload itself again: fix it and click reload.
+- Check builds include WXT's debug logging (`[wxt]` in the console).
+
 ## Checking the Firefox build
 ```
 npm run build:firefox
@@ -36,7 +52,7 @@ npx web-ext lint -s .output/firefox-mv3
 ```
 
 ## CI/CD
-- `ci.yml` (push to main, pull requests): `check` (typecheck, lint, format, CLAUDE.md limit); `test` on Linux, macOS and Windows (unit, browser on Chromium + Firefox, both builds, manifest, E2E; reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`).
+- `ci.yml` (push to main, pull requests): `check` (typecheck, lint, format, CLAUDE.md limit); `test` on Linux, macOS and Windows (unit, browser on Chromium + Firefox, both builds and the check build, manifest, E2E; reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`).
 - `release.yml` (tag `v*` or manual run): verifies the tag equals the `package.json` version, builds both zips, and for tags creates a GitHub release with the zips attached.
 - `mutation.yml`: weekly (Monday 03:00 UTC) and manual Stryker run; uploads `reports/mutation`.
 - `dependabot.yml`: weekly updates for npm and GitHub Actions.

@@ -16,7 +16,7 @@
 | --- | --- | --- | --- |
 | Unit (logic, `fakeBrowser`) | Vitest, project `unit` (Node) | `src/**/*.test.ts`, `scripts/**/*.test.ts` | `npm test` |
 | DOM / components | Vitest Browser Mode, project `browser` (Chromium + Firefox) | `src/**/*.browser.test.{ts,tsx}` | `npm run test:browser` |
-| Built manifests | Vitest, project `manifest` | `tests/manifest.test.ts` (needs `npm run build` and `npm run build:firefox`) | `npm run test:manifest` |
+| Built manifests | Vitest, project `manifest` | `tests/manifest.test.ts` (needs `npm run build`, `npm run build:firefox` and `npm run build:check`) | `npm run test:manifest` |
 | E2E with the built extension | Playwright (Chromium) | `e2e/*.spec.ts` | `npm run test:e2e:build` |
 | Mutation (report only) | Stryker | `stryker.config.json`, unit project only | `npm run test:mutation` |
 

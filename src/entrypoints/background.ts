@@ -4,6 +4,7 @@ import { createHandlers } from "../background/handlers";
 import { createLanguageResources } from "../background/language-resources";
 import { loadPack } from "../background/packs";
 import { getSettings, setSettings } from "../background/settings-store";
+import { watchBuild } from "../background/self-reload";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import { createTermStore } from "../background/term-store";
 import { createBrowserEnv } from "../core/browser-env";
@@ -34,4 +35,9 @@ export default defineBackground(() => {
   });
 
   sync.start().catch((error: unknown) => console.error(error));
+
+  // `npm run build:check` only: reload when a new build is copied in. The mode is a
+  // constant at build time, so other builds leave this (and self-reload.ts) out.
+  if (import.meta.env.MODE === "check")
+    watchBuild().catch((error: unknown) => console.error(error));
 });
