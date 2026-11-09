@@ -326,7 +326,7 @@ No outright blocker. Decisions and requirements:
 - Browser sync only stores locally when the user is not signed in, and the extension cannot reliably tell. JSON export is the only safeguard for users without sync
 - Data licenses: Wiktionary-derived data is CC BY-SA, EJDict-hand is public domain (Tatoeba, phase 3, is CC BY)
 - Netflix terms of use (stay within techniques equivalent to LR's)
-- Fetching YouTube subtitles may need a token added by the player. Whether the extension can additionally fetch the auto-translation (`tlang`) or the Japanese track is to be verified (if not, fall back to the built-in translator)
+- Fetching YouTube subtitles needs the token the player adds (`pot`, bound to the video); a plain fetch returns an empty body. Checked 2026-11-10 ([notes](../notes/youtube-captions.md)): once the player has made one timedtext request for the video, the extension can fetch the Japanese track and the auto-translation (`tlang`) by reusing that request's URL. If YouTube stops allowing this, ask the player for each track instead, or fall back to the built-in translator. Automated browsers (Playwright) get empty captions even from the player, so tests use recorded fixtures
 
 ## How to verify (during implementation)
 - Vitest: segmentation and base forms, classification, phrase matching, counting unsaved words, save all and Undo, packing/splitting/merging sync data, parsing YouTube json3 and Netflix TTML, choosing a translation and assigning by time overlap (fixtures)
