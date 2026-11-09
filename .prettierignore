@@ -13,3 +13,4 @@ docs
 CLAUDE.md
 .vitest
 e2e/pages
+public/packs

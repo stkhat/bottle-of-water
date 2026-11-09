@@ -15,6 +15,7 @@ export default tseslint.config(
       "reports",
       "e2e/pages",
       "data/raw",
+      "public/packs",
       ".stryker-tmp",
       ".vitest",
     ],
