@@ -18,6 +18,9 @@ const vocab = [
   "the",
   "we'll",
   "i",
+  "look",
+  "my",
+  "would",
 ];
 
 describe("importKaikki", () => {
@@ -74,6 +77,14 @@ describe("importKaikki", () => {
     expect(result.ipa.ferment).toBe("/fɚˈmɛnt/");
     expect(result.ipa.the).toBe("/ðiː/");
   });
+  it("falls back to an IPA without accent tags or notes", () => {
+    expect(result.ipa.look).toBe("/lʊk/");
+    expect(result.ipa.well).toBe("/wɛɫ/");
+  });
+  it("accepts a stressed or strong form in the fallback, but not a weak one", () => {
+    expect(result.ipa.my).toBe("/maɪ/");
+    expect(result.ipa.would).toBe("/wʊd/");
+  });
   it("leaves out words with only a non-US IPA", () => {
     expect(result.ipa).not.toHaveProperty("colour");
     expect(result.ipa).not.toHaveProperty("may");
@@ -86,7 +97,7 @@ describe("importKaikki", () => {
     expect(result.pos).not.toHaveProperty("zzyzx");
   });
   it("counts lines it cannot parse instead of failing", () => {
-    expect(result.stats).toEqual({ entries: 17, unparsable: 1 });
+    expect(result.stats).toEqual({ entries: 20, unparsable: 1 });
   });
 });
 

@@ -73,6 +73,13 @@ function hasOwnForms(entry) {
   );
 }
 
+// No accent tag: the pronunciation shared by all accents, US included. A stressed or
+// strong form counts too ("my", "would"); a weak form or a dialect note does not.
+function isSharedPronunciation(tags, note) {
+  if (!tags.every((tag) => tag === "stressed")) return false;
+  return !note || /strong form|General American/.test(note);
+}
+
 function addEntry(bucket, base, entry) {
   if (typeof entry.pos === "string") {
     const label = posLabel(entry.pos);
@@ -80,9 +87,14 @@ function addEntry(bucket, base, entry) {
   }
   for (const sound of entry.sounds ?? []) {
     if (typeof sound.ipa !== "string") continue;
-    if (!(sound.tags ?? []).some((tag) => US_TAGS.has(tag))) continue;
-    bucket.anyIpa ??= sound.ipa;
-    if (sound.ipa.startsWith("/")) bucket.phonemicIpa ??= sound.ipa;
+    const tags = sound.tags ?? [];
+    const phonemic = sound.ipa.startsWith("/");
+    if (tags.some((tag) => US_TAGS.has(tag))) {
+      bucket.anyIpa ??= sound.ipa;
+      if (phonemic) bucket.phonemicIpa ??= sound.ipa;
+    } else if (phonemic && isSharedPronunciation(tags, sound.note)) {
+      bucket.untaggedIpa ??= sound.ipa;
+    }
   }
   if (!hasOwnForms(entry)) return;
   for (const { form, tags = [] } of entry.forms ?? []) {
@@ -135,7 +147,7 @@ export async function importKaikki(path, vocab) {
     const bucket = exact.get(word) ?? folded.get(word);
     if (!bucket) continue;
     if (bucket.pos.length > 0) pos[word] = bucket.pos;
-    const usIpa = bucket.phonemicIpa ?? bucket.anyIpa;
+    const usIpa = bucket.phonemicIpa ?? bucket.anyIpa ?? bucket.untaggedIpa;
     if (usIpa) ipa[word] = usIpa;
     for (const form of bucket.bases.keys()) {
       if (!lemmaSets.has(form)) lemmaSets.set(form, new Set());

@@ -15,7 +15,7 @@
 | File | Shape | Content |
 |---|---|---|
 | `public/packs/en/lemmas.json` | `{ [form]: string \| string[] }` | inflected form → base form(s), only when form ≠ base and the base is in the vocabulary. From kaikki `forms` with inflection tags (plural, past, participle, present, third-person, comparative, superlative), ignoring forms tagged alternative / obsolete / archaic / dialectal / misspelling / pronunciation-spelling / nonstandard. Lowercase |
-| `public/packs/en/ipa.json` | `{ [word]: string }` | US IPA: the first `sounds[].ipa` whose tags include `General-American` or `US`; words without one are left out |
+| `public/packs/en/ipa.json` | `{ [word]: string }` | US IPA: the first `sounds[].ipa` whose tags include `General-American` or `US` (a phonemic `/…/` one first); else the first phonemic one without accent tags or dialect notes (shared by all accents; a stressed or strong form counts). Words without one are left out |
 | `public/packs/en/freq.json` | `string[]` | base forms in rank order (index 0 = rank 1). A form's rank counts for its base form; a base takes its best rank. Top 30,000 |
 | `public/packs/en/pos.json` | `{ [word]: string[] }` | parts of speech kaikki lists for the word (noun, verb, adj → "adjective", adv → "adverb", phrase, prep → "preposition", …), for labeling meanings |
 | `public/packs/en-ja/dict.json` | `{ [headword]: [short: string, senses: string[]] }` | EJDict. Headword lowercase, variants expanded to separate keys. `senses` = the meaning split on ` / `, trimmed. `short` = the first sense with `《…》` notes and `『』` marks removed, cut at the first `;` |

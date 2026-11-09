@@ -4,7 +4,7 @@
 {"word": "dough", "lang_code": "en", "pos": "noun", "forms": [{"form": "doughs", "tags": ["plural"]}, {"form": "dow", "tags": ["alternative"]}], "sounds": [{"tags": ["Received-Pronunciation"], "ipa": "/dəʊ/"}, {"tags": ["General-American"], "ipa": "[ˈdö̞ʷʊ̯ʷ]"}, {"tags": ["General-American"], "ipa": "/doʊ/"}]}
 {"word": "colour", "lang_code": "en", "pos": "noun", "forms": [{"form": "colours", "tags": ["plural"]}], "sounds": [{"tags": ["Received-Pronunciation"], "ipa": "/ˈkʌlə/"}]}
 {"word": "good", "lang_code": "en", "pos": "adj", "forms": [{"form": "better", "tags": ["comparative"]}, {"form": "best", "tags": ["superlative"]}, {"form": "more good", "tags": ["comparative"]}]}
-{"word": "well", "lang_code": "en", "pos": "adv", "forms": [{"form": "better", "tags": ["comparative"]}, {"form": "best", "tags": ["superlative"]}]}
+{"word": "well", "lang_code": "en", "pos": "adv", "sounds": [{"ipa": "/wɛl/"}, {"tags": ["General-American"], "ipa": "/wɛɫ/"}], "forms": [{"form": "better", "tags": ["comparative"]}, {"form": "best", "tags": ["superlative"]}]}
 {"word": "sheep", "lang_code": "en", "pos": "noun", "forms": [{"form": "sheep", "tags": ["plural"]}, {"form": "Sheeps", "tags": ["plural", "nonstandard"]}]}
 {"word": "May", "lang_code": "en", "pos": "name", "forms": [{"form": "Mays", "tags": ["plural"]}], "sounds": [{"tags": ["General-American"], "ipa": "/meɪ/"}]}
 {"word": "may", "lang_code": "en", "pos": "verb", "forms": [{"form": "might", "tags": ["past"]}]}
@@ -15,4 +15,7 @@
 {"word": "the", "lang_code": "en", "pos": "article", "forms": [{"form": "thē", "tags": ["canonical"]}], "sounds": [{"tags": ["US", "stressed"], "ipa": "/ðiː/"}]}
 {"word": "we'll", "lang_code": "en", "pos": "adv", "forms": [{"form": "better", "tags": ["comparative"]}], "senses": [{"glosses": ["Misspelling of well."], "tags": ["alt-of", "misspelling"], "alt_of": [{"word": "well"}]}]}
 {"word": "i", "lang_code": "en", "pos": "character", "forms": [{"form": "is", "tags": ["plural"]}], "senses": [{"glosses": ["The ninth letter of the English alphabet."], "tags": ["letter", "lowercase"]}]}
+{"word": "look", "lang_code": "en", "pos": "verb", "sounds": [{"note": "some Northern English dialects", "ipa": "/luːk/"}, {"ipa": "[lʊʔk]"}, {"ipa": "/lʊk/"}, {"tags": ["British"], "ipa": "[lɵk]"}]}
+{"word": "my", "lang_code": "en", "pos": "det", "sounds": [{"tags": ["Canada", "dialectal"], "ipa": "/mʌɪ/"}, {"ipa": "/maɪ/", "tags": ["stressed"]}, {"ipa": "/mə/", "tags": ["unstressed"]}]}
+{"word": "would", "lang_code": "en", "pos": "verb", "sounds": [{"note": "weak form", "ipa": "/wəd/"}, {"note": "Received Pronunciation, General American, Australia, strong form", "ipa": "/wʊd/"}]}
 {"word": "the", "lang_code": "en", "pos": "adv"
