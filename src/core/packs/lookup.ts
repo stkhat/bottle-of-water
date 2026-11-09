@@ -28,6 +28,14 @@ function glossOf(sense: string): string {
   return out.replace(/[\s,、;。]+$/, "");
 }
 
+/** The sense as shown: without 『』 emphasis marks and 〈C〉/〈U〉 countability markers. */
+function displayText(sense: string): string {
+  return sense
+    .replace(/〈[CU]〉/g, "")
+    .replace(/[『』]/g, "")
+    .trim();
+}
+
 function inferPos(
   sense: string,
   candidates: readonly string[],
@@ -57,9 +65,10 @@ export function lookup(
   const candidates = Object.hasOwn(pos, key) ? (pos[key] ?? []) : [];
   return {
     short,
-    senses: senses.map((text) => {
+    senses: senses.map((raw) => {
       const label =
-        candidates.length === 1 ? candidates[0] : inferPos(text, candidates);
+        candidates.length === 1 ? candidates[0] : inferPos(raw, candidates);
+      const text = displayText(raw);
       return label === undefined ? { text } : { pos: label, text };
     }),
   };

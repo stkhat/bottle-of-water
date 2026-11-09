@@ -40,10 +40,18 @@ describe("lookup", () => {
   });
   it("infers verbs from the gloss ending or …を", () => {
     expect(lookup("ferment", dict, pos)?.senses).toEqual([
-      { text: "〈C〉発酵体" },
+      { text: "発酵体" },
       { pos: "verb", text: "…を発酵させる" },
       { pos: "verb", text: "発酵する" },
-      { text: "〈U〉発酵" },
+      { text: "発酵" },
+    ]);
+  });
+  it("removes 『』 emphasis and 〈C〉/〈U〉 markers from the shown text", () => {
+    expect(lookup("fast", dict, pos)?.senses.map((s) => s.text)).toEqual([
+      "速い,急速な",
+      "速く,急速に",
+      "断食する",
+      "断食",
     ]);
   });
   it("infers adjectives and adverbs, accepting only the word's parts of speech", () => {
