@@ -105,7 +105,10 @@ export async function setup(html: string, options: SetupOptions = {}) {
   cleanups.push(() => session.stop());
 
   // The first batch: every block near the viewport.
-  await expect.poll(() => session.spans.size).toBeGreaterThan(0);
+  // The first analysis opens the database and loads the pack: slow on CI runners.
+  await expect
+    .poll(() => session.spans.size, { timeout: 5000 })
+    .toBeGreaterThan(0);
 
   return {
     background,
@@ -164,8 +167,33 @@ export async function dragSelect(
   await userEvent.pointer([
     { coords: { x: pa.left, y: y(ra) }, keys: "[MouseLeft>]" },
     { coords: { x: (pa.left + pb.left) / 2, y: y(ra) } },
+    // Move, then release where the pointer is: Firefox can drop the last move
+    // when it comes with the release.
+    { coords: { x: pb.left, y: y(pb.height ? pb : ra) } },
     { coords: { x: pb.left, y: y(pb.height ? pb : ra) }, keys: "[/MouseLeft]" },
   ]);
+}
+
+/**
+ * Selects from inside one piece of text to inside another with the Selection API, as
+ * the end of a drag leaves it (for tests about what happens with a selection, not
+ * about making one).
+ */
+export function selectText(
+  root: Node,
+  from: string,
+  fromOffset: number,
+  to: string,
+  toOffset: number,
+) {
+  const a = rangeOfText(root, from);
+  const b = rangeOfText(root, to);
+  getSelection()!.setBaseAndExtent(
+    a.startContainer,
+    a.startOffset + fromOffset,
+    b.startContainer,
+    b.startOffset + toOffset,
+  );
 }
 
 export const highlighted = (name: string) =>

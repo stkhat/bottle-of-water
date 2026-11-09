@@ -8,6 +8,7 @@ import {
   pointAt,
   rangeOfText,
   rectOf,
+  selectText,
   setup,
 } from "./article-testing";
 
@@ -25,10 +26,7 @@ afterEach(cleanUp);
 const bar = () => page.getByText(/^Save “.*” as a phrase$/);
 /** The bar's box: the root around its label. */
 const barBox = () => bar().element().parentElement!.getBoundingClientRect();
-/**
- * A button of the bar, once the bar offers `phrase`. Firefox can report the selection
- * of the drag's middle first and the whole one a moment later.
- */
+/** A button of the bar, once the bar offers `phrase`. */
 async function barButton(phrase: string, name: string) {
   await expect
     .element(page.getByText(`Save “${phrase}” as a phrase`))
@@ -57,7 +55,7 @@ describe("phrase bar", () => {
 
   it("saves the selected words as a phrase and highlights it", async () => {
     const { root, background } = await setup(ARTICLE);
-    await dragSelect(root, "rise", 0, "fall", 4);
+    selectText(root, "rise", 0, "fall", 4);
     await (await barButton("rise and fall", "+ Learning")).click();
     await expect.poll(() => bar().query()).toBeNull();
     expect(getSelection()!.isCollapsed).toBe(true);
@@ -93,7 +91,7 @@ describe("phrase bar", () => {
           await new Promise((resolve) => setTimeout(resolve, 300));
       },
     });
-    await dragSelect(root, "rise", 0, "fall", 4);
+    selectText(root, "rise", 0, "fall", 4);
     await (await barButton("rise and fall", "+ Learning")).click();
     document.dispatchEvent(new Event("selectionchange"));
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
@@ -103,7 +101,7 @@ describe("phrase bar", () => {
 
   it("keys a phrase by its words' base forms", async () => {
     const { root, background } = await setup(ARTICLE);
-    await dragSelect(root, "bake", 0, "loaves", 6);
+    selectText(root, "bake", 0, "loaves", 6);
     await (await barButton("bake loaves", "Known")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
@@ -118,7 +116,7 @@ describe("phrase bar", () => {
     const { root } = await setup(ARTICLE, {
       translator: { translate: async (text) => `訳: ${text}` },
     });
-    await dragSelect(root, "rise", 0, "fall", 4);
+    selectText(root, "rise", 0, "fall", 4);
     await (await barButton("rise and fall", "+ Learning")).click();
     await expect
       .poll(() => highlighted("lingo-learning"))
