@@ -25,9 +25,14 @@ afterEach(cleanUp);
 const bar = () => page.getByText(/^Save “.*” as a phrase$/);
 /** The bar's box: the root around its label. */
 const barBox = () => bar().element().parentElement!.getBoundingClientRect();
-/** A button of the bar, once the bar shows. */
-async function barButton(name: string) {
-  await expect.element(bar()).toBeVisible();
+/**
+ * A button of the bar, once the bar offers `phrase`. Firefox can report the selection
+ * of the drag's middle first and the whole one a moment later.
+ */
+async function barButton(phrase: string, name: string) {
+  await expect
+    .element(page.getByText(`Save “${phrase}” as a phrase`))
+    .toBeVisible();
   return page
     .elementLocator(bar().element().parentElement!)
     .getByRole("button", { name });
@@ -53,7 +58,7 @@ describe("phrase bar", () => {
   it("saves the selected words as a phrase and highlights it", async () => {
     const { root, background } = await setup(ARTICLE);
     await dragSelect(root, "rise", 0, "fall", 4);
-    await (await barButton("+ Learning")).click();
+    await (await barButton("rise and fall", "+ Learning")).click();
     await expect.poll(() => bar().query()).toBeNull();
     expect(getSelection()!.isCollapsed).toBe(true);
     const sentence = "So you can trace each rise and fall back to its cause.";
@@ -80,10 +85,26 @@ describe("phrase bar", () => {
       .toEqual(["rise and fall"]);
   });
 
+  it("saves the phrase even when the selection is read again while saving", async () => {
+    const { root, background } = await setup(ARTICLE, {
+      // A slow save: the selection is read again before it is done.
+      beforeRequest: async (request) => {
+        if (request.type === "saveTerm")
+          await new Promise((resolve) => setTimeout(resolve, 300));
+      },
+    });
+    await dragSelect(root, "rise", 0, "fall", 4);
+    await (await barButton("rise and fall", "+ Learning")).click();
+    document.dispatchEvent(new Event("selectionchange"));
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    await expect.poll(() => bar().query()).toBeNull();
+    expect(getSelection()!.isCollapsed).toBe(true);
+  });
+
   it("keys a phrase by its words' base forms", async () => {
     const { root, background } = await setup(ARTICLE);
     await dragSelect(root, "bake", 0, "loaves", 6);
-    await (await barButton("Known")).click();
+    await (await barButton("bake loaves", "Known")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
       key: "bake loaf",
@@ -98,7 +119,7 @@ describe("phrase bar", () => {
       translator: { translate: async (text) => `訳: ${text}` },
     });
     await dragSelect(root, "rise", 0, "fall", 4);
-    await (await barButton("+ Learning")).click();
+    await (await barButton("rise and fall", "+ Learning")).click();
     await expect
       .poll(() => highlighted("lingo-learning"))
       .toEqual(["rise and fall"]);

@@ -496,6 +496,12 @@ export async function startArticle(
   let phrase: Snapped | undefined;
 
   const snappedRange = (s: Snapped) => rangeOf(s.block, s.start, s.end);
+  /** The same words: the selection is read again after it is snapped. */
+  const sameSnap = (a: Snapped | undefined, b: Snapped) =>
+    a !== undefined &&
+    a.block === b.block &&
+    a.start === b.start &&
+    a.end === b.end;
 
   function onSelection(range: Range | undefined) {
     const snapped = range && snapSelection(range, index, spans);
@@ -540,7 +546,7 @@ export async function startArticle(
       sentence,
       pos: { textQuote: sentence },
     });
-    if (phrase === snapped) {
+    if (sameSnap(phrase, snapped)) {
       phrase = undefined;
       getSelection()?.removeAllRanges();
       store.set({ phrase: null });

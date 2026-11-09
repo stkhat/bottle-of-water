@@ -4,6 +4,7 @@ import { render } from "preact";
 import { expect } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Settings } from "../../core/settings";
+import type { Request } from "../../messaging/protocol";
 import { ArticleUi } from "../ui/ArticleUi";
 import { startArticle, type ArticleSession } from "./article";
 import { testBackground } from "./test-background";
@@ -19,6 +20,8 @@ export async function cleanUp() {
 export interface SetupOptions {
   settings?: Partial<Settings>;
   translator?: TranslationProvider;
+  /** Runs before each request reaches the background, e.g. to slow it down. */
+  beforeRequest?: (request: Request) => Promise<void>;
   /** Runs before the page starts, e.g. to save terms. */
   before?: (background: ReturnType<typeof testBackground>) => Promise<void>;
 }
@@ -69,7 +72,12 @@ export async function setup(html: string, options: SetupOptions = {}) {
 
   const session = (await startArticle(
     {
-      send: background.send,
+      send: options.beforeRequest
+        ? ((async (request: Request) => {
+            await options.beforeRequest!(request);
+            return background.send(request as never);
+          }) as typeof background.send)
+        : background.send,
       watchSettings(listener) {
         settingsListeners.add(listener);
         return () => settingsListeners.delete(listener);
