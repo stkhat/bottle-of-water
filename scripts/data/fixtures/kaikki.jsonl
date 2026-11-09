@@ -1,0 +1,16 @@
+{"pos": "noun", "forms": [{"form": "loaves", "tags": ["plural"]}, {"form": "loafes", "tags": ["obsolete", "plural"]}], "sounds": [{"tags": ["Received-Pronunciation"], "ipa": "/ləʊf/"}, {"tags": ["General-American"], "ipa": "/loʊf/"}], "word": "loaf", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A block of bread."]}]}
+{"word": "loaf", "lang_code": "en", "pos": "verb", "forms": [{"form": "loafs", "tags": ["present", "singular", "third-person"]}, {"form": "loafing", "tags": ["participle", "present"]}, {"form": "loafed", "tags": ["participle", "past"]}, {"form": "loafed", "tags": ["past"]}]}
+{"word": "ferment", "lang_code": "en", "pos": "verb", "forms": [{"form": "ferments", "tags": ["present", "singular", "third-person"]}, {"form": "fermenting", "tags": ["participle", "present"]}, {"form": "fermented", "tags": ["participle", "past"]}, {"form": "fermente", "tags": ["alternative"]}, {"form": "fermentit", "tags": ["dialectal", "past"]}, {"form": "fermint", "tags": ["misspelling", "past"]}], "sounds": [{"tags": ["US"], "ipa": "/fɚˈmɛnt/"}]}
+{"word": "dough", "lang_code": "en", "pos": "noun", "forms": [{"form": "doughs", "tags": ["plural"]}, {"form": "dow", "tags": ["alternative"]}], "sounds": [{"tags": ["Received-Pronunciation"], "ipa": "/dəʊ/"}, {"tags": ["General-American"], "ipa": "[ˈdö̞ʷʊ̯ʷ]"}, {"tags": ["General-American"], "ipa": "/doʊ/"}]}
+{"word": "colour", "lang_code": "en", "pos": "noun", "forms": [{"form": "colours", "tags": ["plural"]}], "sounds": [{"tags": ["Received-Pronunciation"], "ipa": "/ˈkʌlə/"}]}
+{"word": "good", "lang_code": "en", "pos": "adj", "forms": [{"form": "better", "tags": ["comparative"]}, {"form": "best", "tags": ["superlative"]}, {"form": "more good", "tags": ["comparative"]}]}
+{"word": "well", "lang_code": "en", "pos": "adv", "forms": [{"form": "better", "tags": ["comparative"]}, {"form": "best", "tags": ["superlative"]}]}
+{"word": "sheep", "lang_code": "en", "pos": "noun", "forms": [{"form": "sheep", "tags": ["plural"]}, {"form": "Sheeps", "tags": ["plural", "nonstandard"]}]}
+{"word": "May", "lang_code": "en", "pos": "name", "forms": [{"form": "Mays", "tags": ["plural"]}], "sounds": [{"tags": ["General-American"], "ipa": "/meɪ/"}]}
+{"word": "may", "lang_code": "en", "pos": "verb", "forms": [{"form": "might", "tags": ["past"]}]}
+{"word": "Monday", "lang_code": "en", "pos": "name", "forms": [{"form": "Mondays", "tags": ["plural"]}], "sounds": [{"tags": ["General-American"], "ipa": "/ˈmʌndeɪ/"}]}
+{"word": "figure of speech", "lang_code": "en", "pos": "noun", "forms": [{"form": "figures of speech", "tags": ["plural"]}]}
+{"word": "zzyzx", "lang_code": "en", "pos": "noun", "forms": [{"form": "zzyzxes", "tags": ["plural"]}], "sounds": [{"tags": ["US"], "ipa": "/ˈzaɪzɪks/"}]}
+{"word": "dough", "lang_code": "fro", "pos": "noun", "forms": [{"form": "doughe", "tags": ["plural"]}], "sounds": [{"tags": ["US"], "ipa": "/x/"}]}
+{"word": "the", "lang_code": "en", "pos": "article", "forms": [{"form": "thē", "tags": ["canonical"]}], "sounds": [{"tags": ["US", "stressed"], "ipa": "/ðiː/"}]}
+{"word": "the", "lang_code": "en", "pos": "adv"
