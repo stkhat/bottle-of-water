@@ -75,7 +75,7 @@ Development pair: learning language = English, native language = Japanese, sites
 
 ### Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language
-- Color by category with the **CSS Custom Highlight API** (no DOM rewriting). Process only the visible range, progressively, and follow page changes with a MutationObserver
+- Color by category with the **CSS Custom Highlight API** (no DOM rewriting). `::highlight()` cannot draw padding, rounded corners or box shadows, so the mock's bottom bar is drawn as a 2px underline and the Learning background covers only the text height — the closest the API allows. Process only the visible range, progressively, and follow page changes with a MutationObserver
   - In browsers where highlights cannot be underlined, use background colors only (see "Absorbing browser differences")
 - Find the hovered word with `caretPositionFromPoint`
 - When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known"
