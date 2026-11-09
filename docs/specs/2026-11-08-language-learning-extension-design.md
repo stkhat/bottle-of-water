@@ -192,7 +192,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), end card on/off, per-site on/off and the exclusion list
 
 ### Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
-- `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`pull / push / lastModified`). The user's own cloud storage, added later, is another implementation of the same part
+- `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`push / pull / status / start / stop`). The user's own cloud storage, added later, is another implementation of the same part
 - The limits are the same in Chrome and Firefox. Use the `storage.sync` constants (`QUOTA_BYTES` etc.) when readable at runtime, otherwise the values above
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
 - **Rough capacity**
@@ -200,7 +200,9 @@ Use the site's translation when it has one; fall back to the browser's built-in 
   - Compressed: **~12,400 words** (English, measured 2026-11-09 with realistic save times; 20,000 words take ~170 KB)
   - Words within the frequency level do not count
   - When the limit gets close, demote words saved by "save all" to "this device only"
-- Merge: per word, the newer update time wins; deletions are tombstones. Pick up other devices' changes with `storage.onChanged`
+  - Over 90% of the room left by other keys (settings, other languages): leave out "save all" words oldest first; if that is not enough, leave out the oldest known words too and report how many. They stay on the device
+- Merge: per word, the newer update time wins (same minute: keep this device's); deletions are tombstones, carried for 90 days. Pick up other devices' changes with `storage.onChanged`
+- Each push reads and merges the synced copy before writing it (chunks first, then `sync:<lang>:meta` = `{chunks, updatedAt, v}`, then stale chunks are removed), 2 s after the last local change. Pulled changes are not pushed back unless this device has newer ones. Storage errors (quota, write rate) show in the status and are retried with backoff
 - Sources and occurrences stay on the device. JSON export/import moves all data
 
 #### When the browser is not signed in / sync is off
