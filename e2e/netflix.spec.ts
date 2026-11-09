@@ -6,7 +6,6 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseTtml } from "../src/core/subtitles/ttml";
-import { parseWebVtt } from "../src/core/subtitles/webvtt";
 import {
   FIXTURE_MOVIE_ID,
   fixtureManifest,
@@ -25,8 +24,9 @@ const WATCH = `https://www.netflix.com/watch/${FIXTURE_MOVIE_ID}?trackId=1417028
 const subtitles = path.join(here, "../src/core/subtitles/fixtures/netflix");
 const read = (file: string) => readFileSync(path.join(subtitles, file), "utf8");
 
-const EN = parseTtml(read("en.dfxp"));
-const JA = parseWebVtt(read("ja.vtt"));
+// The English closed captions (Lingo reads the IMSC file; the DFXP one has the same lines).
+const EN = parseTtml(read("en.imsc.ttml"));
+const JA = parseTtml(read("ja.imsc.ttml"));
 /** The line the tests seek to: "EXTRAORDINARY" is a New word (closed captions are in capitals). */
 const LINE = "EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.";
 const flat = (text: string) => text.replaceAll("\n", " ");
@@ -228,10 +228,10 @@ test("the next episode gets its own subtitles", async ({
   const page = await openAtLine(context, extensionId);
   // Netflix moves to the next episode without loading a page; this one has no Japanese.
   const manifest = JSON.parse(fixtureManifest()) as {
-    result: { movieId: number; timedtexttracks: { language: string | null }[] };
+    result: { movieId: number; textTracks: { language: string | null }[] };
   };
   manifest.result.movieId = 80000002;
-  manifest.result.timedtexttracks = manifest.result.timedtexttracks.filter(
+  manifest.result.textTracks = manifest.result.textTracks.filter(
     (t) => t.language !== "ja",
   );
   await page.evaluate(

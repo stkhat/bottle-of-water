@@ -1,174 +1,291 @@
 {
-  "_synthetic": "SYNTHETIC fixture. Not recorded from Netflix (it needs a login). Modeled on public descriptions of the manifest the Netflix web player parses (open-source subtitle downloaders): result.movieId, result.timedtexttracks with language, languageDescription, rawTrackType, trackType, isNoneTrack, isForcedNarrative, new_track_id and ttDownloadables (format -> urls[].url, or the older downloadUrls map). Ids, hosts and tokens are made up.",
+  "_synthetic": "SYNTHETIC fixture, modeled on the real structure seen 2026-11-10: the licensed manifest the Netflix web player fetches by XHR (/msl/playapi/cadmium/licensedmanifest/1) and reads with JSON.parse. Top keys id, version, serverTime, result, common, from; result.movieId is a number (the id in /watch/<id>) and result.textTracks lists the subtitle tracks, each with downloadables by profile (urls[].url, isImage). The English, Japanese and Off tracks are shaped like those of the title seen (English only as closed captions in dfxp-ls-sdh, imsc1.1 and simplesdh; Japanese in imsc1.1 text and nflx-cmisc images); the English forced-narrative and image-only Traditional Chinese tracks are added for tests. Ids, hashes, hosts and tokens are made up. See manifest-legacy.json for the older shape.",
+  "id": 176273640012345,
   "version": 2,
-  "from": "lingo-fixture",
+  "serverTime": 1762736400000,
+  "from": "cadmium",
+  "common": {},
   "result": {
     "movieId": 80000001,
-    "packageId": 1234567,
+    "viewableType": "EPISODE",
     "duration": 140000,
-    "audio_tracks": [
+    "audioTracks": [
       {
+        "type": "audio",
+        "trackType": "PRIMARY",
+        "rawTrackType": "primary",
+        "id": "A:1:1;2;en;0;0;0;",
         "language": "en",
         "languageDescription": "English [Original]",
-        "trackType": "PRIMARY"
+        "isNoneTrack": false
       }
     ],
-    "video_tracks": [{ "type": "video", "profileType": "vp9" }],
-    "timedtexttracks": [
+    "links": {},
+    "servers": [
+      {
+        "id": 101,
+        "name": "c001.test001.ix.nflxvideo.net",
+        "rank": 1,
+        "type": "OPEN_CONNECT_APPLIANCE"
+      },
+      {
+        "id": 102,
+        "name": "c002.test002.ix.nflxvideo.net",
+        "rank": 2,
+        "type": "OPEN_CONNECT_APPLIANCE"
+      }
+    ],
+    "textTracks": [
       {
         "type": "timedtext",
         "trackType": "ASSISTIVE",
         "rawTrackType": "closedcaptions",
+        "id": "T:1:1;1;en;1;0;",
         "language": "en",
         "languageDescription": "English [CC]",
-        "isNoneTrack": false,
-        "isForcedNarrative": false,
-        "isLanguageLeftToRight": true,
-        "new_track_id": "T:1:1;1;en;1;0;",
-        "id": "T:1:1;1;en;1;0;",
-        "ttDownloadables": {
-          "nflx-cmisc": {
-            "isImage": true,
-            "size": 300000,
-            "urls": [
-              {
-                "cdn_id": 101,
-                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-image"
-              }
-            ]
-          },
-          "webvtt-lssdh-ios8": {
-            "isImage": false,
-            "size": 4000,
-            "textKey": null,
-            "urls": [
-              {
-                "cdn_id": 101,
-                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-vtt"
-              }
-            ]
-          },
+        "downloadableIds": {
+          "dfxp-ls-sdh": "910000000",
+          "imsc1.1": "910000001",
+          "simplesdh": "910000002"
+        },
+        "downloadables": {
           "dfxp-ls-sdh": {
-            "isImage": false,
-            "size": 6000,
-            "textKey": null,
+            "size": 133000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0001",
+            "hashAlgo": "sha1",
             "urls": [
               {
-                "cdn_id": 101,
+                "cdnId": 101,
                 "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-dfxp"
+              }
+            ],
+            "textKey": null,
+            "isImage": false
+          },
+          "imsc1.1": {
+            "size": 90000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0002",
+            "hashAlgo": "sha1",
+            "urls": [
+              {
+                "cdnId": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-imsc"
               },
               {
-                "cdn_id": 202,
-                "url": "https://ipv4-c002-test002-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-dfxp"
+                "cdnId": 102,
+                "url": "https://ipv4-c002-test002-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-imsc"
               }
-            ]
+            ],
+            "textKey": null,
+            "isImage": false
+          },
+          "simplesdh": {
+            "size": 60000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0003",
+            "hashAlgo": "sha1",
+            "urls": [
+              {
+                "cdnId": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-simplesdh"
+              }
+            ],
+            "textKey": null,
+            "isImage": false
           }
         },
-        "cdnlist": [
-          { "id": 101, "name": "c001", "rank": 1 },
-          { "id": 202, "name": "c002", "rank": 2 }
-        ]
+        "rank": 1,
+        "hydrated": true,
+        "encodingProfileNames": [
+          "dfxp-ls-sdh",
+          "imsc1.1",
+          "simplesdh"
+        ],
+        "trackMapIndex": 0,
+        "allowedVideoTracks": [],
+        "selectableVideoTracks": [],
+        "allowedAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectableAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectionGroupId": null,
+        "isForcedNarrative": false,
+        "isLanguageLeftToRight": true,
+        "isNoneTrack": false
       },
       {
         "type": "timedtext",
         "trackType": "PRIMARY",
         "rawTrackType": "subtitles",
+        "id": "T:1:0;1;en;0;1;",
         "language": "en",
         "languageDescription": "English (forced narrative)",
-        "isNoneTrack": false,
-        "isForcedNarrative": true,
-        "new_track_id": "T:1:0;1;en;0;1;",
-        "ttDownloadables": {
-          "dfxp-ls-sdh": {
-            "isImage": false,
+        "downloadableIds": {
+          "imsc1.1": "910000010"
+        },
+        "downloadables": {
+          "imsc1.1": {
+            "size": 2000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0004",
+            "hashAlgo": "sha1",
             "urls": [
               {
-                "cdn_id": 101,
+                "cdnId": 101,
                 "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-forced"
               }
-            ]
+            ],
+            "textKey": null,
+            "isImage": false
           }
-        }
+        },
+        "rank": 4,
+        "hydrated": true,
+        "encodingProfileNames": [
+          "imsc1.1"
+        ],
+        "trackMapIndex": 1,
+        "allowedVideoTracks": [],
+        "selectableVideoTracks": [],
+        "allowedAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectableAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectionGroupId": null,
+        "isForcedNarrative": true,
+        "isLanguageLeftToRight": true,
+        "isNoneTrack": false
       },
       {
         "type": "timedtext",
         "trackType": "PRIMARY",
         "rawTrackType": "subtitles",
+        "id": "T:1:0;1;ja;0;0;",
         "language": "ja",
         "languageDescription": "Japanese",
-        "isNoneTrack": false,
-        "isForcedNarrative": false,
-        "new_track_id": "T:1:0;1;ja;0;0;",
-        "ttDownloadables": {
-          "nflx-cmisc": {
-            "isImage": true,
+        "downloadableIds": {
+          "imsc1.1": "910000020",
+          "nflx-cmisc": "910000021"
+        },
+        "downloadables": {
+          "imsc1.1": {
+            "size": 42000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0005",
+            "hashAlgo": "sha1",
             "urls": [
               {
-                "cdn_id": 101,
+                "cdnId": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-ja-imsc"
+              }
+            ],
+            "textKey": null,
+            "isImage": false
+          },
+          "nflx-cmisc": {
+            "size": 900000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0006",
+            "hashAlgo": "sha1",
+            "urls": [
+              {
+                "cdnId": 101,
                 "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-ja-image"
               }
-            ]
-          },
-          "webvtt-lssdh-ios8": {
-            "isImage": false,
-            "urls": [
-              {
-                "cdn_id": 101,
-                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-ja-vtt"
-              }
-            ]
+            ],
+            "textKey": null,
+            "isImage": true
           }
-        }
-      },
-      {
-        "type": "timedtext",
-        "trackType": "PRIMARY",
-        "rawTrackType": "subtitles",
-        "language": "es",
-        "languageDescription": "Spanish",
-        "isNoneTrack": false,
+        },
+        "rank": 2,
+        "hydrated": true,
+        "encodingProfileNames": [
+          "imsc1.1",
+          "nflx-cmisc"
+        ],
+        "trackMapIndex": 2,
+        "allowedVideoTracks": [],
+        "selectableVideoTracks": [],
+        "allowedAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectableAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectionGroupId": null,
         "isForcedNarrative": false,
-        "new_track_id": "T:1:0;1;es;0;0;",
-        "ttDownloadables": {
-          "simplesdh": {
-            "isImage": false,
-            "downloadUrls": {
-              "101": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-es-simplesdh"
-            }
-          }
-        }
+        "isLanguageLeftToRight": true,
+        "isNoneTrack": false
       },
       {
         "type": "timedtext",
         "trackType": "PRIMARY",
         "rawTrackType": "subtitles",
+        "id": "T:1:0;1;zh-Hant;0;0;",
         "language": "zh-Hant",
         "languageDescription": "Traditional Chinese",
-        "isNoneTrack": false,
-        "isForcedNarrative": false,
-        "new_track_id": "T:1:0;1;zh-Hant;0;0;",
-        "ttDownloadables": {
+        "downloadableIds": {
+          "nflx-cmisc": "910000030"
+        },
+        "downloadables": {
           "nflx-cmisc": {
-            "isImage": true,
+            "size": 800000,
+            "hashValue": "U1lOVEhFVElDLWhhc2gt0007",
+            "hashAlgo": "sha1",
             "urls": [
               {
-                "cdn_id": 101,
+                "cdnId": 101,
                 "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-zh-image"
               }
-            ]
+            ],
+            "textKey": null,
+            "isImage": true
           }
-        }
+        },
+        "rank": 5,
+        "hydrated": true,
+        "encodingProfileNames": [
+          "nflx-cmisc"
+        ],
+        "trackMapIndex": 3,
+        "allowedVideoTracks": [],
+        "selectableVideoTracks": [],
+        "allowedAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectableAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectionGroupId": null,
+        "isForcedNarrative": false,
+        "isLanguageLeftToRight": true,
+        "isNoneTrack": false
       },
       {
         "type": "timedtext",
         "trackType": "PRIMARY",
         "rawTrackType": "subtitles",
+        "id": "T:1:0;1;NONE;0;0;",
         "language": null,
         "languageDescription": "Off",
-        "isNoneTrack": true,
+        "downloadableIds": {},
+        "downloadables": {},
+        "rank": -1,
+        "hydrated": true,
+        "encodingProfileNames": [],
+        "trackMapIndex": 4,
+        "allowedVideoTracks": [],
+        "selectableVideoTracks": [],
+        "allowedAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectableAudioTracks": [
+          "A:1:1;2;en;0;0;0;"
+        ],
+        "selectionGroupId": null,
         "isForcedNarrative": false,
-        "new_track_id": "T:1:0;1;NONE;0;0;",
-        "ttDownloadables": {}
+        "isLanguageLeftToRight": true,
+        "isNoneTrack": true
       }
     ]
   }

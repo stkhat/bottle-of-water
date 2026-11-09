@@ -7,7 +7,7 @@ import {
   expect,
   it,
 } from "vitest";
-import enDfxp from "../../core/subtitles/fixtures/netflix/en.dfxp?raw";
+import enImsc from "../../core/subtitles/fixtures/netflix/en.imsc.ttml?raw";
 import { readManifest } from "./netflix-manifest";
 import {
   FROM_PAGE,
@@ -143,9 +143,9 @@ describe("answering the content script", () => {
     const tracks = readManifest(JSON.parse(testManifest()))!.tracks;
     const url = tracks[0]!.downloads[0]!.urls[0]!;
     expect(await call({ type: "fetchText", url })).toEqual(
-      expect.objectContaining({ ok: true, value: enDfxp }),
+      expect.objectContaining({ ok: true, value: enImsc }),
     );
-    const other = `${location.origin}/lingo-nflx/?t=SYNTHETIC-ja-vtt`;
+    const other = `${location.origin}/lingo-nflx/?t=SYNTHETIC-ja-image`;
     expect(await call({ type: "fetchText", url: other })).toEqual(
       expect.objectContaining({ ok: false }),
     );

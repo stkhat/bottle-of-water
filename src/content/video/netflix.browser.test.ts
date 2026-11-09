@@ -8,9 +8,9 @@ import {
   it,
 } from "vitest";
 import enDfxp from "../../core/subtitles/fixtures/netflix/en.dfxp?raw";
-import jaVtt from "../../core/subtitles/fixtures/netflix/ja.vtt?raw";
+import enImsc from "../../core/subtitles/fixtures/netflix/en.imsc.ttml?raw";
+import jaImsc from "../../core/subtitles/fixtures/netflix/ja.imsc.ttml?raw";
 import { parseTtml } from "../../core/subtitles/ttml";
-import { parseWebVtt } from "../../core/subtitles/webvtt";
 import { createNetflixAdapter, type NetflixAdapter } from "./netflix";
 import { installNetflixHooks } from "./netflix-page";
 import {
@@ -192,7 +192,7 @@ describe("a page without Netflix's control bar", () => {
 });
 
 describe("loading subtitles", () => {
-  it("reads the English DFXP and the Japanese WebVTT track from the manifest", async () => {
+  it("reads the English closed captions and the Japanese subtitles from the manifest", async () => {
     start();
     const captions = await adapter.loadCaptions(REQUEST);
     expect(captions?.track).toEqual({
@@ -201,25 +201,21 @@ describe("loading subtitles", () => {
       kind: "manual",
       label: "English [CC]",
     });
-    expect(captions?.cues).toEqual(parseTtml(enDfxp));
+    expect(captions?.cues).toEqual(parseTtml(enImsc));
     expect(captions?.translation).toEqual({
       source: "siteTrack",
       lang: "ja",
-      cues: parseWebVtt(jaVtt),
+      cues: parseTtml(jaImsc),
     });
-    // DFXP is preferred to WebVTT; the forced track is not read.
-    expect(downloads()).toEqual(["SYNTHETIC-en-dfxp", "SYNTHETIC-ja-vtt"]);
+    // IMSC is preferred to DFXP; the forced track is not read.
+    expect(downloads()).toEqual(["SYNTHETIC-en-imsc", "SYNTHETIC-ja-imsc"]);
     // The player's metadata names the episode.
     expect(adapter.title()).toBe(`${SHOW} · S1:E1 ${EPISODE}`);
   });
 
   it("lists the tracks that are not forced", async () => {
     start();
-    expect((await adapter.tracks()).map((t) => t.lang)).toEqual([
-      "en",
-      "ja",
-      "es",
-    ]);
+    expect((await adapter.tracks()).map((t) => t.lang)).toEqual(["en", "ja"]);
   });
 
   it("falls back to the built-in translator or none without a Japanese track", async () => {
@@ -235,7 +231,7 @@ describe("loading subtitles", () => {
 
   it("falls back when the Japanese track cannot be downloaded", async () => {
     start({
-      manifest: testManifest().replace("SYNTHETIC-ja-vtt", "SYNTHETIC-gone"),
+      manifest: testManifest().replace("SYNTHETIC-ja-imsc", "SYNTHETIC-gone"),
     });
     const captions = await adapter.loadCaptions({
       ...REQUEST,
@@ -251,23 +247,46 @@ describe("loading subtitles", () => {
       { fetch: () => Promise.reject(new TypeError("Failed to fetch")) },
     );
     const captions = await adapter.loadCaptions(REQUEST);
-    expect(captions?.cues).toEqual(parseTtml(enDfxp));
+    expect(captions?.cues).toEqual(parseTtml(enImsc));
     expect(captions?.translation.source).toBe("siteTrack");
   });
 
-  it("tries the next CDN and then WebVTT when a download fails", async () => {
+  it("tries the next CDN and then the next format when a download fails", async () => {
     start({
       manifest: testManifest().replaceAll(
-        "SYNTHETIC-en-dfxp",
+        "SYNTHETIC-en-imsc",
         "SYNTHETIC-gone",
       ),
     });
     const captions = await adapter.loadCaptions(REQUEST);
-    // en.vtt has no fixture either: nothing in English can be read.
-    expect(captions).toBeUndefined();
+    // The DFXP file has the same lines, one <p> per line.
+    expect(captions?.cues).toEqual(parseTtml(enDfxp));
+    expect(captions?.cues).toEqual(parseTtml(enImsc));
+    expect(downloads()).toEqual([
+      "SYNTHETIC-gone",
+      "SYNTHETIC-gone",
+      "SYNTHETIC-en-dfxp",
+      "SYNTHETIC-ja-imsc",
+    ]);
+  });
+
+  it("gives up when no English format can be read", async () => {
+    start({
+      manifest: testManifest().replace(
+        /SYNTHETIC-en-(imsc|dfxp)/g,
+        "SYNTHETIC-gone",
+      ),
+    });
+    expect(await adapter.loadCaptions(REQUEST)).toBeUndefined();
+    // simplesdh has no fixture either.
     await expect
       .poll(downloads)
-      .toEqual(["SYNTHETIC-gone", "SYNTHETIC-gone", "SYNTHETIC-en-vtt"]);
+      .toEqual([
+        "SYNTHETIC-gone",
+        "SYNTHETIC-gone",
+        "SYNTHETIC-gone",
+        "SYNTHETIC-en-simplesdh",
+      ]);
   });
 
   it("gives up on titles without a track in the learning language", async () => {
@@ -289,7 +308,7 @@ describe("loading subtitles", () => {
       metadata: METADATA,
     });
     const captions = await loading;
-    expect(captions?.cues).toEqual(parseTtml(enDfxp));
+    expect(captions?.cues).toEqual(parseTtml(enImsc));
     expect(captions?.translation.source).toBe("none");
   });
 

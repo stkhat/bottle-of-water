@@ -25,7 +25,7 @@ export const METADATA = {
  */
 export function testManifest(movieId = MOVIE_ID, drop?: RegExp): string {
   const copy = structuredClone(manifest);
-  copy.result.timedtexttracks = copy.result.timedtexttracks.filter(
+  copy.result.textTracks = copy.result.textTracks.filter(
     (t) => !drop?.test(JSON.stringify(t)),
   );
   copy.result.movieId = Number(movieId);

@@ -14,8 +14,9 @@ export const FIXTURE_MOVIE_ID = "80000001";
 
 /** The fixture files, by the token (`t`) of their URL in `manifest.json`. */
 const FILES: Record<string, string> = {
+  "SYNTHETIC-en-imsc": "en.imsc.ttml",
   "SYNTHETIC-en-dfxp": "en.dfxp",
-  "SYNTHETIC-ja-vtt": "ja.vtt",
+  "SYNTHETIC-ja-imsc": "ja.imsc.ttml",
 };
 
 /** The body for a subtitle URL of the synthetic manifest, or undefined (a 404). */

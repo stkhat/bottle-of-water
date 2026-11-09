@@ -33,13 +33,13 @@ export interface NetflixManifestTracks {
 }
 
 /**
- * Text formats in `ttDownloadables`, in order of preference: TTML (DFXP, IMSC) first,
- * then WebVTT. Image formats (`nflx-cmisc`) cannot be read.
+ * Text formats (profiles) in a track's `downloadables`, in order of preference: TTML
+ * (IMSC, DFXP, simple SDH) first, then WebVTT. Image formats (`nflx-cmisc`) cannot be read.
  */
 export const TEXT_FORMATS = [
+  "imsc1.1",
   "dfxp-ls-sdh",
   "simplesdh",
-  "imsc1.1",
   "webvtt-lssdh-ios8",
 ] as const;
 
@@ -70,9 +70,12 @@ function readTrack(raw: unknown, index: number): NetflixTextTrack | undefined {
   if (!isObject(raw) || raw.isNoneTrack === true) return undefined;
   const lang = raw.language ?? raw.bcp47;
   if (typeof lang !== "string" || lang === "") return undefined;
-  const downloadables = isObject(raw.ttDownloadables)
-    ? raw.ttDownloadables
-    : {};
+  // `downloadables` as netflix.com sends it (2026-11); `ttDownloadables` in the older shape.
+  const downloadables = isObject(raw.downloadables)
+    ? raw.downloadables
+    : isObject(raw.ttDownloadables)
+      ? raw.ttDownloadables
+      : {};
   const downloads: NetflixDownload[] = [];
   for (const format of TEXT_FORMATS) {
     const downloadable = downloadables[format];
@@ -99,17 +102,19 @@ function readTrack(raw: unknown, index: number): NetflixTextTrack | undefined {
 }
 
 /**
- * The subtitle tracks of a manifest (`{ result: { movieId, timedtexttracks } }`, or the
- * same without `result`, or with `viewableId`), or undefined for anything else. Only
- * tracks with a text format are kept; the "Off" track is dropped. Cheap on other values:
- * this runs on every `JSON.parse` of the page.
+ * The subtitle tracks of a manifest, or undefined for anything else. The manifest is
+ * `{ result: { movieId, textTracks } }` as netflix.com sends it, or the older
+ * `{ result: { movieId, timedtexttracks } }`; also accepted without `result`, or with
+ * `viewableId`. Only tracks with a text format are kept; the "Off" track and tracks not
+ * downloadable yet are dropped. Cheap on other values: this runs on every `JSON.parse`
+ * of the page.
  */
 export function readManifest(
   value: unknown,
 ): NetflixManifestTracks | undefined {
   if (!isObject(value)) return undefined;
   const root = isObject(value.result) ? value.result : value;
-  const list = root.timedtexttracks;
+  const list = root.textTracks ?? root.timedtexttracks;
   if (!Array.isArray(list)) return undefined;
   const movieId = root.movieId ?? root.viewableId;
   if (!isId(movieId)) return undefined;
