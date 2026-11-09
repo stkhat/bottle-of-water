@@ -26,7 +26,9 @@ const vocab = [
 describe("importKaikki", () => {
   let result: KaikkiResult;
   beforeAll(async () => {
-    result = await importKaikki(fixture, vocab);
+    result = await importKaikki(fixture, vocab, {
+      loaves: ["", ["loafの複数形"]],
+    });
   });
 
   it("maps inflected forms to their base", () => {
@@ -55,7 +57,13 @@ describe("importKaikki", () => {
     expect(result.lemmas).not.toHaveProperty("is");
   });
   it("ignores forms equal to the base, multi-word forms and bases outside the vocabulary", () => {
-    for (const form of ["sheep", "more good", "zzyzxes", "figures of speech"]) {
+    for (const form of [
+      "sheep",
+      "more good",
+      "zzyzxes",
+      "figures of speech",
+      "-",
+    ]) {
       expect(result.lemmas).not.toHaveProperty(form);
     }
   });
@@ -97,7 +105,7 @@ describe("importKaikki", () => {
     expect(result.pos).not.toHaveProperty("zzyzx");
   });
   it("counts lines it cannot parse instead of failing", () => {
-    expect(result.stats).toEqual({ entries: 20, unparsable: 1 });
+    expect(result.stats).toEqual({ entries: 21, unparsable: 1 });
   });
 });
 
@@ -117,5 +125,62 @@ describe("posLabel", () => {
     ["phrase", "phrase"],
   ])("labels %s as %s", (pos, label) => {
     expect(posLabel(pos)).toBe(label);
+  });
+});
+
+describe("importKaikki: forms that are vocabulary words", () => {
+  // Trimmed from real kaikki lines.
+  const fixture = join(import.meta.dirname, "fixtures", "kaikki-confirm.jsonl");
+  // Glosses as in EJDict.
+  const dict = {
+    is: ["", ["beの三人称・単数・現在"]],
+    does: ["", ["doの三人称・単数・直説法現在形"]],
+    has: ["", ["haveの三人称単数現在"]],
+    lives: ["", ["lifeの複数形"]],
+    news: ["", ["(新しい)『報道』,記事;(一般的に)知らせ,たより"]],
+    better: [
+      "",
+      [
+        "(『good』 の比較級;最上級は 『best』)『いっそうよい』",
+        "(『well』の比較級;最上級はbest)『いっそううまく』",
+      ],
+    ],
+    rose: ["", ["〈C〉『バラの花』"]],
+    this: ["", ["《近くの人・物・事を指して》『これ』"]],
+  } satisfies Record<string, [string, string[]]>;
+  const forms = Object.keys(dict);
+  const bases = ["be", "i", "do", "doe", "have", "ha", "life", "live", "new"];
+  const vocab = [...forms, ...bases, "good", "well", "rise", "thi", "ii"];
+  let lemmas: KaikkiResult["lemmas"];
+  beforeAll(async () => {
+    lemmas = (await importKaikki(fixture, vocab, dict)).lemmas;
+  });
+
+  it("keeps a base confirmed by the form's own form-of sense and named in its gloss", () => {
+    expect(lemmas.is).toBe("be");
+    expect(lemmas.does).toBe("do");
+    expect(lemmas.has).toBe("have");
+    expect(lemmas.better).toEqual(["good", "well"]);
+  });
+  it("keeps a base confirmed by a verb inflection even when the gloss does not name it", () => {
+    expect(lemmas.lives).toEqual(["life", "live"]);
+    expect(lemmas.rose).toBe("rise");
+  });
+  it("drops a base the form's own entries do not confirm", () => {
+    expect(lemmas).not.toHaveProperty("this");
+  });
+  it("drops a noun-plural base the gloss does not name", () => {
+    expect(lemmas).not.toHaveProperty("news");
+  });
+  it("takes no forms from Roman numerals", () => {
+    expect(lemmas).not.toHaveProperty("iis");
+  });
+  it("drops single-letter bases for forms outside the vocabulary too", async () => {
+    const result = await importKaikki(
+      fixture,
+      vocab.filter((word) => word !== "is"),
+      dict,
+    );
+    expect(result.lemmas.is).toBe("be");
   });
 });

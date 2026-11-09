@@ -25,6 +25,18 @@ describe("generated packs", () => {
     expect(lemmatize("loaves", lemmas, vocab)).toContain("loaf");
     expect(lemmatize("Fermented", lemmas, vocab)).toContain("ferment");
   });
+  it("map vocabulary forms only to confirmed bases", () => {
+    expect(lemmatize("is", lemmas, vocab)).toEqual(["is", "be"]);
+    expect(lemmatize("does", lemmas, vocab)).toEqual(["does", "do"]);
+    expect(lemmatize("has", lemmas, vocab)).toEqual(["has", "have"]);
+    expect(lemmatize("this", lemmas, vocab)).toEqual(["this"]);
+    expect(lemmatize("news", lemmas, vocab)).toEqual(["news"]);
+    expect(lemmatize("better", lemmas, vocab)).toEqual([
+      "better",
+      "good",
+      "well",
+    ]);
+  });
   it("have the US IPA of dough", () => {
     expect(ipaFor("dough", ipa)).toBe("/doʊ/");
   });
@@ -41,5 +53,6 @@ describe("generated packs", () => {
     expect(rankOf("the", index)).toBeLessThanOrEqual(5);
     expect(rankOf("you", index)).toBe(1);
     expect(freq.length).toBeGreaterThan(15000);
+    expect(rankOf("thi", index)).toBeGreaterThan(5000);
   });
 });

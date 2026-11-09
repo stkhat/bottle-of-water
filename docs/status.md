@@ -20,11 +20,11 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 ## Data
 Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kaikki English dump of that day, 1,499,161 entries).
 - Vocabulary (single-word EJDict headwords): 40,197 words; `dict.json` has 46,612 headwords including multi-word ones
-- Lemma entries (inflected form → base): 54,753
-- IPA: 26,758 words; coverage over the frequency list: 16,737 of 19,109 base forms (87.6%). The list has fewer than 20,000 entries because only vocabulary words are kept
+- Lemma entries (inflected form → base): 54,399
+- IPA: 26,758 words; coverage over the frequency list: 16,719 of 19,089 base forms (87.6%). The list has fewer than 20,000 entries because only vocabulary words are kept
 - Parts of speech: 39,436 words
-- File sizes: `en/lemmas.json` 1.27 MB, `en/ipa.json` 0.79 MB, `en/freq.json` 0.21 MB, `en/pos.json` 1.04 MB, `en-ja/dict.json` 6.68 MB; total 9.98 MB
-- Known noise: a few inflections map to rare homographs (this → thi, has → ha, does → doe, is → i as a Roman numeral), which also lifts those words in `freq.json`
+- File sizes: `en/lemmas.json` 1.25 MB, `en/ipa.json` 0.79 MB, `en/freq.json` 0.21 MB, `en/pos.json` 1.04 MB, `en-ja/dict.json` 6.68 MB; total 9.97 MB
+- A form that is itself a dictionary word (is, does, has, this) keeps a base only when its own kaikki entry says "form of <base>" in a non-rare inflection sense, and that sense is a verb inflection or the EJDict gloss names the base. So is → be, does → do, has → have, lives → life/live; this and news have no base. Forms outside the vocabulary still take every base whose entry lists them
 - EJDict has no phrasal verbs as headwords (no "figure out"); its multi-word headwords are compounds such as "figure of speech"
 
 ## Before publishing

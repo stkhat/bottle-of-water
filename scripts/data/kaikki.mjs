@@ -28,6 +28,8 @@ const IGNORED_TAGS = new Set([
 ]);
 // Entries whose forms are not inflections of a real word: letters and symbols.
 const NO_FORMS_POS = new Set(["character", "symbol"]);
+const ROMAN_NUMERAL =
+  /^(?=[mdclxvi])m*(c[md]|d?c{0,3})(x[cl]|l?x{0,3})(i[xv]|v?i{0,3})$/;
 const US_TAGS = new Set(["General-American", "US"]);
 const POS_LABELS = {
   adj: "adjective",
@@ -62,6 +64,8 @@ function newBucket() {
 // does not give its forms to its headword ("we'll": misspelling of well → better).
 function hasOwnForms(entry) {
   if (NO_FORMS_POS.has(entry.pos)) return false;
+  if (entry.pos === "num" && ROMAN_NUMERAL.test(entry.word.toLowerCase()))
+    return false;
   const senses = entry.senses ?? [];
   return !(
     senses.length > 0 &&
@@ -102,9 +106,49 @@ function addEntry(bucket, base, entry) {
     if (!tags.some((tag) => INFLECTION_TAGS.has(tag))) continue;
     if (tags.some((tag) => IGNORED_TAGS.has(tag))) continue;
     const lower = form.trim().toLowerCase();
-    if (!lower || lower === base || /\s/.test(lower)) continue;
+    if (lower === base || /\s/.test(lower) || !/\p{L}/u.test(lower)) continue;
     bucket.bases.set(lower, base);
   }
+}
+
+// A form that is itself a vocabulary word ("is", "does", "this") keeps a base only when
+// one of its own entries has an inflection sense "form of <base>" that is not rare,
+// obsolete…, and either that sense is a verb inflection or the form's EJDict gloss names
+// the base ("doの三人称…"). This drops does → doe, has → ha, news → new, this → Thi.
+const NOT_CONFIRMING_TAGS = new Set([...IGNORED_TAGS, "rare"]);
+
+function addConfirmations(confirmations, form, entry) {
+  for (const sense of entry.senses ?? []) {
+    const tags = sense.tags ?? [];
+    if (!Array.isArray(sense.form_of)) continue;
+    if (!tags.some((tag) => INFLECTION_TAGS.has(tag))) continue;
+    if (tags.some((tag) => NOT_CONFIRMING_TAGS.has(tag))) continue;
+    for (const { word } of sense.form_of) {
+      if (typeof word !== "string") continue;
+      // "comparative degree of good and well"
+      for (const base of word.toLowerCase().split(/\s*,\s*|\s+and\s+/)) {
+        if (!base) continue;
+        if (!confirmations.has(form)) confirmations.set(form, new Map());
+        const byBase = confirmations.get(form);
+        const confirmation = byBase.get(base) ?? { verb: false };
+        confirmation.verb ||= entry.pos === "verb";
+        byBase.set(base, confirmation);
+      }
+    }
+  }
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isConfirmed(confirmation, form, base, dict) {
+  if (!confirmation) return false;
+  if (confirmation.verb) return true;
+  const gloss = (dict[form]?.[1] ?? []).join(" / ");
+  return new RegExp(`(^|[^a-z])${escapeRegExp(base)}』?\\s*の`, "i").test(
+    gloss,
+  );
 }
 
 /**
@@ -112,11 +156,12 @@ function addEntry(bucket, base, entry) {
  * US IPA and parts of speech. Entries spelt exactly like the vocabulary word win; entries
  * in another casing (Monday for "monday") are used only when there are none.
  */
-export async function importKaikki(path, vocab) {
+export async function importKaikki(path, vocab, dict = {}) {
   const words = new Set(vocab);
   const exact = new Map();
   const folded = new Map();
   const stats = { entries: 0, unparsable: 0 };
+  const confirmations = new Map(); // form → base → { verb }
   const lines = createInterface({
     input: createReadStream(path, { highWaterMark: 1 << 20 }),
     crlfDelay: Infinity,
@@ -134,6 +179,7 @@ export async function importKaikki(path, vocab) {
     if (entry.lang_code !== "en" || typeof entry.word !== "string") continue;
     const base = entry.word.toLowerCase();
     if (!words.has(base)) continue;
+    if (entry.word === base) addConfirmations(confirmations, base, entry);
     const buckets = entry.word === base ? exact : folded;
     let bucket = buckets.get(base);
     if (!bucket) buckets.set(base, (bucket = newBucket()));
@@ -156,16 +202,25 @@ export async function importKaikki(path, vocab) {
   }
   const lemmas = {};
   for (const [form, bases] of lemmaSets) {
-    const sorted = [...bases].sort();
-    lemmas[form] = sorted.length === 1 ? sorted[0] : sorted;
+    const sorted = [...bases]
+      .filter((base) => base.length > 1)
+      .filter(
+        (base) =>
+          !words.has(form) ||
+          isConfirmed(confirmations.get(form)?.get(base), form, base, dict),
+      )
+      .sort();
+    if (sorted.length > 0)
+      lemmas[form] = sorted.length === 1 ? sorted[0] : sorted;
   }
   return { lemmas, ipa, pos, stats };
 }
 
 async function main() {
-  const vocab = vocabularyOf(readPack("en-ja/dict.json"));
+  const dict = readPack("en-ja/dict.json");
+  const vocab = vocabularyOf(dict);
   const path = process.argv[2] ?? KAIKKI_PATH;
-  const { lemmas, ipa, pos, stats } = await importKaikki(path, vocab);
+  const { lemmas, ipa, pos, stats } = await importKaikki(path, vocab, dict);
   writePack("en/lemmas.json", lemmas);
   writePack("en/ipa.json", ipa);
   writePack("en/pos.json", pos);

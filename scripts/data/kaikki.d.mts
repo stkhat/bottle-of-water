@@ -8,4 +8,5 @@ export function posLabel(pos: string): string;
 export function importKaikki(
   path: string,
   vocab: Iterable<string>,
+  dict?: Record<string, [short: string, senses: string[]]>,
 ): Promise<KaikkiResult>;
