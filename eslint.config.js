@@ -49,5 +49,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["scripts/**", "e2e/serve.mjs"],
+    languageOptions: { globals: { ...globals.node } },
+  },
   prettier,
 );
