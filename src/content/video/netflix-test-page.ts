@@ -5,7 +5,7 @@ import {
   type FakeNetflixControl,
   type FakeNetflixOptions,
 } from "../../../e2e/fake-netflix-player";
-import manifestJson from "../../core/subtitles/fixtures/netflix/manifest.json?raw";
+import manifest from "../../core/subtitles/fixtures/netflix/manifest.json";
 import videoUrl from "../../../e2e/fixtures/video.webm?url";
 
 export const MOVIE_ID = "80000001";
@@ -18,14 +18,21 @@ export const METADATA = {
   ],
 };
 
-/** The synthetic manifest with its CDN URLs on the test server (see vitest.config.ts). */
-export function testManifest(movieId = MOVIE_ID): string {
-  return manifestJson
-    .replace(
-      /https:\/\/ipv4-c00\d-test00\d-ix\.1\.oca\.nflxvideo\.net\//g,
-      `${location.origin}/lingo-nflx/`,
-    )
-    .replace('"movieId": 80000001', `"movieId": ${movieId}`);
+/**
+ * The synthetic manifest's text with its CDN URLs on the test server (see
+ * vitest.config.ts), for `movieId`, without the tracks whose JSON matches `drop`.
+ * (Built without JSON.parse, which the page script watches.)
+ */
+export function testManifest(movieId = MOVIE_ID, drop?: RegExp): string {
+  const copy = structuredClone(manifest);
+  copy.result.timedtexttracks = copy.result.timedtexttracks.filter(
+    (t) => !drop?.test(JSON.stringify(t)),
+  );
+  copy.result.movieId = Number(movieId);
+  return JSON.stringify(copy).replace(
+    /https:\/\/ipv4-c00\d-test00\d-ix\.1\.oca\.nflxvideo\.net\//g,
+    `${location.origin}/lingo-nflx/`,
+  );
 }
 
 export interface TestPage {

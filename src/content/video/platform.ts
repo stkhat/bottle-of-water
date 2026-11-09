@@ -51,6 +51,8 @@ export interface PlatformAdapter {
   belowVideoElement(): HTMLElement | null;
   /** Where the transcript goes in the side column, or null without one. */
   sideColumn(): InsertionPoint | null;
+  /** The element the transcript is as tall as (default: the player). */
+  transcriptFrame?(): HTMLElement | null;
   /** An ad plays instead of the video. */
   adShowing(): boolean;
   /** The current video's subtitle tracks. */
