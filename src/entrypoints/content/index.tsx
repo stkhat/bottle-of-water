@@ -2,7 +2,7 @@ import { render } from "preact";
 import { browser } from "wxt/browser";
 import { watchSettings } from "../../background/settings-store";
 import { startArticle } from "../../content/article/article";
-import { PageCard } from "../../content/ui/PageCard";
+import { ArticleUi } from "../../content/ui/ArticleUi";
 import { send } from "../../messaging/client";
 
 export default defineContentScript({
@@ -13,13 +13,13 @@ export default defineContentScript({
       send,
       watchSettings,
       detectLanguage: (text) => browser.i18n.detectLanguage(text),
-      async mountUi() {
+      async mountUi(app) {
         const ui = await createShadowRootUi(ctx, {
           name: "lingo-page-card",
           position: "inline",
           anchor: "body",
           onMount(container) {
-            render(<PageCard />, container);
+            render(<ArticleUi app={app} />, container);
           },
           onRemove(container) {
             if (container) render(null, container);

@@ -1,7 +1,13 @@
-import { useState } from "preact/hooks";
+import type { Settings } from "../../core/settings";
 import { t, type MessageKey } from "../../i18n/t";
 
-type Category = "new" | "learning" | "known";
+type Category = keyof Settings["highlight"];
+
+export interface PageCardProps {
+  /** Which categories are highlighted (`settings.highlight`). */
+  highlight: Settings["highlight"];
+  onToggle: (category: Category) => void;
+}
 
 const CHIPS: readonly {
   id: Category;
@@ -29,13 +35,8 @@ const CHIPS: readonly {
 const ROOT_STYLE =
   "all: initial; position: fixed; top: 16px; right: 16px; z-index: 2147483647; width: 340px; box-sizing: border-box; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 14px; box-shadow: 0 16px 40px rgba(20,20,30,0.12); display: flex; flex-direction: column; gap: 12px; font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif; font-size: 14px; line-height: normal; color: #14182B;";
 
-export function PageCard() {
-  const [on, setOn] = useState<Record<Category, boolean>>({
-    new: false,
-    learning: true,
-    known: false,
-  });
-
+/** The top-right card: Lingo's state on the page and the highlight toggles. */
+export function PageCard({ highlight: on, onToggle }: PageCardProps) {
   return (
     <div style={ROOT_STYLE}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -82,9 +83,7 @@ export function PageCard() {
               key={c.id}
               type="button"
               aria-pressed={pressed}
-              onClick={() =>
-                setOn((prev) => ({ ...prev, [c.id]: !prev[c.id] }))
-              }
+              onClick={() => onToggle(c.id)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

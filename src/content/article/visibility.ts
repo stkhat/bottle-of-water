@@ -44,6 +44,18 @@ function takeBatch(
   return queue.splice(0, count);
 }
 
+/** Splits blocks into batches within the limits, in the order given. */
+export function batches(
+  blocks: readonly TextBlock[],
+  maxBlocks = 20,
+  maxChars = 20_000,
+): TextBlock[][] {
+  const queue = [...blocks];
+  const out: TextBlock[][] = [];
+  while (queue.length > 0) out.push(takeBatch(queue, maxBlocks, maxChars));
+  return out;
+}
+
 /**
  * Hands blocks to `analyze` as they come within half a viewport of the visible area
  * (IntersectionObserver), in document order, in batches of at most 20 blocks and

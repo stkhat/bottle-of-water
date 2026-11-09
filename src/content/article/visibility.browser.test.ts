@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { collectBlocks, type TextBlock } from "./page-text";
-import { watchVisibleBlocks, type VisibleBlocks } from "./visibility";
+import { batches, watchVisibleBlocks, type VisibleBlocks } from "./visibility";
 
 const cleanups: (() => void)[] = [];
 
@@ -155,5 +155,28 @@ describe("watchVisibleBlocks", () => {
     await frames(3);
     expect(batches.flat()).not.toContain(blocks[3]);
     expect(batches.flat()).toContain(blocks[4]);
+  });
+});
+
+describe("batches", () => {
+  it("splits blocks into batches by count and length, in the order given", () => {
+    const root = fixture(
+      "<p>aaaa</p><p>bbbb</p><p>cccc</p><p>dddddddddd</p><p>e</p>",
+    );
+    const blocks = collectBlocks(root).filter((b) => b.element !== root);
+    const texts = (list: TextBlock[][]) =>
+      list.map((b) => b.map((x) => x.text));
+    expect(texts(batches(blocks, 2, 100))).toEqual([
+      ["aaaa", "bbbb"],
+      ["cccc", "dddddddddd"],
+      ["e"],
+    ]);
+    expect(texts(batches(blocks, 20, 9))).toEqual([
+      ["aaaa", "bbbb"],
+      ["cccc"],
+      ["dddddddddd"],
+      ["e"],
+    ]);
+    expect(batches([], 20, 9)).toEqual([]);
   });
 });

@@ -1,6 +1,7 @@
 import { Dexie } from "dexie";
 import type { TermIndex, TermKind, TermStatus } from "../core/classify";
 import { fromMinutes, toMinutes, type SyncRecord } from "../core/sync/codec";
+import { termId } from "../core/term-id";
 import {
   normalizeUrl,
   sourceId,
@@ -146,7 +147,7 @@ export interface TermStoreOptions {
   newBatchId?: () => string;
 }
 
-export const termId = (lang: string, key: string) => `${lang}:${key}`;
+export { termId };
 
 /** Occurrences kept per term; the oldest encounters go first, saved ones stay. */
 export const MAX_OCCURRENCES = 50;
