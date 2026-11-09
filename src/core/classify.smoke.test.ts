@@ -83,4 +83,25 @@ describe("classifier over the generated packs", () => {
     });
     expect(unsavedKeys(spans)).not.toContain("ferment");
   });
+
+  it("reads a closed-captions line in capital letters like the same line in lowercase", () => {
+    // Netflix's closed captions are in capital letters.
+    const terms: TermIndex = new Map([["break down", "learning"]]);
+    const keys = (text: string) =>
+      classifier
+        .classify(pack.tokenize(text), { terms, knownLevel: 3000 })
+        .map((s) => [text.slice(s.start, s.end), s.key, s.kind, s.category]);
+    const upper = keys(PARAGRAPH.toUpperCase());
+    expect(upper.map(([, ...rest]) => rest)).toEqual(
+      keys(PARAGRAPH).map(([, ...rest]) => rest),
+    );
+    // The text keeps its capitals.
+    expect(upper).toContainEqual(["FERMENTS", "ferment", "word", "new"]);
+    expect(upper).toContainEqual([
+      "BREAK DOWN",
+      "break down",
+      "phrase",
+      "learning",
+    ]);
+  });
 });

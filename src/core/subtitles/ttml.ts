@@ -9,8 +9,12 @@ import type { Cue } from "./types";
  * Supported: begin / end / dur on <p>; clock times (hh:mm:ss.fraction, hh:mm:ss:frames)
  * and offset times (h, m, s, ms, f, t); ttp:tickRate, ttp:frameRate and
  * ttp:frameRateMultiplier on <tt>; <br/> as a line break; nested spans; ruby readings
- * (tts:ruby="text") are dropped. Not supported: timing on <body>/<div>/<span>
- * (subtitle files put it on <p>), xml:space="preserve" (whitespace is always collapsed).
+ * (tts:ruby="text", on the span or on a <style> it refers to) are dropped;
+ * xml:space="preserve" on <p> or <tt> keeps the line breaks in the text. Paragraphs with
+ * the same begin and end are one on-screen subtitle (Netflix gives each line its own <p>):
+ * they become one cue, lines ordered top to bottom, then left to right, by tts:origin
+ * (on the <p>, else on its region). Not supported: timing on <body>/<div>/<span>
+ * (subtitle files put it on <p>). Layout (writing mode, shear) is ignored: text only.
  */
 
 interface TimeBase {
@@ -90,8 +94,46 @@ function parseTime(
 
 const TOKEN = /<[^>]*>|[^<]+/g;
 
+/** Attributes of the elements named `name` with an xml:id, by id. */
+function elementsById(
+  document: string,
+  name: string,
+): Map<string, Map<string, string>> {
+  const byId = new Map<string, Map<string, string>>();
+  const pattern = new RegExp(`<(?:[\\w-]+:)?${name}\\b([^>]*?)\\/?>`, "g");
+  for (const match of document.matchAll(pattern)) {
+    const attrs = attributes(match[1] ?? "");
+    const id = attrs.get("id");
+    if (id) byId.set(id, attrs);
+  }
+  return byId;
+}
+
+type Styles = Map<string, Map<string, string>>;
+
+/** A styling attribute of an element: its own, else from the styles it refers to. */
+function styled(
+  attrs: Map<string, string>,
+  name: string,
+  styles: Styles,
+  depth = 0,
+): string | undefined {
+  const own = attrs.get(name);
+  if (own !== undefined || depth > 8) return own;
+  for (const id of (attrs.get("style") ?? "").split(/\s+/)) {
+    const style = styles.get(id);
+    const value = style && styled(style, name, styles, depth + 1);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
 /** Text of a <p>'s content: tags stripped, <br/> as "\n", ruby readings dropped. */
-function paragraphText(content: string): string {
+function paragraphText(
+  content: string,
+  styles: Styles,
+  preserve: boolean,
+): string {
   let out = "";
   const spans: boolean[] = []; // true for a span whose content is skipped
   for (const [token] of content.matchAll(TOKEN)) {
@@ -105,12 +147,15 @@ function paragraphText(content: string): string {
         if (!spans.includes(true)) out += "\n";
       } else if (name === "span" && !selfClosing) {
         if (closing) spans.pop();
-        else spans.push(attributes(rest ?? "").get("ruby") === "text");
+        else
+          spans.push(styled(attributes(rest ?? ""), "ruby", styles) === "text");
       }
       continue;
     }
     if (spans.includes(true)) continue;
-    out += decodeEntities(token.replace(/\s+/g, " "));
+    out += decodeEntities(
+      preserve ? token.replace(/\r\n?/g, "\n") : token.replace(/\s+/g, " "),
+    );
   }
   return normalizeCueText(out);
 }
@@ -118,10 +163,41 @@ function paragraphText(content: string): string {
 const PARAGRAPH =
   /<(?:[\w-]+:)?p\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:[\w-]+:)?p\s*>)/g;
 
+/** The x and y of a tts:origin ("10.00% 84.62%", "120px 400px"), or undefined. */
+function origin(value: string | undefined): [number, number] | undefined {
+  const [x, y] = (value ?? "").trim().split(/\s+/).map(parseFloat);
+  return x !== undefined && y !== undefined && Number.isFinite(x + y)
+    ? [x, y]
+    : undefined;
+}
+
+interface Line {
+  startMs: number;
+  endMs: number;
+  text: string;
+  at: [number, number] | undefined;
+}
+
+/** One subtitle's lines: top to bottom, then left to right, when every line has a place. */
+function joinLines(lines: Line[]): string {
+  const placed = lines.every((line) => line.at)
+    ? [...lines].sort((a, b) => a.at![1] - b.at![1] || a.at![0] - b.at![0])
+    : lines;
+  return placed.map((line) => line.text).join("\n");
+}
+
 /** Parses a TTML / DFXP document into cues sorted by start time. */
-export function parseTtml(document: string): Cue[] {
+export function parseTtml(source: string): Cue[] {
+  const document = source.replace(/<!--[\s\S]*?-->/g, "");
   const base = timeBase(document);
-  const cues: Cue[] = [];
+  const styles = elementsById(document, "style");
+  const regions = elementsById(document, "region");
+  const preserveAll =
+    attributes(/<(?:[\w-]+:)?tt\b([^>]*)>/.exec(document)?.[1] ?? "").get(
+      "space",
+    ) === "preserve";
+  // Lines by their times, in the file's order.
+  const subtitles = new Map<string, Line[]>();
   for (const match of document.matchAll(PARAGRAPH)) {
     const attrs = attributes(match[1] ?? "");
     const startMs = parseTime(attrs.get("begin"), base);
@@ -130,9 +206,23 @@ export function parseTtml(document: string): Cue[] {
     const dur = parseTime(attrs.get("dur"), base);
     const endMs = end ?? (dur !== undefined ? startMs + dur : undefined);
     if (endMs === undefined) continue;
-    const text = paragraphText(match[2] ?? "");
+    const space = attrs.get("space");
+    const preserve = space === undefined ? preserveAll : space === "preserve";
+    const text = paragraphText(match[2] ?? "", styles, preserve);
     if (text === "") continue;
-    cues.push({ startMs, endMs, text });
+    const region = regions.get(attrs.get("region") ?? "");
+    const at =
+      origin(attrs.get("origin")) ??
+      origin(region && styled(region, "origin", styles));
+    const key = `${startMs}-${endMs}`;
+    const lines = subtitles.get(key) ?? [];
+    lines.push({ startMs, endMs, text, at });
+    subtitles.set(key, lines);
+  }
+  const cues: Cue[] = [];
+  for (const lines of subtitles.values()) {
+    const { startMs, endMs } = lines[0]!;
+    cues.push({ startMs, endMs, text: joinLines(lines) });
   }
   return cues.sort((a, b) => a.startMs - b.startMs);
 }

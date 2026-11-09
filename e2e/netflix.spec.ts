@@ -27,8 +27,8 @@ const read = (file: string) => readFileSync(path.join(subtitles, file), "utf8");
 
 const EN = parseTtml(read("en.dfxp"));
 const JA = parseWebVtt(read("ja.vtt"));
-/** The line the tests seek to: "extraordinary" is a New word. */
-const LINE = "Every child has an extraordinary imagination.";
+/** The line the tests seek to: "EXTRAORDINARY" is a New word (closed captions are in capitals). */
+const LINE = "EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.";
 const flat = (text: string) => text.replaceAll("\n", " ");
 const LINE_INDEX = EN.findIndex((c) => flat(c.text) === LINE);
 const LINE_CUE = EN[LINE_INDEX]!;
@@ -138,7 +138,7 @@ test("the subtitle shows the playing line with its Japanese line; Netflix's own 
   expect(await currentTime(page)).toBeCloseTo(LINE_CUE.startMs / 1000, 1);
   await expect(inVideo(page).getByText(LINE_JA)).toBeVisible();
   await expect(
-    inVideo(page).getByText("extraordinary", { exact: true }),
+    inVideo(page).getByText("EXTRAORDINARY", { exact: true }),
   ).toHaveCSS("box-shadow", /rgb\(141, 180, 255\)/);
   expect(await siteCaptions(page)).toBe("none");
 
