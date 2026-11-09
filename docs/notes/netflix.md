@@ -44,15 +44,21 @@ Checked on the same episode in the user's Chrome with only Lingo enabled:
 
 Then fixed, not yet checked again: the L and ^ buttons in the control bar (above), and transcript cards as sentences. Closed captions split one sentence across cues ("DID YOU EVEN INTERVIEW THIS WOMAN" / "BEFORE YOU ASKED HER TO MOVE IN?"), which gave fragment cards and Japanese lines on the wrong card; cards now join such cues (`sentenceCards` in `src/core/subtitles/cues.ts`) and the subtitle in the video still shows one cue at a time.
 
+## Rechecked on netflix.com (2026-11-10, build 53569db)
+- The L and ^ buttons now sit in the control bar, just before the audio & subtitles button, and come and go with the bar.
+- L off (aria-pressed true → false) hides the transcript and our subtitle and gives Netflix's own subtitles back; L on restores Lingo. The change shows after a short delay.
+- Transcript cards are whole sentences (e.g. "NOW, REMEMBER WHEN YOU WENT OUT WITH THAT GIRL, DONNA AND YOU GUYS BROKE UP? REMEMBER HOW HORRIBLE IT WAS").
+- Remaining issues seen: (a) while the control bar shows, our in-video subtitle overlaps the bar and the episode title — lift it above the bar while the bar is visible; (b) sound labels inside a cue stay inside the card ("… NOT FLIRT. ( chuckles )"); (c) Netflix's Japanese lines are loosely timed, so a few still land on the neighboring card.
+
 ## Still to check on netflix.com
-1. Sentence cards and their Japanese lines on real closed captions (cues joined across a pause under 1.5 s, speaker dashes kept apart).
+1. Speaker-dash lines kept apart in sentence cards (sentence joining itself is verified).
 2. Whether the English `imsc1.1` file (tried first) looks like the Japanese one or splits lines into `<p>` elements like the DFXP; if it gives no cues, Lingo moves on to `dfxp-ls-sdh`.
 3. Whether tracks other than the selected ones can come with `hydrated: false` and no `downloadables` (titles with many languages); such tracks are dropped, so the native-language translation could be missing.
 4. Subtitle CDN hosts (`*.nflxvideo.net`) answer the content script's `fetch` with CORS for `https://www.netflix.com` (Chrome and Firefox); else the page fetch is used.
 5. Subtitle times on titles with ads (ad tier: `adShowing()` always returns false; ads may break timing). Without ads they matched.
 6. `getMovieId()` of the session player (seeking works).
 7. Title: `playerApp.getState().videoPlayer.videoMetadata[movieId]._metadata.video` with `title` and `seasons[].episodes[]` (`id`, `seq`, `title`); fallback `[data-uia='video-title']`.
-8. The L and ^ buttons in the control bar with a real pointer (after the 2026-11-10 fix), and the menu above them.
+8. The ^ menu above the buttons (the L toggle itself is verified).
 9. The URL changes to `/watch/<episode id>` between episodes and the manifest's `movieId` equals that id (if the URL names a show, the playing title from `getMovieId()` is used).
 10. `ended` fires at the end of an episode (Netflix may show its post-play screen or move on first), so the "Video finished" card may not show.
 11. Fullscreen: which element Netflix makes fullscreen; Lingo hides its parts in fullscreen and shows Netflix's subtitles.
