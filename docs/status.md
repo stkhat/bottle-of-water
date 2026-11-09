@@ -12,6 +12,13 @@ Updated whenever a milestone moves. Last update: 2026-11-09.
 - The phase-2 language pack is Spanish → English
 - Screens without a mock (word list page, per-video word list tab, fullscreen, past-occurrence search) get mock artboards first; they are implemented after the user reviews them
 
+- Chrome Web Store requirements checked: no blocker. Keep YouTube + Netflix (subtitles in memory only), keep `<all_urls>`, sentence history on by default. See the spec's "Chrome Web Store requirements"
+
+## Before publishing
+- Privacy policy page on a public URL (this repo is private)
+- Trader / non-trader declaration, 2-Step Verification on the developer account
+- Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling
+
 ## Open / not made yet
 - Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search: added 2026-11-09, **awaiting the user's review** (those screens are built only after it)
 - How the Language Reactor extension looks on youtube.com is unchecked (only the web player was checked)
