@@ -64,6 +64,12 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
         run_at: "document_start",
       },
       {
+        matches: ["*://www.netflix.com/*"],
+        js: ["content-scripts/netflix.js"],
+        world: undefined,
+        run_at: "document_start",
+      },
+      {
         matches: ["*://www.youtube.com/*"],
         js: ["content-scripts/youtube-main.js"],
         world: "MAIN",

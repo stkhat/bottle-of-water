@@ -58,7 +58,7 @@ const boxOf = (element: Element | null | undefined): Box | null => {
  * unmount.
  */
 export function mountVideoUi({ adapter, app }: MountOptions): () => void {
-  const layout = createStore<VideoLayout>({ playerHeight: 0 });
+  const layout = createStore<VideoLayout>({ frameHeight: 0 });
   const parts: Part[] = [];
   const roots: ShadowRoot[] = [];
 
@@ -106,7 +106,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   );
   part(
     "lingo-transcript",
-    "display: block; margin-bottom: 12px;",
+    // Clickable inside a frame that lets clicks through to the video (Netflix).
+    "display: block; margin-bottom: 12px; pointer-events: auto;",
     () => adapter.sideColumn(),
     <TranscriptUi app={app} layout={layout} />,
   );
@@ -124,7 +125,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   );
 
   const resize = new ResizeObserver(([entry]) => {
-    if (entry) layout.set({ playerHeight: entry.contentRect.height });
+    if (entry) layout.set({ frameHeight: entry.contentRect.height });
   });
   let observed: Element | null = null;
 
@@ -145,11 +146,11 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       if (++moves.count > MAX_MOVES_PER_SECOND) continue;
       at.parent.insertBefore(host, at.before);
     }
-    const player = adapter.playerElement();
-    if (player !== observed) {
+    const frame = adapter.transcriptFrame?.() ?? adapter.playerElement();
+    if (frame !== observed) {
       if (observed) resize.unobserve(observed);
-      if (player) resize.observe(player);
-      observed = player;
+      if (frame) resize.observe(frame);
+      observed = frame;
     }
   }
 

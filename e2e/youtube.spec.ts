@@ -13,6 +13,7 @@ import {
 } from "../tests/youtube-timedtext";
 import { installFakeYouTubePlayer } from "./fake-youtube-player";
 import { test, expect, sendToBackground } from "./fixtures";
+import { routeTalkVideo } from "./routes";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WATCH = `https://www.youtube.com/watch?v=${FIXTURE_VIDEO_ID}`;
@@ -55,33 +56,7 @@ async function routeYouTube(context: BrowserContext) {
       body: html,
     });
   });
-  // With byte ranges: the video can seek only then.
-  const video = readFileSync(path.join(here, "fixtures/talk.webm"));
-  await context.route(
-    "https://www.youtube.com/lingo-test/talk.webm",
-    (route) => {
-      const range = /bytes=(\d+)-(\d*)/.exec(
-        route.request().headers()["range"] ?? "",
-      );
-      if (!range)
-        return route.fulfill({
-          contentType: "video/webm",
-          headers: { "accept-ranges": "bytes" },
-          body: video,
-        });
-      const start = Number(range[1]);
-      const end = range[2] ? Number(range[2]) : video.length - 1;
-      return route.fulfill({
-        status: 206,
-        contentType: "video/webm",
-        headers: {
-          "accept-ranges": "bytes",
-          "content-range": `bytes ${start}-${end}/${video.length}`,
-        },
-        body: video.subarray(start, end + 1),
-      });
-    },
-  );
+  await routeTalkVideo(context, "https://www.youtube.com/lingo-test/talk.webm");
   await context.route("https://www.youtube.com/api/timedtext*", (route) =>
     route.fulfill({
       contentType: "application/json; charset=UTF-8",

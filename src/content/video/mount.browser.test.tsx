@@ -299,6 +299,32 @@ describe("mountVideoUi", () => {
       .toBe(420);
   });
 
+  it("makes the transcript as tall as the site's transcript frame, and clickable in it", async () => {
+    // As on Netflix: a panel over the page that lets clicks through to the video.
+    const frame = document.createElement("div");
+    frame.style.cssText =
+      "position: fixed; top: 20px; right: 16px; width: 300px; height: 340px; pointer-events: none;";
+    document.body.append(frame);
+    const fake = fakeApp(readyState());
+    unmount = mountVideoUi({
+      adapter: {
+        ...adapter,
+        sideColumn: () => ({ parent: frame, before: null }),
+        transcriptFrame: () => frame,
+      },
+      app: fake.app,
+    });
+    const aside = () => inside("lingo-transcript")?.querySelector("aside");
+    await expect.poll(() => aside()?.getBoundingClientRect().height).toBe(340);
+    frame.style.height = "400px";
+    await expect.poll(() => aside()?.getBoundingClientRect().height).toBe(400);
+    const box = aside()!.getBoundingClientRect();
+    expect(document.elementFromPoint(box.left + 20, box.top + 100)).toBe(
+      host("lingo-transcript"),
+    );
+    frame.remove();
+  });
+
   it("opens the dictionary window beside the video, not over the subtitle", async () => {
     // Mock Main's video size.
     page.player.style.width = "880px";

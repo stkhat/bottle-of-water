@@ -24,7 +24,8 @@ export interface VideoGeometry {
 
 /** Sizes the UI follows. */
 export interface VideoLayout {
-  playerHeight: number;
+  /** The height of the element the transcript follows (the player, or the site's frame). */
+  frameHeight: number;
 }
 
 /** The transcript is never shorter than this (px). */
@@ -155,7 +156,7 @@ export function TranscriptUi(props: {
 }) {
   const { app } = props;
   const state = useStore(app.store);
-  const { playerHeight } = useStore(props.layout);
+  const { frameHeight } = useStore(props.layout);
   if (!showing(state)) return null;
   const { settings } = state;
   return (
@@ -175,7 +176,7 @@ export function TranscriptUi(props: {
       onSeek={app.seekToCue}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
-      height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(playerHeight))}
+      height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}
     />
   );
 }
