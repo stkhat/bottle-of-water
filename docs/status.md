@@ -42,7 +42,7 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 ## Open / not made yet
 - Article UI: changes made in another tab (saving a word there) show on an open page only after it is classified again (reload, or a known-level change). Re-analyzing when the tab becomes visible again would cover it
 - Article UI: the hover card's notes line has no etymology or related words (no data); it shows the base form of an inflected word ("loaves → loaf") and, for a phrase, its main word's translation
-- E2E: a Playwright mouse drag selects no text on `e2e/pages/article-en.html` in headless Chromium, even without the extension (it does on simpler pages and in the browser tests), so the E2E test selects the phrase with click + Shift+click
+- E2E: a Playwright mouse drag selects no text on `e2e/pages/article-en.html` in headless Chromium, even without the extension (it does on simpler pages and in the browser tests), and Shift+click selected nothing on the Linux CI runner, so the E2E test selects the phrase with the Selection API (mouse selection is covered by the browser tests)
 - Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search: added 2026-11-09, **awaiting the user's review** (those screens are built only after it)
 - How the Language Reactor extension looks on youtube.com is unchecked (only the web player was checked)
 - `storage.sync` holds about 12,400 English terms, not the 15,000–20,000 the spec estimated (see "Data"). Decide whether that is enough or whether the sync format should change

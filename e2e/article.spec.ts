@@ -114,13 +114,25 @@ test("a selected phrase is saved and highlighted", async ({
 }) => {
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
-  const box = await textBox(page, "rise and fall");
-  // Click inside "rise", then Shift+click inside "fall". (A mouse drag selects
-  // nothing on this page in headless Chromium; it does in the browser tests.)
-  await page.mouse.click(box.left + 4, box.y);
-  await page.keyboard.down("Shift");
-  await page.mouse.click(box.right - 4, box.y);
-  await page.keyboard.up("Shift");
+  await textBox(page, "rise and fall");
+  // Select from inside "rise" to inside "fall" with the Selection API. Mouse
+  // selection is covered by the browser tests: in headless Chromium a mouse drag
+  // selects nothing on this page, and Shift+click is unreliable on Linux.
+  await page.evaluate(() => {
+    const walker = document.createTreeWalker(
+      document.querySelector("article")!,
+      NodeFilter.SHOW_TEXT,
+    );
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const start = node.data.indexOf("rise and");
+      if (start < 0) continue;
+      const end = node.data.indexOf("fall", start) + 2;
+      getSelection()!.setBaseAndExtent(node, start + 1, node, end);
+      return;
+    }
+    throw new Error("rise and fall not found");
+  });
   const bar = page.getByText("Save “rise and fall” as a phrase");
   await expect(bar).toBeVisible();
   await page
