@@ -3,7 +3,11 @@ import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
-import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
+import {
+  unsupportedPage,
+  type PageRequest,
+  type PageSummary,
+} from "../../messaging/page-protocol";
 import {
   dictionaryLinks,
   type DictionaryLink,
@@ -35,7 +39,11 @@ import {
   type TextBlock,
 } from "./page-text";
 import { collapseSpaces, sentenceAt } from "./sentence";
-import { shouldRunArticle, type DetectLanguage } from "./should-run";
+import {
+  articlesAllowedOn,
+  shouldRunArticle,
+  type DetectLanguage,
+} from "./should-run";
 import { createBuiltInTranslator, type TranslationProvider } from "./translate";
 import { batches, watchVisibleBlocks } from "./visibility";
 
@@ -65,6 +73,8 @@ export interface ArticleOptions {
   htmlLang?: string;
   /** Default `location.hostname`. */
   hostname?: string;
+  /** The settings to start with (default: asked from the background). */
+  settings?: Settings;
 }
 
 /** The hover card over a word: where the word is and what it says. */
@@ -160,10 +170,11 @@ export async function startArticle(
   options: ArticleOptions = {},
 ): Promise<ArticleSession | undefined> {
   const root = options.root ?? document.body;
-  let settings = await deps.send({ type: "getSettings" });
+  const hostname = options.hostname ?? location.hostname;
+  let settings = options.settings ?? (await deps.send({ type: "getSettings" }));
 
   const runs = await shouldRunArticle({
-    hostname: options.hostname ?? location.hostname,
+    hostname,
     htmlLang: options.htmlLang ?? document.documentElement.lang,
     settings,
     sample: () =>
@@ -324,6 +335,8 @@ export async function startArticle(
 
   const summary = (): PageSummary => ({
     supported: true,
+    hostname,
+    scope: "page",
     unsaved: store.get().unsaved,
     done: store.get().done,
   });
@@ -716,4 +729,69 @@ export async function startArticle(
 
 function warn(error: unknown) {
   console.warn("Lingo:", error);
+}
+
+/** The article UI on a page, started and stopped as the site is switched on and off. */
+export interface ArticleRunner {
+  /** Answers the popup about this page (see `page-protocol.ts`). */
+  handlePageRequest(request: PageRequest): Promise<PageSummary>;
+  /** Stops the article UI and stops following the settings. */
+  stop(): void;
+}
+
+/**
+ * Runs the article UI (`startArticle`) while the site is allowed: when the settings
+ * switch the site off (popup "On this site", Settings → Sites) the UI goes away at
+ * once; when they switch it back on, it starts again.
+ */
+export function runArticle(
+  deps: ArticleDeps,
+  options: ArticleOptions = {},
+): ArticleRunner {
+  const hostname = options.hostname ?? location.hostname;
+  let session: ArticleSession | undefined;
+  let allowed: boolean | undefined;
+  let stopped = false;
+
+  async function apply(settings: Settings) {
+    if (stopped) return;
+    const was = allowed;
+    allowed = articlesAllowedOn(hostname, settings);
+    if (!allowed) {
+      session?.stop();
+      session = undefined;
+    } else if (!was && !session) {
+      session = await startArticle(deps, { ...options, settings }).catch(
+        (error: unknown) => {
+          warn(error);
+          return undefined;
+        },
+      );
+      if (stopped) session?.stop();
+    }
+  }
+
+  // Changes are applied one after another, the first once the settings are known.
+  let queue: Promise<void> = deps
+    .send({ type: "getSettings" })
+    .then(apply)
+    .catch(warn);
+  const unwatch = deps.watchSettings((next) => {
+    queue = queue.then(() => apply(next)).catch(warn);
+  });
+
+  return {
+    async handlePageRequest(request) {
+      await queue;
+      return session
+        ? session.handlePageRequest(request)
+        : unsupportedPage(hostname, "page");
+    },
+    stop() {
+      stopped = true;
+      unwatch();
+      session?.stop();
+      session = undefined;
+    },
+  };
 }

@@ -23,7 +23,7 @@ import type { Cue } from "../../core/subtitles/types";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
 import {
-  UNSUPPORTED_PAGE,
+  unsupportedPage,
   type PageRequest,
   type PageSummary,
 } from "../../messaging/page-protocol";
@@ -892,8 +892,14 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   const summary = (): PageSummary => {
     const state = store.get();
-    if (state.status !== "ready") return UNSUPPORTED_PAGE;
-    return { supported: true, unsaved: state.unsaved, done: state.done };
+    if (state.status !== "ready") return unsupportedPage(hostname(), "video");
+    return {
+      supported: true,
+      hostname: hostname(),
+      scope: "video",
+      unsaved: state.unsaved,
+      done: state.done,
+    };
   };
 
   const offNavigate = adapter.onNavigate(open);

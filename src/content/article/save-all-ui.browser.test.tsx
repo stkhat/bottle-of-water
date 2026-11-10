@@ -146,6 +146,8 @@ describe("page requests from the popup", () => {
     await expect.element(endCard()).toBeVisible();
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
+      hostname: "example.com",
+      scope: "page",
       unsaved: 4,
       done: null,
     });
@@ -154,6 +156,8 @@ describe("page requests from the popup", () => {
       await session.handlePageRequest({ type: "pageSaveAll", status: "known" }),
     ).toEqual({
       supported: true,
+      hostname: "example.com",
+      scope: "page",
       unsaved: 0,
       done: { count: 4, target: "known" },
     });
@@ -163,6 +167,8 @@ describe("page requests from the popup", () => {
 
     expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
       supported: true,
+      hostname: "example.com",
+      scope: "page",
       unsaved: 4,
       done: null,
     });

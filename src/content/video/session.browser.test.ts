@@ -887,6 +887,8 @@ describe("the popup's requests", () => {
     await classified(state);
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
       unsaved: 4,
       done: null,
     });
@@ -897,11 +899,15 @@ describe("the popup's requests", () => {
       }),
     ).toEqual({
       supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
       unsaved: 0,
       done: { count: 4, target: "learning" },
     });
     expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
       supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
       unsaved: 4,
       done: null,
     });
@@ -912,6 +918,8 @@ describe("the popup's requests", () => {
     await expect.poll(() => state().status).toBe("unavailable");
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: false,
+      hostname: "www.youtube.com",
+      scope: "video",
       unsaved: 0,
       done: null,
     });

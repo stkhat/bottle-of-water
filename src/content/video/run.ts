@@ -2,7 +2,7 @@ import { browser } from "wxt/browser";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { watchSettings } from "../../background/settings-store";
 import { send } from "../../messaging/client";
-import { isPageRequest, UNSUPPORTED_PAGE } from "../../messaging/page-protocol";
+import { isPageRequest, unsupportedPage } from "../../messaging/page-protocol";
 import { mountVideoUi } from "./mount";
 import type { PlatformAdapter } from "./platform";
 import { startVideo } from "./session";
@@ -32,7 +32,9 @@ export async function runVideoSite(
     if (!isPageRequest(message)) return;
     void started
       .then((session) =>
-        session ? session.handlePageRequest(message) : UNSUPPORTED_PAGE,
+        session
+          ? session.handlePageRequest(message)
+          : unsupportedPage(location.hostname, "video"),
       )
       .then(sendResponse);
     return true;

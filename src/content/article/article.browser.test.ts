@@ -7,7 +7,12 @@ import {
 } from "../../core/settings";
 import { tokenize } from "../../core/text/tokenize";
 import type { Request } from "../../messaging/protocol";
-import { startArticle, type ArticleDeps, type ArticleSession } from "./article";
+import {
+  runArticle,
+  startArticle,
+  type ArticleDeps,
+  type ArticleSession,
+} from "./article";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => cleanups.splice(0).forEach((c) => c()));
@@ -32,11 +37,12 @@ const CATEGORIES: Record<string, Category> = {
 function fakeDeps(settings: Settings) {
   const requests: Request[] = [];
   const listeners: ((s: Settings) => void)[] = [];
+  let current = settings;
   let mounted = 0;
   const deps: ArticleDeps = {
     send: (async (request: Request) => {
       requests.push(request);
-      if (request.type === "getSettings") return settings;
+      if (request.type === "getSettings") return current;
       if (request.type === "analyze") {
         const spans = request.blocks.map((block) =>
           tokenize(block, "en")
@@ -71,7 +77,10 @@ function fakeDeps(settings: Settings) {
     deps,
     requests,
     mounted: () => mounted,
-    changeSettings: (s: Settings) => listeners.forEach((l) => l(s)),
+    changeSettings(s: Settings) {
+      current = s;
+      [...listeners].forEach((l) => l(s));
+    },
     listeners,
   };
 }
@@ -228,6 +237,84 @@ describe("startArticle", () => {
     session.stop();
     expect(CSS.highlights.has("lingo-new")).toBe(false);
     expect(document.adoptedStyleSheets.length).toBe(sheets);
+    expect(fake.mounted()).toBe(0);
+    expect(fake.listeners).toHaveLength(0);
+  });
+});
+
+describe("runArticle", () => {
+  function run(fake: ReturnType<typeof fakeDeps>, htmlLang = "en") {
+    const runner = runArticle(fake.deps, {
+      root: fixture(ARTICLE),
+      htmlLang,
+      hostname: "www.example.com",
+    });
+    cleanups.push(() => runner.stop());
+    return runner;
+  }
+  const off = (hostname = "www.example.com") => ({
+    supported: false,
+    hostname,
+    scope: "page",
+    unsaved: 0,
+    done: null,
+  });
+
+  it("removes Lingo when the site is switched off and brings it back when switched on", async () => {
+    const on = settings({ highlight: { new: true } });
+    const fake = fakeDeps(on);
+    const runner = run(fake);
+    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    expect(fake.mounted()).toBe(1);
+
+    fake.changeSettings({ ...on, disabledSites: ["www.example.com"] });
+    await expect.poll(() => fake.mounted()).toBe(0);
+    expect(CSS.highlights.has("lingo-new")).toBe(false);
+    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
+      off(),
+    );
+
+    fake.changeSettings(on);
+    await expect.poll(() => fake.mounted()).toBe(1);
+    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual({
+      supported: true,
+      hostname: "www.example.com",
+      scope: "page",
+      unsaved: 2,
+      done: null,
+    });
+  });
+
+  it("starts once the site is switched on when the page loaded with it off", async () => {
+    const fake = fakeDeps(settings({ disabledSites: ["example.com"] }));
+    const runner = run(fake);
+    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
+      off(),
+    );
+    expect(fake.mounted()).toBe(0);
+    fake.changeSettings(settings());
+    await expect.poll(() => fake.mounted()).toBe(1);
+  });
+
+  it("on a page in another language, answers with the host and does not start on other changes", async () => {
+    const fake = fakeDeps(settings());
+    const runner = run(fake, "ja");
+    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
+      off(),
+    );
+    fake.changeSettings(settings({ highlight: { new: true } }));
+    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
+      off(),
+    );
+    expect(fake.requests.map((r) => r.type)).toEqual(["getSettings"]);
+  });
+
+  it("stops: the UI and every listener go away", async () => {
+    const fake = fakeDeps(settings());
+    const runner = run(fake);
+    await expect.poll(() => fake.mounted()).toBe(1);
+    runner.stop();
     expect(fake.mounted()).toBe(0);
     expect(fake.listeners).toHaveLength(0);
   });

@@ -15,17 +15,23 @@ export type PageRequest =
 export interface PageSummary {
   /** False when Lingo does not run on this page (another language, switched off). */
   supported: boolean;
+  /** The page's host, for the popup's "On this site" (the popup cannot read tab URLs). */
+  hostname: string;
+  /** What the popup's save-all is about: an article page or a video. */
+  scope: "page" | "video";
   /** Distinct unsaved new words among the analyzed parts of the page. */
   unsaved: number;
   /** The last save-all on this page view, until it is undone. */
   done: { count: number; target: TermStatus } | null;
 }
 
-export const UNSUPPORTED_PAGE: PageSummary = Object.freeze({
-  supported: false,
-  unsaved: 0,
-  done: null,
-});
+/** The answer for a page Lingo does not run on. */
+export function unsupportedPage(
+  hostname: string,
+  scope: PageSummary["scope"],
+): PageSummary {
+  return { supported: false, hostname, scope, unsaved: 0, done: null };
+}
 
 const PAGE_TYPES = new Set(["pageSummary", "pageSaveAll", "pageUndo"]);
 const STATUSES = new Set(["learning", "known"]);
