@@ -1,7 +1,7 @@
 import type { IpaPack } from "./types";
 
 /**
- * US IPA of a word, or of a phrase as its words' IPA inside one pair of slashes.
+ * IPA of a word (US IPA for English), or of a phrase as its words' IPA inside one pair of slashes.
  * undefined when any word has none.
  */
 export function ipaFor(term: string, ipa: IpaPack): string | undefined {

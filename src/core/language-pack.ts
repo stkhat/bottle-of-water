@@ -21,7 +21,8 @@ export interface LanguagePack {
   readonly phrases: ReadonlySet<string>;
 }
 
-export interface EnglishPackData {
+/** What a learning language's pack is built from (public/packs/<lang>/). */
+export interface LanguagePackData {
   lemmas: LemmaPack;
   freq: FreqPack;
   ipa: IpaPack;
@@ -31,14 +32,24 @@ export interface EnglishPackData {
   phrases: ReadonlySet<string>;
 }
 
-export function createEnglishPack(data: EnglishPackData): LanguagePack {
+export type EnglishPackData = LanguagePackData;
+
+/** The pack of a learning language: words segmented with `Intl.Segmenter(lang)`. */
+export function createLanguagePack(
+  lang: string,
+  data: LanguagePackData,
+): LanguagePack {
   const ranks = buildFreqIndex(data.freq);
   return {
-    lang: "en",
-    tokenize: (text) => tokenize(text, "en"),
+    lang,
+    tokenize: (text) => tokenize(text, lang),
     lemmas: (word) => lemmatize(word, data.lemmas, data.vocab),
     rank: (base) => rankOf(base.toLowerCase(), ranks),
     ipa: (term) => ipaFor(term, data.ipa),
     phrases: data.phrases,
   };
+}
+
+export function createEnglishPack(data: EnglishPackData): LanguagePack {
+  return createLanguagePack("en", data);
 }
