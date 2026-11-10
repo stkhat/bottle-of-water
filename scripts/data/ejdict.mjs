@@ -151,11 +151,11 @@ export function writeDictPacks(dict) {
   return { index, shards };
 }
 
-/** Reads the written dictionary back from its shards, as one object. */
-export function readDictPacks() {
-  const { shards } = readPack("en-ja/index.json");
+/** Reads a written sharded dictionary (en-ja by default) back from its shards, as one object. */
+export function readDictPacks(dir = "en-ja") {
+  const { shards } = readPack(`${dir}/index.json`);
   return Object.fromEntries(
-    shards.flatMap(({ file }) => Object.entries(readPack(`en-ja/${file}`))),
+    shards.flatMap(({ file }) => Object.entries(readPack(`${dir}/${file}`))),
   );
 }
 

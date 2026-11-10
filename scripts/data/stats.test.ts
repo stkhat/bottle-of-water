@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ipaCoverage } from "./stats.mjs";
+import { ipaCoverage, phraseMeanings } from "./stats.mjs";
 
 describe("ipaCoverage", () => {
   const freq = ["you", "i", "the", "zzyzx"];
@@ -18,5 +18,18 @@ describe("ipaCoverage", () => {
       withIpa: 3,
       ratio: 3 / 4,
     });
+  });
+});
+
+describe("phraseMeanings", () => {
+  it("counts the phrases with a meaning from each source", () => {
+    expect(
+      phraseMeanings(
+        ["by heart", "figure out", "give up", "in spite of", "zzyzx out"],
+        { "in spite of": ["", []], give: ["", []] },
+        { "by heart": ["", []] },
+        { "figure out": ["", []], "give up": ["", []] },
+      ),
+    ).toEqual({ phrases: 5, ejdict: 1, ja: 1, defs: 2, none: 1 });
   });
 });

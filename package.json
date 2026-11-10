@@ -29,9 +29,10 @@
     "postinstall": "wxt prepare",
     "check:claude-md": "node scripts/check-claude-md.mjs",
     "test:mutation": "stryker run",
-    "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq",
+    "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:phrases && npm run data:freq",
     "data:ejdict": "node scripts/data/ejdict.mjs",
     "data:kaikki": "node scripts/data/kaikki.mjs",
+    "data:phrases": "node scripts/data/phrases.mjs",
     "data:freq": "node scripts/data/frequency.mjs",
     "data:stats": "node scripts/data/stats.mjs"
   },
