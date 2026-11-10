@@ -155,8 +155,26 @@ describe("the subtitle over Netflix's video", () => {
       ?.shadowRoot?.querySelector<HTMLElement>("[role='region']") ?? null;
   const bottomOf = () => subtitle()!.getBoundingClientRect().bottom;
   const barTop = () => page.controls()!.getBoundingClientRect().top;
-  /** From the subtitle's bottom up to `top` (px). */
-  const gapAbove = (top: number) => top - bottomOf();
+  /** The top of the bar's buttons and title (the title can stick out of the bar). */
+  const partsTop = () =>
+    Math.min(
+      ...[
+        ...page
+          .controls()!
+          .querySelectorAll("[data-uia^='control-'], [data-uia='video-title']"),
+      ].map((part) => part.getBoundingClientRect().top),
+    );
+  /**
+   * The subtitle ends up 12px above `top()`, give or take the rounding up to whole
+   * pixels (measured afresh: fonts can still change the bar's layout).
+   */
+  const settlesAbove = (top: () => number) =>
+    expect
+      .poll(() => {
+        const gap = top() - bottomOf();
+        return gap >= 12 && gap < 14 ? "12px above" : gap;
+      })
+      .toBe("12px above");
 
   it("rises above the control bar while it shows, and goes back down after", async () => {
     start();
@@ -168,11 +186,8 @@ describe("the subtitle over Netflix's video", () => {
 
     page.showControls(true);
     expect(page.controls()).not.toBeNull();
-    const top = barTop();
-    expect(top).toBeLessThan(player.bottom - 64);
-    await expect.poll(() => gapAbove(top)).toBeGreaterThanOrEqual(12);
-    // Rounded up to whole pixels: at most a pixel more.
-    expect(gapAbove(top)).toBeLessThan(14);
+    expect(barTop()).toBeLessThan(player.bottom - 64);
+    await settlesAbove(() => Math.min(barTop(), partsTop()));
 
     page.showControls(false);
     await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
@@ -190,14 +205,6 @@ describe("the subtitle over Netflix's video", () => {
     page.showControls(true);
     const player = page.player.getBoundingClientRect();
     expect(barTop()).toBe(player.top);
-    const parts = page
-      .controls()!
-      .querySelectorAll("[data-uia^='control-'], [data-uia='video-title']");
-    const top = Math.min(
-      ...[...parts].map((part) => part.getBoundingClientRect().top),
-    );
-    await expect.poll(() => gapAbove(top)).toBeGreaterThanOrEqual(12);
-    // Rounded up to whole pixels: at most a pixel more.
-    expect(gapAbove(top)).toBeLessThan(14);
+    await settlesAbove(partsTop);
   });
 });
