@@ -1,5 +1,8 @@
 import type { Settings } from "../../core/settings";
+import { onHost } from "../../core/url";
 import { isGenericLang, matchesLearningLanguage } from "../page-language";
+
+export { onHost };
 
 /** `i18n.detectLanguage`, passed in so the decision stays testable. */
 export type DetectLanguage = (text: string) => Promise<{
@@ -12,13 +15,6 @@ const VIDEO_SITES = ["youtube.com", "netflix.com"];
 
 /** The shortest text sample the language is detected on. */
 export const MIN_DETECT_SAMPLE = 200;
-
-/** True when `hostname` is `entry` or one of its subdomains, ignoring case. */
-export function onHost(hostname: string, entry: string): boolean {
-  const host = hostname.toLowerCase();
-  const site = entry.trim().toLowerCase();
-  return site !== "" && (host === site || host.endsWith(`.${site}`));
-}
 
 /** The host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too). */
 export function hostBlocked(hostname: string, settings: Settings): boolean {
