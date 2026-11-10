@@ -64,6 +64,12 @@ export type Request =
   | { type: "listTerms"; lang: string }
   /** The word list's rows: saved terms with their short meaning and occurrence stats. */
   | { type: "listTermsWithStats"; lang: string }
+  /** Short meaning and saved status of terms (a video's word list), by key. */
+  | {
+      type: "termSummaries";
+      lang: string;
+      terms: { key: string; kind: TermKind }[];
+    }
   /** Opens the options page (content scripts cannot open it themselves). */
   | { type: "openOptions" }
   /**
@@ -144,6 +150,15 @@ export interface TermSummary {
   createdAt: number;
 }
 
+/** A term's short meaning and saved status ("new" when not saved). */
+export interface TermBrief {
+  /** The dictionary's short meaning; missing when the dictionary has no entry. */
+  short?: string;
+  /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
+  glossLang?: string;
+  status: TermStatus | "new";
+}
+
 export interface ResponseMap {
   getSettings: Settings;
   setSettings: Settings;
@@ -171,6 +186,8 @@ export interface ResponseMap {
   lastExport: number | null;
   listTerms: TermRecord[];
   listTermsWithStats: TermSummary[];
+  /** Keyed by term key. */
+  termSummaries: Record<string, TermBrief>;
   openOptions: null;
   /** How many sentences were added (0 when nothing may be kept). */
   recordHistory: { kept: number };

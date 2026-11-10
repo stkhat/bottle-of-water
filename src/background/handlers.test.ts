@@ -486,6 +486,57 @@ describe("handlers: listTermsWithStats", () => {
   });
 });
 
+describe("handlers: termSummaries", () => {
+  it("gives each term's short meaning and saved status, new when not saved", async () => {
+    store.termIndex.mockResolvedValue(
+      new Map([
+        ["loaf", "learning"],
+        ["give up", "known"],
+      ]),
+    );
+    expect(
+      await value({
+        type: "termSummaries",
+        lang: "en",
+        terms: [
+          { key: "loaf", kind: "word" },
+          { key: "give up", kind: "phrase" },
+          { key: "figure out", kind: "phrase" },
+          { key: "sourdough", kind: "word" },
+        ],
+      }),
+    ).toEqual({
+      loaf: { short: "パンのひと塊", status: "learning" },
+      "give up": { short: "諦める", status: "known" },
+      "figure out": {
+        short: "To come to understand",
+        glossLang: "en",
+        status: "new",
+      },
+      // No dictionary entry: no short meaning.
+      sourdough: { status: "new" },
+    });
+    expect(store.termIndex).toHaveBeenCalledWith("en");
+  });
+
+  it("answers an empty list with nothing", async () => {
+    expect(
+      await value({ type: "termSummaries", lang: "en", terms: [] }),
+    ).toEqual({});
+  });
+
+  it("uses the dictionary of the native language from the settings", async () => {
+    await setSettings({ nativeLang: "fr" });
+    expect(
+      await handle({
+        type: "termSummaries",
+        lang: "en",
+        terms: [{ key: "loaf", kind: "word" }],
+      }),
+    ).toEqual({ ok: false, error: "No dictionary from en to fr" });
+  });
+});
+
 describe("handlers: warmDictionary", () => {
   it("loads the dictionary of the native language before any lookup", async () => {
     expect(filesRead(loadPack)).toEqual([]);

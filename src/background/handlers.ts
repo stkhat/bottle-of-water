@@ -14,6 +14,7 @@ import type {
   RequestOf,
   RequestType,
   ResponseOf,
+  TermBrief,
 } from "../messaging/protocol";
 import { historyKeys } from "./history-keys";
 import type { HistorySentence, HistoryStore } from "./history-store";
@@ -242,6 +243,30 @@ export function createHandlers({
           createdAt: term.createdAt,
         };
       });
+    },
+
+    async termSummaries({ lang, terms }) {
+      const { nativeLang } = await settings.get();
+      const [index, dictionary] = await Promise.all([
+        store.termIndex(lang),
+        resources.dictionary(lang, nativeLang),
+      ]);
+      // fromEntries: any key is an own property, "__proto__" included.
+      return Object.fromEntries(
+        terms.map(({ key }): [string, TermBrief] => {
+          const entry = dictionary.entry(key);
+          return [
+            key,
+            {
+              ...(entry !== undefined && { short: entry.short }),
+              ...(entry?.glossLang !== undefined && {
+                glossLang: entry.glossLang,
+              }),
+              status: index.get(key) ?? "new",
+            },
+          ];
+        }),
+      );
     },
 
     async recordHistory({ source, sentences }) {
