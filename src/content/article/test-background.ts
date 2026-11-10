@@ -3,6 +3,7 @@
 import { createHandlers } from "../../background/handlers";
 import { createLanguageResources } from "../../background/language-resources";
 import { openLingoDb } from "../../background/db";
+import { createHistoryStore } from "../../background/history-store";
 import { createTermStore } from "../../background/term-store";
 import { createBrowserEnv } from "../../core/browser-env";
 import { createPackLoader, type PackFiles } from "../../core/packs/load";
@@ -151,6 +152,7 @@ export function testBackground(initial: Partial<Settings> = {}) {
   let optionsOpened = 0;
   const handle = createHandlers({
     store,
+    history: createHistoryStore(db),
     settings: {
       get: async () => settings,
       set: async (patch: SettingsPatch) => {

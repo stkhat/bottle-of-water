@@ -69,6 +69,17 @@ describe("settings store", () => {
     expect(seen).toHaveBeenCalledTimes(1);
   });
 
+  it("gives the settings before the change too", async () => {
+    await setSettings({ neverRunOn: ["a.com"] });
+    const seen = vi.fn();
+    watchSettings(seen);
+    await setSettings({ neverRunOn: ["a.com", "b.com"] });
+    await vi.waitFor(() => expect(seen).toHaveBeenCalledTimes(1));
+    const [next, previous] = seen.mock.calls[0]!;
+    expect(next.neverRunOn).toEqual(["a.com", "b.com"]);
+    expect(previous.neverRunOn).toEqual(["a.com"]);
+  });
+
   it("ignores changes to other keys and other storage areas", async () => {
     const seen = vi.fn();
     watchSettings(seen);

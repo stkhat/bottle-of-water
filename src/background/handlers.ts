@@ -1,6 +1,11 @@
 import type { BrowserEnv } from "../core/browser-env";
 import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
-import type { Settings, SettingsPatch } from "../core/settings";
+import { learningLanguages } from "../core/languages";
+import {
+  hostBlocked,
+  type Settings,
+  type SettingsPatch,
+} from "../core/settings";
 import type { SyncBackend } from "../core/sync/backend";
 import { normalizeUrl, occurrenceLink } from "../core/url";
 import type {
@@ -10,9 +15,13 @@ import type {
   RequestType,
   ResponseOf,
 } from "../messaging/protocol";
+import { historyKeys } from "./history-keys";
+import type { HistorySentence, HistoryStore } from "./history-store";
 import type { LanguageResources } from "./language-resources";
 import {
+  MAX_OCCURRENCES,
   termId,
+  type ImportedOccurrence,
   type OccurrenceWithSource,
   type TermStore,
 } from "./term-store";
@@ -20,6 +29,8 @@ import {
 /** What the handlers work with; tests pass fakes. */
 export interface HandlerDeps {
   store: TermStore;
+  /** The sentence history: sentences kept from pages and videos, on this device only. */
+  history: HistoryStore;
   settings: {
     get(): Promise<Settings>;
     set(patch: SettingsPatch): Promise<Settings>;
@@ -54,6 +65,39 @@ function view(o: OccurrenceWithSource): OccurrenceView {
   };
 }
 
+/** A kept sentence as an occurrence seen elsewhere (an unsaved term's history). */
+function historyView(h: HistorySentence): OccurrenceView {
+  const { title, platform, url } = h.page;
+  return {
+    sentence: h.text,
+    ...(h.translation !== undefined && { translation: h.translation }),
+    pos: h.pos,
+    seenAt: h.seenAt,
+    origin: "encountered",
+    source: { title, platform, url },
+    link: occurrenceLink(h.page, h.pos),
+  };
+}
+
+/** A kept sentence as an occurrence to bring into a newly saved term. */
+function imported(h: HistorySentence): ImportedOccurrence {
+  return {
+    source: h.page,
+    sentence: h.text,
+    ...(h.translation !== undefined && { translation: h.translation }),
+    pos: h.pos,
+    seenAt: h.seenAt,
+  };
+}
+
+function hostnameOf(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
 function normalizedOrUndefined(url: string | undefined) {
   if (url === undefined) return undefined;
   try {
@@ -66,6 +110,7 @@ function normalizedOrUndefined(url: string | undefined) {
 /** The background's dispatcher: routes each request to the store, settings or packs. */
 export function createHandlers({
   store,
+  history,
   settings,
   resources,
   sync,
@@ -118,24 +163,40 @@ export function createHandlers({
       const elsewhere: OccurrenceView[] = [];
       for (const o of occurrences)
         (o.source.url === hereUrl ? here : elsewhere).push(view(o));
+      const status = terms.get(key) ?? "new";
+      if (status === "new") {
+        const kept = await history.find(id, {
+          ...(sourceUrl !== undefined && { excludeUrl: sourceUrl }),
+        });
+        elsewhere.push(...kept.map(historyView));
+      }
       const entry = dictionary.entry(key);
       const ipa = pack.ipa(key);
       return {
         ...(entry !== undefined && { entry }),
         ...(ipa !== undefined && { ipa }),
-        status: terms.get(key) ?? "new",
+        status,
         termId: id,
         here,
         elsewhere,
       };
     },
 
-    saveTerm(request) {
+    async saveTerm(request) {
       const input: Omit<typeof request, "type"> & { type?: string } = {
         ...request,
       };
       delete input.type;
-      return store.saveTerm(input);
+      const wasSaved = (await store.termIndex(input.lang)).has(input.key);
+      const term = await store.saveTerm(input);
+      // A term saved now (new, or saved again after removal) takes in the sentences
+      // kept for it. Read outside the store's transaction to keep that one small.
+      if (!wasSaved) {
+        const kept = await history.find(term.id, { limit: MAX_OCCURRENCES });
+        if (kept.length > 0)
+          await store.importOccurrences(term.id, kept.map(imported));
+      }
+      return term;
     },
     setStatus: ({ id, status }) => store.setStatus(id, status),
     removeTerm: async ({ id }) => {
@@ -176,6 +237,34 @@ export function createHandlers({
           createdAt: term.createdAt,
         };
       });
+    },
+
+    async recordHistory({ source, sentences }) {
+      const current = await settings.get();
+      const host = hostnameOf(source.url);
+      if (
+        !current.sentenceHistory ||
+        host === undefined ||
+        hostBlocked(host, current) ||
+        !learningLanguages().includes(source.lang)
+      )
+        return { kept: 0 };
+      const [pack, classifier, terms] = await Promise.all([
+        resources.pack(source.lang),
+        resources.classifier(source.lang),
+        store.termIndex(source.lang),
+      ]);
+      const options = { terms, knownLevel: current.knownLevel };
+      const items = sentences.map((sentence) => ({
+        ...sentence,
+        keys: historyKeys(sentence.text, pack, classifier, options),
+      }));
+      return { kept: await history.record(source, items) };
+    },
+    historyStatus: () => history.status(),
+    clearHistory: async () => {
+      await history.clear();
+      return null;
     },
   };
 

@@ -5,6 +5,11 @@
  */
 import type { Origin, TermRecord } from "../background/db";
 import type {
+  HistoryItem,
+  HistorySource,
+  HistoryStatus,
+} from "../background/history-store";
+import type {
   Counts,
   EncounterInput,
   ImportResult,
@@ -60,10 +65,25 @@ export type Request =
   /** The word list's rows: saved terms with their short meaning and occurrence stats. */
   | { type: "listTermsWithStats"; lang: string }
   /** Opens the options page (content scripts cannot open it themselves). */
-  | { type: "openOptions" };
+  | { type: "openOptions" }
+  /**
+   * Keeps sentences of a page or video in the sentence history (Settings → Sentence
+   * history). The background indexes them; nothing is kept when the history is off or
+   * the host is blocked.
+   */
+  | {
+      type: "recordHistory";
+      source: HistorySource;
+      sentences: HistorySentenceInput[];
+    }
+  | { type: "historyStatus" }
+  | { type: "clearHistory" };
 
 export type RequestType = Request["type"];
 export type RequestOf<T extends RequestType> = Extract<Request, { type: T }>;
+
+/** A sentence for the history, as a content script sends it (without its keys). */
+export type HistorySentenceInput = Omit<HistoryItem, "keys">;
 
 export interface AnalyzeResult {
   /** Spans of each block, in the order of `blocks`; offsets are within the block. */
@@ -98,7 +118,10 @@ export interface LookupResult {
   termId: string;
   /** Occurrences in the source at `sourceUrl`, newest first. */
   here: OccurrenceView[];
-  /** Occurrences in every other source, newest first. */
+  /**
+   * Occurrences in every other source, newest first. For an unsaved term: its kept
+   * sentences from the sentence history (other sources only).
+   */
   elsewhere: OccurrenceView[];
 }
 
@@ -149,6 +172,10 @@ export interface ResponseMap {
   listTerms: TermRecord[];
   listTermsWithStats: TermSummary[];
   openOptions: null;
+  /** How many sentences were added (0 when nothing may be kept). */
+  recordHistory: { kept: number };
+  historyStatus: HistoryStatus;
+  clearHistory: null;
 }
 
 export type ResponseOf<T extends RequestType> = ResponseMap[T];

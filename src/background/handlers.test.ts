@@ -13,6 +13,12 @@ import type {
 } from "../messaging/protocol";
 import type { OccurrenceRecord, SourceRecord, TermRecord } from "./db";
 import { createHandlers, type Handle } from "./handlers";
+import type {
+  HistoryItem,
+  HistorySentence,
+  HistorySource,
+  HistoryStore,
+} from "./history-store";
 import { createLanguageResources } from "./language-resources";
 import { getSettings, setSettings } from "./settings-store";
 import type {
@@ -48,6 +54,23 @@ function fakeStore(): FakeStore {
     getMeta: vi.fn(fail("getMeta")),
     setMeta: vi.fn(fail("setMeta")),
     onChange: vi.fn(() => () => {}),
+    importOccurrences: vi.fn(fail("importOccurrences")),
+  };
+}
+
+type FakeHistory = { [K in keyof HistoryStore]: Mock<HistoryStore[K]> };
+
+/** A HistoryStore like `fakeStore()`: nothing kept unless a test says so. */
+function fakeHistory(): FakeHistory {
+  const fail = (name: string) => async () => {
+    throw new Error(`unexpected call to ${name}`);
+  };
+  return {
+    record: vi.fn(fail("record")),
+    find: vi.fn(async (): Promise<HistorySentence[]> => []),
+    status: vi.fn(fail("status")),
+    clear: vi.fn(fail("clear")),
+    forgetHost: vi.fn(fail("forgetHost")),
   };
 }
 
@@ -79,6 +102,7 @@ const SOURCE: SourceInput = {
 };
 
 let store: FakeStore;
+let history: FakeHistory;
 let sync: { status: Mock<() => Promise<SyncStatus>> };
 let handle: Handle;
 let openOptionsPage: Mock<() => Promise<void>>;
@@ -87,11 +111,13 @@ let loadPack: ReturnType<typeof stubPackLoader>;
 beforeEach(() => {
   fakeBrowser.reset();
   store = fakeStore();
+  history = fakeHistory();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
   loadPack = stubPackLoader();
   openOptionsPage = vi.fn(async () => {});
   handle = createHandlers({
     store,
+    history,
     settings: { get: getSettings, set: setSettings },
     resources: createLanguageResources(loadPack),
     sync,
@@ -621,5 +647,330 @@ describe("handlers: lookup", () => {
     expect(
       await handle({ type: "lookup", lang: "en", key: "loaf", kind: "word" }),
     ).toEqual({ ok: false, error: "No dictionary from en to fr" });
+  });
+});
+
+const PAGE: HistorySource = {
+  platform: "web",
+  url: "https://news.example.com/bread",
+  title: "Bread news",
+  lang: "en",
+};
+
+/** Sends recordHistory with one sentence per text and returns the items kept. */
+async function recordedKeys(
+  texts: string[],
+  source: HistorySource = PAGE,
+): Promise<string[][]> {
+  history.record.mockImplementation(async (_source, items) => items.length);
+  await value({
+    type: "recordHistory",
+    source,
+    sentences: texts.map((text) => ({ text, pos: { textQuote: text } })),
+  });
+  const items = history.record.mock.calls.at(-1)![1];
+  return items.map((item) => [...item.keys]);
+}
+
+describe("handlers: recordHistory", () => {
+  it("keeps the sentences with their keys and says how many were kept", async () => {
+    history.record.mockResolvedValue(1);
+    const sentences = [
+      {
+        text: "The loaves ferments.",
+        translation: "パンが発酵する。",
+        pos: { timeMs: 3_000 },
+      },
+    ];
+    expect(
+      await value({ type: "recordHistory", source: PAGE, sentences }),
+    ).toEqual({ kept: 1 });
+    const expected: HistoryItem[] = [
+      { ...sentences[0]!, keys: ["en:ferment"] },
+    ];
+    expect(history.record).toHaveBeenCalledWith(PAGE, expected);
+  });
+
+  it("leaves out the 300 most common base forms", async () => {
+    // "the" and "loaf" are ranked 1 and 2; "yeast" 2,500; "ferment" is not ranked.
+    expect(await recordedKeys(["The loaves ferments the yeast."])).toEqual([
+      ["en:ferment", "en:yeast"],
+    ]);
+    expect(await recordedKeys(["The loaf."])).toEqual([[]]);
+  });
+
+  it("indexes every base form of a word", async () => {
+    expect(await recordedKeys(["A rose."])).toEqual([["en:rose", "en:rise"]]);
+    // "casa" is ranked 5 in the Spanish test pack, "casar" not at all.
+    expect(await recordedKeys(["Dos casas."], { ...PAGE, lang: "es" })).toEqual(
+      [["es:casar"]],
+    );
+  });
+
+  it("indexes the dictionary phrases the classifier finds", async () => {
+    expect(await recordedKeys(["They gave up."])).toEqual([
+      ["en:give", "en:up", "en:give up"],
+    ]);
+  });
+
+  it("indexes saved phrases of the source's language only", async () => {
+    store.termIndex.mockImplementation(async (lang) =>
+      lang === "en" ? new Map([["yeast loaf", "learning"]]) : new Map(),
+    );
+    expect(await recordedKeys(["Yeast loaf."])).toEqual([
+      ["en:yeast", "en:yeast loaf"],
+    ]);
+
+    store.termIndex.mockImplementation(async (lang) =>
+      lang === "es" ? new Map([["yeast loaf", "learning"]]) : new Map(),
+    );
+    expect(await recordedKeys(["Yeast loaf."])).toEqual([["en:yeast"]]);
+    expect(store.termIndex).toHaveBeenLastCalledWith("en");
+  });
+
+  it("gives each key once per sentence", async () => {
+    expect(await recordedKeys(["Yeast, yeast and more yeast."])).toEqual([
+      ["en:yeast"],
+    ]);
+  });
+
+  it("keeps nothing when sentence history is off", async () => {
+    await setSettings({ sentenceHistory: false });
+    expect(
+      await value({
+        type: "recordHistory",
+        source: PAGE,
+        sentences: [{ text: "Yeast.", pos: { textQuote: "Yeast." } }],
+      }),
+    ).toEqual({ kept: 0 });
+    expect(history.record).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { neverRunOn: ["news.example.com"] },
+    { neverRunOn: ["Example.com"] },
+    { disabledSites: ["example.com"] },
+  ])(
+    "keeps nothing from a blocked host ($neverRunOn $disabledSites)",
+    async (patch) => {
+      await setSettings(patch);
+      expect(
+        await value({
+          type: "recordHistory",
+          source: PAGE,
+          sentences: [{ text: "Yeast.", pos: { textQuote: "Yeast." } }],
+        }),
+      ).toEqual({ kept: 0 });
+      expect(history.record).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still keeps sentences from other hosts", async () => {
+    await setSettings({ disabledSites: ["example.org", "ws.example.com"] });
+    expect(await recordedKeys(["Yeast."])).toEqual([["en:yeast"]]);
+  });
+
+  it("keeps nothing for a language without a pack, or a source without a URL", async () => {
+    for (const source of [
+      { ...PAGE, lang: "fr" },
+      { ...PAGE, url: "not a url" },
+    ]) {
+      expect(
+        await value({
+          type: "recordHistory",
+          source,
+          sentences: [{ text: "Levure.", pos: { textQuote: "Levure." } }],
+        }),
+      ).toEqual({ kept: 0 });
+    }
+    expect(history.record).not.toHaveBeenCalled();
+    expect(filesRead(loadPack)).toEqual([]);
+  });
+});
+
+describe("handlers: historyStatus and clearHistory", () => {
+  it("answers historyStatus from the history store", async () => {
+    history.status.mockResolvedValue({ bytes: 2_048, cap: 50, pages: 3 });
+    expect(await value({ type: "historyStatus" })).toEqual({
+      bytes: 2_048,
+      cap: 50,
+      pages: 3,
+    });
+  });
+
+  it("clears the history for clearHistory", async () => {
+    history.clear.mockResolvedValue();
+    expect(await value({ type: "clearHistory" })).toBeNull();
+    expect(history.clear).toHaveBeenCalledTimes(1);
+  });
+});
+
+const KEPT: HistorySentence[] = [
+  {
+    text: "Shape the loaf.",
+    translation: "パンを成形する。",
+    pos: { timeMs: 12_500 },
+    seenAt: 9_000,
+    page: {
+      platform: "youtube",
+      url: "https://www.youtube.com/watch?v=abc",
+      title: "Baking video",
+      lang: "en",
+    },
+  },
+  {
+    text: "A warm loaf.",
+    pos: { textQuote: "A warm loaf." },
+    seenAt: 8_000,
+    page: {
+      platform: "web",
+      url: "https://example.org/cake",
+      title: "Cake",
+      lang: "en",
+    },
+  },
+];
+
+describe("handlers: lookup from the sentence history", () => {
+  it("gives an unsaved term's kept sentences from other sources as elsewhere", async () => {
+    history.find.mockResolvedValue(KEPT);
+    const result = await value({
+      type: "lookup",
+      lang: "en",
+      key: "loaf",
+      kind: "word",
+      sourceUrl: "https://example.com/bread",
+    });
+    expect(history.find).toHaveBeenCalledWith("en:loaf", {
+      excludeUrl: "https://example.com/bread",
+    });
+    expect(result).toMatchObject({ status: "new", here: [] });
+    expect(result.elsewhere).toEqual([
+      {
+        sentence: "Shape the loaf.",
+        translation: "パンを成形する。",
+        pos: { timeMs: 12_500 },
+        seenAt: 9_000,
+        origin: "encountered",
+        source: {
+          title: "Baking video",
+          platform: "youtube",
+          url: "https://www.youtube.com/watch?v=abc",
+        },
+        link: "https://www.youtube.com/watch?v=abc&t=12s",
+      },
+      {
+        sentence: "A warm loaf.",
+        pos: { textQuote: "A warm loaf." },
+        seenAt: 8_000,
+        origin: "encountered",
+        source: {
+          title: "Cake",
+          platform: "web",
+          url: "https://example.org/cake",
+        },
+        link: "https://example.org/cake",
+      },
+    ]);
+  });
+
+  it("gives a saved term's occurrences, not the history", async () => {
+    store.termIndex.mockResolvedValue(new Map([["loaf", "learning"]]));
+    history.find.mockResolvedValue(KEPT);
+    const result = await value({
+      type: "lookup",
+      lang: "en",
+      key: "loaf",
+      kind: "word",
+    });
+    expect(result.elsewhere).toEqual([]);
+    expect(history.find).not.toHaveBeenCalled();
+  });
+});
+
+describe("handlers: saving brings the kept sentences in", () => {
+  const input = {
+    lang: "en",
+    key: "loaf",
+    display: "loaf",
+    kind: "word",
+    status: "learning",
+    source: SOURCE,
+    sentence: "A loaf.",
+    pos: { textQuote: "A loaf." },
+  } as const;
+
+  it("imports a newly saved term's kept sentences as its occurrences", async () => {
+    const order: string[] = [];
+    store.saveTerm.mockImplementation(async () => {
+      order.push("save");
+      return LOAF;
+    });
+    history.find.mockImplementation(async () => {
+      order.push("find");
+      return KEPT;
+    });
+    store.importOccurrences.mockImplementation(async () => {
+      order.push("import");
+      return 2;
+    });
+    expect(await value({ type: "saveTerm", ...input })).toEqual(LOAF);
+    expect(order).toEqual(["save", "find", "import"]);
+    expect(history.find).toHaveBeenCalledWith("en:loaf", { limit: 50 });
+    expect(store.importOccurrences).toHaveBeenCalledWith("en:loaf", [
+      {
+        source: {
+          platform: "youtube",
+          url: "https://www.youtube.com/watch?v=abc",
+          title: "Baking video",
+          lang: "en",
+        },
+        sentence: "Shape the loaf.",
+        translation: "パンを成形する。",
+        pos: { timeMs: 12_500 },
+        seenAt: 9_000,
+      },
+      {
+        source: {
+          platform: "web",
+          url: "https://example.org/cake",
+          title: "Cake",
+          lang: "en",
+        },
+        sentence: "A warm loaf.",
+        pos: { textQuote: "A warm loaf." },
+        seenAt: 8_000,
+      },
+    ]);
+  });
+
+  it("imports nothing when nothing is kept", async () => {
+    store.saveTerm.mockResolvedValue(LOAF);
+    await value({ type: "saveTerm", ...input });
+    expect(history.find).toHaveBeenCalledTimes(1);
+    expect(store.importOccurrences).not.toHaveBeenCalled();
+  });
+
+  it("does not import again for a term that was already saved", async () => {
+    store.termIndex.mockResolvedValue(new Map([["loaf", "known"]]));
+    store.saveTerm.mockResolvedValue(LOAF);
+    history.find.mockResolvedValue(KEPT);
+    await value({ type: "saveTerm", ...input });
+    expect(history.find).not.toHaveBeenCalled();
+    expect(store.importOccurrences).not.toHaveBeenCalled();
+  });
+
+  it("does not import for save all", async () => {
+    store.saveAll.mockResolvedValue({ batchId: "b1", count: 1 });
+    history.find.mockResolvedValue(KEPT);
+    await value({
+      type: "saveAll",
+      lang: "en",
+      keys: ["loaf"],
+      status: "learning",
+      source: SOURCE,
+    });
+    expect(history.find).not.toHaveBeenCalled();
+    expect(store.importOccurrences).not.toHaveBeenCalled();
   });
 });

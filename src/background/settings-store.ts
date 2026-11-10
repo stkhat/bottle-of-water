@@ -24,16 +24,20 @@ export function setSettings(patch: SettingsPatch): Promise<Settings> {
   return write;
 }
 
-/** Calls `listener` with the new settings whenever they change (from any device). */
+/**
+ * Calls `listener` with the new settings whenever they change (from any device), and
+ * the settings before the change.
+ */
 export function watchSettings(
-  listener: (settings: Settings) => void,
+  listener: (settings: Settings, previous: Settings) => void,
 ): () => void {
   const onChanged = (
-    changes: Record<string, { newValue?: unknown }>,
+    changes: Record<string, { newValue?: unknown; oldValue?: unknown }>,
     area: string,
   ) => {
     if (area !== "sync" || !Object.hasOwn(changes, SETTINGS_KEY)) return;
-    listener(mergeSettings(changes[SETTINGS_KEY]!.newValue));
+    const { newValue, oldValue } = changes[SETTINGS_KEY]!;
+    listener(mergeSettings(newValue), mergeSettings(oldValue));
   };
   browser.storage.onChanged.addListener(onChanged);
   return () => browser.storage.onChanged.removeListener(onChanged);

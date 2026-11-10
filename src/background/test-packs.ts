@@ -8,7 +8,8 @@ import {
 
 export const TEST_PACKS: PackFiles = {
   en: {
-    lemmas: { loaves: "loaf", ferments: "ferment", gave: "give" },
+    // "rose" is a word of its own and a form of "rise".
+    lemmas: { loaves: "loaf", ferments: "ferment", gave: "give", rose: "rise" },
     // "yeast" is ranked 2,500: known at the default level (3,000), new at 2,000.
     freq: [
       "the",
@@ -20,7 +21,7 @@ export const TEST_PACKS: PackFiles = {
     pos: { loaf: ["noun"], ferment: ["verb"], crust: ["noun"] },
     vocab: [
       ...["crust", "ferment", "figure", "from", "give", "loaf", "out"],
-      ...["scratch", "the", "up", "yeast"],
+      ...["rise", "rose", "scratch", "the", "up", "yeast"],
     ],
     // Meanings: "figure out" in the English definitions, the others in the Japanese
     // translations of phrases.
