@@ -4,7 +4,7 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 
 ## Where we are
 - **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
-- **Phase 2 is in progress** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)). Done: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md))
+- **Phase 2 is in progress** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)). Done: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md))
 - Real-site checks (2026-11-10, user's Chrome via Claude in Chrome): YouTube (Ken Robinson TED talk) and Netflix (Friends, `watch/70274124`) work — subtitles, translations, transcript, hover card, dictionary window, saving, L/^ controls, seek. Details: [notes/youtube-captions.md](notes/youtube-captions.md), [notes/netflix.md](notes/netflix.md)
 
 ## What phase 1 contains
@@ -49,6 +49,7 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - IPA: 26,758 words; coverage over the frequency list: 16,719 of 19,089 base forms (87.6%)
 - Parts of speech: 39,436 words
 - Phrases (M8a, 2026-11-10): 16,384 phrases (5,240 from EJDict, 11,385 from kaikki, some in both); meanings from EJDict 5,240, Wiktionary Japanese translations 725, English definitions 10,419. `en/phrases.json` 0.27 MB, `en-ja/phrases.json` 0.05 MB, `en-defs/dict-1.json` 1.90 MB; all pack files 12.67 MB. Classifying ~1,400 words takes ~0.4 ms. Chrome zip 3.9 MB (phase 1: ~3 MB)
+- Spanish (M8b, 2026-11-10; kaikki Spanish dump, Wiktionary "Frequency lists/Spanish/Mixed 730K", first 150,000 list entries): vocabulary 33,812 words (proper-noun-only entries left out), lemma entries 53,007, IPA 29,595 words (93.9% of the top 20,000 bases; Castilian pronunciation), es-en dictionary 35,438 terms, 1,626 phrases. `es/` 3.0 MB, `es-en/` 3.4 MB in 2 shards; all pack files 19.1 MB; Chrome zip 5.5 MB. Building the es pack and classifier ~29 ms in Node (en ~44 ms)
 - Sizes (phase 1): `en/` 3.8 MB (lemmas 1.25, ipa 0.79, freq 0.21, pos 1.04, vocab 0.48), `en-ja/` 6.7 MB in 4 shards; total 10.45 MB, about 3 MB zipped. Every file stays under 4 MB (`scripts/data/pack-sizes.test.ts`; AMO rejects text files over 5 MB)
 - Performance: first `analyze` after a service-worker start ~80–125 ms (loads `en`), later calls 5–25 ms; the dictionary loads right after the first `analyze` (`warmDictionary`)
 - Sync capacity: 12,402 English terms fit in 102,400 bytes (`src/core/sync/codec.capacity.test.ts`); alternatives measured: up to ~16,300 with a column format (not adopted)

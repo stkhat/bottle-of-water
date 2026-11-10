@@ -147,8 +147,8 @@ Development pair: learning language = English, native language = Japanese, sites
 
 | Part | Role | Phase 1 implementation |
 |---|---|---|
-| `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list and IPA table built from kaikki (Wiktionary) |
-| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label |
+| `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list, IPA table and phrase list built from kaikki (Wiktionary) and EJDict. Phase 2: `es` (kaikki Spanish, Wiktionary Spanish frequency list; ~34k words) |
+| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label. Phase 2: `es→en` from kaikki's English glosses (senses carry their part of speech) |
 | `TranslationProvider` | Translating one subtitle line / sentence. Several implementations tried in order ("Choosing a translation") | ① the site's translated subtitles (from `PlatformAdapter`) ② the browser's built-in translator (Chrome: Translator API). If neither exists, no translation |
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation | YouTube / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
@@ -314,7 +314,7 @@ No outright blocker. Decisions and requirements:
    - Searching past occurrences (local corpus)
    - Fullscreen support
    - Per-video word list tab
-   - A Spanish → English language pack
+   - A Spanish → English language pack — done (M8b): learning-language choices in Settings list only languages with a dictionary for the learning language (English → Japanese, Spanish → English)
 3. **Phase 3**
    - "Ask AI" button (links that open ChatGPT / Claude with a prompt containing the word and sentence)
    - LLM explanations: embed "word + sentence + nearby subtitles + saved words" in a prompt, receive JSON, cache per word + sentence. Run on Chrome's built-in Prompt API (Gemini Nano) first, with the user's own API key as a fallback

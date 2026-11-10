@@ -485,7 +485,7 @@ describe("SettingsPage", () => {
     await expect
       .element(
         section(f.screen, "About").getByText(
-          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms and frequency data: Wiktionary (CC BY-SA)",
+          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, phrase meanings and the Spanish–English dictionary: Wiktionary (CC BY-SA)",
         ),
       )
       .toBeVisible();
