@@ -14,24 +14,19 @@ export const HIGHLIGHT_NAMES: Readonly<Record<HighlightCategory, string>> = {
   known: "lingo-known",
 };
 
-/** Backgrounds for New and Known where highlights cannot be underlined (the chip swatches). */
+/** Backgrounds where highlights cannot be underlined (the chip swatches). */
 const FALLBACK_BACKGROUND: Readonly<Record<HighlightCategory, string>> = {
-  new: "#EAF0FD",
+  new: highlight.page.new.background,
   learning: highlight.page.learning.background,
   known: "#F1F2F5",
 };
 
 /**
- * Where the underline sits below the baseline, matched to the mock in screenshots
- * (19px serif, line-height 1.75). New and Known: the mock's bar at the bottom of the
- * line box. Learning: flush with the bottom of its background, which in a highlight
- * covers only the text's height, not the whole line box as in the mock.
+ * Where the underline sits below the baseline, the same for every category: flush
+ * with the bottom of the text, where a background ends (a highlight's background
+ * covers only the text's height, not the whole line box as in the mock).
  */
-const UNDERLINE_OFFSET: Readonly<Record<HighlightCategory, string>> = {
-  new: "0.4em",
-  learning: "0.2em",
-  known: "0.4em",
-};
+const UNDERLINE_OFFSET = "0.2em";
 
 /**
  * Whether highlights can be underlined in this browser.
@@ -55,7 +50,7 @@ export function highlightCss(underline: boolean): string {
           look.background && `background-color: ${look.background}`,
           `text-decoration: underline 2px ${look.underline}`,
           "text-decoration-skip-ink: none",
-          `text-underline-offset: ${UNDERLINE_OFFSET[category]}`,
+          `text-underline-offset: ${UNDERLINE_OFFSET}`,
         ]
       : [`background-color: ${FALLBACK_BACKGROUND[category]}`];
     const body = declarations.filter(Boolean).join("; ");

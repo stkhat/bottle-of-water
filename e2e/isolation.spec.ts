@@ -40,7 +40,9 @@ test("page styles do not leak into the hover card", async ({ context }) => {
     .poll(async () => {
       await page.mouse.move(word.x + 1, word.y);
       await page.mouse.move(word.x, word.y);
-      return page.getByText(en["hover.hint"]).isVisible();
+      return page
+        .getByRole("button", { name: en["hover.details"] })
+        .isVisible();
     })
     .toBe(true);
   const head = page

@@ -38,12 +38,12 @@ export const SERIF_FONT = "'Source Serif 4', Georgia, serif";
 export const highlight = {
   page: {
     learning: { background: "#D3F1E5", underline: "#0F9F7E" },
-    new: { background: undefined, underline: "#2F6FE4" },
+    new: { background: "#EAF0FD", underline: "#2F6FE4" },
     known: { background: undefined, underline: "#A3A8B7" },
   },
   onVideo: {
     learning: { background: "rgba(15,159,126,0.55)", underline: "#6FE3C3" },
-    new: { background: undefined, underline: "#8DB4FF" },
+    new: { background: "rgba(47,111,228,0.55)", underline: "#8DB4FF" },
     known: { background: undefined, underline: "rgba(255,255,255,0.6)" },
   },
 } as const;

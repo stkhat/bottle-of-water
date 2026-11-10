@@ -156,6 +156,7 @@
   "hover.addLearning": "+ Learning",
   "hover.known": "Known",
   "hover.hint": "Click the word for details",
+  "hover.details": "Details",
   "dict.window": "Dictionary window",
   "dict.title": "Dictionary",
   "dict.move": "Move window",

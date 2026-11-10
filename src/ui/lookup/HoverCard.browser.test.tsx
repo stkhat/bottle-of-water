@@ -100,6 +100,23 @@ describe("HoverCard", () => {
     expect(onKnown).toHaveBeenCalledOnce();
   });
 
+  test("with onDetails, shows Details instead of the hint", async () => {
+    const onDetails = vi.fn();
+    const screen = await mountInShadowRoot(
+      <HoverCard {...figureOut} variant="article" onDetails={onDetails} />,
+    );
+    expect(screen.container.textContent).not.toContain(
+      "Click the word for details",
+    );
+    await screen.getByRole("button", { name: "Details" }).click();
+    expect(onDetails).toHaveBeenCalledOnce();
+  });
+
+  test("without onDetails, has no Details button", async () => {
+    const screen = await mountInShadowRoot(<HoverCard {...figureOut} />);
+    expect(screen.getByRole("button", { name: "Details" }).query()).toBeNull();
+  });
+
   test("buttons ignore clicks a page script makes", async () => {
     const onLearning = vi.fn();
     const onKnown = vi.fn();

@@ -230,12 +230,13 @@ function fresh(
   settings: Settings,
   videoId: string | null,
   fullscreen: boolean,
+  enabled = true,
 ): VideoState {
   return {
     settings,
     videoId,
     status: videoId ? "loading" : "idle",
-    enabled: true,
+    enabled,
     cues: [],
     lines: [],
     spans: [],
@@ -280,9 +281,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       return "";
     }
   };
+  const platform = adapter.platform as "youtube" | "netflix";
   const siteOn = () =>
-    settings.sites[adapter.platform as "youtube" | "netflix"] !== false &&
-    !hostBlocked(hostname(), settings);
+    settings.sites[platform] !== false && !hostBlocked(hostname(), settings);
 
   /** Our subtitles replace the site's while there are some and Lingo is on (fullscreen too). */
   function syncSiteCaptions() {
@@ -304,7 +305,15 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (watch && watch.id === id) return;
     close();
     hover.cancel();
-    store.set(fresh(settings, id, store.get().fullscreen));
+    // The L button starts where it was left on this platform.
+    store.set(
+      fresh(
+        settings,
+        id,
+        store.get().fullscreen,
+        settings.videoOn[platform] !== false,
+      ),
+    );
     if (!id) {
       adapter.hideSiteCaptions(false);
       return;
@@ -886,6 +895,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (store.get().enabled === on) return;
       hover.cancel();
       store.set({ enabled: on, ...(!on && { panel: null }) });
+      if (settings.videoOn[platform] !== on)
+        changeSettings({ videoOn: { [platform]: on } });
       if (store.get().status === "ready") syncSiteCaptions();
       const video = adapter.video();
       if (watch && video) update(watch, video);

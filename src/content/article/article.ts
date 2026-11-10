@@ -112,6 +112,8 @@ export interface ArticleApp {
   keepHover(): void;
   /** The pointer left the hover card: hide it soon. */
   releaseHover(): void;
+  /** The hover card's "Details": opens the panel for its word. */
+  openDetails(): void;
   /** The panel's Learning / Known / Remove. */
   setPanelStatus(status: WordStatus): void;
   speak(): void;
@@ -575,6 +577,12 @@ export async function startArticle(
     },
     keepHover: () => interactions.keepHover(),
     releaseHover: () => interactions.releaseHover(),
+    openDetails() {
+      const ref = hoverRef;
+      if (!ref) return;
+      interactions.dismissHover();
+      void openPanel(ref).catch(warn);
+    },
     setPanelStatus(status) {
       const ref = panelRef;
       const card = store.get().panel?.card;

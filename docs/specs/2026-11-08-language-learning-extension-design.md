@@ -30,7 +30,7 @@ Development pair: learning language = English, native language = Japanese, sites
 ## UI spec (follows the mock)
 
 ### Shared: highlights
-- Categories and looks: **Learning** = pale green background + green underline, **New** = blue underline, **Known** = gray underline
+- Categories and looks: **Learning** = pale green background + green underline, **New** = pale blue background + blue underline, **Known** = gray underline
 - Each category can be turned on/off; **by default only Learning is on**
 - When subtitles are drawn over the video, the same category colors are brightened so they read on dark backgrounds
 - Inflected forms are matched to the base form (ferments → ferment, loaves → loaf)
@@ -38,7 +38,7 @@ Development pair: learning language = English, native language = Japanese, sites
 ### Shared: hover card
 - Kind (Word / Phrase) and current status. Shown for every word in the vocabulary, also those known by their frequency (within the known level, not saved): they show as **Known**, with "Known" pressed; pressing it saves them as Known, "+ Learning" as Learning
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
-- Buttons: "+ Learning", "Known"
+- Buttons: "+ Learning", "Known"; on articles also "Details", which opens the dictionary window (a click on a word inside a link follows the link, so this is the way in there). Over video the card ends with "Click the word for details" instead
 - Phrases: saved phrases and dictionary phrases (phase 2: Wiktionary idioms, phrasal verbs and prepositional phrases made of vocabulary words, plus EJDict's multi-word headwords) are matched by their words' base forms; the longest match wins and a saved phrase wins over a detected one. An unsaved detected phrase is New (the known level does not apply to phrases) and does not cover a word saved as Learning. Kaikki phrases starting with be/have/do, word sequences Wiktionary marks as non-constituents, and idioms/phrases made only of very common words are left out
 - Phrase meanings: EJDict → Wiktionary's Japanese translations → Wiktionary's English definition (marked `lang="en"`). A selected phrase that no dictionary has gets its short translation from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
 
@@ -61,7 +61,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - **Translation visibility is set separately for the subtitle and the transcript** (both shown by default)
 - **Prefer translations provided by the site** (order in "Choosing a translation"). Where a translation came from is not shown
 - **Two buttons in the player bar**, grouped in **one green outline** so they are not confused with YouTube's own gear
-  - **L button**: one click turns Lingo on/off (when off: dotted outline + strikethrough)
+  - **L button**: one click turns Lingo on/off (when off: dotted outline + strikethrough). The state is remembered per platform (YouTube, Netflix): the next video there starts the same way
   - **Up arrow (^) button**: opens the Lingo menu (no gear icon)
     - Current state (On / Off for this video)
     - Subtitle position (In video / Below video)
@@ -206,7 +206,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
   - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
-- Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), what to do with unsaved New words at the end, per-site on/off and the exclusion list
+- Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), what to do with unsaved New words at the end, per-site on/off and the exclusion list, and the L button's on/off per video platform
 
 ### Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
 - `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`push / pull / status / start / stop`). The user's own cloud storage, added later, is another implementation of the same part

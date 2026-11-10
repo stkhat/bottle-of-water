@@ -132,7 +132,9 @@ const dictionary = (page: Page) =>
 async function useArticle(page: Page) {
   const tangy = await pointOn(page, "tangy");
   await page.mouse.move(tangy.x, tangy.y);
-  await expect(page.getByText(en["hover.hint"])).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en["hover.details"] }),
+  ).toBeVisible();
   await page.mouse.click(tangy.x, tangy.y);
   const panel = dictionary(page);
   await expect(panel.getByRole("heading", { name: "tangy" })).toBeVisible();

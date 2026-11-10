@@ -91,6 +91,9 @@ describe("SubtitleOverlay", () => {
     expect(getComputedStyle(word(screen, "bread")).boxShadow).toContain(
       "rgb(141, 180, 255)",
     );
+    expect(getComputedStyle(word(screen, "bread")).backgroundColor).toBe(
+      "rgba(47, 111, 228, 0.55)",
+    );
     expect(getComputedStyle(word(screen, "today")).boxShadow).toContain(
       "rgba(255, 255, 255, 0.6)",
     );
