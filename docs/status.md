@@ -4,8 +4,9 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 
 ## Where we are
 - **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
-- **Phase 2 is in progress** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)). Done: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md)), M8c sentence history ([plan](plans/2026-11-10-m8c-sentence-history.md)), M8d words in this video ([plan](plans/2026-11-10-m8d-video-words.md)), M8e fullscreen ([plan](plans/2026-11-10-m8e-fullscreen.md))
+- **Phase 2 is built** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)), PR #6: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md)), M8c sentence history ([plan](plans/2026-11-10-m8c-sentence-history.md)), M8d words in this video ([plan](plans/2026-11-10-m8d-video-words.md)), M8e fullscreen ([plan](plans/2026-11-10-m8e-fullscreen.md))
 - Real-site checks (2026-11-10, user's Chrome via Claude in Chrome): YouTube (Ken Robinson TED talk) and Netflix (Friends, `watch/70274124`) work — subtitles, translations, transcript, hover card, dictionary window, saving, L/^ controls, seek. Details: [notes/youtube-captions.md](notes/youtube-captions.md), [notes/netflix.md](notes/netflix.md)
+- Phase 2 real-site checks (2026-11-10, same videos plus Wikipedia): the Words tab (219 rows on the TED talk), detected phrases ("play out", "running through", "used to") with English definitions, fullscreen on both sites (youtube.com makes `<html>` fullscreen, so Lingo's page layer stays in `<body>`; netflix.com makes `.watch-video` fullscreen and the layer moves into it), the 34 px subtitle, hover card, dictionary window at the top right and the reduced ^ menu, "Seen elsewhere · 11" for an unsaved word after visiting two other Wikipedia pages. Netflix's subtitle lift above the control bar and the ^ menu now checked
 
 ## What phase 1 contains
 | Area | Where | Plan |
@@ -21,7 +22,7 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-check` (loaded unpacked in the user's Chrome) and the extension reloads itself ([development.md](development.md)).
 
 ## Known issues and open points (phase 1)
-- Netflix: the subtitle lift above the control bar and the ^ menu are not yet checked on netflix.com; Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
+- Netflix: Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
 - YouTube: real-site layout in theater mode and the narrow single-column layout not checked
 - Article UI: a word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)
 - Popup: "On this site" reflects only `disabledSites` (a "Never run on" host still shows the switch on); relative times read "2 minutes ago" where the mock says "2 min ago"
@@ -29,6 +30,15 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - `storage.sync` holds about 12,400 English terms, not the 15,000–20,000 the spec estimated (see "Data"); demotion of "save all" terms keeps it working
 - Firefox (not released yet): `data_collection_permissions` missing in the manifest; `supportsHighlightUnderline()` always returns true; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; Playwright's Firefox does not launch on the dev Mac (CI covers it)
 - E2E selects phrases with the Selection API (a Playwright mouse drag selects nothing on the article fixture in headless Chromium)
+
+## Known issues and open points (phase 2)
+- Phrase data: some first meanings from Wiktionary fit badly ("talk about" → an interjection sense, "used to" → "accustomed to" where the habitual past is meant); a few literal word pairs remain ("and change"); very common idioms such as "of course" and "a lot" are not in the list
+- Article sentences from Wikipedia keep citation brackets ("5] …", "…[") in "On this page" and the history
+- YouTube: after using L or ^ the focus stays on Lingo's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked
+- Netflix: the in-video subtitle is centered on the whole video, so its right end can run under the transcript side panel
+- A selected (saved) phrase only finds history sentences recorded after it was saved: index keys are fixed when a sentence is kept
+- The 50 MB history figure is Lingo's own estimate; IndexedDB's indexes take more space on disk
+- Production builds use closed shadow roots, so E2E drives the page UI on the check build only
 
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
@@ -38,7 +48,7 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 
 ## Decisions (2026-11-09 / 10)
 - Tatoeba example sentences and Anki/CSV export moved to phase 3; the phase-2 language pack is Spanish → English
-- Chrome Web Store: keep YouTube + Netflix (subtitles in memory only), keep `<all_urls>`, sentence history on by default
+- Chrome Web Store: keep YouTube + Netflix (subtitles processed in memory; played lines kept on the device while Sentence history is on), keep `<all_urls>`, sentence history on by default
 - Mock artboards for the word list page and the phase 2 screens were approved as they are (2026-11-10)
 - Real-site checks that Playwright cannot do go through Claude in Chrome in the user's Chrome
 
