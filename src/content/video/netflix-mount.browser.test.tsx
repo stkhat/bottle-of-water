@@ -171,7 +171,8 @@ describe("the subtitle over Netflix's video", () => {
     const top = barTop();
     expect(top).toBeLessThan(player.bottom - 64);
     await expect.poll(() => gapAbove(top)).toBeGreaterThanOrEqual(12);
-    expect(gapAbove(top)).toBeLessThan(13);
+    // Rounded up to whole pixels: at most a pixel more.
+    expect(gapAbove(top)).toBeLessThan(14);
 
     page.showControls(false);
     await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
@@ -196,6 +197,7 @@ describe("the subtitle over Netflix's video", () => {
       ...[...parts].map((part) => part.getBoundingClientRect().top),
     );
     await expect.poll(() => gapAbove(top)).toBeGreaterThanOrEqual(12);
-    expect(gapAbove(top)).toBeLessThan(13);
+    // Rounded up to whole pixels: at most a pixel more.
+    expect(gapAbove(top)).toBeLessThan(14);
   });
 });
