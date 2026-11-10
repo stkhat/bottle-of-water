@@ -125,6 +125,30 @@ describe("watchVisibleBlocks", () => {
     release();
   });
 
+  it("is idle only once the batches waiting behind the running one are analyzed", async () => {
+    const root = fixture(
+      paragraphs(30, "height: 2px; margin: 0; overflow: hidden"),
+    );
+    let release!: () => void;
+    const calls: TextBlock[][] = [];
+    const watcher: VisibleBlocks = watchVisibleBlocks((batch) => {
+      calls.push(batch);
+      return new Promise<void>((resolve) => (release = resolve));
+    });
+    cleanups.push(() => watcher.disconnect());
+    await watcher.idle(); // nothing handed over yet
+    watcher.add(collectBlocks(root));
+    await expect.poll(() => calls.length).toBe(1);
+    let idle = false;
+    void watcher.idle().then(() => (idle = true));
+    release();
+    await expect.poll(() => calls.length).toBe(2);
+    await frames(2);
+    expect(idle).toBe(false); // the second batch is still running
+    release();
+    await expect.poll(() => idle).toBe(true);
+  });
+
   it("keeps going after a batch fails", async () => {
     const root = fixture(
       paragraphs(25, "height: 2px; margin: 0; overflow: hidden"),

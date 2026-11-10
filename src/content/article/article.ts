@@ -16,7 +16,7 @@ import {
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import { createStore, type Store } from "../ui/store";
 import { describeTerm, type TermCard } from "./describe";
-import { watchEndOfArticle } from "./end-of-article";
+import { lastMainBlock, watchEndOfArticle } from "./end-of-article";
 import { wordBoxes, type Box } from "./geometry";
 import { createHighlighter, type Highlighter } from "./highlighter";
 import { watchInteractions } from "./interactions";
@@ -286,11 +286,14 @@ export async function startArticle(
 
   /**
    * Saves every unsaved new word of the analyzed part of the page as Known, once the
-   * end of the article is in view and Settings say so (`unsavedAtEnd`). Blocks still
-   * being analyzed are waited for, so the last paragraph counts.
+   * end of the article is in view and Settings say so (`unsavedAtEnd`). The last
+   * paragraph is analyzed first if it has not been yet (the end can show before the
+   * visible blocks are queued), and blocks waiting for analysis are waited for.
    */
   async function markUnsavedKnown() {
-    await Promise.allSettled([...analyzing]);
+    const last = lastMainBlock(root, pageText.blocks());
+    if (last && live.has(last) && !spans.has(last)) await analyze([last]);
+    await visible.idle();
     const keys = unsavedOnPage();
     if (keys.length === 0) return;
     await deps.send({
@@ -593,15 +596,7 @@ export async function startArticle(
 
   const unmountUi = await deps.mountUi(app);
 
-  /** Analyses not finished yet, for `markUnsavedKnown`. */
-  const analyzing = new Set<Promise<void>>();
-  const visible = watchVisibleBlocks((batch) => {
-    const pending = analyze(batch);
-    analyzing.add(pending);
-    const done = () => void analyzing.delete(pending);
-    pending.then(done, done);
-    return pending;
-  });
+  const visible = watchVisibleBlocks(analyze);
   const end = watchEndOfArticle(root, () => {
     if (settings.unsavedAtEnd === "known") run(markUnsavedKnown);
   });

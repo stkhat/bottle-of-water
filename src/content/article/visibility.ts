@@ -5,6 +5,8 @@ export interface VisibleBlocks {
   add(blocks: readonly TextBlock[]): void;
   /** Stops watching blocks (and drops them if they wait for analysis). */
   remove(blocks: readonly TextBlock[]): void;
+  /** Resolves once every block handed over so far has been analyzed (or dropped). */
+  idle(): Promise<void>;
   disconnect(): void;
 }
 
@@ -74,6 +76,14 @@ export function watchVisibleBlocks(
   const queue: TextBlock[] = [];
   let running = false;
   let stopped = false;
+  let waiters: (() => void)[] = [];
+
+  function settle() {
+    if (running || (queue.length > 0 && !stopped)) return;
+    const done = waiters;
+    waiters = [];
+    for (const resolve of done) resolve();
+  }
 
   async function pump() {
     if (running) return;
@@ -90,6 +100,7 @@ export function watchVisibleBlocks(
       }
     } finally {
       running = false;
+      settle();
     }
   }
 
@@ -127,12 +138,18 @@ export function watchVisibleBlocks(
         const i = queue.indexOf(block);
         if (i >= 0) queue.splice(i, 1);
       }
+      settle();
+    },
+    idle() {
+      if (!running && (queue.length === 0 || stopped)) return Promise.resolve();
+      return new Promise((resolve) => waiters.push(resolve));
     },
     disconnect() {
       stopped = true;
       observer.disconnect();
       watched.clear();
       queue.length = 0;
+      settle();
     },
   };
 }
