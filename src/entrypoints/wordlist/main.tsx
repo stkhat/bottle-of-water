@@ -1,11 +1,9 @@
 import "@fontsource-variable/inter";
 import { render } from "preact";
+import { speechLang } from "../../core/languages";
 import { send } from "../../messaging/client";
 import { download } from "../../ui/backup/download";
 import { WordList, type WordListDeps } from "./WordList";
-
-/** Speech voices by language code. */
-const SPEECH_LANG: Readonly<Record<string, string>> = { en: "en-US" };
 
 const deps: WordListDeps = {
   send,
@@ -14,7 +12,7 @@ const deps: WordListDeps = {
   speak(text, lang) {
     if (typeof speechSynthesis === "undefined") return;
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = SPEECH_LANG[lang] ?? lang;
+    utterance.lang = speechLang(lang);
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
   },

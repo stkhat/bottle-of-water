@@ -1,5 +1,6 @@
 import type { SourceInput } from "../../background/term-store";
 import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
+import { speechLang } from "../../core/languages";
 import type { Settings } from "../../core/settings";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
@@ -49,9 +50,6 @@ import { batches, watchVisibleBlocks } from "./visibility";
 
 /** The longest text sample the page language is detected on. */
 const DETECT_SAMPLE = 2000;
-
-/** Voices for speaking a learning language; others use the language code itself. */
-const SPEECH_LANG: Readonly<Record<string, string>> = { en: "en-US" };
 
 /** What the article UI needs from the extension, passed in so it runs in tests. */
 export interface ArticleDeps {
@@ -583,7 +581,7 @@ export async function startArticle(
     const head = store.get().panel?.card.head;
     if (!head || typeof speechSynthesis === "undefined") return;
     const utterance = new SpeechSynthesisUtterance(head);
-    utterance.lang = SPEECH_LANG[lang] ?? lang;
+    utterance.lang = speechLang(lang);
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
   }

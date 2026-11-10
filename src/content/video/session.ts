@@ -20,6 +20,7 @@ import {
   type TranslationChoice,
 } from "../../core/subtitles/translation";
 import type { Cue } from "../../core/subtitles/types";
+import { speechLang } from "../../core/languages";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
 import {
@@ -44,9 +45,6 @@ import {
 import { createStore, type Store } from "../ui/store";
 import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
-
-/** Voices for speaking a learning language; others use the language code itself. */
-const SPEECH_LANG: Readonly<Record<string, string>> = { en: "en-US" };
 
 /** Cues classified per `analyze` request. */
 const BATCH = 50;
@@ -792,7 +790,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const head = store.get().panel?.card.head;
     if (!head || typeof speechSynthesis === "undefined") return;
     const utterance = new SpeechSynthesisUtterance(head);
-    utterance.lang = SPEECH_LANG[lang()] ?? lang();
+    utterance.lang = speechLang(lang());
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
   }

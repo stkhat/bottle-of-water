@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { learningLanguages, nativeLanguages } from "../core/languages";
 import type { PackName } from "../core/packs/load";
 import { createLanguageResources } from "./language-resources";
 import { filesRead, stubPackLoader as stubLoader } from "./test-packs";
@@ -215,5 +216,16 @@ describe("createLanguageResources", () => {
     await expect(resources.pack("constructor")).rejects.toThrow(
       "No language pack for constructor",
     );
+  });
+
+  it("builds the pack and the dictionaries of every language pair the settings offer", async () => {
+    const resources = createLanguageResources(stubLoader());
+    for (const learning of learningLanguages()) {
+      expect((await resources.pack(learning)).lang).toBe(learning);
+      for (const native of nativeLanguages(learning)) {
+        const dictionary = await resources.dictionary(learning, native);
+        expect([dictionary.from, dictionary.to]).toEqual([learning, native]);
+      }
+    }
   });
 });
