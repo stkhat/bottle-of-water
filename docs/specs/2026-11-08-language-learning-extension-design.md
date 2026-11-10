@@ -115,6 +115,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")
   - **Video subtitles**: subtitle position (In video / Below video), subtitle translation, transcript translation
   - **Sites**: on/off for YouTube / Netflix / other articles, and a "Never run on" list
+  - **Sentence history** (phase 2): see "Phase 2 screens"
   - **Sync and backup**
     - Browser sync switch ("Sync word status with Chrome sync"; the name follows the browser). The description explains that data reaches other devices when the user is signed in to the browser with sync on
     - Usage and last saved time ("Last saved …", never "Last synced")
@@ -141,7 +142,8 @@ Development pair: learning language = English, native language = Japanese, sites
 - **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows only the translation switch and "Open all settings"
 - **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
   - The dictionary window shows "Seen elsewhere · N" for unsaved words too, from the local sentence history. When the word is saved, those occurrences become part of its history
-  - Settings gets a **Sentence history** section: "Keep sentence history" switch (on by default; never synced; Never run on sites are not kept), space used with a bar (cap 50 MB; the oldest pages are removed first), the number of pages and videos, and "Clear" (saved words and their sources stay)
+  - Rows show "host · Nov 8" for pages and "YouTube · at 3:10 · Nov 8" for videos (saved words too)
+  - Settings gets a **Sentence history** section (after Sites): "Keep sentence history" switch (on by default; never synced; Never run on sites are not kept), space used with a bar (cap 50 MB; the oldest pages are removed first), the number of pages and videos, and "Clear" (saved words and their sources stay)
 
 ## Architecture (MV3 / TypeScript / WXT + Preact, UI inside Shadow DOM)
 
@@ -198,6 +200,11 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
+- Sentence history (phase 2, device only: never synced, not in the JSON export)
+  - `historyPages`: `{id (= source id), platform, url (normalized), host, title, lang, firstSeen, lastSeen, bytes}`
+  - `historySentences`: `{pageId, text, translation?, pos, keys: termId[], seenAt}`, unique per page and text, indexed by `keys` (every base form of each word outside the 300 most common, plus the phrases found in the sentence)
+  - Articles keep the sentences of the blocks Lingo analyzes; videos keep **played lines only**. Not kept while the switch is off or on hosts in "Never run on" / switched off in the popup; adding a host to "Never run on" removes its pages. Size is counted by Lingo (UTF-16 size of the strings plus a fixed overhead); over 50 MB, the oldest pages (`lastSeen`) are removed until under 45 MB
+  - Saving a word (not "save all") copies its kept sentences into its occurrences (`origin: encountered`, up to 50)
   - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
@@ -292,7 +299,7 @@ Phase 1 publishes only the Chrome version, but the structure must not need rewri
 
 ### Chrome Web Store requirements (checked 2026-11-09)
 No outright blocker. Decisions and requirements:
-- **Subtitles (decided)**: keep YouTube and Netflix. Subtitle tracks are processed in memory only and never written to storage; only the sentence in which a saved word appears is stored (as an occurrence). Policy risk: "do not facilitate unauthorized access to content" / copyrighted content. Language Reactor does the same on the store. Prepare a written justification for review
+- **Subtitles (decided)**: keep YouTube and Netflix. Subtitle tracks are processed in memory; what is stored is the sentence in which a saved word appears (as an occurrence) and, while Sentence history is on, the lines that actually played (on the device only). Policy risk: "do not facilitate unauthorized access to content" / copyrighted content. Language Reactor does the same on the store. Prepare a written justification for review
 - **Host access (decided)**: keep the content script on all sites (`<all_urls>`), accepting an in-depth review (can take weeks). Write a justification (article highlighting on any page the user reads)
 - **Sentence history, phase 2 (decided)**: on by default, as in the mock. Browsing activity may be collected only for a user-facing feature described prominently in the store listing and in the UI, so the listing and Settings must describe it clearly, and it stays on the device
 - **Privacy policy (required)**: any extension that handles user data needs a privacy policy URL, even when data stays on the device. Recorded sources (URL, title) and sentences count as user data. Disclose: what is stored locally, that word status goes through the browser's sync, that nothing is sent to the developer. Include the Limited Use compliance statement. Host it somewhere public without a server (e.g. GitHub Pages; this repo is private, so a separate public page is needed)

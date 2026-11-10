@@ -4,7 +4,7 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 
 ## Where we are
 - **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
-- **Phase 2 is in progress** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)). Done: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md))
+- **Phase 2 is in progress** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)). Done: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md)), M8c sentence history ([plan](plans/2026-11-10-m8c-sentence-history.md))
 - Real-site checks (2026-11-10, user's Chrome via Claude in Chrome): YouTube (Ken Robinson TED talk) and Netflix (Friends, `watch/70274124`) work — subtitles, translations, transcript, hover card, dictionary window, saving, L/^ controls, seek. Details: [notes/youtube-captions.md](notes/youtube-captions.md), [notes/netflix.md](notes/netflix.md)
 
 ## What phase 1 contains
@@ -33,7 +33,7 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
 - Trader / non-trader declaration, 2-Step Verification on the developer account
-- Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling (in memory only)
+- Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling (processed in memory; with Sentence history on, the lines that played are kept on the device), sentence history described in the listing
 - See the spec's "Chrome Web Store requirements"
 
 ## Decisions (2026-11-09 / 10)
