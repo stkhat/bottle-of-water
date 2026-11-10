@@ -23,7 +23,7 @@
 ## Running them
 - While iterating, run only the files you touch: `npx vitest run src/path/to/file.test.ts`, `VITEST_BROWSERS=chromium npx vitest run --project browser src/path/to/file.browser.test.tsx`, `npx playwright test e2e/<spec>.ts -g "<test name>"` (after `npm run build && wxt build --mode check` when source changed).
 - Before handing work back or pushing, run everything once: `npm run verify` (check, unit, browser on Chromium, builds, E2E; about 1.5 minutes, terse output).
-- CI (`ci.yml`) is the gate for Firefox: unit and builds on Linux, macOS and Windows; browser tests (one job per browser) and E2E on Linux. `cross-os.yml` runs the browser and E2E tests on macOS and Windows weekly.
+- CI (`ci.yml`) is the gate for Firefox: unit and builds on Linux and Windows (macOS is the dev machine, where `npm run verify` runs); browser tests (one job per browser) and E2E on Linux. `cross-os.yml` runs the browser and E2E tests on macOS and Windows weekly.
 - On CI, a browser test that fails is retried once (`retry` in `vitest.config.ts`), like E2E (`retries` in `playwright.config.ts`). A test that needs its retry again and again is flaky: fix it.
 - E2E tests run in parallel, files and tests alike (`fullyParallel`): every test gets its own browser profile, so a test must not depend on another.
 

@@ -54,7 +54,7 @@ npx web-ext lint -s .output/firefox-mv3
 ```
 
 ## CI/CD
-- `ci.yml` (push to main, pull requests), all jobs in parallel: `check` (typecheck, lint, format, CLAUDE.md limit); `unit` on Linux, macOS and Windows (unit tests, both builds and the check build, manifest); `browser` on Linux, one job each for Chromium and Firefox; `e2e` on Linux (reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`). `browser` and `e2e` run in Playwright's image (`mcr.microsoft.com/playwright`), so no browser install; its tag must match `@playwright/test` (`scripts/check-playwright-image.mjs` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
+- `ci.yml` (push to main, pull requests), all jobs in parallel: `check` (typecheck, lint, format, CLAUDE.md limit); `unit` on Linux and Windows (unit tests, both builds and the check build, manifest); `browser` on Linux, one job each for Chromium and Firefox; `e2e` on Linux (reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`). `browser` and `e2e` run in Playwright's image (`mcr.microsoft.com/playwright`), so no browser install; its tag must match `@playwright/test` (`scripts/check-playwright-image.mjs` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
 - `cross-os.yml`: weekly (Monday 04:00 UTC) and manual run of the browser and E2E tests on macOS and Windows.
 - `release.yml` (tag `v*` or manual run): verifies the tag equals the `package.json` version, builds both zips, and for tags creates a GitHub release with the zips attached.
 - `mutation.yml`: weekly (Monday 03:00 UTC) and manual Stryker run; uploads `reports/mutation`.
