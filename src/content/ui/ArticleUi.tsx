@@ -94,6 +94,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}
             onKnown={() => app.setHoverStatus("known")}
+            onDetails={app.openDetails}
           />
         </Floating>
       )}

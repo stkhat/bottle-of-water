@@ -29,6 +29,8 @@ export interface Interactions {
   keepHover(): void;
   /** The pointer left the hover card. */
   releaseHover(): void;
+  /** Hides the hover card now, as a press on the page does. */
+  dismissHover(): void;
   stop(): void;
 }
 
@@ -194,6 +196,7 @@ export function watchInteractions(
       candidate = undefined;
       if (shown) scheduleHide();
     },
+    dismissHover: hideNow,
     stop() {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);

@@ -22,10 +22,12 @@ beforeAll(async () => {
 });
 afterEach(cleanUp);
 
-const hoverCard = () => page.getByText("Click the word for details");
-/** The hover card's box: the root around its hint. */
-const hoverBox = () =>
-  hoverCard().element().parentElement!.getBoundingClientRect();
+/** The hover card's "Details" button: there is one only while the card shows. */
+const details = () => page.getByRole("button", { name: "Details" });
+const hoverCard = details;
+/** The hover card's root: the box around the row of buttons. */
+const cardRoot = () => details().element().parentElement!.parentElement!;
+const hoverBox = () => cardRoot().getBoundingClientRect();
 
 describe("hover card", () => {
   it("appears 250 ms after the pointer rests on a word, above it", async () => {
@@ -89,7 +91,7 @@ describe("hover card", () => {
     const { root, background } = await setup(ARTICLE);
     await pointAt(root, "feel");
     await expect.element(hoverCard()).toBeVisible();
-    const card = page.elementLocator(hoverCard().element().parentElement!);
+    const card = page.elementLocator(cardRoot());
     await expect
       .element(card.getByText("Known", { exact: true }).first())
       .toBeVisible();
@@ -120,7 +122,7 @@ describe("hover card", () => {
     await expect
       .element(page.getByRole("button", { name: "+ Learning" }))
       .toHaveAttribute("aria-pressed", "true");
-    const card = page.elementLocator(hoverCard().element().parentElement!);
+    const card = page.elementLocator(cardRoot());
     await expect
       .element(card.getByText("Learning", { exact: true }))
       .toBeVisible();
@@ -380,6 +382,22 @@ describe("dictionary panel", () => {
     await clickOn(root, "tedious");
     await new Promise((r) => setTimeout(r, 200));
     expect(dictionary().query()).toBeNull();
+  });
+
+  it("opens from the hover card's Details, also for a word in a link", async () => {
+    const { root } = await setup(
+      `<p>Read <a href="#nowhere" onclick="return false">tedious notes</a> here.</p>`,
+    );
+    await pointAt(root, "tedious");
+    await expect.element(details()).toBeVisible();
+    expect(page.getByText("Click the word for details").query()).toBeNull();
+    await details().click();
+    await expect.element(dictionary()).toBeVisible();
+    await expect
+      .element(dictionary().getByText("退屈な、面倒な").first())
+      .toBeVisible();
+    await expect.poll(() => details().query()).toBeNull();
+    expect(location.hash).not.toBe("#nowhere");
   });
 });
 

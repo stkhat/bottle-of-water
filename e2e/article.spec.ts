@@ -78,7 +78,9 @@ test("hovering a word shows its card with the Japanese translation", async ({
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
   await hover(page, "tangy");
-  await expect(page.getByText(en["hover.hint"])).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en["hover.details"] }),
+  ).toBeVisible();
   await expect(page.getByText("tangy", { exact: true })).toBeVisible();
   await expect(page.getByText(/ぴりっと/)).toBeVisible();
   await expect(page.getByText(en["lookup.status.new"])).toBeVisible();

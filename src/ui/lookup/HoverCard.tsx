@@ -22,6 +22,11 @@ export interface HoverCardProps {
   glossLang?: string;
   onLearning: () => void;
   onKnown: () => void;
+  /**
+   * Opens the dictionary window (articles: a click on a word inside a link follows
+   * the link). Given, the card shows a "Details" button instead of the hint.
+   */
+  onDetails?: () => void;
 }
 
 const BOX = {
@@ -148,10 +153,25 @@ export function HoverCard(props: HoverCardProps) {
         >
           {t("hover.known")}
         </button>
+        {props.onDetails && (
+          <button
+            type="button"
+            onClick={onlyFromUser(() => props.onDetails?.())}
+            style={{
+              ...BUTTON,
+              ...statusButton.known(false),
+              background: "transparent",
+            }}
+          >
+            {t("hover.details")}
+          </button>
+        )}
       </div>
-      <div style={{ marginTop: "8px", fontSize: "12px", color: color.muted }}>
-        {t("hover.hint")}
-      </div>
+      {!props.onDetails && (
+        <div style={{ marginTop: "8px", fontSize: "12px", color: color.muted }}>
+          {t("hover.hint")}
+        </div>
+      )}
     </div>
   );
 }
