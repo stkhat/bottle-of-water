@@ -6,17 +6,10 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
-import {
-  FIXTURE_VIDEO_ID,
-  fixturePlayerResponse,
-  timedtextBody,
-} from "../tests/youtube-timedtext";
-import { installFakeYouTubePlayer } from "./fake-youtube-player";
 import { test, expect, openPopupFor, sendToBackground } from "./fixtures";
-import { routeTalkVideo } from "./routes";
+import { routeYouTube, YOUTUBE_WATCH as WATCH } from "./sites";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const WATCH = `https://www.youtube.com/watch?v=${FIXTURE_VIDEO_ID}`;
 const subtitles = path.join(here, "../src/core/subtitles/fixtures/youtube");
 const cues = (file: string) =>
   parseYouTubeJson3(readFileSync(path.join(subtitles, file), "utf8"));
@@ -35,51 +28,6 @@ const CARDS = sentenceCards(EN).cards;
 const CARD_INDEX = CARDS.findIndex((c) => flat(c.text).startsWith(LINE));
 /** What its transcript card shows: the Japanese lines that overlap it most. */
 const CARD_JA = alignByOverlap(CARDS, JA, { lang: "ja" })[CARD_INDEX]!;
-
-/**
- * Serves youtube.com from fixtures: the watch-page skeleton (with Trusted Types
- * enforced, as on the real site), a local 140-second video (the recorded captions end
- * at 2:15), the recorded /api/timedtext answers, and a fake player API. Nothing
- * reaches the real site.
- */
-async function routeYouTube(context: BrowserContext) {
-  await context.route("https://www.youtube.com/**", (route) =>
-    route.fulfill({ status: 404, body: "" }),
-  );
-  await context.route("https://www.youtube.com/watch*", (route) => {
-    const html = readFileSync(
-      path.join(here, "fixtures/youtube-watch.html"),
-      "utf8",
-    ).replace("<video", '<video src="/lingo-test/talk.webm" muted');
-    return route.fulfill({
-      contentType: "text/html; charset=utf-8",
-      headers: {
-        "content-security-policy": "require-trusted-types-for 'script'",
-      },
-      body: html,
-    });
-  });
-  await routeTalkVideo(context, "https://www.youtube.com/lingo-test/talk.webm");
-  await context.route("https://www.youtube.com/api/timedtext*", (route) =>
-    route.fulfill({
-      contentType: "application/json; charset=UTF-8",
-      body: timedtextBody(new URL(route.request().url())),
-    }),
-  );
-  await context.addInitScript(installFakeYouTubePlayer, {
-    videoId: FIXTURE_VIDEO_ID,
-    title: "Do schools kill creativity?",
-    playerResponse: fixturePlayerResponse(),
-  });
-  // Trusted Types violations in the page (e.g. an innerHTML assignment).
-  await context.addInitScript(() => {
-    const seen: string[] = [];
-    (window as unknown as { lingoViolations: string[] }).lingoViolations = seen;
-    document.addEventListener("securitypolicyviolation", (event) =>
-      seen.push(`${event.violatedDirective}: ${event.sample}`),
-    );
-  });
-}
 
 const violations = (page: Page) =>
   page.evaluate(

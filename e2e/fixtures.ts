@@ -8,15 +8,33 @@ import {
   type Page,
 } from "@playwright/test";
 
-const extensionPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../.output/chrome-mv3",
-);
+/**
+ * Which build to load: `npm run build` (production), or `wxt build --mode check` (the
+ * build loaded in your own Chrome, with WXT's dev logging and the self-reload).
+ */
+export type Build = "production" | "check";
 
-/** A fresh browser profile with the built extension loaded. */
-export async function launchWithExtension(): Promise<BrowserContext> {
+const BUILDS: Record<Build, { dir: string; command: string }> = {
+  production: { dir: "chrome-mv3", command: "npm run build" },
+  check: { dir: "chrome-mv3-check", command: "wxt build --mode check" },
+};
+
+/** The folder of a build. */
+export const extensionPathOf = (build: Build) =>
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../.output",
+    BUILDS[build].dir,
+  );
+
+/** A fresh browser profile with the built extension loaded (and `args` for Chromium). */
+export async function launchWithExtension(
+  args: string[] = [],
+  build: Build = "production",
+): Promise<BrowserContext> {
+  const extensionPath = extensionPathOf(build);
   if (!fs.existsSync(path.join(extensionPath, "manifest.json"))) {
-    throw new Error("Build first: npm run build");
+    throw new Error(`Build first: ${BUILDS[build].command}`);
   }
   const headed = !!process.env.PWDEBUG || !!process.env.HEADED;
   return chromium.launchPersistentContext("", {
@@ -26,6 +44,7 @@ export async function launchWithExtension(): Promise<BrowserContext> {
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
+      ...args,
     ],
   });
 }

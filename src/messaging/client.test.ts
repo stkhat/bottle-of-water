@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, expectTypeOf, it } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from "vitest";
 import { browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { send } from "./client";
@@ -6,6 +14,7 @@ import type { Counts } from "../background/term-store";
 import type { AnalyzeResult, Reply } from "./protocol";
 
 beforeEach(() => fakeBrowser.reset());
+afterEach(() => vi.restoreAllMocks());
 
 /** A background that answers every message with `reply`, the way the real one does. */
 function answer(reply: (message: unknown) => Reply) {
@@ -41,6 +50,106 @@ describe("send", () => {
     await expect(send({ type: "syncStatus" })).rejects.toThrow(
       "No reply from the background",
     );
+  });
+
+  it("tries again when the service worker was not there to receive the request", async () => {
+    answer(() => ({ ok: true, value: null }));
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation(((
+      message: unknown,
+    ) => {
+      calls++;
+      return calls === 1
+        ? Promise.reject(
+            new Error(
+              "Could not establish connection. Receiving end does not exist.",
+            ),
+          )
+        : real(message);
+    }) as typeof browser.runtime.sendMessage);
+    await expect(send({ type: "warmDictionary", lang: "en" })).resolves.toBe(
+      null,
+    );
+    expect(calls).toBe(2);
+  });
+
+  it("gives up when the service worker stays unreachable", async () => {
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation((() => {
+      calls++;
+      return Promise.reject(
+        new Error(
+          "Could not establish connection. Receiving end does not exist.",
+        ),
+      );
+    }) as typeof browser.runtime.sendMessage);
+    await expect(send({ type: "syncStatus" })).rejects.toThrow(
+      "Receiving end does not exist",
+    );
+    expect(calls).toBe(3);
+  });
+
+  const CLOSED =
+    "A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received";
+
+  it("asks again when the service worker stopped before answering", async () => {
+    answer(() => ({ ok: true, value: { learning: 0, known: 0, phrases: 0 } }));
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation(((
+      message: unknown,
+    ) => {
+      calls++;
+      return calls === 1 ? Promise.reject(new Error(CLOSED)) : real(message);
+    }) as typeof browser.runtime.sendMessage);
+    await expect(send({ type: "counts", lang: "en" })).resolves.toEqual({
+      learning: 0,
+      known: 0,
+      phrases: 0,
+    });
+    expect(calls).toBe(2);
+  });
+
+  it("asks again when the service worker went away without an answer", async () => {
+    answer(() => ({ ok: true, value: null }));
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation(((
+      message: unknown,
+    ) => {
+      calls++;
+      // What Chromium sometimes resolves with when the worker stops mid-request.
+      return calls === 1 ? Promise.resolve(undefined) : real(message);
+    }) as typeof browser.runtime.sendMessage);
+    await expect(send({ type: "warmDictionary", lang: "en" })).resolves.toBe(
+      null,
+    );
+    expect(calls).toBe(2);
+  });
+
+  it("does not repeat a change that may have been made when the service worker stopped before answering", async () => {
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation((() => {
+      calls++;
+      return Promise.reject(new Error(CLOSED));
+    }) as typeof browser.runtime.sendMessage);
+    await expect(send({ type: "undoSaveAll", batchId: "b1" })).rejects.toThrow(
+      CLOSED,
+    );
+    expect(calls).toBe(1);
+  });
+
+  it("does not try again after other failures", async () => {
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation((() => {
+      calls++;
+      return Promise.reject(new Error("Extension context invalidated."));
+    }) as typeof browser.runtime.sendMessage);
+    await expect(send({ type: "syncStatus" })).rejects.toThrow(
+      "Extension context invalidated.",
+    );
+    expect(calls).toBe(1);
   });
 
   it("types the response by the request type", () => {

@@ -6,21 +6,12 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseTtml } from "../src/core/subtitles/ttml";
-import {
-  FIXTURE_MOVIE_ID,
-  fixtureManifest,
-  netflixSubtitleBody,
-} from "../tests/netflix-subtitles";
-import {
-  installFakeNetflixPlayer,
-  type FakeNetflixControl,
-  type FakeNetflixOptions,
-} from "./fake-netflix-player";
+import { fixtureManifest } from "../tests/netflix-subtitles";
+import type { FakeNetflixControl } from "./fake-netflix-player";
 import { test, expect, sendToBackground } from "./fixtures";
-import { routeTalkVideo } from "./routes";
+import { NETFLIX_WATCH as WATCH, routeNetflix } from "./sites";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const WATCH = `https://www.netflix.com/watch/${FIXTURE_MOVIE_ID}?trackId=14170286`;
 const subtitles = path.join(here, "../src/core/subtitles/fixtures/netflix");
 const read = (file: string) => readFileSync(path.join(subtitles, file), "utf8");
 
@@ -39,61 +30,6 @@ const CARDS = sentenceCards(EN).cards;
 /** The card whose translation joins two Japanese lines' worth of English. */
 const PAIR_INDEX = 1;
 const PAIR_JA = alignByOverlap(CARDS, JA, { lang: "ja" })[PAIR_INDEX]!;
-
-const METADATA = {
-  title: "Lingo Test Show",
-  seasons: [
-    {
-      seq: 1,
-      episodes: [
-        { id: Number(FIXTURE_MOVIE_ID), seq: 1, title: "Pilot" },
-        { id: 80000002, seq: 2, title: "Second" },
-      ],
-    },
-  ],
-};
-
-/**
- * Serves netflix.com from the synthetic fixtures: the watch-page skeleton, the local
- * 140-second clip, the subtitle files on a CDN host (cross-origin, with CORS like
- * Netflix's), and a fake player that parses the synthetic manifest. Nothing reaches
- * the real site.
- */
-async function routeNetflix(context: BrowserContext) {
-  await context.route("https://www.netflix.com/**", (route) =>
-    route.fulfill({ status: 404, body: "" }),
-  );
-  await context.route("https://www.netflix.com/watch/*", (route) =>
-    route.fulfill({
-      contentType: "text/html; charset=utf-8",
-      body: readFileSync(
-        path.join(here, "fixtures/netflix-watch.html"),
-        "utf8",
-      ).replace("<video", '<video src="/lingo-test/talk.webm" muted'),
-    }),
-  );
-  await routeTalkVideo(context, "https://www.netflix.com/lingo-test/talk.webm");
-  await context.route("https://*.nflxvideo.net/**", (route) => {
-    const body = netflixSubtitleBody(new URL(route.request().url()));
-    return route.fulfill({
-      status: body === undefined ? 404 : 200,
-      contentType: "text/plain; charset=utf-8",
-      headers: { "access-control-allow-origin": "https://www.netflix.com" },
-      body: body ?? "",
-    });
-  });
-  const options: FakeNetflixOptions = {
-    movieId: FIXTURE_MOVIE_ID,
-    manifest: fixtureManifest(),
-    metadata: METADATA,
-    // Built while the pointer moves, removed 3 s after it stops, as on netflix.com.
-    controlBar: { idleMs: 3000, title: ["Lingo Test Show", "E1", "Pilot"] },
-  };
-  // Only on netflix.com (the init script runs on extension pages too).
-  await context.addInitScript({
-    content: `if (location.hostname === "www.netflix.com") (${installFakeNetflixPlayer.toString()})(${JSON.stringify(options)});`,
-  });
-}
 
 const transcript = (page: Page) =>
   page.getByRole("complementary", { name: en["video.transcript"] });
