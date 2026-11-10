@@ -9,11 +9,10 @@ import {
   cueAt,
   cueIndexAt,
   lastStartedIndex,
-  mergeAsrFragments,
-  oneLinePerCard,
   sentenceCards,
   type SubtitleLine,
 } from "../../core/subtitles/cues";
+import { alignAsrSentences, asrSentenceCards } from "../../core/subtitles/asr";
 import {
   alignByOverlap,
   joinerFor,
@@ -366,13 +365,27 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     }
     const asr = captions.track.kind === "asr";
     const joiner = joinerFor(captions.track.lang);
-    const { cards: cues, lines } = asr
-      ? oneLinePerCard(mergeAsrFragments(captions.cues, { joiner }))
-      : sentenceCards(captions.cues, { joiner });
     const { translation } = captions;
     const site =
       translation.source === "siteTrack" ||
       translation.source === "siteAutoTranslate";
+    // YouTube translates an auto-generated track sentence by sentence: follow its sentences.
+    const aligned =
+      asr && translation.source === "siteAutoTranslate"
+        ? alignAsrSentences(captions.cues, translation.cues, {
+            joiner,
+            lang: captions.track.lang,
+            translationJoiner: joinerFor(translation.lang),
+          })
+        : undefined;
+    const { cards: cues, lines } =
+      aligned ??
+      (asr
+        ? asrSentenceCards(captions.cues, {
+            joiner,
+            lang: captions.track.lang,
+          })
+        : sentenceCards(captions.cues, { joiner }));
     // Merged sentences no longer match the fragments' timing: show the aligned text.
     w.timedTranslation = site && !asr ? translation.cues : null;
     w.translationJoiner = joinerFor(translation.lang);
@@ -382,9 +395,11 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       lines,
       spans: cues.map(() => null),
       translationSource: translation.source,
-      translations: site
-        ? alignByOverlap(cues, translation.cues, { lang: translation.lang })
-        : cues.map(() => ""),
+      translations:
+        aligned?.translations ??
+        (site
+          ? alignByOverlap(cues, translation.cues, { lang: translation.lang })
+          : cues.map(() => "")),
     });
     if (translation.source === "builtIn")
       translator = (deps.createTranslator ?? createBuiltInTranslator)(

@@ -286,6 +286,60 @@ describe("a video with subtitles", () => {
       "knead the dough",
     ]);
   });
+
+  it("pairs auto-generated sentences with the site's translation of each", async () => {
+    // YouTube's translation keeps the fragments' timing but spreads whole sentences over them.
+    const timed = (
+      startMs: number,
+      endMs: number,
+      list: [number, string][],
+    ) => ({
+      startMs,
+      endMs,
+      text: list.map(([, t]) => t).join(""),
+      words: list.map(([at, text]) => ({ startMs: at, text })),
+    });
+    const fragments: Cue[] = [
+      timed(0, 2500, [
+        [0, "the"],
+        [300, " yeast"],
+        [600, " smells"],
+        [1000, " tangy"],
+      ]),
+      timed(1600, 4000, [
+        [1600, "knead"],
+        [1900, " the"],
+        [2200, " dough"],
+      ]),
+    ];
+    const translated: Cue[] = [
+      timed(0, 2500, [
+        [0, "イーストは"],
+        [700, "ぴりっとした"],
+        [1300, "匂い。"],
+      ]),
+      timed(1600, 4000, [
+        [1600, "生地を"],
+        [2200, "こねる。"],
+      ]),
+    ];
+    const { state } = await start({
+      vid1: captionsOf(
+        fragments,
+        { source: "siteAutoTranslate", lang: "ja", cues: translated },
+        "asr",
+      ),
+    });
+    await ready(state);
+    expect(state().cues.map((c) => c.text)).toEqual([
+      "the yeast smells tangy",
+      "knead the dough",
+    ]);
+    expect(state().translations).toEqual([
+      "イーストはぴりっとした匂い。",
+      "生地をこねる。",
+    ]);
+  });
 });
 
 describe("sentence cards", () => {
