@@ -102,7 +102,9 @@ Development pair: learning language = English, native language = Japanese, sites
 - Sync status: last saved time and usage (e.g. "Saved to Chrome sync · 2 min ago", "41 KB of 100 KB used")
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)
+  - Before the first save: "Not saved yet". With sync off: "Sync is off", without the usage bar
 - Footer: "Word list", "Settings"
+- "On this site" and "This page" are hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
 
 ### Settings page (the extension's options page, opens in a new tab)
 - Three ways to open it: ① "Settings" / gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from "Open all settings" in the menu next to L in the video player bar
@@ -116,7 +118,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - **Sync and backup**
     - Browser sync switch ("Sync word status with Chrome sync"; the name follows the browser). The description explains that data reaches other devices when the user is signed in to the browser with sync on
     - Usage and last saved time ("Last saved …", never "Last synced")
-    - JSON Export / Import. The description shows **when the last export happened** ("Last export: …")
+    - JSON Export / Import. The description shows **when the last export happened** ("Last export: …", "Never exported."). Export downloads `lingo-backup-YYYY-MM-DD.json`; Import reads a chosen file and says "Imported N words" (or why it failed)
     - "Your own cloud storage" shows Coming later
   - **About**: version, data license notices
 
