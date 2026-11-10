@@ -3,6 +3,7 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { watchSettings } from "../../background/settings-store";
 import { send } from "../../messaging/client";
 import { isPageRequest, unsupportedPage } from "../../messaging/page-protocol";
+import { leaveWhenOrphaned, sendWhileConnected } from "../orphan";
 import { mountVideoUi } from "./mount";
 import type { PlatformAdapter } from "./platform";
 import { startVideo } from "./session";
@@ -16,12 +17,15 @@ export async function runVideoSite(
   ctx: ContentScriptContext,
   adapter: PlatformAdapter,
 ): Promise<void> {
-  const started = startVideo({ send, adapter, watchSettings }).catch(
-    (error: unknown) => {
-      console.warn("Lingo:", error);
-      return undefined;
-    },
-  );
+  leaveWhenOrphaned(ctx);
+  const started = startVideo({
+    send: sendWhileConnected(ctx, send),
+    adapter,
+    watchSettings,
+  }).catch((error: unknown) => {
+    console.warn("Lingo:", error);
+    return undefined;
+  });
 
   // The popup asks about this video (page-protocol.ts); other messages are not ours.
   const onMessage = (

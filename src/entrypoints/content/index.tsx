@@ -3,6 +3,7 @@ import { browser } from "wxt/browser";
 import { watchSettings } from "../../background/settings-store";
 import { runArticle } from "../../content/article/article";
 import { isVideoSite } from "../../content/article/should-run";
+import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
 import { ArticleUi } from "../../content/ui/ArticleUi";
 import { send } from "../../messaging/client";
 import { isPageRequest } from "../../messaging/page-protocol";
@@ -16,7 +17,7 @@ export default defineContentScript({
     // The video UI runs there and answers the popup.
     if (isVideoSite(location.hostname)) return;
     const runner = runArticle({
-      send,
+      send: sendWhileConnected(ctx, send),
       watchSettings,
       detectLanguage: (text) => browser.i18n.detectLanguage(text),
       async mountUi(app) {
@@ -36,6 +37,7 @@ export default defineContentScript({
       },
     });
     ctx.onInvalidated(() => runner.stop());
+    leaveWhenOrphaned(ctx);
 
     // The popup asks about this page (page-protocol.ts); other messages are not ours.
     const onMessage = (
