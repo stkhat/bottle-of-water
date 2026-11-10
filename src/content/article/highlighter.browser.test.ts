@@ -173,14 +173,14 @@ describe("createHighlighter", () => {
     expect(rule("lingo-new").style.textDecorationColor).toBe(
       "rgb(47, 111, 228)",
     );
-    expect(rule("lingo-new").style.backgroundColor).toBe("");
+    expect(rule("lingo-new").style.backgroundColor).toBe("rgb(234, 240, 253)");
     expect(rule("lingo-known").style.textDecorationColor).toBe(
       "rgb(163, 168, 183)",
     );
-    // The underline offsets were matched to the mock in screenshots.
+    // Every underline sits flush with the bottom of the text.
     expect(learning.textUnderlineOffset).toBe("0.2em");
-    expect(rule("lingo-new").style.textUnderlineOffset).toBe("0.4em");
-    expect(rule("lingo-known").style.textUnderlineOffset).toBe("0.4em");
+    expect(rule("lingo-new").style.textUnderlineOffset).toBe("0.2em");
+    expect(rule("lingo-known").style.textUnderlineOffset).toBe("0.2em");
     expect(learning.textDecorationThickness).toBe("2px");
   });
 
