@@ -960,6 +960,26 @@ describe("handlers: saving brings the kept sentences in", () => {
     expect(store.importOccurrences).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["finding the kept sentences", "find"],
+    ["importing them", "import"],
+  ] as const)(
+    "still answers with the saved term when %s fails",
+    async (_, failing) => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      store.saveTerm.mockResolvedValue(LOAF);
+      if (failing === "find")
+        history.find.mockRejectedValue(new Error("history gone"));
+      else {
+        history.find.mockResolvedValue(KEPT);
+        store.importOccurrences.mockRejectedValue(new Error("quota"));
+      }
+      expect(await value({ type: "saveTerm", ...input })).toEqual(LOAF);
+      expect(error).toHaveBeenCalledTimes(1);
+      error.mockRestore();
+    },
+  );
+
   it("does not import for save all", async () => {
     store.saveAll.mockResolvedValue({ batchId: "b1", count: 1 });
     history.find.mockResolvedValue(KEPT);

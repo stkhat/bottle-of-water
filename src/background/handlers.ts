@@ -191,10 +191,15 @@ export function createHandlers({
       const term = await store.saveTerm(input);
       // A term saved now (new, or saved again after removal) takes in the sentences
       // kept for it. Read outside the store's transaction to keep that one small.
+      // Best effort: the term is saved whether or not its history comes along.
       if (!wasSaved) {
-        const kept = await history.find(term.id, { limit: MAX_OCCURRENCES });
-        if (kept.length > 0)
-          await store.importOccurrences(term.id, kept.map(imported));
+        try {
+          const kept = await history.find(term.id, { limit: MAX_OCCURRENCES });
+          if (kept.length > 0)
+            await store.importOccurrences(term.id, kept.map(imported));
+        } catch (error) {
+          console.error("Lingo: could not import the sentence history", error);
+        }
       }
       return term;
     },
