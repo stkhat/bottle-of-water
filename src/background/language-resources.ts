@@ -19,7 +19,8 @@ export interface LanguageResources {
  * calls share one build, and a failed build is forgotten so the next call tries again.
  *
  * The English pack (and so `analyze`) needs only the `en` pack, whose vocabulary is the
- * en-ja dictionary's single-word headwords; the dictionary loads on the first lookup.
+ * en-ja dictionary's single-word headwords and whose phrases are detected in text; the
+ * dictionary (`en-ja` and the English definitions in `en-defs`) loads on the first lookup.
  */
 export function createLanguageResources(loadPack: LoadPack): LanguageResources {
   const builds = new Map<string, Promise<unknown>>();
@@ -44,6 +45,7 @@ export function createLanguageResources(loadPack: LoadPack): LanguageResources {
         freq: en.freq,
         ipa: en.ipa,
         vocab: new Set(en.vocab),
+        phrases: new Set(en.phrases),
       });
     });
   }
@@ -60,12 +62,15 @@ export function createLanguageResources(loadPack: LoadPack): LanguageResources {
       if (from !== "en" || to !== "ja")
         return Promise.reject(new Error(`No dictionary from ${from} to ${to}`));
       return once("dictionary:en-ja", async () => {
-        const [en, enJa] = await Promise.all([
+        const [en, enJa, enDefs] = await Promise.all([
           loadPack("en"),
           loadPack("en-ja"),
+          loadPack("en-defs"),
         ]);
         return createEnJaDictionary({
           dict: enJa.dict,
+          phrases: enJa.phrases,
+          defs: enDefs.defs,
           pos: en.pos,
           ipa: en.ipa,
         });

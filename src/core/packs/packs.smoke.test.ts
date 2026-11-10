@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { createEnJaDictionary } from "../dictionary";
 import { buildFreqIndex, rankOf } from "./frequency";
 import { ipaFor } from "./ipa";
 import { lemmatize } from "./lemmatize";
@@ -15,8 +16,16 @@ const read = (path: string): unknown =>
   JSON.parse(readFileSync(join(publicDir, path), "utf8"));
 const loadPack = createPackLoader(async (path) => read(path));
 
-const { lemmas, ipa, pos, freq, vocab: vocabList } = await loadPack("en");
-const { dict } = await loadPack("en-ja");
+const {
+  lemmas,
+  ipa,
+  pos,
+  freq,
+  vocab: vocabList,
+  phrases,
+} = await loadPack("en");
+const { dict, phrases: jaPhrases } = await loadPack("en-ja");
+const { defs } = await loadPack("en-defs");
 const vocab = new Set(vocabList);
 const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -89,5 +98,35 @@ describe("generated packs", () => {
     expect(rankOf("you", index)).toBe(1);
     expect(freq.length).toBeGreaterThan(15000);
     expect(rankOf("thi", index)).toBeGreaterThan(5000);
+  });
+});
+
+describe("generated phrases", () => {
+  const dictionary = createEnJaDictionary({
+    dict,
+    phrases: jaPhrases,
+    defs,
+    pos,
+    ipa,
+  });
+
+  it("list dictionary phrases", () => {
+    for (const phrase of ["from scratch", "figure out", "give up"])
+      expect(phrases).toContain(phrase);
+  });
+
+  it("have a meaning for each of those phrases", () => {
+    for (const phrase of ["from scratch", "figure out", "give up"])
+      expect(dictionary.entry(phrase)?.short).toBeTruthy();
+  });
+
+  it("take Japanese translations before English definitions", () => {
+    expect(dictionary.entry("give up")).not.toHaveProperty("glossLang");
+    expect(dictionary.entry("from scratch")).not.toHaveProperty("glossLang");
+    expect(dictionary.entry("figure out")).toMatchObject({
+      glossLang: "en",
+      short: "To come to understand",
+      ipa: expect.stringMatching(/^\/\S+ \S+\/$/),
+    });
   });
 });

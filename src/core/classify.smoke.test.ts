@@ -17,6 +17,7 @@ const pack = createEnglishPack({
   freq: en.freq,
   ipa: en.ipa,
   vocab: new Set(en.vocab),
+  phrases: new Set(en.phrases),
 });
 const classifier = createClassifier(pack);
 
@@ -34,6 +35,34 @@ function categories(terms: TermIndex = new Map()) {
   );
   return { spans, byWord };
 }
+
+describe("dictionary phrases over the generated packs", () => {
+  it("detects a dictionary phrase in text", () => {
+    const text = "We need to figure out how it works.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    expect(
+      spans
+        .filter((s) => s.kind === "phrase")
+        .map((s) => [text.slice(s.start, s.end), s.key, s.category]),
+    ).toContainEqual(["figure out", "figure out", "new"]);
+    expect(spans.map((s) => text.slice(s.start, s.end))).not.toContain(
+      "figure",
+    );
+  });
+
+  it("detects inflected phrases", () => {
+    const text = "She gave up and started from scratch.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    const phrases = spans.filter((s) => s.kind === "phrase");
+    expect(phrases.map((s) => s.key)).toEqual(["give up", "from scratch"]);
+  });
+});
 
 describe("classifier over the generated packs", () => {
   it("sorts the mock's paragraph into known and new words at level 3000", () => {
@@ -56,6 +85,7 @@ describe("classifier over the generated packs", () => {
       "ferment",
       "yeast",
       "bacteria",
+      "break down",
       "starch",
       "loaf",
       "slightly",

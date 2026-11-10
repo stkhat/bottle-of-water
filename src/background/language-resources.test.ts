@@ -28,6 +28,31 @@ describe("createLanguageResources", () => {
     ]);
   });
 
+  it("detects the dictionary phrases of the English pack", async () => {
+    const resources = createLanguageResources(stubLoader());
+    const pack = await resources.pack("en");
+    const classifier = await resources.classifier("en");
+    const spans = classifier.classify(pack.tokenize("the yeast gave up"), {
+      terms: new Map(),
+      knownLevel: 1000,
+    });
+    expect(spans.map((s) => `${s.key}:${s.kind}:${s.category}`)).toEqual([
+      "the:word:known",
+      "yeast:word:new",
+      "give up:phrase:new",
+    ]);
+  });
+
+  it("looks phrases up in EJDict's fallbacks: Japanese translations, then English definitions", async () => {
+    const resources = createLanguageResources(stubLoader());
+    const dictionary = await resources.dictionary("en", "ja");
+    expect(dictionary.entry("give up")).toMatchObject({ short: "諦める" });
+    expect(dictionary.entry("figure out")).toMatchObject({
+      short: "To come to understand",
+      glossLang: "en",
+    });
+  });
+
   it("looks words up from English to Japanese", async () => {
     const resources = createLanguageResources(stubLoader());
     const dictionary = await resources.dictionary("en", "ja");
@@ -52,12 +77,16 @@ describe("createLanguageResources", () => {
     const dictionary = await resources.dictionary("en", "ja");
     expect(await resources.dictionary("en", "ja")).toBe(dictionary);
     expect(filesRead(loadPack)).toEqual([
+      "/packs/en-defs/dict-1.json",
+      "/packs/en-defs/index.json",
       "/packs/en-ja/dict-1.json",
       "/packs/en-ja/dict-2.json",
       "/packs/en-ja/index.json",
+      "/packs/en-ja/phrases.json",
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
+      "/packs/en/phrases.json",
       "/packs/en/pos.json",
       "/packs/en/vocab.json",
     ]);
@@ -71,6 +100,7 @@ describe("createLanguageResources", () => {
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
+      "/packs/en/phrases.json",
       "/packs/en/pos.json",
       "/packs/en/vocab.json",
     ]);
@@ -83,7 +113,7 @@ describe("createLanguageResources", () => {
   });
 
   it("tries again after a failed load", async () => {
-    const failing = new Set<PackName>(["en", "en-ja"]);
+    const failing = new Set<PackName>(["en", "en-ja", "en-defs"]);
     const loadPack = stubLoader(failing);
     const resources = createLanguageResources(loadPack);
     await expect(resources.pack("en")).rejects.toThrow("could not load en");

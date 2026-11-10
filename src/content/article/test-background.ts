@@ -63,6 +63,10 @@ const RARE = [
   "crackle",
   "yeast",
   "starch",
+  "from",
+  "scratch",
+  "give",
+  "up",
 ];
 
 const DICT: Record<string, readonly [string, readonly string[]]> = {
@@ -79,9 +83,27 @@ const DICT: Record<string, readonly [string, readonly string[]]> = {
 const vocab = [...new Set([...COMMON, ...DOUGH, ...RARE])].sort();
 for (const word of vocab) DICT[word] ??= [`${word}の訳`, [`${word}の訳`]];
 
+/** Dictionary phrases: "figure out" has an English definition, the others Japanese. */
+const PHRASES = ["figure out", "from scratch", "give up"];
+const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
+  "from scratch": ["最初から", ["最初から", "ゼロから"]],
+  "give up": ["諦める", ["諦める", "やめる"]],
+};
+const DEFS: PackFiles["en-defs"]["defs"] = {
+  "figure out": [
+    "To come to understand",
+    [["verb", "To come to understand; to discover or find a solution."]],
+  ],
+};
+
 const PACKS: PackFiles = {
   en: {
-    lemmas: { loaves: "loaf", crackles: "crackle", starches: "starch" },
+    lemmas: {
+      loaves: "loaf",
+      crackles: "crackle",
+      starches: "starch",
+      gave: "give",
+    },
     freq: [
       ...COMMON,
       ...filler(0, 2400),
@@ -92,8 +114,10 @@ const PACKS: PackFiles = {
     ipa: { tedious: "/ˈtiːdiəs/", loaf: "/loʊf/", knead: "/niːd/" },
     pos: { tedious: ["adjective"], loaf: ["noun"], knead: ["verb"] },
     vocab,
+    phrases: PHRASES,
   },
-  "en-ja": { dict: DICT },
+  "en-ja": { dict: DICT, phrases: JA_PHRASES },
+  "en-defs": { defs: DEFS },
 };
 
 const FILES: Readonly<Record<string, unknown>> = {
@@ -107,6 +131,11 @@ const FILES: Readonly<Record<string, unknown>> = {
     shards: [{ file: "dict-1.json", first: vocab[0], last: vocab.at(-1) }],
   },
   "/packs/en-ja/dict-1.json": DICT,
+  "/packs/en-ja/phrases.json": JA_PHRASES,
+  "/packs/en-defs/index.json": {
+    shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
+  },
+  "/packs/en-defs/dict-1.json": DEFS,
 };
 
 let dbCount = 0;

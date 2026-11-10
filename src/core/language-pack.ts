@@ -17,6 +17,8 @@ export interface LanguagePack {
   rank(base: string): number;
   /** IPA of a word, or of a phrase's words inside one pair of slashes. */
   ipa(term: string): string | undefined;
+  /** Dictionary phrases to detect in text, keyed like saved phrases ("figure out"). */
+  readonly phrases: ReadonlySet<string>;
 }
 
 export interface EnglishPackData {
@@ -25,6 +27,8 @@ export interface EnglishPackData {
   ipa: IpaPack;
   /** The words Lingo knows (single-word dictionary headwords). */
   vocab: ReadonlySet<string>;
+  /** Dictionary phrases (idioms, phrasal verbs, prepositional phrases). */
+  phrases: ReadonlySet<string>;
 }
 
 export function createEnglishPack(data: EnglishPackData): LanguagePack {
@@ -35,5 +39,6 @@ export function createEnglishPack(data: EnglishPackData): LanguagePack {
     lemmas: (word) => lemmatize(word, data.lemmas, data.vocab),
     rank: (base) => rankOf(base.toLowerCase(), ranks),
     ipa: (term) => ipaFor(term, data.ipa),
+    phrases: data.phrases,
   };
 }

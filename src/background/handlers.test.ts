@@ -328,7 +328,7 @@ describe("handlers: analyze", () => {
   it("does not load the dictionary", async () => {
     await value({ type: "analyze", lang: "en", blocks: ["The loaf."] });
     expect(
-      filesRead(loadPack).filter((p) => p.startsWith("/packs/en-ja/")),
+      filesRead(loadPack).filter((p) => !p.startsWith("/packs/en/")),
     ).toEqual([]);
   });
 
@@ -392,25 +392,25 @@ const VIDEO: SourceRecord = {
 
 describe("handlers: listTermsWithStats", () => {
   it("gives each saved term with its short meaning, how often and when it was last seen", async () => {
-    const figureOut: TermRecord = {
-      id: "en:figure out",
+    const lookUp: TermRecord = {
+      id: "en:look up",
       lang: "en",
-      key: "figure out",
-      display: "figured out",
+      key: "look up",
+      display: "looked up",
       kind: "phrase",
       status: "known",
       createdAt: 500,
       updatedAt: 700,
     };
-    store.listTerms.mockResolvedValue([figureOut, LOAF]);
+    store.listTerms.mockResolvedValue([lookUp, LOAF]);
     store.occurrenceStats.mockResolvedValue(
       new Map([["en:loaf", { count: 3, lastSeen: 9_000 }]]),
     );
     expect(await value({ type: "listTermsWithStats", lang: "en" })).toEqual([
       {
-        id: "en:figure out",
-        key: "figure out",
-        display: "figured out",
+        id: "en:look up",
+        key: "look up",
+        display: "looked up",
         kind: "phrase",
         status: "known",
         // No dictionary entry: no short meaning. No occurrences: seen when saved.

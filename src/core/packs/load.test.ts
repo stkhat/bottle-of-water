@@ -7,6 +7,7 @@ const files: Record<string, unknown> = {
   "/packs/en/ipa.json": { loaf: "/loʊf/" },
   "/packs/en/pos.json": { loaf: ["noun"] },
   "/packs/en/vocab.json": ["dough", "loaf"],
+  "/packs/en/phrases.json": ["figure out", "give up"],
   "/packs/en-ja/index.json": {
     shards: [
       { file: "dict-1.json", first: "dough", last: "dough" },
@@ -18,12 +19,21 @@ const files: Record<string, unknown> = {
     loaf: ["パン", ["パン"]],
     yeast: ["酵母", ["酵母"]],
   },
+  "/packs/en-ja/phrases.json": { "give up": ["諦める", ["諦める", "やめる"]] },
+  "/packs/en-defs/index.json": {
+    shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
+  },
+  "/packs/en-defs/dict-1.json": {
+    "figure out": ["To come to understand", [["verb", "To calculate."]]],
+  },
 };
 const stubFetch = () =>
   vi.fn(async (path: string) => {
     if (!Object.hasOwn(files, path)) throw new Error(`not found: ${path}`);
     return files[path];
   });
+
+const PHRASES = { "give up": ["諦める", ["諦める", "やめる"]] };
 
 const DICT = {
   dough: ["練り粉", ["練り粉"]],
@@ -40,17 +50,33 @@ describe("createPackLoader", () => {
       ipa: { loaf: "/loʊf/" },
       pos: { loaf: ["noun"] },
       vocab: ["dough", "loaf"],
+      phrases: ["figure out", "give up"],
     });
   });
 
-  it("loads the dictionary from the shards its index lists, as one dictionary", async () => {
+  it("loads the dictionary from the shards its index lists, as one dictionary, with its phrases", async () => {
     const fetchJson = stubFetch();
     const loadPack = createPackLoader(fetchJson);
-    expect(await loadPack("en-ja")).toEqual({ dict: DICT });
-    expect(fetchJson.mock.calls.map(([path]) => path)).toEqual([
-      "/packs/en-ja/index.json",
+    expect(await loadPack("en-ja")).toEqual({ dict: DICT, phrases: PHRASES });
+    expect(fetchJson.mock.calls.map(([path]) => path).sort()).toEqual([
       "/packs/en-ja/dict-1.json",
       "/packs/en-ja/dict-2.json",
+      "/packs/en-ja/index.json",
+      "/packs/en-ja/phrases.json",
+    ]);
+  });
+
+  it("loads the English definitions from their shards", async () => {
+    const fetchJson = stubFetch();
+    const loadPack = createPackLoader(fetchJson);
+    expect(await loadPack("en-defs")).toEqual({
+      defs: {
+        "figure out": ["To come to understand", [["verb", "To calculate."]]],
+      },
+    });
+    expect(fetchJson.mock.calls.map(([path]) => path)).toEqual([
+      "/packs/en-defs/index.json",
+      "/packs/en-defs/dict-1.json",
     ]);
   });
 
@@ -62,9 +88,9 @@ describe("createPackLoader", () => {
       return files[path];
     });
     const load = createPackLoader(fetchJson)("en-ja");
-    await vi.waitFor(() => expect(fetchJson).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(fetchJson).toHaveBeenCalledTimes(4));
     release();
-    expect(await load).toEqual({ dict: DICT });
+    expect(await load).toEqual({ dict: DICT, phrases: PHRASES });
   });
 
   it("keeps a headword such as __proto__ as an ordinary entry", async () => {
@@ -87,7 +113,7 @@ describe("createPackLoader", () => {
     expect(a).toBe(b);
     expect(c).toBe(a);
     await Promise.all([loadPack("en-ja"), loadPack("en-ja")]);
-    expect(fetchJson).toHaveBeenCalledTimes(5 + 3);
+    expect(fetchJson).toHaveBeenCalledTimes(6 + 4);
   });
 
   it("tries again after a failed load", async () => {
@@ -98,6 +124,6 @@ describe("createPackLoader", () => {
     fetchJson.mockRejectedValueOnce(new Error("offline"));
     const loadPack = createPackLoader(fetchJson);
     await expect(loadPack("en-ja")).rejects.toThrow("offline");
-    expect(await loadPack("en-ja")).toEqual({ dict: DICT });
+    expect(await loadPack("en-ja")).toEqual({ dict: DICT, phrases: PHRASES });
   });
 });

@@ -1,6 +1,6 @@
 import { ipaFor } from "./packs/ipa";
-import { lookup, type Sense } from "./packs/lookup";
-import type { DictPack, IpaPack, PosPack } from "./packs/types";
+import { lookup, type Entry, type Sense } from "./packs/lookup";
+import type { DefsPack, DictPack, IpaPack, PosPack } from "./packs/types";
 
 export type { Sense };
 
@@ -12,6 +12,11 @@ export interface DictionaryEntry {
   /** Short translation for the hover card. */
   short: string;
   senses: Sense[];
+  /**
+   * Language of `short` and `senses` when it is not the dictionary's `to` language
+   * (an English definition of a phrase no translation covers: "en").
+   */
+  glossLang?: string;
 }
 
 /** Short translations and dictionary entries from the learning language to the native one. */
@@ -23,8 +28,12 @@ export interface DictionaryProvider {
 }
 
 export interface EnJaDictionaryData {
-  /** en-ja/dict-<n>.json, merged */
+  /** en-ja/dict-<n>.json, merged: EJDict */
   dict: DictPack;
+  /** en-ja/phrases.json: Japanese translations of phrases EJDict lacks */
+  phrases: DictPack;
+  /** en-defs/dict-<n>.json, merged: English definitions of phrases neither has */
+  defs: DefsPack;
   /** en/pos.json */
   pos: PosPack;
   /** en/ipa.json */
@@ -36,17 +45,27 @@ function normalize(term: string): string {
   return term.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
 }
 
-/** English → Japanese from the bundled EJDict pack, with IPA from Wiktionary. */
+const NO_POS: PosPack = {};
+
+/**
+ * English → Japanese with IPA from Wiktionary. A term is looked up in EJDict, then in
+ * Wiktionary's Japanese translations of phrases, then in Wiktionary's English
+ * definitions of phrases (marked with `glossLang: "en"`).
+ */
 export function createEnJaDictionary(
   data: EnJaDictionaryData,
 ): DictionaryProvider {
+  const find = (head: string): (Entry & { glossLang?: string }) | undefined =>
+    lookup(head, data.dict, data.pos) ??
+    lookup(head, data.phrases, NO_POS) ??
+    definitionOf(head, data.defs);
   return {
     from: "en",
     to: "ja",
-    short: (term) => lookup(normalize(term), data.dict, data.pos)?.short,
+    short: (term) => find(normalize(term))?.short,
     entry: (term) => {
       const head = normalize(term);
-      const found = lookup(head, data.dict, data.pos);
+      const found = find(head);
       if (!found) return undefined;
       const ipa = ipaFor(head, data.ipa);
       return {
@@ -55,7 +74,21 @@ export function createEnJaDictionary(
         ...(ipa !== undefined && { ipa }),
         short: found.short,
         senses: found.senses,
+        ...(found.glossLang !== undefined && { glossLang: found.glossLang }),
       };
     },
+  };
+}
+
+function definitionOf(
+  head: string,
+  defs: DefsPack,
+): (Entry & { glossLang: string }) | undefined {
+  if (!Object.hasOwn(defs, head)) return undefined;
+  const [short, senses] = defs[head]!;
+  return {
+    short,
+    senses: senses.map(([pos, text]) => ({ pos, text })),
+    glossLang: "en",
   };
 }

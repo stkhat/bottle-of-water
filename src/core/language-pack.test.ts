@@ -15,11 +15,16 @@ const pack = createEnglishPack({
     "out",
     "loaf",
   ]),
+  phrases: new Set(["figure out"]),
 });
 
 describe("createEnglishPack", () => {
   it("is the English pack", () => {
     expect(pack.lang).toBe("en");
+  });
+
+  it("has the dictionary phrases", () => {
+    expect(pack.phrases.has("figure out")).toBe(true);
   });
 
   it("gives the base forms of a word", () => {
