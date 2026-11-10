@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEnJaDictionary } from "./dictionary";
+import { createDefsDictionary, createEnJaDictionary } from "./dictionary";
 
 const dictionary = createEnJaDictionary({
   dict: {
@@ -113,5 +113,67 @@ describe("createEnJaDictionary", () => {
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("figure it out")).toBeUndefined();
     expect(dictionary.short("figure it out")).toBeUndefined();
+  });
+});
+
+describe("createDefsDictionary", () => {
+  const dictionary = createDefsDictionary({
+    from: "es",
+    to: "en",
+    defs: {
+      comer: [
+        "to eat",
+        [
+          ["verb", "to eat"],
+          ["verb", "to have lunch"],
+        ],
+      ],
+      casa: ["house", [["noun", "house"]]],
+      "a escondidas": ["secretly", [["adverb", "secretly, covertly"]]],
+    },
+    ipa: { comer: "/koˈmeɾ/", a: "/a/", escondidas: "/eskonˈdidas/" },
+  });
+
+  it("translates between the languages it is given", () => {
+    expect(dictionary.from).toBe("es");
+    expect(dictionary.to).toBe("en");
+  });
+
+  it("gives a word's short meaning", () => {
+    expect(dictionary.short("comer")).toBe("to eat");
+    expect(dictionary.short("Comer")).toBe("to eat");
+  });
+
+  it("gives a word's entry with IPA and the senses' parts of speech, in the target language", () => {
+    expect(dictionary.entry("comer")).toEqual({
+      head: "comer",
+      kind: "word",
+      ipa: "/koˈmeɾ/",
+      short: "to eat",
+      senses: [
+        { pos: "verb", text: "to eat" },
+        { pos: "verb", text: "to have lunch" },
+      ],
+    });
+  });
+
+  it("gives a phrase's entry with its words' IPA joined", () => {
+    expect(dictionary.entry(" A  escondidas ")).toEqual({
+      head: "a escondidas",
+      kind: "phrase",
+      ipa: "/a eskonˈdidas/",
+      short: "secretly",
+      senses: [{ pos: "adverb", text: "secretly, covertly" }],
+    });
+  });
+
+  it("leaves out the IPA when there is none", () => {
+    expect(dictionary.entry("casa")).not.toHaveProperty("ipa");
+  });
+
+  it("gives undefined for an unknown term", () => {
+    expect(dictionary.short("zzyzx")).toBeUndefined();
+    expect(dictionary.entry("zzyzx")).toBeUndefined();
+    expect(dictionary.entry("__proto__")).toBeUndefined();
   });
 });

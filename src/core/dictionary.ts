@@ -47,31 +47,32 @@ function normalize(term: string): string {
 
 const NO_POS: PosPack = {};
 
+/** An entry as a source has it, with the language of its glosses when that is not `to`. */
+type Found = Entry & { glossLang?: string };
+
 /**
- * English → Japanese with IPA from Wiktionary. A term is looked up in EJDict, then in
- * Wiktionary's Japanese translations of phrases, then in Wiktionary's English
- * definitions of phrases (marked with `glossLang: "en"`).
+ * A dictionary over `find`, which looks a normalized term up: entries get the term's IPA
+ * and are phrases when the term has more than one word.
  */
-export function createEnJaDictionary(
-  data: EnJaDictionaryData,
+function dictionaryOver(
+  from: string,
+  to: string,
+  ipa: IpaPack,
+  find: (head: string) => Found | undefined,
 ): DictionaryProvider {
-  const find = (head: string): (Entry & { glossLang?: string }) | undefined =>
-    lookup(head, data.dict, data.pos) ??
-    lookup(head, data.phrases, NO_POS) ??
-    definitionOf(head, data.defs);
   return {
-    from: "en",
-    to: "ja",
+    from,
+    to,
     short: (term) => find(normalize(term))?.short,
     entry: (term) => {
       const head = normalize(term);
       const found = find(head);
       if (!found) return undefined;
-      const ipa = ipaFor(head, data.ipa);
+      const headIpa = ipaFor(head, ipa);
       return {
         head,
         kind: head.includes(" ") ? "phrase" : "word",
-        ...(ipa !== undefined && { ipa }),
+        ...(headIpa !== undefined && { ipa: headIpa }),
         short: found.short,
         senses: found.senses,
         ...(found.glossLang !== undefined && { glossLang: found.glossLang }),
@@ -80,15 +81,48 @@ export function createEnJaDictionary(
   };
 }
 
-function definitionOf(
-  head: string,
-  defs: DefsPack,
-): (Entry & { glossLang: string }) | undefined {
+/**
+ * English → Japanese with IPA from Wiktionary. A term is looked up in EJDict, then in
+ * Wiktionary's Japanese translations of phrases, then in Wiktionary's English
+ * definitions of phrases (marked with `glossLang: "en"`).
+ */
+export function createEnJaDictionary(
+  data: EnJaDictionaryData,
+): DictionaryProvider {
+  return dictionaryOver("en", "ja", data.ipa, (head) => {
+    const found =
+      lookup(head, data.dict, data.pos) ?? lookup(head, data.phrases, NO_POS);
+    if (found) return found;
+    const definition = definitionOf(head, data.defs);
+    return definition && { ...definition, glossLang: "en" };
+  });
+}
+
+export interface DefsDictionaryData {
+  from: string;
+  to: string;
+  /** <from>-<to>/dict-<n>.json, merged: meanings in `to`, each sense with its pos */
+  defs: DefsPack;
+  /** <from>/ipa.json */
+  ipa: IpaPack;
+}
+
+/**
+ * A dictionary whose senses carry their part of speech, with meanings in the `to`
+ * language (Spanish → English from Wiktionary) and IPA from the learning language's pack.
+ */
+export function createDefsDictionary({
+  from,
+  to,
+  defs,
+  ipa,
+}: DefsDictionaryData): DictionaryProvider {
+  return dictionaryOver(from, to, ipa, (head) => definitionOf(head, defs));
+}
+
+/** A DefsPack entry as an `Entry`. */
+function definitionOf(head: string, defs: DefsPack): Entry | undefined {
   if (!Object.hasOwn(defs, head)) return undefined;
   const [short, senses] = defs[head]!;
-  return {
-    short,
-    senses: senses.map(([pos, text]) => ({ pos, text })),
-    glossLang: "en",
-  };
+  return { short, senses: senses.map(([pos, text]) => ({ pos, text })) };
 }
