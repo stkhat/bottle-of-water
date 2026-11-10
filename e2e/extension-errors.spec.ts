@@ -255,46 +255,51 @@ for (const build of ["production", "check"] as const)
     // flows load the pages and use them through the mouse and keyboard, and leave out
     // the steps that read or press Lingo's UI; the check build does every step.
     const reachesUi = build === "check";
+    // What differs between the builds is the UI on web pages (and the reload), so the
+    // production build runs only the flows on web pages; the rest runs once, on the
+    // check build, which does every step.
+    const checkBuildOnly = reachesUi;
 
-    test("the collector hears the service worker and the extension's pages", async ({
-      context,
-      extensionId,
-      errors,
-    }) => {
-      const worker = context.serviceWorkers()[0]!;
-      await worker.evaluate(() => {
-        console.warn("lingo-test: a warning");
-        setTimeout(() => {
-          throw new Error("lingo-test: thrown");
+    if (checkBuildOnly)
+      test("the collector hears the service worker and the extension's pages", async ({
+        context,
+        extensionId,
+        errors,
+      }) => {
+        const worker = context.serviceWorkers()[0]!;
+        await worker.evaluate(() => {
+          console.warn("lingo-test: a warning");
+          setTimeout(() => {
+            throw new Error("lingo-test: thrown");
+          });
+          void Promise.reject(new Error("lingo-test: rejected"));
         });
-        void Promise.reject(new Error("lingo-test: rejected"));
-      });
-      const page = await context.newPage();
-      await page.goto(`chrome-extension://${extensionId}/popup.html`);
-      await page.evaluate(() => {
-        console.error("lingo-test: a page error");
-        setTimeout(() => {
-          throw new Error("lingo-test: thrown on the page");
+        const page = await context.newPage();
+        await page.goto(`chrome-extension://${extensionId}/popup.html`);
+        await page.evaluate(() => {
+          console.error("lingo-test: a page error");
+          setTimeout(() => {
+            throw new Error("lingo-test: thrown on the page");
+          });
         });
+        const texts = () => errors.reports.map((r) => `${r.source}: ${r.text}`);
+        await expect
+          .poll(texts)
+          .toEqual(
+            expect.arrayContaining([
+              "service worker: lingo-test: a warning",
+              expect.stringMatching(
+                /^service worker: Uncaught.*lingo-test: thrown/,
+              ),
+              expect.stringMatching(
+                /^service worker: Uncaught \(in promise\).*lingo-test: rejected/,
+              ),
+              "extension page /popup.html: lingo-test: a page error",
+              "extension page /popup.html: Uncaught Error: lingo-test: thrown on the page",
+            ]),
+          );
+        errors.reports.length = 0;
       });
-      const texts = () => errors.reports.map((r) => `${r.source}: ${r.text}`);
-      await expect
-        .poll(texts)
-        .toEqual(
-          expect.arrayContaining([
-            "service worker: lingo-test: a warning",
-            expect.stringMatching(
-              /^service worker: Uncaught.*lingo-test: thrown/,
-            ),
-            expect.stringMatching(
-              /^service worker: Uncaught \(in promise\).*lingo-test: rejected/,
-            ),
-            "extension page /popup.html: lingo-test: a page error",
-            "extension page /popup.html: Uncaught Error: lingo-test: thrown on the page",
-          ]),
-        );
-      errors.reports.length = 0;
-    });
 
     test("an extension reload leaves the old content scripts quiet", async ({
       context,
@@ -361,26 +366,25 @@ for (const build of ["production", "check"] as const)
       await expect(hostile.locator("lingo-article")).toHaveCount(1);
     });
 
-    test("a Spanish article: reading and saving with the Spanish pack", async ({
-      context,
-      extensionId,
-    }) => {
-      await sendToBackground(context, extensionId, {
-        type: "setSettings",
-        patch: {
-          learningLang: "es",
-          nativeLang: "en",
-          knownLevel: 1000,
-          highlight: { new: true },
-        },
-      });
-      const page = await openArticle(context, "/article-es.html");
-      const word = await pointOn(page, "comiendo");
-      await page.mouse.move(word.x, word.y);
-      if (reachesUi)
+    if (checkBuildOnly)
+      test("a Spanish article: reading and saving with the Spanish pack", async ({
+        context,
+        extensionId,
+      }) => {
+        await sendToBackground(context, extensionId, {
+          type: "setSettings",
+          patch: {
+            learningLang: "es",
+            nativeLang: "en",
+            knownLevel: 1000,
+            highlight: { new: true },
+          },
+        });
+        const page = await openArticle(context, "/article-es.html");
+        const word = await pointOn(page, "comiendo");
+        await page.mouse.move(word.x, word.y);
         await expect(page.getByText("to eat", { exact: true })).toBeVisible();
-      await page.mouse.click(word.x, word.y);
-      if (reachesUi) {
+        await page.mouse.click(word.x, word.y);
         const panel = dictionary(page);
         await expect(
           panel.getByRole("heading", { name: "comer" }),
@@ -394,9 +398,8 @@ for (const build of ["production", "check"] as const)
         await expect
           .poll(() => highlighted(page, "lingo-learning"))
           .toContain("comiendo");
-      }
-      await usePopup(context, extensionId, page, { toggleSite: false });
-    });
+        await usePopup(context, extensionId, page, { toggleSite: false });
+      });
 
     const transcript = (page: Page) =>
       page.getByRole("complementary", { name: en["video.panel"] });
@@ -688,171 +691,172 @@ for (const build of ["production", "check"] as const)
       expect(reply).toMatchObject({ ok: true });
     }
 
-    test("extension pages: the popup without a content script, settings, word list", async ({
-      context,
-      extensionId,
-    }, testInfo) => {
-      // The popup where no content script answers.
-      const blank = await context.newPage();
-      await blank.goto("about:blank");
-      await usePopup(context, extensionId, blank, { toggleSite: false });
-      const data = await context.newPage();
-      await data.goto("data:text/html,<p>Hello</p>");
-      await usePopup(context, extensionId, data, { toggleSite: false });
+    if (checkBuildOnly)
+      test("extension pages: the popup without a content script, settings, word list", async ({
+        context,
+        extensionId,
+      }, testInfo) => {
+        // The popup where no content script answers.
+        const blank = await context.newPage();
+        await blank.goto("about:blank");
+        await usePopup(context, extensionId, blank, { toggleSite: false });
+        const data = await context.newPage();
+        await data.goto("data:text/html,<p>Hello</p>");
+        await usePopup(context, extensionId, data, { toggleSite: false });
 
-      // Settings: every control there is.
-      const options = await context.newPage();
-      await options.goto(`chrome-extension://${extensionId}/options.html`);
-      await expect(options.getByRole("switch").first()).toBeVisible();
-      for (const select of await options.getByRole("combobox").all()) {
-        const values = await select
-          .locator("option")
-          .evaluateAll((all) => all.map((o) => (o as HTMLOptionElement).value));
-        const first = await select.inputValue();
-        for (const value of values) await select.selectOption(value);
-        await select.selectOption(first);
-      }
-      await options
-        .getByRole("slider", { name: /most common English words as known/ })
-        .fill("20000");
-      const switches = await options.getByRole("switch").all();
-      for (const control of switches) {
-        await control.click();
-        await control.click();
-      }
-      for (const box of await options.getByRole("checkbox").all()) {
-        await box.click();
-        await box.click();
-      }
-      const positions = options.getByRole("group", {
-        name: en["settings.video.position"],
-      });
-      await positions.getByRole("button").last().click();
-      await positions.getByRole("button").first().click();
-      await options
-        .getByRole("button", { name: en["settings.sites.add"] })
-        .click();
-      const site = options.getByRole("textbox", {
-        name: en["settings.sites.addInput"],
-      });
-      await site.fill("not a site");
-      await site.press("Enter");
-      await expect(
-        options.getByText(en["settings.sites.invalid"]),
-      ).toBeVisible();
-      await site.fill("example.com");
-      await site.press("Enter");
-      await options
-        .getByRole("button", { name: "Remove example.com", exact: true })
-        .click();
-      await expect(
-        options.getByRole("button", { name: "Remove example.com" }),
-      ).toHaveCount(0);
-      const history = options.getByRole("region", {
-        name: en["settings.section.history"],
-      });
-      await history
-        .getByRole("button", { name: en["settings.history.clearButton"] })
-        .click();
-      await expect(
-        history.getByText(en["settings.history.empty"]),
-      ).toBeVisible();
+        // Settings: every control there is.
+        const options = await context.newPage();
+        await options.goto(`chrome-extension://${extensionId}/options.html`);
+        await expect(options.getByRole("switch").first()).toBeVisible();
+        for (const select of await options.getByRole("combobox").all()) {
+          const values = await select
+            .locator("option")
+            .evaluateAll((all) =>
+              all.map((o) => (o as HTMLOptionElement).value),
+            );
+          const first = await select.inputValue();
+          for (const value of values) await select.selectOption(value);
+          await select.selectOption(first);
+        }
+        await options
+          .getByRole("slider", { name: /most common English words as known/ })
+          .fill("20000");
+        const switches = await options.getByRole("switch").all();
+        for (const control of switches) {
+          await control.click();
+          await control.click();
+        }
+        for (const box of await options.getByRole("checkbox").all()) {
+          await box.click();
+          await box.click();
+        }
+        const positions = options.getByRole("group", {
+          name: en["settings.video.position"],
+        });
+        await positions.getByRole("button").last().click();
+        await positions.getByRole("button").first().click();
+        await options
+          .getByRole("button", { name: en["settings.sites.add"] })
+          .click();
+        const site = options.getByRole("textbox", {
+          name: en["settings.sites.addInput"],
+        });
+        await site.fill("not a site");
+        await site.press("Enter");
+        await expect(
+          options.getByText(en["settings.sites.invalid"]),
+        ).toBeVisible();
+        await site.fill("example.com");
+        await site.press("Enter");
+        await options
+          .getByRole("button", { name: "Remove example.com", exact: true })
+          .click();
+        await expect(
+          options.getByRole("button", { name: "Remove example.com" }),
+        ).toHaveCount(0);
+        const history = options.getByRole("region", {
+          name: en["settings.section.history"],
+        });
+        await history
+          .getByRole("button", { name: en["settings.history.clearButton"] })
+          .click();
+        await expect(
+          history.getByText(en["settings.history.empty"]),
+        ).toBeVisible();
 
-      // Backup: export, import it back, and a file that is not a backup.
-      await saveWord(context, extensionId, "knead", "learning");
-      await saveWord(context, extensionId, "tedious", "learning");
-      await saveWord(context, extensionId, "honestly", "known");
-      await saveWord(context, extensionId, "rise and fall", "learning");
-      const backup = options.getByRole("region", { name: "Sync and backup" });
-      const downloading = options.waitForEvent("download");
-      await backup.getByRole("button", { name: en["backup.export"] }).click();
-      const file = await (await downloading).path();
-      await options.getByLabel(en["backup.file"]).setInputFiles(file);
-      await expect(options.getByText(/^Imported \d+ words?$/)).toBeVisible();
-      const bad = testInfo.outputPath("not-a-backup.json");
-      fs.mkdirSync(path.dirname(bad), { recursive: true });
-      fs.writeFileSync(bad, "{ not json");
-      await options.getByLabel(en["backup.file"]).setInputFiles(bad);
-      await expect(options.getByText(/^Could not import/)).toBeVisible();
+        // Backup: export, import it back, and a file that is not a backup.
+        await saveWord(context, extensionId, "knead", "learning");
+        await saveWord(context, extensionId, "tedious", "learning");
+        await saveWord(context, extensionId, "honestly", "known");
+        await saveWord(context, extensionId, "rise and fall", "learning");
+        const backup = options.getByRole("region", { name: "Sync and backup" });
+        const downloading = options.waitForEvent("download");
+        await backup.getByRole("button", { name: en["backup.export"] }).click();
+        const file = await (await downloading).path();
+        await options.getByLabel(en["backup.file"]).setInputFiles(file);
+        await expect(options.getByText(/^Imported \d+ words?$/)).toBeVisible();
+        const bad = testInfo.outputPath("not-a-backup.json");
+        fs.mkdirSync(path.dirname(bad), { recursive: true });
+        fs.writeFileSync(bad, "{ not json");
+        await options.getByLabel(en["backup.file"]).setInputFiles(bad);
+        await expect(options.getByText(/^Could not import/)).toBeVisible();
 
-      // The word list: filters, search, sort, details, status, removal, backup.
-      const list = await context.newPage();
-      await list.goto(`chrome-extension://${extensionId}/wordlist.html`);
-      const rows = list
-        .getByRole("region", { name: en["wordlist.list"] })
-        .getByRole("button");
-      await expect(rows).toHaveCount(4);
-      const status = list.getByRole("group", {
-        name: en["wordlist.status"],
-        exact: true,
+        // The word list: filters, search, sort, details, status, removal, backup.
+        const list = await context.newPage();
+        await list.goto(`chrome-extension://${extensionId}/wordlist.html`);
+        const rows = list
+          .getByRole("region", { name: en["wordlist.list"] })
+          .getByRole("button");
+        await expect(rows).toHaveCount(4);
+        const status = list.getByRole("group", {
+          name: en["wordlist.status"],
+          exact: true,
+        });
+        for (const name of ["Learning", "Known", "All"])
+          await status.getByRole("button", { name, exact: true }).click();
+        const kind = list.getByRole("group", {
+          name: en["wordlist.kind"],
+          exact: true,
+        });
+        for (const name of ["Phrases", "Words", "All"])
+          await kind.getByRole("button", { name, exact: true }).click();
+        const search = list.getByRole("searchbox", {
+          name: en["wordlist.search"],
+        });
+        await search.fill("zzz");
+        await expect(list.getByText(en["wordlist.noMatch"])).toBeVisible();
+        await search.fill("");
+        const sort = list.getByRole("combobox", { name: en["wordlist.sort"] });
+        for (const label of [
+          en["wordlist.sort.az"],
+          en["wordlist.sort.seen"],
+          en["wordlist.sort.recent"],
+        ])
+          await sort.selectOption({ label });
+        await rows.filter({ hasText: "knead" }).click();
+        const details = list.getByRole("complementary", {
+          name: en["wordlist.details"],
+        });
+        await expect(details.getByRole("heading", { level: 2 })).toHaveText(
+          "knead",
+        );
+        const group = details.getByRole("group", {
+          name: en["dict.statusGroup"],
+        });
+        await group.getByRole("button", { name: "Known" }).click();
+        await group.getByRole("button", { name: "Remove" }).click();
+        await expect(rows).toHaveCount(3);
+        const listDownload = list.waitForEvent("download");
+        await list.getByRole("button", { name: en["backup.export"] }).click();
+        await listDownload;
+        await list.getByLabel(en["backup.file"]).setInputFiles(file);
+        await expect(list.getByText(/^Imported \d+ words?$/)).toBeVisible();
       });
-      for (const name of ["Learning", "Known", "All"])
-        await status.getByRole("button", { name, exact: true }).click();
-      const kind = list.getByRole("group", {
-        name: en["wordlist.kind"],
-        exact: true,
-      });
-      for (const name of ["Phrases", "Words", "All"])
-        await kind.getByRole("button", { name, exact: true }).click();
-      const search = list.getByRole("searchbox", {
-        name: en["wordlist.search"],
-      });
-      await search.fill("zzz");
-      await expect(list.getByText(en["wordlist.noMatch"])).toBeVisible();
-      await search.fill("");
-      const sort = list.getByRole("combobox", { name: en["wordlist.sort"] });
-      for (const label of [
-        en["wordlist.sort.az"],
-        en["wordlist.sort.seen"],
-        en["wordlist.sort.recent"],
-      ])
-        await sort.selectOption({ label });
-      await rows.filter({ hasText: "knead" }).click();
-      const details = list.getByRole("complementary", {
-        name: en["wordlist.details"],
-      });
-      await expect(details.getByRole("heading", { level: 2 })).toHaveText(
-        "knead",
-      );
-      const group = details.getByRole("group", {
-        name: en["dict.statusGroup"],
-      });
-      await group.getByRole("button", { name: "Known" }).click();
-      await group.getByRole("button", { name: "Remove" }).click();
-      await expect(rows).toHaveCount(3);
-      const listDownload = list.waitForEvent("download");
-      await list.getByRole("button", { name: en["backup.export"] }).click();
-      await listDownload;
-      await list.getByLabel(en["backup.file"]).setInputFiles(file);
-      await expect(list.getByText(/^Imported \d+ words?$/)).toBeVisible();
-    });
 
-    test("a service worker stopped mid-session starts again without errors", async ({
-      context,
-      extensionId,
-    }) => {
-      await showNewWords(context, extensionId);
-      await routeYouTube(context);
-      const article = await openArticle(context);
-      const video = await context.newPage();
-      await video.goto(YOUTUBE_WATCH);
-      if (reachesUi) {
+    if (checkBuildOnly)
+      test("a service worker stopped mid-session starts again without errors", async ({
+        context,
+        extensionId,
+      }) => {
+        await showNewWords(context, extensionId);
+        await routeYouTube(context);
+        const article = await openArticle(context);
+        const video = await context.newPage();
+        await video.goto(YOUTUBE_WATCH);
         await videoCard(video, YT_LINE).click();
         await expect(inVideo(video)).toContainText(YT_LINE);
-      } else await expect(video.locator("lingo-video-player")).toHaveCount(1);
-      const options = await context.newPage();
-      await options.goto(`chrome-extension://${extensionId}/options.html`);
-      await expect(options.getByRole("switch").first()).toBeVisible();
+        const options = await context.newPage();
+        await options.goto(`chrome-extension://${extensionId}/options.html`);
+        await expect(options.getByRole("switch").first()).toBeVisible();
 
-      const cdp = await context.newCDPSession(article);
-      await cdp.send("ServiceWorker.enable");
-      const stop = () => cdp.send("ServiceWorker.stopAllWorkers");
+        const cdp = await context.newCDPSession(article);
+        await cdp.send("ServiceWorker.enable");
+        const stop = () => cdp.send("ServiceWorker.stopAllWorkers");
 
-      await stop();
-      await (reachesUi ? useArticle(article) : useArticleBlindly(article));
-      await stop();
-      await usePopup(context, extensionId, article, { toggleSite: true });
-      if (reachesUi) {
+        await stop();
+        await useArticle(article);
+        await stop();
+        await usePopup(context, extensionId, article, { toggleSite: true });
         await stop();
         const word = inVideo(video).getByText("creativity", { exact: true });
         await word.hover();
@@ -861,111 +865,114 @@ for (const build of ["production", "check"] as const)
         await expect(
           video.getByRole("complementary", { name: en["dict.window"] }),
         ).toBeVisible();
-      }
-      await stop();
-      await options
-        .getByRole("switch", { name: "Highlight Known words" })
-        .click();
-      await expect
-        .poll(() => article.evaluate(() => CSS.highlights.has("lingo-known")))
-        .toBe(true);
-      await stop();
-      await article.reload();
-      await expect
-        .poll(async () => (await highlighted(article, "lingo-new")).length)
-        .toBeGreaterThan(0);
-    });
+        await stop();
+        await options
+          .getByRole("switch", { name: "Highlight Known words" })
+          .click();
+        await expect
+          .poll(() => article.evaluate(() => CSS.highlights.has("lingo-known")))
+          .toBe(true);
+        await stop();
+        await article.reload();
+        await expect
+          .poll(async () => (await highlighted(article, "lingo-new")).length)
+          .toBeGreaterThan(0);
+      });
 
-    test("sync with its space nearly full", async ({
-      context,
-      extensionId,
-    }) => {
-      // Fill storage.sync with other keys up to a few hundred bytes below the quota.
-      const page = await context.newPage();
-      await page.goto(`chrome-extension://${extensionId}/popup.html`);
-      await page.evaluate(async () => {
-        const { chrome: api } = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: {
-                QUOTA_BYTES: number;
-                QUOTA_BYTES_PER_ITEM: number;
-                set(items: object): Promise<void>;
-                getBytesInUse(keys: null): Promise<number>;
+    if (checkBuildOnly)
+      test("sync with its space nearly full", async ({
+        context,
+        extensionId,
+      }) => {
+        // Fill storage.sync with other keys up to a few hundred bytes below the quota.
+        const page = await context.newPage();
+        await page.goto(`chrome-extension://${extensionId}/popup.html`);
+        await page.evaluate(async () => {
+          const { chrome: api } = globalThis as unknown as {
+            chrome: {
+              storage: {
+                sync: {
+                  QUOTA_BYTES: number;
+                  QUOTA_BYTES_PER_ITEM: number;
+                  set(items: object): Promise<void>;
+                  getBytesInUse(keys: null): Promise<number>;
+                };
               };
             };
           };
-        };
-        const sync = api.storage.sync;
-        const item = sync.QUOTA_BYTES_PER_ITEM - 100;
-        for (let i = 0; ; i++) {
-          const left = sync.QUOTA_BYTES - (await sync.getBytesInUse(null));
-          if (left < 1500) break;
-          const size = Math.min(item, left - 1200);
-          await sync.set({ [`fill${i}`]: "x".repeat(size) });
-        }
+          const sync = api.storage.sync;
+          const item = sync.QUOTA_BYTES_PER_ITEM - 100;
+          for (let i = 0; ; i++) {
+            const left = sync.QUOTA_BYTES - (await sync.getBytesInUse(null));
+            if (left < 1500) break;
+            const size = Math.min(item, left - 1200);
+            await sync.set({ [`fill${i}`]: "x".repeat(size) });
+          }
+        });
+        await page.close();
+
+        await showNewWords(context, extensionId);
+        const article = await openArticle(context);
+        await useArticle(article);
+        for (const key of ["knead", "tedious", "honestly", "loaf", "yeast"])
+          await saveWord(context, extensionId, key, "learning");
+        // The popup shows how full the space is, and saving keeps working.
+        await usePopup(context, extensionId, article, { toggleSite: true });
+        const options = await context.newPage();
+        await options.goto(`chrome-extension://${extensionId}/options.html`);
+        await expect(options.getByText(/KB of \d+ KB/)).toBeVisible();
+        await expect
+          .poll(async () => {
+            const reply = (await sendToBackground(context, extensionId, {
+              type: "syncStatus",
+            })) as { value: { lastSavedAt?: number; error?: string } };
+            return reply.value.lastSavedAt !== undefined || !!reply.value.error;
+          })
+          .toBe(true);
       });
-      await page.close();
 
-      await showNewWords(context, extensionId);
-      const article = await openArticle(context);
-      await (reachesUi ? useArticle(article) : useArticleBlindly(article));
-      for (const key of ["knead", "tedious", "honestly", "loaf", "yeast"])
-        await saveWord(context, extensionId, key, "learning");
-      // The popup shows how full the space is, and saving keeps working.
-      await usePopup(context, extensionId, article, { toggleSite: true });
-      const options = await context.newPage();
-      await options.goto(`chrome-extension://${extensionId}/options.html`);
-      await expect(options.getByText(/KB of \d+ KB/)).toBeVisible();
-      await expect
-        .poll(async () => {
-          const reply = (await sendToBackground(context, extensionId, {
-            type: "syncStatus",
-          })) as { value: { lastSavedAt?: number; error?: string } };
-          return reply.value.lastSavedAt !== undefined || !!reply.value.error;
-        })
-        .toBe(true);
-    });
+    // Real sites need the network and change under us: opt in with LINGO_REAL_SITES=1
+    // (`npm run test:e2e:real`). They run on the production build, the one users get.
+    if (!reachesUi)
+      test.describe("real sites (network)", () => {
+        test.skip(!process.env.LINGO_REAL_SITES, "set LINGO_REAL_SITES=1");
+        test.setTimeout(120_000);
 
-    test.describe("real sites (network)", () => {
-      test.skip(!!process.env.CI, "needs the network");
-      test.setTimeout(120_000);
-
-      for (const url of [
-        "https://en.wikipedia.org/wiki/Bread",
-        "https://www.bbc.com/news",
-        "https://www.youtube.com/watch?v=iG9CE55wbtY",
-      ])
-        test(`no reports on ${url}`, async ({ context, extensionId }) => {
-          await showNewWords(context, extensionId);
-          const page = await context.newPage();
-          // Some sites never finish loading (ads, long polls) in headless Chromium.
-          await page.goto(url, {
-            waitUntil: "domcontentloaded",
-            timeout: 60_000,
-          });
-          const host = new URL(url).hostname;
-          if (url.includes("wikipedia")) {
-            await expect(page.locator("lingo-article")).toHaveCount(1);
-            await expect
-              .poll(async () => (await highlighted(page, "lingo-new")).length)
-              .toBeGreaterThan(0);
-            await page.mouse.wheel(0, 20_000);
+        for (const url of [
+          "https://en.wikipedia.org/wiki/Bread",
+          "https://www.bbc.com/news",
+          "https://www.youtube.com/watch?v=iG9CE55wbtY",
+        ])
+          test(`no reports on ${url}`, async ({ context, extensionId }) => {
+            await showNewWords(context, extensionId);
+            const page = await context.newPage();
+            // Some sites never finish loading (ads, long polls) in headless Chromium.
+            await page.goto(url, {
+              waitUntil: "domcontentloaded",
+              timeout: 60_000,
+            });
+            const host = new URL(url).hostname;
+            if (url.includes("wikipedia")) {
+              await expect(page.locator("lingo-article")).toHaveCount(1);
+              await expect
+                .poll(async () => (await highlighted(page, "lingo-new")).length)
+                .toBeGreaterThan(0);
+              await page.mouse.wheel(0, 20_000);
+              await usePopup(context, extensionId, page, {
+                toggleSite: true,
+                answeredBy: host,
+              });
+            }
+            if (url.includes("youtube")) {
+              // Captions come back empty under Playwright: Lingo waits quietly.
+              await expect(page.locator("lingo-video-player")).toBeAttached({
+                timeout: 30_000,
+              });
+            }
             await usePopup(context, extensionId, page, {
-              toggleSite: true,
+              toggleSite: false,
               answeredBy: host,
             });
-          }
-          if (url.includes("youtube")) {
-            // Captions come back empty under Playwright: Lingo waits quietly.
-            await expect(page.locator("lingo-video-player")).toBeAttached({
-              timeout: 30_000,
-            });
-          }
-          await usePopup(context, extensionId, page, {
-            toggleSite: false,
-            answeredBy: host,
           });
-        });
-    });
+      });
   });

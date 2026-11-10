@@ -24,6 +24,8 @@
 | `npm run build:check` | self-reloading Chrome build in `.output/lingo-check` (see below) |
 | `npm run test:manifest` | check both built manifests |
 | `npm run test:e2e:build` | production and check builds, then run E2E |
+| `npm run test:e2e:real` | E2E error checks on real sites (Wikipedia, BBC, YouTube); needs the network |
+| `npm run verify` | check, unit, browser (Chromium), builds and E2E, with terse output |
 | `npm run zip` / `npm run zip:firefox` | store-ready zips in `.output/` |
 | `npm run test:mutation` | Stryker report in `reports/mutation/` |
 
@@ -52,10 +54,12 @@ npx web-ext lint -s .output/firefox-mv3
 ```
 
 ## CI/CD
-- `ci.yml` (push to main, pull requests): `check` (typecheck, lint, format, CLAUDE.md limit); `test` on Linux, macOS and Windows (unit, browser on Chromium + Firefox, both builds and the check build, manifest, E2E; reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`).
+- Tests run locally first: `npm run verify` before every push. GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.
+- `ci.yml` (pull requests that are not drafts, and manual runs; not on pushes to main): one Linux job in Playwright's image (`mcr.microsoft.com/playwright`, browsers preinstalled) that runs check, unit, browser tests on Chromium and Firefox, all builds, manifest, E2E (reports uploaded on failure), the zips and `web-ext lint` (artifact `lingo-zips`). The image tag must match `@playwright/test` (`scripts/check-playwright-image.mjs` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
+- `cross-os.yml` (manual only): the whole suite on macOS and Windows. Run it before a release, or after changing code that touches paths, files or the OS.
 - `release.yml` (tag `v*` or manual run): verifies the tag equals the `package.json` version, builds both zips, and for tags creates a GitHub release with the zips attached.
-- `mutation.yml`: weekly (Monday 03:00 UTC) and manual Stryker run; uploads `reports/mutation`.
-- `dependabot.yml`: weekly updates for npm and GitHub Actions. TypeScript major updates are ignored until typescript-eslint supports TypeScript 7.
+- `mutation.yml` (manual only): Stryker run; uploads `reports/mutation`.
+- `dependabot.yml`: weekly updates for npm and GitHub Actions, one grouped pull request each. TypeScript major updates are ignored until typescript-eslint supports TypeScript 7.
 
 ## Release steps
 1. Bump `version` in `package.json` and merge.

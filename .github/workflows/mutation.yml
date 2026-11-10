@@ -1,8 +1,7 @@
 name: Mutation testing
 
+# By hand only (Actions → Mutation testing → Run workflow), to keep Actions minutes low.
 on:
-  schedule:
-    - cron: "0 3 * * 1" # Mondays 03:00 UTC
   workflow_dispatch:
 
 permissions:

@@ -18,6 +18,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 - `npm run check`: typecheck, lint, format, CLAUDE.md line limit (150)
 - `npm test`: unit tests; `npm run test:browser`: real-browser tests (`VITEST_BROWSERS=chromium` locally)
 - `npm run build`: production build; `npm run test:e2e:build`: build + Playwright E2E
+- `npm run verify`: everything above, terse (~1.5 min). While iterating, run only the touched test files; run `verify` before every push (it must pass). GitHub CI adds Firefox only
 
 ## Constraints
 - **The developer runs no servers** (the extension will be public). Data lives only on the device (IndexedDB) and in the user's own browser sync (`storage.sync`: a Google account in Chrome, a Mozilla account in Firefox)
@@ -31,7 +32,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 ## Rules
 - **Everything committed to git is in English** (code, comments, docs, commit messages, PRs). Chat with the user is in Japanese
 - **Before committing a UI change, render it and compare it with the mock** (layout, copy, colors, defaults)
-- Commit and push only when the user asks or an approved plan says so. Work on a branch per phase and open a PR; the user merges
+- Commit and push only when the user asks or an approved plan says so. Work on a branch per phase and open a **draft** PR; mark it ready for review only just before merging, which is when GitHub runs CI (Actions minutes are limited)
 - No Claude attribution in commit messages or PR bodies
 
 ## Working style

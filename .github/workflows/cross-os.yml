@@ -1,0 +1,44 @@
+name: Cross-OS tests
+
+# ci.yml runs on Linux only. Run this by hand (Actions → Cross-OS tests → Run workflow)
+# before a release, or after changing code that touches paths, files or the OS. macOS
+# minutes bill at 10x and Windows at 2x on private repositories, so it never runs on
+# its own.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npm test
+      - run: npm run test:browser
+      - run: npm run build
+      - run: npm run build:firefox
+      - run: npm run build:check
+      - run: npm run test:manifest
+      - run: npm run test:e2e
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore

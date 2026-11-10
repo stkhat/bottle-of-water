@@ -115,6 +115,8 @@ test("switching On this site off removes Lingo from the page, and on brings it b
   const popup = await openPopupFor(context, extensionId, page);
   const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
   await expect(site).toBeChecked();
+  // The switch does nothing until the settings are loaded (the language pair shows).
+  await expect(popup.getByText(/^\S+ → \S+$/)).toBeVisible();
 
   await site.click();
   await expect(site).not.toBeChecked();

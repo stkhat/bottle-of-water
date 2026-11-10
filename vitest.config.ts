@@ -64,6 +64,9 @@ export default defineConfig({
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.{ts,tsx}"],
+          // CI runners are slower and noisier than a dev machine: retry a timing flake
+          // once there (it stays visible in the log as a retried test).
+          retry: process.env.CI ? 1 : 0,
           browser: {
             enabled: true,
             headless: true,

@@ -1,9 +1,13 @@
 name: CI
 
+# Tests run locally first (`npm run verify` before every push). GitHub runs them once a
+# pull request is ready to merge: not on drafts, not on pushes to main (merged pull
+# requests were already tested). Mark a pull request "Ready for review" to run this, or
+# start it by hand.
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -13,8 +17,19 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  # One Linux job: each extra job pays for its own setup and `npm ci`. It runs in
+  # Playwright's image, which has the browsers and their system libraries installed.
+  # The tag must match @playwright/test in package-lock.json: bump both together (the
+  # "Check the Playwright image" step fails otherwise). cross-os.yml runs the tests on
+  # macOS and Windows by hand.
+  ci:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
+    env:
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -22,23 +37,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Check the Playwright image matches @playwright/test
+        run: node scripts/check-playwright-image.mjs
       - run: npm run check
-
-  test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
       - run: npm test
       - run: npm run test:browser
       - run: npm run build
@@ -50,22 +51,11 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports-${{ matrix.os }}
+          name: test-reports
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
-
-  package:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
       - run: npm run zip
       - run: npm run zip:firefox
       - run: npx web-ext lint --source-dir .output/firefox-mv3
