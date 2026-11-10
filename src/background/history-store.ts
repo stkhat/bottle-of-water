@@ -246,9 +246,15 @@ export function createHistoryStore(
 
     forgetHost(host) {
       return db.transaction("rw", tables, async () => {
-        const pages = await db.historyPages
-          .filter((page) => onHost(page.host, host))
-          .toArray();
+        // Reads the host index only, then just the matching pages.
+        const hosts = (await db.historyPages
+          .orderBy("host")
+          .uniqueKeys()) as string[];
+        const matching = hosts.filter((h) => onHost(h, host));
+        const pages =
+          matching.length === 0
+            ? []
+            : await db.historyPages.where("host").anyOf(matching).toArray();
         const removed = await deletePages(pages);
         if (removed > 0) await setTotalBytes((await totalBytes()) - removed);
         return pages.length;

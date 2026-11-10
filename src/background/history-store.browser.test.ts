@@ -406,4 +406,21 @@ describe("forgetHost", () => {
     expect((await history.status()).bytes).toBe(kept);
     expect(await db.historySentences.count()).toBe(2);
   });
+
+  it("returns how many pages it removed, and changes nothing for a host with none", async () => {
+    await history.record(ARTICLE, [knead]);
+    await history.record({ ...ARTICLE, url: "https://www.example.com/rye" }, [
+      rest,
+    ]);
+    await history.record(OTHER_ARTICLE, [knead]);
+    const before = await history.status();
+
+    expect(await history.forgetHost("example.net")).toBe(0);
+    expect(await history.status()).toEqual(before);
+
+    expect(await history.forgetHost(" EXAMPLE.com ")).toBe(2);
+    expect((await db.historyPages.toArray()).map((p) => p.url)).toEqual([
+      "https://news.example.org/cake",
+    ]);
+  });
 });
