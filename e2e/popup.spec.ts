@@ -60,7 +60,13 @@ test("the popup shows the page's unsaved words, adds them all and undoes it", as
   extensionId,
 }) => {
   const page = await openArticle(context, extensionId);
-  const newWords = (await highlighted(page, "lingo-new")).length;
+  const fresh = await highlighted(page, "lingo-new");
+  const newWords = fresh.length;
+  // Detected phrases are saved too, and counted as Phrases rather than Learning.
+  const phrases = new Set(
+    fresh.filter((text) => text.includes(" ")).map((t) => t.toLowerCase()),
+  ).size;
+  expect(phrases).toBeGreaterThan(0);
   const popup = await openPopupFor(context, extensionId, page);
 
   await expect(popup.getByText("localhost", { exact: true })).toBeVisible();
@@ -76,8 +82,13 @@ test("the popup shows the page's unsaved words, adds them all and undoes it", as
   await expect(
     popup.getByText(`${unsaved} words added to Learning`),
   ).toBeVisible();
-  // The Learning count comes from the background.
-  await expect(popup.getByText(String(unsaved), { exact: true })).toBeVisible();
+  // The counts come from the background.
+  await expect(
+    popup.getByText(String(unsaved - phrases), { exact: true }),
+  ).toBeVisible();
+  await expect(
+    popup.getByText(String(phrases), { exact: true }).first(),
+  ).toBeVisible();
   await expect.poll(() => highlighted(page, "lingo-new")).toEqual([]);
   expect((await highlighted(page, "lingo-learning")).length).toBe(newWords);
 

@@ -84,6 +84,56 @@ test("hovering a word shows its card with the Japanese translation", async ({
   await expect(page.getByText(en["lookup.status.new"])).toBeVisible();
 });
 
+test("a dictionary phrase is highlighted as one new term with its meaning", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  const fresh = await highlighted(page, "lingo-new");
+  expect(fresh).toContain("from scratch");
+  expect(fresh).not.toContain("scratch");
+
+  await hover(page, "from scratch");
+  await expect(
+    page.getByText(en["lookup.kind.phrase"], { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("最初から", { exact: true })).toHaveAttribute(
+    "lang",
+    "ja",
+  );
+  await click(page, "from scratch");
+  const panel = dictionary(page);
+  await expect(
+    panel.getByRole("heading", { name: "from scratch" }),
+  ).toBeVisible();
+  await expect(panel.getByText("ゼロから", { exact: true })).toBeVisible();
+});
+
+test("a phrase with only an English definition shows it as English", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  expect(await highlighted(page, "lingo-new")).toContain("figure out");
+
+  await hover(page, "figure out");
+  await expect(
+    page.getByText("To come to understand", { exact: true }),
+  ).toHaveAttribute("lang", "en");
+  await click(page, "figure out");
+  const panel = dictionary(page);
+  await expect(
+    panel.getByRole("heading", { name: "figure out" }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText(
+      "To come to understand; to discover or find a solution; to deduce.",
+    ),
+  ).toHaveAttribute("lang", "en");
+});
+
 test("a word saved from the dictionary panel keeps its Learning highlight", async ({
   context,
   extensionId,
