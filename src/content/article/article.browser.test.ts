@@ -255,6 +255,41 @@ describe("startArticle", () => {
     expect(fake.requests.filter((r) => r.type === "recordHistory")).toEqual([]);
   });
 
+  it("follows the sentence-history switch while the page is open", async () => {
+    const fake = fakeDeps(
+      settings({ highlight: { new: true }, sentenceHistory: false }),
+    );
+    const root = fixture(ARTICLE);
+    await start(fake, root);
+    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    const history = () =>
+      fake.requests.filter((r) => r.type === "recordHistory");
+    const analyzed = () =>
+      fake.requests.filter((r) => r.type === "analyze").length;
+    const addBlock = async (text: string) => {
+      const count = analyzed();
+      const added = document.createElement("p");
+      added.textContent = text;
+      root.append(added);
+      await expect.poll(analyzed).toBe(count + 1);
+    };
+
+    fake.changeSettings(
+      settings({ highlight: { new: true }, sentenceHistory: true }),
+    );
+    await addBlock("Knead it again.");
+    await expect.poll(() => history()).toHaveLength(1);
+    expect(history()[0]).toMatchObject({
+      sentences: [{ text: "Knead it again." }],
+    });
+
+    fake.changeSettings(
+      settings({ highlight: { new: true }, sentenceHistory: false }),
+    );
+    await addBlock("Knead it once more.");
+    expect(history()).toHaveLength(1);
+  });
+
   it("does nothing on a page in another language", async () => {
     const fake = fakeDeps(settings());
     const root = fixture(ARTICLE);
