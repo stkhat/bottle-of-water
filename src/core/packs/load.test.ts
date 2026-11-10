@@ -26,6 +26,22 @@ const files: Record<string, unknown> = {
   "/packs/en-defs/dict-1.json": {
     "figure out": ["To come to understand", [["verb", "To calculate."]]],
   },
+  "/packs/es/lemmas.json": { comiendo: "comer", casas: ["casa", "casar"] },
+  "/packs/es/freq.json": ["de", "comer"],
+  "/packs/es/ipa.json": { comer: "/koˈmeɾ/" },
+  "/packs/es/vocab.json": ["casa", "casar", "comer", "de"],
+  "/packs/es/phrases.json": ["a escondidas"],
+  "/packs/es-en/index.json": {
+    shards: [
+      { file: "dict-1.json", first: "casa", last: "casar" },
+      { file: "dict-2.json", first: "comer", last: "comer" },
+    ],
+  },
+  "/packs/es-en/dict-1.json": {
+    casa: ["house", [["noun", "house"]]],
+    casar: ["to marry", [["verb", "to marry"]]],
+  },
+  "/packs/es-en/dict-2.json": { comer: ["to eat", [["verb", "to eat"]]] },
 };
 const stubFetch = () =>
   vi.fn(async (path: string) => {
@@ -77,6 +93,40 @@ describe("createPackLoader", () => {
     expect(fetchJson.mock.calls.map(([path]) => path)).toEqual([
       "/packs/en-defs/index.json",
       "/packs/en-defs/dict-1.json",
+    ]);
+  });
+
+  it("loads every file of the Spanish pack", async () => {
+    const fetchJson = stubFetch();
+    expect(await createPackLoader(fetchJson)("es")).toEqual({
+      lemmas: { comiendo: "comer", casas: ["casa", "casar"] },
+      freq: ["de", "comer"],
+      ipa: { comer: "/koˈmeɾ/" },
+      vocab: ["casa", "casar", "comer", "de"],
+      phrases: ["a escondidas"],
+    });
+    expect(fetchJson.mock.calls.map(([path]) => path).sort()).toEqual([
+      "/packs/es/freq.json",
+      "/packs/es/ipa.json",
+      "/packs/es/lemmas.json",
+      "/packs/es/phrases.json",
+      "/packs/es/vocab.json",
+    ]);
+  });
+
+  it("loads the Spanish → English definitions from their shards", async () => {
+    const fetchJson = stubFetch();
+    expect(await createPackLoader(fetchJson)("es-en")).toEqual({
+      defs: {
+        casa: ["house", [["noun", "house"]]],
+        casar: ["to marry", [["verb", "to marry"]]],
+        comer: ["to eat", [["verb", "to eat"]]],
+      },
+    });
+    expect(fetchJson.mock.calls.map(([path]) => path)).toEqual([
+      "/packs/es-en/index.json",
+      "/packs/es-en/dict-1.json",
+      "/packs/es-en/dict-2.json",
     ]);
   });
 

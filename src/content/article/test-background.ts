@@ -96,7 +96,7 @@ const DEFS: PackFiles["en-defs"]["defs"] = {
   ],
 };
 
-const PACKS: PackFiles = {
+const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
   en: {
     lemmas: {
       loaves: "loaf",

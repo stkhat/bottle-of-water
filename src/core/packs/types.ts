@@ -21,7 +21,8 @@ export type DictPack = Readonly<
 >;
 /**
  * en-defs/dict-<n>.json, merged: phrase → [short definition, [part of speech, text][]].
- * English definitions of phrases that no Japanese source has.
+ * English definitions of phrases that no Japanese source has. es-en/dict-<n>.json has
+ * the same shape: English meanings of Spanish words and phrases.
  */
 export type DefsPack = Readonly<
   Record<
@@ -32,7 +33,7 @@ export type DefsPack = Readonly<
     ]
   >
 >;
-/** en-ja/index.json (and en-defs/index.json): the shards, in headword order. */
+/** en-ja/index.json (and en-defs/, es-en/index.json): the shards, in headword order. */
 export interface ShardIndex {
   readonly shards: readonly {
     readonly file: string;

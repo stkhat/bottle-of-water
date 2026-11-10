@@ -22,6 +22,14 @@ export interface PackFiles {
   };
   "en-ja": { dict: DictPack; phrases: DictPack };
   "en-defs": { defs: DefsPack };
+  es: {
+    lemmas: LemmaPack;
+    freq: FreqPack;
+    ipa: IpaPack;
+    vocab: VocabPack;
+    phrases: PhrasesPack;
+  };
+  "es-en": { defs: DefsPack };
 }
 export type PackName = keyof PackFiles;
 
@@ -50,6 +58,11 @@ const LOADERS: {
   },
   "en-defs": async (fetchJson) => ({
     defs: await loadShards("/packs/en-defs", fetchJson),
+  }),
+  es: (fetchJson) =>
+    loadFiles("es", ["lemmas", "freq", "ipa", "vocab", "phrases"], fetchJson),
+  "es-en": async (fetchJson) => ({
+    defs: await loadShards("/packs/es-en", fetchJson),
   }),
 };
 
