@@ -1,3 +1,4 @@
+import { fromUser } from "../../ui/from-user";
 import type { SpanRef } from "./locate";
 
 export interface InteractionCallbacks {
@@ -48,7 +49,8 @@ const same = (a: SpanRef | undefined, b: SpanRef | undefined) =>
 
 /**
  * Turns pointer, selection, keyboard and scroll events on the page into hover, click,
- * selection, Escape and scroll callbacks. The pointer is read once per animation frame. A word's card
+ * selection, Escape and scroll callbacks; pointer, click and key events a page script
+ * dispatched (not `isTrusted`) are ignored. The pointer is read once per animation frame. A word's card
  * shows after the pointer rests on it for `hoverDelayMs` (250 ms) and goes
  * `hideDelayMs` (200 ms) after the pointer leaves both the word and the card.
  */
@@ -111,6 +113,7 @@ export function watchInteractions(
   }
 
   function onPointerMove(event: PointerEvent) {
+    if (!fromUser(event)) return;
     lastMove = event;
     frame ??= requestAnimationFrame(() => {
       frame = undefined;
@@ -119,7 +122,7 @@ export function watchInteractions(
   }
 
   function onPointerDown(event: PointerEvent) {
-    if (inLingoUi(event)) return;
+    if (!fromUser(event) || inLingoUi(event)) return;
     pressed = true;
     hideNow();
   }
@@ -136,8 +139,8 @@ export function watchInteractions(
     }, delay);
   }
 
-  function onPointerUp() {
-    if (!pressed) return;
+  function onPointerUp(event: PointerEvent) {
+    if (!fromUser(event) || !pressed) return;
     pressed = false;
     readSelection(0);
   }
@@ -147,7 +150,7 @@ export function watchInteractions(
   }
 
   function onClick(event: MouseEvent) {
-    if (event.button !== 0 || inLingoUi(event)) return;
+    if (!fromUser(event) || event.button !== 0 || inLingoUi(event)) return;
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     if (getSelection()?.isCollapsed === false) return;
@@ -158,7 +161,8 @@ export function watchInteractions(
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape" && !inLingoUi(event)) cb.escape();
+    if (fromUser(event) && event.key === "Escape" && !inLingoUi(event))
+      cb.escape();
   }
 
   let scrollFrame: number | undefined;

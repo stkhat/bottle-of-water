@@ -2,6 +2,7 @@ import type { CSSProperties } from "preact";
 import type { Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import { t } from "../../i18n/t";
+import { onlyFromUser } from "../from-user";
 import { color, root } from "../lookup/styles";
 import { renderTerms, termStyle } from "./terms";
 
@@ -154,11 +155,11 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
       <span
         key={`${span.start}`}
         data-span={index}
-        onPointerEnter={(e) =>
-          props.onWordEnter(index, e.currentTarget as HTMLElement)
-        }
+        onPointerEnter={onlyFromUser((e) =>
+          props.onWordEnter(index, e.currentTarget as HTMLElement),
+        )}
         onPointerLeave={() => props.onWordLeave()}
-        onClick={() => props.onWordClick(index)}
+        onClick={onlyFromUser(() => props.onWordClick(index))}
         style={{
           // As in the mock: a phrase is not broken across lines.
           display: "inline-block",

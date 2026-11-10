@@ -181,6 +181,17 @@ describe("WordsList", () => {
     expect(onOpen).toHaveBeenCalledWith("word\nfigure out");
   });
 
+  test("a click a page script makes opens nothing", async () => {
+    const onOpen = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} onOpen={onOpen} />,
+    );
+    const row = rowNamed(screen, "figure out").element() as HTMLElement;
+    row.click();
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   test("says so when there are no words", async () => {
     const screen = await mountInShadowRoot(<WordsList {...base} rows={[]} />);
     const empty = screen.getByText("No words here yet.");

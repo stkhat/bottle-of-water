@@ -1,5 +1,6 @@
 import type { CSSProperties } from "preact";
 import { t } from "../../i18n/t";
+import { onlyFromUser } from "../from-user";
 import { color, root } from "./styles";
 
 export interface PhraseBarProps {
@@ -42,7 +43,7 @@ export function PhraseBar(props: PhraseBarProps) {
       <span>{t("phrase.save", { text: props.text })}</span>
       <button
         type="button"
-        onClick={props.onLearning}
+        onClick={onlyFromUser(() => props.onLearning())}
         style={{
           ...BUTTON,
           border: "1px solid #0F9F7E",
@@ -54,7 +55,7 @@ export function PhraseBar(props: PhraseBarProps) {
       </button>
       <button
         type="button"
-        onClick={props.onKnown}
+        onClick={onlyFromUser(() => props.onKnown())}
         style={{
           ...BUTTON,
           border: "1px solid #52525B",

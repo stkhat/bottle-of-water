@@ -284,13 +284,13 @@ describe("mountVideoUi", () => {
         "[data-span]",
       ),
     ].find((el) => el.textContent === "tangy")!;
-    tangy.dispatchEvent(new PointerEvent("pointerenter"));
+    await userEvent.hover(tangy);
     const box = tangy.getBoundingClientRect();
     expect(spy("enterWord")).toHaveBeenCalledWith(
       { cue: 0, span: 1 },
       { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
     );
-    tangy.click();
+    await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
   });
 
@@ -312,7 +312,7 @@ describe("mountVideoUi", () => {
     await expect.poll(() => subtitle()?.textContent).toBe("tangy.");
     const tangy = subtitle()!.querySelector<HTMLElement>("[data-span]")!;
     expect(tangy.textContent).toBe("tangy");
-    tangy.click();
+    await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
     // The whole sentence in the transcript.
     expect(text("lingo-transcript")).toContain("The yeast smells tangy.");

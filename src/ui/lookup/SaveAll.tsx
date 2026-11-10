@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { t } from "../../i18n/t";
+import { onlyFromUser } from "../from-user";
 import { color, root, sectionHeading } from "./styles";
 
 export interface SaveAllProps {
@@ -111,7 +112,7 @@ export function SaveAll(props: SaveAllProps) {
         >
           <button
             type="button"
-            onClick={props.onAddLearning}
+            onClick={onlyFromUser(() => props.onAddLearning())}
             style={{
               height: "40px",
               borderRadius: "8px",
@@ -128,7 +129,7 @@ export function SaveAll(props: SaveAllProps) {
           </button>
           <button
             type="button"
-            onClick={props.onMarkKnown}
+            onClick={onlyFromUser(() => props.onMarkKnown())}
             style={{
               height: "40px",
               borderRadius: "8px",
@@ -173,7 +174,7 @@ export function SaveAll(props: SaveAllProps) {
           </span>
           <button
             type="button"
-            onClick={props.onUndo}
+            onClick={onlyFromUser(() => props.onUndo())}
             style={{
               height: "32px",
               padding: "0 10px",

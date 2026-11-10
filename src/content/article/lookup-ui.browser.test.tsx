@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import {
   cleanUp,
   clickOn,
@@ -369,9 +369,7 @@ describe("dictionary panel", () => {
 
     await clickOn(root, "knead");
     await expect.element(dictionary()).toBeVisible();
-    document.body.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    await userEvent.keyboard("{Escape}");
     await expect.poll(() => dictionary().query()).toBeNull();
   });
 
@@ -382,6 +380,80 @@ describe("dictionary panel", () => {
     await clickOn(root, "tedious");
     await new Promise((r) => setTimeout(r, 200));
     expect(dictionary().query()).toBeNull();
+  });
+});
+
+describe("events a page script makes", () => {
+  /** The init of a mouse event at the middle of a word, as a page script could make it. */
+  function at(root: Node, text: string): MouseEventInit {
+    const rect = rectOf(root, text);
+    return {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      clientX: rect.left + 3,
+      clientY: rect.top + rect.height / 2,
+    };
+  }
+  const target = (root: Node, text: string) =>
+    document.elementFromPoint(
+      at(root, text).clientX!,
+      at(root, text).clientY!,
+    )!;
+
+  it("a synthetic click opens no dictionary; the user's click does", async () => {
+    const { root } = await setup(ARTICLE);
+    target(root, "tedious").dispatchEvent(
+      new MouseEvent("click", at(root, "tedious")),
+    );
+    (target(root, "tedious") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(dictionary().query()).toBeNull();
+
+    await clickOn(root, "tedious");
+    await expect.element(dictionary()).toBeVisible();
+  });
+
+  it("a synthetic pointer move shows no hover card; the user's does", async () => {
+    const { root } = await setup(`<div style="height: 200px"></div>${ARTICLE}`);
+    target(root, "tedious").dispatchEvent(
+      new PointerEvent("pointermove", at(root, "tedious")),
+    );
+    await new Promise((r) => setTimeout(r, 400));
+    expect(hoverCard().query()).toBeNull();
+
+    await pointAt(root, "tedious");
+    await expect.element(hoverCard()).toBeVisible();
+  });
+
+  it("a synthetic Escape leaves the dictionary open", async () => {
+    const { root } = await setup(ARTICLE);
+    await clickOn(root, "tedious");
+    await expect.element(dictionary()).toBeVisible();
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await new Promise((r) => setTimeout(r, 100));
+    expect(dictionary().query()).not.toBeNull();
+  });
+
+  it("a synthetic click on the dictionary's status buttons changes nothing", async () => {
+    const { root, background } = await setup(ARTICLE);
+    await clickOn(root, "tedious");
+    const learning = dictionary().getByRole("button", {
+      name: "Learning",
+      exact: true,
+    });
+    await expect.element(learning).toBeVisible();
+    learning
+      .element()
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    (learning.element() as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(background.sent("saveTerm")).toEqual([]);
+
+    await learning.click();
+    await expect.poll(() => background.sent("saveTerm").length).toBe(1);
   });
 });
 

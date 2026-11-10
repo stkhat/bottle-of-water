@@ -1,5 +1,6 @@
 import type { CSSProperties } from "preact";
 import { t } from "../../i18n/t";
+import { onlyFromUser } from "../from-user";
 import { IPA_FONT, color, root, statusButton } from "./styles";
 
 export type WordStatus = "learning" | "known" | "new";
@@ -131,7 +132,7 @@ export function HoverCard(props: HoverCardProps) {
         <button
           type="button"
           aria-pressed={props.status === "learning"}
-          onClick={props.onLearning}
+          onClick={onlyFromUser(() => props.onLearning())}
           style={{
             ...BUTTON,
             ...statusButton.learning(props.status === "learning"),
@@ -142,7 +143,7 @@ export function HoverCard(props: HoverCardProps) {
         <button
           type="button"
           aria-pressed={props.status === "known"}
-          onClick={props.onKnown}
+          onClick={onlyFromUser(() => props.onKnown())}
           style={{ ...BUTTON, ...known }}
         >
           {t("hover.known")}

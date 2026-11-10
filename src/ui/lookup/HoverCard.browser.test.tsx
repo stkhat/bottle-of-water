@@ -100,6 +100,26 @@ describe("HoverCard", () => {
     expect(onKnown).toHaveBeenCalledOnce();
   });
 
+  test("buttons ignore clicks a page script makes", async () => {
+    const onLearning = vi.fn();
+    const onKnown = vi.fn();
+    const screen = await mountInShadowRoot(
+      <HoverCard
+        {...figureOut}
+        status="new"
+        onLearning={onLearning}
+        onKnown={onKnown}
+      />,
+    );
+    for (const name of ["+ Learning", "Known"]) {
+      const button = screen.getByRole("button", { name }).element();
+      (button as HTMLElement).click();
+      button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
+    expect(onLearning).not.toHaveBeenCalled();
+    expect(onKnown).not.toHaveBeenCalled();
+  });
+
   test("is 300px wide over video and 290px over articles", async () => {
     const screen = await mountInShadowRoot(<HoverCard {...figureOut} />);
     const card = screen.container.firstElementChild as HTMLElement;

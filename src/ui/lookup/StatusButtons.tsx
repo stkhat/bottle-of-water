@@ -1,5 +1,6 @@
 import type { CSSProperties, JSX } from "preact";
 import { t } from "../../i18n/t";
+import { onlyFromUser } from "../from-user";
 import type { WordStatus } from "./HoverCard";
 import { color } from "./styles";
 
@@ -46,7 +47,7 @@ export function StatusButtons(props: {
         type="button"
         aria-pressed={pressed}
         disabled={disabled}
-        onClick={() => props.onStatus(value)}
+        onClick={onlyFromUser(() => props.onStatus(value))}
         style={{
           ...SEGMENT,
           ...(pressed ? on : SEGMENT_OFF),

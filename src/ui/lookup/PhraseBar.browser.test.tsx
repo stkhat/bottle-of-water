@@ -34,6 +34,25 @@ describe("PhraseBar", () => {
     expect(onKnown).toHaveBeenCalledOnce();
   });
 
+  test("buttons ignore clicks a page script makes", async () => {
+    const onLearning = vi.fn();
+    const onKnown = vi.fn();
+    const screen = await mountInShadowRoot(
+      <PhraseBar
+        text="rise and fall"
+        onLearning={onLearning}
+        onKnown={onKnown}
+      />,
+    );
+    for (const name of ["+ Learning", "Known"]) {
+      const button = screen.getByRole("button", { name }).element();
+      (button as HTMLElement).click();
+      button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
+    expect(onLearning).not.toHaveBeenCalled();
+    expect(onKnown).not.toHaveBeenCalled();
+  });
+
   test("page styles do not leak in", async () => {
     addPageStyle("* { color: red !important; font-size: 40px !important }");
     const screen = await mountInShadowRoot(

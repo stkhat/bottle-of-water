@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
 import { SubtitleOverlay, type SubtitleOverlayProps } from "./SubtitleOverlay";
@@ -170,12 +171,30 @@ describe("SubtitleOverlay", () => {
       />,
     );
     const bread = word(screen, "bread");
-    bread.dispatchEvent(new PointerEvent("pointerenter"));
+    await userEvent.hover(bread);
     expect(onWordEnter).toHaveBeenCalledWith(2, bread);
-    bread.dispatchEvent(new PointerEvent("pointerleave"));
+    await userEvent.unhover(bread);
     expect(onWordLeave).toHaveBeenCalledTimes(1);
-    bread.click();
+    await userEvent.click(bread);
     expect(onWordClick).toHaveBeenCalledWith(2);
+  });
+
+  test("ignores the pointer and clicks a page script makes", async () => {
+    const onWordEnter = vi.fn();
+    const onWordClick = vi.fn();
+    const screen = await mountInShadowRoot(
+      <SubtitleOverlay
+        {...base}
+        onWordEnter={onWordEnter}
+        onWordClick={onWordClick}
+      />,
+    );
+    const bread = word(screen, "bread");
+    bread.dispatchEvent(new PointerEvent("pointerenter"));
+    bread.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    bread.click();
+    expect(onWordEnter).not.toHaveBeenCalled();
+    expect(onWordClick).not.toHaveBeenCalled();
   });
 
   test("ignored spans and text between words are plain text", async () => {
