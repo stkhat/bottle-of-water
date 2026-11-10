@@ -70,6 +70,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Transcript
   - Each card shows the original with the translation below it. The playing card is emphasized and auto-scrolled; clicking a card seeks there
   - Each card is a **sentence**: subtitle cues that do not end a sentence (. ? ! … ♪, maybe before a closing quote) are joined with the next cue when it starts less than 1.5 s later, up to 3 cues and about 25 words. Sound labels ("[MUSIC]") stay alone; a cue starting with a speaker's dash ("- …") starts a card, and a cue with two speakers' lines ends one. The subtitle in the video still shows one cue at a time
+  - Auto-generated (ASR) tracks come as rolling fragments with word timings, often without punctuation. With YouTube's auto-translation, the cards follow its sentences: YouTube translates whole sentences and spreads them over the fragments, so each sentence end in the translation (。！？, or . ! ? before a space; not inside brackets) marks the nearest likely boundary in the original (a sentence end, a speaker change ">>", a comma, a pause, or an English sentence starter such as "so" or "I"), and each card gets exactly the translated sentences between its ends. Without it, a sentence ends at . ? !, sound labels and ">>", plus pauses of 0.8 s in tracks without punctuation, up to 20 words (40 in punctuated tracks). In the video an ASR card shows as lines of at most 60 characters (30 for languages written without spaces), split where the halves balance best, preferring pauses and punctuation; the card's whole translation stays under each line
   - Header: "Highlight" category toggles and the transcript translation switch
 - No instructions text under the video
 - **When the video ends**, nothing is shown; unsaved New words are handled as Settings say (see "Unsaved New words at the end" below)
@@ -188,7 +189,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - **Timing**: a site's native-language track has different line breaks and timestamps from the original (especially Japanese subtitles on Netflix)
   - Subtitle translation: look up the translation track separately by playback position and show the translation on screen at that moment as is
   - Transcript cards: assign each translated cue to the card (sentence) it overlaps most in time (ties to the earlier card); join them if several land on one card. A spoken line goes to a sound-label card only when it overlaps no other card
-  - YouTube's auto-translation comes back with the same breaks as the original, so map it one to one
+  - YouTube's auto-translation of a manual track comes back with the same breaks as the original, so map it one to one; for an auto-generated track the cards come from its sentences (see "Transcript")
 - The occurrence's `translation` stores the translation shown at that time
 - Articles have no site translation, so only the built-in translator is used
 

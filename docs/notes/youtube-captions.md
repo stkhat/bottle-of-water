@@ -49,6 +49,13 @@ Top level: `wireMagic: "pb3"`, `pens`, `wsWinStyles`, `wpWinPositions`, `events[
 - ASR (`kind=asr`): a first window-definition event without `segs` (`dDurationMs` = whole video), then alternating word events `{ tStartMs, dDurationMs, wWinId, segs: [{ utf8: "how" }, { utf8: " are", tOffsetMs: 240, acAsrConf }…] }` and `aAppend: 1` events whose only seg is `"\n"`. Events overlap (two-line rolling window), some lack `dDurationMs`, there is no punctuation or capitalization in this track, and filler words (`um`, `uh`) are included. Each word event contains only new words.
 - The Japanese manual track has its own segmentation (2–7 s cues, a translator credit cue at 0 s).
 
+## Auto-translation of an ASR track (checked 2026-11-11)
+Videos: `GLNVMi_4Khw` (gaming commentary, 2018, ASR without punctuation), `1w5R5QOjbVY` and `RVzIGNFyvYU` (vlogs, ASR with punctuation), `P30_ec_t0Y8` (30-minute interview, ASR with sparse punctuation, `>>` at speaker changes, `[music]` inside sentences). Newer ASR tracks have punctuation and capitals; older ones have none.
+- `kind=asr&tlang=ja` keeps the English word events' `tStartMs` (some events get no text and are left out). YouTube translates **whole sentences**, punctuating them itself even when the English track has none, and spreads each translation over the events, with `tOffsetMs` interpolated evenly over the English words' span. So the Japanese of one English event is often half of one sentence and half of the next ("…変えます。それは"), and sentence ends drift by a few words, sometimes an event.
+- Every 。！？ in the translation is a sentence end YouTube saw; marks inside 「」 are not (「いいね！」を押して…). One English sentence is sometimes translated as two (", which is crazy." → "…。それはとんでもない金額だ。").
+- `tlang=en` on an English ASR track gives the raw words in one event, without punctuation: no way to get YouTube's punctuation directly.
+- Lingo follows the translation's sentences (`alignAsrSentences`, `src/core/subtitles/asr.ts`). Fixtures (first 150 s, English ASR and `tlang=ja`) in `src/core/subtitles/fixtures/youtube/`: `asr-plain-*` (`GLNVMi_4Khw`), `asr-punctuated-*` (`1w5R5QOjbVY`), `asr-interview-*` (`P30_ec_t0Y8`).
+
 ## Watch page DOM (desktop, default two-column layout)
 - Player: `#movie_player.html5-video-player` (inside `ytd-player#ytd-player > #container`, under `#primary-inner > #player > #player-container-outer > #player-container-inner > #player-container`). Player API methods live on this element.
 - Video: `video.video-stream.html5-main-video` inside `.html5-video-container`. The same `<video>` and player element are reused across SPA navigations.

@@ -7,6 +7,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 - **Phase 2 is built** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)), PR #6: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md)), M8c sentence history ([plan](plans/2026-11-10-m8c-sentence-history.md)), M8d words in this video ([plan](plans/2026-11-10-m8d-video-words.md)), M8e fullscreen ([plan](plans/2026-11-10-m8e-fullscreen.md))
 - Real-site checks (2026-11-10, user's Chrome via Claude in Chrome): YouTube (Ken Robinson TED talk) and Netflix (Friends, `watch/70274124`) work — subtitles, translations, transcript, hover card, dictionary window, saving, L/^ controls, seek. Details: [notes/youtube-captions.md](notes/youtube-captions.md), [notes/netflix.md](notes/netflix.md)
 - Phase 2 real-site checks (2026-11-10, same videos plus Wikipedia): the Words tab (219 rows on the TED talk), detected phrases ("play out", "running through", "used to") with English definitions, fullscreen on both sites (youtube.com makes `<html>` fullscreen, so Lingo's page layer stays in `<body>`; netflix.com makes `.watch-video` fullscreen and the layer moves into it), the 34 px subtitle, hover card, dictionary window at the top right and the reduced ^ menu, "Seen elsewhere · 11" for an unsaved word after visiting two other Wikipedia pages. Netflix's subtitle lift above the control bar and the ^ menu now checked
+- YouTube auto-generated captions (2026-11-11, branch `fix/asr-captions`): transcript cards follow the sentences of YouTube's auto-translation, so each card's Japanese is that sentence's translation, and the video shows a card as lines of at most 60 characters. Checked on four ASR videos (`GLNVMi_4Khw`, `1w5R5QOjbVY`, `RVzIGNFyvYU`, `P30_ec_t0Y8`); details in [notes/youtube-captions.md](notes/youtube-captions.md)
 
 ## What phase 1 contains
 | Area | Where | Plan |
@@ -39,6 +40,7 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - A selected (saved) phrase only finds history sentences recorded after it was saved: index keys are fixed when a sentence is kept
 - The 50 MB history figure is Lingo's own estimate; IndexedDB's indexes take more space on disk
 - Production builds use closed shadow roots, so E2E drives the page UI on the check build only
+- YouTube ASR: in stretches where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts); a card can then hold a long run-on (up to ~70 words), shown as several lines. Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma
 
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
