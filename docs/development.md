@@ -54,11 +54,12 @@ npx web-ext lint -s .output/firefox-mv3
 ```
 
 ## CI/CD
-- `ci.yml` (push to main, pull requests), all jobs in parallel: `check` (typecheck, lint, format, CLAUDE.md limit); `unit` on Linux and Windows (unit tests, both builds and the check build, manifest); `browser` on Linux, one job each for Chromium and Firefox; `e2e` on Linux (reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`). `browser` and `e2e` run in Playwright's image (`mcr.microsoft.com/playwright`), so no browser install; its tag must match `@playwright/test` (`scripts/check-playwright-image.mjs` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
-- `cross-os.yml`: weekly (Monday 04:00 UTC) and manual run of the browser and E2E tests on macOS and Windows.
+- Tests run locally first: `npm run verify` before every push. GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.
+- `ci.yml` (pull requests that are not drafts, and manual runs; not on pushes to main): one Linux job in Playwright's image (`mcr.microsoft.com/playwright`, browsers preinstalled) that runs check, unit, browser tests on Chromium and Firefox, all builds, manifest, E2E (reports uploaded on failure), the zips and `web-ext lint` (artifact `lingo-zips`). The image tag must match `@playwright/test` (`scripts/check-playwright-image.mjs` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
+- `cross-os.yml` (manual only): the whole suite on macOS and Windows. Run it before a release, or after changing code that touches paths, files or the OS.
 - `release.yml` (tag `v*` or manual run): verifies the tag equals the `package.json` version, builds both zips, and for tags creates a GitHub release with the zips attached.
-- `mutation.yml`: weekly (Monday 03:00 UTC) and manual Stryker run; uploads `reports/mutation`.
-- `dependabot.yml`: weekly updates for npm and GitHub Actions. TypeScript major updates are ignored until typescript-eslint supports TypeScript 7.
+- `mutation.yml` (manual only): Stryker run; uploads `reports/mutation`.
+- `dependabot.yml`: weekly updates for npm and GitHub Actions, one grouped pull request each. TypeScript major updates are ignored until typescript-eslint supports TypeScript 7.
 
 ## Release steps
 1. Bump `version` in `package.json` and merge.

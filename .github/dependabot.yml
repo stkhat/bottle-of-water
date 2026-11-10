@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # One pull request a week for all npm updates (each pull request runs CI once ready).
+    groups:
+      npm:
+        patterns: ["*"]
     ignore:
       # TypeScript 7 (the native port) drops the JS compiler API, and
       # typescript-eslint 8.x requires typescript <6.1.0. Remove this once
@@ -14,3 +18,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

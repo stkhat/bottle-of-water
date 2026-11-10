@@ -1,9 +1,13 @@
 name: CI
 
+# Tests run locally first (`npm run verify` before every push). GitHub runs them once a
+# pull request is ready to merge: not on drafts, not on pushes to main (merged pull
+# requests were already tested). Mark a pull request "Ready for review" to run this, or
+# start it by hand.
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,13 +16,20 @@ concurrency:
 permissions:
   contents: read
 
-# The browser jobs run in Playwright's image, which has the browsers and their system
-# libraries installed. Its tag must match @playwright/test in package-lock.json: bump
-# both together (the first step of those jobs checks).
-
 jobs:
-  check:
+  # One Linux job: each extra job pays for its own setup and `npm ci`. It runs in
+  # Playwright's image, which has the browsers and their system libraries installed.
+  # The tag must match @playwright/test in package-lock.json: bump both together (the
+  # "Check the Playwright image" step fails otherwise). cross-os.yml runs the tests on
+  # macOS and Windows by hand.
+  ci:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
+    env:
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -26,95 +37,25 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Check the Playwright image matches @playwright/test
+        run: node scripts/check-playwright-image.mjs
       - run: npm run check
-
-  # Logic and builds on Linux and Windows (no browsers). Browser and E2E tests run on Linux here;
-  # cross-os.yml runs them on macOS and Windows every week.
-  unit:
-    name: unit (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # No macOS: the dev Mac runs these before every push, and macOS runners queue
-        # for minutes and cost the most. cross-os.yml covers macOS weekly.
-        os: [ubuntu-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
       - run: npm test
+      - run: npm run test:browser
       - run: npm run build
       - run: npm run build:firefox
       - run: npm run build:check
       - run: npm run test:manifest
-
-  browser:
-    name: browser (${{ matrix.browser }})
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.65.0-noble
-      options: --user 1001
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox]
-    env:
-      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - name: Check the Playwright image matches @playwright/test
-        run: node scripts/check-playwright-image.mjs
-      - run: npm run test:browser
-        env:
-          VITEST_BROWSERS: ${{ matrix.browser }}
-
-  e2e:
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.65.0-noble
-      options: --user 1001
-    env:
-      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - name: Check the Playwright image matches @playwright/test
-        run: node scripts/check-playwright-image.mjs
-      - run: npm run build
-      - run: npm run build:check
       - run: npm run test:e2e
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-reports
+          name: test-reports
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
-
-  package:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
       - run: npm run zip
       - run: npm run zip:firefox
       - run: npx web-ext lint --source-dir .output/firefox-mv3
