@@ -28,10 +28,10 @@ export function kilobytes(bytes: number): number {
   return Math.max(1, Math.round(bytes / 1024));
 }
 
-/** Whole MB (1,048,576 bytes); under half a MB is 0 MB. */
+/** Whole MB (1,048,576 bytes); any data at all counts as at least 1 MB. */
 export function megabytes(bytes: number): number {
   if (bytes <= 0) return 0;
-  return Math.round(bytes / (1024 * 1024));
+  return Math.max(1, Math.round(bytes / (1024 * 1024)));
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");

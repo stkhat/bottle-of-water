@@ -110,6 +110,7 @@
   "settings.history.space": "Space used",
   "settings.history.spaceUsed": "{used} MB of {cap} MB",
   "settings.history.pages": "{count} pages and videos · the oldest are removed first when space runs out",
+  "settings.history.onePage": "1 page or video · the oldest are removed first when space runs out",
   "settings.history.empty": "Nothing kept yet",
   "settings.history.clear": "Clear history",
   "settings.history.clearDesc": "Saved words and their sources stay.",

@@ -489,8 +489,8 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const quota = sync ? kilobytes(sync.quotaBytes) : 0;
   const share = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
   const historyShare =
-    history && history.cap > 0
-      ? Math.min(100, (history.bytes / history.cap) * 100)
+    history && history.cap > 0 && history.bytes > 0
+      ? Math.min(100, Math.max(1, (history.bytes / history.cap) * 100))
       : 0;
   const clearHistory = () =>
     deps.send({ type: "clearHistory" }).then(refreshHistory, warn);
@@ -912,9 +912,13 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             </div>
             <span style={{ fontSize: "13px", color: color.muted }}>
               {history &&
-                (history.pages > 0
-                  ? t("settings.history.pages", { count: fmt(history.pages) })
-                  : t("settings.history.empty"))}
+                (history.pages === 0
+                  ? t("settings.history.empty")
+                  : history.pages === 1
+                    ? t("settings.history.onePage")
+                    : t("settings.history.pages", {
+                        count: fmt(history.pages),
+                      }))}
             </span>
           </div>
           <div class="row">

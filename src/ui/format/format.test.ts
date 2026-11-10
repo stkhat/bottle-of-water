@@ -53,8 +53,9 @@ describe("megabytes", () => {
     expect(megabytes(0)).toBe(0);
   });
 
-  it("shows less than half a MB as 0 MB", () => {
-    expect(megabytes(120_000)).toBe(0);
+  it("shows any data as at least 1 MB", () => {
+    expect(megabytes(120)).toBe(1);
+    expect(megabytes(120_000)).toBe(1);
   });
 });
 

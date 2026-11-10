@@ -452,6 +452,25 @@ describe("SettingsPage", () => {
       await expect.element(history.getByText("0 MB of 50 MB")).toBeVisible();
     });
 
+    it("counts one page alone, and a little data as 1 MB of the bar", async () => {
+      const f = await open({
+        history: { bytes: 2048, cap: 50 * MB, pages: 1 },
+      });
+      const history = section(f.screen, "Sentence history");
+      await expect
+        .element(
+          history.getByText(
+            "1 page or video · the oldest are removed first when space runs out",
+          ),
+        )
+        .toBeVisible();
+      await expect.element(history.getByText("1 MB of 50 MB")).toBeVisible();
+      const fill = history
+        .element()
+        .querySelector<HTMLElement>('[aria-hidden="true"] > div')!;
+      expect(fill.style.width).toBe("1%");
+    });
+
     it("turns sentence history off and on", async () => {
       const f = await open();
       const toggle = section(f.screen, "Sentence history").getByRole("switch", {
