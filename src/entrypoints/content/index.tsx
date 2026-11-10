@@ -9,7 +9,9 @@ import { isPageRequest } from "../../messaging/page-protocol";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
-  cssInjectionMode: "ui",
+  // The UI is styled inline and imports no CSS: nothing to load into its shadow root
+  // ("ui" would fetch a content.css that is never built) or into the page.
+  cssInjectionMode: "manual",
   async main(ctx) {
     // The video UI runs there and answers the popup.
     if (isVideoSite(location.hostname)) return;
