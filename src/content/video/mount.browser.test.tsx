@@ -583,6 +583,12 @@ describe("mountVideoUi", () => {
     it("shows the hover card and the dictionary window over the video, top right", async () => {
       const { store } = mount();
       await enterFullscreen(page.player);
+      // Moved into the fullscreen element on the next frame after fullscreenchange:
+      // until then it is under the top layer.
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(page.player);
+      await expect.poll(() => store.get().fullscreen).toBe(true);
       await expect.poll(() => line()).not.toBeNull();
       const tangy = [
         ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
@@ -603,17 +609,23 @@ describe("mountVideoUi", () => {
         },
       });
       await expect.poll(() => text("lingo-video")).toContain("Learning");
+      /**
+       * Whether `element` is what shows at its own middle. Asked of the shadow root: its
+       * `elementFromPoint` returns the element inside it, or the page's element (the
+       * player) when that covers it, in every engine, whatever the host's `display`.
+       */
       const shown = (element: Element) => {
         const box = element.getBoundingClientRect();
-        return document.elementFromPoint(
+        const top = inside("lingo-video")!.elementFromPoint(
           box.left + box.width / 2,
           box.top + box.height / 2,
         );
+        return top !== null && element.contains(top);
       };
       const hoverCard = [
         ...inside("lingo-video")!.querySelectorAll("button"),
       ].find((b) => b.textContent?.includes("Learning"))!;
-      expect(shown(hoverCard)).toBe(host("lingo-video"));
+      expect(shown(hoverCard)).toBe(true);
       // Above the word.
       expect(hoverCard.getBoundingClientRect().bottom).toBeLessThan(r.top);
 
@@ -623,7 +635,7 @@ describe("mountVideoUi", () => {
       expect(win.top).toBe(32);
       expect(win.right).toBe(Math.max(innerWidth - 32, 368));
       expect(win.height).toBe(Math.min(420, innerHeight - 40));
-      expect(shown(dictionary()!)).toBe(host("lingo-video"));
+      expect(shown(dictionary()!)).toBe(true);
       // A darker shadow over the video (mock Fullscreen).
       expect(getComputedStyle(dictionary()!).boxShadow).toBe(
         "rgba(0, 0, 0, 0.45) 0px 18px 48px 0px",
