@@ -23,6 +23,7 @@ const figureOut: DictionaryWindowProps = {
     ],
   },
   nativeLang: "ja",
+  learningLang: "en",
   status: "learning",
   onStatus: () => {},
   onSpeak: () => {},
@@ -111,6 +112,35 @@ describe("DictionaryWindow", () => {
     await expect
       .element(screen.getByText("To come to understand; to discover."))
       .toHaveAttribute("lang", "en");
+  });
+
+  test("marks the sentences as the learning language", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
+    for (const text of [
+      "Once you figure out the timing, it's easy.",
+      "…you just have to figure it out yourself.",
+    ])
+      await expect
+        .element(screen.getByText(text, { exact: true }))
+        .toHaveAttribute("lang", "en");
+
+    const spanish = await mountInShadowRoot(
+      <DictionaryWindow {...panel} learningLang="es" />,
+    );
+    // The page's sentence is both on this page and seen elsewhere.
+    const sentence = spanish.getByText(
+      "…once you figure out a schedule that fits your week…",
+      { exact: true },
+    );
+    await expect.element(sentence.first()).toHaveAttribute("lang", "es");
+    await expect.element(sentence.last()).toHaveAttribute("lang", "es");
+    await expect
+      .element(
+        spanish.getByText("…you just have to figure it out yourself.", {
+          exact: true,
+        }),
+      )
+      .toHaveAttribute("lang", "es");
   });
 
   test("the window has a header with a move handle; the panel does not", async () => {

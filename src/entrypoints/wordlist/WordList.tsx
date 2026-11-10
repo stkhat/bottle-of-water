@@ -384,6 +384,8 @@ const savedFrom = (occurrences: readonly OccurrenceView[]) =>
 function DetailsPanel(props: {
   details: Details;
   nativeLang: string;
+  /** The language of the term and its sentences. */
+  learningLang: string;
   now: number;
   onStatus: (status: WordStatus) => void;
   onSpeak: (head: string) => void;
@@ -503,7 +505,7 @@ function DetailsPanel(props: {
             {t("wordlist.seenIn", { count: items.length })}
           </h3>
           {items.map((item, i) => (
-            <ElsewhereRow key={i} item={item} />
+            <ElsewhereRow key={i} item={item} lang={props.learningLang} />
           ))}
         </div>
       </div>
@@ -800,6 +802,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           <DetailsPanel
             details={details}
             nativeLang={langs.native}
+            learningLang={langs.learning}
             now={now}
             onStatus={(to) => void changeStatus(to)}
             onSpeak={(head) => deps.speak(head, langs.learning)}

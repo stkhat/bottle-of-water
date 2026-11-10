@@ -333,6 +333,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             glossLang: panel.card.glossLang,
           }}
           nativeLang={settings.nativeLang}
+          learningLang={settings.learningLang}
           status={panel.card.status}
           onStatus={app.setPanelStatus}
           onSpeak={app.speak}

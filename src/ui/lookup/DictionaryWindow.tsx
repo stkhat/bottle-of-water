@@ -48,6 +48,8 @@ interface CommonProps {
   entry: DictionaryEntryView;
   /** Language of the translation and meanings, for their `lang` attribute. */
   nativeLang: string;
+  /** Language of the entry's sentences (the language being learned), for their `lang` attribute. */
+  learningLang: string;
   status: WordStatus;
   onStatus: (status: WordStatus) => void;
   onSpeak: () => void;
@@ -410,7 +412,12 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
             })}
           </h3>
           {props.here.items.map((item, i) => (
-            <HereRow key={i} item={item} source={props.here.source} />
+            <HereRow
+              key={i}
+              item={item}
+              source={props.here.source}
+              lang={props.learningLang}
+            />
           ))}
         </div>
       )}
@@ -420,7 +427,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
           {t("dict.elsewhere", { count: props.elsewhere.length })}
         </h3>
         {props.elsewhere.map((item, i) => (
-          <ElsewhereRow key={i} item={item} />
+          <ElsewhereRow key={i} item={item} lang={props.learningLang} />
         ))}
         {props.status === "new" && props.elsewhere.length === 0 && (
           <p
@@ -439,7 +446,12 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
   );
 }
 
-function HereRow(props: { item: HereItem; source: "video" | "page" }) {
+function HereRow(props: {
+  item: HereItem;
+  source: "video" | "page";
+  /** The sentence's language. */
+  lang: string;
+}) {
   const { item } = props;
   const style: Style =
     props.source === "video"
@@ -489,7 +501,7 @@ function HereRow(props: { item: HereItem; source: "video" | "page" }) {
           {item.time}
         </span>
       )}
-      <span>{item.text}</span>
+      <span lang={props.lang}>{item.text}</span>
     </>
   );
   return item.onClick ? (
@@ -506,7 +518,11 @@ function HereRow(props: { item: HereItem; source: "video" | "page" }) {
 }
 
 /** An occurrence in another source: its icon, title, meta and sentence; a link when it has one. */
-export function ElsewhereRow(props: { item: ElsewhereItem }) {
+export function ElsewhereRow(props: {
+  item: ElsewhereItem;
+  /** The sentence's language. */
+  lang: string;
+}) {
   const { item } = props;
   const style: Style = {
     display: "flex",
@@ -566,7 +582,10 @@ export function ElsewhereRow(props: { item: ElsewhereItem }) {
         <span style={{ fontSize: "12px", color: color.muted }}>
           {item.meta}
         </span>
-        <span style={{ fontSize: "13px", lineHeight: 1.5, color: color.ink3 }}>
+        <span
+          lang={props.lang}
+          style={{ fontSize: "13px", lineHeight: 1.5, color: color.ink3 }}
+        >
           {item.text}
         </span>
       </span>

@@ -64,6 +64,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
               glossLang: panel.card.glossLang,
             }}
             nativeLang={settings.nativeLang}
+            learningLang={settings.learningLang}
             status={panel.card.status}
             onStatus={app.setPanelStatus}
             onSpeak={app.speak}
