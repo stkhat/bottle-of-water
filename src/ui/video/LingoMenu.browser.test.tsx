@@ -43,6 +43,31 @@ describe("LingoMenu", () => {
     await expect.element(inVideo).toHaveAttribute("aria-pressed", "false");
   });
 
+  test("in fullscreen: no subtitle position (mock Fullscreen)", async () => {
+    const screen = await mountInShadowRoot(
+      <LingoMenu {...base} showPositions={false} />,
+    );
+    await expect
+      .element(screen.getByRole("dialog", { name: "Lingo menu" }))
+      .toBeVisible();
+    expect(screen.container.textContent).not.toContain("Subtitles");
+    expect(screen.container.querySelector("[role=group]")).toBeNull();
+    await expect
+      .element(
+        screen.getByRole("switch", {
+          name: "Show translation under the subtitle",
+        }),
+      )
+      .toBeVisible();
+    await expect
+      .element(screen.getByRole("button", { name: "Open all settings" }))
+      .toBeVisible();
+    screen.rerender(<LingoMenu {...base} showPositions />);
+    await expect
+      .element(screen.getByRole("group", { name: "Subtitle position" }))
+      .toBeVisible();
+  });
+
   test("the translation switch", async () => {
     const onToggleTranslation = vi.fn();
     const screen = await mountInShadowRoot(

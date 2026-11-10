@@ -1137,15 +1137,37 @@ describe("where Lingo runs", () => {
 });
 
 describe("fullscreen", () => {
-  it("gives the site's captions back in fullscreen", async () => {
+  it("keeps the site's captions hidden on entering and leaving fullscreen", async () => {
     const { state, app, site } = await start();
     await ready(state);
     expect(site.log.hidden).toEqual([true]);
     app.setFullscreen(true);
     expect(state().fullscreen).toBe(true);
-    expect(site.log.hidden.at(-1)).toBe(false);
-    app.setFullscreen(false);
     expect(site.log.hidden.at(-1)).toBe(true);
+    app.setFullscreen(false);
+    expect(state().fullscreen).toBe(false);
+    expect(site.log.hidden.at(-1)).toBe(true);
+  });
+
+  it("hides the site's captions for a video loaded in fullscreen", async () => {
+    const { state, app, site } = await start({
+      vid1: captionsOf(CUES),
+      vid2: captionsOf([{ startMs: 0, endMs: 4000, text: "A new loaf." }]),
+    });
+    await ready(state);
+    app.setFullscreen(true);
+    site.navigate("vid2");
+    expect(state()).toMatchObject({ videoId: "vid2", fullscreen: true });
+    await ready(state);
+    expect(site.log.hidden.at(-1)).toBe(true);
+  });
+
+  it("gives the site's captions back when Lingo is turned off in fullscreen", async () => {
+    const { state, app, site } = await start();
+    await ready(state);
+    app.setFullscreen(true);
+    app.setEnabled(false);
+    expect(site.log.hidden.at(-1)).toBe(false);
   });
 });
 

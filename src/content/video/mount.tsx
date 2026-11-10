@@ -46,6 +46,29 @@ interface Part {
   moves: { second: number; count: number; parent: Element | null };
 }
 
+/** Elements that do not draw their children (the fullscreen element can be the video). */
+const NO_CHILDREN = new Set([
+  "VIDEO",
+  "AUDIO",
+  "IMG",
+  "IFRAME",
+  "CANVAS",
+  "EMBED",
+  "OBJECT",
+]);
+
+/**
+ * Where the parts over the page go in fullscreen, where only the fullscreen element is
+ * drawn: straight inside it (deeper, an ancestor with a transform would move what is
+ * fixed), or in its parent when it cannot hold children. Null outside fullscreen, or when
+ * the whole page is in fullscreen.
+ */
+function fullscreenHost(): Element | null {
+  const element = document.fullscreenElement;
+  if (!element || element.contains(document.body)) return null;
+  return NO_CHILDREN.has(element.tagName) ? element.parentElement : element;
+}
+
 /** The most a part is moved back into the same parent in one second. */
 const MAX_MOVES_PER_SECOND = 10;
 
@@ -59,9 +82,9 @@ const boxOf = (element: Element | null | undefined): Box | null => {
  * Mounts the video UI on the site's page, each part in its own shadow root: the
  * subtitle and the menu inside the player, the subtitle box under it, the transcript in
  * the side column, the L and ^ buttons in the player bar, and the hover card, the
- * dictionary window and the end card over the page. The site re-renders its page
- * (YouTube is a single-page app): a MutationObserver puts the parts back. Returns an
- * unmount.
+ * dictionary window and the end card over the page (inside the fullscreen element while
+ * there is one). The site re-renders its page (YouTube is a single-page app): a
+ * MutationObserver puts the parts back. Returns an unmount.
  */
 export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   const layout = createStore<VideoLayout>({
@@ -133,7 +156,10 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   part(
     "lingo-video",
     "display: contents;",
-    () => (document.body ? { parent: document.body, before: null } : null),
+    () => {
+      const parent = fullscreenHost() ?? document.body;
+      return parent ? { parent, before: null } : null;
+    },
     <PageUi app={app} geometry={geometry} />,
   );
 
@@ -198,8 +224,10 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   });
   place();
 
-  const onFullscreen = () =>
+  const onFullscreen = () => {
     app.setFullscreen(document.fullscreenElement !== null);
+    schedule();
+  };
   document.addEventListener("fullscreenchange", onFullscreen);
 
   return () => {

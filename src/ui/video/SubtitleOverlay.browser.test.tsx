@@ -115,6 +115,38 @@ describe("SubtitleOverlay", () => {
     expect(style.backgroundColor).toBe("rgba(8, 10, 16, 0.8)");
   });
 
+  test("in fullscreen: larger lines on dark boxes (mock Fullscreen)", async () => {
+    const screen = await mountInShadowRoot(
+      <SubtitleOverlay {...base} variant="fullscreen" />,
+    );
+    const region =
+      screen.container.querySelector<HTMLElement>("[role=region]")!;
+    expect(getComputedStyle(region).rowGap).toBe("8px");
+    const line = getComputedStyle(
+      screen.container.querySelector<HTMLElement>("[lang=en]")!,
+    );
+    expect(line.fontSize).toBe("34px");
+    expect(line.lineHeight).toBe("51px");
+    expect(line.fontWeight).toBe("500");
+    expect(line.padding).toBe("6px 18px");
+    expect(line.borderRadius).toBe("10px");
+    expect(line.color).toBe("rgb(255, 255, 255)");
+    expect(line.backgroundColor).toBe("rgba(8, 10, 16, 0.8)");
+    const translation = getComputedStyle(
+      screen.container.querySelector<HTMLElement>("[lang=ja]")!,
+    );
+    expect(translation.fontSize).toBe("24px");
+    expect(translation.lineHeight).toBe("36px");
+    expect(translation.padding).toBe("4px 14px");
+    expect(translation.borderRadius).toBe("10px");
+    expect(translation.color).toBe("rgb(233, 235, 240)");
+    expect(translation.backgroundColor).toBe("rgba(8, 10, 16, 0.72)");
+    // The in-video colors: the learning highlight on the dark box.
+    const figure = getComputedStyle(word(screen, "figure out"));
+    expect(figure.backgroundColor).toBe("rgba(15, 159, 126, 0.55)");
+    expect(figure.boxShadow).toContain("rgb(111, 227, 195)");
+  });
+
   test("outlines the word whose dictionary window is open", async () => {
     const screen = await mountInShadowRoot(
       <SubtitleOverlay {...base} selected={1} />,

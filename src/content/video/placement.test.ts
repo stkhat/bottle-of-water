@@ -78,6 +78,19 @@ describe("dictionaryFrame", () => {
     expect(dictionaryFrame(narrow, "inVideo", VIEWPORT).left).toBe(8);
   });
 
+  it("in fullscreen: top right, 32px from the edges, 360×420 (mock Fullscreen)", () => {
+    const screen = { left: 0, top: 0, right: 1440, bottom: 900 };
+    expect(dictionaryFrame(screen, "fullscreen", VIEWPORT, null)).toEqual({
+      left: 1440 - 32 - 360,
+      top: 32,
+      height: 420,
+    });
+    // A small screen: inside it.
+    expect(
+      dictionaryFrame(screen, "fullscreen", { width: 380, height: 300 }),
+    ).toEqual({ left: 8, top: 32, height: 260 });
+  });
+
   it("is never shorter than 240px", () => {
     const short = { left: 24, top: 112, right: 504, bottom: 382 };
     expect(dictionaryFrame(short, "inVideo", VIEWPORT).height).toBe(240);

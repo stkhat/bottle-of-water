@@ -3,6 +3,7 @@ import { page as browserPage, userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import { DEFAULT_SETTINGS, mergeSettings } from "../../core/settings";
 import type { Cue } from "../../core/subtitles/types";
+import type { TermCard } from "../article/describe";
 import { createStore } from "../ui/store";
 import { mountVideoUi } from "./mount";
 import type { VideoApp, VideoState } from "./session";
@@ -70,7 +71,10 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
 /** An app whose methods are spies, over a store the test changes. */
 function fakeApp(state: VideoState) {
   const store = createStore(state);
-  const calls = new Map<string, ReturnType<typeof vi.fn>>();
+  const calls = new Map<string, ReturnType<typeof vi.fn>>([
+    // As the session does.
+    ["setFullscreen", vi.fn((on: boolean) => store.set({ fullscreen: on }))],
+  ]);
   const app = new Proxy({ store } as unknown as VideoApp, {
     get(target, name: string) {
       if (name === "store") return store;
@@ -108,7 +112,8 @@ beforeEach(() => {
     href: () => `https://www.youtube.com/watch?v=${VIDEO_ID}`,
   });
 });
-afterEach(() => {
+afterEach(async () => {
+  if (document.fullscreenElement) await document.exitFullscreen();
   unmount?.();
   unmount = undefined;
   adapter.dispose();
@@ -125,6 +130,29 @@ function mount(state: VideoState = readyState()) {
 const host = (name: string) => document.querySelector(name) as HTMLElement;
 const inside = (name: string) => host(name)?.shadowRoot ?? null;
 const text = (name: string) => inside(name)?.textContent ?? "";
+
+const TANGY: TermCard = {
+  key: "tangy",
+  kind: "word",
+  head: "tangy",
+  status: "learning",
+  termId: "en:tangy",
+  senses: [],
+  elsewhere: [],
+};
+
+/** Enters fullscreen on `element` from the user's click, as the site's button does. */
+async function enterFullscreen(element: Element) {
+  const button = document.createElement("button");
+  button.textContent = "Full screen";
+  button.style.cssText =
+    "position: fixed; top: 0; left: 0; z-index: 2147483647;";
+  button.onclick = () => void element.requestFullscreen();
+  document.body.append(button);
+  await userEvent.click(button);
+  button.remove();
+  await expect.poll(() => document.fullscreenElement).toBe(element);
+}
 
 describe("mountVideoUi", () => {
   it("puts each part where it belongs on the watch page", async () => {
@@ -451,22 +479,216 @@ describe("mountVideoUi", () => {
       .toContain("Video finished");
   });
 
-  it("follows fullscreen", async () => {
-    const { spy } = mount();
-    await expect.poll(() => host("lingo-video-player")?.isConnected).toBe(true);
-    const button = document.createElement("button");
-    button.textContent = "full";
-    button.onclick = () => void page.player.requestFullscreen();
-    document.body.append(button);
-    await userEvent.click(button);
-    await expect
-      .poll(() => spy("setFullscreen").mock.calls.at(-1))
-      .toEqual([true]);
-    await document.exitFullscreen();
-    await expect
-      .poll(() => spy("setFullscreen").mock.calls.at(-1))
-      .toEqual([false]);
-    button.remove();
+  describe("in fullscreen", () => {
+    const panelOn = (opened = 1): Partial<VideoState> => ({
+      panel: {
+        ref: { cue: 0, span: 1 },
+        card: TANGY,
+        here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+        dictionaries: [],
+        opened,
+      },
+    });
+    const dictionary = () =>
+      inside("lingo-video")?.querySelector<HTMLElement>(
+        "aside[aria-label='Dictionary window']",
+      ) ?? null;
+    /** The subtitle's first line (the learning language). */
+    const line = () =>
+      inside("lingo-video-player")?.querySelector<HTMLElement>(
+        "[role=region] [lang=en]",
+      ) ?? null;
+
+    it("tells the app, and moves the page's parts into the fullscreen element and back", async () => {
+      const { spy } = mount();
+      await expect
+        .poll(() => host("lingo-video")?.parentElement)
+        .toBe(document.body);
+      await enterFullscreen(page.player);
+      await expect
+        .poll(() => spy("setFullscreen").mock.calls.at(-1))
+        .toEqual([true]);
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(page.player);
+      // The other parts stay where they are.
+      expect(host("lingo-video-player").parentElement).toBe(page.player);
+      await document.exitFullscreen();
+      await expect
+        .poll(() => spy("setFullscreen").mock.calls.at(-1))
+        .toEqual([false]);
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(document.body);
+    });
+
+    it("goes into a page-level fullscreen element, or the parent of a fullscreen video", async () => {
+      mount();
+      await enterFullscreen(page.root);
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(page.root);
+      await document.exitFullscreen();
+      await enterFullscreen(page.video);
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(page.video.parentElement);
+      await document.exitFullscreen();
+      // The whole page: <body> is inside it already.
+      await enterFullscreen(document.documentElement);
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(document.body);
+    });
+
+    it("shows the subtitle in the video with the fullscreen look, even when it goes below the video, and puts it back after", async () => {
+      const { store } = mount();
+      store.set({
+        settings: mergeSettings(
+          { subtitlePosition: "belowVideo" },
+          store.get().settings,
+        ),
+      });
+      await expect
+        .poll(() => text("lingo-video-below"))
+        .toContain("The yeast smells tangy.");
+      await enterFullscreen(page.player);
+      await expect
+        .poll(() => line()?.textContent)
+        .toBe("The yeast smells tangy.");
+      expect(text("lingo-video-below")).toBe("");
+      expect(text("lingo-transcript")).toBe("");
+      expect(getComputedStyle(line()!).fontSize).toBe("34px");
+      // 120px above the bottom, in from each side by 14% of the width (24–200px).
+      const region = inside("lingo-video-player")!
+        .querySelector("[role=region]")!
+        .getBoundingClientRect();
+      const player = page.player.getBoundingClientRect();
+      expect(player.width).toBe(innerWidth);
+      expect(region.bottom).toBeCloseTo(player.bottom - 120, 0);
+      const inset = Math.min(200, Math.max(24, player.width * 0.14));
+      expect(region.left).toBeCloseTo(player.left + inset, 0);
+      expect(region.right).toBeCloseTo(player.right - inset, 0);
+
+      await document.exitFullscreen();
+      await expect
+        .poll(() => text("lingo-video-below"))
+        .toContain("The yeast smells tangy.");
+      expect(line()).toBeNull();
+      expect(text("lingo-transcript")).toContain("Knead the dough.");
+    });
+
+    it("shows the hover card and the dictionary window over the video, top right", async () => {
+      const { store } = mount();
+      await enterFullscreen(page.player);
+      await expect.poll(() => line()).not.toBeNull();
+      const tangy = [
+        ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+          "[data-span]",
+        ),
+      ].find((el) => el.textContent === "tangy")!;
+      const r = tangy.getBoundingClientRect();
+      store.set({
+        hover: {
+          ref: { cue: 0, span: 1 },
+          anchor: {
+            left: r.left,
+            top: r.top,
+            right: r.right,
+            bottom: r.bottom,
+          },
+          card: TANGY,
+        },
+      });
+      await expect.poll(() => text("lingo-video")).toContain("Learning");
+      const shown = (element: Element) => {
+        const box = element.getBoundingClientRect();
+        return document.elementFromPoint(
+          box.left + box.width / 2,
+          box.top + box.height / 2,
+        );
+      };
+      const hoverCard = [
+        ...inside("lingo-video")!.querySelectorAll("button"),
+      ].find((b) => b.textContent?.includes("Learning"))!;
+      expect(shown(hoverCard)).toBe(host("lingo-video"));
+      // Above the word.
+      expect(hoverCard.getBoundingClientRect().bottom).toBeLessThan(r.top);
+
+      store.set({ hover: null, ...panelOn() });
+      await expect.poll(dictionary).not.toBeNull();
+      const win = dictionary()!.getBoundingClientRect();
+      expect(win.top).toBe(32);
+      expect(win.right).toBe(Math.max(innerWidth - 32, 368));
+      expect(win.height).toBe(Math.min(420, innerHeight - 40));
+      expect(shown(dictionary()!)).toBe(host("lingo-video"));
+    });
+
+    it("moves an open dictionary window to the top right, and back beside the video after", async () => {
+      page.player.style.width = "880px";
+      page.player.style.height = "495px";
+      const { store } = mount(readyState(panelOn()));
+      await expect.poll(dictionary).not.toBeNull();
+      const before = dictionary()!.getBoundingClientRect();
+      await enterFullscreen(page.player);
+      await expect
+        .poll(() => dictionary()?.getBoundingClientRect().top)
+        .toBe(32);
+      await document.exitFullscreen();
+      await expect
+        .poll(() => dictionary()?.getBoundingClientRect().top)
+        .toBe(before.top);
+      expect(store.get().panel?.opened).toBe(1);
+    });
+
+    it("clicks and keys on Lingo's parts do not reach the player", async () => {
+      const { store } = mount(readyState(panelOn()));
+      await enterFullscreen(page.player);
+      await expect
+        .poll(() => host("lingo-video").parentElement)
+        .toBe(page.player);
+      const clicks = vi.fn();
+      const keys = vi.fn();
+      page.player.addEventListener("click", clicks);
+      page.player.addEventListener("keydown", keys);
+      await expect.poll(dictionary).not.toBeNull();
+      await expect.poll(() => line()).not.toBeNull();
+      dictionary()!.querySelector("button")!.click();
+      dictionary()!.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "k",
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      line()!.querySelector<HTMLElement>("[data-span]")!.click();
+      expect(clicks).not.toHaveBeenCalled();
+      expect(keys).not.toHaveBeenCalled();
+      expect(store.get().fullscreen).toBe(true);
+    });
+
+    it("the menu has no subtitle position, and has it again after", async () => {
+      const { store } = mount(readyState({ menuOpen: true }));
+      const menu = () =>
+        inside("lingo-video-player")?.querySelector("[role=dialog]") ?? null;
+      await expect.poll(menu).not.toBeNull();
+      expect(menu()!.querySelector("[role=group]")).not.toBeNull();
+      await enterFullscreen(page.player);
+      await expect
+        .poll(() => menu()?.querySelector("[role=group]") ?? null)
+        .toBeNull();
+      expect(menu()!.textContent).toContain("Show translation");
+      expect(menu()!.textContent).toContain("Open all settings");
+      // Still above the L and ^ buttons.
+      const dialog = menu()!.getBoundingClientRect();
+      const buttons = host("lingo-player-buttons").getBoundingClientRect();
+      expect(dialog.bottom).toBeLessThanOrEqual(buttons.top);
+      await document.exitFullscreen();
+      await expect
+        .poll(() => menu()?.querySelector("[role=group]") ?? null)
+        .not.toBeNull();
+      expect(store.get().menuOpen).toBe(true);
+    });
   });
 
   it("removes everything when unmounted", async () => {

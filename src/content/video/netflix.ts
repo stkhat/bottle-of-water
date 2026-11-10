@@ -281,7 +281,7 @@ export function createNetflixAdapter(
      pointer-events: none;`,
     () => doc.body,
   );
-  // In fullscreen Netflix's own subtitles show and Lingo's parts step aside.
+  // No transcript in fullscreen (mock Fullscreen): the side panel steps aside.
   const onFullscreen = () => {
     const element = doc.querySelector<HTMLElement>("lingo-netflix-side");
     if (element) element.hidden = doc.fullscreenElement !== null;

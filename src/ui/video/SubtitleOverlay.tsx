@@ -6,8 +6,11 @@ import { color, root } from "../lookup/styles";
 import { renderTerms, termStyle } from "./terms";
 
 export interface SubtitleOverlayProps {
-  /** Over the video (mock Main: dark boxes) or in a large light box under it. */
-  variant: "inVideo" | "belowVideo";
+  /**
+   * Over the video (mock Main: dark boxes), in a large light box under it, or over the
+   * video in fullscreen (mock Fullscreen: larger dark boxes).
+   */
+  variant: "inVideo" | "belowVideo" | "fullscreen";
   /** The playing cue's text. */
   text: string;
   /** The cue's spans; null until it is classified. */
@@ -58,6 +61,39 @@ const LOOK = {
       background: "rgba(8,10,16,0.72)",
       color: "#E9EBF0",
       fontSize: "17px",
+      lineHeight: 1.5,
+    },
+    colors: "onVideo",
+    outline: "#6FE3C3",
+  },
+  fullscreen: {
+    box: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "8px",
+      textAlign: "center",
+      pointerEvents: "none",
+    },
+    line: {
+      pointerEvents: "auto",
+      margin: 0,
+      padding: "6px 18px",
+      borderRadius: "10px",
+      background: "rgba(8,10,16,0.8)",
+      color: color.white,
+      fontSize: "34px",
+      lineHeight: 1.5,
+      fontWeight: 500,
+    },
+    translation: {
+      pointerEvents: "auto",
+      margin: 0,
+      padding: "4px 14px",
+      borderRadius: "10px",
+      background: "rgba(8,10,16,0.72)",
+      color: "#E9EBF0",
+      fontSize: "24px",
       lineHeight: 1.5,
     },
     colors: "onVideo",

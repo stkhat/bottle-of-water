@@ -143,7 +143,7 @@ export interface VideoState {
   panel: VideoPanel | null;
   /** The Lingo menu above the ^ button. */
   menuOpen: boolean;
-  /** The player is in fullscreen: the site's captions show instead (phase 1). */
+  /** The player is in fullscreen: no transcript, the subtitle always in the video. */
   fullscreen: boolean;
   /** The right column's tab; each video starts on the transcript. */
   panelTab: PanelTab;
@@ -302,10 +302,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     settings.sites[adapter.platform as "youtube" | "netflix"] !== false &&
     !hostBlocked(hostname(), settings);
 
-  /** Our subtitles replace the site's while there are some, Lingo is on and not in fullscreen. */
+  /** Our subtitles replace the site's while there are some and Lingo is on (fullscreen too). */
   function syncSiteCaptions() {
-    const { status, enabled, fullscreen } = store.get();
-    adapter.hideSiteCaptions(status === "ready" && enabled && !fullscreen);
+    const { status, enabled } = store.get();
+    adapter.hideSiteCaptions(status === "ready" && enabled);
   }
 
   const source = (): SourceInput => ({
@@ -401,8 +401,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         lang(),
         settings.nativeLang,
       );
-    if (store.get().enabled && !store.get().fullscreen)
-      adapter.hideSiteCaptions(true);
+    if (store.get().enabled) adapter.hideSiteCaptions(true);
     startTracking(w).catch(warn);
     await analyzeAll(w);
   }
