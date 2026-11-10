@@ -19,10 +19,13 @@ export interface PhrasesResult {
   };
 }
 export const PLACEHOLDER_WORDS: ReadonlySet<string>;
+export const IDIOM_COMMON_RANK: number;
+export const PHRASE_COMMON_RANK: number;
 export function importPhrases(
   path: string,
   vocab: Iterable<string>,
   dict: Dict,
+  freq: string[],
 ): Promise<PhrasesResult>;
 export function writePhrasePacks(result: PhrasesResult): {
   index: { shards: { file: string; first: string; last: string }[] };

@@ -34,6 +34,25 @@ const vocab = [
   "way",
   "kick",
   "the",
+  "it",
+];
+// Frequency ranks: the first words are in the top 100, "later" and "figure" in the top
+// 1000 but not the top 100; "scratch" and "heart" are outside the list.
+const freq = [
+  "the",
+  "you",
+  "to",
+  "it",
+  "in",
+  "give",
+  "up",
+  "see",
+  "out",
+  "from",
+  "by",
+  ...Array.from({ length: 100 }, (_, i) => `filler${i}`),
+  "later",
+  "figure",
 ];
 // EJDict multi-word headwords (and one single word).
 const dict = {
@@ -48,7 +67,7 @@ const dict = {
 describe("importPhrases", () => {
   let result: PhrasesResult;
   beforeAll(async () => {
-    result = await importPhrases(fixture, vocab, dict);
+    result = await importPhrases(fixture, vocab, dict, freq);
   });
 
   it("lists kaikki phrases with an idiomatic, phrasal-verb, phrase or prepositional-phrase sense", () => {
@@ -58,7 +77,23 @@ describe("importPhrases", () => {
     expect(result.phrases).toContain("by heart");
   });
   it("lowercases the phrase key", () => {
-    expect(result.phrases).toContain("see you later");
+    expect(result.phrases).toContain("from scratch");
+  });
+  it("keeps phrasal verbs made of very common words", () => {
+    expect(result.phrases).toContain("give up");
+  });
+  it("leaves out idiomatic entries whose words are all in the top 100", () => {
+    expect(result.phrases).not.toContain("in it");
+  });
+  it("leaves out phrase entries whose words are all in the top 1000", () => {
+    expect(result.phrases).not.toContain("see you later");
+  });
+  it("leaves out entries in a non-constituents category, at entry or sense level", () => {
+    expect(result.phrases).not.toContain("give out");
+    expect(result.phrases).not.toContain("from the heart");
+  });
+  it("does not count literal-use glosses as senses", () => {
+    expect(result.phrases).not.toContain("cut in");
   });
   it("lists EJDict multi-word headwords whose words are all in the vocabulary", () => {
     expect(result.phrases).toContain("in spite of");
@@ -72,7 +107,6 @@ describe("importPhrases", () => {
       "give up",
       "in spite of",
       "look forward to",
-      "see you later",
     ]);
   });
   it("leaves out entries whose only senses are form-of, alt-of or have no glosses", () => {
@@ -92,9 +126,9 @@ describe("importPhrases", () => {
     expect(result.phrases).not.toContain("x-ray machine");
   });
 
-  it("collects distinct Japanese translations for phrases EJDict lacks", () => {
+  it("collects distinct Japanese translations for phrases EJDict lacks, senses first", () => {
     expect(result.ja).toEqual({
-      "by heart": ["暗記して", ["暗記して", "そらで"]],
+      "by heart": ["そらで", ["そらで", "暗記して"]],
     });
   });
   it("gives English definitions only to phrases without EJDict or Japanese meanings", () => {
@@ -102,7 +136,6 @@ describe("importPhrases", () => {
       "figure out",
       "from scratch",
       "give up",
-      "see you later",
     ]);
   });
   it("merges senses of entries with the same headword, up to 4, skipping archaic ones", () => {
@@ -130,10 +163,6 @@ describe("importPhrases", () => {
         ["prepositional phrase", "From basic materials or raw ingredients."],
       ],
     ]);
-    expect(result.defs["see you later"]).toEqual([
-      "Goodbye",
-      [["phrase", "Goodbye."]],
-    ]);
   });
   it("keeps every usable sense, not only the idiomatic ones", () => {
     expect(result.defs["figure out"]?.[1]).toEqual([
@@ -144,13 +173,13 @@ describe("importPhrases", () => {
 
   it("counts multi-word entries, unparsable lines and phrases", () => {
     expect(result.stats).toEqual({
-      entries: 14,
+      entries: 18,
       unparsable: 1,
-      phrases: 7,
+      phrases: 6,
       fromEjdict: 2,
-      fromKaikki: 6,
+      fromKaikki: 5,
       ja: 1,
-      defs: 4,
+      defs: 3,
     });
   });
 });

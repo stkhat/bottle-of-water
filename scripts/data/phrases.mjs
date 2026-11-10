@@ -2,7 +2,7 @@
 // kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/phrases.json,
 // public/packs/en-ja/phrases.json (Japanese translations) and
 // public/packs/en-defs/{index,dict-<n>}.json (English definitions)
-// Usage: node scripts/data/phrases.mjs [path]   (default data/raw/kaikki-en.jsonl; run ejdict.mjs first)
+// Usage: node scripts/data/phrases.mjs [path]   (default data/raw/kaikki-en.jsonl; run ejdict.mjs and frequency.mjs first)
 import { createReadStream, existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -29,6 +29,12 @@ const UNUSABLE_TAGS = new Set([
   "misspelling",
 ]);
 const PHRASE_POS = new Set(["phrase", "prep_phrase"]);
+// Glosses that only point at the words' literal meanings ("see on, the").
+const LITERAL_GLOSS = /^Used other than figuratively or idiomatically/;
+/** An idiomatic sense counts only when a word of the phrase is rarer than this rank ("in it" does not). */
+export const IDIOM_COMMON_RANK = 100;
+/** A phrase or prepositional-phrase entry counts only when a word is rarer than this rank ("on the" does not). */
+export const PHRASE_COMMON_RANK = 1000;
 const MAX_SENSES = 4;
 // The top-level headword, which kaikki writes right before the language.
 const HEADWORD =
@@ -50,19 +56,41 @@ function isUsable(sense) {
   if (!Array.isArray(glosses) || glosses.length === 0) return false;
   if (typeof glosses.at(-1) !== "string" || !glosses.at(-1).trim())
     return false;
+  if (LITERAL_GLOSS.test(glosses.at(-1).trim())) return false;
   if (Array.isArray(sense.form_of) || Array.isArray(sense.alt_of)) return false;
   return !(sense.tags ?? []).some((tag) => UNUSABLE_TAGS.has(tag));
 }
 
-function isPhraseSense(entry, sense) {
-  if (PHRASE_POS.has(entry.pos)) return true;
-  if ((sense.tags ?? []).includes("idiomatic")) return true;
-  return (sense.categories ?? []).some((category) => {
+function inCategory(categories, part) {
+  return (categories ?? []).some((category) => {
     const name = typeof category === "string" ? category : category?.name;
-    return (
-      typeof name === "string" && name.toLowerCase().includes("phrasal verbs")
-    );
+    return typeof name === "string" && name.toLowerCase().includes(part);
   });
+}
+
+/** Wiktionary's "non-constituents" are word sequences that are not units ("on the", "of a"). */
+function isNonConstituent(entry) {
+  return (
+    inCategory(entry.categories, "non-constituents") ||
+    (entry.senses ?? []).some((sense) =>
+      inCategory(sense.categories, "non-constituents"),
+    )
+  );
+}
+
+/**
+ * Whether a usable sense makes its entry a phrase: a phrasal verb always; an idiomatic
+ * sense when a word is outside the top IDIOM_COMMON_RANK; a phrase or prepositional
+ * phrase when a word is outside the top PHRASE_COMMON_RANK.
+ */
+function isPhraseSense(entry, sense, rarestRank) {
+  if (inCategory(sense.categories, "phrasal verbs")) return true;
+  if (
+    (sense.tags ?? []).includes("idiomatic") &&
+    rarestRank > IDIOM_COMMON_RANK
+  )
+    return true;
+  return PHRASE_POS.has(entry.pos) && rarestRank > PHRASE_COMMON_RANK;
 }
 
 function japaneseOf(translations, out) {
@@ -86,10 +114,13 @@ function shortOf(text) {
  * kaikki idioms, phrasal verbs and phrases), Japanese translations for the phrases EJDict
  * lacks, and English definitions for those neither has.
  */
-export async function importPhrases(path, vocab, dict) {
+export async function importPhrases(path, vocab, dict, freq) {
   const words = new Set(vocab);
+  const ranks = new Map(freq.map((word, i) => [word, i + 1]));
+  const rarestRankOf = (key) =>
+    Math.max(...key.split(" ").map((word) => ranks.get(word) ?? Infinity));
   const stats = { entries: 0, unparsable: 0 };
-  // key → { phrase, senses: [pos, text][], ja: string[] }, entries merged in file order
+  // key → { phrase, senses: [pos, text][], senseJa, topJa: string[] }, entries merged in file order
   const found = new Map();
   const lines = createInterface({
     input: createReadStream(path, { highWaterMark: 1 << 20 }),
@@ -110,16 +141,21 @@ export async function importPhrases(path, vocab, dict) {
     if (!entry.word.trim().includes(" ")) continue;
     stats.entries++;
     const key = phraseKey(entry.word, words);
-    if (!key) continue;
+    if (!key || isNonConstituent(entry)) continue;
     let item = found.get(key);
-    if (!item) found.set(key, (item = { phrase: false, senses: [], ja: [] }));
-    japaneseOf(entry.translations, item.ja);
+    if (!item)
+      found.set(
+        key,
+        (item = { phrase: false, senses: [], senseJa: [], topJa: [] }),
+      );
+    japaneseOf(entry.translations, item.topJa);
+    const rarestRank = rarestRankOf(key);
     const pos = typeof entry.pos === "string" ? posLabel(entry.pos) : "";
     for (const sense of entry.senses ?? []) {
       if (!isUsable(sense)) continue;
-      item.phrase ||= isPhraseSense(entry, sense);
+      item.phrase ||= isPhraseSense(entry, sense, rarestRank);
       item.senses.push([pos, sense.glosses.at(-1).trim()]);
-      japaneseOf(sense.translations, item.ja);
+      japaneseOf(sense.translations, item.senseJa);
     }
   }
 
@@ -136,8 +172,9 @@ export async function importPhrases(path, vocab, dict) {
   for (const key of fromKaikki) {
     if (Object.hasOwn(dict, key)) continue;
     const item = found.get(key);
-    if (item.ja.length > 0) {
-      ja[key] = [item.ja[0], item.ja];
+    const translations = [...new Set([...item.senseJa, ...item.topJa])];
+    if (translations.length > 0) {
+      ja[key] = [translations[0], translations];
       continue;
     }
     const senses = item.senses.slice(0, MAX_SENSES);
@@ -175,8 +212,9 @@ export function writePhrasePacks({ phrases, defs, ja }) {
 async function main() {
   const dict = readDictPacks();
   const vocab = readPack("en/vocab.json");
+  const freq = readPack("en/freq.json");
   const path = process.argv[2] ?? KAIKKI_PATH;
-  const result = await importPhrases(path, vocab, dict);
+  const result = await importPhrases(path, vocab, dict, freq);
   const { index } = writePhrasePacks(result);
   const { stats } = result;
   console.log(
