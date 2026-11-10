@@ -12,6 +12,10 @@ concurrency:
 permissions:
   contents: read
 
+# The browser jobs run in Playwright's image, which has the browsers and their system
+# libraries installed. Its tag must match @playwright/test in package-lock.json: bump
+# both together (the first step of those jobs checks).
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -24,8 +28,10 @@ jobs:
       - run: npm ci
       - run: npm run check
 
-  test:
-    name: test (${{ matrix.os }})
+  # Logic and builds on every OS (no browsers). Browser and E2E tests run on Linux here;
+  # cross-os.yml runs them on macOS and Windows every week.
+  unit:
+    name: unit (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -38,26 +44,67 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
       - run: npm test
-      - run: npm run test:browser
       - run: npm run build
       - run: npm run build:firefox
       - run: npm run build:check
       - run: npm run test:manifest
+
+  browser:
+    name: browser (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    env:
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Check the Playwright image matches @playwright/test
+        run: node scripts/check-playwright-image.mjs
+      - run: npm run test:browser
+        env:
+          VITEST_BROWSERS: ${{ matrix.browser }}
+
+  e2e:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
+    env:
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Check the Playwright image matches @playwright/test
+        run: node scripts/check-playwright-image.mjs
+      - run: npm run build
+      - run: npm run build:check
       - run: npm run test:e2e
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports-${{ matrix.os }}
+          name: e2e-reports
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
 
   package:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
