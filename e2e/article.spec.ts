@@ -1,6 +1,6 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { ENGLISH_PAGE, test, expect, sendToBackground } from "./fixtures";
+import { test, expect, sendToBackground } from "./fixtures";
 
 /** The text of every range registered under a highlight name ([] when it is not registered). */
 function highlighted(page: Page, name: string) {
@@ -194,38 +194,49 @@ test("a selected phrase is saved and highlighted", async ({
     .toEqual(["rise and fall"]);
 });
 
-test("the end card adds every unsaved word and undoes it", async ({
+test("reaching the end marks every unsaved new word Known when Settings say so", async ({
+  context,
+  extensionId,
+}) => {
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { highlight: { new: true, known: true }, unsavedAtEnd: "known" },
+  });
+  const page = await openArticle(context);
+  // No Lingo card sits on the page.
+  await expect(
+    page.getByRole("button", { name: en["card.chip.learning"] }),
+  ).toHaveCount(0);
+  const known = (await highlighted(page, "lingo-known")).length;
+
+  await textBox(page, "back to its cause.");
+  await expect
+    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .toBe(0);
+  expect((await highlighted(page, "lingo-known")).length).toBeGreaterThan(
+    known,
+  );
+
+  // Saved for good: a reload shows them Known.
+  await page.reload();
+  await expect
+    .poll(async () => (await highlighted(page, "lingo-known")).length)
+    .toBeGreaterThan(known);
+  expect(await highlighted(page, "lingo-new")).toEqual([]);
+});
+
+test("reaching the end keeps unsaved words New by default", async ({
   context,
   extensionId,
 }) => {
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
-  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   await textBox(page, "back to its cause.");
-  const end = page.getByRole("region", { name: en["endCard.region"] });
-  await expect(end.getByText(en["endCard.article"])).toBeVisible();
-  await expect(page.getByText(ENGLISH_PAGE)).toHaveCount(0);
-
-  const line = await end.getByText(/words not saved yet$/).textContent();
-  const unsaved = Number(/\d+/.exec(line!)![0]);
-  expect(unsaved).toBeGreaterThan(5);
-  const newWords = (await highlighted(page, "lingo-new")).length;
-
-  await end.getByRole("button", { name: en["saveAll.addLearning"] }).click();
-  await expect(
-    end.getByText(`${unsaved} words added to Learning`),
-  ).toBeVisible();
-  await expect(end.getByText(en["saveAll.allSaved"])).toBeVisible();
-  expect(await highlighted(page, "lingo-new")).toEqual([]);
-  expect((await highlighted(page, "lingo-learning")).length).toBe(newWords);
-
-  await end.getByRole("button", { name: en["saveAll.undo"] }).click();
-  await expect(end.getByText(`${unsaved} words not saved yet`)).toBeVisible();
-  expect((await highlighted(page, "lingo-new")).length).toBe(newWords);
-  expect(await highlighted(page, "lingo-learning")).toEqual([]);
-
-  await end.getByRole("button", { name: en["endCard.close"] }).click();
-  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.reload();
+  await expect
+    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .toBeGreaterThan(0);
 });
 
 test("Seen elsewhere lists the other article a word was saved on", async ({
@@ -260,21 +271,18 @@ test("a Spanish article is highlighted and looked up in English when learning Sp
 }) => {
   await sendToBackground(context, extensionId, {
     type: "setSettings",
-    // At the lowest level "comer" (about the 1,800th word) is still new. The page is
-    // short: without the end card the page card stays.
+    // At the lowest level "comer" (about the 1,800th word) is still new.
     patch: {
       learningLang: "es",
       nativeLang: "en",
       knownLevel: 1000,
       highlight: { new: true },
-      offerSaveAllAtEnd: false,
     },
   });
   const page = await openArticle(context, "/article-es.html");
   await expect
     .poll(() => highlighted(page, "lingo-new"))
     .toEqual(expect.arrayContaining(["comiendo", "a escondidas"]));
-  await expect(page.getByText("Spanish page · ES → EN")).toBeVisible();
 
   await hover(page, "comiendo");
   await expect(page.getByText("comer", { exact: true })).toBeVisible();
@@ -296,7 +304,7 @@ test("a Spanish article is highlighted and looked up in English when learning Sp
   expect(await highlighted(page, "lingo-new")).not.toContain("comiendo");
 });
 
-test("the popup can ask the page what save-all would do, and do it", async ({
+test("the popup can ask the page about itself", async ({
   context,
   extensionId,
 }) => {
@@ -324,31 +332,8 @@ test("the popup can ask the page what save-all would do, and do it", async ({
       return replies.filter((r) => r !== undefined);
     }, message);
 
-  const [summary] = (await ask({ type: "pageSummary" })) as {
-    supported: boolean;
-    hostname: string;
-    scope: string;
-    unsaved: number;
-    done: null;
-  }[];
-  expect(summary).toMatchObject({
-    supported: true,
-    hostname: "localhost",
-    scope: "page",
-    done: null,
-  });
-  expect(summary!.unsaved).toBeGreaterThan(0);
-
-  expect(await ask({ type: "pageSaveAll", status: "known" })).toEqual([
-    {
-      supported: true,
-      hostname: "localhost",
-      scope: "page",
-      unsaved: 0,
-      done: { count: summary!.unsaved, target: "known" },
-    },
+  expect(await ask({ type: "pageSummary" })).toEqual([
+    { supported: true, hostname: "localhost" },
   ]);
-  expect(await highlighted(page, "lingo-new")).toEqual([]);
-  expect(await ask({ type: "pageUndo" })).toEqual([summary]);
   await page.close();
 });

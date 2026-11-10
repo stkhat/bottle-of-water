@@ -22,7 +22,12 @@ export const color = {
 
 export const FONT =
   "'Inter Variable', 'Inter', 'Noto Sans JP', system-ui, sans-serif";
-export const IPA_FONT = "'Noto Sans', 'Inter', sans-serif";
+/**
+ * IPA in one font with every IPA letter: Noto Sans where installed, else the system
+ * UI font (SF on macOS, Segoe UI on Windows). Inter is not shipped to page content,
+ * and a fallback letter by letter drew stress marks and θ from other fonts.
+ */
+export const IPA_FONT = "'Noto Sans', system-ui, sans-serif";
 /** "On this page" sentences follow the mock article's serif. */
 export const SERIF_FONT = "'Source Serif 4', Georgia, serif";
 

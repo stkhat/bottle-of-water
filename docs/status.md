@@ -1,6 +1,6 @@
 # Status
 
-Updated whenever a milestone moves. Last update: 2026-11-10.
+Updated whenever a milestone moves. Last update: 2026-11-11.
 
 ## Where we are
 - **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
@@ -14,7 +14,7 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 | Dev environment, CI/CD, CLAUDE.md check | `.github/`, `scripts/`, `e2e/`, `tests/` | [dev-environment](plans/2026-11-09-dev-environment.md) |
 | Language data (EJDict, Wiktionary/kaikki, frequency) | `scripts/data/`, `public/packs/` | [m2](plans/2026-11-09-m2-data-import.md) |
 | Settings, BrowserEnv, tokenizer, packs, dictionary, classifier, TermStore (IndexedDB), sync, messaging | `src/core/`, `src/background/`, `src/messaging/` | [m3](plans/2026-11-09-m3-foundation.md) |
-| Hover card, dictionary window/panel, phrase bar, save-all card | `src/ui/lookup/` | [m4](plans/2026-11-09-m4-lookup-ui.md) |
+| Hover card, dictionary window/panel, phrase bar | `src/ui/lookup/` | [m4](plans/2026-11-09-m4-lookup-ui.md) |
 | Article UI | `src/content/article/` | [m5](plans/2026-11-09-m5-article-ui.md) |
 | Video UI (YouTube, Netflix) | `src/content/video/`, `src/ui/video/`, `src/core/subtitles/` | [m6](plans/2026-11-09-m6-video-ui.md) |
 | Popup, settings page, word list page | `src/entrypoints/{popup,options,wordlist}/` | [m7](plans/2026-11-10-m7-popup-settings-wordlist.md) |
@@ -45,6 +45,10 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - Trader / non-trader declaration, 2-Step Verification on the developer account
 - Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling (processed in memory; with Sentence history on, the lines that played are kept on the device), sentence history described in the listing
 - See the spec's "Chrome Web Store requirements"
+
+## Decisions (2026-11-11)
+- No page card on articles and no end cards: the toolbar popup keeps the highlight toggles, and the popup's "This page" save-all is gone. Settings → Highlighting → "New words you didn't save" (Keep as New, default / Mark as Known) decides what happens to unsaved New words when a video ends or the end of an article comes into view
+- IPA is shown in dictionary style (no syllable dots or tie bars, r instead of ɹ) in Noto Sans or the system UI font
 
 ## Decisions (2026-11-09 / 10)
 - Tatoeba example sentences and Anki/CSV export moved to phase 3; the phase-2 language pack is Spanish → English

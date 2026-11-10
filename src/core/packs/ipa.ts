@@ -15,8 +15,31 @@ function single(value: string): string | undefined {
   return first && !first.includes("~") ? `[${first}]` : undefined;
 }
 
+/** Letters Wiktionary writes in narrow US IPA, and the dictionary-style spelling shown. */
+const LETTERS: Record<string, string> = {
+  ɹ: "r",
+  ɚ: "ər",
+  ɝ: "ɜːr",
+  ɫ: "l",
+};
+
 /**
- * IPA of a word (US IPA for English), or of a phrase as its words' IPA inside one pair of slashes.
+ * A transcription as learner's dictionaries write it: syllable dots, linking marks,
+ * tie bars, aspiration and diacritics (except the nasal tilde) are dropped, and the
+ * narrow US letters become the usual ones (ɹ → r, ɚ → ər, ɝ → ɜːr, ɫ → l), so
+ * "/ˌɛd͡ʒ.əˈkeɪ.ʃən/" reads "/ˌɛdʒəˈkeɪʃən/". Stress, length and optional sounds stay.
+ */
+export function dictionaryIpa(transcription: string): string {
+  return transcription
+    .normalize("NFD")
+    .replace(/[.‿ʰ]|[\u0300-\u0302\u0304-\u036F]/gu, "")
+    .replace(/[ɹɚɝɫ]/gu, (letter) => LETTERS[letter] ?? letter)
+    .normalize("NFC");
+}
+
+/**
+ * IPA of a word (US IPA for English), or of a phrase as its words' IPA inside one pair of
+ * slashes, in dictionary style (`dictionaryIpa`).
  * undefined when any word has none.
  */
 export function ipaFor(term: string, ipa: IpaPack): string | undefined {
@@ -26,7 +49,7 @@ export function ipaFor(term: string, ipa: IpaPack): string | undefined {
     const value = Object.hasOwn(ipa, word) ? ipa[word] : undefined;
     const transcription = value === undefined ? undefined : single(value);
     if (transcription === undefined) return undefined;
-    parts.push(transcription);
+    parts.push(dictionaryIpa(transcription));
   }
   if (parts.length === 0) return undefined;
   if (parts.length === 1) return parts[0];

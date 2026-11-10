@@ -7,10 +7,10 @@ export type HighlightCategory = keyof Settings["highlight"];
 
 export interface HighlightChipsProps {
   /**
-   * Mock Main's transcript header (`video`), mock Article's page card (`article`) or
-   * the toolbar popup (`popup`: the video chips under an uppercase heading).
+   * Mock Main's transcript header (`video`) or the toolbar popup (`popup`: the same
+   * chips under an uppercase heading).
    */
-  look: "video" | "article" | "popup";
+  look: "video" | "popup";
   /** Which categories are highlighted (`settings.highlight`). */
   highlight: Settings["highlight"];
   onToggle: (category: HighlightCategory) => void;
@@ -38,7 +38,7 @@ const CHIPS: readonly {
   },
 ];
 
-const VIDEO_LOOK = {
+const LOOK = {
   on: {
     background: color.white,
     color: color.ink,
@@ -52,29 +52,9 @@ const VIDEO_LOOK = {
   },
 };
 
-const LOOK: Record<
-  HighlightChipsProps["look"],
-  { on: CSSProperties; off: CSSProperties }
-> = {
-  video: VIDEO_LOOK,
-  popup: VIDEO_LOOK,
-  article: {
-    on: {
-      background: color.surfaceGray,
-      color: color.ink,
-      border: "1px solid #A3A8B7",
-    },
-    off: {
-      background: "transparent",
-      color: color.muted,
-      border: `1px dashed ${color.lineStrong}`,
-    },
-  },
-};
-
 /** "Highlight" and a toggle chip per category. */
 export function HighlightChips(props: HighlightChipsProps) {
-  const look = LOOK[props.look];
+  const look = LOOK;
   const chips = CHIPS.map((c) => {
     const pressed = props.highlight[c.id];
     return (

@@ -1,7 +1,6 @@
 import { useMemo } from "preact/hooks";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems, formatTime } from "../../ui/lookup/elsewhere";
-import { EndCard } from "../../ui/lookup/EndCard";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { LingoMenu } from "../../ui/video/LingoMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
@@ -14,8 +13,6 @@ import type { VideoApp, VideoState } from "../video/session";
 import { filterCounts, filterRows, videoWords } from "../video/words";
 import { Floating } from "./Floating";
 import { useStore, type Store } from "./store";
-
-const TOP_LAYER = 2147483647;
 
 /** Where the parts of the page are, read when needed. */
 export interface VideoGeometry {
@@ -50,9 +47,6 @@ export const CONTROL_BAR_GAP = 12;
 
 /** The transcript is never shorter than this (px). */
 const MIN_TRANSCRIPT_HEIGHT = 320;
-/** Mock Main: the "Video finished" card under the site's header, 16px from the right. */
-const END_CARD = { top: 68, right: 16 };
-
 /** Lingo shows its subtitles and transcript for this video. */
 const showing = (state: VideoState) =>
   state.enabled && state.status === "ready";
@@ -349,28 +343,6 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
           elsewhere={elsewhereItems(panel.card.elsewhere, Date.now())}
           onClose={app.closePanel}
         />
-      )}
-      {state.endCard && (
-        <div
-          style={{
-            position: "fixed",
-            zIndex: TOP_LAYER,
-            top: `${END_CARD.top}px`,
-            right: `${END_CARD.right}px`,
-          }}
-        >
-          <EndCard
-            kind="video"
-            saveAll={{
-              unsavedCount: state.unsaved,
-              done: state.done,
-              onAddLearning: () => app.saveAll("learning"),
-              onMarkKnown: () => app.saveAll("known"),
-              onUndo: app.undoSaveAll,
-            }}
-            onClose={app.closeEndCard}
-          />
-        </div>
       )}
       {hover && (
         <Floating

@@ -9,7 +9,7 @@ describe("DEFAULT_SETTINGS", () => {
       uiLocale: "en",
       knownLevel: 3000,
       highlight: { new: false, learning: true, known: false },
-      offerSaveAllAtEnd: true,
+      unsavedAtEnd: "keep",
       dictionaries: {
         cambridge: true,
         wiktionary: true,
@@ -86,10 +86,19 @@ describe("mergeSettings", () => {
     expect(merged.highlight).not.toHaveProperty("bogus");
   });
 
+  it("keeps a valid unsavedAtEnd and drops the old end-card switch", () => {
+    const merged = mergeSettings({
+      unsavedAtEnd: "known",
+      offerSaveAllAtEnd: false,
+    } as unknown);
+    expect(merged.unsavedAtEnd).toBe("known");
+    expect(merged).not.toHaveProperty("offerSaveAllAtEnd");
+  });
+
   it("replaces values of the wrong type with the base value", () => {
     const merged = mergeSettings({
       knownLevel: "5000",
-      offerSaveAllAtEnd: "no",
+      unsavedAtEnd: "forget",
       subtitlePosition: "aboveVideo",
       learningLang: "",
       highlight: { learning: 0 },
@@ -97,7 +106,7 @@ describe("mergeSettings", () => {
       disabledSites: "x.com",
     } as unknown);
     expect(merged.knownLevel).toBe(3000);
-    expect(merged.offerSaveAllAtEnd).toBe(true);
+    expect(merged.unsavedAtEnd).toBe("keep");
     expect(merged.subtitlePosition).toBe("inVideo");
     expect(merged.learningLang).toBe("en");
     expect(merged.highlight.learning).toBe(true);

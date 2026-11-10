@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { ENGLISH_PAGE, test, expect, sendToBackground } from "./fixtures";
+import { test, expect, sendToBackground } from "./fixtures";
 
 /** The text of every range registered under a highlight name; undefined when it is not registered. */
 function highlighted(page: Page, name: string) {
@@ -21,15 +21,19 @@ async function settle(page: Page) {
   );
 }
 
-test("the page card appears on an English page", async ({ context }) => {
+test("Lingo runs on an English page, with no card on it", async ({
+  context,
+}) => {
   const page = await context.newPage();
   await page.goto("/article-en.html");
-  const chip = page.getByRole("button", { name: en["card.chip.learning"] });
-  await expect(chip).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
+  await expect(page.locator("lingo-article")).toHaveCount(1);
+  await settle(page);
+  await expect(
+    page.getByRole("button", { name: en["card.chip.learning"] }),
+  ).toHaveCount(0);
 });
 
-test("no card appears on a Japanese page", async ({ context }) => {
+test("Lingo does not run on a Japanese page", async ({ context }) => {
   // Prove the extension is live first: the content script runs on the English page.
   const live = await context.newPage();
   await live.goto("/article-en.html");

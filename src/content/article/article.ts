@@ -16,13 +16,9 @@ import {
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import { createStore, type Store } from "../ui/store";
 import { describeTerm, type TermCard } from "./describe";
-import { watchEndOfArticle } from "./end-of-article";
+import { lastMainBlock, watchEndOfArticle } from "./end-of-article";
 import { wordBoxes, type Box } from "./geometry";
-import {
-  createHighlighter,
-  type HighlightCategory,
-  type Highlighter,
-} from "./highlighter";
+import { createHighlighter, type Highlighter } from "./highlighter";
 import { watchInteractions } from "./interactions";
 import {
   createBlockIndex,
@@ -105,12 +101,6 @@ export interface ArticleState {
   hover: HoverState | null;
   panel: PanelState | null;
   phrase: PhraseState | null;
-  /** Distinct unsaved new words among the analyzed blocks. */
-  unsaved: number;
-  /** The last save-all, until it is undone. */
-  done: PageSummary["done"];
-  /** The end card shows in place of the page card. */
-  endCard: boolean;
 }
 
 /** The UI's view of the page: its state and what its controls do. */
@@ -130,12 +120,6 @@ export interface ArticleApp {
   goToSentence(index: number): void;
   /** The phrase bar's "+ Learning" / "Known". */
   savePhrase(status: TermStatus): void;
-  /** Saves every unsaved new word of the page. */
-  saveAll(status: TermStatus): void;
-  undoSaveAll(): void;
-  /** Closes the end card for this page view; the page card comes back. */
-  closeEndCard(): void;
-  toggleHighlight(category: HighlightCategory): void;
 }
 
 export interface ArticleSession {
@@ -204,9 +188,6 @@ export async function startArticle(
     hover: null,
     panel: null,
     phrase: null,
-    unsaved: 0,
-    done: null,
-    endCard: false,
   });
 
   const source = (): SourceInput => ({
@@ -244,7 +225,6 @@ export async function startArticle(
       setSpans(block, result.spans[i] ?? []);
       fresh.push(block);
     });
-    updateCounts();
     recordEncounters(fresh, new Set(result.saved));
     recordHistory(fresh);
   }
@@ -304,62 +284,33 @@ export async function startArticle(
     return [...keys];
   }
 
-  // End card: replaces the page card once the end of the article is in view.
-  let endReached = false;
-  let endClosed = false;
-
-  function updateCounts() {
-    const unsaved = unsavedOnPage().length;
-    const showEnd =
-      store.get().endCard ||
-      (endReached && !endClosed && settings.offerSaveAllAtEnd && unsaved > 0);
-    if (unsaved !== store.get().unsaved || showEnd !== store.get().endCard)
-      store.set({ unsaved, endCard: showEnd });
-  }
-
-  let lastBatch:
-    | { batchId: string; keys: ReadonlySet<string>; status: TermStatus }
-    | undefined;
-
-  async function saveAll(status: TermStatus) {
+  /**
+   * Saves every unsaved new word of the analyzed part of the page as Known, once the
+   * end of the article is in view and Settings say so (`unsavedAtEnd`). The last
+   * paragraph is analyzed first if it has not been yet (the end can show before the
+   * visible blocks are queued), and blocks waiting for analysis are waited for.
+   */
+  async function markUnsavedKnown() {
+    const last = lastMainBlock(root, pageText.blocks());
+    if (last && live.has(last) && !spans.has(last)) await analyze([last]);
+    await visible.idle();
     const keys = unsavedOnPage();
     if (keys.length === 0) return;
-    const { batchId, count } = await deps.send({
+    await deps.send({
       type: "saveAll",
       lang,
       keys,
-      status,
+      status: "known",
       source: source(),
     });
     const saved = new Set(keys);
-    lastBatch = { batchId, keys: saved, status };
     recategorize((s) =>
-      s.category === "new" && saved.has(s.key) ? status : undefined,
+      s.category === "new" && saved.has(s.key) ? "known" : undefined,
     );
-    store.set({ done: { count, target: status } });
     await refreshOpenCards();
   }
 
-  async function undoSaveAll() {
-    const batch = lastBatch;
-    if (!batch) return;
-    await deps.send({ type: "undoSaveAll", batchId: batch.batchId });
-    lastBatch = undefined;
-    // Those words were new before; the ones changed since stay as they are.
-    recategorize((s) =>
-      s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
-    );
-    store.set({ done: null });
-    await refreshOpenCards();
-  }
-
-  const summary = (): PageSummary => ({
-    supported: true,
-    hostname,
-    scope: "page",
-    unsaved: store.get().unsaved,
-    done: store.get().done,
-  });
+  const summary = (): PageSummary => ({ supported: true, hostname });
 
   /** Analyzes blocks again (all analyzed ones by default), in batches. */
   async function reanalyze(blocks: readonly TextBlock[] = [...spans.keys()]) {
@@ -380,7 +331,6 @@ export async function startArticle(
       versions.set(block, ++version);
       setSpans(block, next);
     }
-    updateCounts();
   }
 
   const blocksWith = (key: string, kind: TermKind) =>
@@ -642,35 +592,13 @@ export async function startArticle(
       const snapped = phrase;
       if (snapped) run(() => savePhrase(snapped, status));
     },
-    saveAll: (status) => run(() => saveAll(status)),
-    undoSaveAll: () => run(undoSaveAll),
-    closeEndCard() {
-      endClosed = true;
-      store.set({ endCard: false });
-    },
-    toggleHighlight(category) {
-      const on = !settings.highlight[category];
-      settings = {
-        ...settings,
-        highlight: { ...settings.highlight, [category]: on },
-      };
-      store.set({ settings });
-      highlighter.setEnabled(settings.highlight);
-      run(() =>
-        deps.send({
-          type: "setSettings",
-          patch: { highlight: { [category]: on } },
-        }),
-      );
-    },
   };
 
   const unmountUi = await deps.mountUi(app);
 
   const visible = watchVisibleBlocks(analyze);
   const end = watchEndOfArticle(root, () => {
-    endReached = true;
-    updateCounts();
+    if (settings.unsavedAtEnd === "known") run(markUnsavedKnown);
   });
 
   const pageText = createPageText(root, {
@@ -687,7 +615,6 @@ export async function startArticle(
       index.add(added);
       visible.add(added);
       end.update(pageText.blocks());
-      updateCounts();
     },
   });
   for (const block of pageText.blocks()) live.add(block);
@@ -715,13 +642,10 @@ export async function startArticle(
     settings = next;
     store.set({ settings });
     highlighter.setEnabled(next.highlight);
-    updateCounts();
     if (levelChanged) run(() => reanalyze());
   });
 
-  function handlePageRequest(request: PageRequest): Promise<PageSummary> {
-    if (request.type === "pageSaveAll") run(() => saveAll(request.status));
-    else if (request.type === "pageUndo") run(undoSaveAll);
+  function handlePageRequest(): Promise<PageSummary> {
     // Answer after everything asked before has been done.
     return queue.then(summary);
   }
@@ -805,7 +729,7 @@ export function runArticle(
       await queue;
       return session
         ? session.handlePageRequest(request)
-        : unsupportedPage(hostname, "page");
+        : unsupportedPage(hostname);
     },
     stop() {
       stopped = true;

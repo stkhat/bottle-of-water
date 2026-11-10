@@ -186,13 +186,13 @@ describe("dictionary panel", () => {
       .toHaveAttribute("aria-pressed", "true");
   });
 
-  it("sits on the right, below the page card", async () => {
+  it("sits in the top right corner", async () => {
     const { root } = await setup(ARTICLE);
     await clickOn(root, "tedious");
     await expect.element(dictionary()).toBeVisible();
     const box = dictionary().element().getBoundingClientRect();
     expect(box.right).toBeCloseTo(innerWidth - 16, 0);
-    expect(box.top).toBeCloseTo(168, 0);
+    expect(box.top).toBeCloseTo(16, 0);
     expect(box.bottom).toBeCloseTo(innerHeight - 16, 0);
     expect(box.width).toBe(340);
   });
@@ -457,30 +457,18 @@ describe("events a page script makes", () => {
   });
 });
 
-describe("page card", () => {
-  it("switches highlight categories in the settings", async () => {
-    // The whole article is in view: keep the end card from taking the card's place.
-    const { background, changeSettings } = await setup(ARTICLE, {
-      settings: { offerSaveAllAtEnd: false },
-    });
-    const chip = page.getByRole("button", { name: "New", exact: true });
-    await expect.element(chip).toHaveAttribute("aria-pressed", "false");
-    await chip.click();
-    await expect.element(chip).toHaveAttribute("aria-pressed", "true");
-    expect(background.sent("setSettings")).toEqual([
-      { type: "setSettings", patch: { highlight: { new: true } } },
-    ]);
-    expect(highlighted("lingo-new")).toContain("tedious");
-
-    // Settings changed elsewhere (the settings page) show up on the card.
+describe("the page", () => {
+  it("has no Lingo card, and highlights follow settings changed elsewhere", async () => {
+    const { background, changeSettings } = await setup(ARTICLE);
     changeSettings({
       ...background.settings(),
-      highlight: { new: false, learning: false, known: true },
+      highlight: { new: true, learning: true, known: false },
     });
-    await expect.element(chip).toHaveAttribute("aria-pressed", "false");
-    await expect
-      .element(page.getByRole("button", { name: "Learning", exact: true }))
-      .toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => highlighted("lingo-new")).toContain("tedious");
+    expect(page.getByRole("button", { name: "New", exact: true }).query()).toBe(
+      null,
+    );
+    expect(page.getByText("You reached the end").query()).toBe(null);
   });
 });
 
@@ -491,7 +479,6 @@ describe("dictionary phrases", () => {
     <p>Once you figure out the schedule, bake it.</p>`;
   const withNew = {
     highlight: { new: true, learning: true, known: false },
-    offerSaveAllAtEnd: false,
   };
 
   it("highlights a detected phrase as one new term with its Japanese meaning", async () => {

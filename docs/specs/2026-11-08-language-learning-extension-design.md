@@ -72,7 +72,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - Each card is a **sentence**: subtitle cues that do not end a sentence (. ? ! … ♪, maybe before a closing quote) are joined with the next cue when it starts less than 1.5 s later, up to 3 cues and about 25 words. Sound labels ("[MUSIC]") stay alone; a cue starting with a speaker's dash ("- …") starts a card, and a cue with two speakers' lines ends one. The subtitle in the video still shows one cue at a time
   - Header: "Highlight" category toggles and the transcript translation switch
 - No instructions text under the video
-- **When the video ends**, a "Video finished" card appears top right (same content as "Save all" below)
+- **When the video ends**, nothing is shown; unsaved New words are handled as Settings say (see "Unsaved New words at the end" below)
 
 ### Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language
@@ -80,38 +80,33 @@ Development pair: learning language = English, native language = Japanese, sites
   - In browsers where highlights cannot be underlined, use background colors only (see "Absorbing browser differences")
 - Find the hovered word with `caretPositionFromPoint`
 - When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known"
-- A small card at the top right shows Lingo's state and highlight toggles
-  - On real pages the card sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header) and the dictionary panel 152px below the card's top, as in the mock
+- No card sits on the page (highlight toggles live in the toolbar popup). The dictionary panel sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header)
 - The clicked word gets the mock's green outline (drawn by Lingo's UI over the page, since `::highlight()` cannot draw outlines)
-- **When the reader scrolls to the end of the article** (the last paragraph of the `article` with the most text, else `main`), a "You reached the end" card appears in that card's place (same content as "Save all"; closing it with × brings back the original card, and it does not come back on that page view). It is drawn above the dictionary panel, which it overlaps as in the mock
+- **When the reader scrolls to the end of the article** (the last paragraph of the `article` with the most text, else `main`), nothing is shown; unsaved New words are handled as Settings say (below)
 
-### Save all (save every unsaved word on the page at once)
-- Target: words on the page/video that are **not saved yet** (saved words keep their status; words within the frequency level are not counted)
-- Actions: "Add all to Learning", "Mark all as Known". Afterwards show the count and **Undo**
-- The explanation is not shown by default; **only when the (i) button is pressed**
-- Where it appears
-  1. The "This page" section of the toolbar popup (always)
-  2. The top-right card when a video ends / the reader reaches the end of an article (**on/off in settings, on by default**)
+### Unsaved New words at the end (no UI on the page)
+- Target: New words on the page/video that are **not saved yet** (saved words keep their status; words within the frequency level are not New). On an article, the analyzed part of the page (what came near the viewport); on a video, every cue
+- When: once per page view / video, when the video plays to its end (not during an ad) or the end of the article comes into view
+- Settings → Highlighting → "New words you didn't save": **Keep as New** (default; nothing happens, they show as New next time) or **Mark as Known** (they are saved as Known at once, silently, as `bulk` terms)
 
 ### Toolbar popup (click the extension icon)
 - Header: Lingo, language pair (English → Japanese), gear for settings
 - "On this site": on/off for this site
 - "Highlight": category toggles
 - Word counts: Learning / Known / Phrases
-- "This page": save all (above)
 - Sync status: last saved time and usage (e.g. "Saved to Chrome sync · 2 min ago", "41 KB of 100 KB used")
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)
   - Before the first save: "Not saved yet". With sync off: "Sync is off", without the usage bar
 - Footer: "Word list", "Settings"
-- "On this site" and "This page" are hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
+- "On this site" is hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
 
 ### Settings page (the extension's options page, opens in a new tab)
 - Three ways to open it: ① "Settings" / gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from "Open all settings" in the menu next to L in the video player bar
 - Sections
   - **Languages**: learning language, native language, interface language (English only for now)
   - **New-word level**: slider "Treat the N most common words as known" (1,000–20,000, default 3,000)
-  - **Highlighting**: on/off per category, "Offer to save the rest when you finish" (the end card, default on)
+  - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice
   - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")
   - **Video subtitles**: subtitle position (In video / Below video), subtitle translation, transcript translation
   - **Sites**: on/off for YouTube / Netflix / other articles, and a "Never run on" list
@@ -158,11 +153,11 @@ Development pair: learning language = English, native language = Japanese, sites
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
 | `BrowserEnv` | Browser differences in one place: browser name, sync name and delay, how to open the settings page, feature detection results | Chrome (Firefox values only need to build) |
 | `Classifier` | Classify New / Learning / Known / ignored, match phrases, count unsaved words on a page | shared |
-| `LookupUI` | Hover card, dictionary window, phrase saving, save-all card | shared by text and video UI |
+| `LookupUI` | Hover card, dictionary window, phrase saving | shared by text and video UI |
 
 - Where things run: a content script's IndexedDB belongs to the page's origin, so `TermStore`, `LanguagePack` and `DictionaryProvider` live in the **background** and content scripts / extension pages talk to it through typed messages. Pack data is bundled with the extension and read by the background with `runtime.getURL` (not exposed as `web_accessible_resources`), in compact formats that reload quickly when the service worker restarts
 - The UI on web pages sits in shadow roots: closed in production builds so page scripts cannot read it (it shows sentences kept from other sites), open in the check build and in development so tests and the developer can reach it. It acts only on events the user caused (`isTrusted`), not on events a page script dispatches: each shadow root drops untrusted UI events as they enter it (`guardShadowRoot`, `src/ui/from-user.ts`), and the handlers that open the dictionary or change a word check again
-- IPA: EJDict-hand has no pronunciations, so the US IPA is taken from the `sounds` field of kaikki (English Wiktionary) and kept in the `LanguagePack`. Phrases show the IPA of their words joined together. Words without IPA hide the field
+- IPA: EJDict-hand has no pronunciations, so the US IPA is taken from the `sounds` field of kaikki (English Wiktionary) and kept in the `LanguagePack`. Phrases show the IPA of their words joined together. Words without IPA hide the field. It is shown in dictionary style (`dictionaryIpa`): Wiktionary's syllable dots, tie bars, aspiration and diacritics are dropped, and ɹ/ɚ/ɝ/ɫ are written r/ər/ɜːr/l. It is set in Noto Sans where installed, else the system UI font, so every IPA letter comes from one font
 - Getting video and text
   - **YouTube:** hook fetch/XHR in the page (MAIN world) and receive the `/api/timedtext` (json3) responses the player itself requests
   - **Netflix:** hook `JSON.parse` in the page to read subtitle track URLs from the manifest, then parse TTML/WebVTT. Seek through Netflix's player API
@@ -199,7 +194,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 
 ### Data model (IndexedDB)
 - `terms`: `{id: "en:look up", lang, key (base form or sequence of base forms), display, kind: word|phrase, status: learning|known, bulk?: bool, note?, createdAt, updatedAt}`
-  - Words saved by "save all" get `bulk: true` (for Undo, and for demotion when sync space runs out)
+  - Words saved by "save all" (Mark as Known at the end) get `bulk: true` (for demotion when sync space runs out)
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
@@ -211,7 +206,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
   - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
-- Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), end card on/off, per-site on/off and the exclusion list
+- Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), what to do with unsaved New words at the end, per-site on/off and the exclusion list
 
 ### Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
 - `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`push / pull / status / start / stop`). The user's own cloud storage, added later, is another implementation of the same part
@@ -349,9 +344,9 @@ No outright blocker. Decisions and requirements:
 - Fetching YouTube subtitles needs the token the player adds (`pot`, bound to the video); a plain fetch returns an empty body. Checked 2026-11-10 ([notes](../notes/youtube-captions.md)): once the player has made one timedtext request for the video, the extension can fetch the Japanese track and the auto-translation (`tlang`) by reusing that request's URL. If YouTube stops allowing this, ask the player for each track instead, or fall back to the built-in translator. Automated browsers (Playwright) get empty captions even from the player, so tests use recorded fixtures
 
 ## How to verify (during implementation)
-- Vitest: segmentation and base forms, classification, phrase matching, counting unsaved words, save all and Undo, packing/splitting/merging sync data, parsing YouTube json3 and Netflix TTML, choosing a translation and assigning by time overlap (fixtures)
-- Playwright: load the unpacked extension and check highlights, hover, phrase saving, saving and the end-of-article card on a local test article
-- Manually on real YouTube and Netflix: both subtitle positions, translation toggles, the L button and arrow menu, transcript sync and seeking, the end card
+- Vitest: segmentation and base forms, classification, phrase matching, counting unsaved words, marking them Known at the end, packing/splitting/merging sync data, parsing YouTube json3 and Netflix TTML, choosing a translation and assigning by time overlap (fixtures)
+- Playwright: load the unpacked extension and check highlights, hover, phrase saving, saving and marking unsaved words Known at the end of a local test article
+- Manually on real YouTube and Netflix: both subtitle positions, translation toggles, the L button and arrow menu, transcript sync and seeking, unsaved words marked Known at the end
 - Two Chrome profiles (same Google account) to check status sync. Also check that a signed-out profile saves without errors and merges after signing in later
 - Check that the Firefox build succeeds (phase 1). Behavior in Firefox is checked manually with `web-ext run` (Playwright's Firefox cannot load extensions) when the Firefox version is built
 - Compare against the mock: layout, copy and defaults match. **Before committing any UI change, render it and compare with the mock**

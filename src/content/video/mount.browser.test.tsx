@@ -54,9 +54,6 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     current: 0,
     card: 0,
     subtitleTranslation: "イーストはぴりっとした匂い。",
-    unsaved: 2,
-    done: null,
-    endCard: false,
     hover: null,
     panel: null,
     menuOpen: false,
@@ -471,14 +468,6 @@ describe("mountVideoUi", () => {
     expect(win.left).toBeLessThan(player.right);
     columns.remove();
     await browserPage.viewport(414, 896);
-  });
-
-  it("shows the end card when the video ends", async () => {
-    const { store } = mount();
-    store.set({ endCard: true });
-    await expect
-      .poll(() => inside("lingo-video")?.textContent)
-      .toContain("Video finished");
   });
 
   describe("in fullscreen", () => {

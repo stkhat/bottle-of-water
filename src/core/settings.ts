@@ -8,8 +8,11 @@ export interface Settings {
   /** Treat the N most common words as known (1,000–20,000, step 500). */
   knownLevel: number;
   highlight: { new: boolean; learning: boolean; known: boolean };
-  /** The end card offering to save the rest. */
-  offerSaveAllAtEnd: boolean;
+  /**
+   * New words left unsaved when a video ends or the reader reaches the end of an
+   * article: kept as New, or saved as Known.
+   */
+  unsavedAtEnd: "keep" | "known";
   dictionaries: {
     cambridge: boolean;
     wiktionary: boolean;
@@ -48,7 +51,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   uiLocale: "en",
   knownLevel: 3000,
   highlight: { new: false, learning: true, known: false },
-  offerSaveAllAtEnd: true,
+  unsavedAtEnd: "keep",
   dictionaries: {
     cambridge: true,
     wiktionary: true,
@@ -64,6 +67,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   syncEnabled: true,
   sentenceHistory: true,
 });
+
+const UNSAVED_AT_END: readonly Settings["unsavedAtEnd"][] = ["keep", "known"];
 
 const SUBTITLE_POSITIONS: readonly Settings["subtitlePosition"][] = [
   "inVideo",
@@ -117,7 +122,11 @@ export function mergeSettings(
     uiLocale: nonEmptyString(v.uiLocale, base.uiLocale),
     knownLevel: knownLevel(v.knownLevel, base.knownLevel),
     highlight: flags(v.highlight, base.highlight),
-    offerSaveAllAtEnd: bool(v.offerSaveAllAtEnd, base.offerSaveAllAtEnd),
+    unsavedAtEnd: UNSAVED_AT_END.includes(
+      v.unsavedAtEnd as Settings["unsavedAtEnd"],
+    )
+      ? (v.unsavedAtEnd as Settings["unsavedAtEnd"])
+      : base.unsavedAtEnd,
     dictionaries: flags(v.dictionaries, base.dictionaries),
     subtitlePosition: SUBTITLE_POSITIONS.includes(
       v.subtitlePosition as Settings["subtitlePosition"],

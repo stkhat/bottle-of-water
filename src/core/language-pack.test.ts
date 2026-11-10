@@ -44,8 +44,8 @@ describe("createEnglishPack", () => {
   });
 
   it("gives the IPA of words and phrases", () => {
-    expect(pack.ipa("figure")).toBe("/ˈfɪɡjɚ/");
-    expect(pack.ipa("figure out")).toBe("/ˈfɪɡjɚ aʊt/");
+    expect(pack.ipa("figure")).toBe("/ˈfɪɡjər/");
+    expect(pack.ipa("figure out")).toBe("/ˈfɪɡjər aʊt/");
     expect(pack.ipa("loaf")).toBeUndefined();
   });
 

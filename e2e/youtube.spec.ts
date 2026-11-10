@@ -6,7 +6,7 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
-import { test, expect, openPopupFor, sendToBackground } from "./fixtures";
+import { test, expect, knownCount, sendToBackground } from "./fixtures";
 import { routeYouTube, YOUTUBE_WATCH as WATCH } from "./sites";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -422,50 +422,25 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   expect(await violations(page)).toEqual([]);
 });
 
-test("at the end of the video, Video finished offers to save the rest, with Undo", async ({
+test("at the end of the video, unsaved new words become Known when Settings say so", async ({
   context,
   extensionId,
 }) => {
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { unsavedAtEnd: "known" },
+  });
   const page = await openAtLine(context, extensionId);
+  expect(await knownCount(context, extensionId)).toBe(0);
   await page.evaluate(async () => {
     const video = document.querySelector("video")!;
     video.currentTime = video.duration - 0.5;
     await video.play();
   });
-  const end = page.getByRole("region", { name: en["endCard.region"] });
-  await expect(end.getByText(en["endCard.video"])).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(end.getByText(/^\d+ words not saved yet$/)).toBeVisible();
-  await end.getByRole("button", { name: en["saveAll.addLearning"] }).click();
-  await expect(end.getByText(/^\d+ words added to Learning$/)).toBeVisible();
-  await expect(end.getByText(en["saveAll.allSaved"])).toBeVisible();
-  await end.getByRole("button", { name: en["saveAll.undo"] }).click();
-  await expect(end.getByText(/^\d+ words not saved yet$/)).toBeVisible();
+  await expect
+    .poll(() => knownCount(context, extensionId), { timeout: 10_000 })
+    .toBeGreaterThan(0);
+  // Nothing shows on the page.
+  await expect(page.getByText("Video finished")).toHaveCount(0);
   expect(await violations(page)).toEqual([]);
-});
-
-test("the popup's This video saves the video's unsaved words", async ({
-  context,
-  extensionId,
-}) => {
-  const page = await openAtLine(context, extensionId);
-  const popup = await openPopupFor(context, extensionId, page);
-  await expect(
-    popup.getByText("www.youtube.com", { exact: true }),
-  ).toBeVisible();
-  await expect(popup.getByText(en["saveAll.scope.video"])).toBeVisible();
-  const line = await popup.getByText(/^\d+ words not saved yet$/).textContent();
-  const unsaved = Number(/\d+/.exec(line!)![0]);
-  expect(unsaved).toBeGreaterThan(0);
-
-  await popup.getByRole("button", { name: en["saveAll.addLearning"] }).click();
-  await expect(
-    popup.getByText(`${unsaved} words added to Learning`),
-  ).toBeVisible();
-  await expect(
-    inVideo(page).getByText("creativity", { exact: true }),
-  ).toHaveCSS("background-color", /rgba\(15, 159, 126, 0\.55\)/);
-  await popup.getByRole("button", { name: en["saveAll.undo"] }).click();
-  await expect(popup.getByText(`${unsaved} words not saved yet`)).toBeVisible();
 });

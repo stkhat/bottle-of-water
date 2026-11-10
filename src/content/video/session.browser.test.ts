@@ -247,7 +247,7 @@ describe("a video with subtitles", () => {
     ]);
     const tangy = state().spans[0]!.find((s) => s.key === "tangy");
     expect(tangy?.category).toBe("new");
-    expect(state().unsaved).toBe(4); // yeast, tangy, knead, loaf
+    expect(unsavedOf(state)).toBe(4); // yeast, tangy, knead, loaf
   });
 
   it("classifies long videos in batches", async () => {
@@ -366,41 +366,56 @@ describe("sentence cards", () => {
 });
 
 describe("the end of the video", () => {
-  it("offers to save every unsaved new word, and undoes it", async () => {
-    const { state, video, session } = await start();
-    await ready(state);
-    await expect.poll(() => state().unsaved).toBe(4);
-    expect(state().endCard).toBe(false);
+  const playToEnd = async (video: HTMLVideoElement) => {
     await seekTo(video, 3.8);
     await video.play();
-    await expect.poll(() => state().endCard, { timeout: 5000 }).toBe(true);
+  };
 
-    session.app.saveAll("learning");
-    await expect
-      .poll(() => state().done)
-      .toEqual({
-        count: 4,
-        target: "learning",
-      });
-    expect(state().unsaved).toBe(0);
+  it("marks every unsaved new word Known when Settings say so", async () => {
+    const { state, video, bg } = await start(undefined, {
+      settings: { unsavedAtEnd: "known" },
+    });
+    await ready(state);
+    await classified(state);
+    expect(unsavedOf(state)).toBe(4);
+    await playToEnd(video);
+    await expect.poll(() => unsavedOf(state), { timeout: 5000 }).toBe(0);
+    expect(bg.sent("saveAll")).toEqual([
+      expect.objectContaining({
+        keys: ["yeast", "tangy", "knead", "loaf"],
+        status: "known",
+      }),
+    ]);
     expect(state().spans[0]!.find((s) => s.key === "tangy")?.category).toBe(
-      "learning",
+      "known",
     );
+    // Playing to the end again does not save again.
+    await playToEnd(video);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(bg.sent("saveAll")).toHaveLength(1);
+  });
 
-    session.app.undoSaveAll();
-    await expect.poll(() => state().done).toBeNull();
-    expect(state().unsaved).toBe(4);
-
-    session.app.closeEndCard();
-    expect(state().endCard).toBe(false);
+  it("keeps them New by default", async () => {
+    const { state, video, bg } = await start();
+    await ready(state);
+    await classified(state);
+    await playToEnd(video);
+    await expect.poll(() => video.ended, { timeout: 5000 }).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(bg.sent("saveAll")).toEqual([]);
+    expect(unsavedOf(state)).toBe(4);
   });
 
   it("ignores the end of an ad", async () => {
-    const { state, video, site } = await start();
+    const { state, video, site, bg } = await start(undefined, {
+      settings: { unsavedAtEnd: "known" },
+    });
     await ready(state);
+    await classified(state);
     site.setAd(true);
     video.dispatchEvent(new Event("ended"));
-    expect(state().endCard).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(bg.sent("saveAll")).toEqual([]);
   });
 });
 
@@ -638,7 +653,7 @@ describe("navigation", () => {
     await ready(state);
     await seekTo(video, 3.8);
     await video.play();
-    await expect.poll(() => state().endCard, { timeout: 5000 }).toBe(true);
+    await expect.poll(() => video.ended, { timeout: 5000 }).toBe(true);
     session.app.setEnabled(false);
 
     site.navigate("vid2");
@@ -646,7 +661,6 @@ describe("navigation", () => {
       videoId: "vid2",
       status: "loading",
       enabled: true,
-      endCard: false,
       cues: [],
     });
     await ready(state);
@@ -720,6 +734,15 @@ const classified = (state: () => VideoState) =>
   expect
     .poll(() => state().spans.every((s) => s !== null), { timeout: 10_000 })
     .toBe(true);
+
+/** Distinct unsaved new words among the classified cues. */
+const unsavedOf = (state: () => VideoState) =>
+  new Set(
+    state()
+      .spans.flatMap((list) => list ?? [])
+      .filter((span) => span.category === "new")
+      .map((span) => span.key),
+  ).size;
 
 const BOX = { left: 10, top: 20, right: 60, bottom: 40 };
 
@@ -798,7 +821,7 @@ describe("words in the subtitles", () => {
     const { state, app, bg } = await start();
     await ready(state);
     await classified(state);
-    expect(state().unsaved).toBe(4);
+    expect(unsavedOf(state)).toBe(4);
     app.clickWord(refOf(state, 0, "tangy"));
     await expect.poll(() => state().panel?.card.status).toBe("new");
     app.setPanelStatus("learning");
@@ -824,7 +847,7 @@ describe("words in the subtitles", () => {
     const category = (cue: number) =>
       state().spans[cue]!.find((s) => s.key === "tangy")?.category;
     expect([category(0), category(2)]).toEqual(["learning", "learning"]);
-    expect(state().unsaved).toBe(3);
+    expect(unsavedOf(state)).toBe(3);
 
     app.setPanelStatus("known");
     await expect.poll(() => category(2)).toBe("known");
@@ -834,7 +857,7 @@ describe("words in the subtitles", () => {
     await expect.poll(() => category(0)).toBe("new");
     expect(bg.sent("removeTerm")).toHaveLength(1);
     await expect.poll(() => state().panel?.card.status).toBe("new");
-    expect(state().unsaved).toBe(4);
+    expect(unsavedOf(state)).toBe(4);
   });
 
   it("does not record the line the word was saved from again", async () => {
@@ -964,23 +987,23 @@ describe("words in this video", () => {
     await expect.poll(() => rowsOf(state).the).toBe("known 2");
   });
 
-  it("follows save all and its undo", async () => {
-    const { state, app } = await start();
+  it("follows the words marked Known at the end", async () => {
+    const { state, video } = await start(undefined, {
+      settings: { unsavedAtEnd: "known" },
+    });
     await ready(state);
     await classified(state);
     await expect.poll(() => rowsOf(state).tangy).toBe("new 2");
-    app.saveAll("known");
+    await seekTo(video, 3.8);
+    await video.play();
     await expect
-      .poll(() => rowsOf(state))
+      .poll(() => rowsOf(state), { timeout: 5000 })
       .toEqual({
         yeast: "known 1",
         tangy: "known 2",
         knead: "known 1",
         loaf: "known 1",
       });
-    app.undoSaveAll();
-    await expect.poll(() => rowsOf(state).loaf).toBe("new 1");
-    expect(state().summaries.loaf?.status).toBe("new");
   });
 
   it("keeps a status saved before the summaries' answer arrives", async () => {
@@ -1172,35 +1195,13 @@ describe("fullscreen", () => {
 });
 
 describe("the popup's requests", () => {
-  it("answers for the video: unsaved words, save all and undo", async () => {
+  it("answers for the video", async () => {
     const { state, session } = await start();
     await ready(state);
     await classified(state);
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
       hostname: "www.youtube.com",
-      scope: "video",
-      unsaved: 4,
-      done: null,
-    });
-    expect(
-      await session.handlePageRequest({
-        type: "pageSaveAll",
-        status: "learning",
-      }),
-    ).toEqual({
-      supported: true,
-      hostname: "www.youtube.com",
-      scope: "video",
-      unsaved: 0,
-      done: { count: 4, target: "learning" },
-    });
-    expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
-      supported: true,
-      hostname: "www.youtube.com",
-      scope: "video",
-      unsaved: 4,
-      done: null,
     });
   });
 
@@ -1210,9 +1211,6 @@ describe("the popup's requests", () => {
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: false,
       hostname: "www.youtube.com",
-      scope: "video",
-      unsaved: 0,
-      done: null,
     });
   });
 });

@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import type { Page } from "@playwright/test";
 import {
-  ENGLISH_PAGE,
   test,
   expect,
   extensionIdOf,
@@ -27,7 +26,7 @@ test("settings changes reach an open article page at once", async ({
 }) => {
   const page = await context.newPage();
   await page.goto("/article-en.html");
-  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
+  await expect(page.locator("lingo-article")).toHaveCount(1);
   await expect
     .poll(async () => (await highlighted(page, "lingo-new")).length)
     .toBe(0);
@@ -56,7 +55,7 @@ test("settings changes reach an open article page at once", async ({
   await options
     .getByRole("switch", { name: "Run Lingo on Articles on other sites" })
     .click();
-  await expect(page.getByText(ENGLISH_PAGE)).toHaveCount(0);
+  await expect(page.locator("lingo-article")).toHaveCount(0);
   expect(await newCount(page)).toBe(0);
 });
 

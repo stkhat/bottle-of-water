@@ -133,12 +133,6 @@ export interface VideoState {
   card: number;
   /** The translation the subtitle shows at the playing time. */
   subtitleTranslation: string;
-  /** Distinct unsaved new words in the whole video (classified so far). */
-  unsaved: number;
-  /** The last save-all, until it is undone. */
-  done: PageSummary["done"];
-  /** The "Video finished" card. */
-  endCard: boolean;
   hover: VideoHover | null;
   panel: VideoPanel | null;
   /** The Lingo menu above the ^ button. */
@@ -163,10 +157,6 @@ export interface VideoApp {
   setEnabled(on: boolean): void;
   /** A transcript card was clicked. */
   seekToCue(index: number): void;
-  /** Saves every unsaved new word of the video. */
-  saveAll(status: TermStatus): void;
-  undoSaveAll(): void;
-  closeEndCard(): void;
   /** The pointer entered a word of the subtitle (its box in the viewport). */
   enterWord(ref: WordRef, anchor: Box): void;
   /** The pointer left the word. */
@@ -221,17 +211,12 @@ interface Watch {
   recorded: Set<string>;
   saved: Set<string>;
   pendingTranslations: Map<number, Promise<string | undefined>>;
+  /** The video played to its end once (unsaved new words were handled). */
   endReached: boolean;
-  endClosed: boolean;
   /** Keys whose summaries were asked for. */
   asked: Set<string>;
   /** Saved status by key as this video last saw it (newer than a summary on its way). */
   statuses: Map<string, TermBrief["status"]>;
-  lastBatch?: {
-    batchId: string;
-    keys: ReadonlySet<string>;
-    status: TermStatus;
-  };
 }
 
 const isAbort = (error: unknown) =>
@@ -260,9 +245,6 @@ function fresh(
     current: -1,
     card: -1,
     subtitleTranslation: "",
-    unsaved: 0,
-    done: null,
-    endCard: false,
     hover: null,
     panel: null,
     menuOpen: false,
@@ -337,7 +319,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       saved: new Set(),
       pendingTranslations: new Map(),
       endReached: false,
-      endClosed: false,
       asked: new Set(),
       statuses: new Map(),
     };
@@ -417,9 +398,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const element = video;
     const tick = () => update(w, element);
     const onEnded = () => {
-      if (adapter.adShowing() || watch !== w) return;
+      if (adapter.adShowing() || watch !== w || w.endReached) return;
       w.endReached = true;
-      updateCounts(w);
+      if (settings.unsavedAtEnd === "known") run(() => markUnsavedKnown(w));
     };
     const events = ["timeupdate", "seeked", "play", "pause", "loadeddata"];
     for (const type of events) element.addEventListener(type, tick);
@@ -559,7 +540,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       spans[cue] = result.spans[i] ?? [];
     });
     store.set({ spans });
-    updateCounts(w);
     recordEncounters(
       w,
       indices.filter((i) => w.played.has(i)),
@@ -657,19 +637,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     return [...keys];
   }
 
-  function updateCounts(w: Watch) {
-    const unsaved = unsavedKeys().length;
-    const state = store.get();
-    const endCard =
-      state.endCard ||
-      (w.endReached &&
-        !w.endClosed &&
-        settings.offerSaveAllAtEnd &&
-        unsaved > 0);
-    if (unsaved !== state.unsaved || endCard !== state.endCard)
-      store.set({ unsaved, endCard });
-  }
-
   function recategorize(
     w: Watch,
     change: (span: Span) => Category | undefined,
@@ -684,49 +651,30 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         }) ?? null,
     );
     store.set({ spans });
-    updateCounts(w);
   }
 
-  async function saveAll(w: Watch, status: TermStatus) {
+  /** Saves every unsaved new word of the video as Known (Settings `unsavedAtEnd`). */
+  async function markUnsavedKnown(w: Watch) {
+    if (watch !== w) return;
     const keys = unsavedKeys();
     if (keys.length === 0) return;
-    const { batchId, count } = await deps.send({
+    await deps.send({
       type: "saveAll",
       lang: lang(),
       keys,
-      status,
+      status: "known",
       source: source(),
     });
     if (watch !== w) return;
     const saved = new Set(keys);
     for (const key of keys) w.saved.add(key);
-    w.lastBatch = { batchId, keys: saved, status };
     recategorize(w, (s) =>
-      s.category === "new" && saved.has(s.key) ? status : undefined,
+      s.category === "new" && saved.has(s.key) ? "known" : undefined,
     );
     noteStatuses(
       w,
-      keys.map((key) => [key, status]),
+      keys.map((key) => [key, "known"]),
     );
-    store.set({ done: { count, target: status } });
-    await refreshOpenCards();
-  }
-
-  async function undoSaveAll(w: Watch) {
-    const batch = w.lastBatch;
-    if (!batch) return;
-    await deps.send({ type: "undoSaveAll", batchId: batch.batchId });
-    w.lastBatch = undefined;
-    if (watch !== w) return;
-    for (const key of batch.keys) w.saved.delete(key);
-    recategorize(w, (s) =>
-      s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
-    );
-    noteStatuses(
-      w,
-      [...batch.keys].map((key) => [key, "new"]),
-    );
-    store.set({ done: null });
     await refreshOpenCards();
   }
 
@@ -946,12 +894,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       const cue = store.get().cues[index];
       if (cue) adapter.seek(cue.startMs).catch(warn);
     },
-    saveAll: (status) => withWatch((w) => saveAll(w, status)),
-    undoSaveAll: () => withWatch(undoSaveAll),
-    closeEndCard() {
-      if (watch) watch.endClosed = true;
-      store.set({ endCard: false });
-    },
     enterWord(ref, anchor) {
       pendingAnchor = anchor;
       hover.enter(`${ref.cue}:${ref.span}`);
@@ -1019,14 +961,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   const summary = (): PageSummary => {
     const state = store.get();
-    if (state.status !== "ready") return unsupportedPage(hostname(), "video");
-    return {
-      supported: true,
-      hostname: hostname(),
-      scope: "video",
-      unsaved: state.unsaved,
-      done: state.done,
-    };
+    if (state.status !== "ready") return unsupportedPage(hostname());
+    return { supported: true, hostname: hostname() };
   };
 
   const offNavigate = adapter.onNavigate(open);
@@ -1043,10 +979,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   return {
     app,
-    handlePageRequest(request) {
-      if (request.type === "pageSaveAll")
-        withWatch((w) => saveAll(w, request.status));
-      else if (request.type === "pageUndo") withWatch(undoSaveAll);
+    handlePageRequest() {
       // Answer after everything asked before has been done.
       return queue.then(summary);
     },
