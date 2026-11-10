@@ -479,6 +479,81 @@ describe("occurrences", () => {
   });
 });
 
+describe("sentence history", () => {
+  const kept = (bg: ReturnType<typeof testBackground>) =>
+    bg.sent("recordHistory").flatMap((r) => r.sentences);
+
+  it("sends the cards that play, once each, with the time and the translation", async () => {
+    const { state, bg, video } = await start();
+    await ready(state);
+    await expect
+      .poll(() => kept(bg))
+      .toEqual([
+        {
+          text: "The yeast smells tangy.",
+          translation: "イーストはぴりっとした匂い。",
+          pos: { timeMs: 0 },
+        },
+      ]);
+    expect(bg.sent("recordHistory")[0]?.source).toEqual({
+      platform: "youtube",
+      url: "https://www.youtube.com/watch?v=vid1",
+      title: "Title of vid1",
+      lang: "en",
+    });
+
+    // Skipped over the second card: only the cards that play, lines joined.
+    await seekTo(video, 2.8);
+    await expect.poll(() => kept(bg).length).toBe(2);
+    expect(kept(bg)[1]).toEqual({
+      text: "It is a tangy loaf.",
+      translation: "ぴりっとしたパンだ。",
+      pos: { timeMs: 2500 },
+    });
+
+    // Each card once per video.
+    await seekTo(video, 0.5);
+    await expect.poll(() => state().current).toBe(0);
+    await seekTo(video, 2.9);
+    await expect.poll(() => state().current).toBe(2);
+    expect(kept(bg)).toHaveLength(2);
+    expect(kept(bg).map((k) => k.text)).not.toContain("Knead the dough.");
+    await expect
+      .poll(async () => (await bg.send({ type: "historyStatus" })).pages)
+      .toBe(1);
+  });
+
+  it("sends the built-in translation once it is ready", async () => {
+    const { state, bg } = await start(
+      { vid1: captionsOf(CUES, { source: "builtIn", lang: "ja", cues: [] }) },
+      {
+        translatorAvailable: true,
+        translator: { translate: async (text) => `ja(${text})` },
+      },
+    );
+    await ready(state);
+    await expect
+      .poll(() => kept(bg))
+      .toEqual([
+        {
+          text: "The yeast smells tangy.",
+          translation: "ja(The yeast smells tangy.)",
+          pos: { timeMs: 0 },
+        },
+      ]);
+  });
+
+  it("sends nothing while it is switched off", async () => {
+    const { state, bg } = await start(undefined, {
+      before: saveTangy,
+      settings: { sentenceHistory: false },
+    });
+    await ready(state);
+    await expect.poll(() => bg.sent("recordEncounters").length).toBe(1);
+    expect(bg.sent("recordHistory")).toEqual([]);
+  });
+});
+
 describe("the built-in translator", () => {
   it("translates the cues as they play", async () => {
     const translated: string[] = [];

@@ -444,11 +444,37 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     }
   }
 
-  /** A cue played for the first time: translate it if needed, record its saved words. */
+  /**
+   * A cue played for the first time: translate it if needed, record its saved words
+   * and keep it in the sentence history.
+   */
   async function played(w: Watch, index: number) {
+    const from = source();
     if (store.get().translationSource === "builtIn")
       await translateCue(w, index);
     recordEncounters(w, [index]);
+    recordHistory(w, index, from);
+  }
+
+  /** Sends a played card to the sentence history (played lines only, never the track). */
+  function recordHistory(w: Watch, index: number, from: SourceInput) {
+    const { cues, translations } = store.get();
+    const cue = cues[index];
+    if (watch !== w || !cue || !settings.sentenceHistory) return;
+    const translation = translations[index];
+    deps
+      .send({
+        type: "recordHistory",
+        source: from,
+        sentences: [
+          {
+            text: flat(cue.text),
+            ...(translation ? { translation } : {}),
+            pos: { timeMs: cue.startMs },
+          },
+        ],
+      })
+      .catch(warn);
   }
 
   function translateCue(w: Watch, index: number) {
