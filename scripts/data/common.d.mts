@@ -8,6 +8,7 @@ export function stringifyPack(
 export function writePack(
   relPath: string,
   value: unknown[] | Record<string, unknown>,
+  dir?: string,
 ): void;
 export function readPack(relPath: string): unknown;
 export function fetchText(url: string): Promise<string>;

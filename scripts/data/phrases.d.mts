@@ -22,6 +22,10 @@ export const PLACEHOLDER_WORDS: ReadonlySet<string>;
 export const AUXILIARIES: ReadonlySet<string>;
 export const IDIOM_COMMON_RANK: number;
 export const PHRASE_COMMON_RANK: number;
+export const PHRASE_POS: ReadonlySet<string>;
+export function isUsable(sense: unknown): boolean;
+export function isNonConstituent(entry: unknown): boolean;
+export function shortOf(text: string): string;
 export function importPhrases(
   path: string,
   vocab: Iterable<string>,

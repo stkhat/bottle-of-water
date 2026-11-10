@@ -34,6 +34,7 @@
     "data:kaikki": "node scripts/data/kaikki.mjs",
     "data:phrases": "node scripts/data/phrases.mjs",
     "data:freq": "node scripts/data/frequency.mjs",
+    "data:es": "node scripts/data/es-frequency.mjs && node scripts/data/es-kaikki.mjs",
     "data:stats": "node scripts/data/stats.mjs"
   },
   "dependencies": {

@@ -31,9 +31,9 @@ export function stringifyPack(value) {
   return `${open}\n${lines.join(",\n")}\n${close}\n`;
 }
 
-/** Writes `value` to public/packs/<relPath>. */
-export function writePack(relPath, value) {
-  const path = join(PACKS_DIR, relPath);
+/** Writes `value` to <dir>/<relPath>, public/packs/<relPath> by default. */
+export function writePack(relPath, value, dir = PACKS_DIR) {
+  const path = join(dir, relPath);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, stringifyPack(value));
 }

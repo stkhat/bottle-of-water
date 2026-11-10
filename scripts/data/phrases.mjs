@@ -33,7 +33,8 @@ const UNUSABLE_TAGS = new Set([
   "archaic",
   "misspelling",
 ]);
-const PHRASE_POS = new Set(["phrase", "prep_phrase"]);
+/** kaikki parts of speech whose entries are phrases. */
+export const PHRASE_POS = new Set(["phrase", "prep_phrase"]);
 // Glosses that only point at the words' literal meanings ("see on, the").
 const LITERAL_GLOSS = /^Used other than figuratively or idiomatically/;
 /** An idiomatic sense counts only when a word of the phrase is rarer than this rank ("in it" does not). */
@@ -56,7 +57,8 @@ function phraseKey(headword, words) {
   return parts.join(" ");
 }
 
-function isUsable(sense) {
+/** A sense with a gloss of its own: not a form-of / alt-of pointer, not obsolete, archaic or a misspelling, not a literal-meaning note. */
+export function isUsable(sense) {
   const glosses = sense.glosses;
   if (!Array.isArray(glosses) || glosses.length === 0) return false;
   if (typeof glosses.at(-1) !== "string" || !glosses.at(-1).trim())
@@ -74,7 +76,7 @@ function inCategory(categories, part) {
 }
 
 /** Wiktionary's "non-constituents" are word sequences that are not units ("on the", "of a"). */
-function isNonConstituent(entry) {
+export function isNonConstituent(entry) {
   return (
     inCategory(entry.categories, "non-constituents") ||
     (entry.senses ?? []).some((sense) =>
@@ -108,7 +110,7 @@ function japaneseOf(translations, out) {
 }
 
 /** The first sense cut at the first `;`, without a final period. */
-function shortOf(text) {
+export function shortOf(text) {
   const semicolon = text.indexOf(";");
   const cut = (semicolon >= 0 ? text.slice(0, semicolon) : text).trim();
   return cut.endsWith(".") ? cut.slice(0, -1).trimEnd() : cut;
