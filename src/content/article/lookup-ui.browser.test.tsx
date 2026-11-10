@@ -366,3 +366,74 @@ describe("page card", () => {
       .toHaveAttribute("aria-pressed", "false");
   });
 });
+
+describe("dictionary phrases", () => {
+  const PHRASES = `
+    <div style="height: 200px"></div>
+    <p>They bake it from scratch.</p>
+    <p>Once you figure out the schedule, bake it.</p>`;
+  const withNew = {
+    highlight: { new: true, learning: true, known: false },
+    offerSaveAllAtEnd: false,
+  };
+
+  it("highlights a detected phrase as one new term with its Japanese meaning", async () => {
+    const { root } = await setup(PHRASES, { settings: withNew });
+    await expect
+      .poll(() => highlighted("lingo-new"))
+      .toEqual(["from scratch", "figure out", "schedule"]);
+
+    await pointAt(root, "scratch");
+    await expect.element(hoverCard()).toBeVisible();
+    await expect
+      .element(page.getByText("Phrase", { exact: true }))
+      .toBeVisible();
+    await expect
+      .element(page.getByText("最初から", { exact: true }))
+      .toHaveAttribute("lang", "ja");
+
+    await clickOn(root, "scratch");
+    const panel = dictionary();
+    await expect
+      .element(panel.getByRole("heading", { name: "from scratch" }))
+      .toBeVisible();
+    await expect
+      .element(panel.getByText("ゼロから"))
+      .toHaveAttribute("lang", "ja");
+  });
+
+  it("shows a phrase's English definition as English, without translating it", async () => {
+    const translated: string[] = [];
+    const { root } = await setup(PHRASES, {
+      settings: withNew,
+      translator: {
+        translate: async (text) => {
+          translated.push(text);
+          return `訳: ${text}`;
+        },
+      },
+    });
+    await pointAt(root, "figure");
+    await expect.element(hoverCard()).toBeVisible();
+    await expect
+      .element(page.getByText("To come to understand", { exact: true }))
+      .toHaveAttribute("lang", "en");
+
+    await clickOn(root, "figure");
+    const panel = dictionary();
+    await expect
+      .element(panel.getByRole("heading", { name: "figure out" }))
+      .toBeVisible();
+    await expect
+      .element(panel.getByText("To come to understand", { exact: true }))
+      .toHaveAttribute("lang", "en");
+    await expect
+      .element(
+        panel.getByText(
+          "To come to understand; to discover or find a solution.",
+        ),
+      )
+      .toHaveAttribute("lang", "en");
+    expect(translated).toEqual([]);
+  });
+});
