@@ -128,6 +128,13 @@ Development pair: learning language = English, native language = Japanese, sites
 - Filters: search (words and meanings), status (All / Learning / Known), kind (All / Words / Phrases), sort (Recently seen / A–Z / Most seen)
 - List columns: Word (with a Phrase tag), Meaning, Status, Seen (number of occurrences), Last seen
 - Selecting a row shows a details panel on the right: headword, kind, pronunciation playback, IPA, short translation, status buttons (Learning / Known / Remove), and "Where you saw it · N" (each occurrence with its source, time or date, the sentence, and a link back to the spot; the occurrence where it was saved is marked "Saved here")
+- Details decided while building (2026-11-10):
+  - Search matches the base form and the short meaning, ignoring case and surrounding spaces. Words without a dictionary entry (phrasal verbs such as "figure out" are not in EJDict) show no meaning
+  - Sorting: Recently seen = newest occurrence first (a word without occurrences counts from when it was saved); Most seen = most occurrences first, then recently seen; ties go A–Z
+  - Last seen and the occurrence dates: "Today", "Nov 6" within this year, "Nov 6, 2025" before it. An occurrence's line reads site (or host) · "at m:ss" for video times · the date unless it is today · "Saved here"
+  - The first row is selected when the page opens. Remove takes the word out of the list at once; its panel stays with "Not saved" pressed, and Learning / Known save it again from the occurrence it was saved from (its other occurrences are gone with the removal). A word removed without any occurrence cannot be saved again here
+  - Export / Import are the settings page's buttons; the import result ("Imported N words" or the error) shows beside them and the list is read again. The list is also read again when the tab becomes visible
+  - More than 500 words: only the rows in view are rendered
 
 ### Phase 2 screens (mock, approved 2026-11-10)
 - **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
