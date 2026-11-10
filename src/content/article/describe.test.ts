@@ -18,7 +18,17 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     senses: [{ text: "数字；姿；人物" }],
   },
   tangy: { head: "tangy", kind: "word", short: "ぴりっとした", senses: [] },
+  "look into": {
+    head: "look into",
+    kind: "phrase",
+    short: "To investigate",
+    senses: [{ pos: "verb", text: "To investigate or examine." }],
+    glossLang: "en",
+  },
 };
+
+/** IPA the language pack has, also for terms no dictionary has. */
+const IPA: Record<string, string> = { "heavy lift": "/ˈhɛvi lɪft/" };
 
 function fakeSend(status: LookupResult["status"] = "new") {
   const requests: Request[] = [];
@@ -26,8 +36,10 @@ function fakeSend(status: LookupResult["status"] = "new") {
     requests.push(request);
     if (request.type !== "lookup") throw new Error(request.type);
     const entry = ENTRIES[request.key];
+    const ipa = IPA[request.key];
     return {
       ...(entry && { entry }),
+      ...(ipa && { ipa }),
       status,
       termId: `${request.lang}:${request.key}`,
       here: [],
@@ -102,6 +114,55 @@ describe("describeTerm", () => {
       senses: [],
     });
     expect(card.ipa).toBeUndefined();
+  });
+
+  it("shows a phrase's English definition with its language, without translating it", async () => {
+    const { send } = fakeSend();
+    const calls: string[] = [];
+    const recording = {
+      translate: async (text: string) => {
+        calls.push(text);
+        return `訳(${text})`;
+      },
+    };
+    const card = await describeTerm(
+      { key: "look into", kind: "phrase", surface: "looked into" },
+      {
+        send,
+        lang: "en",
+        sourceUrl: "https://example.com/a",
+        translator: recording,
+      },
+    );
+    expect(card).toMatchObject({
+      head: "look into",
+      short: "To investigate",
+      glossLang: "en",
+      senses: [{ pos: "verb", text: "To investigate or examine." }],
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("leaves out the language of a meaning in the native language", async () => {
+    const { send } = fakeSend();
+    const card = await describeTerm(
+      { key: "loaf", kind: "word", surface: "loaf" },
+      { send, lang: "en", sourceUrl: "https://example.com/a", translator },
+    );
+    expect(card).not.toHaveProperty("glossLang");
+  });
+
+  it("takes the IPA of a phrase no dictionary has from the lookup", async () => {
+    const { send } = fakeSend();
+    const card = await describeTerm(
+      { key: "heavy lift", kind: "phrase", surface: "heavy lifting" },
+      { send, lang: "en", sourceUrl: "https://example.com/a", translator },
+    );
+    expect(card).toMatchObject({
+      head: "heavy lifting",
+      ipa: "/ˈhɛvi lɪft/",
+      short: "訳(heavy lifting)",
+    });
   });
 
   it("leaves out what is not known", async () => {

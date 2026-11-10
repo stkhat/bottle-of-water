@@ -16,7 +16,7 @@ export const TEST_PACKS: PackFiles = {
       ...Array.from({ length: 2497 }, (_, i) => `filler${i}`),
       "yeast",
     ],
-    ipa: { loaf: "/loʊf/" },
+    ipa: { loaf: "/loʊf/", yeast: "/jist/" },
     pos: { loaf: ["noun"], ferment: ["verb"], crust: ["noun"] },
     vocab: [
       ...["crust", "ferment", "figure", "from", "give", "loaf", "out"],

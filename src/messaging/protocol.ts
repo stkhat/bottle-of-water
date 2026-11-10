@@ -89,6 +89,11 @@ export interface OccurrenceView {
 export interface LookupResult {
   /** Undefined when the dictionary has no entry for the term. */
   entry?: DictionaryEntry;
+  /**
+   * The term's IPA from the language pack, also for a phrase no dictionary has (a
+   * selected phrase); missing when a word has none.
+   */
+  ipa?: string;
   status: TermStatus | "new";
   termId: string;
   /** Occurrences in the source at `sourceUrl`, newest first. */
@@ -107,6 +112,8 @@ export interface TermSummary {
   status: TermStatus;
   /** The dictionary's short meaning; missing when the dictionary has no entry. */
   short?: string;
+  /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
+  glossLang?: string;
   /** How many occurrences are recorded. */
   seen: number;
   /** The newest occurrence's time, else when the term was saved (epoch ms). */

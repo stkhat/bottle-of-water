@@ -107,8 +107,9 @@ export function createHandlers({
     async lookup({ lang, key, sourceUrl }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
-      const [dictionary, terms, occurrences] = await Promise.all([
+      const [dictionary, pack, terms, occurrences] = await Promise.all([
         resources.dictionary(lang, nativeLang),
+        resources.pack(lang),
         store.termIndex(lang),
         store.occurrencesOf(id),
       ]);
@@ -118,8 +119,10 @@ export function createHandlers({
       for (const o of occurrences)
         (o.source.url === hereUrl ? here : elsewhere).push(view(o));
       const entry = dictionary.entry(key);
+      const ipa = pack.ipa(key);
       return {
         ...(entry !== undefined && { entry }),
+        ...(ipa !== undefined && { ipa }),
         status: terms.get(key) ?? "new",
         termId: id,
         here,
@@ -159,14 +162,15 @@ export function createHandlers({
       ]);
       return terms.map((term) => {
         const seen = stats.get(term.id);
-        const short = dictionary.short(term.key);
+        const entry = dictionary.entry(term.key);
         return {
           id: term.id,
           key: term.key,
           display: term.display,
           kind: term.kind,
           status: term.status as TermStatus,
-          ...(short !== undefined && { short }),
+          ...(entry !== undefined && { short: entry.short }),
+          ...(entry?.glossLang !== undefined && { glossLang: entry.glossLang }),
           seen: seen?.count ?? 0,
           lastSeen: seen?.lastSeen ?? term.createdAt,
           createdAt: term.createdAt,

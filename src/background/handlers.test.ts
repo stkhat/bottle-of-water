@@ -9,6 +9,7 @@ import type {
   RequestOf,
   RequestType,
   ResponseOf,
+  TermSummary,
 } from "../messaging/protocol";
 import type { OccurrenceRecord, SourceRecord, TermRecord } from "./db";
 import { createHandlers, type Handle } from "./handlers";
@@ -433,6 +434,30 @@ describe("handlers: listTermsWithStats", () => {
     expect(store.listTerms).toHaveBeenCalledWith("en");
     expect(store.occurrenceStats).toHaveBeenCalledWith("en");
   });
+  it("gives the language of a short meaning that is not in the native language", async () => {
+    const term = (key: string): TermRecord => ({
+      id: `en:${key}`,
+      lang: "en",
+      key,
+      display: key,
+      kind: "phrase",
+      status: "learning",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    store.listTerms.mockResolvedValue([term("figure out"), term("give up")]);
+    store.occurrenceStats.mockResolvedValue(new Map());
+    const [figureOut, giveUp] = (await value({
+      type: "listTermsWithStats",
+      lang: "en",
+    })) as TermSummary[];
+    expect(figureOut).toMatchObject({
+      short: "To come to understand",
+      glossLang: "en",
+    });
+    expect(giveUp).toMatchObject({ short: "諦める" });
+    expect(giveUp).not.toHaveProperty("glossLang");
+  });
 });
 
 describe("handlers: warmDictionary", () => {
@@ -470,6 +495,7 @@ describe("handlers: lookup", () => {
         short: "パンのひと塊",
         senses: [{ pos: "noun", text: "パンのひと塊" }],
       },
+      ipa: "/loʊf/",
       status: "learning",
       termId: "en:loaf",
       here: [
@@ -549,6 +575,38 @@ describe("handlers: lookup", () => {
       termId: "en:sourdough",
       here: [],
       elsewhere: [],
+    });
+  });
+
+  it("gives the IPA of a phrase no dictionary has", async () => {
+    store.occurrencesOf.mockResolvedValue([]);
+    expect(
+      await value({
+        type: "lookup",
+        lang: "en",
+        key: "yeast loaf",
+        kind: "phrase",
+      }),
+    ).toEqual({
+      ipa: "/jist loʊf/",
+      status: "new",
+      termId: "en:yeast loaf",
+      here: [],
+      elsewhere: [],
+    });
+  });
+
+  it("gives an English definition with its language", async () => {
+    store.occurrencesOf.mockResolvedValue([]);
+    expect(
+      await value({
+        type: "lookup",
+        lang: "en",
+        key: "figure out",
+        kind: "phrase",
+      }),
+    ).toMatchObject({
+      entry: { short: "To come to understand", glossLang: "en" },
     });
   });
 
