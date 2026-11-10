@@ -182,6 +182,9 @@ describe("answering the content script", () => {
       languageCode: "en",
       kind: "asr",
     });
+    // Each track is fetched asynchronously; wait for this one before asking for the
+    // next, so the order of what is posted is the order of the requests.
+    await expect.poll(() => posted.length).toBe(2);
     const previous = { languageCode: "ja", kind: "" };
     await call({ type: "restoreCaptions", previous });
     expect(page.player.fake.setOption.at(-1)).toEqual([
