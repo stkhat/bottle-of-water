@@ -74,6 +74,9 @@ export const test = base.extend<{
 
 export const expect = test.expect;
 
+/** The page card's status on an English page with the default languages (English → Japanese). */
+export const ENGLISH_PAGE = "English page · EN → JA";
+
 /**
  * Sends a request to the background from an extension page, as the popup and the
  * options page do, and returns the reply (`{ ok, value }` or `{ ok, error }`).

@@ -105,6 +105,8 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
       ) : (
         <PageCard
           highlight={settings.highlight}
+          learningLang={settings.learningLang}
+          nativeLang={settings.nativeLang}
           onToggle={app.toggleHighlight}
         />
       )}

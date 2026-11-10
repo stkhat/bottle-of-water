@@ -15,6 +15,8 @@ async function mountInShadowRoot(props: Partial<PageCardProps> = {}) {
   return render(
     <PageCard
       highlight={DEFAULT_SETTINGS.highlight}
+      learningLang="en"
+      nativeLang="ja"
       onToggle={() => {}}
       {...props}
     />,
@@ -66,6 +68,16 @@ describe("PageCard in a shadow root", () => {
     await expect.element(screen.getByText("Lingo")).toBeVisible();
     await expect
       .element(screen.getByText("English page · EN → JA"))
+      .toBeVisible();
+  });
+
+  test("names the learning language and the language pair", async () => {
+    const screen = await mountInShadowRoot({
+      learningLang: "es",
+      nativeLang: "en",
+    });
+    await expect
+      .element(screen.getByText("Spanish page · ES → EN"))
       .toBeVisible();
   });
 

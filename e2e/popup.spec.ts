@@ -1,6 +1,12 @@
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import type { BrowserContext, Page } from "@playwright/test";
-import { test, expect, openPopupFor, sendToBackground } from "./fixtures";
+import {
+  ENGLISH_PAGE,
+  test,
+  expect,
+  openPopupFor,
+  sendToBackground,
+} from "./fixtures";
 
 test("popup header shows the app and language pair", async ({
   context,
@@ -105,21 +111,21 @@ test("switching On this site off removes Lingo from the page, and on brings it b
   extensionId,
 }) => {
   const page = await openArticle(context, extensionId);
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   const popup = await openPopupFor(context, extensionId, page);
   const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
   await expect(site).toBeChecked();
 
   await site.click();
   await expect(site).not.toBeChecked();
-  await expect(page.getByText(en["card.pageStatus"])).toHaveCount(0);
+  await expect(page.getByText(ENGLISH_PAGE)).toHaveCount(0);
   await expect(page.locator("lingo-article")).toHaveCount(0);
   expect(await highlighted(page, "lingo-new")).toEqual([]);
   await expect(popup.getByText(en["saveAll.scope.page"])).toHaveCount(0);
 
   await site.click();
   await expect(site).toBeChecked();
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   await expect
     .poll(async () => (await highlighted(page, "lingo-new")).length)
     .toBeGreaterThan(0);

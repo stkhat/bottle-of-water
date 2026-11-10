@@ -138,7 +138,7 @@
   "settings.cloud.desc": "Sync everything through Google Drive, Dropbox, OneDrive, a folder on this computer or WebDAV, for when {syncName} space runs out.",
   "settings.cloud.descNoFolder": "Sync everything through Google Drive, Dropbox, OneDrive or WebDAV, for when {syncName} space runs out.",
   "settings.about.line": "Lingo {version} · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, phrase meanings and the Spanish–English dictionary: Wiktionary (CC BY-SA)",
-  "card.pageStatus": "English page · EN → JA",
+  "card.pageStatus": "{language} page · {from} → {to}",
   "card.highlight": "Highlight",
   "card.chip.new": "New",
   "card.chip.learning": "Learning",

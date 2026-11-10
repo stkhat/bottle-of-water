@@ -1,6 +1,6 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { test, expect, sendToBackground } from "./fixtures";
+import { ENGLISH_PAGE, test, expect, sendToBackground } from "./fixtures";
 
 /** The text of every range registered under a highlight name ([] when it is not registered). */
 function highlighted(page: Page, name: string) {
@@ -200,11 +200,11 @@ test("the end card adds every unsaved word and undoes it", async ({
 }) => {
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   await textBox(page, "back to its cause.");
   const end = page.getByRole("region", { name: en["endCard.region"] });
   await expect(end.getByText(en["endCard.article"])).toBeVisible();
-  await expect(page.getByText(en["card.pageStatus"])).toHaveCount(0);
+  await expect(page.getByText(ENGLISH_PAGE)).toHaveCount(0);
 
   const line = await end.getByText(/words not saved yet$/).textContent();
   const unsaved = Number(/\d+/.exec(line!)![0]);
@@ -225,7 +225,7 @@ test("the end card adds every unsaved word and undoes it", async ({
   expect(await highlighted(page, "lingo-learning")).toEqual([]);
 
   await end.getByRole("button", { name: en["endCard.close"] }).click();
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
 });
 
 test("Seen elsewhere lists the other article a word was saved on", async ({
@@ -260,18 +260,21 @@ test("a Spanish article is highlighted and looked up in English when learning Sp
 }) => {
   await sendToBackground(context, extensionId, {
     type: "setSettings",
-    // At the lowest level "comer" (about the 1,800th word) is still new.
+    // At the lowest level "comer" (about the 1,800th word) is still new. The page is
+    // short: without the end card the page card stays.
     patch: {
       learningLang: "es",
       nativeLang: "en",
       knownLevel: 1000,
       highlight: { new: true },
+      offerSaveAllAtEnd: false,
     },
   });
   const page = await openArticle(context, "/article-es.html");
   await expect
     .poll(() => highlighted(page, "lingo-new"))
     .toEqual(expect.arrayContaining(["comiendo", "a escondidas"]));
+  await expect(page.getByText("Spanish page · ES → EN")).toBeVisible();
 
   await hover(page, "comiendo");
   await expect(page.getByText("comer", { exact: true })).toBeVisible();
