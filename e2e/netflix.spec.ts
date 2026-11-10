@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { BrowserContext, Page } from "@playwright/test";
+import type { BrowserContext, Locator, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
@@ -62,6 +62,15 @@ const fake = (page: Page) =>
       (window as unknown as { lingoFakeNetflix: FakeNetflixControl })
         .lingoFakeNetflix.log,
   );
+
+/** The page's element drawn on top at the middle of `target` (a shadow host for Lingo). */
+async function topmostAt(page: Page, target: Locator) {
+  const box = (await target.boundingBox())!;
+  return page.evaluate(
+    ([x, y]) => document.elementFromPoint(x!, y!)?.localName,
+    [box.x + box.width / 2, box.y + box.height / 2],
+  );
+}
 
 /** Opens the watch page with New words highlighted and seeks to LINE from its card. */
 async function openAtLine(context: BrowserContext, extensionId: string) {
@@ -217,6 +226,82 @@ test("the L button turns Lingo off: Netflix's subtitles come back", async ({
   await expect(inVideo(page)).toContainText(LINE);
   await expect(transcript(page)).toBeVisible();
   expect(await siteCaptions(page)).toBe("none");
+});
+
+test("in fullscreen the subtitle, hover card, dictionary window and menu stay; leaving brings the transcript back", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  // Netflix makes the player's page fullscreen, from its control bar.
+  await moveOverVideo(page);
+  await page.getByRole("button", { name: "Full screen", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.fullscreenElement?.className ?? null),
+    )
+    .toBe("watch-video");
+  await expect(transcript(page)).toHaveCount(0);
+
+  // The subtitle over the video, larger, with its translation; Netflix's stay hidden.
+  const word = inVideo(page).getByText("EXTRAORDINARY", { exact: true });
+  await expect(word).toHaveCSS("font-size", "34px");
+  await expect(inVideo(page).getByText(LINE_JA)).toBeVisible();
+  expect(await siteCaptions(page)).toBe("none");
+
+  // The hover card and the dictionary window show inside the fullscreen element.
+  await word.hover();
+  const hint = page.getByText(en["hover.hint"]);
+  await expect(hint).toBeVisible();
+  expect(await topmostAt(page, hint)).toBe("lingo-video");
+  await word.click();
+  const window = page.getByRole("complementary", { name: en["dict.window"] });
+  await expect(
+    window.getByRole("heading", { name: "extraordinary" }),
+  ).toBeVisible();
+  const win = (await window.boundingBox())!;
+  const width = await page.evaluate(() => innerWidth);
+  expect(win.y).toBeCloseTo(32, 0);
+  expect(win.x + win.width).toBeCloseTo(width - 32, 0);
+  expect(await topmostAt(page, window)).toBe("lingo-video");
+  await window.getByRole("button", { name: en["dict.close"] }).click();
+  await expect(window).toHaveCount(0);
+
+  // The L and ^ buttons stay in the control bar; the menu has no subtitle position.
+  await moveOverVideo(page);
+  const menuButton = page.getByRole("button", { name: en["video.menu"] });
+  await menuButton.click();
+  const menu = page.getByRole("dialog", { name: en["video.menu"] });
+  await expect(menu.getByText(en["video.menu.on"])).toBeVisible();
+  await expect(
+    menu.getByRole("group", { name: en["video.menu.position"] }),
+  ).toHaveCount(0);
+  await expect(menu.getByText(en["video.menu.showTranslation"])).toBeVisible();
+  await expect(
+    menu.getByRole("button", { name: en["video.menu.openSettings"] }),
+  ).toBeVisible();
+  await menuButton.click();
+  await expect(menu).toHaveCount(0);
+  const l = lButton(page);
+  await l.click();
+  await expect(l).toHaveAttribute("aria-pressed", "false");
+  await expect(inVideo(page)).toHaveCount(0);
+  await l.click();
+  await expect(inVideo(page)).toContainText(LINE);
+
+  // Leaving fullscreen: the transcript, the normal subtitle and the menu's positions.
+  await moveOverVideo(page);
+  await page.getByRole("button", { name: "Exit full screen" }).click();
+  await expect
+    .poll(() => page.evaluate(() => document.fullscreenElement))
+    .toBeNull();
+  await expect(card(page, LINE)).toBeVisible();
+  await expect(word).toHaveCSS("font-size", "24px");
+  await moveOverVideo(page);
+  await menuButton.click();
+  await expect(
+    menu.getByRole("group", { name: en["video.menu.position"] }),
+  ).toBeVisible();
 });
 
 test("at the end of the video, Video finished offers to save the rest", async ({

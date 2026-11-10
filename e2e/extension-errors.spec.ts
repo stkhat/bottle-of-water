@@ -460,6 +460,25 @@ for (const build of ["production", "check"] as const)
       await l.click();
       await expect(inVideo(page)).toContainText(YT_LINE);
 
+      // Fullscreen (YouTube's button makes ytd-app fullscreen): a word's card and
+      // window, the menu, and back.
+      await page.getByRole("button", { name: "Full screen (f)" }).click();
+      await expect(transcript(page)).toHaveCount(0);
+      await word.hover();
+      await expect(page.getByText(en["hover.hint"])).toBeVisible();
+      await word.click();
+      await expect(
+        window.getByRole("heading", { name: "creativity" }),
+      ).toBeVisible();
+      await window.getByRole("button", { name: en["dict.close"] }).click();
+      await page.getByRole("button", { name: en["video.menu"] }).click();
+      await expect(
+        menu.getByRole("button", { name: en["video.menu.openSettings"] }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: en["video.menu"] }).click();
+      await page.getByRole("button", { name: "Exit full screen (f)" }).click();
+      await expect(videoCard(page, YT_LINE)).toBeVisible();
+
       await usePopup(context, extensionId, page, { toggleSite: true });
       await playToEnd(page);
 
@@ -530,10 +549,32 @@ for (const build of ["production", "check"] as const)
       await word.hover();
       await expect(page.getByText(en["hover.hint"])).toBeVisible();
       await word.click();
+      const window = page.getByRole("complementary", {
+        name: en["dict.window"],
+      });
+      await expect(window).toBeVisible();
+      await window.getByRole("button", { name: en["dict.close"] }).click();
+
+      // Fullscreen from Netflix's bar: a word's card and window, the menu, and back.
+      await moveOverVideo();
+      await page
+        .getByRole("button", { name: "Full screen", exact: true })
+        .click();
+      await expect(transcript(page)).toHaveCount(0);
+      await word.hover();
+      await expect(page.getByText(en["hover.hint"])).toBeVisible();
+      await word.click();
+      await expect(window).toBeVisible();
+      await window.getByRole("button", { name: en["dict.close"] }).click();
+      await moveOverVideo();
+      const menuButton = page.getByRole("button", { name: en["video.menu"] });
+      await menuButton.click();
       await expect(
-        page.getByRole("complementary", { name: en["dict.window"] }),
+        page.getByRole("button", { name: en["video.menu.openSettings"] }),
       ).toBeVisible();
-      await page.keyboard.press("Escape");
+      await menuButton.click();
+      await page.getByRole("button", { name: "Exit full screen" }).click();
+      await expect(videoCard(page, NF_LINE)).toBeVisible();
 
       await usePopup(context, extensionId, page, { toggleSite: true });
       await playToEnd(page);

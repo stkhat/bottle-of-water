@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { BrowserContext, Page } from "@playwright/test";
+import type { BrowserContext, Locator, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt, sentenceCards } from "../src/core/subtitles/cues";
 import { alignByOverlap } from "../src/core/subtitles/translation";
@@ -52,6 +52,15 @@ const card = (page: Page, text: string) =>
   transcript(page).getByRole("button", { name: text });
 const currentTime = (page: Page) =>
   page.evaluate(() => document.querySelector("video")!.currentTime);
+
+/** The page's element drawn on top at the middle of `target` (a shadow host for Lingo). */
+async function topmostAt(page: Page, target: Locator) {
+  const box = (await target.boundingBox())!;
+  return page.evaluate(
+    ([x, y]) => document.elementFromPoint(x!, y!)?.localName,
+    [box.x + box.width / 2, box.y + box.height / 2],
+  );
+}
 
 /** Opens the watch page with New words highlighted and seeks to LINE from its card. */
 async function openAtLine(context: BrowserContext, extensionId: string) {
@@ -313,6 +322,91 @@ test("the L button turns Lingo off for the video: YouTube's captions come back",
   await l.click();
   await expect(inVideo(page)).toContainText(LINE);
   await expect(transcript(page)).toBeVisible();
+});
+
+test("in fullscreen the subtitle, hover card, dictionary window and menu stay; leaving brings the transcript back", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  // YouTube makes the whole app fullscreen, not the player.
+  await page.getByRole("button", { name: "Full screen (f)" }).click();
+  await expect
+    .poll(() => page.evaluate(() => document.fullscreenElement?.localName))
+    .toBe("ytd-app");
+  await expect(transcript(page)).toHaveCount(0);
+
+  // The subtitle over the video, larger, with its translation.
+  const word = inVideo(page).getByText("creativity", { exact: true });
+  await expect(word).toHaveCSS("font-size", "34px");
+  await expect(inVideo(page).getByText(LINE_JA)).toBeVisible();
+  await expect(page.locator("#ytp-caption-window-container")).toBeHidden();
+
+  // The hover card shows inside the fullscreen element, on top.
+  await word.hover();
+  const hint = page.getByText(en["hover.hint"]);
+  await expect(hint).toBeVisible();
+  expect(await topmostAt(page, hint)).toBe("lingo-video");
+
+  // The dictionary window opens at the top right of the screen.
+  await word.click();
+  const window = dictionary(page);
+  await expect(
+    window.getByRole("heading", { name: "creativity" }),
+  ).toBeVisible();
+  const win = (await window.boundingBox())!;
+  const width = await page.evaluate(() => innerWidth);
+  expect(win.y).toBeCloseTo(32, 0);
+  expect(win.x + win.width).toBeCloseTo(width - 32, 0);
+  expect(await topmostAt(page, window)).toBe("lingo-video");
+  await window.getByRole("button", { name: en["dict.close"] }).click();
+  await expect(window).toHaveCount(0);
+
+  // The menu: no subtitle position, the translation switch and the settings link.
+  await page.getByRole("button", { name: en["video.menu"] }).click();
+  const menu = page.getByRole("dialog", { name: en["video.menu"] });
+  await expect(menu.getByText(en["video.menu.on"])).toBeVisible();
+  await expect(
+    menu.getByRole("group", { name: en["video.menu.position"] }),
+  ).toHaveCount(0);
+  await expect(menu.getByText(en["video.menu.subtitles"])).toHaveCount(0);
+  await expect(menu.getByText(en["video.menu.showTranslation"])).toBeVisible();
+  await expect(
+    menu.getByRole("button", { name: en["video.menu.openSettings"] }),
+  ).toBeVisible();
+  const translation = menu.getByRole("switch", {
+    name: en["video.menu.translationSwitch"],
+  });
+  await translation.click();
+  await expect(inVideo(page).getByText(LINE_JA)).toHaveCount(0);
+  await translation.click();
+  await expect(inVideo(page).getByText(LINE_JA)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  // The L button turns Lingo off and on, still in fullscreen.
+  const l = lButton(page);
+  await l.click();
+  await expect(l).toHaveAttribute("aria-pressed", "false");
+  await expect(inVideo(page)).toHaveCount(0);
+  await l.click();
+  await expect(inVideo(page)).toContainText(LINE);
+  expect(await page.evaluate(() => document.fullscreenElement?.localName)).toBe(
+    "ytd-app",
+  );
+
+  // Leaving fullscreen: the transcript, the normal subtitle and the menu's positions.
+  await page.getByRole("button", { name: "Exit full screen (f)" }).click();
+  await expect
+    .poll(() => page.evaluate(() => document.fullscreenElement))
+    .toBeNull();
+  await expect(card(page, LINE)).toBeVisible();
+  await expect(word).toHaveCSS("font-size", "24px");
+  await page.getByRole("button", { name: en["video.menu"] }).click();
+  await expect(
+    menu.getByRole("group", { name: en["video.menu.position"] }),
+  ).toBeVisible();
+  expect(await violations(page)).toEqual([]);
 });
 
 test("at the end of the video, Video finished offers to save the rest, with Undo", async ({
