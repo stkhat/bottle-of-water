@@ -1,8 +1,10 @@
+import { render, type JSX } from "preact";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { useState } from "preact/hooks";
 import { userEvent } from "vitest/browser";
 import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
 import { LingoMenu, type LingoMenuProps } from "./LingoMenu";
+import { PlayerButtons } from "./PlayerButtons";
 
 const base: LingoMenuProps = {
   enabled: true,
@@ -14,7 +16,11 @@ const base: LingoMenuProps = {
   onClose: () => {},
 };
 
-afterEach(cleanUpMounts);
+const cleanups: (() => void)[] = [];
+afterEach(() => {
+  cleanUpMounts();
+  cleanups.splice(0).forEach((c) => c());
+});
 
 describe("LingoMenu", () => {
   test("shows the state for this video", async () => {
@@ -172,5 +178,43 @@ describe("LingoMenu", () => {
     );
     toggle.remove();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test("in closed shadow roots, as in production, presses on the menu and its buttons are inside", async () => {
+    const onClose = vi.fn();
+    const onPosition = vi.fn();
+    /** Renders into a closed shadow root of a Lingo host, as the content script does. */
+    function closed(name: string, ui: JSX.Element) {
+      const host = document.createElement(name);
+      document.body.append(host);
+      cleanups.push(() => {
+        render(null, shadow);
+        host.remove();
+      });
+      const shadow = host.attachShadow({ mode: "closed" });
+      render(ui, shadow);
+      return shadow;
+    }
+    const press = (element: Element) =>
+      element.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, composed: true }),
+      );
+    const menu = closed(
+      "lingo-test-player",
+      <LingoMenu {...base} onClose={onClose} onPosition={onPosition} />,
+    );
+    const buttons = closed(
+      "lingo-test-buttons",
+      <PlayerButtons enabled menuOpen onToggle={() => {}} onMenu={() => {}} />,
+    );
+
+    press(menu.querySelector("[aria-pressed=false]")!);
+    press(menu.querySelector("[role=dialog]")!);
+    for (const button of buttons.querySelectorAll("button")) press(button);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onClose).not.toHaveBeenCalled();
+
+    press(document.body);
+    await expect.poll(() => onClose.mock.calls.length).toBe(1);
   });
 });

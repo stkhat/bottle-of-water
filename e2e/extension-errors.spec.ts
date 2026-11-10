@@ -187,6 +187,34 @@ async function useArticle(page: Page) {
 }
 
 /**
+ * The production build's `useArticle`: Lingo's UI is behind closed shadow roots there,
+ * so the article is used through the mouse and keyboard only (a word's card and
+ * dictionary, Escape, the end of the article), without reading or pressing the UI.
+ */
+async function useArticleBlindly(page: Page) {
+  const tangy = await pointOn(page, "tangy");
+  await page.mouse.move(tangy.x, tangy.y);
+  await expect
+    .poll(() => hostAt(page, tangy.x, tangy.y - 40))
+    .toBe("lingo-article");
+  await page.mouse.click(tangy.x, tangy.y);
+  await page.keyboard.press("Escape");
+  await page.evaluate(() =>
+    document
+      .querySelector("article")!
+      .lastElementChild!.scrollIntoView({ block: "center" }),
+  );
+}
+
+/** The local name of the element a page script finds at a viewport point. */
+function hostAt(page: Page, x: number, y: number) {
+  return page.evaluate(
+    ({ x, y }) => document.elementFromPoint(x, y)?.localName ?? null,
+    { x, y },
+  );
+}
+
+/**
  * The popup on `page`: switches the site off and on when asked, then closes. With
  * `answeredBy`, it waits for the page's content script to answer (the host shows).
  */
@@ -203,6 +231,8 @@ async function usePopup(
       timeout: 30_000,
     });
   if (toggleSite) {
+    // The switch does nothing until the settings are loaded (the language pair shows).
+    await expect(popup.getByText(/^\S+ → \S+$/)).toBeVisible();
     const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
     await expect(site).toBeChecked();
     await site.click();
@@ -220,6 +250,11 @@ async function usePopup(
 for (const build of ["production", "check"] as const)
   test.describe(`${build} build`, () => {
     test.use({ build });
+    // The production build closes the shadow roots of Lingo's UI on web pages
+    // (shadow-mode.ts): Playwright cannot reach into the UI there. On that build the
+    // flows load the pages and use them through the mouse and keyboard, and leave out
+    // the steps that read or press Lingo's UI; the check build does every step.
+    const reachesUi = build === "check";
 
     test("the collector hears the service worker and the extension's pages", async ({
       context,
@@ -271,8 +306,10 @@ for (const build of ["production", "check"] as const)
       const article = await openArticle(context);
       const video = await context.newPage();
       await video.goto(YOUTUBE_WATCH);
-      await videoCard(video, YT_LINE).click();
-      await expect(inVideo(video)).toContainText(YT_LINE);
+      if (reachesUi) {
+        await videoCard(video, YT_LINE).click();
+        await expect(inVideo(video)).toContainText(YT_LINE);
+      } else await expect(video.locator("lingo-video-player")).toHaveCount(1);
 
       // Loading the folder again reloads the extension, as the check build does when
       // a new build is copied in (runtime.reload() does not bring back an extension
@@ -307,7 +344,7 @@ for (const build of ["production", "check"] as const)
     }) => {
       await showNewWords(context, extensionId);
       const page = await openArticle(context);
-      await useArticle(page);
+      await (reachesUi ? useArticle(page) : useArticleBlindly(page));
       await usePopup(context, extensionId, page, { toggleSite: true });
       await expect
         .poll(async () => (await highlighted(page, "lingo-new")).length)
@@ -340,16 +377,24 @@ for (const build of ["production", "check"] as const)
       const page = await openArticle(context, "/article-es.html");
       const word = await pointOn(page, "comiendo");
       await page.mouse.move(word.x, word.y);
-      await expect(page.getByText("to eat", { exact: true })).toBeVisible();
+      if (reachesUi)
+        await expect(page.getByText("to eat", { exact: true })).toBeVisible();
       await page.mouse.click(word.x, word.y);
-      const panel = dictionary(page);
-      await expect(panel.getByRole("heading", { name: "comer" })).toBeVisible();
-      await panel
-        .getByRole("button", { name: en["dict.status.learning"], exact: true })
-        .click();
-      await expect
-        .poll(() => highlighted(page, "lingo-learning"))
-        .toContain("comiendo");
+      if (reachesUi) {
+        const panel = dictionary(page);
+        await expect(
+          panel.getByRole("heading", { name: "comer" }),
+        ).toBeVisible();
+        await panel
+          .getByRole("button", {
+            name: en["dict.status.learning"],
+            exact: true,
+          })
+          .click();
+        await expect
+          .poll(() => highlighted(page, "lingo-learning"))
+          .toContain("comiendo");
+      }
       await usePopup(context, extensionId, page, { toggleSite: false });
     });
 
@@ -393,6 +438,43 @@ for (const build of ["production", "check"] as const)
       await routeYouTube(context);
       const page = await context.newPage();
       await page.goto(YOUTUBE_WATCH);
+      if (reachesUi) await useYouTube(page);
+      else await expect(page.locator("lingo-video-player")).toHaveCount(1);
+      await usePopup(context, extensionId, page, {
+        toggleSite: true,
+        answeredBy: new URL(YOUTUBE_WATCH).hostname,
+      });
+      if (reachesUi) await playToEnd(page);
+
+      // YouTube's single-page navigation to a video without captions for Lingo.
+      await page.evaluate((response) => {
+        const other = structuredClone(response) as {
+          captions?: {
+            playerCaptionsTracklistRenderer?: {
+              captionTracks?: { baseUrl: string }[];
+            };
+          };
+        };
+        for (const track of other.captions?.playerCaptionsTracklistRenderer
+          ?.captionTracks ?? [])
+          track.baseUrl = track.baseUrl.replace(/v=[^&]+/, "v=otherVideo1");
+        history.pushState(null, "", "/watch?v=otherVideo1");
+        (
+          document.getElementById("movie_player") as unknown as {
+            fakeNavigate(next: object): void;
+          }
+        ).fakeNavigate({
+          videoId: "otherVideo1",
+          title: "Another video",
+          playerResponse: other,
+        });
+      }, fixturePlayerResponse());
+      if (reachesUi) await expect(videoCard(page, YT_LINE)).toHaveCount(0);
+      await usePopup(context, extensionId, page, { toggleSite: false });
+    });
+
+    /** The YouTube flow through Lingo's UI (check build). */
+    async function useYouTube(page: Page) {
       await videoCard(page, YT_LINE).click();
       await expect(inVideo(page)).toContainText(YT_LINE);
 
@@ -478,36 +560,7 @@ for (const build of ["production", "check"] as const)
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Exit full screen (f)" }).click();
       await expect(videoCard(page, YT_LINE)).toBeVisible();
-
-      await usePopup(context, extensionId, page, { toggleSite: true });
-      await playToEnd(page);
-
-      // YouTube's single-page navigation to a video without captions for Lingo.
-      await page.evaluate((response) => {
-        const other = structuredClone(response) as {
-          captions?: {
-            playerCaptionsTracklistRenderer?: {
-              captionTracks?: { baseUrl: string }[];
-            };
-          };
-        };
-        for (const track of other.captions?.playerCaptionsTracklistRenderer
-          ?.captionTracks ?? [])
-          track.baseUrl = track.baseUrl.replace(/v=[^&]+/, "v=otherVideo1");
-        history.pushState(null, "", "/watch?v=otherVideo1");
-        (
-          document.getElementById("movie_player") as unknown as {
-            fakeNavigate(next: object): void;
-          }
-        ).fakeNavigate({
-          videoId: "otherVideo1",
-          title: "Another video",
-          playerResponse: other,
-        });
-      }, fixturePlayerResponse());
-      await expect(videoCard(page, YT_LINE)).toHaveCount(0);
-      await usePopup(context, extensionId, page, { toggleSite: false });
-    });
+    }
 
     const NF_LINE = "EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.";
 
@@ -519,6 +572,38 @@ for (const build of ["production", "check"] as const)
       await routeNetflix(context);
       const page = await context.newPage();
       await page.goto(NETFLIX_WATCH);
+      if (reachesUi) await useNetflix(page);
+      else await expect(page.locator("lingo-video-player")).toHaveCount(1);
+      await usePopup(context, extensionId, page, {
+        toggleSite: true,
+        answeredBy: new URL(NETFLIX_WATCH).hostname,
+      });
+      if (reachesUi) await playToEnd(page);
+
+      // The next episode, without a Japanese track.
+      const manifest = JSON.parse(fixtureManifest()) as {
+        result: { movieId: number; textTracks: { language: string | null }[] };
+      };
+      manifest.result.movieId = 80000002;
+      manifest.result.textTracks = manifest.result.textTracks.filter(
+        (t) => t.language !== "ja",
+      );
+      await page.evaluate(
+        (next) => {
+          (
+            window as unknown as { lingoFakeNetflix: FakeNetflixControl }
+          ).lingoFakeNetflix.navigate(next);
+        },
+        { movieId: "80000002", manifest: JSON.stringify(manifest) },
+      );
+      if (reachesUi) {
+        await videoCard(page, NF_LINE).click();
+        await expect(inVideo(page)).toContainText(NF_LINE);
+      } else await expect(page.locator("lingo-video-player")).toHaveCount(1);
+    });
+
+    /** The Netflix flow through Lingo's UI (check build). */
+    async function useNetflix(page: Page) {
       await videoCard(page, NF_LINE).click();
       await expect(inVideo(page)).toContainText(NF_LINE);
 
@@ -575,29 +660,7 @@ for (const build of ["production", "check"] as const)
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Exit full screen" }).click();
       await expect(videoCard(page, NF_LINE)).toBeVisible();
-
-      await usePopup(context, extensionId, page, { toggleSite: true });
-      await playToEnd(page);
-
-      // The next episode, without a Japanese track.
-      const manifest = JSON.parse(fixtureManifest()) as {
-        result: { movieId: number; textTracks: { language: string | null }[] };
-      };
-      manifest.result.movieId = 80000002;
-      manifest.result.textTracks = manifest.result.textTracks.filter(
-        (t) => t.language !== "ja",
-      );
-      await page.evaluate(
-        (next) => {
-          (
-            window as unknown as { lingoFakeNetflix: FakeNetflixControl }
-          ).lingoFakeNetflix.navigate(next);
-        },
-        { movieId: "80000002", manifest: JSON.stringify(manifest) },
-      );
-      await videoCard(page, NF_LINE).click();
-      await expect(inVideo(page)).toContainText(NF_LINE);
-    });
+    }
 
     /** Saves a word as the content scripts do. */
     async function saveWord(
@@ -773,8 +836,10 @@ for (const build of ["production", "check"] as const)
       const article = await openArticle(context);
       const video = await context.newPage();
       await video.goto(YOUTUBE_WATCH);
-      await videoCard(video, YT_LINE).click();
-      await expect(inVideo(video)).toContainText(YT_LINE);
+      if (reachesUi) {
+        await videoCard(video, YT_LINE).click();
+        await expect(inVideo(video)).toContainText(YT_LINE);
+      } else await expect(video.locator("lingo-video-player")).toHaveCount(1);
       const options = await context.newPage();
       await options.goto(`chrome-extension://${extensionId}/options.html`);
       await expect(options.getByRole("switch").first()).toBeVisible();
@@ -784,17 +849,19 @@ for (const build of ["production", "check"] as const)
       const stop = () => cdp.send("ServiceWorker.stopAllWorkers");
 
       await stop();
-      await useArticle(article);
+      await (reachesUi ? useArticle(article) : useArticleBlindly(article));
       await stop();
       await usePopup(context, extensionId, article, { toggleSite: true });
-      await stop();
-      const word = inVideo(video).getByText("creativity", { exact: true });
-      await word.hover();
-      await expect(video.getByText(en["hover.hint"])).toBeVisible();
-      await word.click();
-      await expect(
-        video.getByRole("complementary", { name: en["dict.window"] }),
-      ).toBeVisible();
+      if (reachesUi) {
+        await stop();
+        const word = inVideo(video).getByText("creativity", { exact: true });
+        await word.hover();
+        await expect(video.getByText(en["hover.hint"])).toBeVisible();
+        await word.click();
+        await expect(
+          video.getByRole("complementary", { name: en["dict.window"] }),
+        ).toBeVisible();
+      }
       await stop();
       await options
         .getByRole("switch", { name: "Highlight Known words" })
@@ -842,7 +909,7 @@ for (const build of ["production", "check"] as const)
 
       await showNewWords(context, extensionId);
       const article = await openArticle(context);
-      await useArticle(article);
+      await (reachesUi ? useArticle(article) : useArticleBlindly(article));
       for (const key of ["knead", "tedious", "honestly", "loaf", "yeast"])
         await saveWord(context, extensionId, key, "learning");
       // The popup shows how full the space is, and saving keeps working.

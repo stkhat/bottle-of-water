@@ -5,6 +5,7 @@ import { runArticle } from "../../content/article/article";
 import { isVideoSite } from "../../content/article/should-run";
 import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
 import { ArticleUi } from "../../content/ui/ArticleUi";
+import { shadowRootMode } from "../../content/ui/shadow-mode";
 import { send } from "../../messaging/client";
 import { isPageRequest } from "../../messaging/page-protocol";
 
@@ -23,6 +24,8 @@ export default defineContentScript({
       async mountUi(app) {
         const ui = await createShadowRootUi(ctx, {
           name: "lingo-article",
+          // Closed in production: page scripts cannot reach the UI.
+          mode: shadowRootMode(),
           position: "inline",
           anchor: "body",
           onMount(container) {

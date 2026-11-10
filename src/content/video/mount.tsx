@@ -1,5 +1,6 @@
 import { render, type JSX } from "preact";
 import type { Box } from "../article/geometry";
+import { shadowRootMode } from "../ui/shadow-mode";
 import { createStore } from "../ui/store";
 import {
   BelowVideoUi,
@@ -104,7 +105,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     host.style.cssText = style;
     for (const type of PRIVATE_EVENTS)
       host.addEventListener(type, (event) => event.stopPropagation());
-    const root = host.attachShadow({ mode: "open" });
+    // Kept here: a closed root (production) is not reachable as `host.shadowRoot`.
+    const root = host.attachShadow({ mode: shadowRootMode() });
     render(ui, root);
     roots.push(root);
     parts.push({ host, point, moves: { second: 0, count: 0, parent: null } });

@@ -10,7 +10,10 @@ import {
 
 /**
  * Which build to load: `npm run build` (production), or `wxt build --mode check` (the
- * build loaded in your own Chrome, with WXT's dev logging and the self-reload).
+ * build loaded in your own Chrome, with WXT's dev logging and the self-reload). The
+ * production build closes the shadow roots of Lingo's UI on web pages
+ * (`src/content/ui/shadow-mode.ts`), so Playwright cannot reach into it there: tests
+ * that drive the UI use the check build, whose roots are open.
  */
 export type Build = "production" | "check";
 
@@ -27,10 +30,10 @@ export const extensionPathOf = (build: Build) =>
     BUILDS[build].dir,
   );
 
-/** A fresh browser profile with the built extension loaded (and `args` for Chromium). */
+/** A fresh browser profile with a built extension (the check build by default) loaded, and `args` for Chromium. */
 export async function launchWithExtension(
   args: string[] = [],
-  build: Build = "production",
+  build: Build = "check",
 ): Promise<BrowserContext> {
   const extensionPath = extensionPathOf(build);
   if (!fs.existsSync(path.join(extensionPath, "manifest.json"))) {

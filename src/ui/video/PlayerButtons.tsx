@@ -1,5 +1,6 @@
 import { t } from "../../i18n/t";
 import { color, root } from "../lookup/styles";
+import { keepMenuOpen } from "./LingoMenu";
 
 export interface PlayerButtonsProps {
   /** Lingo is on for this video. */
@@ -14,7 +15,7 @@ export interface PlayerButtonsProps {
 /**
  * Mock Main's group in the player bar: the L toggle and the ^ menu button in one green
  * outline, so they are not taken for the site's own buttons. Both carry
- * `data-lingo-menu`: pressing them is not a click outside the menu.
+ * `data-lingo-menu` and `keepMenuOpen`: pressing them is not a click outside the menu.
  */
 export function PlayerButtons(props: PlayerButtonsProps) {
   const on = props.enabled;
@@ -36,6 +37,7 @@ export function PlayerButtons(props: PlayerButtonsProps) {
       <button
         type="button"
         data-lingo-menu
+        onPointerDown={keepMenuOpen}
         aria-label={t("video.toggle")}
         aria-pressed={on}
         title={t(on ? "video.toggle.on" : "video.toggle.off")}
@@ -75,6 +77,7 @@ export function PlayerButtons(props: PlayerButtonsProps) {
       <button
         type="button"
         data-lingo-menu
+        onPointerDown={keepMenuOpen}
         aria-label={t("video.menu")}
         aria-expanded={props.menuOpen}
         onClick={props.onMenu}

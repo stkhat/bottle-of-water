@@ -25,10 +25,24 @@ const POSITIONS = [
 ] as const;
 
 /** Elements marked `data-lingo-menu` (the menu and its buttons) are inside. */
-const inMenu = (event: Event) =>
-  event
-    .composedPath()
-    .some((n) => n instanceof HTMLElement && n.dataset.lingoMenu !== undefined);
+const isMenuElement = (n: EventTarget) =>
+  n instanceof HTMLElement && n.dataset.lingoMenu !== undefined;
+
+/** A host of Lingo's UI (`lingo-*`). */
+const isLingoHost = (n: EventTarget) =>
+  n instanceof Element && n.localName.startsWith("lingo-");
+
+/** Presses that reached the menu or one of its buttons (`keepMenuOpen`). */
+const pressesInside = new WeakSet<Event>();
+
+/**
+ * The `onPointerDown` of the menu and its buttons (with `data-lingo-menu`). In a closed
+ * shadow root (production builds) a listener on the document sees only the root's host,
+ * so they say themselves that a press is inside.
+ */
+export function keepMenuOpen(event: Event) {
+  pressesInside.add(event);
+}
 
 /** The menu above the ^ button (mock Main). The caller positions it. */
 export function LingoMenu(props: LingoMenuProps) {
@@ -38,8 +52,20 @@ export function LingoMenu(props: LingoMenuProps) {
   // Listening from the render that opens it, not after a paint: an Escape or a press
   // right after opening still closes it.
   useLayoutEffect(() => {
+    const timers = new Set<ReturnType<typeof setTimeout>>();
     const onPointerDown = (event: PointerEvent) => {
-      if (!inMenu(event)) close.current();
+      const path = event.composedPath();
+      if (path.some(isMenuElement)) return;
+      if (!path.some(isLingoHost)) {
+        close.current();
+        return;
+      }
+      // In Lingo's UI behind a closed shadow root: known once the press reached it.
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        if (!pressesInside.has(event)) close.current();
+      });
+      timers.add(timer);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close.current();
@@ -49,6 +75,7 @@ export function LingoMenu(props: LingoMenuProps) {
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown, true);
+      timers.forEach(clearTimeout);
     };
   }, []);
 
@@ -57,6 +84,7 @@ export function LingoMenu(props: LingoMenuProps) {
       role="dialog"
       aria-label={t("video.menu")}
       data-lingo-menu
+      onPointerDown={keepMenuOpen}
       style={root({
         width: "300px",
         padding: "14px 16px",
