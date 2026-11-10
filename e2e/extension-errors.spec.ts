@@ -629,6 +629,15 @@ for (const build of ["production", "check"] as const)
       await expect(
         options.getByRole("button", { name: "Remove example.com" }),
       ).toHaveCount(0);
+      const history = options.getByRole("region", {
+        name: en["settings.section.history"],
+      });
+      await history
+        .getByRole("button", { name: en["settings.history.clearButton"] })
+        .click();
+      await expect(
+        history.getByText(en["settings.history.empty"]),
+      ).toBeVisible();
 
       // Backup: export, import it back, and a file that is not a backup.
       await saveWord(context, extensionId, "knead", "learning");
