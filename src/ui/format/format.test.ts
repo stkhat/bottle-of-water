@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   backupFileName,
   kilobytes,
+  megabytes,
   relativeTime,
   sameDay,
   shortDate,
@@ -42,6 +43,18 @@ describe("kilobytes", () => {
 
   it("shows any data as at least 1 KB", () => {
     expect(kilobytes(120)).toBe(1);
+  });
+});
+
+describe("megabytes", () => {
+  it("rounds bytes to whole MB of 1,048,576 bytes", () => {
+    expect(megabytes(50 * 1024 * 1024)).toBe(50);
+    expect(megabytes(18 * 1024 * 1024 + 300_000)).toBe(18);
+    expect(megabytes(0)).toBe(0);
+  });
+
+  it("shows less than half a MB as 0 MB", () => {
+    expect(megabytes(120_000)).toBe(0);
   });
 });
 

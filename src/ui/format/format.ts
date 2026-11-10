@@ -28,6 +28,12 @@ export function kilobytes(bytes: number): number {
   return Math.max(1, Math.round(bytes / 1024));
 }
 
+/** Whole MB (1,048,576 bytes); under half a MB is 0 MB. */
+export function megabytes(bytes: number): number {
+  if (bytes <= 0) return 0;
+  return Math.round(bytes / (1024 * 1024));
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** `lingo-backup-YYYY-MM-DD.json`, by the local date. */

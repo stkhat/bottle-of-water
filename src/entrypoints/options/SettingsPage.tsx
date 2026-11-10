@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { HistoryStatus } from "../../background/history-store";
 import type { BrowserEnv } from "../../core/browser-env";
 import {
   KNOWN_LEVEL_MAX,
@@ -19,7 +20,7 @@ import {
   type BackupDeps,
   type BackupNote,
 } from "../../ui/backup/BackupButtons";
-import { kilobytes, relativeTime } from "../../ui/format/format";
+import { kilobytes, megabytes, relativeTime } from "../../ui/format/format";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
 
@@ -30,7 +31,7 @@ export interface SettingsDeps extends BackupDeps {
   env: Pick<BrowserEnv, "name" | "syncName" | "features">;
   /** The extension's version, from the manifest. */
   version: string;
-  /** How often the sync status and the relative times are refreshed. */
+  /** How often the sync and history status and the relative times are refreshed. */
   refreshMs: number;
 }
 
@@ -41,6 +42,7 @@ const SECTIONS = [
   { id: "dictionaries", label: "settings.section.dictionaries" },
   { id: "video", label: "settings.section.video" },
   { id: "sites", label: "settings.section.sites" },
+  { id: "history", label: "settings.section.history" },
   { id: "sync", label: "settings.section.sync" },
   { id: "about", label: "settings.section.about" },
 ] as const satisfies readonly { id: string; label: MessageKey }[];
@@ -377,6 +379,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const [settings, setSettings] = useState<Settings>();
   const [level, setLevel] = useState<number>();
   const [sync, setSync] = useState<SyncStatus>();
+  const [history, setHistory] = useState<HistoryStatus>();
   const [lastExport, setLastExport] = useState<number | null>(null);
   const [note, setNote] = useState<BackupNote>(null);
   const [now, setNow] = useState(deps.now);
@@ -385,6 +388,8 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const warn = (error: unknown) => console.warn("Lingo:", error);
   const refreshSync = () =>
     deps.send({ type: "syncStatus" }).then(setSync, warn);
+  const refreshHistory = () =>
+    deps.send({ type: "historyStatus" }).then(setHistory, warn);
   const refreshLastExport = () =>
     deps.send({ type: "lastExport" }).then(setLastExport, warn);
 
@@ -396,6 +401,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   useEffect(() => {
     deps.send({ type: "getSettings" }).then(show, warn);
     void refreshSync();
+    void refreshHistory();
     void refreshLastExport();
     const unwatch = deps.watchSettings((next) => {
       show(next);
@@ -404,6 +410,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     const timer = setInterval(() => {
       setNow(deps.now());
       void refreshSync();
+      void refreshHistory();
     }, deps.refreshMs);
     return () => {
       unwatch();
@@ -481,6 +488,12 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const used = sync ? kilobytes(sync.bytesUsed) : 0;
   const quota = sync ? kilobytes(sync.quotaBytes) : 0;
   const share = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+  const historyShare =
+    history && history.cap > 0
+      ? Math.min(100, (history.bytes / history.cap) * 100)
+      : 0;
+  const clearHistory = () =>
+    deps.send({ type: "clearHistory" }).then(refreshHistory, warn);
   const syncLine = !sync
     ? ""
     : !sync.enabled
@@ -841,6 +854,78 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             sites={s.neverRunOn}
             onChange={(neverRunOn) => set("neverRunOn", neverRunOn)}
           />
+        </Section>
+
+        <Section
+          id="history"
+          label="settings.section.history"
+          lead={t("settings.history.lead")}
+        >
+          <SwitchRow
+            title={t("settings.history.switch")}
+            desc={t("settings.history.switchDesc")}
+            checked={s.sentenceHistory}
+            onToggle={() => set("sentenceHistory", !s.sentenceHistory)}
+          />
+          <div
+            class="row"
+            style={{
+              flexDirection: "column",
+              alignItems: "stretch",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "14px",
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                {t("settings.history.space")}
+              </span>
+              <span style={{ color: color.ink3 }}>
+                {history &&
+                  t("settings.history.spaceUsed", {
+                    used: megabytes(history.bytes),
+                    cap: megabytes(history.cap),
+                  })}
+              </span>
+            </div>
+            <div
+              aria-hidden="true"
+              style={{
+                height: "6px",
+                borderRadius: "3px",
+                background: color.line,
+              }}
+            >
+              <div
+                style={{
+                  width: `${historyShare}%`,
+                  height: "100%",
+                  borderRadius: "3px",
+                  background: "#0F9F7E",
+                }}
+              ></div>
+            </div>
+            <span style={{ fontSize: "13px", color: color.muted }}>
+              {history &&
+                (history.pages > 0
+                  ? t("settings.history.pages", { count: fmt(history.pages) })
+                  : t("settings.history.empty"))}
+            </span>
+          </div>
+          <div class="row">
+            <span class="lbl">
+              <span class="lt">{t("settings.history.clear")}</span>
+              <span class="ld">{t("settings.history.clearDesc")}</span>
+            </span>
+            <button class="btn" type="button" onClick={clearHistory}>
+              {t("settings.history.clearButton")}
+            </button>
+          </div>
         </Section>
 
         <Section

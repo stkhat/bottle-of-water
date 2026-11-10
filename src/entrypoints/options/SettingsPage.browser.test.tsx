@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type { ImportResult } from "../../background/term-store";
 import { mergeSettings, type Settings } from "../../core/settings";
+import type { HistoryStatus } from "../../background/history-store";
 import type { SyncStatus } from "../../core/sync/backend";
 import type { Request } from "../../messaging/protocol";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
@@ -26,11 +27,16 @@ interface FakeOptions {
   builtInAi?: boolean;
   lastExport?: number | null;
   importResult?: ImportResult | Error;
+  history?: HistoryStatus;
 }
+
+const MB = 1024 * 1024;
+const HISTORY: HistoryStatus = { bytes: 18 * MB, cap: 50 * MB, pages: 1240 };
 
 function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let lastExport = options.lastExport ?? null;
+  let history = options.history ?? HISTORY;
   const listeners = new Set<(s: Settings) => void>();
   const sent: Request[] = [];
   const downloads: { name: string; text: string }[] = [];
@@ -51,6 +57,11 @@ function fake(options: FakeOptions = {}) {
         case "exportJson":
           lastExport = NOW;
           return '{"format":"lingo-export"}';
+        case "historyStatus":
+          return history;
+        case "clearHistory":
+          history = { ...history, bytes: 0, pages: 0 };
+          return null;
         case "importJson": {
           const result = options.importResult ?? {
             terms: 3,
@@ -132,6 +143,7 @@ describe("SettingsPage", () => {
       "Dictionaries and AI",
       "Video subtitles",
       "Sites",
+      "Sentence history",
       "Sync and backup",
       "About",
     ]) {
@@ -383,6 +395,82 @@ describe("SettingsPage", () => {
         .element(sites.getByRole("button", { name: "+ Add site" }))
         .toBeVisible();
       expect(f.settings().neverRunOn).toEqual([]);
+    });
+  });
+
+  describe("sentence history", () => {
+    it("comes after Sites in the nav", async () => {
+      const { screen } = await open();
+      const links = screen
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link")
+        .elements()
+        .map((a) => a.textContent);
+      expect(
+        links.slice(links.indexOf("Sites"), links.indexOf("Sites") + 2),
+      ).toEqual(["Sites", "Sentence history"]);
+    });
+
+    it("shows the switch, the space used and the pages kept", async () => {
+      const f = await open();
+      const history = section(f.screen, "Sentence history");
+      await expect
+        .element(
+          history.getByText(
+            "Sentences from pages and videos you open with Lingo on, kept on this device so the dictionary can show where you met a word before you saved it.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(
+          history.getByText(
+            "Never synced. Pages on your Never run on list are not kept.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(history.getByRole("switch", { name: "Keep sentence history" }))
+        .toBeChecked();
+      await expect.element(history.getByText("Space used")).toBeVisible();
+      await expect.element(history.getByText("18 MB of 50 MB")).toBeVisible();
+      await expect
+        .element(
+          history.getByText(
+            "1,240 pages and videos · the oldest are removed first when space runs out",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(history.getByText("Saved words and their sources stay."))
+        .toBeVisible();
+    });
+
+    it("says nothing is kept when there are no pages", async () => {
+      const f = await open({ history: { bytes: 0, cap: 50 * MB, pages: 0 } });
+      const history = section(f.screen, "Sentence history");
+      await expect.element(history.getByText("Nothing kept yet")).toBeVisible();
+      await expect.element(history.getByText("0 MB of 50 MB")).toBeVisible();
+    });
+
+    it("turns sentence history off and on", async () => {
+      const f = await open();
+      const toggle = section(f.screen, "Sentence history").getByRole("switch", {
+        name: "Keep sentence history",
+      });
+      await toggle.click();
+      await expect.element(toggle).not.toBeChecked();
+      await expect.poll(() => f.settings().sentenceHistory).toBe(false);
+      expect(setSettingsPatches(f.sent)).toEqual([{ sentenceHistory: false }]);
+    });
+
+    it("clears the history and shows that nothing is kept", async () => {
+      const f = await open();
+      const history = section(f.screen, "Sentence history");
+      await expect.element(history.getByText(/^1,240 pages/)).toBeVisible();
+      await history.getByRole("button", { name: "Clear" }).click();
+      await expect.element(history.getByText("Nothing kept yet")).toBeVisible();
+      await expect.element(history.getByText("0 MB of 50 MB")).toBeVisible();
+      expect(f.sent).toContainEqual({ type: "clearHistory" });
     });
   });
 
