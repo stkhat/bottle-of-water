@@ -32,7 +32,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 ## Rules
 - **Everything committed to git is in English** (code, comments, docs, commit messages, PRs). Chat with the user is in Japanese
 - **Before committing a UI change, render it and compare it with the mock** (layout, copy, colors, defaults)
-- Commit and push only when the user asks or an approved plan says so. Work on a branch per phase and open a **draft** PR; mark it ready for review only just before merging, which is when GitHub runs CI (Actions minutes are limited). Never poll CI; the user merges
+- Commit and push only when the user asks or an approved plan says so. Work on a branch per phase and open a **draft** PR; mark it ready for review only just before merging, which is when GitHub runs CI (Actions minutes are limited)
 - No Claude attribution in commit messages or PR bodies
 
 ## Working style
