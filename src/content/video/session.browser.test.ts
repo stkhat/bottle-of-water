@@ -115,6 +115,8 @@ async function start(
     /** Runs against the background before the session starts. */
     before?: (bg: ReturnType<typeof testBackground>) => Promise<unknown>;
     settings?: Partial<Settings>;
+    /** Stands between the session and the background (to hold answers back). */
+    send?: (send: ReturnType<typeof testBackground>["send"]) => typeof send;
   } = {},
 ) {
   const video = await createVideo();
@@ -127,7 +129,7 @@ async function start(
   await options.before?.(bg);
   const settingsListeners = new Set<(settings: Settings) => void>();
   const session: VideoSession = await startVideo({
-    send: bg.send,
+    send: options.send?.(bg.send) ?? bg.send,
     adapter: site.adapter,
     watchSettings(listener) {
       settingsListeners.add(listener);
@@ -979,6 +981,35 @@ describe("words in this video", () => {
     app.undoSaveAll();
     await expect.poll(() => rowsOf(state).loaf).toBe("new 1");
     expect(state().summaries.loaf?.status).toBe("new");
+  });
+
+  it("keeps a status saved before the summaries' answer arrives", async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const { state, app } = await start(undefined, {
+      send: (send) =>
+        (async (request) => {
+          const answer = await send(request);
+          // Answered as of the request, but delivered late.
+          if (request.type === "termSummaries") await held;
+          return answer;
+        }) as typeof send,
+    });
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.status).toBe("new");
+    app.setPanelStatus("learning");
+    await expect.poll(() => state().panel?.card.status).toBe("learning");
+    expect(state().summaries.tangy).toBeUndefined();
+
+    release();
+    await expect.poll(() => state().summaries.tangy).toBeDefined();
+    expect(state().summaries.tangy).toEqual({
+      short: "ぴりっとした、酸味のある",
+      status: "learning",
+    });
+    expect(rowsOf(state).tangy).toBe("learning 2");
   });
 
   it("opens a row's dictionary window at its first occurrence", async () => {
