@@ -23,6 +23,8 @@ export interface Settings {
   subtitleTranslation: boolean;
   transcriptTranslation: boolean;
   sites: { youtube: boolean; netflix: boolean; articles: boolean };
+  /** The player's L button per platform: the next video there starts this way. */
+  videoOn: { youtube: boolean; netflix: boolean };
   /** Hosts the extension never runs on (Settings → Sites). */
   neverRunOn: string[];
   /** Hosts switched off with the popup's "On this site". */
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   subtitleTranslation: true,
   transcriptTranslation: true,
   sites: { youtube: true, netflix: true, articles: true },
+  videoOn: { youtube: true, netflix: true },
   neverRunOn: [],
   disabledSites: [],
   syncEnabled: true,
@@ -139,6 +142,7 @@ export function mergeSettings(
       base.transcriptTranslation,
     ),
     sites: flags(v.sites, base.sites),
+    videoOn: flags(v.videoOn, base.videoOn),
     neverRunOn: strings(v.neverRunOn, base.neverRunOn),
     disabledSites: strings(v.disabledSites, base.disabledSites),
     syncEnabled: bool(v.syncEnabled, base.syncEnabled),

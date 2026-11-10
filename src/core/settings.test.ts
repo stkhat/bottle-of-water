@@ -20,6 +20,7 @@ describe("DEFAULT_SETTINGS", () => {
       subtitleTranslation: true,
       transcriptTranslation: true,
       sites: { youtube: true, netflix: true, articles: true },
+      videoOn: { youtube: true, netflix: true },
       neverRunOn: [],
       disabledSites: [],
       syncEnabled: true,
@@ -40,6 +41,7 @@ describe("mergeSettings", () => {
       knownLevel: 5000,
       highlight: { new: true },
       sites: { netflix: false },
+      videoOn: { youtube: false },
       subtitlePosition: "belowVideo",
       neverRunOn: ["example.com"],
     });
@@ -54,6 +56,7 @@ describe("mergeSettings", () => {
       netflix: false,
       articles: true,
     });
+    expect(merged.videoOn).toEqual({ youtube: false, netflix: true });
     expect(merged.subtitlePosition).toBe("belowVideo");
     expect(merged.neverRunOn).toEqual(["example.com"]);
   });

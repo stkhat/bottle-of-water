@@ -618,6 +618,46 @@ describe("on and off", () => {
     await expect.poll(() => state().current).toBe(1);
   });
 
+  it("remembers off for the platform: the next video starts off", async () => {
+    const { state, site, session, bg } = await start({
+      vid1: captionsOf(CUES),
+      vid2: captionsOf(CUES),
+    });
+    await ready(state);
+
+    session.app.setEnabled(false);
+    await expect
+      .poll(() => bg.sent("setSettings").map((m) => m.patch))
+      .toEqual([{ videoOn: { youtube: false } }]);
+
+    site.navigate("vid2");
+    expect(state()).toMatchObject({ videoId: "vid2", enabled: false });
+    await ready(state);
+    expect(site.log.hidden.at(-1)).toBe(false);
+
+    session.app.setEnabled(true);
+    await expect
+      .poll(() => bg.sent("setSettings").at(-1)?.patch)
+      .toEqual({ videoOn: { youtube: true } });
+  });
+
+  it("starts off when the platform was left off", async () => {
+    const { state, site } = await start(undefined, {
+      settings: { videoOn: { youtube: false, netflix: true } },
+    });
+    await ready(state);
+    expect(state().enabled).toBe(false);
+    expect(site.log.hidden).toEqual([]);
+  });
+
+  it("other platforms' state does not apply", async () => {
+    const { state } = await start(undefined, {
+      settings: { videoOn: { youtube: true, netflix: false } },
+    });
+    await ready(state);
+    expect(state().enabled).toBe(true);
+  });
+
   it("seeks to a card", async () => {
     const { state, site, session } = await start();
     await ready(state);
@@ -643,7 +683,7 @@ describe("navigation", () => {
   const OTHER: Cue[] = [{ startMs: 0, endMs: 4000, text: "A new loaf." }];
 
   it("starts over for the next video", async () => {
-    const { state, video, site, session, bg } = await start(
+    const { state, video, site, bg } = await start(
       {
         vid1: captionsOf(CUES),
         vid2: captionsOf(OTHER, { source: "none", lang: "ja", cues: [] }),
@@ -654,7 +694,6 @@ describe("navigation", () => {
     await seekTo(video, 3.8);
     await video.play();
     await expect.poll(() => video.ended, { timeout: 5000 }).toBe(true);
-    session.app.setEnabled(false);
 
     site.navigate("vid2");
     expect(state()).toMatchObject({
