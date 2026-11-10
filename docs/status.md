@@ -6,7 +6,7 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 - Design (brainstorm) and the UI mock are done
 - Roadmap for phase 1 + phase 2: [plans/2026-11-09-roadmap.md](plans/2026-11-09-roadmap.md)
 - M1 dev environment: PR #1 (`chore/dev-env`), CI green on Linux / macOS / Windows
-- M0 done (spec in English, phase changes, mock artboards for the missing screens — awaiting review)
+- M0 done (spec in English, phase changes, mock artboards for the missing screens — approved by the user on 2026-11-10)
 - M2 data import is built on `feat/phase-1` (packs in `public/packs/`, readers in `src/core/packs/`); see "Data" below
 - M3 foundation is built on `feat/phase-1`: settings, BrowserEnv, tokenizer, language pack, dictionary, classifier, TermStore (IndexedDB), sync codec + BrowserSyncBackend, typed messaging and the background wiring
 - M4 shared lookup UI parts are built on `feat/phase-1`
@@ -45,7 +45,7 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - Article UI: changes made in another tab (saving a word there) show on an open page only after it is classified again (reload, or a known-level change). Re-analyzing when the tab becomes visible again would cover it
 - Article UI: the hover card's notes line has no etymology or related words (no data); it shows the base form of an inflected word ("loaves → loaf") and, for a phrase, its main word's translation
 - E2E: a Playwright mouse drag selects no text on `e2e/pages/article-en.html` in headless Chromium, even without the extension (it does on simpler pages and in the browser tests), and Shift+click selected nothing on the Linux CI runner, so the E2E test selects the phrase with the Selection API (mouse selection is covered by the browser tests)
-- Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search: added 2026-11-09, **awaiting the user's review** (those screens are built only after it)
+- Mock artboards for the word list page, per-video word list tab, fullscreen and past-occurrence search: added 2026-11-09, approved as they are on 2026-11-10
 - How the Language Reactor extension looks on youtube.com is unchecked (only the web player was checked)
 - `storage.sync` holds about 12,400 English terms, not the 15,000–20,000 the spec estimated (see "Data"). Decide whether that is enough or whether the sync format should change
 - Firefox: support for highlight underlines (`text-decoration` in the Highlight API), whether a translation API exists for extensions, when MV3 host permissions are granted
