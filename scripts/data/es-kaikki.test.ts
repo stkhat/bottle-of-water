@@ -21,8 +21,10 @@ const forms = [
   "pelo",
   "comer",
   "ajeno",
+  "rosa",
 ];
-// Base ranks: de 1, la 2, el 3, comer 4, casa 5, casar 6, brasil 7, hablar 8, tomar 9, pelo 10.
+// Base ranks: de 1, la 2, el 3, comer 4, casa 5, casar 6, hablar 7, tomar 8, pelo 9, rosa 10.
+// "brasil" has only a proper-noun entry, so it is not a vocabulary word.
 const options = { commonRank: 4 };
 
 describe("buildEsPacks", () => {
@@ -33,7 +35,6 @@ describe("buildEsPacks", () => {
 
   it("builds the vocabulary from the bases with meanings that the listed forms reach", () => {
     expect(packs.vocab).toEqual([
-      "brasil",
       "casa",
       "casar",
       "comer",
@@ -42,6 +43,7 @@ describe("buildEsPacks", () => {
       "hablar",
       "la",
       "pelo",
+      "rosa",
       "tomar",
     ]);
   });
@@ -71,7 +73,7 @@ describe("buildEsPacks", () => {
   it("takes the first phonemic IPA of each vocabulary word", () => {
     expect(packs.ipa.comer).toBe("/koˈmeɾ/");
     expect(packs.ipa.casa).toBe("/ˈkasa/");
-    expect(packs.ipa.brasil).toBe("/bɾaˈsil/");
+    expect(packs.ipa.rosa).toBe("/ˈrosa/");
     expect(packs.ipa).not.toHaveProperty("comiendo");
     expect(packs.ipa).not.toHaveProperty("zapato");
   });
@@ -83,10 +85,10 @@ describe("buildEsPacks", () => {
       "comer",
       "casa",
       "casar",
-      "brasil",
       "hablar",
       "tomar",
       "pelo",
+      "rosa",
     ]);
   });
   it("ranks a form that is a vocabulary word only as itself", async () => {
@@ -111,14 +113,16 @@ describe("buildEsPacks", () => {
       "to drink (a beverage)",
       [["verb", "to drink (a beverage)"]],
     ]);
-    expect(packs.defs.brasil).toEqual([
-      "Brazil (a country in South America)",
-      [["proper noun", "Brazil (a country in South America)"]],
-    ]);
+    expect(packs.defs.rosa).toEqual(["rose", [["noun", "rose"]]]);
     expect(packs.defs.casa?.[1]).toEqual([
       ["noun", "house"],
       ["noun", "home"],
     ]);
+  });
+  it("leaves out words whose only entries are proper nouns", () => {
+    expect(packs.vocab).not.toContain("brasil");
+    expect(packs.defs).not.toHaveProperty("brasil");
+    expect(packs.ipa).not.toHaveProperty("brasil");
   });
   it("defines no forms and no words outside the vocabulary", () => {
     expect(packs.defs).not.toHaveProperty("casas");
@@ -184,7 +188,7 @@ describe("writeEsPacks", () => {
       readFileSync(join(dir, "es-en", "index.json"), "utf8"),
     );
     expect(index).toEqual({
-      shards: [{ file: "dict-1.json", first: "brasil", last: "tomar el pelo" }],
+      shards: [{ file: "dict-1.json", first: "casa", last: "tomar el pelo" }],
     });
   });
 });

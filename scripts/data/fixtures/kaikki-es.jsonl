@@ -25,3 +25,5 @@
 {"pos": "phrase", "word": "tomar el zapato", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to take the shoe"], "tags": ["idiomatic"]}]}
 {"pos": "phrase", "word": "de la Casa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["of the House (parliament)"]}]}
 {"pos": "phrase", "word": "comer la casa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to eat the house"], "tags": ["idiomatic"], "categories": [{"name": "Spanish non-constituents", "kind": "other"}]}]}
+{"pos": "name", "word": "rosa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈrosa/"}], "senses": [{"glosses": ["a female given name"], "tags": ["feminine"]}]}
+{"pos": "noun", "word": "rosa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈrosa/"}], "senses": [{"glosses": ["rose"], "tags": ["feminine"]}]}

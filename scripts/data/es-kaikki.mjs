@@ -53,7 +53,10 @@ function formOfBases(entry) {
   return bases;
 }
 
+// Proper-noun entries (Brasil, Carlos, Acapulco) give no meanings, so a word with only
+// those is not a vocabulary word; a word with other entries keeps their senses.
 function usableSenses(entry) {
+  if (entry.pos === "name") return [];
   const pos = typeof entry.pos === "string" ? posLabel(entry.pos) : "";
   return (entry.senses ?? [])
     .filter(isUsable)
