@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fnv1a64, normalizeUrl, occurrenceLink, sourceId } from "./url";
+import {
+  fnv1a64,
+  normalizeUrl,
+  occurrenceLink,
+  siteFromInput,
+  sourceId,
+} from "./url";
 
 describe("normalizeUrl", () => {
   it("drops the hash", () => {
@@ -121,4 +127,24 @@ describe("occurrenceLink", () => {
       "https://www.netflix.com/watch/80100172",
     );
   });
+});
+
+describe("siteFromInput", () => {
+  it.each([
+    ["mail.google.com", "mail.google.com"],
+    ["  Example.COM ", "example.com"],
+    ["https://mail.google.com/mail/u/0/", "mail.google.com"],
+    ["news.example.co.uk/today", "news.example.co.uk"],
+    ["localhost", "localhost"],
+    ["例え.jp", "xn--r8jz45g.jp"],
+  ])("reads %j as %s", (input, site) => {
+    expect(siteFromInput(input)).toBe(site);
+  });
+
+  it.each(["", "   ", "not a site", "example", "-bad-.com", "a..com", "ftp:"])(
+    "rejects %j",
+    (input) => {
+      expect(siteFromInput(input)).toBeUndefined();
+    },
+  );
 });

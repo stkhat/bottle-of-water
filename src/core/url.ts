@@ -87,3 +87,25 @@ export function occurrenceLink(
     return `${source.url}&t=${Math.floor(pos.timeMs / 1000)}s`;
   return source.url;
 }
+
+const LABEL = "[a-z0-9](?:[a-z0-9-]*[a-z0-9])?";
+const HOSTNAME = new RegExp(`^${LABEL}(?:\\.${LABEL})+$`);
+
+/**
+ * The host a user typed for "Never run on": a host name or a URL, case and spaces
+ * ignored. Undefined when it is not a host with at least one dot (or `localhost`).
+ */
+export function siteFromInput(input: string): string | undefined {
+  const text = input.trim().toLowerCase();
+  if (text === "") return undefined;
+  let hostname: string;
+  try {
+    hostname = new URL(text.includes("://") ? text : `https://${text}`)
+      .hostname;
+  } catch {
+    return undefined;
+  }
+  return hostname === "localhost" || HOSTNAME.test(hostname)
+    ? hostname
+    : undefined;
+}

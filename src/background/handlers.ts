@@ -148,6 +148,7 @@ export function createHandlers({
     syncStatus: () => sync.status(),
     exportJson: () => store.exportJson(),
     importJson: ({ json }) => store.importJson(json),
+    lastExport: async () => (await store.getMeta("lastExportAt")) ?? null,
     listTerms: ({ lang }) => store.listTerms(lang),
   };
 

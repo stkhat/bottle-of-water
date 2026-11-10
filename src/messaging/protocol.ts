@@ -53,6 +53,8 @@ export type Request =
   | { type: "syncStatus" }
   | { type: "exportJson" }
   | { type: "importJson"; json: string }
+  /** When the data was last exported (Settings → Backup file). */
+  | { type: "lastExport" }
   /** Saved terms of a language (no tombstones), for the word list. */
   | { type: "listTerms"; lang: string }
   /** Opens the options page (content scripts cannot open it themselves). */
@@ -116,6 +118,8 @@ export interface ResponseMap {
   syncStatus: SyncStatus;
   exportJson: string;
   importJson: ImportResult;
+  /** Epoch ms, or null when the data was never exported. */
+  lastExport: number | null;
   listTerms: TermRecord[];
   openOptions: null;
 }

@@ -12,7 +12,7 @@ import {
   timedtextBody,
 } from "../tests/youtube-timedtext";
 import { installFakeYouTubePlayer } from "./fake-youtube-player";
-import { test, expect, sendToBackground } from "./fixtures";
+import { test, expect, openPopupFor, sendToBackground } from "./fixtures";
 import { routeTalkVideo } from "./routes";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -335,48 +335,27 @@ test("at the end of the video, Video finished offers to save the rest, with Undo
   expect(await violations(page)).toEqual([]);
 });
 
-test("the popup's This page answers for the video", async ({
+test("the popup's This video saves the video's unsaved words", async ({
   context,
   extensionId,
 }) => {
   const page = await openAtLine(context, extensionId);
-  const popup = await context.newPage();
-  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-  // Without the "tabs" permission tab URLs are hidden: ask every tab.
-  const ask = (message: object) =>
-    popup.evaluate(async (message) => {
-      const { chrome: api } = globalThis as unknown as {
-        chrome: {
-          tabs: {
-            query(q: object): Promise<{ id: number }[]>;
-            sendMessage(id: number, m: unknown): Promise<unknown>;
-          };
-        };
-      };
-      const replies = await Promise.all(
-        (await api.tabs.query({})).map((tab) =>
-          api.tabs.sendMessage(tab.id, message).catch(() => undefined),
-        ),
-      );
-      return replies.filter((r) => r !== undefined);
-    }, message);
+  const popup = await openPopupFor(context, extensionId, page);
+  await expect(
+    popup.getByText("www.youtube.com", { exact: true }),
+  ).toBeVisible();
+  await expect(popup.getByText(en["saveAll.scope.video"])).toBeVisible();
+  const line = await popup.getByText(/^\d+ words not saved yet$/).textContent();
+  const unsaved = Number(/\d+/.exec(line!)![0]);
+  expect(unsaved).toBeGreaterThan(0);
 
-  const [summary, ...others] = (await ask({ type: "pageSummary" })) as {
-    supported: boolean;
-    unsaved: number;
-  }[];
-  expect(others).toEqual([]);
-  expect(summary).toMatchObject({ supported: true, done: null });
-  expect(summary!.unsaved).toBeGreaterThan(0);
-  expect(await ask({ type: "pageSaveAll", status: "learning" })).toEqual([
-    {
-      supported: true,
-      unsaved: 0,
-      done: { count: summary!.unsaved, target: "learning" },
-    },
-  ]);
+  await popup.getByRole("button", { name: en["saveAll.addLearning"] }).click();
+  await expect(
+    popup.getByText(`${unsaved} words added to Learning`),
+  ).toBeVisible();
   await expect(
     inVideo(page).getByText("creativity", { exact: true }),
   ).toHaveCSS("background-color", /rgba\(15, 159, 126, 0\.55\)/);
-  expect(await ask({ type: "pageUndo" })).toEqual([summary]);
+  await popup.getByRole("button", { name: en["saveAll.undo"] }).click();
+  await expect(popup.getByText(`${unsaved} words not saved yet`)).toBeVisible();
 });

@@ -136,6 +136,14 @@ describe("handlers: routing", () => {
     expect(await value({ type: "syncStatus" })).toEqual(SYNC_STATUS);
   });
 
+  it("answers lastExport with when the data was last exported, or null", async () => {
+    store.getMeta.mockResolvedValueOnce(undefined);
+    expect(await value({ type: "lastExport" })).toBeNull();
+    store.getMeta.mockResolvedValueOnce(5_000);
+    expect(await value({ type: "lastExport" })).toBe(5_000);
+    expect(store.getMeta).toHaveBeenCalledWith("lastExportAt");
+  });
+
   it("passes saveTerm's input to the store", async () => {
     store.saveTerm.mockResolvedValue(LOAF);
     const input = {

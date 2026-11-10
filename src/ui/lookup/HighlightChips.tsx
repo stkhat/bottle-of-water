@@ -1,13 +1,16 @@
 import type { CSSProperties } from "preact";
 import type { Settings } from "../../core/settings";
 import { t, type MessageKey } from "../../i18n/t";
-import { color } from "./styles";
+import { color, sectionHeading } from "./styles";
 
 export type HighlightCategory = keyof Settings["highlight"];
 
 export interface HighlightChipsProps {
-  /** Mock Main's transcript header (`video`) or mock Article's page card. */
-  look: "video" | "article";
+  /**
+   * Mock Main's transcript header (`video`), mock Article's page card (`article`) or
+   * the toolbar popup (`popup`: the video chips under an uppercase heading).
+   */
+  look: "video" | "article" | "popup";
   /** Which categories are highlighted (`settings.highlight`). */
   highlight: Settings["highlight"];
   onToggle: (category: HighlightCategory) => void;
@@ -35,23 +38,26 @@ const CHIPS: readonly {
   },
 ];
 
+const VIDEO_LOOK = {
+  on: {
+    background: color.white,
+    color: color.ink,
+    border: "1px solid #8C92A3",
+    fontWeight: 600,
+  },
+  off: {
+    background: "transparent",
+    color: color.muted,
+    border: "1px dashed #C9CDD6",
+  },
+};
+
 const LOOK: Record<
   HighlightChipsProps["look"],
   { on: CSSProperties; off: CSSProperties }
 > = {
-  video: {
-    on: {
-      background: color.white,
-      color: color.ink,
-      border: "1px solid #8C92A3",
-      fontWeight: 600,
-    },
-    off: {
-      background: "transparent",
-      color: color.muted,
-      border: "1px dashed #C9CDD6",
-    },
-  },
+  video: VIDEO_LOOK,
+  popup: VIDEO_LOOK,
   article: {
     on: {
       background: color.surfaceGray,
@@ -69,6 +75,52 @@ const LOOK: Record<
 /** "Highlight" and a toggle chip per category. */
 export function HighlightChips(props: HighlightChipsProps) {
   const look = LOOK[props.look];
+  const chips = CHIPS.map((c) => {
+    const pressed = props.highlight[c.id];
+    return (
+      <button
+        key={c.id}
+        type="button"
+        aria-pressed={pressed}
+        onClick={() => props.onToggle(c.id)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          height: "32px",
+          padding: "0 10px",
+          margin: 0,
+          borderRadius: "999px",
+          font: "inherit",
+          fontSize: "13px",
+          cursor: "pointer",
+          ...(pressed ? look.on : look.off),
+        }}
+      >
+        <span
+          style={{
+            display: "inline-block",
+            width: "16px",
+            height: "12px",
+            borderRadius: "3px",
+            ...c.swatch,
+          }}
+        ></span>
+        {t(c.label)}
+      </button>
+    );
+  });
+
+  if (props.look === "popup")
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <span style={sectionHeading}>{t("card.highlight")}</span>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+          {chips}
+        </div>
+      </div>
+    );
+
   return (
     <div
       style={{
@@ -83,41 +135,7 @@ export function HighlightChips(props: HighlightChipsProps) {
       >
         {t("card.highlight")}
       </span>
-      {CHIPS.map((c) => {
-        const pressed = props.highlight[c.id];
-        return (
-          <button
-            key={c.id}
-            type="button"
-            aria-pressed={pressed}
-            onClick={() => props.onToggle(c.id)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              height: "32px",
-              padding: "0 10px",
-              margin: 0,
-              borderRadius: "999px",
-              font: "inherit",
-              fontSize: "13px",
-              cursor: "pointer",
-              ...(pressed ? look.on : look.off),
-            }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                width: "16px",
-                height: "12px",
-                borderRadius: "3px",
-                ...c.swatch,
-              }}
-            ></span>
-            {t(c.label)}
-          </button>
-        );
-      })}
+      {chips}
     </div>
   );
 }
