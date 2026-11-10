@@ -91,6 +91,28 @@ describe("DictionaryWindow", () => {
       .toHaveAttribute("lang", "ja");
   });
 
+  test("marks an English definition and its senses as English", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...figureOut}
+        entry={{
+          ...figureOut.entry,
+          short: "To come to understand",
+          senses: [
+            { pos: "verb", text: "To come to understand; to discover." },
+          ],
+          glossLang: "en",
+        }}
+      />,
+    );
+    await expect
+      .element(screen.getByText("To come to understand", { exact: true }))
+      .toHaveAttribute("lang", "en");
+    await expect
+      .element(screen.getByText("To come to understand; to discover."))
+      .toHaveAttribute("lang", "en");
+  });
+
   test("the window has a header with a move handle; the panel does not", async () => {
     const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
     await expect

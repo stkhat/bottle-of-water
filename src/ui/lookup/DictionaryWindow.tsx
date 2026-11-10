@@ -21,6 +21,11 @@ export interface DictionaryEntryView {
   sub?: string;
   short?: string;
   senses: { pos?: string; text: string }[];
+  /**
+   * Language of `short` and `senses` when it is not the native language (an English
+   * definition).
+   */
+  glossLang?: string;
 }
 
 /** Another occurrence in the same video (with its time; clicking seeks) or page. */
@@ -237,6 +242,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
 
 function Content(props: DictionaryWindowProps & { icon: Style }) {
   const { entry, status } = props;
+  const glossLang = entry.glossLang ?? props.nativeLang;
 
   return (
     <>
@@ -313,7 +319,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
         )}
         {entry.short && (
           <p
-            lang={props.nativeLang}
+            lang={glossLang}
             style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
           >
             {entry.short}
@@ -348,7 +354,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
                 </span>
               )}
               <span
-                lang={props.nativeLang}
+                lang={glossLang}
                 style={{ fontSize: "15px", lineHeight: 1.55 }}
               >
                 {sense.text}

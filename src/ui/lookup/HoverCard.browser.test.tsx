@@ -37,6 +37,15 @@ describe("HoverCard", () => {
       .toBeVisible();
   });
 
+  test("marks an English definition as English", async () => {
+    const screen = await mountInShadowRoot(
+      <HoverCard {...figureOut} short="To come to understand" glossLang="en" />,
+    );
+    await expect
+      .element(screen.getByText("To come to understand"))
+      .toHaveAttribute("lang", "en");
+  });
+
   test("labels a word and an unsaved status", async () => {
     const screen = await mountInShadowRoot(
       <HoverCard {...figureOut} kind="word" status="new" head="dough" />,

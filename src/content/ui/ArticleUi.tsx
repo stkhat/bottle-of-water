@@ -61,6 +61,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
               sub: panel.card.sub,
               short: panel.card.short,
               senses: panel.card.senses,
+              glossLang: panel.card.glossLang,
             }}
             nativeLang={settings.nativeLang}
             status={panel.card.status}
@@ -124,6 +125,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
             head={hover.card.head}
             ipa={hover.card.ipa}
             short={hover.card.short}
+            glossLang={hover.card.glossLang}
             sub={hover.card.sub}
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}

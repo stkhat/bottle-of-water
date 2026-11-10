@@ -229,7 +229,7 @@ function Row(props: {
         )}
       </span>
       <span
-        lang={props.nativeLang}
+        lang={term.glossLang ?? props.nativeLang}
         style={{
           padding: "0 12px",
           fontSize: "14px",
@@ -479,7 +479,7 @@ function DetailsPanel(props: {
           )}
           {entry?.short && (
             <p
-              lang={props.nativeLang}
+              lang={entry.glossLang ?? props.nativeLang}
               style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
             >
               {entry.short}

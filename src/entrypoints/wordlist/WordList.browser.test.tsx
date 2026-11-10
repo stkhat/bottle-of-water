@@ -121,6 +121,8 @@ function fake(options: FakeOptions = {}) {
                 ipa: `/${request.key}/`,
                 short: `short of ${request.key}`,
                 senses: [],
+                // An English definition.
+                ...(request.key === "look into" && { glossLang: "en" }),
               },
             }),
             status: saved?.status ?? "new",
@@ -210,6 +212,31 @@ describe("WordList", () => {
     await expect
       .poll(() => textOf(row("crackle")))
       .toMatch(/Known5Dec 28, 2025$/);
+  });
+
+  it("marks English definitions as English, in the list and the details", async () => {
+    const { details, row } = await open({
+      terms: [
+        {
+          ...term("look into", "learning", 1, NOW - HOUR, "To investigate"),
+          glossLang: "en",
+        },
+        term("tedious", "learning", 2, NOW - 2 * HOUR, "退屈な、面倒な"),
+      ],
+    });
+    await expect
+      .element(row("look into").getByText("To investigate"))
+      .toHaveAttribute("lang", "en");
+    await expect
+      .element(row("tedious").getByText("退屈な、面倒な"))
+      .toHaveAttribute("lang", "ja");
+    await expect
+      .element(details.getByText("short of look into"))
+      .toHaveAttribute("lang", "en");
+    await row("tedious").click();
+    await expect
+      .element(details.getByText("short of tedious"))
+      .toHaveAttribute("lang", "ja");
   });
 
   it("filters by status and kind", async () => {
