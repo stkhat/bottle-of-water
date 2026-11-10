@@ -1,6 +1,6 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildEsPacks, writeEsPacks, type EsPacks } from "./es-kaikki.mjs";
 
@@ -167,7 +167,7 @@ describe("writeEsPacks", () => {
     return readdirSync(path, { withFileTypes: true }).flatMap((entry) =>
       entry.isDirectory()
         ? filesUnder(join(path, entry.name))
-        : [relative(dir, join(path, entry.name))],
+        : [relative(dir, join(path, entry.name)).split(sep).join("/")],
     );
   }
 
