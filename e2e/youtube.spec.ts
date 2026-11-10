@@ -35,7 +35,7 @@ const violations = (page: Page) =>
   );
 
 const transcript = (page: Page) =>
-  page.getByRole("complementary", { name: en["video.transcript"] });
+  page.getByRole("complementary", { name: en["video.panel"] });
 const inVideo = (page: Page) =>
   page.locator("lingo-video-player").getByRole("region", {
     name: en["video.subtitle"],
@@ -179,6 +179,61 @@ test("hovering a word shows its card; clicking it opens the dictionary window", 
   await expect
     .poll(() => currentTime(page))
     .toBeCloseTo(LINE_CUE.startMs / 1000, 1);
+});
+
+test("the Words tab lists the video's words; a row opens its dictionary window", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const panel = transcript(page);
+  const wordsTab = panel.getByRole("tab", { name: en["video.words"] });
+  await wordsTab.click();
+  await expect(wordsTab).toHaveAttribute("aria-selected", "true");
+  await expect(card(page, LINE)).toHaveCount(0);
+
+  // Rows with their counts; the chips count them.
+  const row = (head: string) =>
+    panel.getByRole("button", { name: new RegExp(`^${head}\\s*\\d+×`) });
+  await expect(row("creativity")).toContainText("1×");
+  await expect(row("extraordinary")).toBeVisible();
+  const chips = panel.getByRole("group", { name: en["video.words.filter"] });
+  const all = chips.getByRole("button", { name: /^All \d+$/ });
+  await expect(all).toHaveAttribute("aria-pressed", "true");
+  const rows = panel.locator("[data-word-row]");
+  expect(await rows.count()).toBe(
+    Number((await all.textContent())!.match(/\d+/)![0]),
+  );
+
+  // New only: every row is underlined in blue.
+  const newChip = chips.getByRole("button", {
+    name: new RegExp(`^${en["card.chip.new"]} \\d+$`),
+  });
+  await newChip.click();
+  await expect(newChip).toHaveAttribute("aria-pressed", "true");
+  await expect(rows).toHaveCount(
+    Number((await newChip.textContent())!.match(/\d+/)![0]),
+  );
+  await expect(
+    row("creativity").getByText("creativity", { exact: true }),
+  ).toHaveCSS("box-shadow", /rgb\(47, 111, 228\)/);
+
+  await row("creativity").click();
+  const window = dictionary(page);
+  await expect(
+    window.getByRole("heading", { name: "creativity" }),
+  ).toBeVisible();
+  await expect(
+    window.getByText(en["dict.inVideo"].replace("{count}", "1"), {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(row("creativity")).toHaveAttribute("aria-pressed", "true");
+
+  // The Transcript tab comes back with its cards.
+  await panel.getByRole("tab", { name: en["video.transcript"] }).click();
+  await expect(card(page, LINE)).toBeVisible();
+  expect(await violations(page)).toEqual([]);
 });
 
 test("hovering a word known by its frequency shows its card as Known", async ({

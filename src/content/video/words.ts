@@ -2,12 +2,10 @@ import type { Span, TermKind } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
 import { visibleSpans } from "../../ui/video/terms";
+import type { WordCategory, WordsFilter } from "../../ui/video/WordsList";
 
-/** A category a row of "Words in this video" can have. */
-export type WordCategory = "new" | "learning" | "known";
-
-/** The Words tab's filter chips. */
-export type WordsFilter = "all" | WordCategory;
+/** A row's category and the Words tab's filter chips (defined with their UI). */
+export type { WordCategory, WordsFilter };
 
 /** A word or phrase of the video, in the Words tab. */
 export interface VideoWord {

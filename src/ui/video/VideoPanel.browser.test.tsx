@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
 import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
-import { Transcript, type TranscriptProps } from "./Transcript";
+import { VideoPanel, type VideoPanelProps } from "./VideoPanel";
+import type { WordRow } from "./WordsList";
 
 const CUES: Cue[] = [
   {
@@ -40,7 +42,35 @@ const SPANS: (Span[] | null)[] = [
   null,
 ];
 
-const base: TranscriptProps = {
+const ROWS: WordRow[] = [
+  {
+    id: "word\nfigure out",
+    head: "figure out",
+    category: "learning",
+    count: 1,
+    short: "見つけ出す",
+    shortLang: "ja",
+    selected: false,
+  },
+  {
+    id: "word\nbunch",
+    head: "bunch",
+    category: "new",
+    count: 1,
+    short: "束",
+    shortLang: "ja",
+    selected: false,
+  },
+];
+
+const base: VideoPanelProps = {
+  tab: "transcript",
+  onTab: () => {},
+  words: ROWS,
+  wordsFilter: "all",
+  wordsCounts: { all: 2, new: 1, learning: 1, known: 0 },
+  onWordsFilter: () => {},
+  onOpenWord: () => {},
   cues: CUES,
   spans: SPANS,
   translations: [
@@ -66,12 +96,15 @@ const cards = (screen: { container: HTMLElement }) => [
   ...screen.container.querySelectorAll<HTMLButtonElement>("[data-cue]"),
 ];
 
-describe("Transcript", () => {
-  test("has the header: L badge, Transcript, Translation switch and Highlight chips", async () => {
-    const screen = await mountInShadowRoot(<Transcript {...base} />);
+describe("the Transcript tab", () => {
+  test("has the header: L badge, the tabs, Translation switch and Highlight chips", async () => {
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     await expect
-      .element(screen.getByRole("complementary", { name: "Transcript" }))
+      .element(screen.getByRole("complementary", { name: "Lingo" }))
       .toBeVisible();
+    await expect
+      .element(screen.getByRole("tab", { name: "Transcript" }))
+      .toHaveAttribute("aria-selected", "true");
     await expect.element(screen.getByText("L", { exact: true })).toBeVisible();
     await expect
       .element(
@@ -92,7 +125,7 @@ describe("Transcript", () => {
   });
 
   test("chips use Main's look: white with a solid border when on, dashed when off", async () => {
-    const screen = await mountInShadowRoot(<Transcript {...base} />);
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     const on = getComputedStyle(
       screen.getByRole("button", { name: "Learning" }).element(),
     );
@@ -111,7 +144,7 @@ describe("Transcript", () => {
     const onToggleTranslation = vi.fn();
     const onToggleHighlight = vi.fn();
     const screen = await mountInShadowRoot(
-      <Transcript
+      <VideoPanel
         {...base}
         onToggleTranslation={onToggleTranslation}
         onToggleHighlight={onToggleHighlight}
@@ -126,7 +159,7 @@ describe("Transcript", () => {
   });
 
   test("each card shows the time, the line and its translation", async () => {
-    const screen = await mountInShadowRoot(<Transcript {...base} />);
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     const [first, , third] = cards(screen);
     expect(first!.textContent).toBe(
       "0:52Hey everyone, welcome back to the channel.みなさん、チャンネルへおかえりなさい。",
@@ -138,7 +171,7 @@ describe("Transcript", () => {
 
   test("the translation switch off hides the translations", async () => {
     const screen = await mountInShadowRoot(
-      <Transcript {...base} showTranslation={false} />,
+      <VideoPanel {...base} showTranslation={false} />,
     );
     expect(screen.container.querySelectorAll("[lang=ja]")).toHaveLength(0);
     await expect
@@ -151,7 +184,7 @@ describe("Transcript", () => {
   });
 
   test("highlights the terms of the switched-on categories", async () => {
-    const screen = await mountInShadowRoot(<Transcript {...base} />);
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     const figure = screen.getByText("figure out").element();
     expect(getComputedStyle(figure).backgroundColor).toBe("rgb(211, 241, 229)");
     const bunch = screen.getByText("bunch").element();
@@ -159,7 +192,7 @@ describe("Transcript", () => {
   });
 
   test("emphasizes the playing card with Now playing", async () => {
-    const screen = await mountInShadowRoot(<Transcript {...base} />);
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     const playing = cards(screen)[1]!;
     expect(playing.getAttribute("aria-current")).toBe("true");
     expect(playing.textContent).toContain("0:56 · Now playing");
@@ -173,7 +206,7 @@ describe("Transcript", () => {
   test("clicking a card seeks to it", async () => {
     const onSeek = vi.fn();
     const screen = await mountInShadowRoot(
-      <Transcript {...base} onSeek={onSeek} />,
+      <VideoPanel {...base} onSeek={onSeek} />,
     );
     await screen.getByRole("button", { name: /^1:09/ }).click();
     expect(onSeek).toHaveBeenCalledWith(3);
@@ -192,10 +225,10 @@ describe("Transcript", () => {
       translations: many.map(() => ""),
       current: 0,
     };
-    const screen = await mountInShadowRoot(<Transcript {...props} />);
+    const screen = await mountInShadowRoot(<VideoPanel {...props} />);
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
     const pageScroll = scrollY;
-    screen.rerender(<Transcript {...props} current={30} />);
+    screen.rerender(<VideoPanel {...props} current={30} />);
     await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
     const card = cards(screen)[30]!.getBoundingClientRect();
     const box = list.getBoundingClientRect();
@@ -223,15 +256,126 @@ describe("Transcript", () => {
       current: 0,
       userScrollPauseMs: 300,
     };
-    const screen = await mountInShadowRoot(<Transcript {...props} />);
+    const screen = await mountInShadowRoot(<VideoPanel {...props} />);
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
     list.dispatchEvent(new WheelEvent("wheel", { deltaY: 100 }));
-    screen.rerender(<Transcript {...props} current={30} />);
+    screen.rerender(<VideoPanel {...props} current={30} />);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(list.scrollTop).toBe(0);
     // After the pause, the next card brings it back.
     await new Promise((resolve) => setTimeout(resolve, 300));
-    screen.rerender(<Transcript {...props} current={31} />);
+    screen.rerender(<VideoPanel {...props} current={31} />);
     await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
+  });
+});
+
+describe("the tabs", () => {
+  test("a segmented control of Transcript and Words beside the L badge", async () => {
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
+    const list = screen.getByRole("tablist", { name: "Lingo panel" });
+    const tabs = [...list.element().querySelectorAll("[role=tab]")];
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Transcript", "Words"]);
+    const selected = getComputedStyle(tabs[0]!);
+    expect(selected.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(selected.fontWeight).toBe("600");
+    expect(selected.height).toBe("32px");
+    const other = getComputedStyle(tabs[1]!);
+    expect(other.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(other.color).toBe("rgb(58, 64, 86)");
+    expect(getComputedStyle(list.element()).backgroundColor).toBe(
+      "rgb(241, 242, 245)",
+    );
+    // Both tabs share the row equally.
+    const [a, b] = tabs.map((tab) => tab.getBoundingClientRect().width);
+    expect(a).toBe(b);
+  });
+
+  test("each tab controls its panel", async () => {
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
+    const transcript = screen.getByRole("tab", { name: "Transcript" });
+    const panel = screen.getByRole("tabpanel", { name: "Transcript" });
+    expect(transcript.element().getAttribute("aria-controls")).toBe(
+      panel.element().id,
+    );
+    expect(panel.element().querySelectorAll("[data-cue]")).toHaveLength(4);
+    const words = screen.getByRole("tab", { name: "Words" }).element();
+    const hidden = screen.container.querySelector<HTMLElement>(
+      `#${words.getAttribute("aria-controls")}`,
+    )!;
+    expect(hidden.hidden).toBe(true);
+  });
+
+  test("clicking a tab picks it", async () => {
+    const onTab = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} onTab={onTab} />,
+    );
+    await screen.getByRole("tab", { name: "Words" }).click();
+    expect(onTab).toHaveBeenCalledWith("words");
+  });
+
+  test("the arrow keys move between the tabs; only the selected one is in the tab order", async () => {
+    const onTab = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} onTab={onTab} />,
+    );
+    const transcript = screen.getByRole("tab", { name: "Transcript" });
+    const words = screen.getByRole("tab", { name: "Words" });
+    expect(transcript.element().tabIndex).toBe(0);
+    expect(words.element().tabIndex).toBe(-1);
+
+    (transcript.element() as HTMLElement).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(onTab).toHaveBeenLastCalledWith("words");
+    screen.rerender(<VideoPanel {...base} tab="words" onTab={onTab} />);
+    expect(screen.container.getRootNode()).toBeInstanceOf(ShadowRoot);
+    expect((screen.container.getRootNode() as ShadowRoot).activeElement).toBe(
+      words.element(),
+    );
+    expect(words.element().tabIndex).toBe(0);
+    expect(transcript.element().tabIndex).toBe(-1);
+
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(onTab).toHaveBeenLastCalledWith("transcript");
+    screen.rerender(<VideoPanel {...base} tab="transcript" onTab={onTab} />);
+    expect((screen.container.getRootNode() as ShadowRoot).activeElement).toBe(
+      transcript.element(),
+    );
+    // Wraps around.
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(onTab).toHaveBeenLastCalledWith("words");
+  });
+
+  test("the Words tab shows the filter chips and the rows instead of the transcript", async () => {
+    const onWordsFilter = vi.fn();
+    const onOpenWord = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel
+        {...base}
+        tab="words"
+        wordsFilter="learning"
+        onWordsFilter={onWordsFilter}
+        onOpenWord={onOpenWord}
+      />,
+    );
+    await expect
+      .element(screen.getByRole("tab", { name: "Words" }))
+      .toHaveAttribute("aria-selected", "true");
+    const panel = screen.getByRole("tabpanel", { name: "Words" });
+    await expect.element(panel).toBeVisible();
+    expect(screen.container.querySelectorAll("[data-cue]")).toHaveLength(0);
+    expect(
+      screen
+        .getByRole("switch", { name: "Show translation in the transcript" })
+        .query(),
+    ).toBeNull();
+    expect(screen.getByText("Highlight").query()).toBeNull();
+    await expect
+      .element(screen.getByRole("button", { name: "Learning 1" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await screen.getByRole("button", { name: "New 1" }).click();
+    expect(onWordsFilter).toHaveBeenCalledWith("new");
+    await screen.getByRole("button", { name: /^bunch/ }).click();
+    expect(onOpenWord).toHaveBeenCalledWith("word\nbunch");
   });
 });

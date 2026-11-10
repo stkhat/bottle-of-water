@@ -9,9 +9,17 @@ import {
   HighlightChips,
   type HighlightCategory,
 } from "../lookup/HighlightChips";
-import { badge, color, root } from "../lookup/styles";
+import { color } from "../lookup/styles";
 import { Switch } from "../lookup/Switch";
 import { renderTerms, termStyle } from "./terms";
+
+export interface TranscriptControlsProps {
+  /** The transcript translation switch. */
+  showTranslation: boolean;
+  onToggleTranslation: () => void;
+  highlight: Settings["highlight"];
+  onToggleHighlight: (category: HighlightCategory) => void;
+}
 
 export interface TranscriptProps {
   cues: readonly Cue[];
@@ -19,19 +27,14 @@ export interface TranscriptProps {
   spans: readonly (readonly Span[] | null)[];
   /** The translation of each cue ("" when none). */
   translations: readonly string[];
-  /** The transcript translation switch. */
   showTranslation: boolean;
-  onToggleTranslation: () => void;
   highlight: Settings["highlight"];
-  onToggleHighlight: (category: HighlightCategory) => void;
   /** The card to emphasize and keep in view; -1 for none. */
   current: number;
   /** A card was clicked. */
   onSeek: (index: number) => void;
   learningLang: string;
   nativeLang: string;
-  /** The height of the whole transcript, in px. */
-  height: number;
   /** How long auto-scrolling waits after the user scrolls the list (ms). */
   userScrollPauseMs?: number;
 }
@@ -73,6 +76,35 @@ const PLAY_ICON = (
   </svg>
 );
 
+/** The Transcript tab's controls: the Highlight chips and the Translation switch. */
+export function TranscriptControls(props: TranscriptControlsProps) {
+  return (
+    <>
+      <HighlightChips
+        look="video"
+        highlight={props.highlight}
+        onToggle={props.onToggleHighlight}
+      />
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          fontSize: "13px",
+          color: color.ink3,
+        }}
+      >
+        {t("video.translation")}
+        <Switch
+          checked={props.showTranslation}
+          label={t("video.transcriptTranslation")}
+          onToggle={props.onToggleTranslation}
+        />
+      </span>
+    </>
+  );
+}
+
 /** The subtitle cards beside the video (mock Main's right column). */
 export function Transcript(props: TranscriptProps) {
   const list = useRef<HTMLDivElement>(null);
@@ -94,93 +126,33 @@ export function Transcript(props: TranscriptProps) {
   }, [props.current]);
 
   return (
-    <aside
-      aria-label={t("video.transcript")}
-      style={root({
+    <div
+      ref={list}
+      data-list
+      onWheel={userScrolled}
+      onTouchStart={userScrolled}
+      onKeyDown={userScrolled}
+      style={{
+        position: "relative",
+        flex: 1,
+        minHeight: 0,
+        overflowY: "auto",
+        padding: "12px",
         display: "flex",
         flexDirection: "column",
-        width: "100%",
-        height: `${props.height}px`,
-        background: color.white,
-        border: `1px solid ${color.line}`,
-        borderRadius: "12px",
-        overflow: "hidden",
-        fontSize: "14px",
-      })}
+        gap: "8px",
+      }}
     >
-      <div
-        style={{
-          padding: "16px 16px 12px",
-          borderBottom: `1px solid ${color.line}`,
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={badge(24, 7, 12)}>L</span>
-            <span style={{ fontWeight: 600, fontSize: "15px" }}>
-              {t("video.transcript")}
-            </span>
-          </div>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "13px",
-              color: color.ink3,
-            }}
-          >
-            {t("video.translation")}
-            <Switch
-              checked={props.showTranslation}
-              label={t("video.transcriptTranslation")}
-              onToggle={props.onToggleTranslation}
-            />
-          </span>
-        </div>
-        <HighlightChips
-          look="video"
-          highlight={props.highlight}
-          onToggle={props.onToggleHighlight}
+      {props.cues.map((cue, i) => (
+        <Card
+          key={i}
+          index={i}
+          cue={cue}
+          now={i === props.current}
+          {...props}
         />
-      </div>
-      <div
-        ref={list}
-        data-list
-        onWheel={userScrolled}
-        onTouchStart={userScrolled}
-        onKeyDown={userScrolled}
-        style={{
-          position: "relative",
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          padding: "12px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-        }}
-      >
-        {props.cues.map((cue, i) => (
-          <Card
-            key={i}
-            index={i}
-            cue={cue}
-            now={i === props.current}
-            {...props}
-          />
-        ))}
-      </div>
-    </aside>
+      ))}
+    </div>
   );
 }
 

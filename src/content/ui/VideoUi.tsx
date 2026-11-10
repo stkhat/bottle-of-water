@@ -6,11 +6,12 @@ import { HoverCard } from "../../ui/lookup/HoverCard";
 import { LingoMenu } from "../../ui/video/LingoMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
-import { Transcript } from "../../ui/video/Transcript";
+import { VideoPanel } from "../../ui/video/VideoPanel";
 import { shownStatus } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { dictionaryFrame, menuPlacement } from "../video/placement";
 import type { VideoApp, VideoState } from "../video/session";
+import { filterCounts, filterRows, videoWords } from "../video/words";
 import { Floating } from "./Floating";
 import { useStore, type Store } from "./store";
 
@@ -205,7 +206,7 @@ export function BelowVideoUi({ app }: { app: VideoApp }) {
   );
 }
 
-/** In the side column: the transcript. */
+/** In the side column: the Transcript and Words tabs. */
 export function TranscriptUi(props: {
   app: VideoApp;
   layout: Store<VideoLayout>;
@@ -213,12 +214,21 @@ export function TranscriptUi(props: {
   const { app } = props;
   const state = useStore(app.store);
   const { frameHeight } = useStore(props.layout);
+  const { cues, spans, summaries, settings, panel } = state;
+  const words = useMemo(
+    () => videoWords(cues, spans, summaries),
+    [cues, spans, summaries],
+  );
   if (!showing(state)) return null;
-  const { settings } = state;
+  const idOf = (row: { key: string; kind: string }) =>
+    `${row.kind}\n${row.key}`;
+  const open = panel && idOf(panel.card);
   return (
-    <Transcript
-      cues={state.cues}
-      spans={state.spans}
+    <VideoPanel
+      tab={state.panelTab}
+      onTab={app.setPanelTab}
+      cues={cues}
+      spans={spans}
       translations={state.translations}
       showTranslation={settings.transcriptTranslation}
       onToggleTranslation={() =>
@@ -230,6 +240,27 @@ export function TranscriptUi(props: {
       onToggleHighlight={app.toggleHighlight}
       current={state.card}
       onSeek={app.seekToCue}
+      words={filterRows(words, state.wordsFilter).map((row) => {
+        const brief = Object.hasOwn(summaries, row.key)
+          ? summaries[row.key]
+          : undefined;
+        return {
+          id: idOf(row),
+          head: row.head,
+          category: row.category,
+          count: row.count,
+          short: brief?.short,
+          shortLang: brief?.glossLang ?? settings.nativeLang,
+          selected: idOf(row) === open,
+        };
+      })}
+      wordsFilter={state.wordsFilter}
+      wordsCounts={filterCounts(words)}
+      onWordsFilter={app.setWordsFilter}
+      onOpenWord={(id) => {
+        const row = words.find((each) => idOf(each) === id);
+        if (row) app.openWord(row);
+      }}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}

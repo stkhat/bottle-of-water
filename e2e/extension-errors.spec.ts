@@ -354,7 +354,7 @@ for (const build of ["production", "check"] as const)
     });
 
     const transcript = (page: Page) =>
-      page.getByRole("complementary", { name: en["video.transcript"] });
+      page.getByRole("complementary", { name: en["video.panel"] });
     const inVideo = (page: Page) =>
       page.locator("lingo-video-player").getByRole("region", {
         name: en["video.subtitle"],
@@ -436,6 +436,21 @@ for (const build of ["production", "check"] as const)
       await ownSwitch.click();
       await ownSwitch.click();
       await videoCard(page, YT_LINE).click();
+
+      // The Words tab: a filter, a row's dictionary window, back to the transcript.
+      const panel = transcript(page);
+      await panel.getByRole("tab", { name: en["video.words"] }).click();
+      await panel
+        .getByRole("group", { name: en["video.words.filter"] })
+        .getByRole("button", { name: /^Learning \d+$/ })
+        .click();
+      await panel.getByRole("button", { name: /^creativity\s*\d+×/ }).click();
+      await expect(
+        window.getByRole("heading", { name: "creativity" }),
+      ).toBeVisible();
+      await window.getByRole("button", { name: en["dict.close"] }).click();
+      await panel.getByRole("tab", { name: en["video.transcript"] }).click();
+      await expect(videoCard(page, YT_LINE)).toBeVisible();
 
       // L off and on.
       const l = lButton(page);

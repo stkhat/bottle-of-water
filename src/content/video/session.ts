@@ -46,6 +46,7 @@ import {
 import { createStore, type Store } from "../ui/store";
 import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
+import type { PanelTab } from "../../ui/video/VideoPanel";
 import type { VideoWord, WordsFilter } from "./words";
 
 /** Cues classified per `analyze` request. */
@@ -97,8 +98,8 @@ export interface VideoPanel {
   opened: number;
 }
 
-/** The tabs of the right column. */
-export type PanelTab = "transcript" | "words";
+/** The tabs of the right column (defined with their UI). */
+export type { PanelTab };
 
 /** What the video UI shows for the current video. */
 export interface VideoState {

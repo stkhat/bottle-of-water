@@ -32,7 +32,7 @@ const PAIR_INDEX = 1;
 const PAIR_JA = alignByOverlap(CARDS, JA, { lang: "ja" })[PAIR_INDEX]!;
 
 const transcript = (page: Page) =>
-  page.getByRole("complementary", { name: en["video.transcript"] });
+  page.getByRole("complementary", { name: en["video.panel"] });
 const inVideo = (page: Page) =>
   page.locator("lingo-video-player").getByRole("region", {
     name: en["video.subtitle"],
@@ -179,6 +179,24 @@ test("a transcript card seeks to its line", async ({
   await expect(inVideo(page)).toContainText(flat(EN[0]!.text));
   expect(await currentTime(page)).toBeCloseTo(EN[0]!.startMs / 1000, 1);
   await expect(first).toHaveAttribute("aria-current", "true");
+});
+
+test("the Words tab lists the episode's words; a row opens its dictionary window", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  await transcript(page).getByRole("tab", { name: en["video.words"] }).click();
+  const row = transcript(page).getByRole("button", {
+    name: /^extraordinary\s*\d+×/,
+  });
+  await row.click();
+  const window = page.getByRole("complementary", { name: en["dict.window"] });
+  await expect(
+    window.getByRole("heading", { name: "extraordinary" }),
+  ).toBeVisible();
+  await expect(window.getByText(/^In this video · \d+$/)).toBeVisible();
+  await expect(row).toHaveAttribute("aria-pressed", "true");
 });
 
 test("the L button turns Lingo off: Netflix's subtitles come back", async ({
