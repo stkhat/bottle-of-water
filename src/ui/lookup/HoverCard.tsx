@@ -15,7 +15,7 @@ export interface HoverCardProps {
   short?: string;
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
-  /** Language of `short` (the native language), for its `lang` attribute. */
+  /** The native language: the `lang` of `short` unless `glossLang` says otherwise. */
   nativeLang: string;
   /** Language of `short` when it is not the native language (an English definition). */
   glossLang?: string;

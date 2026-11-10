@@ -4,7 +4,7 @@ Updated whenever a milestone moves. Last update: 2026-11-10.
 
 ## Where we are
 - **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
-- **Phase 2 is next, in a new session.** Start from [plans/2026-11-10-phase-2-handoff.md](plans/2026-11-10-phase-2-handoff.md)
+- **Phase 2 is in progress** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)). Done: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md))
 - Real-site checks (2026-11-10, user's Chrome via Claude in Chrome): YouTube (Ken Robinson TED talk) and Netflix (Friends, `watch/70274124`) work — subtitles, translations, transcript, hover card, dictionary window, saving, L/^ controls, seek. Details: [notes/youtube-captions.md](notes/youtube-captions.md), [notes/netflix.md](notes/netflix.md)
 
 ## What phase 1 contains
@@ -23,7 +23,6 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 ## Known issues and open points (phase 1)
 - Netflix: the subtitle lift above the control bar and the ^ menu are not yet checked on netflix.com; Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
 - YouTube: real-site layout in theater mode and the narrow single-column layout not checked
-- Phrases missing from EJDict (phrasal verbs such as "figure out") have no meaning or IPA in the word list and the dictionary window; the hover card uses the built-in translator for them (phase 2's phrase list addresses this)
 - Article UI: a word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)
 - Popup: "On this site" reflects only `disabledSites` (a "Never run on" host still shows the switch on); relative times read "2 minutes ago" where the mock says "2 min ago"
 - Word list: re-saving a removed word brings back one occurrence (removal deletes the others)
@@ -49,7 +48,8 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - Lemma entries (inflected form → base): 54,399. A form that is itself a dictionary word keeps a base only when its own kaikki entry confirms it (is → be, does → do; this and news have none)
 - IPA: 26,758 words; coverage over the frequency list: 16,719 of 19,089 base forms (87.6%)
 - Parts of speech: 39,436 words
-- Sizes: `en/` 3.8 MB (lemmas 1.25, ipa 0.79, freq 0.21, pos 1.04, vocab 0.48), `en-ja/` 6.7 MB in 4 shards; total 10.45 MB, about 3 MB zipped. Every file stays under 4 MB (`scripts/data/pack-sizes.test.ts`; AMO rejects text files over 5 MB)
+- Phrases (M8a, 2026-11-10): 16,384 phrases (5,240 from EJDict, 11,385 from kaikki, some in both); meanings from EJDict 5,240, Wiktionary Japanese translations 725, English definitions 10,419. `en/phrases.json` 0.27 MB, `en-ja/phrases.json` 0.05 MB, `en-defs/dict-1.json` 1.90 MB; all pack files 12.67 MB. Classifying ~1,400 words takes ~0.4 ms
+- Sizes (phase 1): `en/` 3.8 MB (lemmas 1.25, ipa 0.79, freq 0.21, pos 1.04, vocab 0.48), `en-ja/` 6.7 MB in 4 shards; total 10.45 MB, about 3 MB zipped. Every file stays under 4 MB (`scripts/data/pack-sizes.test.ts`; AMO rejects text files over 5 MB)
 - Performance: first `analyze` after a service-worker start ~80–125 ms (loads `en`), later calls 5–25 ms; the dictionary loads right after the first `analyze` (`warmDictionary`)
 - Sync capacity: 12,402 English terms fit in 102,400 bytes (`src/core/sync/codec.capacity.test.ts`); alternatives measured: up to ~16,300 with a column format (not adopted)
 - Raw downloads in `data/raw/` (git-ignored): kaikki English (3.4 GB), kaikki Spanish (1.1 GB, for phase 2), EJDict, Wiktionary TV/2006 frequency pages

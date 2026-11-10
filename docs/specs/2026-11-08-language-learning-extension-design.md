@@ -39,8 +39,8 @@ Development pair: learning language = English, native language = Japanese, sites
 - Kind (Word / Phrase) and current status. Shown for every word in the vocabulary, also those known by their frequency (within the known level, not saved): they show as **Known**, with "Known" pressed; pressing it saves them as Known, "+ Learning" as Learning
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
 - Buttons: "+ Learning", "Known"
-- For phrases, a saved phrase that matches is shown (automatic detection of dictionary phrases is phase 2)
-- EJDict has almost no phrasal verbs or idioms (no "figure out", "from scratch"). When a phrase is not in the bundled dictionary, its short translation comes from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
+- Phrases: saved phrases and dictionary phrases (phase 2: Wiktionary idioms, phrasal verbs and prepositional phrases made of vocabulary words, plus EJDict's multi-word headwords) are matched by their words' base forms; the longest match wins and a saved phrase wins over a detected one. An unsaved detected phrase is New (the known level does not apply to phrases) and does not cover a word saved as Learning. Kaikki phrases starting with be/have/do, word sequences Wiktionary marks as non-constituents, and idioms/phrases made only of very common words are left out
+- Phrase meanings: EJDict → Wiktionary's Japanese translations → Wiktionary's English definition (marked `lang="en"`). A selected phrase that no dictionary has gets its short translation from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
 
 ### Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
@@ -170,7 +170,7 @@ Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignor
 | File | Source | Size | Used for |
 |---|---|---|---|
 | EJDict-hand `src/*.txt` (26 files) | github.com/kujirahand/EJDict (pinned commit) | ~5 MB total | en→ja translations, English phrase list |
-| kaikki English JSONL | kaikki.org/dictionary/English/ | ~3.4 GB (streamed; only processed output is kept) | inflection → base form, US IPA, phrases |
+| kaikki English JSONL | kaikki.org/dictionary/English/ | ~3.4 GB (streamed; only processed output is kept) | inflection → base form, US IPA, phrase list, phrase meanings (Japanese translations, English definitions) |
 | kaikki Spanish JSONL | kaikki.org/dictionary/Spanish/ | ~1.1 GB | Spanish inflections, IPA, English glosses (phase 2) |
 | Frequency lists | Wiktionary "Frequency lists/TV/2006" (en, 41k words from TV and movie scripts) and "Frequency lists/Spanish/Mixed 730K" (es); CC BY-SA | < 1 MB each | frequency rank |
 
@@ -310,7 +310,7 @@ No outright blocker. Decisions and requirements:
    - Video UI for YouTube and Netflix (two columns + dictionary window, subtitle position and translation toggles, L button and arrow menu, site-first translation)
    - Toolbar popup, settings page, word list page
 2. **Phase 2**
-   - Automatic detection of phrases in the dictionary (phrase list from Wiktionary's English idioms and phrasal verbs, made of vocabulary words; where no Japanese translation exists, the English definition is shown)
+   - Automatic detection of phrases in the dictionary (phrase list from Wiktionary's English idioms and phrasal verbs, made of vocabulary words; where no Japanese translation exists, the English definition is shown) — done (M8a)
    - Searching past occurrences (local corpus)
    - Fullscreen support
    - Per-video word list tab
