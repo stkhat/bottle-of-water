@@ -1,0 +1,28 @@
+{"word":"be","lang_code":"en","pos":"verb","forms":[{"form":"is","tags":["present","singular","third-person"]}],"senses":[{"glosses":["As an auxiliary verb:"],"tags":["auxiliary"]}]}
+{"word":"is","lang_code":"en","pos":"verb","senses":[{"glosses":["third-person singular simple present indicative of be"],"tags":["form-of","indicative","present","singular","third-person"],"form_of":[{"word":"be"}]}]}
+{"word":"is","lang_code":"en","pos":"noun","senses":[{"glosses":["Alternative form of i's."],"tags":["alt-of","alternative","rare"]}]}
+{"word":"i","lang_code":"en","pos":"num","forms":[{"form":"is","tags":["plural"]}],"senses":[{"glosses":["The ninth numeral symbol of the English alphabet, called…"],"tags":["lowercase"]}]}
+{"word":"do","lang_code":"en","pos":"verb","forms":[{"form":"does","tags":["present","singular","third-person"]}],"senses":[{"glosses":["A syntactic marker."],"tags":["auxiliary"]}]}
+{"word":"doe","lang_code":"en","pos":"noun","forms":[{"form":"does","tags":["plural"]}],"senses":[{"glosses":["A female deer; also used of similar animals such as…"],"tags":["countable","uncountable"]}]}
+{"word":"does","lang_code":"en","pos":"verb","senses":[{"glosses":["third-person singular simple present indicative of do"],"tags":["form-of","indicative","present","singular","third-person"],"form_of":[{"word":"do"}]}]}
+{"word":"does","lang_code":"en","pos":"noun","senses":[{"glosses":["plural of doe"],"tags":["form-of","plural"],"form_of":[{"word":"doe"}]}]}
+{"word":"have","lang_code":"en","pos":"verb","forms":[{"form":"has","tags":["present","singular","third-person"]}],"senses":[{"glosses":["To possess, own."],"tags":["transitive"]}]}
+{"word":"ha","lang_code":"en","pos":"noun","forms":[{"form":"has","tags":["plural"]}],"senses":[{"glosses":["The sum of bodily parts; the physical body."],"tags":["Egypt"]}]}
+{"word":"has","lang_code":"en","pos":"verb","senses":[{"glosses":["third-person singular simple present indicative of have"],"tags":["form-of","indicative","present","singular","third-person"],"form_of":[{"word":"have"}]}]}
+{"word":"has","lang_code":"en","pos":"noun","senses":[{"glosses":["plural of ha (\"the physical body\")"],"tags":["form-of","plural"],"form_of":[{"word":"ha"}]}]}
+{"word":"life","lang_code":"en","pos":"noun","forms":[{"form":"lives","tags":["plural"]}],"senses":[{"glosses":["The state of organisms preceding their death, characterized…"],"tags":["uncountable","usually"]}]}
+{"word":"live","lang_code":"en","pos":"verb","forms":[{"form":"lives","tags":["present","singular","third-person"]}],"senses":[{"glosses":["To be alive; to have life."],"tags":["intransitive"]}]}
+{"word":"lives","lang_code":"en","pos":"verb","senses":[{"glosses":["third-person singular simple present indicative of live"],"tags":["form-of","indicative","present","singular","third-person"],"form_of":[{"word":"live"}]}]}
+{"word":"lives","lang_code":"en","pos":"noun","senses":[{"glosses":["plural of life"],"tags":["form-of","plural"],"form_of":[{"word":"life"}]}]}
+{"word":"new","lang_code":"en","pos":"noun","forms":[{"form":"news","tags":["plural"]}],"senses":[{"glosses":["Things that are new."],"tags":["countable","invariable","plural","plural-only","uncountable"]}]}
+{"word":"new","lang_code":"en","pos":"verb","forms":[{"form":"news","tags":["present","singular","third-person"]}],"senses":[{"glosses":["Synonym of new up."]}]}
+{"word":"this","lang_code":"en","pos":"det","senses":[{"glosses":["The (thing) here (used in indicating something or someone nearby)."]}]}
+{"word":"better","lang_code":"en","pos":"adj","senses":[{"glosses":["comparative degree of good and well"],"tags":["comparative","form-of"],"form_of":[{"word":"good and well"}]}]}
+{"word":"better","lang_code":"en","pos":"adv","senses":[{"glosses":["comparative form of well: more well"],"tags":["comparative","form-of"],"form_of":[{"word":"well"}]}]}
+{"word":"news","lang_code":"en","pos":"noun","senses":[{"glosses":["plural of new"],"tags":["form-of","plural"],"form_of":[{"word":"new"}]}]}
+{"word":"rise","lang_code":"en","pos":"verb","forms":[{"form":"rose","tags":["past"]}],"senses":[{"glosses":["To move, to go, or to be upwards."]}]}
+{"word":"rose","lang_code":"en","pos":"verb","senses":[{"glosses":["simple past of rise"],"tags":["form-of","past"],"form_of":[{"word":"rise"}]}]}
+{"word":"Thi","lang_code":"en","pos":"name","forms":[{"form":"This","tags":["plural"]}],"senses":[{"glosses":["A surname from Vietnamese."]}]}
+{"word":"good","lang_code":"en","pos":"adj","forms":[{"form":"better","tags":["comparative"]},{"form":"best","tags":["superlative"]}],"senses":[{"glosses":["Acting in the interest of good; ethical."]}]}
+{"word":"well","lang_code":"en","pos":"adv","forms":[{"form":"better","tags":["comparative"]},{"form":"best","tags":["superlative"]}],"senses":[{"glosses":["Accurately; competently."]}]}
+{"word":"ii","lang_code":"en","pos":"num","forms":[{"form":"iis","tags":["plural"]}],"senses":[{"glosses":["Alternative form of II (the Roman numeral 2)."],"tags":["lowercase"]}]}

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC fixture, modeled on the real structure seen 2026-11-10 (an English closed
+  captions track, profile dfxp-ls-sdh, of a title on netflix.com). The markup follows what
+  was seen: tick times at 10,000,000 ticks a second, positional regions, and ONE on-screen
+  subtitle split into several <p> elements with the same begin/end, one per line, placed
+  by tts:origin (two speakers' lines side by side at the same height). Closed captions are
+  in capital letters. Lines are not always in top-to-bottom order in the file. The text is
+  made up; it runs over the first 40 seconds of e2e/fixtures/talk.webm.
+-->
+<tt xmlns:tt="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:tts="http://www.w3.org/ns/ttml#styling" ttp:tickRate="10000000" ttp:timeBase="media" xmlns="http://www.w3.org/ns/ttml">
+<head>
+<ttp:profile use="http://netflix.com/ttml/profile/dfxp-ls-sdh"/>
+<styling>
+<style tts:color="white" tts:displayAlign="after" tts:extent="80.00% 80.00%" tts:fontFamily="Arial" tts:fontSize="100%" tts:origin="10.00% 10.00%" tts:textAlign="center" xml:id="style_0"/>
+</styling>
+<layout>
+<region tts:displayAlign="after" tts:textAlign="center" xml:id="region_00"/>
+<region tts:displayAlign="after" tts:textAlign="center" xml:id="region_01"/>
+<region tts:displayAlign="after" tts:textAlign="left" xml:id="region_02"/>
+<region tts:displayAlign="after" tts:textAlign="left" xml:id="region_03"/>
+</layout>
+</head>
+<body>
+<div>
+<p begin="10000000t" end="40000000t" region="region_00" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 79.29%" xml:id="subtitle0">GOOD EVENING,</p>
+<p begin="10000000t" end="40000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle1">AND WELCOME BACK TO THE WORKSHOP.</p>
+<p begin="45000000t" end="80000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle2">TONIGHT WE TALK ABOUT CREATIVITY IN THE CLASSROOM.</p>
+<p begin="85000000t" end="120000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle3">EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.</p>
+<p begin="125000000t" end="160000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle4">NOT STIFLE IT.</p>
+<p begin="125000000t" end="160000000t" region="region_00" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 79.29%" xml:id="subtitle5">WE SHOULD NURTURE IT,</p>
+<p begin="165000000t" end="200000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle6">[AUDIENCE APPLAUDS]</p>
+<p begin="205000000t" end="240000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle7">MISTAKES ARE PART OF LEARNING.</p>
+<p begin="245000000t" end="280000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle8">IF YOU ARE NOT PREPARED TO BE WRONG,</p>
+<p begin="285000000t" end="320000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle9">YOU WILL NEVER COME UP WITH ANYTHING ORIGINAL.</p>
+<p begin="325000000t" end="360000000t" region="region_01" style="style_0" tts:extent="80.00% 5.33%" tts:origin="10.00% 84.62%" xml:id="subtitle10">THAT IS THE HEART OF THE MATTER.</p>
+<p begin="365000000t" end="400000000t" region="region_03" style="style_0" tts:extent="25.00% 5.33%" tts:origin="62.50% 84.62%" xml:id="subtitle11">BRAVO!</p>
+<p begin="365000000t" end="400000000t" region="region_02" style="style_0" tts:extent="25.00% 5.33%" tts:origin="12.50% 84.62%" xml:id="subtitle12">THANK YOU.</p>
+</div>
+</body>
+</tt>

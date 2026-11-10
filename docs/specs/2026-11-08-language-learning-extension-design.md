@@ -36,21 +36,22 @@ Development pair: learning language = English, native language = Japanese, sites
 - Inflected forms are matched to the base form (ferments → ferment, loaves → loaf)
 
 ### Shared: hover card
-- Kind (Word / Phrase) and current status
+- Kind (Word / Phrase) and current status. Shown for every word in the vocabulary, also those known by their frequency (within the known level, not saved): they show as **Known**, with "Known" pressed; pressing it saves them as Known, "+ Learning" as Learning
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
 - Buttons: "+ Learning", "Known"
 - For phrases, a saved phrase that matches is shown (automatic detection of dictionary phrases is phase 2)
+- EJDict has almost no phrasal verbs or idioms (no "figure out", "from scratch"). When a phrase is not in the bundled dictionary, its short translation comes from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
 
 ### Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
-  - Video: a window over the page (when subtitles are inside the video, placed so it does not cover them)
+  - Video: a window over the right part of the video, its right edge just past the transcript's left edge (at the video's right edge without a transcript), so it covers almost none of the transcript; when subtitles are inside the video, placed so it does not cover them
   - Article: a panel floating on the right side of the screen
 - Contents
   - Headword, kind, pronunciation playback (`speechSynthesis`), **IPA**, notes, short translation
   - Status buttons: Learning / Known / Remove ("Not saved" when unsaved)
   - Meanings by part of speech
   - External dictionary links: Cambridge / Wiktionary / Reverso / WordReference (each can be turned on/off in settings; **users cannot add their own dictionary URLs**)
-  - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there)
+  - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there). On a page the list has every sentence with the term, the clicked one included, as in the mock; clicking one scrolls to it
   - "Seen elsewhere": occurrences in other sources. For unsaved words, explain that saving starts recording
 - **No "Ask AI" button (links to ChatGPT / Claude) in phase 1**
 
@@ -68,18 +69,21 @@ Development pair: learning language = English, native language = Japanese, sites
     - "Open all settings" (settings page)
 - Transcript
   - Each card shows the original with the translation below it. The playing card is emphasized and auto-scrolled; clicking a card seeks there
+  - Each card is a **sentence**: subtitle cues that do not end a sentence (. ? ! … ♪, maybe before a closing quote) are joined with the next cue when it starts less than 1.5 s later, up to 3 cues and about 25 words. Sound labels ("[MUSIC]") stay alone; a cue starting with a speaker's dash ("- …") starts a card, and a cue with two speakers' lines ends one. The subtitle in the video still shows one cue at a time
   - Header: "Highlight" category toggles and the transcript translation switch
 - No instructions text under the video
 - **When the video ends**, a "Video finished" card appears top right (same content as "Save all" below)
 
 ### Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language
-- Color by category with the **CSS Custom Highlight API** (no DOM rewriting). Process only the visible range, progressively, and follow page changes with a MutationObserver
+- Color by category with the **CSS Custom Highlight API** (no DOM rewriting). `::highlight()` cannot draw padding, rounded corners or box shadows, so the mock's bottom bar is drawn as a 2px underline and the Learning background covers only the text height — the closest the API allows. Process only the visible range, progressively, and follow page changes with a MutationObserver
   - In browsers where highlights cannot be underlined, use background colors only (see "Absorbing browser differences")
 - Find the hovered word with `caretPositionFromPoint`
 - When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known"
 - A small card at the top right shows Lingo's state and highlight toggles
-- **When the reader scrolls to the end of the article**, a "You reached the end" card appears in that card's place (same content as "Save all"; closing it with × brings back the original card)
+  - On real pages the card sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header) and the dictionary panel 152px below the card's top, as in the mock
+- The clicked word gets the mock's green outline (drawn by Lingo's UI over the page, since `::highlight()` cannot draw outlines)
+- **When the reader scrolls to the end of the article** (the last paragraph of the `article` with the most text, else `main`), a "You reached the end" card appears in that card's place (same content as "Save all"; closing it with × brings back the original card, and it does not come back on that page view). It is drawn above the dictionary panel, which it overlaps as in the mock
 
 ### Save all (save every unsaved word on the page at once)
 - Target: words on the page/video that are **not saved yet** (saved words keep their status; words within the frequency level are not counted)
@@ -98,7 +102,9 @@ Development pair: learning language = English, native language = Japanese, sites
 - Sync status: last saved time and usage (e.g. "Saved to Chrome sync · 2 min ago", "41 KB of 100 KB used")
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)
+  - Before the first save: "Not saved yet". With sync off: "Sync is off", without the usage bar
 - Footer: "Word list", "Settings"
+- "On this site" and "This page" are hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
 
 ### Settings page (the extension's options page, opens in a new tab)
 - Three ways to open it: ① "Settings" / gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from "Open all settings" in the menu next to L in the video player bar
@@ -112,18 +118,25 @@ Development pair: learning language = English, native language = Japanese, sites
   - **Sync and backup**
     - Browser sync switch ("Sync word status with Chrome sync"; the name follows the browser). The description explains that data reaches other devices when the user is signed in to the browser with sync on
     - Usage and last saved time ("Last saved …", never "Last synced")
-    - JSON Export / Import. The description shows **when the last export happened** ("Last export: …")
+    - JSON Export / Import. The description shows **when the last export happened** ("Last export: …", "Never exported."). Export downloads `lingo-backup-YYYY-MM-DD.json`; Import reads a chosen file and says "Imported N words" (or why it failed)
     - "Your own cloud storage" shows Coming later
   - **About**: version, data license notices
 
-### Word list page (a page inside the extension; mock `Word list page`, awaiting review)
+### Word list page (a page inside the extension; mock `Word list page`, approved 2026-11-10)
 - Opens in a new tab from "Word list" in the toolbar popup
 - Header: Lingo, "Word list", language pair, **Export / Import** (the same JSON as in Settings)
 - Filters: search (words and meanings), status (All / Learning / Known), kind (All / Words / Phrases), sort (Recently seen / A–Z / Most seen)
 - List columns: Word (with a Phrase tag), Meaning, Status, Seen (number of occurrences), Last seen
 - Selecting a row shows a details panel on the right: headword, kind, pronunciation playback, IPA, short translation, status buttons (Learning / Known / Remove), and "Where you saw it · N" (each occurrence with its source, time or date, the sentence, and a link back to the spot; the occurrence where it was saved is marked "Saved here")
+- Details decided while building (2026-11-10):
+  - Search matches the base form and the short meaning, ignoring case and surrounding spaces. Words without a dictionary entry (phrasal verbs such as "figure out" are not in EJDict) show no meaning
+  - Sorting: Recently seen = newest occurrence first (a word without occurrences counts from when it was saved); Most seen = most occurrences first, then recently seen; ties go A–Z
+  - Last seen and the occurrence dates: "Today", "Nov 6" within this year, "Nov 6, 2025" before it. An occurrence's line reads site (or host) · "at m:ss" for video times · the date unless it is today · "Saved here"
+  - The first row is selected when the page opens. Remove takes the word out of the list at once; its panel stays with "Not saved" pressed, and Learning / Known save it again from the occurrence it was saved from (its other occurrences are gone with the removal). A word removed without any occurrence cannot be saved again here
+  - Export / Import are the settings page's buttons; the import result ("Imported N words" or the error) shows beside them and the list is read again. The list is also read again when the tab becomes visible
+  - More than 500 words: only the rows in view are rendered
 
-### Phase 2 screens (mock, awaiting review)
+### Phase 2 screens (mock, approved 2026-11-10)
 - **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
 - **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows only the translation switch and "Open all settings"
 - **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
@@ -135,7 +148,7 @@ Development pair: learning language = English, native language = Japanese, sites
 | Part | Role | Phase 1 implementation |
 |---|---|---|
 | `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list and IPA table built from kaikki (Wiktionary) |
-| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled) |
+| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label |
 | `TranslationProvider` | Translating one subtitle line / sentence. Several implementations tried in order ("Choosing a translation") | ① the site's translated subtitles (from `PlatformAdapter`) ② the browser's built-in translator (Chrome: Translator API). If neither exists, no translation |
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation | YouTube / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
@@ -152,14 +165,14 @@ Development pair: learning language = English, native language = Japanese, sites
   - Detect the end of an article with an IntersectionObserver on the last element of the body
 
 ### Data sources
-Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files into `src/assets/packs/<lang>/`, which are committed. Notices go in About and `THIRD_PARTY_NOTICES.md`.
+Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files into `public/packs/<lang>/` (copied into the build and read by the background with `runtime.getURL`), which are committed. Notices go in About and `THIRD_PARTY_NOTICES.md`.
 
 | File | Source | Size | Used for |
 |---|---|---|---|
 | EJDict-hand `src/*.txt` (26 files) | github.com/kujirahand/EJDict (pinned commit) | ~5 MB total | en→ja translations, English phrase list |
 | kaikki English JSONL | kaikki.org/dictionary/English/ | ~3.4 GB (streamed; only processed output is kept) | inflection → base form, US IPA, phrases |
 | kaikki Spanish JSONL | kaikki.org/dictionary/Spanish/ | ~1.1 GB | Spanish inflections, IPA, English glosses (phase 2) |
-| Frequency lists (en, es) | Wiktionary frequency lists (CC BY-SA); the exact pages are chosen in the data-import milestone and recorded here | < 1 MB each | frequency rank |
+| Frequency lists | Wiktionary "Frequency lists/TV/2006" (en, 41k words from TV and movie scripts) and "Frequency lists/Spanish/Mixed 730K" (es); CC BY-SA | < 1 MB each | frequency rank |
 
 ### Choosing a translation
 Use the site's translation when it has one; fall back to the browser's built-in translator only when it doesn't. Site translations are often human-made and need no on-device processing.
@@ -174,7 +187,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - Pick one per video and never switch midway. When a video uses the site's translation, lines without a translation are not filled in by the built-in translator (meanings would overlap and the phrasing would clash)
 - **Timing**: a site's native-language track has different line breaks and timestamps from the original (especially Japanese subtitles on Netflix)
   - Subtitle translation: look up the translation track separately by playback position and show the translation on screen at that moment as is
-  - Transcript cards: assign each translated cue to the original card it overlaps most in time; join them if several land on one card
+  - Transcript cards: assign each translated cue to the card (sentence) it overlaps most in time (ties to the earlier card); join them if several land on one card. A spoken line goes to a sound-label card only when it overlaps no other card
   - YouTube's auto-translation comes back with the same breaks as the original, so map it one to one
 - The occurrence's `translation` stores the translation shown at that time
 - Articles have no site translation, so only the built-in translator is used
@@ -185,21 +198,23 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
-  - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word)
+  - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
 - Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), end card on/off, per-site on/off and the exclusion list
 
 ### Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
-- `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`pull / push / lastModified`). The user's own cloud storage, added later, is another implementation of the same part
+- `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`push / pull / status / start / stop`). The user's own cloud storage, added later, is another implementation of the same part
 - The limits are the same in Chrome and Firefox. Use the `storage.sync` constants (`QUOTA_BYTES` etc.) when readable at runtime, otherwise the values above
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
 - **Rough capacity**
   - Uncompressed: **~6,000 words**
-  - Compressed: **~15,000–20,000 words** (English; to be verified with real data)
+  - Compressed: **~12,400 words** (English, measured 2026-11-09 with realistic save times; 20,000 words take ~170 KB)
   - Words within the frequency level do not count
   - When the limit gets close, demote words saved by "save all" to "this device only"
-- Merge: per word, the newer update time wins; deletions are tombstones. Pick up other devices' changes with `storage.onChanged`
+  - Over 90% of the room left by other keys (settings, other languages): leave out "save all" words oldest first; if that is not enough, leave out the oldest known words too and report how many. They stay on the device
+- Merge: per word, the newer update time wins (same minute: keep this device's); deletions are tombstones, carried for 90 days. Pick up other devices' changes with `storage.onChanged`
+- Each push reads and merges the synced copy before writing it (chunks first, then `sync:<lang>:meta` = `{chunks, updatedAt, v}`, then stale chunks are removed), 2 s after the last local change. Pulled changes are not pushed back unless this device has newer ones. Storage errors (quota, write rate) show in the status and are retried with backoff
 - Sources and occurrences stay on the device. JSON export/import moves all data
 
 #### When the browser is not signed in / sync is off
@@ -295,7 +310,7 @@ No outright blocker. Decisions and requirements:
    - Video UI for YouTube and Netflix (two columns + dictionary window, subtitle position and translation toggles, L button and arrow menu, site-first translation)
    - Toolbar popup, settings page, word list page
 2. **Phase 2**
-   - Automatic detection of phrases in the dictionary
+   - Automatic detection of phrases in the dictionary (phrase list from Wiktionary's English idioms and phrasal verbs, made of vocabulary words; where no Japanese translation exists, the English definition is shown)
    - Searching past occurrences (local corpus)
    - Fullscreen support
    - Per-video word list tab
@@ -321,7 +336,7 @@ No outright blocker. Decisions and requirements:
 - Browser sync only stores locally when the user is not signed in, and the extension cannot reliably tell. JSON export is the only safeguard for users without sync
 - Data licenses: Wiktionary-derived data is CC BY-SA, EJDict-hand is public domain (Tatoeba, phase 3, is CC BY)
 - Netflix terms of use (stay within techniques equivalent to LR's)
-- Fetching YouTube subtitles may need a token added by the player. Whether the extension can additionally fetch the auto-translation (`tlang`) or the Japanese track is to be verified (if not, fall back to the built-in translator)
+- Fetching YouTube subtitles needs the token the player adds (`pot`, bound to the video); a plain fetch returns an empty body. Checked 2026-11-10 ([notes](../notes/youtube-captions.md)): once the player has made one timedtext request for the video, the extension can fetch the Japanese track and the auto-translation (`tlang`) by reusing that request's URL. If YouTube stops allowing this, ask the player for each track instead, or fall back to the built-in translator. Automated browsers (Playwright) get empty captions even from the player, so tests use recorded fixtures
 
 ## How to verify (during implementation)
 - Vitest: segmentation and base forms, classification, phrase matching, counting unsaved words, save all and Undo, packing/splitting/merging sync data, parsing YouTube json3 and Netflix TTML, choosing a translation and assigning by time overlap (fixtures)

@@ -13,11 +13,28 @@ test("page styles do not leak into the card", async ({ context }) => {
 test("the extension does not leak CSS into the page", async ({ context }) => {
   const page = await context.newPage();
   await page.goto("/hostile.html");
-  await expect(page.locator("lingo-page-card")).toHaveCount(1);
+  await expect(page.locator("lingo-article")).toHaveCount(1);
   await expect(page.locator("#page-text")).toHaveCSS("color", "rgb(255, 0, 0)");
   const injected = await page.evaluate(
     () => document.head.querySelectorAll("style, link[rel=stylesheet]").length,
   );
   // hostile.html ships exactly one inline <style> of its own.
   expect(injected).toBe(1);
+  // The only styles added to the page are the highlight rules, adopted rather than
+  // inserted, and each one targets a Lingo highlight only.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.adoptedStyleSheets.flatMap((sheet) =>
+          [...sheet.cssRules].map(
+            (rule) => (rule as CSSStyleRule).selectorText,
+          ),
+        ),
+      ),
+    )
+    .toEqual([
+      "::highlight(lingo-new)",
+      "::highlight(lingo-learning)",
+      "::highlight(lingo-known)",
+    ]);
 });

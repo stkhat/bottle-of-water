@@ -1,0 +1,66 @@
+# Netflix: how Lingo reads it, and what was seen on the real site
+
+The adapter was first built against synthetic fixtures modeled on public descriptions of the web player. On **2026-11-10** it was checked on netflix.com (an episode, `/watch/70274124`, in the user's own Chrome with only Lingo enabled): Lingo mounted its parts but found no subtitles, because the manifest's shape was not the assumed one. What was seen is recorded below, and the code and fixtures follow it. Everything Netflix-specific lives in two small modules so it can be corrected in one place:
+
+- `src/content/video/netflix-manifest.ts`: the manifest's shape and the subtitle formats
+- `src/content/video/netflix-site.ts`: DOM selectors (with fallbacks), the player API path, layout constants
+
+When an assumption fails, Lingo shows nothing on that video and leaves Netflix's own subtitles alone (no tracks → `unavailable`; no player element → no UI; seek errors are logged).
+
+The fixtures stay synthetic (`src/core/subtitles/fixtures/netflix/`): the subtitles of real titles are copyrighted, so they copy the real markup with made-up lines.
+
+## Seen on netflix.com (2026-11-10)
+1. **Manifest**: arrives by XHR (`/msl/playapi/cadmium/licensedmanifest/1`) and is passed through `JSON.parse` as one string (51 KB), so the page-level `JSON.parse` wrapper sees it. Top keys: `id`, `version`, `serverTime`, `result`, `common`, `from`. `result` holds `movieId` (a **number**, the id in `/watch/<id>`), `textTracks` (**not** `timedtexttracks`), `audioTracks`, `duration`, `viewableType`, `links`, `servers`, …
+2. **Text tracks** (`result.textTracks[]`): `type`, `trackType` (`PRIMARY` / `ASSISTIVE`), `rawTrackType` (`subtitles` / `closedcaptions`), `id`, `language` (`en`, `ja`; `null` for Off), `languageDescription`, `downloadableIds` (`{ profile: id }`), `downloadables` (`{ profile: { size, hashValue, hashAlgo, urls: [{ cdnId, url }], textKey, isImage } }`), `rank`, `hydrated`, `encodingProfileNames`, `trackMapIndex`, `allowedVideoTracks`, `selectableVideoTracks`, `allowedAudioTracks`, `selectableAudioTracks`, `selectionGroupId`, `isForcedNarrative`, `isLanguageLeftToRight`, `isNoneTrack`. On that title, 3 tracks:
+   - Off: `language: null`, `isNoneTrack: true`, `rawTrackType: subtitles`
+   - English: `closedcaptions` / `ASSISTIVE`, profiles `dfxp-ls-sdh`, `imsc1.1`, `simplesdh` (all text). There was **no English `subtitles` track**, so the original falls back to the closed captions.
+   - Japanese: `subtitles` / `PRIMARY`, profiles `imsc1.1` (text) and `nflx-cmisc` (images)
+3. **Downloads**: fetching the subtitle URLs from the page works (200; English DFXP 133 KB, Japanese IMSC 42 KB). The content script's `fetch` (CORS) was not tried; the page fetch stays as the fallback.
+4. **English `dfxp-ls-sdh`**: `ttp:tickRate="10000000"`, `ttp:timeBase="media"`, `<ttp:profile use="http://netflix.com/ttml/profile/dfxp-ls-sdh"/>`, positional regions (`region_00`, `region_01`, …). One on-screen subtitle is **several `<p>` elements with the same `begin`/`end`**, one per line, each with `tts:origin` (e.g. `50.00% 79.29%` and `50.00% 84.62%`); two speakers' lines can sit side by side. Closed captions are in **capital letters**.
+5. **Japanese `imsc1.1`**: `ttp:tickRate="10000000"`, `xml:lang="ja"`, `xml:space="preserve"` on `<p>`, `<p begin="…t" end="…t" region="region0" style="style0">`. Ruby is declared on `<style>` elements (`tts:ruby="container"`, `"base"`, `"text"` with `tts:rubyPosition="before"`) that spans refer to with `style="…"`. Some cues use vertical writing (`tts:writingMode="tb…"`) or `tts:shear` styles.
+6. **DOM**: `.watch-video--player-view` exists (`position: absolute`) and contains the `<video>`; `.player-timedtext` exists. `data-uia` values while idle: `watch-video`, `watch-video-player-view-minimized`, `player`, `video-canvas`. The control bar's `control-*` buttons were **not in the DOM** while idle (synthetic hovering did not bring them), so the L/^ group floated at the player's bottom right (the fallback).
+7. **Control bar** (with a real pointer, captured with a MutationObserver): the subtree `[data-uia='controls-standard']` is created on pointer movement and removed when idle. Ancestors of the audio & subtitles button: `BUTTON[data-uia="control-audio-subtitle"]` < `DIV.medium` (its wrapper) < `DIV` (the row) < `DIV` < `DIV` < `DIV` < `DIV[data-uia="controls-standard"]`. The row's children are wrappers and spacers: spacer, [`control-next`], spacer, [`control-episodes`], spacer, spacer, [`control-audio-subtitle`], spacer, [`control-speed`], spacer, [`control-fullscreen-enter`]. Class names are hashed (`default-ltr-iqcdef-cache-…`). The L/^ group did not show in the bar; the floating group stayed in `.watch-video` with no buttons in it (the buttons had been moved to a bar once). Lingo now finds the row by data-uia and structure and keeps up with bars rebuilt often (see Layout decisions); not yet checked again on netflix.com.
+8. Another subtitle extension in the same Chrome (Language Reactor) re-parses the manifest; with it on, Lingo did get tracks. Lingo must not depend on other extensions.
+
+## How it works
+- **MAIN world** (`netflix-main.content.ts` → `netflix-page.ts`, `document_start`): wraps `JSON.parse` (the result is returned untouched) and runs `readManifest` on each result. A manifest is `{ result: { movieId, textTracks } }`, or the older `{ result: { movieId, timedtexttracks } }` with `ttDownloadables` (other titles or accounts may still get it); also accepted without `result`, or with `viewableId`. Tracks without text downloads (Off, image-only, not yet downloadable) are dropped. Tracks are posted to the isolated script and kept in page memory for the last 6 titles (the next episode's manifest can arrive before the URL changes). It answers `getTracks`, `currentMovieId`, `title`, `fetchText` (only URLs from seen manifests) and `seek`.
+- **Isolated world** (`netflix.content.ts` → `netflix.ts`): watch id from `/watch/<id>`; navigation by URL polling (500 ms), `popstate` and new manifests; the original track = learning language, not forced, subtitles before closed captions; formats in order `imsc1.1`, `dfxp-ls-sdh`, `simplesdh`, `webvtt-lssdh-ios8` (images are skipped), each CDN URL in turn, the next format when one gives no cues; the translation = the native-language track that is not forced, else the built-in translator, else none (Netflix has no machine translation). Translations are aligned by time overlap.
+- **TTML** (`src/core/subtitles/ttml.ts`): `<p>` elements with the same times become one cue, lines top to bottom then left to right by `tts:origin` (the `<p>`'s, else its region's); ruby text is dropped whether `tts:ruby` is on the span or on a referenced `<style>`; `xml:space="preserve"` keeps line breaks; writing mode and shear are ignored. Capital-letter lines are classified like lowercase ones (lookups lowercase); Lingo shows the text as it is.
+- Subtitle files are fetched by the content script; when that request is refused (CORS rules for content scripts differ between browsers) the page script fetches them. URLs and subtitles stay in memory only.
+
+## Layout decisions
+- **L and ^ buttons**: go into Netflix's control bar, in the row of its right-hand buttons, before the wrapper of the first of `[data-uia='control-audio-subtitle']`, `control-speed`, `control-fullscreen-enter/exit`, `.button-nfplayerSubtitles`. The row is the button's closest ancestor that holds another `[data-uia^='control-']` button; the wrapper is the row's child holding the button (so a tooltip or panel added next to the button does not matter). Netflix **builds the bar while the pointer moves and removes it from the DOM when it stops** (seen on 2026-11-10, below); the buttons go with it and are put back into each new bar by the mount's MutationObserver, as the same element (the menu's state is kept). Moves into a new parent are not counted by the mount's loop guard (10 moves back into the same parent per second), so a bar rebuilt often still gets them. Only if no control bar was ever recognized on the page do the buttons float at the player's bottom right (`lingo-netflix-controls`), shown for 3 s after each pointer move (listened to on the window, capturing, so the page cannot stop it); the floating group is removed once a bar shows up.
+- **Transcript**: Netflix has no side column, so the transcript is a fixed panel at the right (`lingo-netflix-side`: 360 px wide, 16 px from the right, from 72 px below the top to 120 px above the bottom, clear of the back arrow and the control bar). It **overlays** the video's right edge; the player is not narrowed. The transcript is as tall as the panel (`PlatformAdapter.transcriptFrame`). Hidden in fullscreen.
+- **Subtitle "Below video"**: there is nothing below Netflix's video; the box sits at the bottom of the player, 120 px up (above the control bar).
+- **Subtitle "In video"**: as on YouTube, 64 px above the player's bottom. While Netflix's control bar shows, the subtitle rises to 12 px above it and slides back down when the bar goes (`PlatformAdapter.controlBarTop`, read on each DOM change by the mount). The bar's top is the highest of `[data-uia='controls-standard']` and its buttons, title and timeline, counting only those in the player's lower half (in case the bar's box covers the whole player). Not yet checked on netflix.com.
+- Netflix's subtitles are hidden with `.player-timedtext { display: none !important }` in a `<style>` element while Lingo shows its own.
+
+## Working on netflix.com (2026-11-10, after the manifest fix)
+Checked on the same episode in the user's Chrome with only Lingo enabled:
+- The manifest is read and both tracks load (English closed captions and Japanese subtitles).
+- The subtitle over the video, with the Japanese line playing at that time; Netflix's own subtitles are hidden (so the `<style>` element is allowed).
+- Transcript cards with translations and "Now playing"; a card click seeks through the player API (`video.currentTime` checked).
+- Clicking a word opens the dictionary window (e.g. "asked → ask", verb), left of the transcript panel with a 12 px overlap.
+
+Then fixed, not yet checked again: the L and ^ buttons in the control bar (above), and transcript cards as sentences. Closed captions split one sentence across cues ("DID YOU EVEN INTERVIEW THIS WOMAN" / "BEFORE YOU ASKED HER TO MOVE IN?"), which gave fragment cards and Japanese lines on the wrong card; cards now join such cues (`sentenceCards` in `src/core/subtitles/cues.ts`) and the subtitle in the video still shows one cue at a time.
+
+## Rechecked on netflix.com (2026-11-10, build 53569db)
+- The L and ^ buttons now sit in the control bar, just before the audio & subtitles button, and come and go with the bar.
+- L off (aria-pressed true → false) hides the transcript and our subtitle and gives Netflix's own subtitles back; L on restores Lingo. The change shows after a short delay.
+- Transcript cards are whole sentences (e.g. "NOW, REMEMBER WHEN YOU WENT OUT WITH THAT GIRL, DONNA AND YOU GUYS BROKE UP? REMEMBER HOW HORRIBLE IT WAS").
+- Remaining issues seen: (a) while the control bar shows, our in-video subtitle overlaps the bar and the episode title — now lifted above the bar while it shows (see Layout decisions); (b) sound labels inside a cue stay inside the card ("… NOT FLIRT. ( chuckles )"); (c) Netflix's Japanese lines are loosely timed, so a few still land on the neighboring card.
+
+## Still to check on netflix.com
+1. Speaker-dash lines kept apart in sentence cards (sentence joining itself is verified).
+2. Whether the English `imsc1.1` file (tried first) looks like the Japanese one or splits lines into `<p>` elements like the DFXP; if it gives no cues, Lingo moves on to `dfxp-ls-sdh`.
+3. Whether tracks other than the selected ones can come with `hydrated: false` and no `downloadables` (titles with many languages); such tracks are dropped, so the native-language translation could be missing.
+4. Subtitle CDN hosts (`*.nflxvideo.net`) answer the content script's `fetch` with CORS for `https://www.netflix.com` (Chrome and Firefox); else the page fetch is used.
+5. Subtitle times on titles with ads (ad tier: `adShowing()` always returns false; ads may break timing). Without ads they matched.
+6. `getMovieId()` of the session player (seeking works).
+7. Title: `playerApp.getState().videoPlayer.videoMetadata[movieId]._metadata.video` with `title` and `seasons[].episodes[]` (`id`, `seq`, `title`); fallback `[data-uia='video-title']`.
+8. The ^ menu above the buttons (the L toggle itself is verified).
+9. The URL changes to `/watch/<episode id>` between episodes and the manifest's `movieId` equals that id (if the URL names a show, the playing title from `getMovieId()` is used).
+10. `ended` fires at the end of an episode (Netflix may show its post-play screen or move on first), so the "Video finished" card may not show.
+11. Fullscreen: which element Netflix makes fullscreen; Lingo hides its parts in fullscreen and shows Netflix's subtitles.
+12. Clicks on Lingo's parts do not reach the player (play/pause).
+13. Layout: the end card (top right, over the transcript's top) and the subtitle against the control bar.

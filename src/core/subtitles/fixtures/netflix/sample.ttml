@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC fixture. Not recorded from Netflix (it needs a login).
+  Written by hand from the public TTML1 / DFXP specification and published descriptions of
+  Netflix's TTML subtitles: tick-based times (ttp:tickRate), <br/> line breaks, nested spans,
+  style and region references, and Japanese ruby spans (tts:ruby). The text is made up.
+-->
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" ttp:profile="http://www.netflix.com/ns/ttml/profile/dfxp-ls-sdh" ttp:tickRate="10000000" ttp:timeBase="media" xml:lang="en">
+  <head>
+    <ttp:profile use="http://www.netflix.com/ns/ttml/profile/dfxp-ls-sdh"/>
+    <styling>
+      <style xml:id="style0" tts:fontStyle="normal" tts:fontFamily="Arial" tts:fontSize="100%" tts:color="white" tts:textAlign="center"/>
+      <style xml:id="style1" tts:fontStyle="italic" tts:fontFamily="Arial" tts:fontSize="100%" tts:color="white"/>
+    </styling>
+    <layout>
+      <region xml:id="region0" tts:extent="80.00% 80.00%" tts:origin="10.00% 10.00%" tts:displayAlign="after"/>
+      <region xml:id="region1" tts:extent="80.00% 80.00%" tts:origin="10.00% 10.00%" tts:displayAlign="before"/>
+    </layout>
+  </head>
+  <body>
+    <div>
+      <p begin="10010000t" end="35030000t" region="region0" style="style0" xml:id="subtitle0">Good morning.<br/>How are you?</p>
+      <p begin="36450000t" end="52890000t" region="region0" style="style0" xml:id="subtitle1"><span style="style1">[audience]</span> Good.</p>
+      <p begin="54050000t" end="81320000t" region="region1" style="style0" xml:id="subtitle2">It&apos;s been <span style="style1">great,</span><br/><span tts:fontStyle="italic">hasn&apos;t <span tts:fontWeight="bold">it</span></span>?</p>
+      <p begin="83240000t" end="110000000t" region="region0" style="style0" xml:id="subtitle3">Rock &amp; roll &lt;live&gt; &#8212; tonight&#x21;</p>
+      <p begin="112000000t" end="118000000t" region="region0" style="style0" xml:id="subtitle4"></p>
+      <p begin="120000000t" end="141000000t" region="region0" style="style0" xml:id="subtitle5">
+        I find this
+        very interesting.
+      </p>
+      <p begin="150000000t" end="171000000t" region="region0" style="style0" xml:id="subtitle6" xml:lang="ja"><span tts:ruby="container"><span tts:ruby="base">教育</span><span tts:ruby="text">きょういく</span></span>に関心があります</p>
+    </div>
+  </body>
+</tt>

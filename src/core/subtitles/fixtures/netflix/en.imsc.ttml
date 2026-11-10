@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SYNTHETIC fixture, modeled on the real structure seen 2026-11-10. The same English
+  closed captions as en.dfxp in the imsc1.1 profile, which the English track also offers
+  and Lingo prefers. Only the Japanese imsc1.1 file was seen on netflix.com, so this one
+  follows its markup (ja.imsc.ttml: tick times, xml:space="preserve" on <p>, <br/> line
+  breaks); lines shown together may also come as <p> elements with the same times. The
+  text is made up and gives the same cues as en.dfxp.
+-->
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ittp="http://www.w3.org/ns/ttml/profile/imsc1#parameter" ttp:profile="http://www.w3.org/ns/ttml/profile/imsc1.1/text" ttp:tickRate="10000000" ttp:timeBase="media" ittp:aspectRatio="16 9" xml:lang="en">
+  <head>
+    <styling>
+      <style xml:id="style0" tts:color="white" tts:fontFamily="proportionalSansSerif" tts:fontSize="100%" tts:textAlign="center"/>
+      <style xml:id="style1" tts:color="white" tts:fontFamily="proportionalSansSerif" tts:fontSize="100%" tts:textAlign="left"/>
+    </styling>
+    <layout>
+      <region xml:id="region0" tts:displayAlign="after" tts:extent="80.00% 80.00%" tts:origin="10.00% 10.00%"/>
+      <region xml:id="region1" tts:displayAlign="after" tts:extent="25.00% 10.00%" tts:origin="62.50% 80.00%"/>
+      <region xml:id="region2" tts:displayAlign="after" tts:extent="25.00% 10.00%" tts:origin="12.50% 80.00%"/>
+    </layout>
+  </head>
+  <body>
+    <div>
+      <p begin="10000000t" end="40000000t" region="region0" style="style0" xml:space="preserve">GOOD EVENING,<br/>AND WELCOME BACK TO THE WORKSHOP.</p>
+      <p begin="45000000t" end="80000000t" region="region0" style="style0" xml:space="preserve">TONIGHT WE TALK ABOUT CREATIVITY IN THE CLASSROOM.</p>
+      <p begin="85000000t" end="120000000t" region="region0" style="style0" xml:space="preserve">EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.</p>
+      <p begin="125000000t" end="160000000t" region="region0" style="style0" xml:space="preserve">WE SHOULD NURTURE IT,<br/>NOT STIFLE IT.</p>
+      <p begin="165000000t" end="200000000t" region="region0" style="style0" xml:space="preserve">[AUDIENCE APPLAUDS]</p>
+      <p begin="205000000t" end="240000000t" region="region0" style="style0" xml:space="preserve">MISTAKES ARE PART OF LEARNING.</p>
+      <p begin="245000000t" end="280000000t" region="region0" style="style0" xml:space="preserve">IF YOU ARE NOT PREPARED TO BE WRONG,</p>
+      <p begin="285000000t" end="320000000t" region="region0" style="style0" xml:space="preserve">YOU WILL NEVER COME UP WITH ANYTHING ORIGINAL.</p>
+      <p begin="325000000t" end="360000000t" region="region0" style="style0" xml:space="preserve">THAT IS THE HEART OF THE MATTER.</p>
+      <p begin="365000000t" end="400000000t" region="region1" style="style1" xml:space="preserve">BRAVO!</p>
+      <p begin="365000000t" end="400000000t" region="region2" style="style1" xml:space="preserve">THANK YOU.</p>
+    </div>
+  </body>
+</tt>

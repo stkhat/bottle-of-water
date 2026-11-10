@@ -5,7 +5,12 @@ type Manifest = {
   manifest_version: number;
   permissions?: string[];
   host_permissions?: string[];
-  content_scripts?: { matches: string[] }[];
+  content_scripts?: {
+    matches: string[];
+    js?: string[];
+    world?: string;
+    run_at?: string;
+  }[];
   browser_specific_settings?: { gecko?: { id?: string } };
   background?: { service_worker?: string; scripts?: string[] };
 };
@@ -36,9 +41,46 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
     expect(manifest().host_permissions).toBeUndefined();
   });
 
-  test("injects the content script on all URLs only", () => {
-    expect(manifest().content_scripts?.map((c) => c.matches)).toEqual([
-      ["<all_urls>"],
+  test("injects the article script everywhere and the video scripts on their sites only", () => {
+    expect(
+      manifest().content_scripts?.map(({ matches, js, world, run_at }) => ({
+        matches,
+        js,
+        world,
+        run_at,
+      })),
+    ).toEqual([
+      {
+        matches: ["<all_urls>"],
+        js: ["content-scripts/content.js"],
+        world: undefined,
+        run_at: undefined,
+      },
+      // The page-world hooks must run before the sites' own scripts.
+      {
+        matches: ["*://www.netflix.com/*"],
+        js: ["content-scripts/netflix-main.js"],
+        world: "MAIN",
+        run_at: "document_start",
+      },
+      {
+        matches: ["*://www.netflix.com/*"],
+        js: ["content-scripts/netflix.js"],
+        world: undefined,
+        run_at: "document_start",
+      },
+      {
+        matches: ["*://www.youtube.com/*"],
+        js: ["content-scripts/youtube-main.js"],
+        world: "MAIN",
+        run_at: "document_start",
+      },
+      {
+        matches: ["*://www.youtube.com/*"],
+        js: ["content-scripts/youtube.js"],
+        world: undefined,
+        run_at: "document_start",
+      },
     ]);
   });
 });
@@ -56,5 +98,29 @@ describe("firefox-mv3 manifest specifics", () => {
     const m = readManifest("firefox-mv3");
     expect(m.browser_specific_settings?.gecko?.id).toBe("lingo@stkhat");
     expect(m.background?.scripts).toBeDefined();
+  });
+});
+
+// The self-reload for `npm run build:check` (src/background/self-reload.ts) is dev only.
+describe("check build", () => {
+  const backgroundOf = (dir: string) =>
+    readFileSync(`.output/${dir}/background.js`, "utf8");
+
+  test.each(["chrome-mv3", "firefox-mv3"])(
+    "%s (production) has no self-reload and no build id",
+    (dir) => {
+      expect(backgroundOf(dir)).not.toContain("build-id");
+      expect(existsSync(`.output/${dir}/build-id.txt`)).toBe(false);
+    },
+  );
+
+  test("npm run build:check writes the build id into .output/lingo-check", () => {
+    const path = ".output/lingo-check/build-id.txt";
+    if (!existsSync(path)) {
+      throw new Error(`${path} not found. Build first: npm run build:check`);
+    }
+    expect(readFileSync(path, "utf8")).toMatch(/^\d{4}-\d\d-\d\dT\S+ \S+\n$/);
+    expect(backgroundOf("lingo-check")).toContain("build-id.txt");
+    expect(readManifest("lingo-check").manifest_version).toBe(3);
   });
 });

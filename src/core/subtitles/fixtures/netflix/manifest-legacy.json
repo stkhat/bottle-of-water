@@ -1,0 +1,175 @@
+{
+  "_synthetic": "SYNTHETIC fixture of the OLDER manifest shape (not the one seen on netflix.com on 2026-11-10, see manifest.json), which other titles or accounts may still get. Modeled on public descriptions of the manifest the Netflix web player parses (open-source subtitle downloaders): result.movieId, result.timedtexttracks with language, languageDescription, rawTrackType, trackType, isNoneTrack, isForcedNarrative, new_track_id and ttDownloadables (format -> urls[].url, or the older downloadUrls map). Ids, hosts and tokens are made up.",
+  "version": 2,
+  "from": "lingo-fixture",
+  "result": {
+    "movieId": 80000001,
+    "packageId": 1234567,
+    "duration": 140000,
+    "audio_tracks": [
+      {
+        "language": "en",
+        "languageDescription": "English [Original]",
+        "trackType": "PRIMARY"
+      }
+    ],
+    "video_tracks": [{ "type": "video", "profileType": "vp9" }],
+    "timedtexttracks": [
+      {
+        "type": "timedtext",
+        "trackType": "ASSISTIVE",
+        "rawTrackType": "closedcaptions",
+        "language": "en",
+        "languageDescription": "English [CC]",
+        "isNoneTrack": false,
+        "isForcedNarrative": false,
+        "isLanguageLeftToRight": true,
+        "new_track_id": "T:1:1;1;en;1;0;",
+        "id": "T:1:1;1;en;1;0;",
+        "ttDownloadables": {
+          "nflx-cmisc": {
+            "isImage": true,
+            "size": 300000,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-image"
+              }
+            ]
+          },
+          "webvtt-lssdh-ios8": {
+            "isImage": false,
+            "size": 4000,
+            "textKey": null,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-vtt"
+              }
+            ]
+          },
+          "dfxp-ls-sdh": {
+            "isImage": false,
+            "size": 6000,
+            "textKey": null,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-dfxp"
+              },
+              {
+                "cdn_id": 202,
+                "url": "https://ipv4-c002-test002-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-dfxp"
+              }
+            ]
+          }
+        },
+        "cdnlist": [
+          { "id": 101, "name": "c001", "rank": 1 },
+          { "id": 202, "name": "c002", "rank": 2 }
+        ]
+      },
+      {
+        "type": "timedtext",
+        "trackType": "PRIMARY",
+        "rawTrackType": "subtitles",
+        "language": "en",
+        "languageDescription": "English (forced narrative)",
+        "isNoneTrack": false,
+        "isForcedNarrative": true,
+        "new_track_id": "T:1:0;1;en;0;1;",
+        "ttDownloadables": {
+          "dfxp-ls-sdh": {
+            "isImage": false,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-en-forced"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "timedtext",
+        "trackType": "PRIMARY",
+        "rawTrackType": "subtitles",
+        "language": "ja",
+        "languageDescription": "Japanese",
+        "isNoneTrack": false,
+        "isForcedNarrative": false,
+        "new_track_id": "T:1:0;1;ja;0;0;",
+        "ttDownloadables": {
+          "nflx-cmisc": {
+            "isImage": true,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-ja-image"
+              }
+            ]
+          },
+          "webvtt-lssdh-ios8": {
+            "isImage": false,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-ja-vtt"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "timedtext",
+        "trackType": "PRIMARY",
+        "rawTrackType": "subtitles",
+        "language": "es",
+        "languageDescription": "Spanish",
+        "isNoneTrack": false,
+        "isForcedNarrative": false,
+        "new_track_id": "T:1:0;1;es;0;0;",
+        "ttDownloadables": {
+          "simplesdh": {
+            "isImage": false,
+            "downloadUrls": {
+              "101": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-es-simplesdh"
+            }
+          }
+        }
+      },
+      {
+        "type": "timedtext",
+        "trackType": "PRIMARY",
+        "rawTrackType": "subtitles",
+        "language": "zh-Hant",
+        "languageDescription": "Traditional Chinese",
+        "isNoneTrack": false,
+        "isForcedNarrative": false,
+        "new_track_id": "T:1:0;1;zh-Hant;0;0;",
+        "ttDownloadables": {
+          "nflx-cmisc": {
+            "isImage": true,
+            "urls": [
+              {
+                "cdn_id": 101,
+                "url": "https://ipv4-c001-test001-ix.1.oca.nflxvideo.net/?o=1&v=5&e=1762800000&t=SYNTHETIC-zh-image"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "timedtext",
+        "trackType": "PRIMARY",
+        "rawTrackType": "subtitles",
+        "language": null,
+        "languageDescription": "Off",
+        "isNoneTrack": true,
+        "isForcedNarrative": false,
+        "new_track_id": "T:1:0;1;NONE;0;0;",
+        "ttDownloadables": {}
+      }
+    ]
+  }
+}

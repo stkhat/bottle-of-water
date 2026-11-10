@@ -1,0 +1,34 @@
+WEBVTT
+
+NOTE SYNTHETIC fixture. Not recorded from Netflix (it needs a login).
+Written by hand from the public WebVTT specification and published descriptions of
+Netflix's WebVTT subtitles: numeric cue ids, cue settings (position, align, size, line),
+class spans, italics, voice and ruby tags, entities, and a cue without hours. The text is made up.
+
+STYLE
+::cue(.yellow) { color: yellow; }
+
+1
+00:00:01.001 --> 00:00:03.503 position:50.00%,middle align:middle size:80.00% line:84.67%
+<c.white.bg_transparent>Good morning.</c>
+<c.white.bg_transparent>How are you?</c>
+
+2
+00:00:03.645 --> 00:00:05.289 position:50.00%,middle align:middle size:80.00% line:84.67%
+<i>[audience]</i> Good.
+
+3
+00:05.405 --> 00:08.132 align:start line:10%
+<v Ken>It&apos;s been <b>great</b>,
+hasn't <u>it</u>?</v>
+
+intro-4
+00:00:08.324 --> 00:00:11.000
+Rock &amp; roll &lt;live&gt;&nbsp;&#8212; tonight<00:00:10.000>!
+
+5
+00:00:12.000 --> 00:00:14.100
+
+6
+01:00:15.000 --> 01:00:17.100 line:-1
+<c.japanese><ruby>教育<rt>きょういく</rt></ruby>に関心があります</c>

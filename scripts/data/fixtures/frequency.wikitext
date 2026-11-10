@@ -1,0 +1,44 @@
+==TV/movie frequencies==
+
+See [[Wiktionary:Frequency lists/TV/2006/explanation]]
+
+===1-1000===
+
+{|
+|'''rank'''||'''word'''||'''count'''
+|-
+| 1  || [[you#English|you]]  || 1222421 (see also ya)
+|-
+| 2  || [[I#English|I]]  or [[I#English|I]] . || 1052546
+|-
+| 4  || [[the#English|the]]  || 770161
+|-
+| 12  || [[is#English|is]]  || 282222
+|-
+| 15  || [[know#English|know]]  || 241548
+|-
+| 197  || [[Mr#English|Mr]] . || 20053
+|-
+| 253  || [[house#English|house]]  or [[House#English|House]]  || 14458
+|-
+| <s>840</s>  || <s>[[nbsp#English|nbsp]] </s> || <s>2824</s>
+|-
+| 2003  || [[forced#English|forced]]  || 887
+|-
+| 10005  || [[marshall#English|marshall]]'s || 77
+|-
+| 10006  || [[Mark#English|Mark]]'s || 77
+|-
+| 10007  || [[licking#English|licking]] || 77
+|-
+| 40001  || [[impale]] || 6
+|-
+| 41282  || {{rldel|aaaaaaaaah}} || 6
+|-
+| 41283  || [[aaaaaaaaaa]] || 6
+|-
+
+|}
+
+==See also==
+* [[Wiktionary:Frequency_lists/TV/2006/1001-2000|Words 1001&ndash;2000]]
