@@ -23,6 +23,7 @@ import type { Cue } from "../../core/subtitles/types";
 import { speechLang } from "../../core/languages";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
+import type { TermBrief } from "../../messaging/protocol";
 import {
   unsupportedPage,
   type PageRequest,
@@ -45,6 +46,7 @@ import {
 import { createStore, type Store } from "../ui/store";
 import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
+import type { VideoWord, WordsFilter } from "./words";
 
 /** Cues classified per `analyze` request. */
 const BATCH = 50;
@@ -95,6 +97,9 @@ export interface VideoPanel {
   opened: number;
 }
 
+/** The tabs of the right column. */
+export type PanelTab = "transcript" | "words";
+
 /** What the video UI shows for the current video. */
 export interface VideoState {
   settings: Settings;
@@ -139,6 +144,15 @@ export interface VideoState {
   menuOpen: boolean;
   /** The player is in fullscreen: the site's captions show instead (phase 1). */
   fullscreen: boolean;
+  /** The right column's tab; each video starts on the transcript. */
+  panelTab: PanelTab;
+  /** The Words tab's filter chip. */
+  wordsFilter: WordsFilter;
+  /**
+   * Short meaning and saved status of the video's terms by key, as they arrive (the
+   * Words tab: `videoWords(cues, spans, summaries)`).
+   */
+  summaries: Record<string, TermBrief>;
 }
 
 /** The UI's view of the video: its state and what its controls do. */
@@ -177,6 +191,10 @@ export interface VideoApp {
   openSettings(): void;
   setMenuOpen(open: boolean): void;
   setFullscreen(on: boolean): void;
+  setPanelTab(tab: PanelTab): void;
+  setWordsFilter(filter: WordsFilter): void;
+  /** A row of the Words tab was selected: its dictionary window opens at its first occurrence. */
+  openWord(row: Pick<VideoWord, "first">): void;
 }
 
 export interface VideoSession {
@@ -204,6 +222,10 @@ interface Watch {
   pendingTranslations: Map<number, Promise<string | undefined>>;
   endReached: boolean;
   endClosed: boolean;
+  /** Keys whose summaries were asked for. */
+  asked: Set<string>;
+  /** Saved status by key as this video last saw it (newer than a summary on its way). */
+  statuses: Map<string, TermBrief["status"]>;
   lastBatch?: {
     batchId: string;
     keys: ReadonlySet<string>;
@@ -244,6 +266,9 @@ function fresh(
     panel: null,
     menuOpen: false,
     fullscreen,
+    panelTab: "transcript",
+    wordsFilter: "all",
+    summaries: {},
   };
 }
 
@@ -312,6 +337,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       pendingTranslations: new Map(),
       endReached: false,
       endClosed: false,
+      asked: new Set(),
+      statuses: new Map(),
     };
     watch = w;
     load(w).catch((error: unknown) => {
@@ -537,6 +564,63 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       w,
       indices.filter((i) => w.played.has(i)),
     );
+    summarize(w, result.spans.flat(), new Set(result.saved));
+  }
+
+  /**
+   * Notes the saved status of the classified terms and asks the summaries of the ones
+   * not asked yet (one request).
+   */
+  function summarize(w: Watch, spans: Span[], saved: ReadonlySet<string>) {
+    const statuses = new Map<string, TermBrief["status"]>();
+    const terms: { key: string; kind: TermKind }[] = [];
+    for (const { key, kind, category } of spans) {
+      if (category === "ignored") continue;
+      // A saved term's span has its status; "known" alone may be the level's.
+      statuses.set(
+        key,
+        saved.has(key) && category !== "new" ? category : "new",
+      );
+      if (w.asked.has(key)) continue;
+      w.asked.add(key);
+      terms.push({ key, kind });
+    }
+    noteStatuses(w, statuses);
+    if (terms.length === 0) return;
+    deps
+      .send({ type: "termSummaries", lang: lang(), terms })
+      .then((answer) => {
+        if (watch !== w) return;
+        const summaries = { ...store.get().summaries };
+        for (const [key, brief] of Object.entries(answer))
+          summaries[key] = {
+            ...brief,
+            status: w.statuses.get(key) ?? brief.status,
+          };
+        store.set({ summaries });
+      })
+      .catch((error: unknown) => {
+        // Asked again with the next batch.
+        for (const { key } of terms) w.asked.delete(key);
+        warn(error);
+      });
+  }
+
+  /** Keeps the summaries' statuses with the terms' saved status. */
+  function noteStatuses(
+    w: Watch,
+    statuses: Iterable<[string, TermBrief["status"]]>,
+  ) {
+    const current = store.get().summaries;
+    let summaries: Record<string, TermBrief> | undefined;
+    for (const [key, status] of statuses) {
+      w.statuses.set(key, status);
+      const brief = Object.hasOwn(current, key) ? current[key] : undefined;
+      if (!brief || brief.status === status) continue;
+      summaries ??= { ...current };
+      summaries[key] = { ...brief, status };
+    }
+    if (summaries) store.set({ summaries });
   }
 
   /** Tells the background which saved terms the played cues have. */
@@ -620,6 +704,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     recategorize(w, (s) =>
       s.category === "new" && saved.has(s.key) ? status : undefined,
     );
+    noteStatuses(
+      w,
+      keys.map((key) => [key, status]),
+    );
     store.set({ done: { count, target: status } });
     await refreshOpenCards();
   }
@@ -633,6 +721,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     for (const key of batch.keys) w.saved.delete(key);
     recategorize(w, (s) =>
       s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
+    );
+    noteStatuses(
+      w,
+      [...batch.keys].map((key) => [key, "new"]),
     );
     store.set({ done: null });
     await refreshOpenCards();
@@ -808,6 +900,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       }
       if (watch !== w) return;
       recategorize(w, (s) => (sameTerm(s, key, kind) ? to : undefined));
+      noteStatuses(w, [[key, to]]);
     }
     await refreshCards(key, kind);
   }
@@ -876,6 +969,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       hover.cancel();
       void openPanel(ref).catch(warn);
     },
+    openWord(row) {
+      app.clickWord(row.first);
+    },
     setHoverStatus(status) {
       const shown = store.get().hover;
       if (shown)
@@ -911,6 +1007,13 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       hover.cancel();
       store.set({ fullscreen: on });
       if (store.get().status === "ready") syncSiteCaptions();
+    },
+    setPanelTab(tab) {
+      if (store.get().panelTab !== tab) store.set({ panelTab: tab });
+    },
+    setWordsFilter(filter) {
+      if (store.get().wordsFilter !== filter)
+        store.set({ wordsFilter: filter });
     },
   };
 

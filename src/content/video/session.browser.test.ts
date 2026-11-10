@@ -7,6 +7,7 @@ import { testBackground } from "../article/test-background";
 import type { TranslationProvider } from "../article/translate";
 import type { PlatformAdapter, VideoCaptions } from "./platform";
 import { startVideo, type VideoSession, type VideoState } from "./session";
+import { videoWords } from "./words";
 
 const cleanups: (() => unknown)[] = [];
 afterEach(async () => {
@@ -871,6 +872,165 @@ describe("words in the subtitles", () => {
     const { app, site } = await start();
     app.seekTo(2500);
     expect(site.log.seeks).toEqual([2500]);
+  });
+});
+
+/** The Words tab's rows, as key → category ("give up/phrase" for phrases). */
+function rowsOf(state: () => VideoState) {
+  const { cues, spans, summaries } = state();
+  return Object.fromEntries(
+    videoWords(cues, spans, summaries).map((row) => [
+      row.kind === "phrase" ? `${row.key}/phrase` : row.key,
+      `${row.category} ${row.count}`,
+    ]),
+  );
+}
+
+describe("words in this video", () => {
+  it("asks the short meaning and status of each term once, as batches are classified", async () => {
+    const many = Array.from({ length: 120 }, (_, i) => ({
+      startMs: i * 10,
+      endMs: i * 10 + 10,
+      text: `Line ${i} of the tangy ${i < 50 ? "loaf" : "dough"}.`,
+    }));
+    const { state, bg, session } = await start({
+      vid1: captionsOf(many, { source: "none", lang: "ja", cues: [] }),
+    });
+    await ready(state);
+    await expect.poll(() => bg.sent("analyze").length).toBe(3);
+    await expect.poll(() => bg.sent("termSummaries").length).toBe(2);
+    expect(bg.sent("termSummaries")).toEqual([
+      {
+        type: "termSummaries",
+        lang: "en",
+        terms: [
+          { key: "of", kind: "word" },
+          { key: "the", kind: "word" },
+          { key: "tangy", kind: "word" },
+          { key: "loaf", kind: "word" },
+        ],
+      },
+      {
+        type: "termSummaries",
+        lang: "en",
+        terms: [{ key: "dough", kind: "word" }],
+      },
+    ]);
+    await expect
+      .poll(() => state().summaries.tangy)
+      .toEqual({ short: "ぴりっとした、酸味のある", status: "new" });
+    expect(state().summaries.dough).toEqual({
+      short: "パン生地",
+      status: "new",
+    });
+
+    await session.reanalyze();
+    expect(bg.sent("termSummaries")).toHaveLength(2);
+  });
+
+  it("lists the new, learning and saved known terms, following status changes", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    // "the", "it", "is" and "dough" are known by their level only.
+    await expect
+      .poll(() => rowsOf(state))
+      .toEqual({
+        yeast: "new 1",
+        tangy: "new 2",
+        knead: "new 1",
+        loaf: "new 1",
+      });
+
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.status).toBe("new");
+    app.setPanelStatus("learning");
+    await expect.poll(() => rowsOf(state).tangy).toBe("learning 2");
+    expect(state().summaries.tangy?.status).toBe("learning");
+
+    app.setPanelStatus("known");
+    await expect.poll(() => rowsOf(state).tangy).toBe("known 2");
+
+    app.setPanelStatus("new");
+    await expect.poll(() => rowsOf(state).tangy).toBe("new 2");
+    expect(state().summaries.tangy?.status).toBe("new");
+
+    // A word known by its level shows once it is saved as known.
+    app.clickWord(refOf(state, 1, "the"));
+    await expect.poll(() => state().panel?.card.head).toBe("the");
+    app.setPanelStatus("known");
+    await expect.poll(() => rowsOf(state).the).toBe("known 2");
+  });
+
+  it("follows save all and its undo", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => rowsOf(state).tangy).toBe("new 2");
+    app.saveAll("known");
+    await expect
+      .poll(() => rowsOf(state))
+      .toEqual({
+        yeast: "known 1",
+        tangy: "known 2",
+        knead: "known 1",
+        loaf: "known 1",
+      });
+    app.undoSaveAll();
+    await expect.poll(() => rowsOf(state).loaf).toBe("new 1");
+    expect(state().summaries.loaf?.status).toBe("new");
+  });
+
+  it("opens a row's dictionary window at its first occurrence", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => rowsOf(state).tangy).toBe("new 2");
+    const { cues, spans, summaries } = state();
+    const row = videoWords(cues, spans, summaries).find(
+      (r) => r.key === "tangy",
+    )!;
+    app.openWord(row);
+    await expect.poll(() => state().panel?.card.head).toBe("tangy");
+    expect(state().panel).toMatchObject({
+      ref: refOf(state, 0, "tangy"),
+      here: [
+        { cue: 0, timeMs: 0, text: "The yeast smells tangy." },
+        { cue: 2, timeMs: 2500, text: "It is a tangy loaf." },
+      ],
+    });
+  });
+
+  it("switches the tab and the filter, and starts on the transcript for the next video", async () => {
+    const { state, app, site, bg } = await start({
+      vid1: captionsOf(CUES),
+      vid2: captionsOf([{ startMs: 0, endMs: 4000, text: "A new loaf." }]),
+    });
+    await ready(state);
+    expect(state()).toMatchObject({
+      panelTab: "transcript",
+      wordsFilter: "all",
+    });
+    app.setPanelTab("words");
+    app.setWordsFilter("learning");
+    expect(state()).toMatchObject({
+      panelTab: "words",
+      wordsFilter: "learning",
+    });
+    await expect.poll(() => state().summaries.loaf).toBeDefined();
+
+    site.navigate("vid2");
+    expect(state()).toMatchObject({
+      panelTab: "transcript",
+      wordsFilter: "all",
+      summaries: {},
+    });
+    await ready(state);
+    // A new video asks again.
+    await expect
+      .poll(() => bg.sent("termSummaries").at(-1)?.terms)
+      .toEqual([{ key: "loaf", kind: "word" }]);
+    await expect.poll(() => state().summaries.loaf).toBeDefined();
   });
 });
 

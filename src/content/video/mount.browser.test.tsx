@@ -60,6 +60,9 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     panel: null,
     menuOpen: false,
     fullscreen: false,
+    panelTab: "transcript",
+    wordsFilter: "all",
+    summaries: {},
     ...patch,
   };
 }

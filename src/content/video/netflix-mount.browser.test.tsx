@@ -28,6 +28,9 @@ const STATE: VideoState = {
   panel: null,
   menuOpen: false,
   fullscreen: false,
+  panelTab: "transcript",
+  wordsFilter: "all",
+  summaries: {},
 };
 
 /** An app over a store; the ^ button opens the menu as the real one does. */
