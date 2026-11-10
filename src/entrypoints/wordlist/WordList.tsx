@@ -11,7 +11,7 @@ import {
 } from "../../ui/backup/BackupButtons";
 import { sameDay, shortDate } from "../../ui/format/format";
 import { ElsewhereRow } from "../../ui/lookup/DictionaryWindow";
-import { elsewhereItems } from "../../ui/lookup/elsewhere";
+import { occurrenceItem } from "../../ui/lookup/elsewhere";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import { StatusButtons } from "../../ui/lookup/StatusButtons";
 import {
@@ -392,8 +392,8 @@ function DetailsPanel(props: {
   const { entry, term, occurrences } = details;
   const head = entry?.head ?? term.key;
   const ipa = entry?.ipa ?? details.ipa;
-  const items = elsewhereItems(occurrences).map((item, i) => {
-    const o = occurrences[i]!;
+  const items = occurrences.map((o) => {
+    const item = occurrenceItem(o);
     const parts = [item.meta];
     if (!sameDay(o.seenAt, now)) parts.push(shortDate(o.seenAt, now));
     if (o.origin === "saved") parts.push(t("wordlist.savedHere"));

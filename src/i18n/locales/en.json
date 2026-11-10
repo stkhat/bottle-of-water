@@ -162,6 +162,7 @@
   "dict.source.video": "Video",
   "dict.source.page": "Web page",
   "dict.meta.at": "{site} · at {time}",
+  "dict.meta.date": "{meta} · {date}",
   "platform.youtube": "YouTube",
   "platform.netflix": "Netflix",
   "phrase.save": "Save “{text}” as a phrase",

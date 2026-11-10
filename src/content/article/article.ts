@@ -39,7 +39,8 @@ import {
   type PageText,
   type TextBlock,
 } from "./page-text";
-import { collapseSpaces, sentenceAt } from "./sentence";
+import { collapseSpaces, splitSentences } from "../../core/text/sentences";
+import { sentenceAt } from "./sentence";
 import {
   articlesAllowedOn,
   shouldRunArticle,
@@ -245,6 +246,27 @@ export async function startArticle(
     });
     updateCounts();
     recordEncounters(fresh, new Set(result.saved));
+    recordHistory(fresh);
+  }
+
+  /** Sentences already sent to the sentence history in this page view. */
+  const kept = new Set<string>();
+
+  /** Sends the background the blocks' sentences not sent yet, for the sentence history. */
+  function recordHistory(blocks: TextBlock[]) {
+    if (!settings.sentenceHistory) return;
+    const sentences = [];
+    for (const block of blocks) {
+      for (const text of splitSentences(block.text, lang)) {
+        if (kept.has(text)) continue;
+        kept.add(text);
+        sentences.push({ text, pos: { textQuote: text } });
+      }
+    }
+    if (sentences.length > 0)
+      deps
+        .send({ type: "recordHistory", source: source(), sentences })
+        .catch(warn);
   }
 
   /** Sentences already recorded for a saved term in this page view ("key\nsentence"). */

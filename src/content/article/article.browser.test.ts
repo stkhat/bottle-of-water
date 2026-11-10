@@ -58,6 +58,8 @@ function fakeDeps(settings: Settings) {
         return { spans, unsaved: [], saved: [] };
       }
       if (request.type === "warmDictionary") return null;
+      if (request.type === "recordHistory")
+        return { kept: request.sentences.length };
       throw new Error(`unexpected ${request.type}`);
     }) as ArticleDeps["send"],
     watchSettings(listener) {
@@ -180,8 +182,8 @@ describe("startArticle", () => {
     await start(fake, root);
     await expect
       .poll(() => fake.requests.map((r) => r.type))
-      .toEqual(["getSettings", "analyze", "warmDictionary"]);
-    expect(fake.requests.at(-1)).toEqual({
+      .toEqual(["getSettings", "analyze", "warmDictionary", "recordHistory"]);
+    expect(fake.requests[2]).toEqual({
       type: "warmDictionary",
       lang: "en",
     });
@@ -191,7 +193,66 @@ describe("startArticle", () => {
     root.append(added);
     await expect
       .poll(() => fake.requests.map((r) => r.type))
-      .toEqual(["getSettings", "analyze", "warmDictionary", "analyze"]);
+      .toEqual([
+        "getSettings",
+        "analyze",
+        "warmDictionary",
+        "recordHistory",
+        "analyze",
+        "recordHistory",
+      ]);
+  });
+
+  it("sends the sentences of analyzed blocks to the history, each once", async () => {
+    const fake = fakeDeps(settings({ highlight: { new: true } }));
+    const root = fixture(ARTICLE);
+    await start(fake, root);
+    const history = () =>
+      fake.requests.filter((r) => r.type === "recordHistory");
+    await expect.poll(() => history()).toHaveLength(1);
+    const quote = (text: string) => ({ text, pos: { textQuote: text } });
+    expect(history()[0]).toEqual({
+      type: "recordHistory",
+      source: {
+        platform: "web",
+        url: location.href,
+        title: document.title,
+        lang: "en",
+      },
+      sentences: [
+        quote("Most home bakers rush the process."),
+        quote("They knead, wait an hour, and bake."),
+        quote("The loaves let time do the heavy lifting."),
+        quote("The yeast gives a slightly tangy taste."),
+      ],
+    });
+
+    // Analyzed again at another level: nothing new to keep.
+    fake.changeSettings(
+      settings({ highlight: { new: true }, knownLevel: 5000 }),
+    );
+    await expect
+      .poll(() => fake.requests.filter((r) => r.type === "analyze"))
+      .toHaveLength(2);
+    // A new block: only its sentences, and not one already sent.
+    const added = document.createElement("p");
+    added.textContent =
+      "Knead it again. The yeast gives a slightly tangy taste.";
+    root.append(added);
+    await expect.poll(() => history()).toHaveLength(2);
+    expect(history()[1]).toMatchObject({
+      sentences: [quote("Knead it again.")],
+    });
+  });
+
+  it("sends nothing to the history while it is switched off", async () => {
+    const fake = fakeDeps(
+      settings({ highlight: { new: true }, sentenceHistory: false }),
+    );
+    const root = fixture(ARTICLE);
+    await start(fake, root);
+    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    expect(fake.requests.filter((r) => r.type === "recordHistory")).toEqual([]);
   });
 
   it("does nothing on a page in another language", async () => {

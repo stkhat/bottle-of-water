@@ -296,11 +296,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
               onClick: () => app.seekTo(line.timeMs),
             })),
           }}
-          elsewhere={
-            panel.card.status === "new"
-              ? null
-              : elsewhereItems(panel.card.elsewhere)
-          }
+          elsewhere={elsewhereItems(panel.card.elsewhere, Date.now())}
           onClose={app.closePanel}
         />
       )}

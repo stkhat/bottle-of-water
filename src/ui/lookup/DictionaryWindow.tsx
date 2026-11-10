@@ -53,8 +53,12 @@ interface CommonProps {
   onSpeak: () => void;
   dictionaries: { label: string; href: string }[];
   here: { source: "video" | "page"; items: HereItem[] };
-  /** null while the entry is not saved: nothing is recorded yet. */
-  elsewhere: ElsewhereItem[] | null;
+  /**
+   * Other sources the entry was met in: a saved entry's occurrences, or for an unsaved
+   * one the sentences kept in the history. An unsaved entry with none shows a note
+   * that saving it starts recording.
+   */
+  elsewhere: ElsewhereItem[];
   onClose: () => void;
 }
 
@@ -409,11 +413,12 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         <h3 style={sectionHeading}>
-          {t("dict.elsewhere", { count: props.elsewhere?.length ?? 0 })}
+          {t("dict.elsewhere", { count: props.elsewhere.length })}
         </h3>
-        {props.elsewhere ? (
-          props.elsewhere.map((item, i) => <ElsewhereRow key={i} item={item} />)
-        ) : (
+        {props.elsewhere.map((item, i) => (
+          <ElsewhereRow key={i} item={item} />
+        ))}
+        {props.status === "new" && props.elsewhere.length === 0 && (
           <p
             style={{
               margin: 0,

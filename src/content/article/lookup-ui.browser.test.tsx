@@ -10,6 +10,7 @@ import {
   rectOf,
   setup,
 } from "./article-testing";
+import { testBackground } from "./test-background";
 
 const ARTICLE = `
   <p>They knead the dough and bake loaves.</p>
@@ -277,8 +278,52 @@ describe("dictionary panel", () => {
     const panel = dictionary();
     await expect.element(panel.getByText("Seen elsewhere · 1")).toBeVisible();
     await expect.element(panel.getByText("Another page")).toBeVisible();
-    await expect.element(panel.getByText("example.org")).toBeVisible();
+    await expect.element(panel.getByText("example.org · Today")).toBeVisible();
     await expect.element(panel.getByText("That was tedious.")).toBeVisible();
+  });
+
+  it("lists sentences kept from another page for an unsaved word", async () => {
+    const address = location.href;
+    const title = document.title;
+    const visit = (page: string, pageTitle: string) => {
+      const url = new URL(address);
+      url.searchParams.set("lingo-page", page);
+      history.replaceState(null, "", url);
+      document.title = pageTitle;
+    };
+    const background = testBackground();
+    try {
+      visit("a", "Bread notes");
+      await setup("<p>Kneading by hand is tedious work.</p>", { background });
+      await expect
+        .poll(
+          async () => (await background.send({ type: "historyStatus" })).pages,
+        )
+        .toBe(1);
+      await cleanUp();
+
+      visit("b", "Another page");
+      const { root } = await setup(ARTICLE, { background });
+      await clickOn(root, "tedious");
+      const panel = dictionary();
+      await expect.element(panel.getByText("Seen elsewhere · 1")).toBeVisible();
+      await expect.element(panel.getByText("Bread notes")).toBeVisible();
+      await expect
+        .element(panel.getByText(`${location.hostname} · Today`))
+        .toBeVisible();
+      await expect
+        .element(panel.getByText("Kneading by hand is tedious work."))
+        .toBeVisible();
+      expect(panel.getByText(/^Not saved yet/).query()).toBeNull();
+      await expect
+        .element(panel.getByRole("button", { name: "Not saved" }))
+        .toHaveAttribute("aria-pressed", "true");
+    } finally {
+      await cleanUp();
+      await background.close();
+      history.replaceState(null, "", address);
+      document.title = title;
+    }
   });
 
   it("scrolls to a sentence of this page", async () => {

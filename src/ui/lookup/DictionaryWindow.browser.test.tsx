@@ -166,7 +166,7 @@ describe("DictionaryWindow", () => {
 
   test("an unsaved entry shows Not saved, pressed", async () => {
     const screen = await mountInShadowRoot(
-      <DictionaryWindow {...figureOut} status="new" elsewhere={null} />,
+      <DictionaryWindow {...figureOut} status="new" elsewhere={[]} />,
     );
     const group = screen.getByRole("group", { name: "Word status" });
     await expect
@@ -298,7 +298,7 @@ describe("DictionaryWindow", () => {
         {...figureOut}
         elsewhere={[
           {
-            ...figureOut.elsewhere![0]!,
+            ...figureOut.elsewhere[0]!,
             href: "https://theweekendtable.example/bread",
           },
         ]}
@@ -315,7 +315,7 @@ describe("DictionaryWindow", () => {
 
   test("an unsaved entry explains that saving starts recording", async () => {
     const screen = await mountInShadowRoot(
-      <DictionaryWindow {...figureOut} status="new" elsewhere={null} />,
+      <DictionaryWindow {...figureOut} status="new" elsewhere={[]} />,
     );
     await expect
       .element(screen.getByRole("heading", { name: "Seen elsewhere · 0" }))
@@ -327,6 +327,29 @@ describe("DictionaryWindow", () => {
         ),
       )
       .toBeVisible();
+  });
+
+  test("an unsaved entry with kept sentences lists them without the note", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow {...figureOut} status="new" />,
+    );
+    await expect
+      .element(screen.getByRole("heading", { name: "Seen elsewhere · 2" }))
+      .toBeVisible();
+    await expect
+      .element(screen.getByText("10 phrasal verbs you hear every day"))
+      .toBeVisible();
+    expect(screen.getByText(/^Not saved yet/).query()).toBeNull();
+  });
+
+  test("a saved entry seen nowhere else shows no note", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow {...figureOut} elsewhere={[]} />,
+    );
+    await expect
+      .element(screen.getByRole("heading", { name: "Seen elsewhere · 0" }))
+      .toBeVisible();
+    expect(screen.getByText(/^Not saved yet/).query()).toBeNull();
   });
 
   test("× and Escape close it", async () => {

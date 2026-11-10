@@ -75,11 +75,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
                 onClick: () => app.goToSentence(i),
               })),
             }}
-            elsewhere={
-              panel.card.status === "new"
-                ? null
-                : elsewhereItems(panel.card.elsewhere)
-            }
+            elsewhere={elsewhereItems(panel.card.elsewhere, Date.now())}
             onClose={app.closePanel}
           />
         </>
