@@ -24,7 +24,7 @@
     "test:browser": "vitest run --project browser",
     "test:manifest": "vitest run --project manifest",
     "test:e2e": "playwright test",
-    "test:e2e:build": "npm run build && playwright test",
+    "test:e2e:build": "npm run build && wxt build --mode check && playwright test",
     "test:all": "npm test && npm run test:browser",
     "postinstall": "wxt prepare",
     "check:claude-md": "node scripts/check-claude-md.mjs",

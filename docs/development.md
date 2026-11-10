@@ -23,7 +23,7 @@
 | `npm run build` / `npm run build:firefox` | build to `.output/chrome-mv3` / `.output/firefox-mv3` |
 | `npm run build:check` | self-reloading Chrome build in `.output/lingo-check` (see below) |
 | `npm run test:manifest` | check both built manifests |
-| `npm run test:e2e:build` | build, then run E2E |
+| `npm run test:e2e:build` | production and check builds, then run E2E |
 | `npm run zip` / `npm run zip:firefox` | store-ready zips in `.output/` |
 | `npm run test:mutation` | Stryker report in `reports/mutation/` |
 
