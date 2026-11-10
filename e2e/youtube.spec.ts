@@ -122,9 +122,22 @@ test("the menu moves the subtitle below the video and hides its translation", as
   // The transcript has its own switch.
   await expect(card(page, LINE)).toContainText(CARD_JA);
 
-  // Escape closes the menu; the choice stays after a reload.
+  // Escape closes the menu; the choice stays after a reload (once it is saved).
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "getSettings",
+      })) as {
+        value: { subtitlePosition: string; subtitleTranslation: boolean };
+      };
+      return reply.value;
+    })
+    .toMatchObject({
+      subtitlePosition: "belowVideo",
+      subtitleTranslation: false,
+    });
   await page.reload();
   await card(page, LINE).click();
   await expect(belowVideo(page)).toContainText(LINE);
