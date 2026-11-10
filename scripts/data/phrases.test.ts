@@ -35,6 +35,11 @@ const vocab = [
   "kick",
   "the",
   "it",
+  "be",
+  "on",
+  "have",
+  "do",
+  "with",
 ];
 // Frequency ranks: the first words are in the top 100, "later" and "figure" in the top
 // 1000 but not the top 100; "scratch" and "heart" are outside the list.
@@ -61,6 +66,7 @@ const dict = {
   "in spite of": ["…にもかかわらず", ["…にもかかわらず"]],
   "make one's way": ["進む", ["進む"]],
   "kick the bucket": ["死ぬ", ["死ぬ"]],
+  "do away with": ["…を廃止する", ["…を廃止する"]],
   "x-ray machine": ["X線装置", ["X線装置"]],
 } satisfies Record<string, [string, string[]]>;
 
@@ -92,6 +98,11 @@ describe("importPhrases", () => {
     expect(result.phrases).not.toContain("give out");
     expect(result.phrases).not.toContain("from the heart");
   });
+  it("leaves out kaikki phrases that start with an auxiliary, but keeps EJDict ones", () => {
+    expect(result.phrases).not.toContain("be on");
+    expect(result.phrases).not.toContain("have it in for");
+    expect(result.phrases).toContain("do away with");
+  });
   it("does not count literal-use glosses as senses", () => {
     expect(result.phrases).not.toContain("cut in");
   });
@@ -102,6 +113,7 @@ describe("importPhrases", () => {
   it("sorts the list by code unit, without duplicates or single words", () => {
     expect(result.phrases).toEqual([
       "by heart",
+      "do away with",
       "figure out",
       "from scratch",
       "give up",
@@ -173,10 +185,10 @@ describe("importPhrases", () => {
 
   it("counts multi-word entries, unparsable lines and phrases", () => {
     expect(result.stats).toEqual({
-      entries: 18,
+      entries: 20,
       unparsable: 1,
-      phrases: 6,
-      fromEjdict: 2,
+      phrases: 7,
+      fromEjdict: 3,
       fromKaikki: 5,
       ja: 1,
       defs: 3,

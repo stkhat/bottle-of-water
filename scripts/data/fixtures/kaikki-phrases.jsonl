@@ -17,4 +17,6 @@
 {"pos": "prep_phrase", "categories": [{"name": "English Non-Constituents", "kind": "other"}], "word": "from the heart", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Sincerely."]}]}
 {"pos": "adj", "word": "in it", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["In trouble."], "tags": ["idiomatic"]}]}
 {"pos": "verb", "word": "cut in", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used other than figuratively or idiomatically: see cut, in."], "tags": ["idiomatic"]}]}
+{"pos": "verb", "word": "be on", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be wearing."], "categories": [{"name": "English phrasal verbs formed with \"on\"", "kind": "other"}]}]}
+{"pos": "verb", "word": "have it in for", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be very angry with."], "tags": ["idiomatic"]}]}
 {"word": "broken line

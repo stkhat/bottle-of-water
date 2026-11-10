@@ -20,6 +20,11 @@ export const PLACEHOLDER_WORDS = new Set([
   "sb",
   "sth",
 ]);
+/**
+ * kaikki phrases starting with one of these are left out: detection matches by base form,
+ * so "be on" would match every "is on" / "was on".
+ */
+export const AUXILIARIES = new Set(["be", "have", "do"]);
 const WORD = /^[a-z][a-z']*$/;
 const UNUSABLE_TAGS = new Set([
   "form-of",
@@ -142,6 +147,7 @@ export async function importPhrases(path, vocab, dict, freq) {
     stats.entries++;
     const key = phraseKey(entry.word, words);
     if (!key || isNonConstituent(entry)) continue;
+    if (AUXILIARIES.has(key.slice(0, key.indexOf(" ")))) continue;
     let item = found.get(key);
     if (!item)
       found.set(

@@ -19,6 +19,7 @@ export interface PhrasesResult {
   };
 }
 export const PLACEHOLDER_WORDS: ReadonlySet<string>;
+export const AUXILIARIES: ReadonlySet<string>;
 export const IDIOM_COMMON_RANK: number;
 export const PHRASE_COMMON_RANK: number;
 export function importPhrases(
