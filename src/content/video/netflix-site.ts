@@ -35,6 +35,17 @@ export const SELECTORS = {
   ],
   /** Any of the control bar's buttons: the row of buttons is the anchor's closest ancestor holding another. */
   controlButton: ["[data-uia^='control-']"],
+  /** The control bar while it shows (built on pointer movement, removed when idle). */
+  controlBar: ["[data-uia='controls-standard']"],
+  /**
+   * What the bar shows at the bottom: its buttons, the title and the timeline. The
+   * subtitle keeps clear of the topmost (the bar's own box can cover the whole player).
+   */
+  controlBarParts: [
+    "[data-uia^='control-']",
+    "[data-uia='video-title']",
+    "[data-uia*='timeline']",
+  ],
   /** The title in the control bar ("Show", "E1", "Episode" as separate children). */
   title: ["[data-uia='video-title']", ".video-title"],
 } as const;

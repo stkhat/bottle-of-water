@@ -147,3 +147,55 @@ describe("the L and ^ buttons on Netflix", () => {
     expect(box.bottom).toBeLessThanOrEqual(player.bottom);
   });
 });
+
+describe("the subtitle over Netflix's video", () => {
+  const subtitle = () =>
+    document
+      .querySelector("lingo-video-player")
+      ?.shadowRoot?.querySelector<HTMLElement>("[role='region']") ?? null;
+  const bottomOf = () => subtitle()!.getBoundingClientRect().bottom;
+  const barTop = () => page.controls()!.getBoundingClientRect().top;
+  /** From the subtitle's bottom up to `top` (px). */
+  const gapAbove = (top: number) => top - bottomOf();
+
+  it("rises above the control bar while it shows, and goes back down after", async () => {
+    start();
+    page.showControls(false);
+    await expect.poll(() => subtitle()).not.toBeNull();
+    const player = page.player.getBoundingClientRect();
+    // Without the bar: 64px above the player's bottom.
+    await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
+
+    page.showControls(true);
+    expect(page.controls()).not.toBeNull();
+    const top = barTop();
+    expect(top).toBeLessThan(player.bottom - 64);
+    await expect.poll(() => gapAbove(top)).toBeGreaterThanOrEqual(12);
+    expect(gapAbove(top)).toBeLessThan(13);
+
+    page.showControls(false);
+    await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
+  });
+
+  it("rises above the bar's buttons and title when the bar covers the whole player", async () => {
+    start();
+    // A bar laid over the whole player, its row at the bottom.
+    page.root.prepend(
+      Object.assign(document.createElement("style"), {
+        textContent: `.watch-video [data-uia="controls-standard"] { top: 0; display: flex; flex-direction: column; justify-content: flex-end; }`,
+      }),
+    );
+    page.showControls(false);
+    page.showControls(true);
+    const player = page.player.getBoundingClientRect();
+    expect(barTop()).toBe(player.top);
+    const parts = page
+      .controls()!
+      .querySelectorAll("[data-uia^='control-'], [data-uia='video-title']");
+    const top = Math.min(
+      ...[...parts].map((part) => part.getBoundingClientRect().top),
+    );
+    await expect.poll(() => gapAbove(top)).toBeGreaterThanOrEqual(12);
+    expect(gapAbove(top)).toBeLessThan(13);
+  });
+});

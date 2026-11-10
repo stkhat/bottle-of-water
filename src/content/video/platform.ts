@@ -53,6 +53,11 @@ export interface PlatformAdapter {
   sideColumn(): InsertionPoint | null;
   /** The element the transcript is as tall as (default: the player). */
   transcriptFrame?(): HTMLElement | null;
+  /**
+   * The viewport top of the site's control bar while it shows over the bottom of the
+   * video (Netflix), so the subtitle can keep clear of it; null while it is hidden.
+   */
+  controlBarTop?(): number | null;
   /** An ad plays instead of the video. */
   adShowing(): boolean;
   /** The current video's subtitle tracks. */

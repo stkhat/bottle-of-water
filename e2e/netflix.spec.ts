@@ -203,6 +203,36 @@ test("the L and ^ buttons come and go with Netflix's control bar, before the aud
   await expect(menu).toHaveAttribute("aria-expanded", "true");
 });
 
+test("the subtitle rises above Netflix's control bar while it shows", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const player = (await page
+    .locator(".watch-video--player-view")
+    .boundingBox())!;
+  const subtitleBottom = async () => {
+    const box = (await inVideo(page).boundingBox())!;
+    return box.y + box.height;
+  };
+  await page.mouse.move(5, 5);
+  await expect(controlBar(page)).toHaveCount(0, { timeout: 10_000 });
+  await expect
+    .poll(subtitleBottom)
+    .toBeCloseTo(player.y + player.height - 64, 0);
+
+  await moveOverVideo(page);
+  const bar = (await controlBar(page).boundingBox())!;
+  await expect.poll(subtitleBottom).toBeCloseTo(bar.y - 12, 0);
+
+  // The pointer stops: the bar goes, and the subtitle comes back down.
+  await page.mouse.move(5, 5);
+  await expect(controlBar(page)).toHaveCount(0, { timeout: 10_000 });
+  await expect
+    .poll(subtitleBottom)
+    .toBeCloseTo(player.y + player.height - 64, 0);
+});
+
 test("a transcript card seeks to its line", async ({
   context,
   extensionId,

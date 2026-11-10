@@ -3,9 +3,11 @@ import type { Box } from "../article/geometry";
 import { createStore } from "../ui/store";
 import {
   BelowVideoUi,
+  CONTROL_BAR_GAP,
   InPlayerUi,
   PageUi,
   PlayerBarUi,
+  SUBTITLE_BOTTOM,
   TranscriptUi,
   type VideoGeometry,
   type VideoLayout,
@@ -62,7 +64,10 @@ const boxOf = (element: Element | null | undefined): Box | null => {
  * unmount.
  */
 export function mountVideoUi({ adapter, app }: MountOptions): () => void {
-  const layout = createStore<VideoLayout>({ frameHeight: 0 });
+  const layout = createStore<VideoLayout>({
+    frameHeight: 0,
+    subtitleBottom: SUBTITLE_BOTTOM,
+  });
   const parts: Part[] = [];
   const roots: ShadowRoot[] = [];
 
@@ -101,7 +106,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       const player = adapter.playerElement();
       return player ? { parent: player, before: null } : null;
     },
-    <InPlayerUi app={app} geometry={geometry} />,
+    <InPlayerUi app={app} geometry={geometry} layout={layout} />,
   );
   part(
     "lingo-video-below",
@@ -137,6 +142,21 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   });
   let observed: Element | null = null;
 
+  /** Keeps the in-video subtitle clear of the site's control bar while it shows. */
+  function liftSubtitle() {
+    const barTop = adapter.controlBarTop?.() ?? null;
+    const player = boxOf(adapter.playerElement());
+    const subtitleBottom =
+      barTop === null || !player
+        ? SUBTITLE_BOTTOM
+        : Math.max(
+            SUBTITLE_BOTTOM,
+            Math.ceil(player.bottom - barTop + CONTROL_BAR_GAP),
+          );
+    if (subtitleBottom !== layout.get().subtitleBottom)
+      layout.set({ subtitleBottom });
+  }
+
   /** Puts every part where it belongs (only those that moved: no mutation otherwise). */
   function place() {
     const second = Math.floor(performance.now() / 1000);
@@ -155,6 +175,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       if (++moves.count > MAX_MOVES_PER_SECOND) continue;
       at.parent.insertBefore(host, at.before);
     }
+    liftSubtitle();
     const frame = adapter.transcriptFrame?.() ?? adapter.playerElement();
     if (frame !== observed) {
       if (observed) resize.unobserve(observed);

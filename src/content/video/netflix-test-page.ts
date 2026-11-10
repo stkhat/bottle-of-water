@@ -61,6 +61,15 @@ function el(tag: string, attrs: Record<string, string>, ...children: Node[]) {
 }
 const text = (value: string) => document.createTextNode(value);
 
+/** The control bar's layout, as in e2e/fixtures/netflix-watch.html: a 96px row at the bottom. */
+const BAR_CSS = `
+.watch-video [data-uia="controls-standard"] { position: absolute; left: 0; right: 0; bottom: 0; }
+.watch-video [data-uia="controls-standard"] > div > div > div:last-child { height: 96px; display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.watch-video [data-uia="controls-standard"] > div > div > div:last-child > div { display: flex; align-items: center; }
+.watch-video [data-uia="video-title"] { flex: 1; display: flex; gap: 8px; align-items: baseline; }
+.watch-video [data-uia^="control-"] { width: 48px; height: 48px; }
+`;
+
 /** Builds the page skeleton and installs the fake player (it parses the manifest now). */
 export function createTestPage(
   options: {
@@ -101,6 +110,7 @@ export function createTestPage(
   const root = el(
     "div",
     { class: "watch-video", "data-uia": "watch-video" },
+    el("style", {}, text(BAR_CSS)),
     playerView,
   );
   document.body.append(root);

@@ -29,7 +29,17 @@ export interface VideoGeometry {
 export interface VideoLayout {
   /** The height of the element the transcript follows (the player, or the site's frame). */
   frameHeight: number;
+  /**
+   * How far above the player's bottom the in-video subtitle sits (px): 64, or higher
+   * while the site's control bar shows (Netflix).
+   */
+  subtitleBottom: number;
 }
+
+/** Mock Main: the in-video subtitle sits 64px above the player's bottom. */
+export const SUBTITLE_BOTTOM = 64;
+/** The gap kept between the in-video subtitle and the site's control bar (px). */
+export const CONTROL_BAR_GAP = 12;
 
 /** The transcript is never shorter than this (px). */
 const MIN_TRANSCRIPT_HEIGHT = 320;
@@ -112,9 +122,14 @@ function Subtitle(props: {
 }
 
 /** Inside the player: the subtitle over the video and the Lingo menu. */
-export function InPlayerUi(props: { app: VideoApp; geometry: VideoGeometry }) {
+export function InPlayerUi(props: {
+  app: VideoApp;
+  geometry: VideoGeometry;
+  layout: Store<VideoLayout>;
+}) {
   const { app, geometry } = props;
   const state = useStore(app.store);
+  const { subtitleBottom } = useStore(props.layout);
   const { settings } = state;
   const inVideo =
     showing(state) &&
@@ -134,7 +149,8 @@ export function InPlayerUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             // Mock Main: 120px in from each side of the 880px video, less on small players.
             left: "clamp(12px, calc((100% - 640px) / 2), 120px)",
             right: "clamp(12px, calc((100% - 640px) / 2), 120px)",
-            bottom: "64px",
+            bottom: `${subtitleBottom}px`,
+            transition: "bottom 0.2s ease-out",
           }}
         >
           <Subtitle app={app} state={state} variant="inVideo" />

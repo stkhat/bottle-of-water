@@ -360,6 +360,30 @@ export function createNetflixAdapter(
     return group ? { parent: group, before: null } : null;
   }
 
+  /**
+   * The top of the control bar's lower part: the bar itself and what it shows, those in
+   * the player's lower half only (the bar's box may cover the whole player, with the
+   * back arrow at the top).
+   */
+  function controlBarTop(): number | null {
+    const bar = query(doc, SELECTORS.controlBar);
+    const view = player();
+    if (!bar || !view) return null;
+    const { top, bottom } = view.getBoundingClientRect();
+    const middle = (top + bottom) / 2;
+    const parts = [
+      bar,
+      ...bar.querySelectorAll(SELECTORS.controlBarParts.join(", ")),
+    ];
+    let highest: number | null = null;
+    for (const part of parts) {
+      const box = part.getBoundingClientRect();
+      if (box.height <= 0 || box.top < middle) continue;
+      highest = Math.min(highest ?? box.top, box.top);
+    }
+    return highest;
+  }
+
   return {
     platform: "netflix",
     matches: (url) =>
@@ -388,6 +412,7 @@ export function createNetflixAdapter(
       return parent ? { parent, before: null } : null;
     },
     transcriptFrame: panel,
+    controlBarTop,
     adShowing: () => false,
     async tracks() {
       const id = videoId();
