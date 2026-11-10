@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import { DEFAULT_SETTINGS } from "../../core/settings";
 import { createStore } from "../ui/store";
 import { mountVideoUi } from "./mount";
@@ -28,6 +29,9 @@ const STATE: VideoState = {
   panel: null,
   menuOpen: false,
   fullscreen: false,
+  panelTab: "transcript",
+  wordsFilter: "all",
+  summaries: {},
 };
 
 /** An app over a store; the ^ button opens the menu as the real one does. */
@@ -35,6 +39,7 @@ function fakeApp(): VideoApp {
   const store = createStore(STATE);
   const methods: Partial<VideoApp> = {
     setMenuOpen: (open: boolean) => store.set({ menuOpen: open }),
+    setFullscreen: (on: boolean) => store.set({ fullscreen: on }),
   };
   return new Proxy({ store } as unknown as VideoApp, {
     get: (_target, name: string) =>
@@ -62,7 +67,8 @@ function start(options: Parameters<typeof createTestPage>[0] = {}) {
   });
   unmount = mountVideoUi({ adapter, app: fakeApp() });
 }
-afterEach(() => {
+afterEach(async () => {
+  if (document.fullscreenElement) await document.exitFullscreen();
   unmount();
   adapter.dispose();
   page.remove();
@@ -85,7 +91,9 @@ describe("the L and ^ buttons on Netflix", () => {
     await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
     const host = buttons()!;
     expect(host.getBoundingClientRect().width).toBeGreaterThan(0);
-    menuButton().click();
+    // From the keyboard: a pointer left over the player would keep Netflix's bar up.
+    menuButton().focus();
+    await userEvent.keyboard("{Enter}");
     await expect
       .poll(() => menuButton().getAttribute("aria-expanded"))
       .toBe("true");
@@ -206,5 +214,46 @@ describe("the subtitle over Netflix's video", () => {
     const player = page.player.getBoundingClientRect();
     expect(barTop()).toBe(player.top);
     await settlesAbove(partsTop);
+  });
+});
+
+describe("Netflix in fullscreen", () => {
+  const lingo = () => document.querySelector<HTMLElement>("lingo-video");
+  const side = () => document.querySelector<HTMLElement>("lingo-netflix-side");
+  const line = () =>
+    document
+      .querySelector("lingo-video-player")
+      ?.shadowRoot?.querySelector<HTMLElement>("[role='region'] [lang]") ??
+    null;
+
+  it("moves the page's parts into the player view's page and back, without the side panel", async () => {
+    start();
+    await expect.poll(() => lingo()?.parentElement).toBe(document.body);
+    await expect.poll(() => side()?.hidden).toBe(false);
+    const button = document.createElement("button");
+    button.textContent = "Full screen";
+    button.style.cssText =
+      "position: fixed; top: 0; left: 0; z-index: 2147483647;";
+    button.style.cssText =
+      "position: fixed; top: 0; left: 0; z-index: 2147483647;";
+    button.onclick = () => void page.root.requestFullscreen();
+    document.body.append(button);
+    await userEvent.click(button);
+    button.remove();
+    await expect.poll(() => document.fullscreenElement).toBe(page.root);
+
+    await expect.poll(() => lingo()?.parentElement).toBe(page.root);
+    expect(side()!.hidden).toBe(true);
+    await expect.poll(() => line()?.textContent).toBe("HELLO THERE.");
+    expect(getComputedStyle(line()!).fontSize).toBe("34px");
+    // The L and ^ buttons stay in the bar.
+    await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
+
+    await document.exitFullscreen();
+    await expect.poll(() => lingo()?.parentElement).toBe(document.body);
+    expect(side()!.hidden).toBe(false);
+    await expect
+      .poll(() => line() && getComputedStyle(line()!).fontSize)
+      .toBe("24px");
   });
 });

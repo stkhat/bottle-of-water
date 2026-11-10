@@ -61,8 +61,10 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
               sub: panel.card.sub,
               short: panel.card.short,
               senses: panel.card.senses,
+              glossLang: panel.card.glossLang,
             }}
             nativeLang={settings.nativeLang}
+            learningLang={settings.learningLang}
             status={panel.card.status}
             onStatus={app.setPanelStatus}
             onSpeak={app.speak}
@@ -74,11 +76,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
                 onClick: () => app.goToSentence(i),
               })),
             }}
-            elsewhere={
-              panel.card.status === "new"
-                ? null
-                : elsewhereItems(panel.card.elsewhere)
-            }
+            elsewhere={elsewhereItems(panel.card.elsewhere, Date.now())}
             onClose={app.closePanel}
           />
         </>
@@ -108,6 +106,8 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
       ) : (
         <PageCard
           highlight={settings.highlight}
+          learningLang={settings.learningLang}
+          nativeLang={settings.nativeLang}
           onToggle={app.toggleHighlight}
         />
       )}
@@ -124,6 +124,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
             head={hover.card.head}
             ipa={hover.card.ipa}
             short={hover.card.short}
+            glossLang={hover.card.glossLang}
             sub={hover.card.sub}
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}

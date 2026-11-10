@@ -88,6 +88,13 @@ export function occurrenceLink(
   return source.url;
 }
 
+/** True when `hostname` is `entry` or one of its subdomains, ignoring case. */
+export function onHost(hostname: string, entry: string): boolean {
+  const host = hostname.toLowerCase();
+  const site = entry.trim().toLowerCase();
+  return site !== "" && (host === site || host.endsWith(`.${site}`));
+}
+
 const LABEL = "[a-z0-9](?:[a-z0-9-]*[a-z0-9])?";
 const HOSTNAME = new RegExp(`^${LABEL}(?:\\.${LABEL})+$`);
 

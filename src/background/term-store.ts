@@ -45,6 +45,16 @@ export interface EncounterInput {
   pos: Position;
 }
 
+/** A sentence brought into a term's occurrences from elsewhere (the sentence history). */
+export interface ImportedOccurrence {
+  source: SourceInput;
+  sentence: string;
+  translation?: string;
+  pos: Position;
+  /** When it was seen (epoch ms). */
+  seenAt: number;
+}
+
 /** Live terms only. `learning` and `known` count words; `phrases` counts phrases of either status. */
 export interface Counts {
   learning: number;
@@ -104,6 +114,16 @@ export interface TermStore {
   recordEncounters(
     source: SourceInput,
     items: readonly EncounterInput[],
+  ): Promise<number>;
+  /**
+   * Adds sentences seen before saving as the live term's occurrences (`encountered`,
+   * with their own times), upserting their sources. Sentences the term already has in
+   * the same source are skipped; then the oldest encounters over the limit go. Returns
+   * how many were added (0 when the term is not saved).
+   */
+  importOccurrences(
+    termId: string,
+    rows: readonly ImportedOccurrence[],
   ): Promise<number>;
   /** Saves the keys that are not saved yet as `bulk` terms; saved ones keep their status. */
   saveAll(
@@ -227,18 +247,25 @@ export function createTermStore(
     return result;
   }
 
+  /**
+   * Creates or updates a source seen at `at`. Its times only widen, so an older sight
+   * (an imported sentence) keeps the newer title.
+   */
   async function upsertSource(input: SourceInput, at: number) {
     const url = normalizeUrl(input.url);
     const id = sourceId(input.platform, url);
     const existing = await db.sources.get(id);
+    const newest = !existing || at >= existing.lastSeen;
     await db.sources.put({
       id,
       platform: input.platform,
       url,
-      title: input.title || existing?.title || "",
-      lang: input.lang,
-      firstSeen: existing?.firstSeen ?? at,
-      lastSeen: at,
+      title: newest
+        ? input.title || existing?.title || ""
+        : existing.title || input.title,
+      lang: newest ? input.lang : existing.lang,
+      firstSeen: Math.min(existing?.firstSeen ?? at, at),
+      lastSeen: Math.max(existing?.lastSeen ?? at, at),
     });
     return id;
   }
@@ -373,6 +400,35 @@ export function createTermStore(
           await trimOccurrences(item.termId);
           changes.add(term.lang, "occurrences");
           added++;
+        }
+        return added;
+      });
+    },
+
+    importOccurrences(id, rows) {
+      if (rows.length === 0) return Promise.resolve(0);
+      return mutate(async (changes) => {
+        const term = await db.terms.get(id);
+        if (!isLive(term)) return 0;
+        let added = 0;
+        for (const row of rows) {
+          const occurrence: OccurrenceRecord = {
+            termId: id,
+            sourceId: await upsertSource(row.source, row.seenAt),
+            sentence: row.sentence,
+            pos: row.pos,
+            seenAt: row.seenAt,
+            origin: "encountered",
+          };
+          if (row.translation !== undefined)
+            occurrence.translation = row.translation;
+          if (await findOccurrence(occurrence)) continue;
+          await db.occurrences.add(occurrence);
+          added++;
+        }
+        if (added > 0) {
+          await trimOccurrences(id);
+          changes.add(term.lang, "occurrences");
         }
         return added;
       });

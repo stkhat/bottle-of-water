@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { test, expect, sendToBackground } from "./fixtures";
+import { ENGLISH_PAGE, test, expect, sendToBackground } from "./fixtures";
 
 /** The text of every range registered under a highlight name; undefined when it is not registered. */
 function highlighted(page: Page, name: string) {
@@ -26,7 +26,7 @@ test("the page card appears on an English page", async ({ context }) => {
   await page.goto("/article-en.html");
   const chip = page.getByRole("button", { name: en["card.chip.learning"] });
   await expect(chip).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
 });
 
 test("no card appears on a Japanese page", async ({ context }) => {
@@ -43,6 +43,28 @@ test("no card appears on a Japanese page", async ({ context }) => {
   await page.goto("/article-ja.html");
   await settle(page);
   await expect(page.locator("lingo-article")).toHaveCount(0);
+});
+
+test("a Spanish page gets no highlights while the learning language is English", async ({
+  context,
+  extensionId,
+}) => {
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { highlight: { new: true } },
+  });
+  // Prove the extension is live first: the English page is highlighted.
+  const live = await context.newPage();
+  await live.goto("/article-en.html");
+  await expect
+    .poll(async () => (await highlighted(live, "lingo-new"))?.length ?? 0)
+    .toBeGreaterThan(0);
+
+  const page = await context.newPage();
+  await page.goto("/article-es.html");
+  await settle(page);
+  await expect(page.locator("lingo-article")).toHaveCount(0);
+  expect(await highlighted(page, "lingo-new")).toBeUndefined();
 });
 
 test("with New switched on, new words are highlighted", async ({

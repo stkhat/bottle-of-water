@@ -1,0 +1,24 @@
+{{Wortschatz Leipzig frequency list header
+| lang = Spanish
+| corpora = 2021 Wikipedia and 2022 News 1M Sentence corpora
+| subpages =
+* 10001-20000
+* 20001-30000
+}}
+
+==1-1000==
+[[de#Spanish|de]]
+[[la#Spanish|la]]
+[[El#Spanish|El]]
+[[el#Spanish|el]]
+[[2021#Spanish|2021]]
+[[comiendo#Spanish|comiendo]]
+[[El lugar#Spanish|El lugar]]
+[[casas#Spanish|casas]]
+
+==1001-2000==
+[[Brasil#Spanish|Brasil]]
+[[hablo#Spanish|hablo]]
+[[EE.UU.#Spanish|EE.UU.]]
+[[año]]
+[[pequeños#Spanish|pequeños]]

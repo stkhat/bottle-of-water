@@ -3,6 +3,7 @@ import type { Counts } from "../../background/term-store";
 import { onHost } from "../../content/article/should-run";
 import type { Settings, SettingsPatch } from "../../core/settings";
 import type { SyncStatus } from "../../core/sync/backend";
+import { languagePair } from "../../i18n/languages";
 import { t } from "../../i18n/t";
 import type { send } from "../../messaging/client";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
@@ -240,7 +241,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           {t("app.name")}
         </span>
         <span style={{ fontSize: "13px", color: color.muted }}>
-          {t("app.languagePair")}
+          {settings && languagePair(settings.learningLang, settings.nativeLang)}
         </span>
         <span style={{ flex: 1 }}></span>
         <button

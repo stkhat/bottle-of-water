@@ -5,6 +5,11 @@
  */
 import type { Origin, TermRecord } from "../background/db";
 import type {
+  HistoryItem,
+  HistorySource,
+  HistoryStatus,
+} from "../background/history-store";
+import type {
   Counts,
   EncounterInput,
   ImportResult,
@@ -59,11 +64,32 @@ export type Request =
   | { type: "listTerms"; lang: string }
   /** The word list's rows: saved terms with their short meaning and occurrence stats. */
   | { type: "listTermsWithStats"; lang: string }
+  /** Short meaning and saved status of terms (a video's word list), by key. */
+  | {
+      type: "termSummaries";
+      lang: string;
+      terms: { key: string; kind: TermKind }[];
+    }
   /** Opens the options page (content scripts cannot open it themselves). */
-  | { type: "openOptions" };
+  | { type: "openOptions" }
+  /**
+   * Keeps sentences of a page or video in the sentence history (Settings → Sentence
+   * history). The background indexes them; nothing is kept when the history is off or
+   * the host is blocked.
+   */
+  | {
+      type: "recordHistory";
+      source: HistorySource;
+      sentences: HistorySentenceInput[];
+    }
+  | { type: "historyStatus" }
+  | { type: "clearHistory" };
 
 export type RequestType = Request["type"];
 export type RequestOf<T extends RequestType> = Extract<Request, { type: T }>;
+
+/** A sentence for the history, as a content script sends it (without its keys). */
+export type HistorySentenceInput = Omit<HistoryItem, "keys">;
 
 export interface AnalyzeResult {
   /** Spans of each block, in the order of `blocks`; offsets are within the block. */
@@ -89,11 +115,19 @@ export interface OccurrenceView {
 export interface LookupResult {
   /** Undefined when the dictionary has no entry for the term. */
   entry?: DictionaryEntry;
+  /**
+   * The term's IPA from the language pack, also for a phrase no dictionary has (a
+   * selected phrase); missing when a word has none.
+   */
+  ipa?: string;
   status: TermStatus | "new";
   termId: string;
   /** Occurrences in the source at `sourceUrl`, newest first. */
   here: OccurrenceView[];
-  /** Occurrences in every other source, newest first. */
+  /**
+   * Occurrences in every other source, newest first. For an unsaved term: its kept
+   * sentences from the sentence history (other sources only).
+   */
   elsewhere: OccurrenceView[];
 }
 
@@ -107,11 +141,22 @@ export interface TermSummary {
   status: TermStatus;
   /** The dictionary's short meaning; missing when the dictionary has no entry. */
   short?: string;
+  /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
+  glossLang?: string;
   /** How many occurrences are recorded. */
   seen: number;
   /** The newest occurrence's time, else when the term was saved (epoch ms). */
   lastSeen: number;
   createdAt: number;
+}
+
+/** A term's short meaning and saved status ("new" when not saved). */
+export interface TermBrief {
+  /** The dictionary's short meaning; missing when the dictionary has no entry. */
+  short?: string;
+  /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
+  glossLang?: string;
+  status: TermStatus | "new";
 }
 
 export interface ResponseMap {
@@ -141,7 +186,13 @@ export interface ResponseMap {
   lastExport: number | null;
   listTerms: TermRecord[];
   listTermsWithStats: TermSummary[];
+  /** Keyed by term key. */
+  termSummaries: Record<string, TermBrief>;
   openOptions: null;
+  /** How many sentences were added (0 when nothing may be kept). */
+  recordHistory: { kept: number };
+  historyStatus: HistoryStatus;
+  clearHistory: null;
 }
 
 export type ResponseOf<T extends RequestType> = ResponseMap[T];

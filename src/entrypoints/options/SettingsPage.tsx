@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { HistoryStatus } from "../../background/history-store";
 import type { BrowserEnv } from "../../core/browser-env";
 import {
   KNOWN_LEVEL_MAX,
@@ -8,8 +9,10 @@ import {
   type Settings,
   type SettingsPatch,
 } from "../../core/settings";
+import { learningLanguages, nativeLanguages } from "../../core/languages";
 import type { SyncStatus } from "../../core/sync/backend";
 import { siteFromInput } from "../../core/url";
+import { languageName, languageOption } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { send } from "../../messaging/client";
 import {
@@ -17,7 +20,7 @@ import {
   type BackupDeps,
   type BackupNote,
 } from "../../ui/backup/BackupButtons";
-import { kilobytes, relativeTime } from "../../ui/format/format";
+import { kilobytes, megabytes, relativeTime } from "../../ui/format/format";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
 
@@ -28,7 +31,7 @@ export interface SettingsDeps extends BackupDeps {
   env: Pick<BrowserEnv, "name" | "syncName" | "features">;
   /** The extension's version, from the manifest. */
   version: string;
-  /** How often the sync status and the relative times are refreshed. */
+  /** How often the sync and history status and the relative times are refreshed. */
   refreshMs: number;
 }
 
@@ -39,18 +42,12 @@ const SECTIONS = [
   { id: "dictionaries", label: "settings.section.dictionaries" },
   { id: "video", label: "settings.section.video" },
   { id: "sites", label: "settings.section.sites" },
+  { id: "history", label: "settings.section.history" },
   { id: "sync", label: "settings.section.sync" },
   { id: "about", label: "settings.section.about" },
 ] as const satisfies readonly { id: string; label: MessageKey }[];
 
 type SectionId = (typeof SECTIONS)[number]["id"];
-
-const LANGUAGE_NAMES: Record<string, MessageKey> = {
-  en: "language.en",
-  ja: "language.ja",
-};
-const languageName = (code: string) =>
-  LANGUAGE_NAMES[code] ? t(LANGUAGE_NAMES[code]) : code;
 
 const CSS = `
 body{background:${color.surface}}
@@ -382,6 +379,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const [settings, setSettings] = useState<Settings>();
   const [level, setLevel] = useState<number>();
   const [sync, setSync] = useState<SyncStatus>();
+  const [history, setHistory] = useState<HistoryStatus>();
   const [lastExport, setLastExport] = useState<number | null>(null);
   const [note, setNote] = useState<BackupNote>(null);
   const [now, setNow] = useState(deps.now);
@@ -390,6 +388,8 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const warn = (error: unknown) => console.warn("Lingo:", error);
   const refreshSync = () =>
     deps.send({ type: "syncStatus" }).then(setSync, warn);
+  const refreshHistory = () =>
+    deps.send({ type: "historyStatus" }).then(setHistory, warn);
   const refreshLastExport = () =>
     deps.send({ type: "lastExport" }).then(setLastExport, warn);
 
@@ -401,6 +401,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   useEffect(() => {
     deps.send({ type: "getSettings" }).then(show, warn);
     void refreshSync();
+    void refreshHistory();
     void refreshLastExport();
     const unwatch = deps.watchSettings((next) => {
       show(next);
@@ -409,6 +410,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     const timer = setInterval(() => {
       setNow(deps.now());
       void refreshSync();
+      void refreshHistory();
     }, deps.refreshMs);
     return () => {
       unwatch();
@@ -442,6 +444,19 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     patch({ [key]: value } as SettingsPatch, { ...s, [key]: value });
   }
 
+  /** A new learning language comes with a native language it has a dictionary into. */
+  function setLanguage(
+    key: "learningLang" | "nativeLang" | "uiLocale",
+    value: string,
+  ) {
+    if (key !== "learningLang") return set(key, value);
+    const change = {
+      learningLang: value,
+      nativeLang: nativeLanguages(value)[0] ?? s.nativeLang,
+    };
+    patch(change, { ...s, ...change });
+  }
+
   const languageSelect = (
     id: string,
     title: MessageKey,
@@ -458,11 +473,11 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
         id={id}
         class="sel"
         value={s[key]}
-        onChange={(e) => set(key, e.currentTarget.value)}
+        onChange={(e) => setLanguage(key, e.currentTarget.value)}
       >
         {options.map((code) => (
           <option key={code} value={code}>
-            {languageName(code)}
+            {languageOption(code)}
           </option>
         ))}
       </select>
@@ -473,6 +488,12 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const used = sync ? kilobytes(sync.bytesUsed) : 0;
   const quota = sync ? kilobytes(sync.quotaBytes) : 0;
   const share = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+  const historyShare =
+    history && history.cap > 0 && history.bytes > 0
+      ? Math.min(100, Math.max(1, (history.bytes / history.cap) * 100))
+      : 0;
+  const clearHistory = () =>
+    deps.send({ type: "clearHistory" }).then(refreshHistory, warn);
   const syncLine = !sync
     ? ""
     : !sync.enabled
@@ -555,14 +576,14 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             "settings.languages.learning",
             "settings.languages.learningDesc",
             "learningLang",
-            ["en"],
+            learningLanguages(),
           )}
           {languageSelect(
             "lang-native",
             "settings.languages.native",
             "settings.languages.nativeDesc",
             "nativeLang",
-            ["ja"],
+            nativeLanguages(s.learningLang),
           )}
           {languageSelect(
             "lang-ui",
@@ -833,6 +854,82 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             sites={s.neverRunOn}
             onChange={(neverRunOn) => set("neverRunOn", neverRunOn)}
           />
+        </Section>
+
+        <Section
+          id="history"
+          label="settings.section.history"
+          lead={t("settings.history.lead")}
+        >
+          <SwitchRow
+            title={t("settings.history.switch")}
+            desc={t("settings.history.switchDesc")}
+            checked={s.sentenceHistory}
+            onToggle={() => set("sentenceHistory", !s.sentenceHistory)}
+          />
+          <div
+            class="row"
+            style={{
+              flexDirection: "column",
+              alignItems: "stretch",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "14px",
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                {t("settings.history.space")}
+              </span>
+              <span style={{ color: color.ink3 }}>
+                {history &&
+                  t("settings.history.spaceUsed", {
+                    used: megabytes(history.bytes),
+                    cap: megabytes(history.cap),
+                  })}
+              </span>
+            </div>
+            <div
+              aria-hidden="true"
+              style={{
+                height: "6px",
+                borderRadius: "3px",
+                background: color.line,
+              }}
+            >
+              <div
+                style={{
+                  width: `${historyShare}%`,
+                  height: "100%",
+                  borderRadius: "3px",
+                  background: "#0F9F7E",
+                }}
+              ></div>
+            </div>
+            <span style={{ fontSize: "13px", color: color.muted }}>
+              {history &&
+                (history.pages === 0
+                  ? t("settings.history.empty")
+                  : history.pages === 1
+                    ? t("settings.history.onePage")
+                    : t("settings.history.pages", {
+                        count: fmt(history.pages),
+                      }))}
+            </span>
+          </div>
+          <div class="row">
+            <span class="lbl">
+              <span class="lt">{t("settings.history.clear")}</span>
+              <span class="ld">{t("settings.history.clearDesc")}</span>
+            </span>
+            <button class="btn" type="button" onClick={clearHistory}>
+              {t("settings.history.clearButton")}
+            </button>
+          </div>
         </Section>
 
         <Section

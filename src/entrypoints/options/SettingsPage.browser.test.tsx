@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type { ImportResult } from "../../background/term-store";
 import { mergeSettings, type Settings } from "../../core/settings";
+import type { HistoryStatus } from "../../background/history-store";
 import type { SyncStatus } from "../../core/sync/backend";
 import type { Request } from "../../messaging/protocol";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
@@ -26,11 +27,16 @@ interface FakeOptions {
   builtInAi?: boolean;
   lastExport?: number | null;
   importResult?: ImportResult | Error;
+  history?: HistoryStatus;
 }
+
+const MB = 1024 * 1024;
+const HISTORY: HistoryStatus = { bytes: 18 * MB, cap: 50 * MB, pages: 1240 };
 
 function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let lastExport = options.lastExport ?? null;
+  let history = options.history ?? HISTORY;
   const listeners = new Set<(s: Settings) => void>();
   const sent: Request[] = [];
   const downloads: { name: string; text: string }[] = [];
@@ -51,6 +57,11 @@ function fake(options: FakeOptions = {}) {
         case "exportJson":
           lastExport = NOW;
           return '{"format":"lingo-export"}';
+        case "historyStatus":
+          return history;
+        case "clearHistory":
+          history = { ...history, bytes: 0, pages: 0 };
+          return null;
         case "importJson": {
           const result = options.importResult ?? {
             terms: 3,
@@ -112,6 +123,12 @@ async function open(options: FakeOptions = {}) {
   return { ...f, screen };
 }
 
+const optionLabels = (select: Element) =>
+  [...(select as HTMLSelectElement).options].map((o) => o.label);
+
+const setSettingsPatches = (sent: Request[]) =>
+  sent.flatMap((r) => (r.type === "setSettings" ? [r.patch] : []));
+
 const section = (screen: Awaited<ReturnType<typeof render>>, name: string) =>
   screen.getByRole("region", { name });
 
@@ -126,6 +143,7 @@ describe("SettingsPage", () => {
       "Dictionaries and AI",
       "Video subtitles",
       "Sites",
+      "Sentence history",
       "Sync and backup",
       "About",
     ]) {
@@ -155,13 +173,55 @@ describe("SettingsPage", () => {
       name: /Learning language/,
     });
     await expect.element(learning).toHaveDisplayValue("English");
-    expect((learning.element() as HTMLSelectElement).options).toHaveLength(1);
+    expect(optionLabels(learning.element())).toEqual([
+      "English",
+      "Spanish (Español)",
+    ]);
+    const native = screen.getByRole("combobox", { name: /Your language/ });
+    await expect.element(native).toHaveDisplayValue("Japanese (日本語)");
+    expect(optionLabels(native.element())).toEqual(["Japanese (日本語)"]);
+    const ui = screen.getByRole("combobox", { name: /Interface language/ });
+    await expect.element(ui).toHaveDisplayValue("English");
+    expect(optionLabels(ui.element())).toEqual(["English"]);
+  });
+
+  it("offers as your language only those with a dictionary for the learning language", async () => {
+    const { screen } = await open({
+      settings: { learningLang: "es", nativeLang: "en" },
+    });
     await expect
-      .element(screen.getByRole("combobox", { name: /Your language/ }))
-      .toHaveDisplayValue("Japanese (日本語)");
+      .element(screen.getByRole("combobox", { name: /Learning language/ }))
+      .toHaveDisplayValue("Spanish (Español)");
+    const native = screen.getByRole("combobox", { name: /Your language/ });
+    await expect.element(native).toHaveDisplayValue("English");
+    expect(optionLabels(native.element())).toEqual(["English"]);
     await expect
-      .element(screen.getByRole("combobox", { name: /Interface language/ }))
-      .toHaveDisplayValue("English");
+      .element(
+        screen.getByRole("slider", {
+          name: "Treat the 3,000 most common Spanish words as known",
+        }),
+      )
+      .toBeVisible();
+  });
+
+  it("changes your language with the learning language, in one change", async () => {
+    const f = await open();
+    const learning = f.screen.getByRole("combobox", {
+      name: /Learning language/,
+    });
+    await userEvent.selectOptions(learning, "Spanish (Español)");
+    const native = f.screen.getByRole("combobox", { name: /Your language/ });
+    await expect.element(native).toHaveDisplayValue("English");
+    expect(setSettingsPatches(f.sent)).toEqual([
+      { learningLang: "es", nativeLang: "en" },
+    ]);
+    await expect.poll(() => f.settings().nativeLang).toBe("en");
+    await userEvent.selectOptions(learning, "English");
+    await expect.element(native).toHaveDisplayValue("Japanese (日本語)");
+    expect(setSettingsPatches(f.sent)).toEqual([
+      { learningLang: "es", nativeLang: "en" },
+      { learningLang: "en", nativeLang: "ja" },
+    ]);
   });
 
   it("sets the new-word level with the slider", async () => {
@@ -338,6 +398,101 @@ describe("SettingsPage", () => {
     });
   });
 
+  describe("sentence history", () => {
+    it("comes after Sites in the nav", async () => {
+      const { screen } = await open();
+      const links = screen
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link")
+        .elements()
+        .map((a) => a.textContent);
+      expect(
+        links.slice(links.indexOf("Sites"), links.indexOf("Sites") + 2),
+      ).toEqual(["Sites", "Sentence history"]);
+    });
+
+    it("shows the switch, the space used and the pages kept", async () => {
+      const f = await open();
+      const history = section(f.screen, "Sentence history");
+      await expect
+        .element(
+          history.getByText(
+            "Sentences from pages and videos you open with Lingo on, kept on this device so the dictionary can show where you met a word before you saved it.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(
+          history.getByText(
+            "Never synced. Pages on your Never run on list are not kept.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(history.getByRole("switch", { name: "Keep sentence history" }))
+        .toBeChecked();
+      await expect.element(history.getByText("Space used")).toBeVisible();
+      await expect.element(history.getByText("18 MB of 50 MB")).toBeVisible();
+      await expect
+        .element(
+          history.getByText(
+            "1,240 pages and videos · the oldest are removed first when space runs out",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(history.getByText("Saved words and their sources stay."))
+        .toBeVisible();
+    });
+
+    it("says nothing is kept when there are no pages", async () => {
+      const f = await open({ history: { bytes: 0, cap: 50 * MB, pages: 0 } });
+      const history = section(f.screen, "Sentence history");
+      await expect.element(history.getByText("Nothing kept yet")).toBeVisible();
+      await expect.element(history.getByText("0 MB of 50 MB")).toBeVisible();
+    });
+
+    it("counts one page alone, and a little data as 1 MB of the bar", async () => {
+      const f = await open({
+        history: { bytes: 2048, cap: 50 * MB, pages: 1 },
+      });
+      const history = section(f.screen, "Sentence history");
+      await expect
+        .element(
+          history.getByText(
+            "1 page or video · the oldest are removed first when space runs out",
+          ),
+        )
+        .toBeVisible();
+      await expect.element(history.getByText("1 MB of 50 MB")).toBeVisible();
+      const fill = history
+        .element()
+        .querySelector<HTMLElement>('[aria-hidden="true"] > div')!;
+      expect(fill.style.width).toBe("1%");
+    });
+
+    it("turns sentence history off and on", async () => {
+      const f = await open();
+      const toggle = section(f.screen, "Sentence history").getByRole("switch", {
+        name: "Keep sentence history",
+      });
+      await toggle.click();
+      await expect.element(toggle).not.toBeChecked();
+      await expect.poll(() => f.settings().sentenceHistory).toBe(false);
+      expect(setSettingsPatches(f.sent)).toEqual([{ sentenceHistory: false }]);
+    });
+
+    it("clears the history and shows that nothing is kept", async () => {
+      const f = await open();
+      const history = section(f.screen, "Sentence history");
+      await expect.element(history.getByText(/^1,240 pages/)).toBeVisible();
+      await history.getByRole("button", { name: "Clear" }).click();
+      await expect.element(history.getByText("Nothing kept yet")).toBeVisible();
+      await expect.element(history.getByText("0 MB of 50 MB")).toBeVisible();
+      expect(f.sent).toContainEqual({ type: "clearHistory" });
+    });
+  });
+
   describe("sync and backup", () => {
     it("names the browser's sync and shows the space used and the last save", async () => {
       const f = await open();
@@ -437,7 +592,7 @@ describe("SettingsPage", () => {
     await expect
       .element(
         section(f.screen, "About").getByText(
-          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms and frequency data: Wiktionary (CC BY-SA)",
+          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, phrase meanings and the Spanish–English dictionary: Wiktionary (CC BY-SA)",
         ),
       )
       .toBeVisible();

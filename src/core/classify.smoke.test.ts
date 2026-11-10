@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
-import { createEnglishPack } from "./language-pack";
+import { createEnglishPack, createLanguagePack } from "./language-pack";
 import { createPackLoader } from "./packs/load";
 
 const publicDir = join(import.meta.dirname, "..", "..", "public");
@@ -17,6 +17,7 @@ const pack = createEnglishPack({
   freq: en.freq,
   ipa: en.ipa,
   vocab: new Set(en.vocab),
+  phrases: new Set(en.phrases),
 });
 const classifier = createClassifier(pack);
 
@@ -34,6 +35,34 @@ function categories(terms: TermIndex = new Map()) {
   );
   return { spans, byWord };
 }
+
+describe("dictionary phrases over the generated packs", () => {
+  it("detects a dictionary phrase in text", () => {
+    const text = "We need to figure out how it works.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    expect(
+      spans
+        .filter((s) => s.kind === "phrase")
+        .map((s) => [text.slice(s.start, s.end), s.key, s.category]),
+    ).toContainEqual(["figure out", "figure out", "new"]);
+    expect(spans.map((s) => text.slice(s.start, s.end))).not.toContain(
+      "figure",
+    );
+  });
+
+  it("detects inflected phrases", () => {
+    const text = "She gave up and started from scratch.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    const phrases = spans.filter((s) => s.kind === "phrase");
+    expect(phrases.map((s) => s.key)).toEqual(["give up", "from scratch"]);
+  });
+});
 
 describe("classifier over the generated packs", () => {
   it("sorts the mock's paragraph into known and new words at level 3000", () => {
@@ -56,6 +85,7 @@ describe("classifier over the generated packs", () => {
       "ferment",
       "yeast",
       "bacteria",
+      "break down",
       "starch",
       "loaf",
       "slightly",
@@ -103,5 +133,39 @@ describe("classifier over the generated packs", () => {
       "phrase",
       "learning",
     ]);
+  });
+});
+
+const es = await loadPack("es");
+
+describe("classifier over the generated Spanish pack", () => {
+  const esPack = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    phrases: new Set(es.phrases),
+  });
+  const esClassifier = createClassifier(esPack);
+  const classify = (text: string) =>
+    esClassifier
+      .classify(esPack.tokenize(text), { terms: new Map(), knownLevel: 3000 })
+      .map((s) => ({ text: text.slice(s.start, s.end), ...s }));
+
+  it("reads an inflected verb as its base", () => {
+    expect(classify("Estoy comiendo una manzana")).toContainEqual(
+      expect.objectContaining({ text: "comiendo", key: "comer", kind: "word" }),
+    );
+  });
+
+  it("detects a dictionary phrase in text", () => {
+    expect(es.phrases).toContain("a escondidas");
+    expect(classify("Se vieron a escondidas en el parque.")).toContainEqual(
+      expect.objectContaining({
+        text: "a escondidas",
+        key: "a escondidas",
+        kind: "phrase",
+      }),
+    );
   });
 });

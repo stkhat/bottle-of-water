@@ -1,6 +1,7 @@
 import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { DictionaryEntry } from "../../core/dictionary";
+import { languagePair } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
 import {
@@ -10,7 +11,7 @@ import {
 } from "../../ui/backup/BackupButtons";
 import { sameDay, shortDate } from "../../ui/format/format";
 import { ElsewhereRow } from "../../ui/lookup/DictionaryWindow";
-import { elsewhereItems } from "../../ui/lookup/elsewhere";
+import { occurrenceItem } from "../../ui/lookup/elsewhere";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import { StatusButtons } from "../../ui/lookup/StatusButtons";
 import {
@@ -38,6 +39,8 @@ interface Details {
   term: TermSummary;
   status: WordStatus;
   entry?: DictionaryEntry;
+  /** The pack's IPA, also for a phrase no dictionary has (`LookupResult.ipa`). */
+  ipa?: string;
   occurrences: OccurrenceView[];
 }
 
@@ -229,7 +232,7 @@ function Row(props: {
         )}
       </span>
       <span
-        lang={props.nativeLang}
+        lang={term.glossLang ?? props.nativeLang}
         style={{
           padding: "0 12px",
           fontSize: "14px",
@@ -381,6 +384,8 @@ const savedFrom = (occurrences: readonly OccurrenceView[]) =>
 function DetailsPanel(props: {
   details: Details;
   nativeLang: string;
+  /** The language of the term and its sentences. */
+  learningLang: string;
   now: number;
   onStatus: (status: WordStatus) => void;
   onSpeak: (head: string) => void;
@@ -388,8 +393,9 @@ function DetailsPanel(props: {
   const { details, now } = props;
   const { entry, term, occurrences } = details;
   const head = entry?.head ?? term.key;
-  const items = elsewhereItems(occurrences).map((item, i) => {
-    const o = occurrences[i]!;
+  const ipa = entry?.ipa ?? details.ipa;
+  const items = occurrences.map((o) => {
+    const item = occurrenceItem(o);
     const parts = [item.meta];
     if (!sameDay(o.seenAt, now)) parts.push(shortDate(o.seenAt, now));
     if (o.origin === "saved") parts.push(t("wordlist.savedHere"));
@@ -466,7 +472,7 @@ function DetailsPanel(props: {
               {SPEAKER}
             </button>
           </div>
-          {entry?.ipa && (
+          {ipa && (
             <span
               style={{
                 fontFamily: IPA_FONT,
@@ -474,12 +480,12 @@ function DetailsPanel(props: {
                 color: color.ink3,
               }}
             >
-              {entry.ipa}
+              {ipa}
             </span>
           )}
           {entry?.short && (
             <p
-              lang={props.nativeLang}
+              lang={entry.glossLang ?? props.nativeLang}
               style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
             >
               {entry.short}
@@ -499,7 +505,7 @@ function DetailsPanel(props: {
             {t("wordlist.seenIn", { count: items.length })}
           </h3>
           {items.map((item, i) => (
-            <ElsewhereRow key={i} item={item} />
+            <ElsewhereRow key={i} item={item} lang={props.learningLang} />
           ))}
         </div>
       </div>
@@ -585,6 +591,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           term,
           status: result.status,
           ...(result.entry && { entry: result.entry }),
+          ...(result.ipa !== undefined && { ipa: result.ipa }),
           occurrences: [...result.here, ...result.elsewhere],
         });
       }, warn);
@@ -654,7 +661,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           {t("wordlist.title")}
         </h1>
         <span style={{ fontSize: "14px", color: color.muted }}>
-          {t("app.languagePair")}
+          {languagePair(langs.learning, langs.native)}
         </span>
         <span style={{ flex: 1 }}></span>
         {note && (
@@ -795,6 +802,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           <DetailsPanel
             details={details}
             nativeLang={langs.native}
+            learningLang={langs.learning}
             now={now}
             onStatus={(to) => void changeStatus(to)}
             onSpeak={(head) => deps.speak(head, langs.learning)}

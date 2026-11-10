@@ -43,6 +43,17 @@
         width: 100%;
         height: 100%;
       }
+      /*
+        Fullscreen: ytd-app is the fullscreen element; the player covers the screen.
+        Clipped: the trimmed control bar overflows it, and must not scroll it.
+      */
+      ytd-watch-flexy[fullscreen] #movie_player {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        aspect-ratio: auto;
+        overflow: clip;
+      }
       .ytp-caption-window-container {
         position: absolute;
         inset: 0;

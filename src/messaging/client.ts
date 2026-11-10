@@ -46,8 +46,13 @@ const REPEATABLE: Record<RequestType, boolean> = {
   lastExport: true,
   listTerms: true,
   listTermsWithStats: true,
+  termSummaries: true,
   // Would open a second tab.
   openOptions: false,
+  // Sentences already kept for the page are skipped.
+  recordHistory: true,
+  historyStatus: true,
+  clearHistory: true,
 };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -8,7 +8,8 @@ import {
 
 export const TEST_PACKS: PackFiles = {
   en: {
-    lemmas: { loaves: "loaf", ferments: "ferment" },
+    // "rose" is a word of its own and a form of "rise".
+    lemmas: { loaves: "loaf", ferments: "ferment", gave: "give", rose: "rise" },
     // "yeast" is ranked 2,500: known at the default level (3,000), new at 2,000.
     freq: [
       "the",
@@ -16,9 +17,15 @@ export const TEST_PACKS: PackFiles = {
       ...Array.from({ length: 2497 }, (_, i) => `filler${i}`),
       "yeast",
     ],
-    ipa: { loaf: "/loʊf/" },
+    ipa: { loaf: "/loʊf/", yeast: "/jist/" },
     pos: { loaf: ["noun"], ferment: ["verb"], crust: ["noun"] },
-    vocab: ["crust", "ferment", "loaf", "the", "yeast"],
+    vocab: [
+      ...["crust", "ferment", "figure", "from", "give", "loaf", "out"],
+      ...["rise", "rose", "scratch", "the", "up", "yeast"],
+    ],
+    // Meanings: "figure out" in the English definitions, the others in the Japanese
+    // translations of phrases.
+    phrases: ["figure out", "from scratch", "give up"],
   },
   "en-ja": {
     dict: {
@@ -28,12 +35,52 @@ export const TEST_PACKS: PackFiles = {
       the: ["その", ["その"]],
       yeast: ["酵母", ["酵母"]],
     },
+    phrases: {
+      "from scratch": ["最初から", ["最初から", "ゼロから"]],
+      "give up": ["諦める", ["諦める", "やめる"]],
+    },
+  },
+  "en-defs": {
+    defs: {
+      "figure out": [
+        "To come to understand",
+        [["verb", "To come to understand; to discover."]],
+      ],
+    },
+  },
+  es: {
+    lemmas: {
+      comiendo: "comer",
+      casas: ["casa", "casar"],
+      estoy: "estar",
+      una: "un",
+    },
+    // At level 3: "estar" and "un" are known, "comer" is new.
+    freq: ["de", "estar", "un", "comer", "casa"],
+    ipa: { a: "/a/", comer: "/koˈmeɾ/", escondidas: "/eskonˈdidas/" },
+    vocab: [
+      ...["a", "casa", "casar", "comer", "de", "escondidas", "estar"],
+      ...["manzana", "un"],
+    ],
+    phrases: ["a escondidas"],
+  },
+  "es-en": {
+    defs: {
+      "a escondidas": ["secretly", [["adverb", "secretly"]]],
+      casa: ["house", [["noun", "house"]]],
+      casar: ["to marry", [["verb", "to marry"]]],
+      comer: ["to eat", [["verb", "to eat"]]],
+    },
   },
 };
 
 const { crust, ferment, loaf, the, yeast } = TEST_PACKS["en-ja"].dict;
+const { comer, ...esDefs1 } = TEST_PACKS["es-en"].defs;
 
-/** The bundled files behind TEST_PACKS, by path: the dictionary is split into two shards. */
+/**
+ * The bundled files behind TEST_PACKS, by path: the EJDict dictionary and the Spanish →
+ * English one are each split into two shards.
+ */
 export const TEST_FILES: Readonly<Record<string, unknown>> = {
   ...Object.fromEntries(
     Object.entries(TEST_PACKS.en).map(([file, value]) => [
@@ -49,6 +96,25 @@ export const TEST_FILES: Readonly<Record<string, unknown>> = {
   },
   "/packs/en-ja/dict-1.json": { crust, ferment, loaf },
   "/packs/en-ja/dict-2.json": { the, yeast },
+  "/packs/en-ja/phrases.json": TEST_PACKS["en-ja"].phrases,
+  "/packs/en-defs/index.json": {
+    shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
+  },
+  "/packs/en-defs/dict-1.json": TEST_PACKS["en-defs"].defs,
+  ...Object.fromEntries(
+    Object.entries(TEST_PACKS.es).map(([file, value]) => [
+      `/packs/es/${file}.json`,
+      value,
+    ]),
+  ),
+  "/packs/es-en/index.json": {
+    shards: [
+      { file: "dict-1.json", first: "a escondidas", last: "casar" },
+      { file: "dict-2.json", first: "comer", last: "comer" },
+    ],
+  },
+  "/packs/es-en/dict-1.json": esDefs1,
+  "/packs/es-en/dict-2.json": { comer },
 };
 
 /**

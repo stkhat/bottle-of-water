@@ -37,6 +37,15 @@ describe("HoverCard", () => {
       .toBeVisible();
   });
 
+  test("marks an English definition as English", async () => {
+    const screen = await mountInShadowRoot(
+      <HoverCard {...figureOut} short="To come to understand" glossLang="en" />,
+    );
+    await expect
+      .element(screen.getByText("To come to understand"))
+      .toHaveAttribute("lang", "en");
+  });
+
   test("labels a word and an unsaved status", async () => {
     const screen = await mountInShadowRoot(
       <HoverCard {...figureOut} kind="word" status="new" head="dough" />,
@@ -89,6 +98,26 @@ describe("HoverCard", () => {
     expect(onLearning).toHaveBeenCalledOnce();
     await screen.getByRole("button", { name: "Known" }).click();
     expect(onKnown).toHaveBeenCalledOnce();
+  });
+
+  test("buttons ignore clicks a page script makes", async () => {
+    const onLearning = vi.fn();
+    const onKnown = vi.fn();
+    const screen = await mountInShadowRoot(
+      <HoverCard
+        {...figureOut}
+        status="new"
+        onLearning={onLearning}
+        onKnown={onKnown}
+      />,
+    );
+    for (const name of ["+ Learning", "Known"]) {
+      const button = screen.getByRole("button", { name }).element();
+      (button as HTMLElement).click();
+      button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
+    expect(onLearning).not.toHaveBeenCalled();
+    expect(onKnown).not.toHaveBeenCalled();
   });
 
   test("is 300px wide over video and 290px over articles", async () => {

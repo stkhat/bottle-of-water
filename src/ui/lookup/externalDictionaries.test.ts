@@ -69,4 +69,46 @@ describe("dictionaryLinks", () => {
     const links = dictionaryLinks("Brot", all, { from: "de", to: "ja" });
     expect(links.map((l) => l.id)).toEqual(["wiktionary"]);
   });
+
+  it("links Spanish to English, with Wiktionary's Spanish section", () => {
+    expect(
+      dictionaryLinks("a escondidas", all, { from: "es", to: "en" }),
+    ).toEqual([
+      {
+        id: "cambridge",
+        label: "Cambridge",
+        href: "https://dictionary.cambridge.org/dictionary/spanish-english/a-escondidas",
+      },
+      {
+        id: "wiktionary",
+        label: "Wiktionary",
+        href: "https://en.wiktionary.org/wiki/a%20escondidas#Spanish",
+      },
+      {
+        id: "reverso",
+        label: "Reverso",
+        href: "https://context.reverso.net/translation/spanish-english/a%20escondidas",
+      },
+      {
+        id: "wordreference",
+        label: "WordReference",
+        href: "https://www.wordreference.com/esen/a%20escondidas",
+      },
+    ]);
+  });
+
+  it("encodes accented Spanish words", () => {
+    const [cambridge] = dictionaryLinks("canción", all, {
+      from: "es",
+      to: "en",
+    });
+    expect(cambridge!.href).toBe(
+      "https://dictionary.cambridge.org/dictionary/spanish-english/canci%C3%B3n",
+    );
+  });
+
+  it("has no Cambridge dictionary from Spanish into other languages", () => {
+    const links = dictionaryLinks("casa", all, { from: "es", to: "ja" });
+    expect(links.map((l) => l.id)).toEqual(["wiktionary", "reverso"]);
+  });
 });

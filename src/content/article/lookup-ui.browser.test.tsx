@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import {
   cleanUp,
   clickOn,
@@ -10,6 +10,7 @@ import {
   rectOf,
   setup,
 } from "./article-testing";
+import { testBackground } from "./test-background";
 
 const ARTICLE = `
   <p>They knead the dough and bake loaves.</p>
@@ -277,8 +278,52 @@ describe("dictionary panel", () => {
     const panel = dictionary();
     await expect.element(panel.getByText("Seen elsewhere · 1")).toBeVisible();
     await expect.element(panel.getByText("Another page")).toBeVisible();
-    await expect.element(panel.getByText("example.org")).toBeVisible();
+    await expect.element(panel.getByText("example.org · Today")).toBeVisible();
     await expect.element(panel.getByText("That was tedious.")).toBeVisible();
+  });
+
+  it("lists sentences kept from another page for an unsaved word", async () => {
+    const address = location.href;
+    const title = document.title;
+    const visit = (page: string, pageTitle: string) => {
+      const url = new URL(address);
+      url.searchParams.set("lingo-page", page);
+      history.replaceState(null, "", url);
+      document.title = pageTitle;
+    };
+    const background = testBackground();
+    try {
+      visit("a", "Bread notes");
+      await setup("<p>Kneading by hand is tedious work.</p>", { background });
+      await expect
+        .poll(
+          async () => (await background.send({ type: "historyStatus" })).pages,
+        )
+        .toBe(1);
+      await cleanUp();
+
+      visit("b", "Another page");
+      const { root } = await setup(ARTICLE, { background });
+      await clickOn(root, "tedious");
+      const panel = dictionary();
+      await expect.element(panel.getByText("Seen elsewhere · 1")).toBeVisible();
+      await expect.element(panel.getByText("Bread notes")).toBeVisible();
+      await expect
+        .element(panel.getByText(`${location.hostname} · Today`))
+        .toBeVisible();
+      await expect
+        .element(panel.getByText("Kneading by hand is tedious work."))
+        .toBeVisible();
+      expect(panel.getByText(/^Not saved yet/).query()).toBeNull();
+      await expect
+        .element(panel.getByRole("button", { name: "Not saved" }))
+        .toHaveAttribute("aria-pressed", "true");
+    } finally {
+      await cleanUp();
+      await background.close();
+      history.replaceState(null, "", address);
+      document.title = title;
+    }
   });
 
   it("scrolls to a sentence of this page", async () => {
@@ -324,9 +369,7 @@ describe("dictionary panel", () => {
 
     await clickOn(root, "knead");
     await expect.element(dictionary()).toBeVisible();
-    document.body.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    await userEvent.keyboard("{Escape}");
     await expect.poll(() => dictionary().query()).toBeNull();
   });
 
@@ -337,6 +380,80 @@ describe("dictionary panel", () => {
     await clickOn(root, "tedious");
     await new Promise((r) => setTimeout(r, 200));
     expect(dictionary().query()).toBeNull();
+  });
+});
+
+describe("events a page script makes", () => {
+  /** The init of a mouse event at the middle of a word, as a page script could make it. */
+  function at(root: Node, text: string): MouseEventInit {
+    const rect = rectOf(root, text);
+    return {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      clientX: rect.left + 3,
+      clientY: rect.top + rect.height / 2,
+    };
+  }
+  const target = (root: Node, text: string) =>
+    document.elementFromPoint(
+      at(root, text).clientX!,
+      at(root, text).clientY!,
+    )!;
+
+  it("a synthetic click opens no dictionary; the user's click does", async () => {
+    const { root } = await setup(ARTICLE);
+    target(root, "tedious").dispatchEvent(
+      new MouseEvent("click", at(root, "tedious")),
+    );
+    (target(root, "tedious") as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(dictionary().query()).toBeNull();
+
+    await clickOn(root, "tedious");
+    await expect.element(dictionary()).toBeVisible();
+  });
+
+  it("a synthetic pointer move shows no hover card; the user's does", async () => {
+    const { root } = await setup(`<div style="height: 200px"></div>${ARTICLE}`);
+    target(root, "tedious").dispatchEvent(
+      new PointerEvent("pointermove", at(root, "tedious")),
+    );
+    await new Promise((r) => setTimeout(r, 400));
+    expect(hoverCard().query()).toBeNull();
+
+    await pointAt(root, "tedious");
+    await expect.element(hoverCard()).toBeVisible();
+  });
+
+  it("a synthetic Escape leaves the dictionary open", async () => {
+    const { root } = await setup(ARTICLE);
+    await clickOn(root, "tedious");
+    await expect.element(dictionary()).toBeVisible();
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await new Promise((r) => setTimeout(r, 100));
+    expect(dictionary().query()).not.toBeNull();
+  });
+
+  it("a synthetic click on the dictionary's status buttons changes nothing", async () => {
+    const { root, background } = await setup(ARTICLE);
+    await clickOn(root, "tedious");
+    const learning = dictionary().getByRole("button", {
+      name: "Learning",
+      exact: true,
+    });
+    await expect.element(learning).toBeVisible();
+    learning
+      .element()
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    (learning.element() as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(background.sent("saveTerm")).toEqual([]);
+
+    await learning.click();
+    await expect.poll(() => background.sent("saveTerm").length).toBe(1);
   });
 });
 
@@ -364,5 +481,76 @@ describe("page card", () => {
     await expect
       .element(page.getByRole("button", { name: "Learning", exact: true }))
       .toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+describe("dictionary phrases", () => {
+  const PHRASES = `
+    <div style="height: 200px"></div>
+    <p>They bake it from scratch.</p>
+    <p>Once you figure out the schedule, bake it.</p>`;
+  const withNew = {
+    highlight: { new: true, learning: true, known: false },
+    offerSaveAllAtEnd: false,
+  };
+
+  it("highlights a detected phrase as one new term with its Japanese meaning", async () => {
+    const { root } = await setup(PHRASES, { settings: withNew });
+    await expect
+      .poll(() => highlighted("lingo-new"))
+      .toEqual(["from scratch", "figure out", "schedule"]);
+
+    await pointAt(root, "scratch");
+    await expect.element(hoverCard()).toBeVisible();
+    await expect
+      .element(page.getByText("Phrase", { exact: true }))
+      .toBeVisible();
+    await expect
+      .element(page.getByText("最初から", { exact: true }))
+      .toHaveAttribute("lang", "ja");
+
+    await clickOn(root, "scratch");
+    const panel = dictionary();
+    await expect
+      .element(panel.getByRole("heading", { name: "from scratch" }))
+      .toBeVisible();
+    await expect
+      .element(panel.getByText("ゼロから"))
+      .toHaveAttribute("lang", "ja");
+  });
+
+  it("shows a phrase's English definition as English, without translating it", async () => {
+    const translated: string[] = [];
+    const { root } = await setup(PHRASES, {
+      settings: withNew,
+      translator: {
+        translate: async (text) => {
+          translated.push(text);
+          return `訳: ${text}`;
+        },
+      },
+    });
+    await pointAt(root, "figure");
+    await expect.element(hoverCard()).toBeVisible();
+    await expect
+      .element(page.getByText("To come to understand", { exact: true }))
+      .toHaveAttribute("lang", "en");
+
+    await clickOn(root, "figure");
+    const panel = dictionary();
+    await expect
+      .element(panel.getByRole("heading", { name: "figure out" }))
+      .toBeVisible();
+    await expect
+      .element(panel.getByText("To come to understand", { exact: true }))
+      .toHaveAttribute("lang", "en");
+    await expect
+      .element(
+        panel.getByText(
+          "To come to understand; to discover or find a solution.",
+        ),
+      )
+      .toHaveAttribute("lang", "en");
+    expect(translated).toEqual([]);
   });
 });

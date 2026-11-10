@@ -6,11 +6,12 @@ import { HoverCard } from "../../ui/lookup/HoverCard";
 import { LingoMenu } from "../../ui/video/LingoMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
-import { Transcript } from "../../ui/video/Transcript";
+import { VideoPanel } from "../../ui/video/VideoPanel";
 import { shownStatus } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { dictionaryFrame, menuPlacement } from "../video/placement";
 import type { VideoApp, VideoState } from "../video/session";
+import { filterCounts, filterRows, videoWords } from "../video/words";
 import { Floating } from "./Floating";
 import { useStore, type Store } from "./store";
 
@@ -38,6 +39,12 @@ export interface VideoLayout {
 
 /** Mock Main: the in-video subtitle sits 64px above the player's bottom. */
 export const SUBTITLE_BOTTOM = 64;
+/** Mock Fullscreen: the subtitle sits 120px above the screen's bottom. */
+const FULLSCREEN_SUBTITLE_BOTTOM = 120;
+/** Mock Fullscreen: 200px in from each side of the 1440px screen, less on small ones. */
+const FULLSCREEN_SUBTITLE_INSET = "clamp(24px, 14%, 200px)";
+/** Mock Main: 120px in from each side of the 880px video, less on small players. */
+const SUBTITLE_INSET = "clamp(12px, calc((100% - 640px) / 2), 120px)";
 /** The gap kept between the in-video subtitle and the site's control bar (px). */
 export const CONTROL_BAR_GAP = 12;
 
@@ -89,7 +96,7 @@ function playingLine(state: VideoState) {
 function Subtitle(props: {
   app: VideoApp;
   state: VideoState;
-  variant: "inVideo" | "belowVideo";
+  variant: "inVideo" | "belowVideo" | "fullscreen";
 }) {
   const { app, state } = props;
   const line = playingLine(state);
@@ -121,7 +128,10 @@ function Subtitle(props: {
   );
 }
 
-/** Inside the player: the subtitle over the video and the Lingo menu. */
+/**
+ * Inside the player: the subtitle over the video and the Lingo menu. In fullscreen the
+ * subtitle is always over the video, larger (mock Fullscreen).
+ */
 export function InPlayerUi(props: {
   app: VideoApp;
   geometry: VideoGeometry;
@@ -130,12 +140,12 @@ export function InPlayerUi(props: {
   const { app, geometry } = props;
   const state = useStore(app.store);
   const { subtitleBottom } = useStore(props.layout);
-  const { settings } = state;
+  const { settings, fullscreen } = state;
   const inVideo =
     showing(state) &&
-    !state.fullscreen &&
-    settings.subtitlePosition === "inVideo" &&
+    (fullscreen || settings.subtitlePosition === "inVideo") &&
     state.line >= 0;
+  const inset = fullscreen ? FULLSCREEN_SUBTITLE_INSET : SUBTITLE_INSET;
   const player = geometry.player();
   const buttons = geometry.buttons();
   const menu =
@@ -146,14 +156,18 @@ export function InPlayerUi(props: {
         <div
           style={{
             position: "absolute",
-            // Mock Main: 120px in from each side of the 880px video, less on small players.
-            left: "clamp(12px, calc((100% - 640px) / 2), 120px)",
-            right: "clamp(12px, calc((100% - 640px) / 2), 120px)",
-            bottom: `${subtitleBottom}px`,
+            left: inset,
+            right: inset,
+            // Netflix's control bar can lift it higher.
+            bottom: `${fullscreen ? Math.max(FULLSCREEN_SUBTITLE_BOTTOM, subtitleBottom) : subtitleBottom}px`,
             transition: "bottom 0.2s ease-out",
           }}
         >
-          <Subtitle app={app} state={state} variant="inVideo" />
+          <Subtitle
+            app={app}
+            state={state}
+            variant={fullscreen ? "fullscreen" : "inVideo"}
+          />
         </div>
       )}
       {menu && (
@@ -168,6 +182,7 @@ export function InPlayerUi(props: {
           <LingoMenu
             enabled={state.enabled}
             position={settings.subtitlePosition}
+            showPositions={!fullscreen}
             showTranslation={settings.subtitleTranslation}
             onPosition={(subtitlePosition) =>
               app.changeSettings({ subtitlePosition })
@@ -205,7 +220,7 @@ export function BelowVideoUi({ app }: { app: VideoApp }) {
   );
 }
 
-/** In the side column: the transcript. */
+/** In the side column: the Transcript and Words tabs (not in fullscreen). */
 export function TranscriptUi(props: {
   app: VideoApp;
   layout: Store<VideoLayout>;
@@ -213,12 +228,21 @@ export function TranscriptUi(props: {
   const { app } = props;
   const state = useStore(app.store);
   const { frameHeight } = useStore(props.layout);
-  if (!showing(state)) return null;
-  const { settings } = state;
+  const { cues, spans, summaries, settings, panel } = state;
+  const words = useMemo(
+    () => videoWords(cues, spans, summaries),
+    [cues, spans, summaries],
+  );
+  if (!showing(state) || state.fullscreen) return null;
+  const idOf = (row: { key: string; kind: string }) =>
+    `${row.kind}\n${row.key}`;
+  const open = panel && idOf(panel.card);
   return (
-    <Transcript
-      cues={state.cues}
-      spans={state.spans}
+    <VideoPanel
+      tab={state.panelTab}
+      onTab={app.setPanelTab}
+      cues={cues}
+      spans={spans}
       translations={state.translations}
       showTranslation={settings.transcriptTranslation}
       onToggleTranslation={() =>
@@ -230,6 +254,27 @@ export function TranscriptUi(props: {
       onToggleHighlight={app.toggleHighlight}
       current={state.card}
       onSeek={app.seekToCue}
+      words={filterRows(words, state.wordsFilter).map((row) => {
+        const brief = Object.hasOwn(summaries, row.key)
+          ? summaries[row.key]
+          : undefined;
+        return {
+          id: idOf(row),
+          head: row.head,
+          category: row.category,
+          count: row.count,
+          short: brief?.short,
+          shortLang: brief?.glossLang ?? settings.nativeLang,
+          selected: idOf(row) === open,
+        };
+      })}
+      wordsFilter={state.wordsFilter}
+      wordsCounts={filterCounts(words)}
+      onWordsFilter={app.setWordsFilter}
+      onOpenWord={(id) => {
+        const row = words.find((each) => idOf(each) === id);
+        if (row) app.openWord(row);
+      }}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}
@@ -251,29 +296,33 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
   );
 }
 
-/** Over the page: the hover card, the dictionary window and the end card. */
+/**
+ * Over the page: the hover card, the dictionary window and the end card (in fullscreen
+ * too: the host is then inside the fullscreen element).
+ */
 export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
   const { app, geometry } = props;
   const state = useStore(app.store);
-  const { hover, panel, settings } = state;
-  const position = settings.subtitlePosition;
-  // Placed when the window opens; it stays where the user drags it.
+  const { hover, panel, settings, fullscreen } = state;
+  const position = fullscreen ? "fullscreen" : settings.subtitlePosition;
+  // Placed when the window opens or the screen changes; it stays where the user drags it.
   const frame = useMemo(() => {
     const player = geometry.player();
     const viewport = { width: innerWidth, height: innerHeight };
     return player
       ? dictionaryFrame(player, position, viewport, geometry.transcript())
       : { left: viewport.width - 376, top: 64, height: 400 };
-  }, [panel?.opened]);
-  if (!showing(state) || state.fullscreen) return null;
+  }, [panel?.opened, fullscreen]);
+  if (!showing(state)) return null;
 
   return (
     <>
       {panel && (
         <DictionaryWindow
-          key={panel.opened}
+          key={`${panel.opened} ${fullscreen}`}
           variant="window"
           frame={frame}
+          fullscreen={fullscreen}
           entry={{
             head: panel.card.head,
             kind: panel.card.kind,
@@ -281,8 +330,10 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             sub: panel.card.sub,
             short: panel.card.short,
             senses: panel.card.senses,
+            glossLang: panel.card.glossLang,
           }}
           nativeLang={settings.nativeLang}
+          learningLang={settings.learningLang}
           status={panel.card.status}
           onStatus={app.setPanelStatus}
           onSpeak={app.speak}
@@ -295,11 +346,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
               onClick: () => app.seekTo(line.timeMs),
             })),
           }}
-          elsewhere={
-            panel.card.status === "new"
-              ? null
-              : elsewhereItems(panel.card.elsewhere)
-          }
+          elsewhere={elsewhereItems(panel.card.elsewhere, Date.now())}
           onClose={app.closePanel}
         />
       )}
@@ -339,6 +386,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             head={hover.card.head}
             ipa={hover.card.ipa}
             short={hover.card.short}
+            glossLang={hover.card.glossLang}
             sub={hover.card.sub}
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}

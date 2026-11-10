@@ -3,7 +3,8 @@ import type { LemmaPack } from "./types";
 /**
  * Base forms of a word as it appears in text: the word itself when it is in the
  * vocabulary, then its bases from the lemma pack. Falls back to the word without a
- * trailing possessive 's. Returns [] for an unknown word.
+ * trailing possessive 's (English; Spanish words do not end in 's, so it is harmless
+ * there). Returns [] for an unknown word.
  */
 export function lemmatize(
   form: string,

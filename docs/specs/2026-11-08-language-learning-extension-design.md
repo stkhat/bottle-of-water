@@ -39,8 +39,8 @@ Development pair: learning language = English, native language = Japanese, sites
 - Kind (Word / Phrase) and current status. Shown for every word in the vocabulary, also those known by their frequency (within the known level, not saved): they show as **Known**, with "Known" pressed; pressing it saves them as Known, "+ Learning" as Learning
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
 - Buttons: "+ Learning", "Known"
-- For phrases, a saved phrase that matches is shown (automatic detection of dictionary phrases is phase 2)
-- EJDict has almost no phrasal verbs or idioms (no "figure out", "from scratch"). When a phrase is not in the bundled dictionary, its short translation comes from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
+- Phrases: saved phrases and dictionary phrases (phase 2: Wiktionary idioms, phrasal verbs and prepositional phrases made of vocabulary words, plus EJDict's multi-word headwords) are matched by their words' base forms; the longest match wins and a saved phrase wins over a detected one. An unsaved detected phrase is New (the known level does not apply to phrases) and does not cover a word saved as Learning. Kaikki phrases starting with be/have/do, word sequences Wiktionary marks as non-constituents, and idioms/phrases made only of very common words are left out
+- Phrase meanings: EJDict → Wiktionary's Japanese translations → Wiktionary's English definition (marked `lang="en"`). A selected phrase that no dictionary has gets its short translation from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
 
 ### Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
@@ -115,6 +115,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")
   - **Video subtitles**: subtitle position (In video / Below video), subtitle translation, transcript translation
   - **Sites**: on/off for YouTube / Netflix / other articles, and a "Never run on" list
+  - **Sentence history** (phase 2): see "Phase 2 screens"
   - **Sync and backup**
     - Browser sync switch ("Sync word status with Chrome sync"; the name follows the browser). The description explains that data reaches other devices when the user is signed in to the browser with sync on
     - Usage and last saved time ("Last saved …", never "Last synced")
@@ -138,17 +139,20 @@ Development pair: learning language = English, native language = Japanese, sites
 
 ### Phase 2 screens (mock, approved 2026-11-10)
 - **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
+  - Listed: New (unsaved), Learning and saved Known words and phrases; words known only by the frequency level and ignored tokens are left out. Short meanings come from the dictionary (no built-in translator). The tab and filter are per video (Transcript and All by default). The Transcript tab keeps the Highlight chips and the Translation switch under the tabs. The column's accessible name is "Lingo"
 - **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows only the translation switch and "Open all settings"
+  - The site's captions stay hidden in fullscreen. The subtitle uses a larger look (34 px line, 24 px translation, 120 px above the bottom edge, or higher above Netflix's control bar). The dictionary window opens at the top right (32 px in, 360 × 420, darker shadow) and is placed again when fullscreen starts or ends. Everything Lingo draws on the page moves into the fullscreen element while fullscreen lasts (its parent when that is a `<video>`)
 - **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
   - The dictionary window shows "Seen elsewhere · N" for unsaved words too, from the local sentence history. When the word is saved, those occurrences become part of its history
-  - Settings gets a **Sentence history** section: "Keep sentence history" switch (on by default; never synced; Never run on sites are not kept), space used with a bar (cap 50 MB; the oldest pages are removed first), the number of pages and videos, and "Clear" (saved words and their sources stay)
+  - Rows show "host · Nov 8" for pages and "YouTube · at 3:10 · Nov 8" for videos (saved words too)
+  - Settings gets a **Sentence history** section (after Sites): "Keep sentence history" switch (on by default; never synced; Never run on sites are not kept), space used with a bar (cap 50 MB; the oldest pages are removed first), the number of pages and videos, and "Clear" (saved words and their sources stay)
 
 ## Architecture (MV3 / TypeScript / WXT + Preact, UI inside Shadow DOM)
 
 | Part | Role | Phase 1 implementation |
 |---|---|---|
-| `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list and IPA table built from kaikki (Wiktionary) |
-| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label |
+| `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list, IPA table and phrase list built from kaikki (Wiktionary) and EJDict. Phase 2: `es` (kaikki Spanish, Wiktionary Spanish frequency list; ~34k words) |
+| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label. Phase 2: `es→en` from kaikki's English glosses (senses carry their part of speech) |
 | `TranslationProvider` | Translating one subtitle line / sentence. Several implementations tried in order ("Choosing a translation") | ① the site's translated subtitles (from `PlatformAdapter`) ② the browser's built-in translator (Chrome: Translator API). If neither exists, no translation |
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation | YouTube / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
@@ -157,6 +161,7 @@ Development pair: learning language = English, native language = Japanese, sites
 | `LookupUI` | Hover card, dictionary window, phrase saving, save-all card | shared by text and video UI |
 
 - Where things run: a content script's IndexedDB belongs to the page's origin, so `TermStore`, `LanguagePack` and `DictionaryProvider` live in the **background** and content scripts / extension pages talk to it through typed messages. Pack data is bundled with the extension and read by the background with `runtime.getURL` (not exposed as `web_accessible_resources`), in compact formats that reload quickly when the service worker restarts
+- The UI on web pages sits in shadow roots: closed in production builds so page scripts cannot read it (it shows sentences kept from other sites), open in the check build and in development so tests and the developer can reach it. It acts only on events the user caused (`isTrusted`), not on events a page script dispatches: each shadow root drops untrusted UI events as they enter it (`guardShadowRoot`, `src/ui/from-user.ts`), and the handlers that open the dictionary or change a word check again
 - IPA: EJDict-hand has no pronunciations, so the US IPA is taken from the `sounds` field of kaikki (English Wiktionary) and kept in the `LanguagePack`. Phrases show the IPA of their words joined together. Words without IPA hide the field
 - Getting video and text
   - **YouTube:** hook fetch/XHR in the page (MAIN world) and receive the `/api/timedtext` (json3) responses the player itself requests
@@ -170,7 +175,7 @@ Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignor
 | File | Source | Size | Used for |
 |---|---|---|---|
 | EJDict-hand `src/*.txt` (26 files) | github.com/kujirahand/EJDict (pinned commit) | ~5 MB total | en→ja translations, English phrase list |
-| kaikki English JSONL | kaikki.org/dictionary/English/ | ~3.4 GB (streamed; only processed output is kept) | inflection → base form, US IPA, phrases |
+| kaikki English JSONL | kaikki.org/dictionary/English/ | ~3.4 GB (streamed; only processed output is kept) | inflection → base form, US IPA, phrase list, phrase meanings (Japanese translations, English definitions) |
 | kaikki Spanish JSONL | kaikki.org/dictionary/Spanish/ | ~1.1 GB | Spanish inflections, IPA, English glosses (phase 2) |
 | Frequency lists | Wiktionary "Frequency lists/TV/2006" (en, 41k words from TV and movie scripts) and "Frequency lists/Spanish/Mixed 730K" (es); CC BY-SA | < 1 MB each | frequency rank |
 
@@ -198,6 +203,11 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
+- Sentence history (phase 2, device only: never synced, not in the JSON export)
+  - `historyPages`: `{id (= source id), platform, url (normalized), host, title, lang, firstSeen, lastSeen, bytes}`
+  - `historySentences`: `{pageId, text, translation?, pos, keys: termId[], seenAt}`, unique per page and text, indexed by `keys` (every base form of each word outside the 300 most common, plus the phrases found in the sentence)
+  - Articles keep the sentences of the blocks Lingo analyzes; videos keep **played lines only**. Not kept while the switch is off or on hosts in "Never run on" / switched off in the popup; adding a host to "Never run on" removes its pages. Size is counted by Lingo (UTF-16 size of the strings plus a fixed overhead); over 50 MB, the oldest pages (`lastSeen`) are removed until under 45 MB
+  - Saving a word (not "save all") copies its kept sentences into its occurrences (`origin: encountered`, up to 50)
   - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
@@ -292,7 +302,7 @@ Phase 1 publishes only the Chrome version, but the structure must not need rewri
 
 ### Chrome Web Store requirements (checked 2026-11-09)
 No outright blocker. Decisions and requirements:
-- **Subtitles (decided)**: keep YouTube and Netflix. Subtitle tracks are processed in memory only and never written to storage; only the sentence in which a saved word appears is stored (as an occurrence). Policy risk: "do not facilitate unauthorized access to content" / copyrighted content. Language Reactor does the same on the store. Prepare a written justification for review
+- **Subtitles (decided)**: keep YouTube and Netflix. Subtitle tracks are processed in memory; what is stored is the sentence in which a saved word appears (as an occurrence) and, while Sentence history is on, the lines that actually played (on the device only). Policy risk: "do not facilitate unauthorized access to content" / copyrighted content. Language Reactor does the same on the store. Prepare a written justification for review
 - **Host access (decided)**: keep the content script on all sites (`<all_urls>`), accepting an in-depth review (can take weeks). Write a justification (article highlighting on any page the user reads)
 - **Sentence history, phase 2 (decided)**: on by default, as in the mock. Browsing activity may be collected only for a user-facing feature described prominently in the store listing and in the UI, so the listing and Settings must describe it clearly, and it stays on the device
 - **Privacy policy (required)**: any extension that handles user data needs a privacy policy URL, even when data stays on the device. Recorded sources (URL, title) and sentences count as user data. Disclose: what is stored locally, that word status goes through the browser's sync, that nothing is sent to the developer. Include the Limited Use compliance statement. Host it somewhere public without a server (e.g. GitHub Pages; this repo is private, so a separate public page is needed)
@@ -310,11 +320,11 @@ No outright blocker. Decisions and requirements:
    - Video UI for YouTube and Netflix (two columns + dictionary window, subtitle position and translation toggles, L button and arrow menu, site-first translation)
    - Toolbar popup, settings page, word list page
 2. **Phase 2**
-   - Automatic detection of phrases in the dictionary (phrase list from Wiktionary's English idioms and phrasal verbs, made of vocabulary words; where no Japanese translation exists, the English definition is shown)
-   - Searching past occurrences (local corpus)
-   - Fullscreen support
-   - Per-video word list tab
-   - A Spanish → English language pack
+   - Automatic detection of phrases in the dictionary (phrase list from Wiktionary's English idioms and phrasal verbs, made of vocabulary words; where no Japanese translation exists, the English definition is shown) — done (M8a)
+   - Searching past occurrences (local corpus) — done (M8c)
+   - Fullscreen support — done (M8e)
+   - Per-video word list tab — done (M8d)
+   - A Spanish → English language pack — done (M8b): learning-language choices in Settings list only languages with a dictionary for the learning language (English → Japanese, Spanish → English)
 3. **Phase 3**
    - "Ask AI" button (links that open ChatGPT / Claude with a prompt containing the word and sentence)
    - LLM explanations: embed "word + sentence + nearby subtitles + saved words" in a prompt, receive JSON, cache per word + sentence. Run on Chrome's built-in Prompt API (Gemini Nano) first, with the user's own API key as a fallback

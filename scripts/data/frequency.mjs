@@ -42,7 +42,7 @@ export function parseFrequencyWikitext(text) {
 
 function basesOf(word, lemmas, vocab) {
   const w = word.replaceAll("’", "'");
-  const fromLemmas = lemmas[w] === undefined ? [] : [lemmas[w]].flat();
+  const fromLemmas = Object.hasOwn(lemmas, w) ? [lemmas[w]].flat() : [];
   if (vocab.has(w)) return [w, ...fromLemmas];
   if (fromLemmas.length > 0) return fromLemmas;
   if (w.endsWith("'s")) return basesOf(w.slice(0, -2), lemmas, vocab);

@@ -1,0 +1,29 @@
+{"pos": "prep", "word": "de", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/de/"}, {"ipa": "[d̪e]"}], "senses": [{"glosses": ["of; 's"]}, {"glosses": ["from"]}]}
+{"pos": "article", "word": "la", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/la/"}], "senses": [{"glosses": ["the"], "tags": ["feminine", "singular"]}]}
+{"pos": "article", "word": "el", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/el/"}], "senses": [{"glosses": ["the"], "tags": ["masculine", "singular"]}]}
+{"pos": "verb", "word": "comer", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "[koˈmeɾ]"}, {"ipa": "/koˈmeɾ/"}, {"rhymes": "-eɾ"}], "forms": [{"form": "como", "tags": ["first-person", "present", "singular"]}, {"form": "no-table-tags", "source": "conjugation", "tags": ["table-tags"]}], "senses": [{"glosses": ["to eat; to dine"]}, {"glosses": ["to have lunch"], "tags": ["Spain"]}, {"glosses": ["to devour"], "tags": ["obsolete"]}, {"glosses": ["to eat away, corrode"], "tags": ["colloquial"]}, {"glosses": ["to capture a piece"], "tags": ["transitive"]}]}
+{"pos": "noun", "word": "comer", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/koˈmeɾ/"}], "senses": [{"glosses": ["food"], "tags": ["masculine"]}, {"glosses": ["meal"], "tags": ["masculine"]}, {"glosses": ["eating"], "tags": ["masculine"]}]}
+{"pos": "verb", "word": "comer", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["One who comes."]}]}
+{"pos": "verb", "word": "comiendo", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/koˈmjendo/"}], "senses": [{"glosses": ["gerund of comer"], "tags": ["form-of", "gerund"], "form_of": [{"word": "comer"}]}]}
+{"pos": "verb", "word": "comí", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/koˈmi/"}], "senses": [{"glosses": ["first-person singular preterite indicative of comer"], "tags": ["form-of", "first-person", "preterite", "singular"], "form_of": [{"word": "comer"}, {"word": "-er"}]}, {"glosses": ["inflection of comir"], "tags": ["form-of", "obsolete"], "form_of": [{"word": "comir"}]}]}
+{"pos": "verb", "word": "comemos", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["first-person plural present indicative of comer"], "tags": ["form-of", "plural"], "form_of": [{"word": "comer"}]}]}
+{"pos": "noun", "word": "casa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "[ˈka.sa]"}, {"ipa": "/ˈkasa/"}], "senses": [{"glosses": ["house"], "tags": ["feminine"]}, {"glosses": ["home"], "tags": ["feminine"]}]}
+{"pos": "verb", "word": "casa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈkasa/"}], "senses": [{"glosses": ["inflection of casar:", "third-person singular present indicative"], "tags": ["form-of", "present", "third-person"], "form_of": [{"word": "casar"}]}]}
+{"pos": "verb", "word": "casar", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/kaˈsaɾ/"}], "senses": [{"glosses": ["to marry"]}]}
+{"pos": "noun", "word": "casas", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈkasas/"}], "senses": [{"glosses": ["plural of casa"], "tags": ["feminine", "form-of", "plural"], "form_of": [{"word": "casa"}]}]}
+{"pos": "verb", "word": "casas", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈkasas/"}], "senses": [{"glosses": ["second-person singular present indicative of casar"], "tags": ["form-of", "present", "second-person"], "form_of": [{"word": "casar"}]}]}
+{"pos": "verb", "word": "hablar", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/aˈblaɾ/"}], "senses": [{"glosses": ["to speak, to talk"]}]}
+{"pos": "verb", "word": "hablo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["first-person singular present indicative of hablar"], "tags": ["form-of", "first-person", "present", "singular"], "form_of": [{"word": "hablar"}]}]}
+{"pos": "name", "word": "Brasil", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/bɾaˈsil/"}], "senses": [{"glosses": ["Brazil (a country in South America)"], "tags": ["masculine"]}]}
+{"pos": "verb", "word": "tomar", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/toˈmaɾ/"}], "senses": [{"glosses": ["to take", "to drink (a beverage)"], "tags": ["transitive"]}]}
+{"pos": "noun", "word": "pelo", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈpelo/"}], "senses": [{"glosses": ["hair"], "tags": ["masculine"]}]}
+{"pos": "noun", "word": "zapato", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/θaˈpato/"}], "senses": [{"glosses": ["shoe"], "tags": ["masculine"]}]}
+{"pos": "verb", "word": "tomar el pelo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to pull someone's leg; to tease"], "tags": ["idiomatic"]}]}
+{"pos": "phrase", "word": "de la casa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["on the house (free of charge)"]}]}
+{"pos": "phrase", "word": "de la", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["of the"]}]}
+{"pos": "noun", "word": "casa de pelo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["hair salon"]}]}
+{"pos": "phrase", "word": "tomar el zapato", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to take the shoe"], "tags": ["idiomatic"]}]}
+{"pos": "phrase", "word": "de la Casa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["of the House (parliament)"]}]}
+{"pos": "phrase", "word": "comer la casa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to eat the house"], "tags": ["idiomatic"], "categories": [{"name": "Spanish non-constituents", "kind": "other"}]}]}
+{"pos": "name", "word": "rosa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈrosa/ [ˈro.sa]"}], "senses": [{"glosses": ["a female given name"], "tags": ["feminine"]}]}
+{"pos": "noun", "word": "rosa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈrosa/ [ˈro.sa]"}], "senses": [{"glosses": ["rose"], "tags": ["feminine"]}]}

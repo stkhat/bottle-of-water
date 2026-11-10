@@ -1,8 +1,10 @@
 import type {
+  DefsPack,
   DictPack,
   FreqPack,
   IpaPack,
   LemmaPack,
+  PhrasesPack,
   PosPack,
   ShardIndex,
   VocabPack,
@@ -16,8 +18,18 @@ export interface PackFiles {
     ipa: IpaPack;
     pos: PosPack;
     vocab: VocabPack;
+    phrases: PhrasesPack;
   };
-  "en-ja": { dict: DictPack };
+  "en-ja": { dict: DictPack; phrases: DictPack };
+  "en-defs": { defs: DefsPack };
+  es: {
+    lemmas: LemmaPack;
+    freq: FreqPack;
+    ipa: IpaPack;
+    vocab: VocabPack;
+    phrases: PhrasesPack;
+  };
+  "es-en": { defs: DefsPack };
 }
 export type PackName = keyof PackFiles;
 
@@ -30,11 +42,27 @@ const LOADERS: {
   [P in PackName]: (fetchJson: FetchJson) => Promise<PackFiles[P]>;
 } = {
   en: (fetchJson) =>
-    loadFiles("en", ["lemmas", "freq", "ipa", "pos", "vocab"], fetchJson),
-  // The dictionary is split into shards (each well under the 5 MB that AMO's linter
+    loadFiles(
+      "en",
+      ["lemmas", "freq", "ipa", "pos", "vocab", "phrases"],
+      fetchJson,
+    ),
+  // The dictionaries are split into shards (each well under the 5 MB that AMO's linter
   // allows per text file), listed in index.json.
-  "en-ja": async (fetchJson) => ({
-    dict: await loadShards("/packs/en-ja", fetchJson),
+  "en-ja": async (fetchJson) => {
+    const [dict, phrases] = await Promise.all([
+      loadShards<DictPack[string]>("/packs/en-ja", fetchJson),
+      fetchJson("/packs/en-ja/phrases.json") as Promise<DictPack>,
+    ]);
+    return { dict, phrases };
+  },
+  "en-defs": async (fetchJson) => ({
+    defs: await loadShards("/packs/en-defs", fetchJson),
+  }),
+  es: (fetchJson) =>
+    loadFiles("es", ["lemmas", "freq", "ipa", "vocab", "phrases"], fetchJson),
+  "es-en": async (fetchJson) => ({
+    defs: await loadShards("/packs/es-en", fetchJson),
   }),
 };
 

@@ -35,10 +35,17 @@ const pack = createEnglishPack({
     looked: "look",
     better: ["good", "well"],
     lives: ["life", "live"],
+    gave: "give",
   },
   freq,
   ipa: {},
-  vocab: new Set([...freq, "better", "yeast", "a", "i"]),
+  vocab: new Set([
+    ...freq,
+    ...["better", "yeast", "a", "i"],
+    ...["give", "from", "scratch", "it", "we", "start"],
+  ]),
+  // Dictionary phrases, detected without being saved.
+  phrases: new Set(["figure out", "from scratch", "give up", "give up on"]),
 });
 const classifier = createClassifier(pack);
 
@@ -135,6 +142,7 @@ describe("classify words", () => {
       freq: ["don't"],
       ipa: {},
       vocab: new Set(["don't"]),
+      phrases: new Set(),
     });
     const spans = createClassifier(pack2).classify(pack2.tokenize("Don’t"), {
       terms: terms(),
@@ -212,6 +220,96 @@ describe("classify phrases", () => {
   });
 });
 
+describe("classify dictionary phrases", () => {
+  it("detects an unsaved dictionary phrase as new", () => {
+    expect(classify("We start from scratch")).toContainEqual({
+      start: 9,
+      end: 21,
+      key: "from scratch",
+      kind: "phrase",
+      category: "new",
+      text: "from scratch",
+    });
+  });
+
+  it("does not apply the known level to a detected phrase", () => {
+    // give and up are both ranked within the level.
+    expect(brief(classify("give up", {}, 20000))).toEqual([
+      "give up:give up:new",
+    ]);
+  });
+
+  it("uses the status of a saved phrase that is also a dictionary phrase", () => {
+    expect(
+      brief(classify("from scratch", { "from scratch": "learning" })),
+    ).toEqual(["from scratch:from scratch:learning"]);
+    expect(brief(classify("figured out", { "figure out": "known" }))).toEqual([
+      "figured out:figure out:known",
+    ]);
+  });
+
+  it("matches a dictionary phrase on its words' base forms", () => {
+    expect(brief(classify("I gave up"))).toEqual([
+      "I:i:ignored",
+      "gave up:give up:new",
+    ]);
+  });
+
+  it("gives the words inside a detected phrase no spans, even saved known ones", () => {
+    expect(brief(classify("from scratch", { scratch: "known" }))).toEqual([
+      "from scratch:from scratch:new",
+    ]);
+  });
+
+  it("does not detect a phrase with a word saved as learning inside it", () => {
+    expect(brief(classify("from scratch", { scratch: "learning" }))).toEqual([
+      "from:from:new",
+      "scratch:scratch:learning",
+    ]);
+    // Other dictionary phrases in the same run still match.
+    expect(
+      brief(classify("gave up from scratch", { give: "learning" })),
+    ).toEqual([
+      "gave:give:learning",
+      "up:up:known",
+      "from scratch:from scratch:new",
+    ]);
+  });
+
+  it("matches a saved phrase even with a word saved as learning inside it", () => {
+    expect(
+      brief(classify("gave up", { give: "learning", "give up": "known" })),
+    ).toEqual(["gave up:give up:known"]);
+  });
+
+  it("does not match a dictionary phrase with a word between its words", () => {
+    expect(brief(classify("figure it out"))).toEqual([
+      "figure:figure:new",
+      "it:it:new",
+      "out:out:known",
+    ]);
+  });
+
+  it("prefers a longer saved phrase to a shorter dictionary phrase", () => {
+    expect(
+      brief(classify("gave up on you", { "give up on": "learning" })),
+    ).toEqual(["gave up on:give up on:learning", "you:you:known"]);
+  });
+
+  it("prefers a saved phrase to a longer dictionary phrase", () => {
+    expect(brief(classify("gave up on it", { "give up": "learning" }))).toEqual(
+      ["gave up:give up:learning", "on:on:known", "it:it:new"],
+    );
+  });
+
+  it("detects the longest dictionary phrase when no saved phrase matches", () => {
+    expect(brief(classify("gave up on it"))).toEqual([
+      "gave up on:give up on:new",
+      "it:it:new",
+    ]);
+  });
+});
+
 describe("unsavedKeys", () => {
   it("lists each new key once, leaving out known, saved and ignored words", () => {
     const spans = classifier.classify(
@@ -219,5 +317,13 @@ describe("unsavedKeys", () => {
       { terms: terms({ dough: "learning" }), knownLevel: 10 },
     );
     expect(unsavedKeys(spans)).toEqual(["tangy", "ferment", "yeast"]);
+  });
+
+  it("includes detected dictionary phrases", () => {
+    const spans = classifier.classify(pack.tokenize("We gave up tangy yeast"), {
+      terms: terms(),
+      knownLevel: 10,
+    });
+    expect(unsavedKeys(spans)).toEqual(["we", "give up", "tangy", "yeast"]);
   });
 });

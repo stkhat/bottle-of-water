@@ -21,6 +21,13 @@ const vocab = [
   "look",
   "my",
   "would",
+  "play",
+  "groin",
+  "aha",
+  "abc",
+  "comma",
+  "finale",
+  "bath",
 ];
 
 describe("importKaikki", () => {
@@ -85,6 +92,15 @@ describe("importKaikki", () => {
     expect(result.ipa.ferment).toBe("/fɚˈmɛnt/");
     expect(result.ipa.the).toBe("/ðiː/");
   });
+  it("keeps one transcription: the phonemic /…/ part, or the first of several", () => {
+    expect(result.ipa.play).toBe("/pleɪ̯/");
+    expect(result.ipa.groin).toBe("/ˈɡɹoɪ̯n/");
+    expect(result.ipa.aha).toBe("[ɑˈhɑ]");
+    expect(result.ipa.comma).toBe("[ˈkɑ.mə]");
+    expect(result.ipa.finale).toBe("/fəˈnɑli/");
+    expect(result.ipa).not.toHaveProperty("bath");
+    expect(result.ipa.abc).toBe("/eɪ biː ˈsiː/");
+  });
   it("falls back to an IPA without accent tags or notes", () => {
     expect(result.ipa.look).toBe("/lʊk/");
     expect(result.ipa.well).toBe("/wɛɫ/");
@@ -105,7 +121,7 @@ describe("importKaikki", () => {
     expect(result.pos).not.toHaveProperty("zzyzx");
   });
   it("counts lines it cannot parse instead of failing", () => {
-    expect(result.stats).toEqual({ entries: 21, unparsable: 1 });
+    expect(result.stats).toEqual({ entries: 28, unparsable: 1 });
   });
 });
 

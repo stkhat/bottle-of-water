@@ -21,6 +21,11 @@ export interface DictionaryEntryView {
   sub?: string;
   short?: string;
   senses: { pos?: string; text: string }[];
+  /**
+   * Language of `short` and `senses` when it is not the native language (an English
+   * definition).
+   */
+  glossLang?: string;
 }
 
 /** Another occurrence in the same video (with its time; clicking seeks) or page. */
@@ -43,13 +48,19 @@ interface CommonProps {
   entry: DictionaryEntryView;
   /** Language of the translation and meanings, for their `lang` attribute. */
   nativeLang: string;
+  /** Language of the entry's sentences (the language being learned), for their `lang` attribute. */
+  learningLang: string;
   status: WordStatus;
   onStatus: (status: WordStatus) => void;
   onSpeak: () => void;
   dictionaries: { label: string; href: string }[];
   here: { source: "video" | "page"; items: HereItem[] };
-  /** null while the entry is not saved: nothing is recorded yet. */
-  elsewhere: ElsewhereItem[] | null;
+  /**
+   * Other sources the entry was met in: a saved entry's occurrences, or for an unsaved
+   * one the sentences kept in the history. An unsaved entry with none shows a note
+   * that saving it starts recording.
+   */
+  elsewhere: ElsewhereItem[];
   onClose: () => void;
 }
 
@@ -60,6 +71,8 @@ export type DictionaryWindowProps = CommonProps &
         variant: "window";
         /** Start position and height; dragging moves it from there. */
         frame: { left: number; top: number; height: number };
+        /** Mock Fullscreen: over the video, with a darker shadow. */
+        fullscreen?: boolean;
       }
     | {
         /** Mock Article: a panel floating on the right side. */
@@ -137,7 +150,9 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
           top: `${drag.pos.top}px`,
           width: "360px",
           height: `${props.frame.height}px`,
-          boxShadow: "0 18px 48px rgba(20,24,43,0.22)",
+          boxShadow: props.fullscreen
+            ? "0 18px 48px rgba(0,0,0,0.45)"
+            : "0 18px 48px rgba(20,24,43,0.22)",
           overflow: "hidden",
         })}
       >
@@ -237,6 +252,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
 
 function Content(props: DictionaryWindowProps & { icon: Style }) {
   const { entry, status } = props;
+  const glossLang = entry.glossLang ?? props.nativeLang;
 
   return (
     <>
@@ -313,7 +329,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
         )}
         {entry.short && (
           <p
-            lang={props.nativeLang}
+            lang={glossLang}
             style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
           >
             {entry.short}
@@ -348,7 +364,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
                 </span>
               )}
               <span
-                lang={props.nativeLang}
+                lang={glossLang}
                 style={{ fontSize: "15px", lineHeight: 1.55 }}
               >
                 {sense.text}
@@ -396,18 +412,24 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
             })}
           </h3>
           {props.here.items.map((item, i) => (
-            <HereRow key={i} item={item} source={props.here.source} />
+            <HereRow
+              key={i}
+              item={item}
+              source={props.here.source}
+              lang={props.learningLang}
+            />
           ))}
         </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         <h3 style={sectionHeading}>
-          {t("dict.elsewhere", { count: props.elsewhere?.length ?? 0 })}
+          {t("dict.elsewhere", { count: props.elsewhere.length })}
         </h3>
-        {props.elsewhere ? (
-          props.elsewhere.map((item, i) => <ElsewhereRow key={i} item={item} />)
-        ) : (
+        {props.elsewhere.map((item, i) => (
+          <ElsewhereRow key={i} item={item} lang={props.learningLang} />
+        ))}
+        {props.status === "new" && props.elsewhere.length === 0 && (
           <p
             style={{
               margin: 0,
@@ -424,7 +446,12 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
   );
 }
 
-function HereRow(props: { item: HereItem; source: "video" | "page" }) {
+function HereRow(props: {
+  item: HereItem;
+  source: "video" | "page";
+  /** The sentence's language. */
+  lang: string;
+}) {
   const { item } = props;
   const style: Style =
     props.source === "video"
@@ -474,7 +501,7 @@ function HereRow(props: { item: HereItem; source: "video" | "page" }) {
           {item.time}
         </span>
       )}
-      <span>{item.text}</span>
+      <span lang={props.lang}>{item.text}</span>
     </>
   );
   return item.onClick ? (
@@ -491,7 +518,11 @@ function HereRow(props: { item: HereItem; source: "video" | "page" }) {
 }
 
 /** An occurrence in another source: its icon, title, meta and sentence; a link when it has one. */
-export function ElsewhereRow(props: { item: ElsewhereItem }) {
+export function ElsewhereRow(props: {
+  item: ElsewhereItem;
+  /** The sentence's language. */
+  lang: string;
+}) {
   const { item } = props;
   const style: Style = {
     display: "flex",
@@ -551,7 +582,10 @@ export function ElsewhereRow(props: { item: ElsewhereItem }) {
         <span style={{ fontSize: "12px", color: color.muted }}>
           {item.meta}
         </span>
-        <span style={{ fontSize: "13px", lineHeight: 1.5, color: color.ink3 }}>
+        <span
+          lang={props.lang}
+          style={{ fontSize: "13px", lineHeight: 1.5, color: color.ink3 }}
+        >
           {item.text}
         </span>
       </span>

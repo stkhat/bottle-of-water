@@ -1,5 +1,6 @@
 import type { CSSProperties } from "preact";
 import { t } from "../../i18n/t";
+import { onlyFromUser } from "../from-user";
 import { IPA_FONT, color, root, statusButton } from "./styles";
 
 export type WordStatus = "learning" | "known" | "new";
@@ -11,12 +12,14 @@ export interface HoverCardProps {
   status: WordStatus;
   head: string;
   ipa?: string;
-  /** Short translation, in the native language. */
+  /** Short translation, in the native language (or `glossLang`). */
   short?: string;
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
-  /** Language of `short` (the native language), for its `lang` attribute. */
+  /** The native language: the `lang` of `short` unless `glossLang` says otherwise. */
   nativeLang: string;
+  /** Language of `short` when it is not the native language (an English definition). */
+  glossLang?: string;
   onLearning: () => void;
   onKnown: () => void;
 }
@@ -108,7 +111,7 @@ export function HoverCard(props: HoverCardProps) {
       )}
       {props.short && (
         <div
-          lang={props.nativeLang}
+          lang={props.glossLang ?? props.nativeLang}
           style={{ fontSize: "15px", color: color.ink2, marginTop: "2px" }}
         >
           {props.short}
@@ -129,7 +132,7 @@ export function HoverCard(props: HoverCardProps) {
         <button
           type="button"
           aria-pressed={props.status === "learning"}
-          onClick={props.onLearning}
+          onClick={onlyFromUser(() => props.onLearning())}
           style={{
             ...BUTTON,
             ...statusButton.learning(props.status === "learning"),
@@ -140,7 +143,7 @@ export function HoverCard(props: HoverCardProps) {
         <button
           type="button"
           aria-pressed={props.status === "known"}
-          onClick={props.onKnown}
+          onClick={onlyFromUser(() => props.onKnown())}
           style={{ ...BUTTON, ...known }}
         >
           {t("hover.known")}

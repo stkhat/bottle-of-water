@@ -3,6 +3,7 @@ import {
   fnv1a64,
   normalizeUrl,
   occurrenceLink,
+  onHost,
   siteFromInput,
   sourceId,
 } from "./url";
@@ -147,4 +148,17 @@ describe("siteFromInput", () => {
       expect(siteFromInput(input)).toBeUndefined();
     },
   );
+});
+
+describe("onHost", () => {
+  it.each([
+    ["example.com", "example.com", true],
+    ["blog.example.com", "example.com", true],
+    ["Blog.Example.com", " EXAMPLE.com ", true],
+    ["notexample.com", "example.com", false],
+    ["example.com", "blog.example.com", false],
+    ["example.com", "", false],
+  ])("%s on %j is %s", (hostname, entry, expected) => {
+    expect(onHost(hostname, entry)).toBe(expected);
+  });
 });

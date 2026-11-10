@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import type { Page } from "@playwright/test";
-import en from "../src/i18n/locales/en.json" with { type: "json" };
 import {
+  ENGLISH_PAGE,
   test,
   expect,
   extensionIdOf,
@@ -27,7 +27,7 @@ test("settings changes reach an open article page at once", async ({
 }) => {
   const page = await context.newPage();
   await page.goto("/article-en.html");
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   await expect
     .poll(async () => (await highlighted(page, "lingo-new")).length)
     .toBe(0);
@@ -56,7 +56,7 @@ test("settings changes reach an open article page at once", async ({
   await options
     .getByRole("switch", { name: "Run Lingo on Articles on other sites" })
     .click();
-  await expect(page.getByText(en["card.pageStatus"])).toHaveCount(0);
+  await expect(page.getByText(ENGLISH_PAGE)).toHaveCount(0);
   expect(await newCount(page)).toBe(0);
 });
 

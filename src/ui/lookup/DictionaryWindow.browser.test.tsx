@@ -23,6 +23,7 @@ const figureOut: DictionaryWindowProps = {
     ],
   },
   nativeLang: "ja",
+  learningLang: "en",
   status: "learning",
   onStatus: () => {},
   onSpeak: () => {},
@@ -91,6 +92,57 @@ describe("DictionaryWindow", () => {
       .toHaveAttribute("lang", "ja");
   });
 
+  test("marks an English definition and its senses as English", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...figureOut}
+        entry={{
+          ...figureOut.entry,
+          short: "To come to understand",
+          senses: [
+            { pos: "verb", text: "To come to understand; to discover." },
+          ],
+          glossLang: "en",
+        }}
+      />,
+    );
+    await expect
+      .element(screen.getByText("To come to understand", { exact: true }))
+      .toHaveAttribute("lang", "en");
+    await expect
+      .element(screen.getByText("To come to understand; to discover."))
+      .toHaveAttribute("lang", "en");
+  });
+
+  test("marks the sentences as the learning language", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
+    for (const text of [
+      "Once you figure out the timing, it's easy.",
+      "…you just have to figure it out yourself.",
+    ])
+      await expect
+        .element(screen.getByText(text, { exact: true }))
+        .toHaveAttribute("lang", "en");
+
+    const spanish = await mountInShadowRoot(
+      <DictionaryWindow {...panel} learningLang="es" />,
+    );
+    // The page's sentence is both on this page and seen elsewhere.
+    const sentence = spanish.getByText(
+      "…once you figure out a schedule that fits your week…",
+      { exact: true },
+    );
+    await expect.element(sentence.first()).toHaveAttribute("lang", "es");
+    await expect.element(sentence.last()).toHaveAttribute("lang", "es");
+    await expect
+      .element(
+        spanish.getByText("…you just have to figure it out yourself.", {
+          exact: true,
+        }),
+      )
+      .toHaveAttribute("lang", "es");
+  });
+
   test("the window has a header with a move handle; the panel does not", async () => {
     const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
     await expect
@@ -144,7 +196,7 @@ describe("DictionaryWindow", () => {
 
   test("an unsaved entry shows Not saved, pressed", async () => {
     const screen = await mountInShadowRoot(
-      <DictionaryWindow {...figureOut} status="new" elsewhere={null} />,
+      <DictionaryWindow {...figureOut} status="new" elsewhere={[]} />,
     );
     const group = screen.getByRole("group", { name: "Word status" });
     await expect
@@ -276,7 +328,7 @@ describe("DictionaryWindow", () => {
         {...figureOut}
         elsewhere={[
           {
-            ...figureOut.elsewhere![0]!,
+            ...figureOut.elsewhere[0]!,
             href: "https://theweekendtable.example/bread",
           },
         ]}
@@ -293,7 +345,7 @@ describe("DictionaryWindow", () => {
 
   test("an unsaved entry explains that saving starts recording", async () => {
     const screen = await mountInShadowRoot(
-      <DictionaryWindow {...figureOut} status="new" elsewhere={null} />,
+      <DictionaryWindow {...figureOut} status="new" elsewhere={[]} />,
     );
     await expect
       .element(screen.getByRole("heading", { name: "Seen elsewhere · 0" }))
@@ -305,6 +357,29 @@ describe("DictionaryWindow", () => {
         ),
       )
       .toBeVisible();
+  });
+
+  test("an unsaved entry with kept sentences lists them without the note", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow {...figureOut} status="new" />,
+    );
+    await expect
+      .element(screen.getByRole("heading", { name: "Seen elsewhere · 2" }))
+      .toBeVisible();
+    await expect
+      .element(screen.getByText("10 phrasal verbs you hear every day"))
+      .toBeVisible();
+    expect(screen.getByText(/^Not saved yet/).query()).toBeNull();
+  });
+
+  test("a saved entry seen nowhere else shows no note", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow {...figureOut} elsewhere={[]} />,
+    );
+    await expect
+      .element(screen.getByRole("heading", { name: "Seen elsewhere · 0" }))
+      .toBeVisible();
+    expect(screen.getByText(/^Not saved yet/).query()).toBeNull();
   });
 
   test("× and Escape close it", async () => {
@@ -341,6 +416,15 @@ describe("DictionaryWindow", () => {
     expect(rect.top).toBe(40);
     expect(rect.right).toBe(document.documentElement.clientWidth - 24);
     expect(rect.bottom).toBe(document.documentElement.clientHeight - 24);
+  });
+
+  test("in fullscreen the window's shadow is darker, over the video", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
+    const shadow = () =>
+      getComputedStyle(screen.getByRole("complementary").element()).boxShadow;
+    expect(shadow()).toBe("rgba(20, 24, 43, 0.22) 0px 18px 48px 0px");
+    await screen.rerender(<DictionaryWindow {...figureOut} fullscreen />);
+    expect(shadow()).toBe("rgba(0, 0, 0, 0.45) 0px 18px 48px 0px");
   });
 
   test("dragging the handle moves the window and keeps it in the viewport", async () => {

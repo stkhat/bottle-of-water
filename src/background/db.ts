@@ -52,7 +52,39 @@ export interface OccurrenceRecord {
   origin: Origin;
 }
 
-export type MetaKey = "lastExportAt" | "lastSavedAt";
+/**
+ * A page or video whose sentences Lingo keeps for "Seen elsewhere" (sentence history).
+ * Never synced or exported.
+ */
+export interface HistoryPageRecord {
+  /** `sourceId(platform, url)` */
+  id: string;
+  platform: Platform;
+  /** Normalized with `normalizeUrl`. */
+  url: string;
+  /** The URL's host, lowercase. */
+  host: string;
+  title: string;
+  lang: string;
+  firstSeen: number;
+  lastSeen: number;
+  /** The counted size of the page record and its sentences. */
+  bytes: number;
+}
+
+export interface HistorySentenceRecord {
+  id?: number;
+  pageId: string;
+  text: string;
+  translation?: string;
+  pos: Position;
+  /** The term ids (`lang:key`) the sentence is found by. */
+  keys: string[];
+  seenAt: number;
+}
+
+/** `historyBytes`: the counted size of all of the sentence history. */
+export type MetaKey = "lastExportAt" | "lastSavedAt" | "historyBytes";
 
 export interface MetaRecord {
   key: MetaKey;
@@ -64,6 +96,8 @@ export type LingoDb = Dexie & {
   sources: EntityTable<SourceRecord, "id">;
   occurrences: EntityTable<OccurrenceRecord, "id">;
   meta: EntityTable<MetaRecord, "key">;
+  historyPages: EntityTable<HistoryPageRecord, "id">;
+  historySentences: EntityTable<HistorySentenceRecord, "id">;
 };
 
 /** The extension's IndexedDB database. Tests pass a unique name per test. */
@@ -75,6 +109,10 @@ export function openLingoDb(name = "lingo"): LingoDb {
     occurrences:
       "++id, termId, &[termId+sourceId+sentence], [termId+seenAt], seenAt",
     meta: "key",
+  });
+  db.version(2).stores({
+    historyPages: "id, lastSeen, host",
+    historySentences: "++id, pageId, &[pageId+text], *keys",
   });
   return db;
 }

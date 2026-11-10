@@ -1,5 +1,13 @@
 import en from "../src/i18n/locales/en.json" with { type: "json" };
-import { test, expect } from "./fixtures";
+import { test as base, type Page } from "@playwright/test";
+import {
+  expect,
+  extensionIdOf,
+  launchWithExtension,
+  sendToBackground,
+  test,
+} from "./fixtures";
+import { routeYouTube, YOUTUBE_WATCH } from "./sites";
 
 test("page styles do not leak into the card", async ({ context }) => {
   const page = await context.newPage();
@@ -37,4 +45,98 @@ test("the extension does not leak CSS into the page", async ({ context }) => {
       "::highlight(lingo-learning)",
       "::highlight(lingo-known)",
     ]);
+});
+
+test("a page script's clicks do not reach the article UI; the user's do", async ({
+  context,
+}) => {
+  const page = await context.newPage();
+  await page.goto("/article-en.html");
+  const chip = (name: string) => page.getByRole("button", { name });
+  const fresh = chip(en["card.chip.new"]);
+  const known = chip(en["card.chip.known"]);
+  await expect(fresh).toHaveAttribute("aria-pressed", "false");
+  await expect(known).toHaveAttribute("aria-pressed", "false");
+  // The check build's root is open: the page script reaches the chip and clicks it
+  // (once: a second click would turn it back off and hide a click that got through).
+  await fresh.evaluate((button: HTMLElement) => button.click());
+  // The user's click on another chip goes through, after anything the script did.
+  await known.click();
+  await expect(known).toHaveAttribute("aria-pressed", "true");
+  await expect(fresh).toHaveAttribute("aria-pressed", "false");
+  await fresh.click();
+  await expect(fresh).toHaveAttribute("aria-pressed", "true");
+});
+
+test.describe("the production build", () => {
+  // Its shadow roots are closed (src/content/ui/shadow-mode.ts): a page script finds
+  // Lingo's hosts but cannot reach the UI inside them, which still works.
+  const production = base.extend<{ extensionId: string }>({
+    // eslint-disable-next-line no-empty-pattern
+    context: async ({}, use) => {
+      const context = await launchWithExtension([], "production");
+      await use(context);
+      await context.close();
+    },
+    extensionId: async ({ context }, use) => {
+      await use(await extensionIdOf(context));
+    },
+  });
+
+  /** What a page script can see of each Lingo host on `page`. */
+  const reach = (page: Page) =>
+    page.evaluate(() =>
+      [...document.querySelectorAll("*")]
+        .filter((el) => el.localName.startsWith("lingo-"))
+        .map((el) => ({
+          host: el.localName,
+          shadowRoot: el.shadowRoot === null ? null : "open",
+        })),
+    );
+
+  production(
+    "a page script cannot reach the article UI",
+    async ({ context, extensionId }) => {
+      await sendToBackground(context, extensionId, {
+        type: "setSettings",
+        patch: { highlight: { new: true } },
+      });
+      const page = await context.newPage();
+      await page.goto("/article-en.html");
+      await expect(page.locator("lingo-article")).toHaveCount(1);
+      await expect
+        .poll(() =>
+          page.evaluate(() => CSS.highlights.get("lingo-new")?.size ?? 0),
+        )
+        .toBeGreaterThan(0);
+      // The page card is there, at the top right, inside the host.
+      const width = page.viewportSize()!.width;
+      expect(
+        await page.evaluate(
+          (x) => document.elementFromPoint(x, 40)?.localName,
+          width - 100,
+        ),
+      ).toBe("lingo-article");
+      expect(await reach(page)).toEqual([
+        { host: "lingo-article", shadowRoot: null },
+      ]);
+      await expect(page.getByText(en["app.name"], { exact: true })).toHaveCount(
+        0,
+      );
+    },
+  );
+
+  production("a page script cannot reach the video UI", async ({ context }) => {
+    await routeYouTube(context);
+    const page = await context.newPage();
+    await page.goto(YOUTUBE_WATCH);
+    await expect(page.locator("lingo-video-player")).toHaveCount(1);
+    await expect(page.locator("lingo-player-buttons")).toHaveCount(1);
+    const hosts = await reach(page);
+    expect(hosts.length).toBeGreaterThanOrEqual(2);
+    expect(hosts.filter((h) => h.shadowRoot !== null)).toEqual([]);
+    await expect(
+      page.getByRole("button", { name: en["video.toggle"] }),
+    ).toHaveCount(0);
+  });
 });

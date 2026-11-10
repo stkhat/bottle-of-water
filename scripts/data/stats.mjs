@@ -1,5 +1,5 @@
 // Prints the numbers recorded in docs/status.md ("Data").
-// Usage: node scripts/data/stats.mjs   (after npm run data:build)
+// Usage: node scripts/data/stats.mjs   (after npm run data:build and npm run data:es)
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { isMain, PACKS_DIR, readPack } from "./common.mjs";
@@ -24,6 +24,24 @@ export function ipaCoverage(freq, ipa, top) {
   return { words: words.length, withIpa, ratio: withIpa / words.length };
 }
 
+/** How many phrases have a meaning from EJDict, the Japanese translations, the English definitions, or none. */
+export function phraseMeanings(phrases, dict, ja, defs) {
+  const counts = {
+    phrases: phrases.length,
+    ejdict: 0,
+    ja: 0,
+    defs: 0,
+    none: 0,
+  };
+  for (const phrase of phrases) {
+    if (Object.hasOwn(dict, phrase)) counts.ejdict++;
+    else if (Object.hasOwn(ja, phrase)) counts.ja++;
+    else if (Object.hasOwn(defs, phrase)) counts.defs++;
+    else counts.none++;
+  }
+  return counts;
+}
+
 function main() {
   const dict = readDictPacks();
   const freq = readPack("en/freq.json");
@@ -44,6 +62,33 @@ function main() {
   console.log(
     `IPA coverage, top ${words} base forms: ${withIpa} (${(ratio * 100).toFixed(1)}%)`,
   );
+  const phrases = phraseMeanings(
+    readPack("en/phrases.json"),
+    dict,
+    readPack("en-ja/phrases.json"),
+    readDictPacks("en-defs"),
+  );
+  console.log(
+    `Phrases: ${phrases.phrases} (meanings: ${phrases.ejdict} EJDict, ` +
+      `${phrases.ja} Japanese translations, ${phrases.defs} English definitions, ${phrases.none} none)`,
+  );
+  const esFreq = readPack("es/freq.json");
+  const esIpa = readPack("es/ipa.json");
+  const esCoverage = ipaCoverage(esFreq, esIpa, 20000);
+  console.log("Spanish (es, es-en):");
+  console.log(`  Vocabulary: ${readPack("es/vocab.json").length}`);
+  console.log(
+    `  Lemma entries (inflected forms): ${Object.keys(readPack("es/lemmas.json")).length}`,
+  );
+  console.log(`  Words with IPA: ${Object.keys(esIpa).length}`);
+  console.log(`  Frequency list: ${esFreq.length} base forms`);
+  console.log(
+    `  IPA coverage, top ${esCoverage.words} base forms: ${esCoverage.withIpa} (${(esCoverage.ratio * 100).toFixed(1)}%)`,
+  );
+  console.log(
+    `  Dictionary terms: ${Object.keys(readDictPacks("es-en")).length}`,
+  );
+  console.log(`  Phrases: ${readPack("es/phrases.json").length}`);
   let total = 0;
   for (const file of packFiles()) {
     const size = statSync(join(PACKS_DIR, file)).size;

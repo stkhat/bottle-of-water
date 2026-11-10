@@ -24,6 +24,11 @@ export interface SetupOptions {
   beforeRequest?: (request: Request) => Promise<void>;
   /** Runs before the page starts, e.g. to save terms. */
   before?: (background: ReturnType<typeof testBackground>) => Promise<void>;
+  /**
+   * A background shared with other pages of the test (default: a new one). The test
+   * closes it, after `cleanUp`.
+   */
+  background?: ReturnType<typeof testBackground>;
 }
 
 /** Text nodes under `root` in order. */
@@ -54,8 +59,9 @@ export function rangeOfText(root: Node, text: string, nth = 0): Range {
 
 /** Starts the article UI on a fixture page with the real background behind `send`. */
 export async function setup(html: string, options: SetupOptions = {}) {
-  const background = testBackground(options.settings);
-  cleanups.push(() => background.close());
+  const shared = options.background;
+  const background = shared ?? testBackground(options.settings);
+  if (!shared) cleanups.push(() => background.close());
   await options.before?.(background);
 
   const root = document.createElement("div");

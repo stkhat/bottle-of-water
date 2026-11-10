@@ -1,6 +1,12 @@
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import type { BrowserContext, Page } from "@playwright/test";
-import { test, expect, openPopupFor, sendToBackground } from "./fixtures";
+import {
+  ENGLISH_PAGE,
+  test,
+  expect,
+  openPopupFor,
+  sendToBackground,
+} from "./fixtures";
 
 test("popup header shows the app and language pair", async ({
   context,
@@ -9,7 +15,7 @@ test("popup header shows the app and language pair", async ({
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
   await expect(page.getByText(en["app.name"], { exact: true })).toBeVisible();
-  await expect(page.getByText(en["app.languagePair"])).toBeVisible();
+  await expect(page.getByText("English → Japanese")).toBeVisible();
 });
 
 test("the gear button opens the options page", async ({
@@ -60,7 +66,13 @@ test("the popup shows the page's unsaved words, adds them all and undoes it", as
   extensionId,
 }) => {
   const page = await openArticle(context, extensionId);
-  const newWords = (await highlighted(page, "lingo-new")).length;
+  const fresh = await highlighted(page, "lingo-new");
+  const newWords = fresh.length;
+  // Detected phrases are saved too, and counted as Phrases rather than Learning.
+  const phrases = new Set(
+    fresh.filter((text) => text.includes(" ")).map((t) => t.toLowerCase()),
+  ).size;
+  expect(phrases).toBeGreaterThan(0);
   const popup = await openPopupFor(context, extensionId, page);
 
   await expect(popup.getByText("localhost", { exact: true })).toBeVisible();
@@ -76,8 +88,13 @@ test("the popup shows the page's unsaved words, adds them all and undoes it", as
   await expect(
     popup.getByText(`${unsaved} words added to Learning`),
   ).toBeVisible();
-  // The Learning count comes from the background.
-  await expect(popup.getByText(String(unsaved), { exact: true })).toBeVisible();
+  // The counts come from the background.
+  await expect(
+    popup.getByText(String(unsaved - phrases), { exact: true }),
+  ).toBeVisible();
+  await expect(
+    popup.getByText(String(phrases), { exact: true }).first(),
+  ).toBeVisible();
   await expect.poll(() => highlighted(page, "lingo-new")).toEqual([]);
   expect((await highlighted(page, "lingo-learning")).length).toBe(newWords);
 
@@ -94,21 +111,21 @@ test("switching On this site off removes Lingo from the page, and on brings it b
   extensionId,
 }) => {
   const page = await openArticle(context, extensionId);
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   const popup = await openPopupFor(context, extensionId, page);
   const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
   await expect(site).toBeChecked();
 
   await site.click();
   await expect(site).not.toBeChecked();
-  await expect(page.getByText(en["card.pageStatus"])).toHaveCount(0);
+  await expect(page.getByText(ENGLISH_PAGE)).toHaveCount(0);
   await expect(page.locator("lingo-article")).toHaveCount(0);
   expect(await highlighted(page, "lingo-new")).toEqual([]);
   await expect(popup.getByText(en["saveAll.scope.page"])).toHaveCount(0);
 
   await site.click();
   await expect(site).toBeChecked();
-  await expect(page.getByText(en["card.pageStatus"])).toBeVisible();
+  await expect(page.getByText(ENGLISH_PAGE)).toBeVisible();
   await expect
     .poll(async () => (await highlighted(page, "lingo-new")).length)
     .toBeGreaterThan(0);

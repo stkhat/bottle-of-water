@@ -3,7 +3,7 @@
 import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { isMain, RAW_DIR, readPack, writePack } from "./common.mjs";
+import { isMain, RAW_DIR, readPack, singleIpa, writePack } from "./common.mjs";
 import { readDictPacks } from "./ejdict.mjs";
 
 export const KAIKKI_PATH = join(RAW_DIR, "kaikki-en.jsonl");
@@ -91,13 +91,15 @@ function addEntry(bucket, base, entry) {
   }
   for (const sound of entry.sounds ?? []) {
     if (typeof sound.ipa !== "string") continue;
+    const ipa = singleIpa(sound.ipa);
+    if (ipa === undefined) continue;
     const tags = sound.tags ?? [];
-    const phonemic = sound.ipa.startsWith("/");
+    const phonemic = ipa.startsWith("/");
     if (tags.some((tag) => US_TAGS.has(tag))) {
-      bucket.anyIpa ??= sound.ipa;
-      if (phonemic) bucket.phonemicIpa ??= sound.ipa;
+      bucket.anyIpa ??= ipa;
+      if (phonemic) bucket.phonemicIpa ??= ipa;
     } else if (phonemic && isSharedPronunciation(tags, sound.note)) {
-      bucket.untaggedIpa ??= sound.ipa;
+      bucket.untaggedIpa ??= ipa;
     }
   }
   if (!hasOwnForms(entry)) return;

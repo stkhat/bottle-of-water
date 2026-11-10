@@ -138,6 +138,22 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       },
     });
 
+    // The full screen button, as on youtube.com: the whole app (ytd-app) goes
+    // fullscreen, and the watch page lays the player over the screen.
+    const fullscreenButton = player.querySelector(".ytp-fullscreen-button");
+    fullscreenButton?.addEventListener("click", () => {
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void (player.closest("ytd-app") ?? player).requestFullscreen();
+    });
+    document.addEventListener("fullscreenchange", () => {
+      const on = document.fullscreenElement !== null;
+      player.closest("ytd-watch-flexy")?.toggleAttribute("fullscreen", on);
+      fullscreenButton?.setAttribute(
+        "aria-label",
+        on ? "Exit full screen (f)" : "Full screen (f)",
+      );
+    });
+
     if (options.captionsOn && video) {
       video.addEventListener(
         "playing",

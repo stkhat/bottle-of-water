@@ -164,6 +164,61 @@ describe("snapSelection", () => {
     expect(snapSelection(select(b, "a", "out"), index, spans)).toBeUndefined();
   });
 
+  it("snaps to the words of a detected phrase, not to the whole phrase", () => {
+    const { blocks, spans, index } = page(html);
+    const b = blocks[0]!;
+    const start = b.text.indexOf("fall back");
+    // "fell back" in the page would be keyed "fall back": the keys are base forms.
+    spans.set(b, [
+      ...spans.get(b)!.filter((s) => s.end <= start),
+      {
+        start,
+        end: start + "fall back".length,
+        key: "fall back",
+        kind: "phrase",
+        category: "new",
+      },
+      ...spans.get(b)!.filter((s) => s.start >= start + "fall back".length),
+    ]);
+    const from = b.text.indexOf("rise") + 2;
+    const snapped = snapSelection(partial(b, from, start + 2), index, spans);
+    expect(b.text.slice(snapped!.start, snapped!.end)).toBe("rise and fall");
+    expect(snapped!.spans.map((s) => s.key)).toEqual(["rise", "and", "fall"]);
+
+    const whole = snapSelection(
+      partial(b, from, start + "fall b".length),
+      index,
+      spans,
+    );
+    expect(whole!.spans.map((s) => s.key)).toEqual([
+      "rise",
+      "and",
+      "fall",
+      "back",
+    ]);
+  });
+
+  it("widens to a whole saved phrase", () => {
+    const { blocks, spans, index } = page(html);
+    const b = blocks[0]!;
+    const start = b.text.indexOf("fall back");
+    spans.set(b, [
+      ...spans.get(b)!.filter((s) => s.end <= start),
+      {
+        start,
+        end: start + "fall back".length,
+        key: "fall back",
+        kind: "phrase",
+        category: "learning",
+      },
+    ]);
+    const from = b.text.indexOf("rise") + 2;
+    const snapped = snapSelection(partial(b, from, start + 2), index, spans);
+    expect(b.text.slice(snapped!.start, snapped!.end)).toBe(
+      "rise and fall back",
+    );
+  });
+
   it("rejects selections across blocks or across punctuation", () => {
     const { blocks, spans, index } = page(html);
     const across = document.createRange();

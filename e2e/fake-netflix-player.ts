@@ -98,6 +98,21 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
     return div("default-ltr-iqcdef-cache-1bwyfo4 medium", element);
   };
   const spacer = () => div("default-ltr-iqcdef-cache-1npqywr");
+  // The full screen button makes the player's page (.watch-video) fullscreen, and
+  // turns into the exit button there.
+  const fullscreenLabels = (): [uia: string, label: string] =>
+    document.fullscreenElement
+      ? ["control-fullscreen-exit", "Exit full screen"]
+      : ["control-fullscreen-enter", "Full screen"];
+  const fullscreenButton = () => {
+    const [uia, label] = fullscreenLabels();
+    const wrapper = button(uia, label);
+    wrapper.firstElementChild!.addEventListener("click", () => {
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void document.querySelector(".watch-video")?.requestFullscreen();
+    });
+    return wrapper;
+  };
   function buildBar(title: string[]): HTMLElement {
     const heading = document.createElement("div");
     heading.setAttribute("data-uia", "video-title");
@@ -132,7 +147,7 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
       spacer(),
       button("control-speed", "Playback Speed"),
       spacer(),
-      button("control-fullscreen-enter", "Full screen"),
+      fullscreenButton(),
     );
     const root = div(
       "default-ltr-iqcdef-cache-1h3nesh",
@@ -179,6 +194,14 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
       },
       { capture: true, passive: true },
     );
+
+  document.addEventListener("fullscreenchange", () => {
+    const shown = bar?.querySelector("[data-uia^='control-fullscreen-']");
+    if (!shown) return;
+    const [uia, label] = fullscreenLabels();
+    shown.setAttribute("data-uia", uia);
+    shown.setAttribute("aria-label", label);
+  });
 
   const control: FakeNetflixControl = {
     log,
