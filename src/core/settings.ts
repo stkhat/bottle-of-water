@@ -1,3 +1,5 @@
+import { onHost } from "./url";
+
 /** User settings, stored in `storage.sync` (spec: "Settings page", "Data model"). */
 export interface Settings {
   learningLang: string;
@@ -133,4 +135,11 @@ export function mergeSettings(
     syncEnabled: bool(v.syncEnabled, base.syncEnabled),
     sentenceHistory: bool(v.sentenceHistory, base.sentenceHistory),
   };
+}
+
+/** The host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too). */
+export function hostBlocked(hostname: string, settings: Settings): boolean {
+  return [...settings.neverRunOn, ...settings.disabledSites].some((entry) =>
+    onHost(hostname, entry),
+  );
 }

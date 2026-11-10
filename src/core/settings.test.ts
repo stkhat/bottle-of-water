@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, mergeSettings } from "./settings";
+import { DEFAULT_SETTINGS, hostBlocked, mergeSettings } from "./settings";
 
 describe("DEFAULT_SETTINGS", () => {
   it("match the spec and the mock", () => {
@@ -111,5 +111,19 @@ describe("mergeSettings", () => {
     merged.highlight.new = true;
     expect(DEFAULT_SETTINGS.neverRunOn).toEqual([]);
     expect(DEFAULT_SETTINGS.highlight.new).toBe(false);
+  });
+});
+
+describe("hostBlocked", () => {
+  it("blocks hosts in neverRunOn or disabledSites and their subdomains", () => {
+    const settings = mergeSettings({
+      neverRunOn: ["example.com"],
+      disabledSites: ["Example.org"],
+    });
+    expect(hostBlocked("example.com", settings)).toBe(true);
+    expect(hostBlocked("news.EXAMPLE.com", settings)).toBe(true);
+    expect(hostBlocked("www.example.org", settings)).toBe(true);
+    expect(hostBlocked("notexample.com", settings)).toBe(false);
+    expect(hostBlocked("example.net", settings)).toBe(false);
   });
 });

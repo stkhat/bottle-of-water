@@ -1,8 +1,8 @@
-import type { Settings } from "../../core/settings";
+import { hostBlocked, type Settings } from "../../core/settings";
 import { onHost } from "../../core/url";
 import { isGenericLang, matchesLearningLanguage } from "../page-language";
 
-export { onHost };
+export { hostBlocked, onHost };
 
 /** `i18n.detectLanguage`, passed in so the decision stays testable. */
 export type DetectLanguage = (text: string) => Promise<{
@@ -15,13 +15,6 @@ const VIDEO_SITES = ["youtube.com", "netflix.com"];
 
 /** The shortest text sample the language is detected on. */
 export const MIN_DETECT_SAMPLE = 200;
-
-/** The host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too). */
-export function hostBlocked(hostname: string, settings: Settings): boolean {
-  return [...settings.neverRunOn, ...settings.disabledSites].some((entry) =>
-    onHost(hostname, entry),
-  );
-}
 
 /** The video UI owns this host (YouTube, Netflix and their subdomains). */
 export const isVideoSite = (hostname: string): boolean =>
