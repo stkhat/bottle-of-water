@@ -280,7 +280,8 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   await expect(
     menu.getByRole("button", { name: en["video.menu.openSettings"] }),
   ).toBeVisible();
-  await menuButton.click();
+  // Escape right after opening, with the focus still on the ^ button.
+  await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
   const l = lButton(page);
   await l.click();

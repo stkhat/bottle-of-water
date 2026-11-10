@@ -475,7 +475,7 @@ for (const build of ["production", "check"] as const)
       await expect(
         menu.getByRole("button", { name: en["video.menu.openSettings"] }),
       ).toBeVisible();
-      await page.getByRole("button", { name: en["video.menu"] }).click();
+      await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Exit full screen (f)" }).click();
       await expect(videoCard(page, YT_LINE)).toBeVisible();
 
@@ -572,7 +572,7 @@ for (const build of ["production", "check"] as const)
       await expect(
         page.getByRole("button", { name: en["video.menu.openSettings"] }),
       ).toBeVisible();
-      await menuButton.click();
+      await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Exit full screen" }).click();
       await expect(videoCard(page, NF_LINE)).toBeVisible();
 

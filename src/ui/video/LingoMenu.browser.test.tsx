@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { useState } from "preact/hooks";
 import { userEvent } from "vitest/browser";
 import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
 import { LingoMenu, type LingoMenuProps } from "./LingoMenu";
@@ -101,6 +102,59 @@ describe("LingoMenu", () => {
     expect(onClose).not.toHaveBeenCalled();
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true, composed: true }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  test("closes with Escape or a click outside right after it opens", async () => {
+    const onClose = vi.fn();
+    /** The ^ button and the menu it opens, as in the player bar. */
+    function Opener() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" data-lingo-menu onClick={() => setOpen(true)}>
+            Open
+          </button>
+          {open && (
+            <LingoMenu
+              {...base}
+              onClose={() => {
+                onClose();
+                setOpen(false);
+              }}
+            />
+          )}
+        </>
+      );
+    }
+    const screen = await mountInShadowRoot(<Opener />);
+    const opener = screen
+      .getByRole("button", { name: "Open" })
+      .element() as HTMLElement;
+    const menu = () => screen.container.querySelector("[role=dialog]");
+    /** Opens the menu and waits only for its render, not for a paint. */
+    const open = async () => {
+      opener.focus();
+      opener.click();
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+      expect(menu()).not.toBeNull();
+    };
+
+    // Escape with the focus still on the ^ button.
+    await open();
+    opener.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await open();
     document.body.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, composed: true }),
     );

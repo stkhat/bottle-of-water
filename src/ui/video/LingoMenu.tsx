@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import type { Settings } from "../../core/settings";
 import { t } from "../../i18n/t";
 import { badge, color, root } from "../lookup/styles";
@@ -35,7 +35,9 @@ export function LingoMenu(props: LingoMenuProps) {
   const close = useRef(props.onClose);
   close.current = props.onClose;
 
-  useEffect(() => {
+  // Listening from the render that opens it, not after a paint: an Escape or a press
+  // right after opening still closes it.
+  useLayoutEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
       if (!inMenu(event)) close.current();
     };
