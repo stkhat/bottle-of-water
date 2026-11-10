@@ -112,6 +112,12 @@ async function open(options: FakeOptions = {}) {
   return { ...f, screen };
 }
 
+const optionLabels = (select: Element) =>
+  [...(select as HTMLSelectElement).options].map((o) => o.label);
+
+const setSettingsPatches = (sent: Request[]) =>
+  sent.flatMap((r) => (r.type === "setSettings" ? [r.patch] : []));
+
 const section = (screen: Awaited<ReturnType<typeof render>>, name: string) =>
   screen.getByRole("region", { name });
 
@@ -155,13 +161,55 @@ describe("SettingsPage", () => {
       name: /Learning language/,
     });
     await expect.element(learning).toHaveDisplayValue("English");
-    expect((learning.element() as HTMLSelectElement).options).toHaveLength(1);
+    expect(optionLabels(learning.element())).toEqual([
+      "English",
+      "Spanish (Español)",
+    ]);
+    const native = screen.getByRole("combobox", { name: /Your language/ });
+    await expect.element(native).toHaveDisplayValue("Japanese (日本語)");
+    expect(optionLabels(native.element())).toEqual(["Japanese (日本語)"]);
+    const ui = screen.getByRole("combobox", { name: /Interface language/ });
+    await expect.element(ui).toHaveDisplayValue("English");
+    expect(optionLabels(ui.element())).toEqual(["English"]);
+  });
+
+  it("offers as your language only those with a dictionary for the learning language", async () => {
+    const { screen } = await open({
+      settings: { learningLang: "es", nativeLang: "en" },
+    });
     await expect
-      .element(screen.getByRole("combobox", { name: /Your language/ }))
-      .toHaveDisplayValue("Japanese (日本語)");
+      .element(screen.getByRole("combobox", { name: /Learning language/ }))
+      .toHaveDisplayValue("Spanish (Español)");
+    const native = screen.getByRole("combobox", { name: /Your language/ });
+    await expect.element(native).toHaveDisplayValue("English");
+    expect(optionLabels(native.element())).toEqual(["English"]);
     await expect
-      .element(screen.getByRole("combobox", { name: /Interface language/ }))
-      .toHaveDisplayValue("English");
+      .element(
+        screen.getByRole("slider", {
+          name: "Treat the 3,000 most common Spanish words as known",
+        }),
+      )
+      .toBeVisible();
+  });
+
+  it("changes your language with the learning language, in one change", async () => {
+    const f = await open();
+    const learning = f.screen.getByRole("combobox", {
+      name: /Learning language/,
+    });
+    await userEvent.selectOptions(learning, "Spanish (Español)");
+    const native = f.screen.getByRole("combobox", { name: /Your language/ });
+    await expect.element(native).toHaveDisplayValue("English");
+    expect(setSettingsPatches(f.sent)).toEqual([
+      { learningLang: "es", nativeLang: "en" },
+    ]);
+    await expect.poll(() => f.settings().nativeLang).toBe("en");
+    await userEvent.selectOptions(learning, "English");
+    await expect.element(native).toHaveDisplayValue("Japanese (日本語)");
+    expect(setSettingsPatches(f.sent)).toEqual([
+      { learningLang: "es", nativeLang: "en" },
+      { learningLang: "en", nativeLang: "ja" },
+    ]);
   });
 
   it("sets the new-word level with the slider", async () => {

@@ -8,8 +8,10 @@ import {
   type Settings,
   type SettingsPatch,
 } from "../../core/settings";
+import { learningLanguages, nativeLanguages } from "../../core/languages";
 import type { SyncStatus } from "../../core/sync/backend";
 import { siteFromInput } from "../../core/url";
+import { languageName, languageOption } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { send } from "../../messaging/client";
 import {
@@ -44,13 +46,6 @@ const SECTIONS = [
 ] as const satisfies readonly { id: string; label: MessageKey }[];
 
 type SectionId = (typeof SECTIONS)[number]["id"];
-
-const LANGUAGE_NAMES: Record<string, MessageKey> = {
-  en: "language.en",
-  ja: "language.ja",
-};
-const languageName = (code: string) =>
-  LANGUAGE_NAMES[code] ? t(LANGUAGE_NAMES[code]) : code;
 
 const CSS = `
 body{background:${color.surface}}
@@ -442,6 +437,19 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     patch({ [key]: value } as SettingsPatch, { ...s, [key]: value });
   }
 
+  /** A new learning language comes with a native language it has a dictionary into. */
+  function setLanguage(
+    key: "learningLang" | "nativeLang" | "uiLocale",
+    value: string,
+  ) {
+    if (key !== "learningLang") return set(key, value);
+    const change = {
+      learningLang: value,
+      nativeLang: nativeLanguages(value)[0] ?? s.nativeLang,
+    };
+    patch(change, { ...s, ...change });
+  }
+
   const languageSelect = (
     id: string,
     title: MessageKey,
@@ -458,11 +466,11 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
         id={id}
         class="sel"
         value={s[key]}
-        onChange={(e) => set(key, e.currentTarget.value)}
+        onChange={(e) => setLanguage(key, e.currentTarget.value)}
       >
         {options.map((code) => (
           <option key={code} value={code}>
-            {languageName(code)}
+            {languageOption(code)}
           </option>
         ))}
       </select>
@@ -555,14 +563,14 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             "settings.languages.learning",
             "settings.languages.learningDesc",
             "learningLang",
-            ["en"],
+            learningLanguages(),
           )}
           {languageSelect(
             "lang-native",
             "settings.languages.native",
             "settings.languages.nativeDesc",
             "nativeLang",
-            ["ja"],
+            nativeLanguages(s.learningLang),
           )}
           {languageSelect(
             "lang-ui",

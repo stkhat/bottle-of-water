@@ -1,6 +1,6 @@
 {
   "app.name": "Lingo",
-  "app.languagePair": "English → Japanese",
+  "app.languagePair": "{learning} → {native}",
   "popup.openSettings": "Open settings",
   "popup.site": "On this site",
   "popup.siteSwitch": "Use Lingo on this site",
@@ -58,6 +58,10 @@
   "settings.languages.uiDesc": "Language of Lingo's own buttons and menus. More languages are planned.",
   "language.en": "English",
   "language.ja": "Japanese (日本語)",
+  "language.es": "Spanish (Español)",
+  "languageName.en": "English",
+  "languageName.ja": "Japanese",
+  "languageName.es": "Spanish",
   "settings.level.lead": "Words you have never saved count as New unless they are among the most common words. Raise the number as your vocabulary grows.",
   "settings.level.label": "Treat the {count} most common {language} words as known",
   "settings.level.min": "{count} · beginner",

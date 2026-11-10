@@ -130,6 +130,16 @@ describe("Popup", () => {
       .toHaveAttribute("aria-pressed", "false");
   });
 
+  it("shows the language pair and counts the words of the learning language", async () => {
+    const f = fake({ settings: { learningLang: "es", nativeLang: "en" } });
+    const screen = await render(<Popup deps={f.deps} />);
+    await expect.element(screen.getByText("Spanish → English")).toBeVisible();
+    await expect.element(screen.getByText("2,341")).toBeVisible();
+    expect(f.sent.filter((r) => r.type === "counts")).toEqual([
+      { type: "counts", lang: "es" },
+    ]);
+  });
+
   it("switches highlight categories in the settings", async () => {
     const f = fake({ page: ARTICLE });
     const screen = await render(<Popup deps={f.deps} />);

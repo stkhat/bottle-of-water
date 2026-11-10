@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type { TermStatus } from "../../core/classify";
-import { mergeSettings } from "../../core/settings";
+import { mergeSettings, type Settings } from "../../core/settings";
 import type {
   OccurrenceView,
   Request,
@@ -94,6 +94,7 @@ const OCCURRENCES: Record<string, OccurrenceView[]> = {
 
 interface FakeOptions {
   terms?: TermSummary[];
+  settings?: Partial<Settings>;
   importError?: Error;
 }
 
@@ -108,7 +109,7 @@ function fake(options: FakeOptions = {}) {
       sent.push(request);
       switch (request.type) {
         case "getSettings":
-          return mergeSettings({});
+          return mergeSettings(options.settings ?? {});
         case "listTermsWithStats":
           return terms;
         case "lookup": {
@@ -192,6 +193,16 @@ async function open(options: FakeOptions = {}) {
 }
 
 describe("WordList", () => {
+  it("shows the language pair and lists the words of the learning language", async () => {
+    const { screen, sent } = await open({
+      settings: { learningLang: "es", nativeLang: "en" },
+    });
+    await expect.element(screen.getByText("Spanish → English")).toBeVisible();
+    expect(sent.filter((r) => r.type === "listTermsWithStats")).toEqual([
+      { type: "listTermsWithStats", lang: "es" },
+    ]);
+  });
+
   it("lists the saved words, recently seen first, with their meaning, status, count and day", async () => {
     const { screen, heads, row } = await open();
     await expect

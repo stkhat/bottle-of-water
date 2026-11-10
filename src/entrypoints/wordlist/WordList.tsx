@@ -1,6 +1,7 @@
 import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { DictionaryEntry } from "../../core/dictionary";
+import { languagePair } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
 import {
@@ -658,7 +659,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           {t("wordlist.title")}
         </h1>
         <span style={{ fontSize: "14px", color: color.muted }}>
-          {t("app.languagePair")}
+          {languagePair(langs.learning, langs.native)}
         </span>
         <span style={{ flex: 1 }}></span>
         {note && (
