@@ -3,7 +3,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createEnJaDictionary } from "../dictionary";
+import { createDefsDictionary, createEnJaDictionary } from "../dictionary";
+import { createLanguagePack } from "../language-pack";
 import { buildFreqIndex, rankOf } from "./frequency";
 import { ipaFor } from "./ipa";
 import { lemmatize } from "./lemmatize";
@@ -128,5 +129,58 @@ describe("generated phrases", () => {
       short: "To come to understand",
       ipa: expect.stringMatching(/^\/\S+ \S+\/$/),
     });
+  });
+});
+
+const es = await loadPack("es");
+const { defs: esEn } = await loadPack("es-en");
+
+describe("generated Spanish pack and es-en dictionary", () => {
+  const pack = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    phrases: new Set(es.phrases),
+  });
+  const dictionary = createDefsDictionary({
+    from: "es",
+    to: "en",
+    defs: esEn,
+    ipa: es.ipa,
+  });
+
+  it("lemmatize inflected forms to their bases", () => {
+    expect(pack.lemmas("comiendo")).toEqual(["comer"]);
+    expect(pack.lemmas("casas")).toEqual(["casa", "casar"]);
+  });
+
+  it("have English meanings with parts of speech", () => {
+    expect(dictionary.entry("comer")).toMatchObject({
+      head: "comer",
+      kind: "word",
+      short: "to eat",
+    });
+    expect(dictionary.entry("comer")?.senses[0]).toEqual({
+      pos: "verb",
+      text: "to eat",
+    });
+    expect(dictionary.entry("comer")).not.toHaveProperty("glossLang");
+  });
+
+  it("have the IPA of comer", () => {
+    expect(pack.ipa("comer")).toBe("/koˈmeɾ/");
+    expect(dictionary.entry("comer")?.ipa).toBe("/koˈmeɾ/");
+  });
+
+  it("rank common words first", () => {
+    expect(pack.rank("de")).toBeLessThanOrEqual(5);
+    expect(pack.rank("comer")).toBeLessThan(pack.rank("manzana"));
+  });
+
+  it("have a meaning for every phrase", () => {
+    expect(es.phrases.length).toBeGreaterThan(0);
+    for (const phrase of es.phrases)
+      expect(dictionary.short(phrase), phrase).toBeTruthy();
   });
 });

@@ -127,6 +127,80 @@ describe("createLanguageResources", () => {
     );
   });
 
+  it("builds the Spanish pack from the es pack alone", async () => {
+    const loadPack = stubLoader();
+    const resources = createLanguageResources(loadPack);
+    const pack = await resources.pack("es");
+    expect(pack.lang).toBe("es");
+    expect(pack.lemmas("comiendo")).toEqual(["comer"]);
+    expect(pack.lemmas("casas")).toEqual(["casa", "casar"]);
+    expect(pack.rank("comer")).toBe(4);
+    expect(pack.ipa("comer")).toBe("/koˈmeɾ/");
+    expect(pack.phrases.has("a escondidas")).toBe(true);
+    expect(filesRead(loadPack)).toEqual([
+      "/packs/es/freq.json",
+      "/packs/es/ipa.json",
+      "/packs/es/lemmas.json",
+      "/packs/es/phrases.json",
+      "/packs/es/vocab.json",
+    ]);
+  });
+
+  it("classifies a Spanish sentence with the Spanish pack", async () => {
+    const resources = createLanguageResources(stubLoader());
+    const pack = await resources.pack("es");
+    const classifier = await resources.classifier("es");
+    const spans = classifier.classify(
+      pack.tokenize("Estoy comiendo una manzana a escondidas."),
+      { terms: new Map([["manzana", "learning"]]), knownLevel: 3 },
+    );
+    expect(spans.map((s) => `${s.key}:${s.kind}:${s.category}`)).toEqual([
+      "estar:word:known",
+      "comer:word:new",
+      "un:word:known",
+      "manzana:word:learning",
+      "a escondidas:phrase:new",
+    ]);
+  });
+
+  it("looks words and phrases up from Spanish to English with the es and es-en packs", async () => {
+    const loadPack = stubLoader();
+    const resources = createLanguageResources(loadPack);
+    const dictionary = await resources.dictionary("es", "en");
+    expect(dictionary.from).toBe("es");
+    expect(dictionary.to).toBe("en");
+    expect(dictionary.entry("comer")).toEqual({
+      head: "comer",
+      kind: "word",
+      ipa: "/koˈmeɾ/",
+      short: "to eat",
+      senses: [{ pos: "verb", text: "to eat" }],
+    });
+    expect(dictionary.entry("a escondidas")).toMatchObject({
+      kind: "phrase",
+      ipa: "/a eskonˈdidas/",
+      short: "secretly",
+    });
+    expect(filesRead(loadPack)).toEqual([
+      "/packs/es-en/dict-1.json",
+      "/packs/es-en/dict-2.json",
+      "/packs/es-en/index.json",
+      "/packs/es/freq.json",
+      "/packs/es/ipa.json",
+      "/packs/es/lemmas.json",
+      "/packs/es/phrases.json",
+      "/packs/es/vocab.json",
+    ]);
+  });
+
+  it("loads only the English packs for English", async () => {
+    const loadPack = stubLoader();
+    const resources = createLanguageResources(loadPack);
+    await resources.classifier("en");
+    await resources.dictionary("en", "ja");
+    expect(filesRead(loadPack).filter((f) => f.includes("/es"))).toEqual([]);
+  });
+
   it("rejects languages it has no packs for", async () => {
     const resources = createLanguageResources(stubLoader());
     await expect(resources.pack("fr")).rejects.toThrow(
@@ -134,6 +208,12 @@ describe("createLanguageResources", () => {
     );
     await expect(resources.dictionary("en", "fr")).rejects.toThrow(
       "No dictionary from en to fr",
+    );
+    await expect(resources.dictionary("es", "ja")).rejects.toThrow(
+      "No dictionary from es to ja",
+    );
+    await expect(resources.pack("constructor")).rejects.toThrow(
+      "No language pack for constructor",
     );
   });
 });

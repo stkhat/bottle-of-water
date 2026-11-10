@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
-import { createEnglishPack } from "./language-pack";
+import { createEnglishPack, createLanguagePack } from "./language-pack";
 import { createPackLoader } from "./packs/load";
 
 const publicDir = join(import.meta.dirname, "..", "..", "public");
@@ -133,5 +133,39 @@ describe("classifier over the generated packs", () => {
       "phrase",
       "learning",
     ]);
+  });
+});
+
+const es = await loadPack("es");
+
+describe("classifier over the generated Spanish pack", () => {
+  const esPack = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    phrases: new Set(es.phrases),
+  });
+  const esClassifier = createClassifier(esPack);
+  const classify = (text: string) =>
+    esClassifier
+      .classify(esPack.tokenize(text), { terms: new Map(), knownLevel: 3000 })
+      .map((s) => ({ text: text.slice(s.start, s.end), ...s }));
+
+  it("reads an inflected verb as its base", () => {
+    expect(classify("Estoy comiendo una manzana")).toContainEqual(
+      expect.objectContaining({ text: "comiendo", key: "comer", kind: "word" }),
+    );
+  });
+
+  it("detects a dictionary phrase in text", () => {
+    expect(es.phrases).toContain("a escondidas");
+    expect(classify("Se vieron a escondidas en el parque.")).toContainEqual(
+      expect.objectContaining({
+        text: "a escondidas",
+        key: "a escondidas",
+        kind: "phrase",
+      }),
+    );
   });
 });
