@@ -55,7 +55,7 @@ npx web-ext lint -s .output/firefox-mv3
 - `ci.yml` (push to main, pull requests): `check` (typecheck, lint, format, CLAUDE.md limit); `test` on Linux, macOS and Windows (unit, browser on Chromium + Firefox, both builds and the check build, manifest, E2E; reports uploaded on failure); `package` (zips, `web-ext lint`, artifact `lingo-zips`).
 - `release.yml` (tag `v*` or manual run): verifies the tag equals the `package.json` version, builds both zips, and for tags creates a GitHub release with the zips attached.
 - `mutation.yml`: weekly (Monday 03:00 UTC) and manual Stryker run; uploads `reports/mutation`.
-- `dependabot.yml`: weekly updates for npm and GitHub Actions.
+- `dependabot.yml`: weekly updates for npm and GitHub Actions. TypeScript major updates are ignored until typescript-eslint supports TypeScript 7.
 
 ## Release steps
 1. Bump `version` in `package.json` and merge.
