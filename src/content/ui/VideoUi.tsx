@@ -322,6 +322,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
           key={`${panel.opened} ${fullscreen}`}
           variant="window"
           frame={frame}
+          fullscreen={fullscreen}
           entry={{
             head: panel.card.head,
             kind: panel.card.kind,

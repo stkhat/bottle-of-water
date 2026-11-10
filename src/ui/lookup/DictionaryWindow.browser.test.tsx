@@ -388,6 +388,15 @@ describe("DictionaryWindow", () => {
     expect(rect.bottom).toBe(document.documentElement.clientHeight - 24);
   });
 
+  test("in fullscreen the window's shadow is darker, over the video", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
+    const shadow = () =>
+      getComputedStyle(screen.getByRole("complementary").element()).boxShadow;
+    expect(shadow()).toBe("rgba(20, 24, 43, 0.22) 0px 18px 48px 0px");
+    await screen.rerender(<DictionaryWindow {...figureOut} fullscreen />);
+    expect(shadow()).toBe("rgba(0, 0, 0, 0.45) 0px 18px 48px 0px");
+  });
+
   test("dragging the handle moves the window and keeps it in the viewport", async () => {
     const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
     const win = screen.getByRole("complementary").element();

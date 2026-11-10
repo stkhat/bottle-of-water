@@ -69,6 +69,8 @@ export type DictionaryWindowProps = CommonProps &
         variant: "window";
         /** Start position and height; dragging moves it from there. */
         frame: { left: number; top: number; height: number };
+        /** Mock Fullscreen: over the video, with a darker shadow. */
+        fullscreen?: boolean;
       }
     | {
         /** Mock Article: a panel floating on the right side. */
@@ -146,7 +148,9 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
           top: `${drag.pos.top}px`,
           width: "360px",
           height: `${props.frame.height}px`,
-          boxShadow: "0 18px 48px rgba(20,24,43,0.22)",
+          boxShadow: props.fullscreen
+            ? "0 18px 48px rgba(0,0,0,0.45)"
+            : "0 18px 48px rgba(20,24,43,0.22)",
           overflow: "hidden",
         })}
       >

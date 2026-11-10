@@ -622,6 +622,10 @@ describe("mountVideoUi", () => {
       expect(win.right).toBe(Math.max(innerWidth - 32, 368));
       expect(win.height).toBe(Math.min(420, innerHeight - 40));
       expect(shown(dictionary()!)).toBe(host("lingo-video"));
+      // A darker shadow over the video (mock Fullscreen).
+      expect(getComputedStyle(dictionary()!).boxShadow).toBe(
+        "rgba(0, 0, 0, 0.45) 0px 18px 48px 0px",
+      );
     });
 
     it("moves an open dictionary window to the top right, and back beside the video after", async () => {
@@ -639,6 +643,9 @@ describe("mountVideoUi", () => {
         .poll(() => dictionary()?.getBoundingClientRect().top)
         .toBe(before.top);
       expect(store.get().panel?.opened).toBe(1);
+      expect(getComputedStyle(dictionary()!).boxShadow).toBe(
+        "rgba(20, 24, 43, 0.22) 0px 18px 48px 0px",
+      );
     });
 
     it("clicks and keys on Lingo's parts do not reach the player", async () => {
