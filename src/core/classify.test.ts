@@ -45,7 +45,7 @@ const pack = createEnglishPack({
     ...["give", "from", "scratch", "it", "we", "start"],
   ]),
   // Dictionary phrases, detected without being saved.
-  phrases: new Set(["figure out", "from scratch", "give up"]),
+  phrases: new Set(["figure out", "from scratch", "give up", "give up on"]),
 });
 const classifier = createClassifier(pack);
 
@@ -294,6 +294,19 @@ describe("classify dictionary phrases", () => {
     expect(
       brief(classify("gave up on you", { "give up on": "learning" })),
     ).toEqual(["gave up on:give up on:learning", "you:you:known"]);
+  });
+
+  it("prefers a saved phrase to a longer dictionary phrase", () => {
+    expect(brief(classify("gave up on it", { "give up": "learning" }))).toEqual(
+      ["gave up:give up:learning", "on:on:known", "it:it:new"],
+    );
+  });
+
+  it("detects the longest dictionary phrase when no saved phrase matches", () => {
+    expect(brief(classify("gave up on it"))).toEqual([
+      "gave up on:give up on:new",
+      "it:it:new",
+    ]);
   });
 });
 

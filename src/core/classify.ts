@@ -80,10 +80,12 @@ const isIgnorable = (text: string) =>
  * Classifies words, saved phrases and the pack's dictionary phrases.
  *
  * - Phrases: a saved or dictionary phrase matches consecutive words (separated only by
- *   spaces) when any combination of their base forms equals its key. The longest match
- *   wins and the words inside it get no spans of their own. A saved phrase takes its
- *   status; an unsaved dictionary phrase is new (the known level applies to words only)
- *   and does not match over a word saved as learning, which keeps its own span.
+ *   spaces) when any combination of their base forms equals its key. Saved phrases win:
+ *   where any saved phrase matches, the longest saved one is used, even when a
+ *   dictionary phrase is longer; otherwise the longest dictionary phrase. The words
+ *   inside a match get no spans of their own. A saved phrase takes its status; an
+ *   unsaved dictionary phrase is new (the known level applies to words only) and does
+ *   not match over a word saved as learning, which keeps its own span.
  * - A word with several base forms ("better" → better, good, well) takes a saved base
  *   when there is one, a learning one before a known one. Otherwise its key is the
  *   first base form (the word itself when it is in the vocabulary), and it is known
@@ -112,14 +114,15 @@ export function createClassifier(pack: LanguagePack): Classifier {
         bases[i]!.length > 0 ? bases[i]! : [normalize(words[i]!.text)];
 
       /**
-       * The longest saved or dictionary phrase starting at word i, as [key, last word
-       * index]. Of matches of the same length, a saved phrase wins. An unsaved
-       * dictionary phrase does not match over a word saved as learning.
+       * The phrase starting at word i, as [key, last word index]: the longest saved
+       * phrase, or when no saved phrase matches, the longest dictionary phrase. An
+       * unsaved dictionary phrase does not match over a word saved as learning.
        */
       const phraseAt = (i: number): [string, number] | undefined => {
         if (dictionary.phrases.size === 0 && saved.phrases.size === 0)
           return undefined;
-        let found: [string, number] | undefined;
+        let savedMatch: [string, number] | undefined;
+        let dictionaryMatch: [string, number] | undefined;
         let overLearning = learning[i]!;
         let runs = basesOrSelf(i).filter(isPrefix);
         for (let j = i + 1; runs.length > 0 && j < words.length; j++) {
@@ -132,14 +135,14 @@ export function createClassifier(pack: LanguagePack): Classifier {
               if (isPrefix(candidate)) next.add(candidate);
             }
           runs = [...next];
-          const match =
-            runs.find((run) => saved.phrases.has(run)) ??
-            (overLearning
-              ? undefined
-              : runs.find((run) => dictionary.phrases.has(run)));
-          if (match !== undefined) found = [match, j];
+          const savedRun = runs.find((run) => saved.phrases.has(run));
+          if (savedRun !== undefined) savedMatch = [savedRun, j];
+          const dictionaryRun = overLearning
+            ? undefined
+            : runs.find((run) => dictionary.phrases.has(run));
+          if (dictionaryRun !== undefined) dictionaryMatch = [dictionaryRun, j];
         }
-        return found;
+        return savedMatch ?? dictionaryMatch;
       };
 
       for (let i = 0; i < words.length; i++) {
