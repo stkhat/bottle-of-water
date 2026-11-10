@@ -45,6 +45,28 @@ test("no card appears on a Japanese page", async ({ context }) => {
   await expect(page.locator("lingo-article")).toHaveCount(0);
 });
 
+test("a Spanish page gets no highlights while the learning language is English", async ({
+  context,
+  extensionId,
+}) => {
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { highlight: { new: true } },
+  });
+  // Prove the extension is live first: the English page is highlighted.
+  const live = await context.newPage();
+  await live.goto("/article-en.html");
+  await expect
+    .poll(async () => (await highlighted(live, "lingo-new"))?.length ?? 0)
+    .toBeGreaterThan(0);
+
+  const page = await context.newPage();
+  await page.goto("/article-es.html");
+  await settle(page);
+  await expect(page.locator("lingo-article")).toHaveCount(0);
+  expect(await highlighted(page, "lingo-new")).toBeUndefined();
+});
+
 test("with New switched on, new words are highlighted", async ({
   context,
   extensionId,

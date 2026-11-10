@@ -9,7 +9,7 @@ test("popup header shows the app and language pair", async ({
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
   await expect(page.getByText(en["app.name"], { exact: true })).toBeVisible();
-  await expect(page.getByText(en["app.languagePair"])).toBeVisible();
+  await expect(page.getByText("English → Japanese")).toBeVisible();
 });
 
 test("the gear button opens the options page", async ({

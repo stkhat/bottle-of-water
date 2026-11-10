@@ -364,6 +364,37 @@ describe("two devices", () => {
     expect(await a.store.listTerms("en")).toHaveLength(1);
   });
 
+  it("converge on terms of two languages, each kept under its own keys", async () => {
+    const area = createFakeSyncArea();
+    const a = device(area);
+    const b = device(area);
+    await a.backend.start();
+    await b.backend.start();
+
+    await save(a.store, "dough");
+    await a.store.saveTerm({
+      lang: "es",
+      key: "comer",
+      display: "comiendo",
+      kind: "word",
+      status: "learning",
+      source: { ...SOURCE, url: "https://example.com/pan", lang: "es" },
+      sentence: "Estoy comiendo pan.",
+      pos: { textQuote: "comiendo" },
+    });
+    await a.after(2000, b);
+
+    expect((await remote(area, "en")).map((r) => r.key)).toEqual(["dough"]);
+    expect((await remote(area, "es")).map((r) => r.key)).toEqual(["comer"]);
+    expect((await b.store.listTerms("en")).map((t) => t.id)).toEqual([
+      "en:dough",
+    ]);
+    expect(
+      (await b.store.listTerms("es")).map((t) => [t.id, t.status]),
+    ).toEqual([["es:comer", "learning"]]);
+    expect((await b.backend.status()).syncedCount).toBe(2);
+  });
+
   it("a device that starts with terms of its own adds them", async () => {
     const area = createFakeSyncArea();
     const a = device(area);

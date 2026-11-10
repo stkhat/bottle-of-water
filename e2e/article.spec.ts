@@ -254,6 +254,45 @@ test("Seen elsewhere lists the other article a word was saved on", async ({
   ).toBeVisible();
 });
 
+test("a Spanish article is highlighted and looked up in English when learning Spanish", async ({
+  context,
+  extensionId,
+}) => {
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    // At the lowest level "comer" (about the 1,800th word) is still new.
+    patch: {
+      learningLang: "es",
+      nativeLang: "en",
+      knownLevel: 1000,
+      highlight: { new: true },
+    },
+  });
+  const page = await openArticle(context, "/article-es.html");
+  await expect
+    .poll(() => highlighted(page, "lingo-new"))
+    .toEqual(expect.arrayContaining(["comiendo", "a escondidas"]));
+
+  await hover(page, "comiendo");
+  await expect(page.getByText("comer", { exact: true })).toBeVisible();
+  await expect(page.getByText("/koˈmeɾ/", { exact: true })).toBeVisible();
+  await expect(page.getByText("to eat", { exact: true })).toHaveAttribute(
+    "lang",
+    "en",
+  );
+
+  await click(page, "comiendo");
+  const panel = dictionary(page);
+  await expect(panel.getByRole("heading", { name: "comer" })).toBeVisible();
+  await panel
+    .getByRole("button", { name: en["dict.status.learning"], exact: true })
+    .click();
+  await expect
+    .poll(() => highlighted(page, "lingo-learning"))
+    .toEqual(["comiendo"]);
+  expect(await highlighted(page, "lingo-new")).not.toContain("comiendo");
+});
+
 test("the popup can ask the page what save-all would do, and do it", async ({
   context,
   extensionId,

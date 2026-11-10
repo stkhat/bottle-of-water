@@ -324,6 +324,35 @@ for (const build of ["production", "check"] as const)
       await expect(hostile.locator("lingo-article")).toHaveCount(1);
     });
 
+    test("a Spanish article: reading and saving with the Spanish pack", async ({
+      context,
+      extensionId,
+    }) => {
+      await sendToBackground(context, extensionId, {
+        type: "setSettings",
+        patch: {
+          learningLang: "es",
+          nativeLang: "en",
+          knownLevel: 1000,
+          highlight: { new: true },
+        },
+      });
+      const page = await openArticle(context, "/article-es.html");
+      const word = await pointOn(page, "comiendo");
+      await page.mouse.move(word.x, word.y);
+      await expect(page.getByText("to eat", { exact: true })).toBeVisible();
+      await page.mouse.click(word.x, word.y);
+      const panel = dictionary(page);
+      await expect(panel.getByRole("heading", { name: "comer" })).toBeVisible();
+      await panel
+        .getByRole("button", { name: en["dict.status.learning"], exact: true })
+        .click();
+      await expect
+        .poll(() => highlighted(page, "lingo-learning"))
+        .toContain("comiendo");
+      await usePopup(context, extensionId, page, { toggleSite: false });
+    });
+
     const transcript = (page: Page) =>
       page.getByRole("complementary", { name: en["video.transcript"] });
     const inVideo = (page: Page) =>
