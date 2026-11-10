@@ -38,7 +38,7 @@ export async function runVideoSite(
       .then((session) =>
         session
           ? session.handlePageRequest(message)
-          : unsupportedPage(location.hostname, "video"),
+          : unsupportedPage(location.hostname),
       )
       .then(sendResponse);
     return true;

@@ -3,20 +3,16 @@ import { shownStatus } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
-import { EndCard } from "../../ui/lookup/EndCard";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { PhraseBar } from "../../ui/lookup/PhraseBar";
 import { color } from "../../ui/lookup/styles";
 import { Floating } from "./Floating";
-import { PageCard } from "./PageCard";
 import { useStore } from "./store";
 
 const TOP_LAYER = 2147483647;
 
-/** Mock Article: the page card sits 16px in from the top right... */
+/** Mock Article: the dictionary panel sits 16px in from the top right. */
 const CARD_INSET = 16;
-/** ...and the dictionary panel 152px below the card's top (mock: 84 → 236). */
-const PANEL_TOP = CARD_INSET + 152;
 
 /** The mock's selected word: a 2px green outline 2px outside the word's box. */
 function Outline({ box }: { box: Box }) {
@@ -41,8 +37,7 @@ function Outline({ box }: { box: Box }) {
 
 /** Everything Lingo shows on an article page, inside its shadow root. */
 export function ArticleUi({ app }: { app: ArticleApp }) {
-  const state = useStore(app.store);
-  const { settings, hover, panel, phrase } = state;
+  const { settings, hover, panel, phrase } = useStore(app.store);
 
   return (
     <>
@@ -53,7 +48,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           ))}
           <DictionaryWindow
             variant="panel"
-            frame={{ top: PANEL_TOP, right: CARD_INSET, bottom: CARD_INSET }}
+            frame={{ top: CARD_INSET, right: CARD_INSET, bottom: CARD_INSET }}
             entry={{
               head: panel.card.head,
               kind: panel.card.kind,
@@ -80,36 +75,6 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
             onClose={app.closePanel}
           />
         </>
-      )}
-      {/* Above the panel: the end card is taller than the page card (mock z-order). */}
-      {state.endCard ? (
-        <div
-          style={{
-            position: "fixed",
-            zIndex: TOP_LAYER,
-            top: `${CARD_INSET}px`,
-            right: `${CARD_INSET}px`,
-          }}
-        >
-          <EndCard
-            kind="article"
-            saveAll={{
-              unsavedCount: state.unsaved,
-              done: state.done,
-              onAddLearning: () => app.saveAll("learning"),
-              onMarkKnown: () => app.saveAll("known"),
-              onUndo: app.undoSaveAll,
-            }}
-            onClose={app.closeEndCard}
-          />
-        </div>
-      ) : (
-        <PageCard
-          highlight={settings.highlight}
-          learningLang={settings.learningLang}
-          nativeLang={settings.nativeLang}
-          onToggle={app.toggleHighlight}
-        />
       )}
       {hover && (
         <Floating

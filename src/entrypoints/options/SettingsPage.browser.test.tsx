@@ -244,7 +244,7 @@ describe("SettingsPage", () => {
     await expect.poll(() => f.settings().knownLevel).toBe(5500);
   });
 
-  it("switches highlight categories and the end card", async () => {
+  it("switches highlight categories and what happens to unsaved words", async () => {
     const f = await open();
     const newWords = f.screen.getByRole("switch", {
       name: "Highlight New words",
@@ -254,12 +254,17 @@ describe("SettingsPage", () => {
     await expect.element(newWords).toBeChecked();
     expect(f.settings().highlight.new).toBe(true);
 
-    const endCard = f.screen.getByRole("switch", {
-      name: "Offer to save the rest when you finish",
+    const unsaved = f.screen.getByRole("group", {
+      name: "New words you didn't save",
     });
-    await expect.element(endCard).toBeChecked();
-    await endCard.click();
-    await expect.poll(() => f.settings().offerSaveAllAtEnd).toBe(false);
+    const keep = unsaved.getByRole("button", { name: "Keep as New" });
+    const known = unsaved.getByRole("button", { name: "Mark as Known" });
+    await expect.element(keep).toHaveAttribute("aria-pressed", "true");
+    await expect.element(known).toHaveAttribute("aria-pressed", "false");
+    await known.click();
+    await expect.poll(() => f.settings().unsavedAtEnd).toBe("known");
+    await expect.element(known).toHaveAttribute("aria-pressed", "true");
+    await expect.element(keep).toHaveAttribute("aria-pressed", "false");
   });
 
   it("follows settings changed elsewhere", async () => {

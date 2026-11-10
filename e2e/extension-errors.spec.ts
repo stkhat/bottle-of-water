@@ -128,7 +128,7 @@ async function openArticle(context: BrowserContext, url = "/article-en.html") {
 const dictionary = (page: Page) =>
   page.getByRole("complementary", { name: en["dict.title"] });
 
-/** Hover, click, a status change in the panel, a phrase, the end card and its undo. */
+/** Hover, click, a status change in the panel, a phrase, and the end of the article. */
 async function useArticle(page: Page) {
   const tangy = await pointOn(page, "tangy");
   await page.mouse.move(tangy.x, tangy.y);
@@ -177,13 +177,6 @@ async function useArticle(page: Page) {
       .querySelector("article")!
       .lastElementChild!.scrollIntoView({ block: "center" }),
   );
-  const end = page.getByRole("region", { name: en["endCard.region"] });
-  await expect(end.getByText(en["endCard.article"])).toBeVisible();
-  await end.getByRole("button", { name: en["saveAll.addLearning"] }).click();
-  await expect(end.getByText(en["saveAll.allSaved"])).toBeVisible();
-  await end.getByRole("button", { name: en["saveAll.undo"] }).click();
-  await expect(end.getByText(/words not saved yet$/)).toBeVisible();
-  await end.getByRole("button", { name: en["endCard.close"] }).click();
 }
 
 /**
@@ -343,7 +336,7 @@ for (const build of ["production", "check"] as const)
       await expect(video.locator("lingo-video-player")).toHaveCount(0);
     });
 
-    test("articles: reading, saving, the end card, another language, the popup", async ({
+    test("articles: reading, saving, the end of the article, another language, the popup", async ({
       context,
       extensionId,
     }) => {
@@ -412,28 +405,34 @@ for (const build of ["production", "check"] as const)
     const videoCard = (page: Page, text: string) =>
       transcript(page).getByRole("button", { name: text });
 
-    /** Plays the last half second of the video, for the end card. */
-    async function playToEnd(page: Page) {
+    /** Plays the last half second of the video, its unsaved new words marked Known. */
+    async function playToEnd(
+      context: BrowserContext,
+      extensionId: string,
+      page: Page,
+    ) {
+      await sendToBackground(context, extensionId, {
+        type: "setSettings",
+        patch: { unsavedAtEnd: "known" },
+      });
       await page.evaluate(async () => {
         const video = document.querySelector("video")!;
         video.currentTime = video.duration - 0.5;
         await video.play();
       });
-      const end = page.getByRole("region", { name: en["endCard.region"] });
-      await expect(end.getByText(en["endCard.video"])).toBeVisible({
-        timeout: 10_000,
-      });
-      await end
-        .getByRole("button", { name: en["saveAll.addLearning"] })
-        .click();
-      await expect(end.getByText(en["saveAll.allSaved"])).toBeVisible();
-      await end.getByRole("button", { name: en["saveAll.undo"] }).click();
-      await expect(end.getByText(/^\d+ words not saved yet$/)).toBeVisible();
+      await expect
+        .poll(
+          () => page.evaluate(() => document.querySelector("video")!.ended),
+          {
+            timeout: 10_000,
+          },
+        )
+        .toBe(true);
     }
 
     const YT_LINE = "One is the extraordinary evidence of human creativity";
 
-    test("YouTube: subtitle, menu, transcript, dictionary, L, end card, navigation", async ({
+    test("YouTube: subtitle, menu, transcript, dictionary, L, the end, navigation", async ({
       context,
       extensionId,
     }) => {
@@ -447,7 +446,7 @@ for (const build of ["production", "check"] as const)
         toggleSite: true,
         answeredBy: new URL(YOUTUBE_WATCH).hostname,
       });
-      if (reachesUi) await playToEnd(page);
+      if (reachesUi) await playToEnd(context, extensionId, page);
 
       // YouTube's single-page navigation to a video without captions for Lingo.
       await page.evaluate((response) => {
@@ -567,7 +566,7 @@ for (const build of ["production", "check"] as const)
 
     const NF_LINE = "EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.";
 
-    test("Netflix: control bar, seek, L, end card, next episode", async ({
+    test("Netflix: control bar, seek, L, the end, next episode", async ({
       context,
       extensionId,
     }) => {
@@ -581,7 +580,7 @@ for (const build of ["production", "check"] as const)
         toggleSite: true,
         answeredBy: new URL(NETFLIX_WATCH).hostname,
       });
-      if (reachesUi) await playToEnd(page);
+      if (reachesUi) await playToEnd(context, extensionId, page);
 
       // The next episode, without a Japanese track.
       const manifest = JSON.parse(fixtureManifest()) as {

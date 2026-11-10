@@ -13,9 +13,6 @@ const MINUTE = 60_000;
 const ARTICLE: PageSummary = {
   supported: true,
   hostname: "theweekendtable.example",
-  scope: "page",
-  unsaved: 46,
-  done: null,
 };
 
 const SYNC: SyncStatus = {
@@ -41,7 +38,7 @@ interface FakeOptions {
 function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let page = options.page;
-  let counts = options.counts ?? { learning: 128, known: 2341, phrases: 37 };
+  const counts = options.counts ?? { learning: 128, known: 2341, phrases: 37 };
   const listeners = new Set<(s: Settings) => void>();
   const sent: Request[] = [];
   const asked: PageRequest[] = [];
@@ -65,21 +62,6 @@ function fake(options: FakeOptions = {}) {
     }) as PopupDeps["send"],
     async askPage(request) {
       asked.push(request);
-      if (!page) return undefined;
-      if (request.type === "pageSaveAll") {
-        counts = { ...counts, [request.status]: counts[request.status] + 46 };
-        page = {
-          ...page,
-          unsaved: 0,
-          done: { count: page.unsaved, target: request.status },
-        };
-      } else if (request.type === "pageUndo" && page.done) {
-        counts = {
-          ...counts,
-          [page.done.target]: counts[page.done.target] - page.done.count,
-        };
-        page = { ...page, unsaved: page.done.count, done: null };
-      }
       return page;
     },
     watchSettings(listener) {
@@ -194,58 +176,22 @@ describe("Popup", () => {
       expect(f.settings().disabledSites).toEqual(["other.org"]);
     });
 
-    it("is hidden, with This page, when nothing in the tab answers", async () => {
+    it("is hidden when nothing in the tab answers", async () => {
       const f = fake({ page: undefined });
       const screen = await render(<Popup deps={f.deps} />);
       await expect.element(screen.getByText("2,341")).toBeVisible();
       expect(screen.getByText("On this site").query()).toBeNull();
-      expect(screen.getByText("This page").query()).toBeNull();
     });
   });
 
-  describe("This page", () => {
-    it("saves every unsaved word of the tab, then undoes it", async () => {
-      const f = fake({ page: ARTICLE });
-      const screen = await render(<Popup deps={f.deps} />);
-      await expect.element(screen.getByText("This page")).toBeVisible();
-      await expect
-        .element(screen.getByText("46 words not saved yet"))
-        .toBeVisible();
-
-      await screen.getByRole("button", { name: "Add all to Learning" }).click();
-      await expect
-        .element(screen.getByText("46 words added to Learning"))
-        .toBeVisible();
-      await expect.element(screen.getByText("174")).toBeVisible();
-      expect(f.asked).toContainEqual({
-        type: "pageSaveAll",
-        status: "learning",
-      });
-
-      await screen.getByRole("button", { name: "Undo" }).click();
-      await expect
-        .element(screen.getByText("46 words not saved yet"))
-        .toBeVisible();
-      await expect.element(screen.getByText("128")).toBeVisible();
-      expect(f.asked).toContainEqual({ type: "pageUndo" });
-    });
-
-    it("says This video on a video page", async () => {
-      const f = fake({ page: { ...ARTICLE, scope: "video" } });
-      const screen = await render(<Popup deps={f.deps} />);
-      await expect.element(screen.getByText("This video")).toBeVisible();
-    });
-
-    it("is hidden where Lingo does not run, until it does", async () => {
-      const f = fake({ page: { ...ARTICLE, supported: false }, refreshMs: 50 });
-      const screen = await render(<Popup deps={f.deps} />);
-      await expect
-        .element(screen.getByText("theweekendtable.example"))
-        .toBeVisible();
-      expect(screen.getByText("This page").query()).toBeNull();
-      f.setPage(ARTICLE);
-      await expect.element(screen.getByText("This page")).toBeVisible();
-    });
+  it("has no save-all section", async () => {
+    const f = fake({ page: ARTICLE });
+    const screen = await render(<Popup deps={f.deps} />);
+    await expect.element(screen.getByText("2,341")).toBeVisible();
+    expect(screen.getByText("This page").query()).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Add all to Learning" }).query(),
+    ).toBeNull();
   });
 
   describe("sync", () => {

@@ -123,6 +123,68 @@ function SwitchRow(props: {
   );
 }
 
+/** A row with a choice of a few options, side by side (mock: "New words you didn't save"). */
+function ChoiceRow<T extends string>(props: {
+  title: string;
+  desc: string;
+  options: readonly { id: T; label: string }[];
+  value: T;
+  onPick: (id: T) => void;
+}) {
+  return (
+    <div class="row">
+      <span class="lbl">
+        <span class="lt">{props.title}</span>
+        <span class="ld">{props.desc}</span>
+      </span>
+      <div
+        role="group"
+        aria-label={props.title}
+        style={{
+          display: "inline-flex",
+          flex: "none",
+          gap: "2px",
+          padding: "3px",
+          borderRadius: "10px",
+          background: color.surfaceGray,
+        }}
+      >
+        {props.options.map((option) => {
+          const on = option.id === props.value;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => props.onPick(option.id)}
+              style={{
+                height: "34px",
+                margin: 0,
+                padding: "0 14px",
+                border: 0,
+                borderRadius: "8px",
+                font: "inherit",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                ...(on
+                  ? {
+                      background: color.white,
+                      color: color.ink,
+                      boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
+                    }
+                  : { background: "transparent", color: color.muted }),
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function LaterRow(props: { title: string; desc: string }) {
   return (
     <div class="row">
@@ -372,6 +434,14 @@ function NeverRunOn(props: {
     </div>
   );
 }
+
+const UNSAVED_AT_END: readonly {
+  id: Settings["unsavedAtEnd"];
+  label: MessageKey;
+}[] = [
+  { id: "keep", label: "settings.highlighting.keepNew" },
+  { id: "known", label: "settings.highlighting.markKnown" },
+];
 
 /** The settings page (mock Settings): every section, bound to the settings live. */
 export function SettingsPage({ deps }: { deps: SettingsDeps }) {
@@ -684,11 +754,12 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
               }
             />
           ))}
-          <SwitchRow
-            title={t("settings.highlighting.endCard")}
-            desc={t("settings.highlighting.endCardDesc")}
-            checked={s.offerSaveAllAtEnd}
-            onToggle={() => set("offerSaveAllAtEnd", !s.offerSaveAllAtEnd)}
+          <ChoiceRow
+            title={t("settings.highlighting.unsavedAtEnd")}
+            desc={t("settings.highlighting.unsavedAtEndDesc")}
+            options={UNSAVED_AT_END.map((o) => ({ ...o, label: t(o.label) }))}
+            value={s.unsavedAtEnd}
+            onPick={(id) => set("unsavedAtEnd", id)}
           />
         </Section>
 

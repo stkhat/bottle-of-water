@@ -77,8 +77,17 @@ export const test = base.extend<{
 
 export const expect = test.expect;
 
-/** The page card's status on an English page with the default languages (English → Japanese). */
-export const ENGLISH_PAGE = "English page · EN → JA";
+/** How many English words are saved as Known (asked from the background). */
+export async function knownCount(
+  context: BrowserContext,
+  extensionId: string,
+): Promise<number> {
+  const reply = (await sendToBackground(context, extensionId, {
+    type: "counts",
+    lang: "en",
+  })) as { ok: boolean; value?: { known: number } };
+  return reply.value?.known ?? -1;
+}
 
 /**
  * Sends a request to the background from an extension page, as the popup and the

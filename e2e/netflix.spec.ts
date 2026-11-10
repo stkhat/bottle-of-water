@@ -8,7 +8,7 @@ import { alignByOverlap } from "../src/core/subtitles/translation";
 import { parseTtml } from "../src/core/subtitles/ttml";
 import { fixtureManifest } from "../tests/netflix-subtitles";
 import type { FakeNetflixControl } from "./fake-netflix-player";
-import { test, expect, sendToBackground } from "./fixtures";
+import { test, expect, knownCount, sendToBackground } from "./fixtures";
 import { NETFLIX_WATCH as WATCH, routeNetflix } from "./sites";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -305,23 +305,26 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   ).toBeVisible();
 });
 
-test("at the end of the video, Video finished offers to save the rest", async ({
+test("at the end of the video, unsaved new words become Known when Settings say so", async ({
   context,
   extensionId,
 }) => {
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { unsavedAtEnd: "known" },
+  });
   const page = await openAtLine(context, extensionId);
+  expect(await knownCount(context, extensionId)).toBe(0);
   await page.evaluate(async () => {
     const video = document.querySelector("video")!;
     video.currentTime = video.duration - 0.5;
     await video.play();
   });
-  const end = page.getByRole("region", { name: en["endCard.region"] });
-  await expect(end.getByText(en["endCard.video"])).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(end.getByText(/^\d+ words not saved yet$/)).toBeVisible();
-  await end.getByRole("button", { name: en["saveAll.addLearning"] }).click();
-  await expect(end.getByText(/^\d+ words added to Learning$/)).toBeVisible();
+  await expect
+    .poll(() => knownCount(context, extensionId), { timeout: 10_000 })
+    .toBeGreaterThan(0);
+  // Nothing shows on the page.
+  await expect(page.getByText("Video finished")).toHaveCount(0);
 });
 
 test("the next episode gets its own subtitles", async ({
