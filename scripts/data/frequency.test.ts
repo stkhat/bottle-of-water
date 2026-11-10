@@ -62,6 +62,18 @@ describe("buildFrequency", () => {
       "leave",
     ]);
   });
+  it("treats words named like Object properties as plain words", () => {
+    expect(
+      buildFrequency(
+        [
+          { rank: 1, words: ["constructor"] },
+          { rank: 2, words: ["tostring"] },
+        ],
+        {},
+        ["constructor", "tostring"],
+      ),
+    ).toEqual(["constructor", "tostring"]);
+  });
   it("keeps only the top entries", () => {
     expect(buildFrequency(rows, lemmas, vocab, 3)).toEqual([
       "be",
