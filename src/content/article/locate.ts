@@ -80,15 +80,35 @@ export interface Snapped {
   spans: Span[];
 }
 
+/**
+ * A detected (unsaved) phrase as its words, so a selection snaps to whole words
+ * rather than to a phrase the user did not choose. Its words are separated only by
+ * spaces, and its key has one base form per word. Saved phrases stay whole.
+ */
+function wordsOf(span: Span, text: string): Span[] {
+  if (span.kind !== "phrase" || span.category !== "new") return [span];
+  const keys = span.key.split(" ");
+  const words = [...text.slice(span.start, span.end).matchAll(/\S+/g)];
+  if (words.length !== keys.length) return [span];
+  return words.map((word, i) => ({
+    start: span.start + word.index,
+    end: span.start + word.index + word[0].length,
+    key: keys[i]!,
+    kind: "word",
+    category: span.category,
+  }));
+}
+
 export const MIN_PHRASE_WORDS = 2;
 export const MAX_PHRASE_WORDS = 8;
 
 const wordCount = (span: Span) => span.key.split(" ").length;
 
 /**
- * A selection of 2–8 words inside one block, widened to whole words. Undefined when
- * it is collapsed, spans blocks, has fewer or more words, or its words are separated
- * by anything but spaces (a saved phrase only matches words joined by spaces).
+ * A selection of 2–8 words inside one block, widened to whole words and whole saved
+ * phrases (a detected phrase counts as its words). Undefined when it is collapsed,
+ * spans blocks, has fewer or more words, or its words are separated by anything but
+ * spaces (a saved phrase only matches words joined by spaces).
  */
 export function snapSelection(
   range: Range,
@@ -103,7 +123,9 @@ export function snapSelection(
   const to = blockOffset(block, range.endContainer, range.endOffset);
   if (!blockSpans || from === undefined || to === undefined) return undefined;
 
-  const inside = blockSpans.filter((s) => s.end > from && s.start < to);
+  const inside = blockSpans
+    .flatMap((s) => wordsOf(s, block.text))
+    .filter((s) => s.end > from && s.start < to);
   const words = inside.reduce((n, s) => n + wordCount(s), 0);
   if (words < MIN_PHRASE_WORDS || words > MAX_PHRASE_WORDS) return undefined;
   for (let i = 1; i < inside.length; i++) {
