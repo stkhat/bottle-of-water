@@ -82,7 +82,8 @@ const isIgnorable = (text: string) =>
  * - Phrases: a saved or dictionary phrase matches consecutive words (separated only by
  *   spaces) when any combination of their base forms equals its key. The longest match
  *   wins and the words inside it get no spans of their own. A saved phrase takes its
- *   status; an unsaved dictionary phrase is new (the known level applies to words only).
+ *   status; an unsaved dictionary phrase is new (the known level applies to words only)
+ *   and does not match over a word saved as learning, which keeps its own span.
  * - A word with several base forms ("better" → better, good, well) takes a saved base
  *   when there is one, a learning one before a known one. Otherwise its key is the
  *   first base form (the word itself when it is in the vocabulary), and it is known
@@ -102,20 +103,28 @@ export function createClassifier(pack: LanguagePack): Classifier {
       const isPrefix = (run: string) =>
         dictionary.prefixes.has(run) || saved.prefixes.has(run);
 
+      /** Words with a base saved as learning: unsaved dictionary phrases skip them. */
+      const learning = bases.map((list) =>
+        list.some((base) => terms.get(base) === "learning"),
+      );
+
       const basesOrSelf = (i: number) =>
         bases[i]!.length > 0 ? bases[i]! : [normalize(words[i]!.text)];
 
       /**
        * The longest saved or dictionary phrase starting at word i, as [key, last word
-       * index]. Of matches of the same length, a saved phrase wins.
+       * index]. Of matches of the same length, a saved phrase wins. An unsaved
+       * dictionary phrase does not match over a word saved as learning.
        */
       const phraseAt = (i: number): [string, number] | undefined => {
         if (dictionary.phrases.size === 0 && saved.phrases.size === 0)
           return undefined;
         let found: [string, number] | undefined;
+        let overLearning = learning[i]!;
         let runs = basesOrSelf(i).filter(isPrefix);
         for (let j = i + 1; runs.length > 0 && j < words.length; j++) {
           if (!joined.has(words[j - 1]!)) break;
+          overLearning ||= learning[j]!;
           const next = new Set<string>();
           for (const run of runs)
             for (const base of basesOrSelf(j)) {
@@ -125,7 +134,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
           runs = [...next];
           const match =
             runs.find((run) => saved.phrases.has(run)) ??
-            runs.find((run) => dictionary.phrases.has(run));
+            (overLearning
+              ? undefined
+              : runs.find((run) => dictionary.phrases.has(run)));
           if (match !== undefined) found = [match, j];
         }
         return found;

@@ -255,10 +255,31 @@ describe("classify dictionary phrases", () => {
     ]);
   });
 
-  it("gives the words inside a detected phrase no spans, even saved ones", () => {
-    expect(brief(classify("from scratch", { scratch: "learning" }))).toEqual([
+  it("gives the words inside a detected phrase no spans, even saved known ones", () => {
+    expect(brief(classify("from scratch", { scratch: "known" }))).toEqual([
       "from scratch:from scratch:new",
     ]);
+  });
+
+  it("does not detect a phrase with a word saved as learning inside it", () => {
+    expect(brief(classify("from scratch", { scratch: "learning" }))).toEqual([
+      "from:from:new",
+      "scratch:scratch:learning",
+    ]);
+    // Other dictionary phrases in the same run still match.
+    expect(
+      brief(classify("gave up from scratch", { give: "learning" })),
+    ).toEqual([
+      "gave:give:learning",
+      "up:up:known",
+      "from scratch:from scratch:new",
+    ]);
+  });
+
+  it("matches a saved phrase even with a word saved as learning inside it", () => {
+    expect(
+      brief(classify("gave up", { give: "learning", "give up": "known" })),
+    ).toEqual(["gave up:give up:known"]);
   });
 
   it("does not match a dictionary phrase with a word between its words", () => {
