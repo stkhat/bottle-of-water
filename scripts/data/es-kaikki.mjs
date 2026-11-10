@@ -4,7 +4,7 @@
 import { createReadStream, existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { isMain, PACKS_DIR, RAW_DIR, writePack } from "./common.mjs";
+import { isMain, PACKS_DIR, RAW_DIR, singleIpa, writePack } from "./common.mjs";
 import { shardDict } from "./ejdict.mjs";
 import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.mjs";
 import { buildFrequency } from "./frequency.mjs";
@@ -32,9 +32,11 @@ const IGNORED_FORM_TAGS = new Set([
 const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 function firstPhonemicIpa(entry) {
-  for (const sound of entry.sounds ?? [])
-    if (typeof sound.ipa === "string" && sound.ipa.startsWith("/"))
-      return sound.ipa;
+  for (const sound of entry.sounds ?? []) {
+    if (typeof sound.ipa !== "string") continue;
+    const ipa = singleIpa(sound.ipa);
+    if (ipa?.startsWith("/")) return ipa;
+  }
   return undefined;
 }
 

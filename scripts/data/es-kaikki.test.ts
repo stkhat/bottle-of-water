@@ -77,6 +77,10 @@ describe("buildEsPacks", () => {
     expect(packs.ipa).not.toHaveProperty("comiendo");
     expect(packs.ipa).not.toHaveProperty("zapato");
   });
+  it("keeps only the phonemic /…/ part of an IPA that also gives the phonetic one", () => {
+    // The fixture gives "rosa" as "/ˈrosa/ [ˈro.sa]".
+    expect(packs.ipa.rosa).toBe("/ˈrosa/");
+  });
   it("ranks the bases by their forms' best rank", () => {
     expect(packs.freq).toEqual([
       "de",

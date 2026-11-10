@@ -12,3 +12,4 @@ export function writePack(
 ): void;
 export function readPack(relPath: string): unknown;
 export function fetchText(url: string): Promise<string>;
+export function singleIpa(ipa: string): string | undefined;

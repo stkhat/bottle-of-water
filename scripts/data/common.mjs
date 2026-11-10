@@ -48,3 +48,20 @@ export async function fetchText(url) {
     throw new Error(`${response.status} ${response.statusText}: ${url}`);
   return response.text();
 }
+
+/**
+ * One transcription from a Wiktionary IPA string: kaikki gives some as a phonemic and a
+ * phonetic form ("/pleɪ̯/ [pɫ̥eɪ̯ ~ pʰɫeɪ̯]") or as alternatives ("/a/ ~ /b/", "[a ~ b]").
+ * Returns the first /…/ part, else the first alternative of a leading […] part; closes
+ * a /… that lacks its closing slash. undefined when no single transcription is found
+ * (such as "[bæθ~bɛəθ]", where an alternative may be part of a word).
+ */
+export function singleIpa(ipa) {
+  const text = ipa.trim();
+  const phonemic = /^\/[^/]+\//u.exec(text);
+  if (phonemic) return phonemic[0];
+  if (/^\/[^/[\]~]+$/u.test(text)) return `${text}/`;
+  const phonetic = /^\[([^\]]+)\]/u.exec(text);
+  const first = phonetic?.[1].split(/\s+~\s+/u)[0];
+  return first && !first.includes("~") ? `[${first}]` : undefined;
+}

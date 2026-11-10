@@ -20,3 +20,10 @@
 {"word": "would", "lang_code": "en", "pos": "verb", "sounds": [{"note": "weak form", "ipa": "/wəd/"}, {"note": "Received Pronunciation, General American, Australia, strong form", "ipa": "/wʊd/"}]}
 {"word": "loaves", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["plural of loaf"], "tags": ["form-of", "plural"], "form_of": [{"word": "loaf"}]}]}
 {"word": "the", "lang_code": "en", "pos": "adv"
+{"word": "play", "lang_code": "en", "pos": "verb", "sounds": [{"tags": ["General-American"], "ipa": "/pleɪ̯/ [pɫ̥eɪ̯ ~ pʰɫeɪ̯]"}]}
+{"word": "groin", "lang_code": "en", "pos": "noun", "sounds": [{"tags": ["US"], "ipa": "/ˈɡɹoɪ̯n/ ~ /ˈɡɹɔɪ̯n/"}]}
+{"word": "aha", "lang_code": "en", "pos": "intj", "sounds": [{"tags": ["General-American"], "ipa": "[ɑˈhɑ] ~ [ˈɑhɑ]"}]}
+{"word": "abc", "lang_code": "en", "pos": "noun", "sounds": [{"tags": ["US"], "ipa": "/eɪ biː ˈsiː/"}]}
+{"word": "comma", "lang_code": "en", "pos": "noun", "sounds": [{"tags": ["US"], "ipa": "[ˈkɑ.mə ~ ˈkɑ.mʌ]"}]}
+{"word": "finale", "lang_code": "en", "pos": "noun", "sounds": [{"tags": ["US"], "ipa": "/fəˈnɑli"}]}
+{"word": "bath", "lang_code": "en", "pos": "noun", "sounds": [{"tags": ["US"], "ipa": "[bæθ~bɛəθ~beəθ]"}]}
