@@ -47,6 +47,27 @@ test("the extension does not leak CSS into the page", async ({ context }) => {
     ]);
 });
 
+test("a page script's clicks do not reach the article UI; the user's do", async ({
+  context,
+}) => {
+  const page = await context.newPage();
+  await page.goto("/article-en.html");
+  const chip = (name: string) => page.getByRole("button", { name });
+  const fresh = chip(en["card.chip.new"]);
+  const known = chip(en["card.chip.known"]);
+  await expect(fresh).toHaveAttribute("aria-pressed", "false");
+  await expect(known).toHaveAttribute("aria-pressed", "false");
+  // The check build's root is open: the page script reaches the chip and clicks it
+  // (once: a second click would turn it back off and hide a click that got through).
+  await fresh.evaluate((button: HTMLElement) => button.click());
+  // The user's click on another chip goes through, after anything the script did.
+  await known.click();
+  await expect(known).toHaveAttribute("aria-pressed", "true");
+  await expect(fresh).toHaveAttribute("aria-pressed", "false");
+  await fresh.click();
+  await expect(fresh).toHaveAttribute("aria-pressed", "true");
+});
+
 test.describe("the production build", () => {
   // Its shadow roots are closed (src/content/ui/shadow-mode.ts): a page script finds
   // Lingo's hosts but cannot reach the UI inside them, which still works.

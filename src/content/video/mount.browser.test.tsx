@@ -245,9 +245,9 @@ describe("mountVideoUi", () => {
     const [l, menu] = inside("lingo-player-buttons")!.querySelectorAll(
       "button",
     );
-    l!.click();
+    await userEvent.click(l!);
     expect(spy("setEnabled")).toHaveBeenCalledWith(false);
-    menu!.click();
+    await userEvent.click(menu!);
     expect(spy("setMenuOpen")).toHaveBeenCalledWith(true);
     store.set({ menuOpen: true });
     await expect
@@ -267,10 +267,12 @@ describe("mountVideoUi", () => {
     await expect
       .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
       .not.toBeNull();
-    inside("lingo-video-player")!
-      .querySelector<HTMLElement>("[data-span]")!
-      .click();
-    inside("lingo-player-buttons")!.querySelector("button")!.click();
+    await userEvent.click(
+      inside("lingo-video-player")!.querySelector<HTMLElement>("[data-span]")!,
+    );
+    await userEvent.click(
+      inside("lingo-player-buttons")!.querySelector("button")!,
+    );
     expect(clicks).not.toHaveBeenCalled();
   });
 
@@ -660,15 +662,9 @@ describe("mountVideoUi", () => {
       page.player.addEventListener("keydown", keys);
       await expect.poll(dictionary).not.toBeNull();
       await expect.poll(() => line()).not.toBeNull();
-      dictionary()!.querySelector("button")!.click();
-      dictionary()!.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "k",
-          bubbles: true,
-          composed: true,
-        }),
-      );
-      line()!.querySelector<HTMLElement>("[data-span]")!.click();
+      await userEvent.click(line()!.querySelector<HTMLElement>("[data-span]")!);
+      await userEvent.click(dictionary()!.querySelector("button")!);
+      await userEvent.keyboard("k");
       expect(clicks).not.toHaveBeenCalled();
       expect(keys).not.toHaveBeenCalled();
       expect(store.get().fullscreen).toBe(true);
@@ -695,6 +691,100 @@ describe("mountVideoUi", () => {
         .poll(() => menu()?.querySelector("[role=group]") ?? null)
         .not.toBeNull();
       expect(store.get().menuOpen).toBe(true);
+    });
+  });
+
+  describe("events a page script dispatches", () => {
+    /** Clicks `element` as a page script can: `.click()` and a dispatched event. */
+    function syntheticClick(element: HTMLElement) {
+      element.click();
+      element.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, composed: true }),
+      );
+    }
+    /** The button in `part` whose accessible name or text is `name`. */
+    async function button(part: string, name: string) {
+      const find = () =>
+        [
+          ...(inside(part)?.querySelectorAll<HTMLButtonElement>("button") ??
+            []),
+        ].find(
+          (b) =>
+            b.getAttribute("aria-label") === name ||
+            b.textContent?.trim().startsWith(name),
+        ) ?? null;
+      await expect.poll(find).not.toBeNull();
+      return find()!;
+    }
+
+    it("do not reach the L button; the user's click does", async () => {
+      const { spy } = mount();
+      const l = await button("lingo-player-buttons", "Lingo on or off");
+      syntheticClick(l);
+      expect(spy("setEnabled")).not.toHaveBeenCalled();
+      await userEvent.click(l);
+      expect(spy("setEnabled")).toHaveBeenCalledWith(false);
+    });
+
+    it("do not reach the menu's switch or Open all settings; the user's clicks do", async () => {
+      const { spy } = mount(readyState({ menuOpen: true }));
+      const toggle = await button(
+        "lingo-video-player",
+        "Show translation under the subtitle",
+      );
+      const settings = await button("lingo-video-player", "Open all settings");
+      syntheticClick(toggle);
+      syntheticClick(settings);
+      expect(spy("changeSettings")).not.toHaveBeenCalled();
+      expect(spy("openSettings")).not.toHaveBeenCalled();
+      expect(spy("setMenuOpen")).not.toHaveBeenCalled();
+      await userEvent.click(toggle);
+      expect(spy("changeSettings")).toHaveBeenCalledWith({
+        subtitleTranslation: false,
+      });
+      await userEvent.click(settings);
+      expect(spy("openSettings")).toHaveBeenCalledOnce();
+    });
+
+    it("do not reach the Words tab's filter chips; the user's click does", async () => {
+      const { spy } = mount(readyState({ panelTab: "words" }));
+      const find = () =>
+        inside("lingo-transcript")?.querySelector<HTMLButtonElement>(
+          "[role=group][aria-label='Show words'] button:nth-child(2)",
+        ) ?? null;
+      await expect.poll(find).not.toBeNull();
+      const chip = find()!;
+      expect(chip.textContent).toContain("New");
+      syntheticClick(chip);
+      expect(spy("setWordsFilter")).not.toHaveBeenCalled();
+      await userEvent.click(chip);
+      expect(spy("setWordsFilter")).toHaveBeenCalledWith("new");
+    });
+
+    it("an Escape does not close the dictionary window; the user's does", async () => {
+      const { spy } = mount(
+        readyState({
+          panel: {
+            ref: { cue: 0, span: 1 },
+            card: TANGY,
+            here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+            dictionaries: [],
+            opened: 1,
+          },
+        }),
+      );
+      const close = await button("lingo-video", "Close dictionary");
+      close.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      expect(spy("closePanel")).not.toHaveBeenCalled();
+      close.focus();
+      await userEvent.keyboard("{Escape}");
+      expect(spy("closePanel")).toHaveBeenCalled();
     });
   });
 

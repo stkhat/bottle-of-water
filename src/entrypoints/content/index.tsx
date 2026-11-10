@@ -7,6 +7,7 @@ import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
 import { ArticleUi } from "../../content/ui/ArticleUi";
 import { shadowRootMode } from "../../content/ui/shadow-mode";
 import { send } from "../../messaging/client";
+import { guardShadowRoot } from "../../ui/from-user";
 import { isPageRequest } from "../../messaging/page-protocol";
 
 export default defineContentScript({
@@ -28,7 +29,8 @@ export default defineContentScript({
           mode: shadowRootMode(),
           position: "inline",
           anchor: "body",
-          onMount(container) {
+          onMount(container, shadow) {
+            guardShadowRoot(shadow);
             render(<ArticleUi app={app} />, container);
           },
           onRemove(container) {

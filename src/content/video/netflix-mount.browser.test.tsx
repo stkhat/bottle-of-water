@@ -91,7 +91,9 @@ describe("the L and ^ buttons on Netflix", () => {
     await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
     const host = buttons()!;
     expect(host.getBoundingClientRect().width).toBeGreaterThan(0);
-    menuButton().click();
+    // From the keyboard: a pointer left over the player would keep Netflix's bar up.
+    menuButton().focus();
+    await userEvent.keyboard("{Enter}");
     await expect
       .poll(() => menuButton().getAttribute("aria-expanded"))
       .toBe("true");
