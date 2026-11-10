@@ -66,7 +66,7 @@ describe("createEnJaDictionary", () => {
     expect(dictionary.entry(" Figure  out ")).toEqual({
       head: "figure out",
       kind: "phrase",
-      ipa: "/ˈfɪɡjɚ aʊt/",
+      ipa: "/ˈfɪɡjər aʊt/",
       short: "…を理解する",
       senses: [{ text: "…を理解する" }, { text: "…を計算する" }],
     });
@@ -88,7 +88,7 @@ describe("createEnJaDictionary", () => {
     expect(dictionary.entry("from scratch")).toEqual({
       head: "from scratch",
       kind: "phrase",
-      ipa: "/fɹʌm skɹætʃ/",
+      ipa: "/frʌm skrætʃ/",
       short: "From the beginning",
       glossLang: "en",
       senses: [
