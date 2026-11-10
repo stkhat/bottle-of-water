@@ -114,6 +114,10 @@ function fake(options: FakeOptions = {}) {
         case "lookup": {
           const saved = terms.find((t) => t.key === request.key);
           return {
+            // The pack's IPA, also for a phrase no dictionary has.
+            ...(request.key === "heavy lifting" && {
+              ipa: "/ˈhɛvi ˈlɪftɪŋ/",
+            }),
             ...(request.key !== "heavy lifting" && {
               entry: {
                 head: request.key,
@@ -237,6 +241,15 @@ describe("WordList", () => {
     await expect
       .element(details.getByText("short of tedious"))
       .toHaveAttribute("lang", "ja");
+  });
+
+  it("shows the IPA of a saved phrase no dictionary has", async () => {
+    const { details, row } = await open();
+    await row("heavy lifting").click();
+    await expect
+      .element(details.getByRole("heading", { level: 2 }))
+      .toHaveTextContent("heavy lifting");
+    await expect.element(details.getByText("/ˈhɛvi ˈlɪftɪŋ/")).toBeVisible();
   });
 
   it("filters by status and kind", async () => {

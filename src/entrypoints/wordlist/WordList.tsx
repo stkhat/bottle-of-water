@@ -38,6 +38,8 @@ interface Details {
   term: TermSummary;
   status: WordStatus;
   entry?: DictionaryEntry;
+  /** The pack's IPA, also for a phrase no dictionary has (`LookupResult.ipa`). */
+  ipa?: string;
   occurrences: OccurrenceView[];
 }
 
@@ -388,6 +390,7 @@ function DetailsPanel(props: {
   const { details, now } = props;
   const { entry, term, occurrences } = details;
   const head = entry?.head ?? term.key;
+  const ipa = entry?.ipa ?? details.ipa;
   const items = elsewhereItems(occurrences).map((item, i) => {
     const o = occurrences[i]!;
     const parts = [item.meta];
@@ -466,7 +469,7 @@ function DetailsPanel(props: {
               {SPEAKER}
             </button>
           </div>
-          {entry?.ipa && (
+          {ipa && (
             <span
               style={{
                 fontFamily: IPA_FONT,
@@ -474,7 +477,7 @@ function DetailsPanel(props: {
                 color: color.ink3,
               }}
             >
-              {entry.ipa}
+              {ipa}
             </span>
           )}
           {entry?.short && (
@@ -585,6 +588,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           term,
           status: result.status,
           ...(result.entry && { entry: result.entry }),
+          ...(result.ipa !== undefined && { ipa: result.ipa }),
           occurrences: [...result.here, ...result.elsewhere],
         });
       }, warn);
