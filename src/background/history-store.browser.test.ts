@@ -323,6 +323,40 @@ describe("find", () => {
       "Dough number 57.",
     ]);
   });
+
+  it("returns only the newest `limit` of many matches, after leaving out the excluded page", async () => {
+    const many = Array.from({ length: 120 }, (_, i) => ({
+      text: `Dough on the other page ${i}.`,
+      pos: { textQuote: `${i}` },
+      keys: ["en:dough"],
+    }));
+    await history.record(OTHER_ARTICLE, many);
+    tick();
+    await history.record(VIDEO, [rest]);
+    tick();
+    // The newest sentences are on the excluded page: they must not use up the limit.
+    await history.record(
+      ARTICLE,
+      Array.from({ length: 80 }, (_, i) => ({
+        text: `Dough here ${i}.`,
+        pos: { textQuote: `${i}` },
+        keys: ["en:dough"],
+      })),
+    );
+
+    const found = await history.find("en:dough", {
+      excludeUrl: ARTICLE.url,
+      limit: 5,
+    });
+    expect(found.map((s) => s.text)).toEqual([
+      rest.text,
+      "Dough on the other page 119.",
+      "Dough on the other page 118.",
+      "Dough on the other page 117.",
+      "Dough on the other page 116.",
+    ]);
+    expect(await history.find("en:dough", { limit: 7 })).toHaveLength(7);
+  });
 });
 
 describe("status", () => {

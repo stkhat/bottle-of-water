@@ -182,11 +182,16 @@ export function createHandlers({
       for (const o of occurrences)
         (o.source.url === hereUrl ? here : elsewhere).push(view(o));
       const status = terms.get(key) ?? "new";
+      // Best effort: the dictionary entry is shown whether or not the history is read.
       if (status === "new") {
-        const kept = await history.find(id, {
-          ...(sourceUrl !== undefined && { excludeUrl: sourceUrl }),
-        });
-        elsewhere.push(...kept.map(historyView));
+        try {
+          const kept = await history.find(id, {
+            ...(sourceUrl !== undefined && { excludeUrl: sourceUrl }),
+          });
+          elsewhere.push(...kept.map(historyView));
+        } catch (error) {
+          console.error("Lingo: could not read the sentence history", error);
+        }
       }
       const entry = dictionary.entry(key);
       const ipa = pack.ipa(key);

@@ -48,7 +48,10 @@ export interface HistoryStore {
    * how many sentences were added.
    */
   record(source: HistorySource, items: readonly HistoryItem[]): Promise<number>;
-  /** Kept sentences with the term id, newest first, without the page at `excludeUrl`. */
+  /**
+   * Kept sentences with the term id, newest first (in the order they were kept), at
+   * most `limit` (50), without the page at `excludeUrl`.
+   */
   find(
     termId: string,
     options?: { excludeUrl?: string; limit?: number },
@@ -67,6 +70,8 @@ export interface HistoryStoreOptions {
 }
 
 export const HISTORY_CAP_BYTES = 50 * 1024 * 1024;
+
+const PLATFORMS: readonly Platform[] = ["web", "youtube", "netflix"];
 
 /** After going over the cap, pages are removed until the total is at most this share of it. */
 const EVICT_TO = 0.9;
@@ -181,24 +186,29 @@ export function createHistoryStore(
     },
 
     async find(termId, { excludeUrl, limit = 50 } = {}) {
+      // A URL is one page per platform; leave out every one of them.
       const excluded =
-        excludeUrl === undefined ? undefined : normalizedOrRaw(excludeUrl);
+        excludeUrl === undefined
+          ? new Set<string>()
+          : new Set(
+              PLATFORMS.map((p) => sourceId(p, normalizedOrRaw(excludeUrl))),
+            );
+      // Ids grow as sentences are added: the index in reverse key order is newest first.
       const sentences = await db.historySentences
         .where("keys")
         .equals(termId)
+        .reverse()
+        .filter((s) => !excluded.has(s.pageId))
+        .limit(limit)
         .toArray();
-      const pages = await db.historyPages.bulkGet([
-        ...new Set(sentences.map((s) => s.pageId)),
-      ]);
-      const byId = new Map(
-        pages
-          .filter((p) => p !== undefined && p.url !== excluded)
-          .map((p) => [p!.id, p!]),
-      );
+      const ids = [...new Set(sentences.map((s) => s.pageId))];
+      const pages = await db.historyPages.bulkGet(ids);
+      const byId = new Map<string, HistoryPageRecord>();
+      pages.forEach((page, i) => {
+        if (page) byId.set(ids[i]!, page);
+      });
       return sentences
         .filter((s) => byId.has(s.pageId))
-        .sort((a, b) => b.seenAt - a.seenAt || (b.id ?? 0) - (a.id ?? 0))
-        .slice(0, limit)
         .map((s) => {
           const page = byId.get(s.pageId)!;
           const found: HistorySentence = {

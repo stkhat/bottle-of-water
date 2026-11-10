@@ -981,6 +981,21 @@ describe("handlers: lookup from the sentence history", () => {
     ]);
   });
 
+  it("still answers when the history cannot be read", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    history.find.mockRejectedValue(new Error("history gone"));
+    const result = await value({
+      type: "lookup",
+      lang: "en",
+      key: "loaf",
+      kind: "word",
+      sourceUrl: "https://example.com/bread",
+    });
+    expect(result).toMatchObject({ status: "new", here: [], elsewhere: [] });
+    expect(error).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
   it("gives a saved term's occurrences, not the history", async () => {
     store.termIndex.mockResolvedValue(new Map([["loaf", "learning"]]));
     history.find.mockResolvedValue(KEPT);
