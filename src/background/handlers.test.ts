@@ -839,6 +839,62 @@ describe("handlers: recordHistory", () => {
   });
 });
 
+describe("handlers: incognito tabs", () => {
+  const INCOGNITO = { tab: { incognito: true } };
+
+  it("keeps no sentence history from an incognito tab", async () => {
+    history.record.mockResolvedValue(1);
+    expect(
+      await handle(
+        {
+          type: "recordHistory",
+          source: PAGE,
+          sentences: [{ text: "Yeast.", pos: { textQuote: "Yeast." } }],
+        },
+        INCOGNITO,
+      ),
+    ).toEqual({ ok: true, value: { kept: 0 } });
+    expect(history.record).not.toHaveBeenCalled();
+    expect(filesRead(loadPack)).toEqual([]);
+  });
+
+  it("records no encounters from an incognito tab", async () => {
+    store.recordEncounters.mockResolvedValue(1);
+    expect(
+      await handle(
+        {
+          type: "recordEncounters",
+          source: SOURCE,
+          items: [
+            {
+              termId: "en:loaf",
+              sentence: "A loaf.",
+              pos: { textQuote: "A loaf." },
+            },
+          ],
+        },
+        INCOGNITO,
+      ),
+    ).toEqual({ ok: true, value: 0 });
+    expect(store.recordEncounters).not.toHaveBeenCalled();
+  });
+
+  it("still records from a normal tab", async () => {
+    history.record.mockResolvedValue(1);
+    expect(
+      await handle(
+        {
+          type: "recordHistory",
+          source: PAGE,
+          sentences: [{ text: "Yeast.", pos: { textQuote: "Yeast." } }],
+        },
+        { tab: { incognito: false } },
+      ),
+    ).toEqual({ ok: true, value: { kept: 1 } });
+    expect(history.record).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("handlers: historyStatus and clearHistory", () => {
   it("answers historyStatus from the history store", async () => {
     history.status.mockResolvedValue({ bytes: 2_048, cap: 50, pages: 3 });

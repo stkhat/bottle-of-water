@@ -43,12 +43,29 @@ export interface HandlerDeps {
   openOptionsPage(): Promise<void>;
 }
 
-/** Answers one message. Never rejects: failures come back as `{ ok: false }`. */
-export type Handle = (request: unknown) => Promise<Reply>;
+/** Who sent a message: the part of `runtime.MessageSender` the handlers use. */
+export interface MessageSender {
+  tab?: { incognito?: boolean };
+}
+
+/**
+ * Answers one message. Never rejects: failures come back as `{ ok: false }`.
+ * `sender` is the message's sender; messages from the extension's own pages have no tab.
+ */
+export type Handle = (
+  request: unknown,
+  sender?: MessageSender,
+) => Promise<Reply>;
 
 type Handlers = {
-  [T in RequestType]: (request: RequestOf<T>) => Promise<ResponseOf<T>>;
+  [T in RequestType]: (
+    request: RequestOf<T>,
+    sender: MessageSender,
+  ) => Promise<ResponseOf<T>>;
 };
+
+/** Private (incognito) windows leave nothing behind: no history, no encounters. */
+const fromIncognito = (sender: MessageSender) => sender.tab?.incognito === true;
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -209,8 +226,8 @@ export function createHandlers({
       await store.removeTerm(id);
       return null;
     },
-    recordEncounters: ({ source, items }) =>
-      store.recordEncounters(source, items),
+    recordEncounters: async ({ source, items }, sender) =>
+      fromIncognito(sender) ? 0 : store.recordEncounters(source, items),
     saveAll: ({ lang, keys, status, source }) =>
       store.saveAll(lang, keys, status, source),
     undoSaveAll: ({ batchId }) => store.undoSaveAll(batchId),
@@ -269,7 +286,8 @@ export function createHandlers({
       );
     },
 
-    async recordHistory({ source, sentences }) {
+    async recordHistory({ source, sentences }, sender) {
+      if (fromIncognito(sender)) return { kept: 0 };
       const current = await settings.get();
       const host = hostnameOf(source.url);
       if (
@@ -298,7 +316,7 @@ export function createHandlers({
     },
   };
 
-  return async (request) => {
+  return async (request, sender = {}) => {
     const type = (request as { type?: unknown } | null | undefined)?.type;
     if (typeof type !== "string")
       return { ok: false, error: "Unknown request" };
@@ -307,8 +325,9 @@ export function createHandlers({
     try {
       const handler = handlers[type as RequestType] as (
         request: unknown,
+        sender: MessageSender,
       ) => Promise<unknown>;
-      return { ok: true, value: await handler(request) };
+      return { ok: true, value: await handler(request, sender) };
     } catch (error) {
       return { ok: false, error: errorText(error) };
     }

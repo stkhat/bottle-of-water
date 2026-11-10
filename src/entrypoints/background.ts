@@ -34,8 +34,8 @@ export default defineBackground(() => {
   // Registered synchronously so a message that wakes the worker is not missed.
   // Answering through sendResponse (and returning true) works in every browser;
   // returning a Promise does not in all Chromium versions.
-  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    void handle(message).then(sendResponse);
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    void handle(message, sender).then(sendResponse);
     return true;
   });
 
