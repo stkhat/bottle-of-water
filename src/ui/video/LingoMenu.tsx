@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "preact/hooks";
 import type { Settings } from "../../core/settings";
 import { t } from "../../i18n/t";
+import { fromUser } from "../from-user";
 import { badge, color, root } from "../lookup/styles";
 import { Switch } from "../lookup/Switch";
 
@@ -53,7 +54,9 @@ export function LingoMenu(props: LingoMenuProps) {
   // right after opening still closes it.
   useLayoutEffect(() => {
     const timers = new Set<ReturnType<typeof setTimeout>>();
+    // A page script's events do not close it (`fromUser`).
     const onPointerDown = (event: PointerEvent) => {
+      if (!fromUser(event)) return;
       const path = event.composedPath();
       if (path.some(isMenuElement)) return;
       if (!path.some(isLingoHost)) {
@@ -68,7 +71,7 @@ export function LingoMenu(props: LingoMenuProps) {
       timers.add(timer);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close.current();
+      if (fromUser(event) && event.key === "Escape") close.current();
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown, true);

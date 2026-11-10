@@ -22,6 +22,15 @@ afterEach(() => {
   cleanups.splice(0).forEach((c) => c());
 });
 
+/** A button on the page, outside the menu, for the user to press. */
+function outside(): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.textContent = "Outside";
+  document.body.append(button);
+  cleanups.push(() => button.remove());
+  return button;
+}
+
 describe("LingoMenu", () => {
   test("shows the state for this video", async () => {
     const screen = await mountInShadowRoot(<LingoMenu {...base} />);
@@ -108,10 +117,28 @@ describe("LingoMenu", () => {
     expect(onClose).not.toHaveBeenCalled();
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
-    document.body.dispatchEvent(
+    await userEvent.click(outside());
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  test("ignores an Escape and a press outside that a page script dispatches", async () => {
+    const onClose = vi.fn();
+    await mountInShadowRoot(<LingoMenu {...base} onClose={onClose} />);
+    const page = outside();
+    page.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    page.dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, composed: true }),
     );
-    expect(onClose).toHaveBeenCalledTimes(2);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.click(page);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test("closes with Escape or a click outside right after it opens", async () => {
@@ -151,32 +178,20 @@ describe("LingoMenu", () => {
 
     // Escape with the focus still on the ^ button.
     await open();
-    opener.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Escape",
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
 
     await open();
-    document.body.dispatchEvent(
-      new PointerEvent("pointerdown", { bubbles: true, composed: true }),
-    );
+    await userEvent.click(outside());
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
   test("a click on the menu button is not a click outside", async () => {
     const onClose = vi.fn();
     await mountInShadowRoot(<LingoMenu {...base} onClose={onClose} />);
-    const toggle = document.createElement("button");
+    const toggle = outside();
     toggle.dataset.lingoMenu = "";
-    document.body.append(toggle);
-    toggle.dispatchEvent(
-      new PointerEvent("pointerdown", { bubbles: true, composed: true }),
-    );
-    toggle.remove();
+    await userEvent.click(toggle);
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -186,6 +201,7 @@ describe("LingoMenu", () => {
     /** Renders into a closed shadow root of a Lingo host, as the content script does. */
     function closed(name: string, ui: JSX.Element) {
       const host = document.createElement(name);
+      host.style.display = "block";
       document.body.append(host);
       cleanups.push(() => {
         render(null, shadow);
@@ -195,10 +211,18 @@ describe("LingoMenu", () => {
       render(ui, shadow);
       return shadow;
     }
-    const press = (element: Element) =>
-      element.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, composed: true }),
-      );
+    /** The user's click on `element` in a closed root: at its place on the host. */
+    const press = (element: Element) => {
+      const host = (element.getRootNode() as ShadowRoot).host;
+      const box = element.getBoundingClientRect();
+      const at = host.getBoundingClientRect();
+      return userEvent.click(host, {
+        position: {
+          x: box.left - at.left + box.width / 2,
+          y: box.top - at.top + box.height / 2,
+        },
+      });
+    };
     const menu = closed(
       "lingo-test-player",
       <LingoMenu {...base} onClose={onClose} onPosition={onPosition} />,
@@ -208,13 +232,14 @@ describe("LingoMenu", () => {
       <PlayerButtons enabled menuOpen onToggle={() => {}} onMenu={() => {}} />,
     );
 
-    press(menu.querySelector("[aria-pressed=false]")!);
-    press(menu.querySelector("[role=dialog]")!);
-    for (const button of buttons.querySelectorAll("button")) press(button);
+    await press(menu.querySelector("[aria-pressed=false]")!);
+    await press(menu.querySelector("[role=dialog]")!);
+    for (const button of buttons.querySelectorAll("button"))
+      await press(button);
     await new Promise((r) => setTimeout(r, 50));
     expect(onClose).not.toHaveBeenCalled();
 
-    press(document.body);
+    await userEvent.click(outside());
     await expect.poll(() => onClose.mock.calls.length).toBe(1);
   });
 });
