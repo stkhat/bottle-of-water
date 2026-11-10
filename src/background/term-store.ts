@@ -56,6 +56,12 @@ export interface OccurrenceWithSource extends OccurrenceRecord {
   source: SourceRecord;
 }
 
+export interface OccurrenceStats {
+  count: number;
+  /** The newest occurrence's `seenAt`. */
+  lastSeen: number;
+}
+
 export interface LingoExport {
   format: "lingo-export";
   version: 1;
@@ -118,6 +124,8 @@ export interface TermStore {
   ): Promise<TermRecord[]>;
   /** Newest first, each with its source. */
   occurrencesOf(termId: string): Promise<OccurrenceWithSource[]>;
+  /** Per term id of `lang`: how many occurrences it has and the newest one's time. */
+  occurrenceStats(lang: string): Promise<Map<string, OccurrenceStats>>;
   /** All data as `LingoExport` JSON; records `lastExportAt`. */
   exportJson(): Promise<string>;
   /**
@@ -463,6 +471,22 @@ export function createTermStore(
         const source = byId.get(o.sourceId);
         return source ? [{ ...o, source }] : [];
       });
+    },
+
+    async occurrenceStats(lang) {
+      const stats = new Map<string, OccurrenceStats>();
+      // Term ids start with the language ("en:…"): one index range per language.
+      await db.occurrences
+        .where("termId")
+        .startsWith(`${lang}:`)
+        .each(({ termId: id, seenAt }) => {
+          const seen = stats.get(id);
+          if (seen) {
+            seen.count++;
+            seen.lastSeen = Math.max(seen.lastSeen, seenAt);
+          } else stats.set(id, { count: 1, lastSeen: seenAt });
+        });
+      return stats;
     },
 
     async exportJson() {

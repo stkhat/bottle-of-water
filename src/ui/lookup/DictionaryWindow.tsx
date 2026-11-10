@@ -1,4 +1,4 @@
-import type { CSSProperties, JSX } from "preact";
+import type { CSSProperties } from "preact";
 import { t } from "../../i18n/t";
 import type { WordStatus } from "./HoverCard";
 import {
@@ -10,6 +10,7 @@ import {
   root,
   sectionHeading,
 } from "./styles";
+import { StatusButtons } from "./StatusButtons";
 import { useDrag } from "./useDrag";
 
 export interface DictionaryEntryView {
@@ -77,21 +78,6 @@ const BOX: Style = {
   background: color.white,
   border: `1px solid ${color.line}`,
   borderRadius: "14px",
-};
-
-const SEGMENT: Style = {
-  height: "40px",
-  borderRadius: "8px",
-  font: "inherit",
-  fontSize: "13px",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const SEGMENT_OFF: Style = {
-  background: color.white,
-  color: color.ink3,
-  border: `1px solid ${color.lineStrong}`,
 };
 
 const CLOSE_ICON = (
@@ -251,21 +237,6 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
 
 function Content(props: DictionaryWindowProps & { icon: Style }) {
   const { entry, status } = props;
-  const saved = status !== "new";
-
-  function segment(value: WordStatus, label: string, on: Style): JSX.Element {
-    const pressed = status === value;
-    return (
-      <button
-        type="button"
-        aria-pressed={pressed}
-        onClick={() => props.onStatus(value)}
-        style={{ ...SEGMENT, ...(pressed ? on : SEGMENT_OFF) }}
-      >
-        {label}
-      </button>
-    );
-  }
 
   return (
     <>
@@ -350,35 +321,11 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
         )}
       </div>
 
-      <div
-        role="group"
-        aria-label={t("dict.statusGroup")}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-          gap: "6px",
-        }}
-      >
-        {segment("learning", t("dict.status.learning"), {
-          background: color.green,
-          color: color.white,
-          border: `1px solid ${color.green}`,
-        })}
-        {segment("known", t("dict.status.known"), {
-          background: color.ink,
-          color: color.white,
-          border: `1px solid ${color.ink}`,
-        })}
-        {segment(
-          "new",
-          t(saved ? "dict.status.remove" : "dict.status.notSaved"),
-          {
-            background: color.surfaceGray,
-            color: color.ink,
-            border: `1px solid ${props.variant === "window" ? "#8C92A3" : "#A3A8B7"}`,
-          },
-        )}
-      </div>
+      <StatusButtons
+        status={status}
+        onStatus={props.onStatus}
+        removeBorder={props.variant === "window" ? "#8C92A3" : "#A3A8B7"}
+      />
 
       {entry.senses.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -543,7 +490,8 @@ function HereRow(props: { item: HereItem; source: "video" | "page" }) {
   );
 }
 
-function ElsewhereRow(props: { item: ElsewhereItem }) {
+/** An occurrence in another source: its icon, title, meta and sentence; a link when it has one. */
+export function ElsewhereRow(props: { item: ElsewhereItem }) {
   const { item } = props;
   const style: Style = {
     display: "flex",

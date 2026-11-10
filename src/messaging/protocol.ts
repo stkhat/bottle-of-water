@@ -57,6 +57,8 @@ export type Request =
   | { type: "lastExport" }
   /** Saved terms of a language (no tombstones), for the word list. */
   | { type: "listTerms"; lang: string }
+  /** The word list's rows: saved terms with their short meaning and occurrence stats. */
+  | { type: "listTermsWithStats"; lang: string }
   /** Opens the options page (content scripts cannot open it themselves). */
   | { type: "openOptions" };
 
@@ -95,6 +97,23 @@ export interface LookupResult {
   elsewhere: OccurrenceView[];
 }
 
+/** One row of the word list. */
+export interface TermSummary {
+  id: string;
+  /** The base form (or a phrase's base forms). */
+  key: string;
+  display: string;
+  kind: TermKind;
+  status: TermStatus;
+  /** The dictionary's short meaning; missing when the dictionary has no entry. */
+  short?: string;
+  /** How many occurrences are recorded. */
+  seen: number;
+  /** The newest occurrence's time, else when the term was saved (epoch ms). */
+  lastSeen: number;
+  createdAt: number;
+}
+
 export interface ResponseMap {
   getSettings: Settings;
   setSettings: Settings;
@@ -121,6 +140,7 @@ export interface ResponseMap {
   /** Epoch ms, or null when the data was never exported. */
   lastExport: number | null;
   listTerms: TermRecord[];
+  listTermsWithStats: TermSummary[];
   openOptions: null;
 }
 

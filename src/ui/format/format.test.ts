@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { backupFileName, kilobytes, relativeTime } from "./format";
+import {
+  backupFileName,
+  kilobytes,
+  relativeTime,
+  sameDay,
+  shortDate,
+} from "./format";
 
 const NOW = Date.UTC(2026, 10, 10, 12, 0, 0);
 const SECOND = 1000;
@@ -44,5 +50,26 @@ describe("backupFileName", () => {
     expect(backupFileName(new Date(2026, 0, 5, 23, 59))).toBe(
       "lingo-backup-2026-01-05.json",
     );
+  });
+});
+
+describe("shortDate", () => {
+  const now = new Date(2026, 10, 10, 9, 30).getTime();
+  it.each([
+    [new Date(2026, 10, 10, 0, 5), "Today"],
+    [new Date(2026, 10, 10, 23, 59), "Today"],
+    [new Date(2026, 10, 9, 23, 59), "Nov 9"],
+    [new Date(2026, 0, 1, 8, 0), "Jan 1"],
+    [new Date(2025, 11, 28, 8, 0), "Dec 28, 2025"],
+  ])("%s is %s", (date, text) => {
+    expect(shortDate(date.getTime(), now)).toBe(text);
+  });
+});
+
+describe("sameDay", () => {
+  it("compares local calendar days", () => {
+    const now = new Date(2026, 10, 10, 9, 30).getTime();
+    expect(sameDay(new Date(2026, 10, 10, 23, 0).getTime(), now)).toBe(true);
+    expect(sameDay(new Date(2026, 10, 9, 23, 0).getTime(), now)).toBe(false);
   });
 });

@@ -39,6 +39,7 @@ function fakeStore(): FakeStore {
     termIndex: vi.fn(async (): Promise<TermIndex> => new Map()),
     listTerms: vi.fn(fail("listTerms")),
     occurrencesOf: vi.fn(async (): Promise<OccurrenceWithSource[]> => []),
+    occurrenceStats: vi.fn(fail("occurrenceStats")),
     exportJson: vi.fn(fail("exportJson")),
     importJson: vi.fn(fail("importJson")),
     applySynced: vi.fn(fail("applySynced")),
@@ -388,6 +389,51 @@ const VIDEO: SourceRecord = {
   firstSeen: 0,
   lastSeen: 0,
 };
+
+describe("handlers: listTermsWithStats", () => {
+  it("gives each saved term with its short meaning, how often and when it was last seen", async () => {
+    const figureOut: TermRecord = {
+      id: "en:figure out",
+      lang: "en",
+      key: "figure out",
+      display: "figured out",
+      kind: "phrase",
+      status: "known",
+      createdAt: 500,
+      updatedAt: 700,
+    };
+    store.listTerms.mockResolvedValue([figureOut, LOAF]);
+    store.occurrenceStats.mockResolvedValue(
+      new Map([["en:loaf", { count: 3, lastSeen: 9_000 }]]),
+    );
+    expect(await value({ type: "listTermsWithStats", lang: "en" })).toEqual([
+      {
+        id: "en:figure out",
+        key: "figure out",
+        display: "figured out",
+        kind: "phrase",
+        status: "known",
+        // No dictionary entry: no short meaning. No occurrences: seen when saved.
+        seen: 0,
+        lastSeen: 500,
+        createdAt: 500,
+      },
+      {
+        id: "en:loaf",
+        key: "loaf",
+        display: "loaves",
+        kind: "word",
+        status: "learning",
+        short: "パンのひと塊",
+        seen: 3,
+        lastSeen: 9_000,
+        createdAt: 1_000,
+      },
+    ]);
+    expect(store.listTerms).toHaveBeenCalledWith("en");
+    expect(store.occurrenceStats).toHaveBeenCalledWith("en");
+  });
+});
 
 describe("handlers: warmDictionary", () => {
   it("loads the dictionary of the native language before any lookup", async () => {

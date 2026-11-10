@@ -346,6 +346,33 @@ describe("occurrencesOf", () => {
   });
 });
 
+describe("occurrenceStats", () => {
+  it("counts each term's occurrences of a language and when it was last seen", async () => {
+    await store.saveTerm(dough());
+    const savedAt = time;
+    await store.saveTerm(figureOut());
+    tick();
+    await store.recordEncounters(ARTICLE, [
+      { termId: "en:dough", sentence: "Later.", pos: { textQuote: "Later" } },
+    ]);
+    await store.saveTerm(
+      dough({ lang: "fr", key: "pâte", display: "pâte", sentence: "La pâte." }),
+    );
+    const stats = await store.occurrenceStats("en");
+    expect(stats).toEqual(
+      new Map([
+        ["en:dough", { count: 2, lastSeen: time }],
+        ["en:figure out", { count: 1, lastSeen: savedAt }],
+      ]),
+    );
+  });
+
+  it("leaves out terms without occurrences", async () => {
+    await store.saveAll("en", ["loaf"], "learning", ARTICLE);
+    expect(await store.occurrenceStats("en")).toEqual(new Map());
+  });
+});
+
 describe("saveAll", () => {
   it("creates bulk terms with the chosen status and counts them", async () => {
     const result = await store.saveAll(

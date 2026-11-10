@@ -1,5 +1,5 @@
 import type { BrowserEnv } from "../core/browser-env";
-import { unsavedKeys, type Span } from "../core/classify";
+import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
 import type { Settings, SettingsPatch } from "../core/settings";
 import type { SyncBackend } from "../core/sync/backend";
 import { normalizeUrl, occurrenceLink } from "../core/url";
@@ -150,6 +150,29 @@ export function createHandlers({
     importJson: ({ json }) => store.importJson(json),
     lastExport: async () => (await store.getMeta("lastExportAt")) ?? null,
     listTerms: ({ lang }) => store.listTerms(lang),
+    async listTermsWithStats({ lang }) {
+      const { nativeLang } = await settings.get();
+      const [terms, stats, dictionary] = await Promise.all([
+        store.listTerms(lang),
+        store.occurrenceStats(lang),
+        resources.dictionary(lang, nativeLang),
+      ]);
+      return terms.map((term) => {
+        const seen = stats.get(term.id);
+        const short = dictionary.short(term.key);
+        return {
+          id: term.id,
+          key: term.key,
+          display: term.display,
+          kind: term.kind,
+          status: term.status as TermStatus,
+          ...(short !== undefined && { short }),
+          seen: seen?.count ?? 0,
+          lastSeen: seen?.lastSeen ?? term.createdAt,
+          createdAt: term.createdAt,
+        };
+      });
+    },
   };
 
   return async (request) => {
