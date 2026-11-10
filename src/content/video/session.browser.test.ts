@@ -637,8 +637,11 @@ function refOf(state: () => VideoState, cue: number, key: string) {
   return { cue, span };
 }
 
+// Classifying every cue can take seconds on slow CI runners (Firefox on Windows).
 const classified = (state: () => VideoState) =>
-  expect.poll(() => state().spans.every((s) => s !== null)).toBe(true);
+  expect
+    .poll(() => state().spans.every((s) => s !== null), { timeout: 10_000 })
+    .toBe(true);
 
 const BOX = { left: 10, top: 20, right: 60, bottom: 40 };
 
