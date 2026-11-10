@@ -13,23 +13,21 @@ import { siteFromInput } from "../../core/url";
 import { t, type MessageKey } from "../../i18n/t";
 import type { send } from "../../messaging/client";
 import {
-  backupFileName,
-  kilobytes,
-  relativeTime,
-} from "../../ui/format/format";
+  BackupButtons,
+  type BackupDeps,
+  type BackupNote,
+} from "../../ui/backup/BackupButtons";
+import { kilobytes, relativeTime } from "../../ui/format/format";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
 
 /** What the settings page works with; `main.tsx` passes the browser's, tests pass fakes. */
-export interface SettingsDeps {
+export interface SettingsDeps extends BackupDeps {
   send: typeof send;
   watchSettings(listener: (settings: Settings) => void): () => void;
   env: Pick<BrowserEnv, "name" | "syncName" | "features">;
   /** The extension's version, from the manifest. */
   version: string;
-  now(): number;
-  /** Hands a file to the user (a download). */
-  download(fileName: string, text: string): void;
   /** How often the sync status and the relative times are refreshed. */
   refreshMs: number;
 }
@@ -378,12 +376,6 @@ function NeverRunOn(props: {
   );
 }
 
-/** The result of the last export or import: a short line under "Backup file". */
-type BackupNote = { ok: boolean; text: string } | null;
-
-const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
-
 /** The settings page (mock Settings): every section, bound to the settings live. */
 export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const { env } = deps;
@@ -393,7 +385,6 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const [lastExport, setLastExport] = useState<number | null>(null);
   const [note, setNote] = useState<BackupNote>(null);
   const [now, setNow] = useState(deps.now);
-  const fileInput = useRef<HTMLInputElement>(null);
   const active = useSectionInView();
 
   const warn = (error: unknown) => console.warn("Lingo:", error);
@@ -449,43 +440,6 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
 
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     patch({ [key]: value } as SettingsPatch, { ...s, [key]: value });
-  }
-
-  async function exportFile() {
-    setNote(null);
-    try {
-      const json = await deps.send({ type: "exportJson" });
-      deps.download(backupFileName(new Date(deps.now())), json);
-      setNow(deps.now());
-      await refreshLastExport();
-    } catch (error) {
-      setNote({
-        ok: false,
-        text: t("settings.backup.exportFailed", { error: errorText(error) }),
-      });
-    }
-  }
-
-  async function importFile(file: File) {
-    setNote(null);
-    try {
-      const result = await deps.send({
-        type: "importJson",
-        json: await file.text(),
-      });
-      setNote({
-        ok: true,
-        text:
-          result.terms === 1
-            ? t("settings.backup.imported.one")
-            : t("settings.backup.imported", { count: fmt(result.terms) }),
-      });
-    } catch (error) {
-      setNote({
-        ok: false,
-        text: t("settings.backup.importFailed", { error: errorText(error) }),
-      });
-    }
   }
 
   const languageSelect = (
@@ -960,26 +914,13 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                 </span>
               )}
             </span>
-            <button class="btn" type="button" onClick={() => void exportFile()}>
-              {t("settings.backup.export")}
-            </button>
-            <button
+            <BackupButtons
+              deps={deps}
               class="btn"
-              type="button"
-              onClick={() => fileInput.current?.click()}
-            >
-              {t("settings.backup.import")}
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/json,.json"
-              aria-label={t("settings.backup.file")}
-              hidden
-              onChange={(e) => {
-                const file = e.currentTarget.files?.[0];
-                e.currentTarget.value = "";
-                if (file) void importFile(file);
+              onNote={setNote}
+              onExported={() => {
+                setNow(deps.now());
+                void refreshLastExport();
               }}
             />
           </div>
