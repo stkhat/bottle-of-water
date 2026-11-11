@@ -40,7 +40,8 @@ Development pair: learning language = English, native language = Japanese, sites
 - Headword, **IPA (always shown when available)**, short translation, extra notes (etymology, related words, pronunciation notes)
 - Buttons: "+ Learning", "Known"; on articles also "Details", which opens the dictionary window (a click on a word inside a link follows the link, so this is the way in there). Over video the card ends with "Click the word for details" instead
 - Phrases: saved phrases and dictionary phrases (phase 2: Wiktionary idioms, phrasal verbs and prepositional phrases made of vocabulary words, plus EJDict's multi-word headwords) are matched by their words' base forms; the longest match wins and a saved phrase wins over a detected one. An unsaved detected phrase is New (the known level does not apply to phrases) and does not cover a word saved as Learning. Kaikki phrases starting with be/have/do, word sequences Wiktionary marks as non-constituents, and idioms/phrases made only of very common words are left out
-- Phrase meanings: EJDict → Wiktionary's Japanese translations → Wiktionary's English definition (marked `lang="en"`). A selected phrase that no dictionary has gets its short translation from the browser's built-in translator (`TranslationProvider`); if that is unavailable too, the translation line is left out
+- Phrase patterns (M9a, [language data design](2026-11-11-language-data-scaling-design.md) §4): a pattern is a sequence of words and slots (`one's`, `someone`, `something`, `oneself` in English) with flags `detect` (used for automatic highlighting) and `gap` (words may come between its parts, as in phrasal verbs: "figure it out" → `figure out`). A pattern's word matches a token's written form or any of its base forms ("spilled the beans" → `spill the beans`). Automatic highlighting stays strict (contiguous `detect` patterns without slots, the filters above); saved phrases also match with slots and gaps. A phrase with a gap is drawn in parts, and the words in the gap keep their own highlights
+- Phrase meanings: EJDict → Wiktionary's Japanese translations → Wiktionary's English definition (marked `lang="en"`). From M9b an English definition is translated on the device by the browser's translator when it shows (the definition, not the phrase: "To reveal a secret." rather than "spill the beans"), marked "Machine translation"; without a translator the English definition shows as it is. A selection that matches no pattern gets a literal translation from the browser's translator, marked the same way; if that is unavailable too, the translation line is left out
 
 ### Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
@@ -49,7 +50,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Contents
   - Headword, kind, pronunciation playback (`speechSynthesis`), **IPA**, notes, short translation
   - Status buttons: Learning / Known / Remove ("Not saved" when unsaved)
-  - Meanings by part of speech
+  - Meanings by part of speech. From M9b, English definitions are translated on the device (up to four) and marked "Machine translation"; from M9d, senses from Wiktionary's translation tables show the English sense as a hint before the native words
   - External dictionary links: Cambridge / Wiktionary / Reverso / WordReference (each can be turned on/off in settings; **users cannot add their own dictionary URLs**)
   - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there). On a page the list has every sentence with the term, the clicked one included, as in the mock; clicking one scrolls to it
   - "Seen elsewhere": occurrences in other sources. For unsaved words, explain that saving starts recording
@@ -80,7 +81,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Color by category with the **CSS Custom Highlight API** (no DOM rewriting). `::highlight()` cannot draw padding, rounded corners or box shadows, so the mock's bottom bar is drawn as a 2px underline and the Learning background covers only the text height — the closest the API allows. Process only the visible range, progressively, and follow page changes with a MutationObserver
   - In browsers where highlights cannot be underlined, use background colors only (see "Absorbing browser differences")
 - Find the hovered word with `caretPositionFromPoint`
-- When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known"
+- When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known". From M9a the bar names the phrase pattern the selection matched (the pattern covering the most selected words; the sentence decides when the selection is part of a longer pattern) with its short meaning, and saving uses the pattern's key ("made up her mind" is saved as `make up one's mind`). Phrases saved earlier keep their keys
 - No card sits on the page (highlight toggles live in the toolbar popup). The dictionary panel sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header)
 - The clicked word gets the mock's green outline (drawn by Lingo's UI over the page, since `::highlight()` cannot draw outlines)
 - **When the reader scrolls to the end of the article** (the last paragraph of the `article` with the most text, else `main`), nothing is shown; unsaved New words are handled as Settings say (below)
@@ -105,7 +106,7 @@ Development pair: learning language = English, native language = Japanese, sites
 ### Settings page (the extension's options page, opens in a new tab)
 - Three ways to open it: ① "Settings" / gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from "Open all settings" in the menu next to L in the video player bar
 - Sections
-  - **Languages**: learning language, native language, interface language (English only for now)
+  - **Languages**: learning language, native language, interface language (English only for now). The choices list only the pairs the lock file offers (those passing the quality gate). From M9c the section also shows the chosen pair's language data: its size and Downloaded / Downloading n% / Failed with Retry, and Remove for packs of pairs no longer chosen (layout from the mock)
   - **New-word level**: slider "Treat the N most common words as known" (1,000–20,000, default 3,000)
   - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice
   - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")
@@ -135,7 +136,7 @@ Development pair: learning language = English, native language = Japanese, sites
 
 ### Phase 2 screens (mock, approved 2026-11-10)
 - **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
-  - Listed: New (unsaved), Learning and saved Known words and phrases; words known only by the frequency level and ignored tokens are left out. Short meanings come from the dictionary (no built-in translator). The tab and filter are per video (Transcript and All by default). The Transcript tab keeps the Highlight chips and the Translation switch under the tabs. The column's accessible name is "Lingo"
+  - Listed: New (unsaved), Learning and saved Known words and phrases; words known only by the frequency level and ignored tokens are left out. Short meanings come from the dictionary and from definitions already translated on the device (M9b); a list never starts a new translation. The tab and filter are per video (Transcript and All by default). The Transcript tab keeps the Highlight chips and the Translation switch under the tabs. The column's accessible name is "Lingo"
 - **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows only the translation switch and "Open all settings"
   - The site's captions stay hidden in fullscreen. The subtitle uses a larger look (34 px line, 24 px translation, 120 px above the bottom edge, or higher above Netflix's control bar). The dictionary window opens at the top right (32 px in, 360 × 420, darker shadow) and is placed again when fullscreen starts or ends. Everything Lingo draws on the page moves into the fullscreen element while fullscreen lasts (its parent when that is a `<video>`)
 - **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
@@ -147,16 +148,17 @@ Development pair: learning language = English, native language = Japanese, sites
 
 | Part | Role | Phase 1 implementation |
 |---|---|---|
-| `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA** | `en`: inflection table, frequency list, IPA table and phrase list built from kaikki (Wiktionary) and EJDict. Phase 2: `es` (kaikki Spanish, Wiktionary Spanish frequency list; ~34k words) |
-| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label. Phase 2: `es→en` from kaikki's English glosses (senses carry their part of speech) |
+| `LanguagePack` | Word segmentation (`Intl.Segmenter`), base forms, frequency rank, **IPA**, phrase patterns and the language's **phrase matcher** (M9a: slots, gaps, detect vs select) | `en`: inflection table, frequency list, IPA table and phrase list built from kaikki (Wiktionary) and EJDict. Phase 2: `es` (kaikki Spanish, Wiktionary Spanish frequency list; ~34k words) |
+| `DictionaryProvider` | Short translation (hover) and details (meanings by part of speech), with the source each term came from (M9d) | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: a sense is labeled only when kaikki lists a single part of speech for the word, or when the Japanese gloss's ending identifies one of the word's kaikki parts of speech; otherwise it is shown without a label. Phase 2: `es→en` from kaikki's English glosses (senses carry their part of speech) |
 | `TranslationProvider` | Translating one subtitle line / sentence. Several implementations tried in order ("Choosing a translation") | ① the site's translated subtitles (from `PlatformAdapter`) ② the browser's built-in translator (Chrome: Translator API). If neither exists, no translation |
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation | YouTube / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
 | `BrowserEnv` | Browser differences in one place: browser name, sync name and delay, how to open the settings page, feature detection results | Chrome (Firefox values only need to build) |
+| `PackSource` / `PackStore` (M9c) | Where a pack's files come from: bundled with the extension, or downloaded, verified against the lock file and kept in IndexedDB | `en`, `en-ja`, `en-defs` bundled; `es`, `es-en` and later packs downloaded from npm via jsDelivr / unpkg |
 | `Classifier` | Classify New / Learning / Known / ignored, match phrases, count unsaved words on a page | shared |
 | `LookupUI` | Hover card, dictionary window, phrase saving | shared by text and video UI |
 
-- Where things run: a content script's IndexedDB belongs to the page's origin, so `TermStore`, `LanguagePack` and `DictionaryProvider` live in the **background** and content scripts / extension pages talk to it through typed messages. Pack data is bundled with the extension and read by the background with `runtime.getURL` (not exposed as `web_accessible_resources`), in compact formats that reload quickly when the service worker restarts
+- Where things run: a content script's IndexedDB belongs to the page's origin, so `TermStore`, `LanguagePack` and `DictionaryProvider` live in the **background** and content scripts / extension pages talk to it through typed messages. Pack data is read by the background in compact formats that reload quickly when the service worker restarts: bundled packs with `runtime.getURL` (not exposed as `web_accessible_resources`), downloaded packs from IndexedDB (M9c). Translating English definitions runs in the UI (content scripts, extension pages), since the Translator API does not exist in workers; the background keeps the results (`mtCache`, M9b)
 - The UI on web pages sits in shadow roots: closed in production builds so page scripts cannot read it (it shows sentences kept from other sites), open in the check build and in development so tests and the developer can reach it. It acts only on events the user caused (`isTrusted`), not on events a page script dispatches: each shadow root drops untrusted UI events as they enter it (`guardShadowRoot`, `src/ui/from-user.ts`), and the handlers that open the dictionary or change a word check again
 - IPA: EJDict-hand has no pronunciations, so the US IPA is taken from the `sounds` field of kaikki (English Wiktionary) and kept in the `LanguagePack`. Phrases show the IPA of their words joined together. Words without IPA hide the field. It is shown in dictionary style (`dictionaryIpa`): Wiktionary's syllable dots, tie bars, aspiration and diacritics are dropped, and ɹ/ɚ/ɝ/ɫ are written r/ər/ɜːr/l. It is set in Noto Sans where installed, else the system UI font, so every IPA letter comes from one font
 - Getting video and text
@@ -166,7 +168,13 @@ Development pair: learning language = English, native language = Japanese, sites
   - Detect the end of an article with an IntersectionObserver on the last element of the body
 
 ### Data sources
-Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files into `public/packs/<lang>/` (copied into the build and read by the background with `runtime.getURL`), which are committed. Notices go in About and `THIRD_PARTY_NOTICES.md`.
+Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files, which are committed: bundled packs into `public/packs/<pack>/` (copied into the build and read by the background with `runtime.getURL`), downloaded packs into `data/packs/<pack>/` (M9c). Notices go in About and `THIRD_PARTY_NOTICES.md`.
+
+Language data that scales with more languages (adopted 2026-11-11; [design](2026-11-11-language-data-scaling-design.md)):
+- **Units**: a learning-language pack `<L>` (shared by every native language), a pair dictionary `<L>-<N>`, and English definitions `<L>-en` (the last fallback)
+- **Distribution (M9c)**: one npm package per pack in a public data repository, fetched from jsDelivr, then unpkg; a lock file bundled with the extension (`src/core/packs/packs.lock.json`) lists each pack's version, data format, files with size and SHA-256, the mirrors and the offered pairs. Data fixes ship with an extension release
+- **Native meanings (M9d)**: each pair has a build recipe merging sources in order — a bilingual dictionary, the native language's Wiktionary edition, English Wiktionary's translation tables — where the first source with a term supplies all of it (one source tag per term). At display time the browser's translator translates the English definition (M9b); without one the English definition shows
+- **Quality gate (M9d)**: a pair is offered only when the human-made sources give a meaning for at least 95% of the learning language's 5,000 most frequent content words (value to confirm); `npm run data:stats` reports and checks it
 
 | File | Source | Size | Used for |
 |---|---|---|---|
@@ -277,6 +285,8 @@ Phase 1 publishes only the Chrome version, but the structure must not need rewri
 |---|---|---|---|
 | Browser sync (`storage.sync`) | Google account | Mozilla account (~every 10 min) | Same code. Only the name and delay come from `BrowserEnv` |
 | Subtitle/sentence translation | Translator API (138+) | none (Mozilla opposes it) | Every browser uses the site's translation first, so only the third fallback differs. In Firefox, videos without a site translation and articles get no translation. Whether Firefox has a translation API for extensions is to be investigated |
+| Translating English definitions (M9b) | Translator API, in the UI | none | Firefox shows the English definition as it is. Detected where the translation runs (the UI), not in the background |
+| Downloaded language data (M9c) | IndexedDB in the background | IndexedDB in the event page | Same code. Cache Storage is not used (Firefox allows it on `moz-extension:` only behind a pref) |
 | Built-in AI (phase 3) | Prompt API | none | Only the user's own API key |
 | Article highlights (CSS Custom Highlight API) | available | available from 140, but at release **without underline (`text-decoration`) support** | Without underlines use background colors only (New = pale blue, Learning = pale green, Known = pale gray; colors to tune). Current support and detection method to be confirmed. Video subtitles are drawn with our own elements, so unaffected |
 | DOM work in the background | offscreen document | the event page has a DOM | switched by `BrowserEnv` |
@@ -304,6 +314,7 @@ No outright blocker. Decisions and requirements:
 - **Privacy policy (required)**: any extension that handles user data needs a privacy policy URL, even when data stays on the device. Recorded sources (URL, title) and sentences count as user data. Disclose: what is stored locally, that word status goes through the browser's sync, that nothing is sent to the developer. Include the Limited Use compliance statement. Host it somewhere public without a server (e.g. GitHub Pages; this repo is private, so a separate public page is needed)
 - **2026 policy update (in force since 2026-08-01)**: data collected must be necessary for the single purpose and prominently disclosed
 - **Code**: no remotely hosted code (everything bundled, including the MAIN-world scripts); no obfuscation (minification is fine). Hooking page fetch/XHR/`JSON.parse` is not prohibited but needs a justification
+- **Downloaded language data (M9c)**: data, not code, so allowed. Packs are JSON read with `JSON.parse`, verified against hashes bundled with the extension. The privacy policy names the hosts (jsDelivr, unpkg), says they see the IP address and which packs were fetched, and that no page content or words are sent
 - **Single purpose**: "learn vocabulary on the videos and articles you read" — keep every feature framed around it
 - **Listing**: icon, screenshots and a description are mandatory; no keyword lists ("YouTube Netflix …"); "works with YouTube and Netflix" wording only, no third-party logos
 - **Account**: 2-Step Verification; trader / non-trader declaration (EU DSA) — the user decides before publishing
@@ -321,6 +332,7 @@ No outright blocker. Decisions and requirements:
    - Fullscreen support — done (M8e)
    - Per-video word list tab — done (M8d)
    - A Spanish → English language pack — done (M8b): learning-language choices in Settings list only languages with a dictionary for the learning language (English → Japanese, Spanish → English)
+   - Language data that scales (M9, [design](2026-11-11-language-data-scaling-design.md)): M9a phrase patterns and selections, M9b translating English definitions at display time, M9c downloaded packs, M9d build recipes and new native languages
 3. **Phase 3**
    - "Ask AI" button (links that open ChatGPT / Claude with a prompt containing the word and sentence)
    - LLM explanations: embed "word + sentence + nearby subtitles + saved words" in a prompt, receive JSON, cache per word + sentence. Run on Chrome's built-in Prompt API (Gemini Nano) first, with the user's own API key as a fallback
@@ -340,7 +352,9 @@ No outright blocker. Decisions and requirements:
 - Some words have no IPA on Wiktionary (not shown)
 - Translator / Prompt API are available only on desktop Chrome 138+. If they cannot be used from a content script directly, run them in an offscreen document (to verify). Firefox has neither
 - Browser sync only stores locally when the user is not signed in, and the extension cannot reliably tell. JSON export is the only safeguard for users without sync
-- Data licenses: Wiktionary-derived data is CC BY-SA, EJDict-hand is public domain (Tatoeba, phase 3, is CC BY)
+- Data licenses: Wiktionary-derived data is CC BY-SA, EJDict-hand is public domain (Tatoeba, phase 3, is CC BY). Downloaded packs are published under CC BY-SA with attribution; only public-domain, MIT or CC BY-SA sources are used
+- Host availability (M9c): if both jsDelivr and unpkg are down, a pair not yet downloaded cannot be used; downloads retry with backoff. Hosts can be swapped by a release, since files are verified by hash
+- The browser's translator is unreviewed and can differ between devices: its output is marked "Machine translation" and never counts toward the quality gate
 - Netflix terms of use (stay within techniques equivalent to LR's)
 - Fetching YouTube subtitles needs the token the player adds (`pot`, bound to the video); a plain fetch returns an empty body. Checked 2026-11-10 ([notes](../notes/youtube-captions.md)): once the player has made one timedtext request for the video, the extension can fetch the Japanese track and the auto-translation (`tlang`) by reusing that request's URL. If YouTube stops allowing this, ask the player for each track instead, or fall back to the built-in translator. Automated browsers (Playwright) get empty captions even from the player, so tests use recorded fixtures
 
