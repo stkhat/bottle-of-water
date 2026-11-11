@@ -34,7 +34,7 @@ export function Switch(props: SwitchProps) {
         padding: 0,
         margin: 0,
         cursor: "pointer",
-        background: props.checked ? color.green : "#C9CDD6",
+        background: props.checked ? color.green : color.track,
       }}
     >
       <span

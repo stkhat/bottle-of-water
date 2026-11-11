@@ -25,6 +25,7 @@ describe("DEFAULT_SETTINGS", () => {
       disabledSites: [],
       syncEnabled: true,
       sentenceHistory: true,
+      theme: "system",
     });
   });
 });
@@ -98,11 +99,17 @@ describe("mergeSettings", () => {
     expect(merged).not.toHaveProperty("offerSaveAllAtEnd");
   });
 
+  it("keeps a valid theme", () => {
+    expect(mergeSettings({ theme: "dark" }).theme).toBe("dark");
+    expect(mergeSettings({ theme: "light" }).theme).toBe("light");
+  });
+
   it("replaces values of the wrong type with the base value", () => {
     const merged = mergeSettings({
       knownLevel: "5000",
       unsavedAtEnd: "forget",
       subtitlePosition: "aboveVideo",
+      theme: "sepia",
       learningLang: "",
       highlight: { learning: 0 },
       neverRunOn: ["ok.com", 3],
@@ -111,6 +118,7 @@ describe("mergeSettings", () => {
     expect(merged.knownLevel).toBe(3000);
     expect(merged.unsavedAtEnd).toBe("keep");
     expect(merged.subtitlePosition).toBe("inVideo");
+    expect(merged.theme).toBe("system");
     expect(merged.learningLang).toBe("en");
     expect(merged.highlight.learning).toBe(true);
     expect(merged.neverRunOn).toEqual(["ok.com"]);

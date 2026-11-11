@@ -138,6 +138,7 @@ describe("SettingsPage", () => {
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     for (const name of [
       "Languages",
+      "Appearance",
       "New-word level",
       "Highlighting",
       "Dictionaries and AI",
@@ -265,6 +266,19 @@ describe("SettingsPage", () => {
     await expect.poll(() => f.settings().unsavedAtEnd).toBe("known");
     await expect.element(known).toHaveAttribute("aria-pressed", "true");
     await expect.element(keep).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("picks the theme, System by default", async () => {
+    const f = await open();
+    const theme = f.screen.getByRole("group", { name: "Theme" });
+    const system = theme.getByRole("button", { name: "System" });
+    const dark = theme.getByRole("button", { name: "Dark" });
+    await expect.element(system).toHaveAttribute("aria-pressed", "true");
+    await expect.element(dark).toHaveAttribute("aria-pressed", "false");
+    await dark.click();
+    await expect.poll(() => f.settings().theme).toBe("dark");
+    await expect.element(dark).toHaveAttribute("aria-pressed", "true");
+    await expect.element(system).toHaveAttribute("aria-pressed", "false");
   });
 
   it("follows settings changed elsewhere", async () => {

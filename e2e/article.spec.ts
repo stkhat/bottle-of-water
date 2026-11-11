@@ -339,3 +339,23 @@ test("the popup can ask the page about itself", async ({
   ]);
   await page.close();
 });
+
+test("the on-page UI follows the theme: dark in a dark browser under System, light when picked", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await hover(page, "tangy");
+  const head = page.getByText("tangy", { exact: true });
+  await expect(head).toBeVisible();
+  const ink = () => head.evaluate((el) => getComputedStyle(el).color);
+  await expect.poll(ink).toBe("rgb(232, 234, 240)");
+
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { theme: "light" },
+  });
+  await expect.poll(ink).toBe("rgb(20, 24, 43)");
+});

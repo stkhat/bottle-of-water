@@ -11,6 +11,7 @@ import { kilobytes, relativeTime } from "../../ui/format/format";
 import { HighlightChips } from "../../ui/lookup/HighlightChips";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
+import { GearIcon } from "../../ui/icons";
 
 /** What the popup works with; `main.tsx` passes the browser's, tests pass fakes. */
 export interface PopupDeps {
@@ -115,7 +116,7 @@ function SyncLine(props: {
             width: `${share}%`,
             height: "100%",
             borderRadius: "3px",
-            background: "#0F9F7E",
+            background: color.greenBright,
           }}
         ></div>
       </div>
@@ -213,7 +214,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       style={{
         width: "360px",
         boxSizing: "border-box",
-        background: color.white,
+        background: color.card,
         color: color.ink,
         fontFamily: FONT,
         display: "flex",
@@ -255,19 +256,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
             cursor: "pointer",
           }}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path>
-          </svg>
+          <GearIcon size={20} />
         </button>
       </div>
 
@@ -372,7 +361,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           style={{
             ...footerButton,
             border: `1px solid ${color.lineStrong}`,
-            background: color.white,
+            background: color.card,
             color: color.ink,
           }}
         >

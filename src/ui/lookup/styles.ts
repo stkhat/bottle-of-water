@@ -1,24 +1,13 @@
 import type { CSSProperties } from "preact";
+import { tokens } from "../theme";
 
 type Style = CSSProperties;
 
-/** The palette shared by the lookup UI (mock: Main, Article, Toolbar). */
-export const color = {
-  ink: "#14182B",
-  ink2: "#2A2F45",
-  ink3: "#3A4056",
-  muted: "#5A6075",
-  line: "#E3E5EA",
-  lineStrong: "#D5D8E0",
-  surface: "#F6F7F9",
-  surfaceGray: "#F1F2F5",
-  white: "#FFFFFF",
-  green: "#0B8A6C",
-  greenText: "#0B7F65",
-  greenDark: "#075C49",
-  greenLine: "#8FD3BC",
-  greenPale: "#E6F6F0",
-} as const;
+/**
+ * The palette shared by every UI part (mock: Main, Article, Toolbar), as theme
+ * variables (`../theme`). `white` stays white: text on green and the switch knob.
+ */
+export const color = { ...tokens, white: "#FFFFFF" } as const;
 
 export const FONT =
   "'Inter Variable', 'Inter', 'Noto Sans JP', system-ui, sans-serif";
@@ -32,14 +21,20 @@ export const IPA_FONT = "'Noto Sans', system-ui, sans-serif";
 export const SERIF_FONT = "'Source Serif 4', Georgia, serif";
 
 /**
- * Highlight colors per category: `page` over page text, `onVideo` brighter for
- * subtitles drawn over a dark video (mock Main `hlStyle` / `ovStyle`).
+ * Highlight colors per category: `page` painted into a website's own text (never
+ * themed), `ui` in Lingo's own panels (themed), `onVideo` brighter for subtitles
+ * drawn over a dark video (mock Main `hlStyle` / `ovStyle`).
  */
 export const highlight = {
   page: {
     learning: { background: "#D3F1E5", underline: "#0F9F7E" },
     new: { background: "#EAF0FD", underline: "#2F6FE4" },
     known: { background: undefined, underline: "#A3A8B7" },
+  },
+  ui: {
+    learning: { background: color.hlLearning, underline: color.hlLearningLine },
+    new: { background: color.hlNew, underline: color.hlNewLine },
+    known: { background: undefined, underline: color.knownLine },
   },
   onVideo: {
     learning: { background: "rgba(15,159,126,0.55)", underline: "#6FE3C3" },
@@ -120,7 +115,7 @@ export const statusButton = {
           border: `1px solid ${color.green}`,
         }
       : {
-          background: color.white,
+          background: color.card,
           color: color.greenDark,
           border: `1px solid ${color.greenLine}`,
         },
@@ -128,11 +123,11 @@ export const statusButton = {
     selected
       ? {
           background: color.ink,
-          color: color.white,
+          color: color.onInk,
           border: `1px solid ${color.ink}`,
         }
       : {
-          background: color.white,
+          background: color.card,
           color: color.ink3,
           border: `1px solid ${color.lineStrong}`,
         },

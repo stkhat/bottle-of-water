@@ -88,7 +88,7 @@ const BOX: Style = {
   zIndex: 2147483647,
   display: "flex",
   flexDirection: "column",
-  background: color.white,
+  background: color.card,
   border: `1px solid ${color.line}`,
   borderRadius: "14px",
 };
@@ -340,7 +340,9 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
       <StatusButtons
         status={status}
         onStatus={props.onStatus}
-        removeBorder={props.variant === "window" ? "#8C92A3" : "#A3A8B7"}
+        removeBorder={
+          props.variant === "window" ? color.chipLine : color.knownLine
+        }
       />
 
       {entry.senses.length > 0 && (

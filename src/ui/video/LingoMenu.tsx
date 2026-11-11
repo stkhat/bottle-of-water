@@ -4,6 +4,7 @@ import { t } from "../../i18n/t";
 import { fromUser } from "../from-user";
 import { badge, color, root } from "../lookup/styles";
 import { Switch } from "../lookup/Switch";
+import { GearIcon } from "../icons";
 
 export interface LingoMenuProps {
   /** Lingo is on for this video. */
@@ -91,7 +92,7 @@ export function LingoMenu(props: LingoMenuProps) {
       style={root({
         width: "300px",
         padding: "14px 16px",
-        background: color.white,
+        background: color.card,
         borderRadius: "12px",
         boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
         display: "flex",
@@ -152,7 +153,7 @@ export function LingoMenu(props: LingoMenuProps) {
                     cursor: "pointer",
                     ...(pressed
                       ? {
-                          background: color.white,
+                          background: color.raised,
                           color: color.ink,
                           fontWeight: 600,
                           boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
@@ -190,7 +191,7 @@ export function LingoMenu(props: LingoMenuProps) {
           margin: 0,
           borderRadius: "8px",
           border: `1px solid ${color.lineStrong}`,
-          background: color.white,
+          background: color.card,
           color: color.ink,
           font: "inherit",
           fontSize: "14px",
@@ -198,19 +199,7 @@ export function LingoMenu(props: LingoMenuProps) {
           cursor: "pointer",
         }}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path>
-        </svg>
+        <GearIcon size={16} />
         {t("video.menu.openSettings")}
       </button>
     </div>

@@ -11,6 +11,7 @@ import {
   PlayerBarUi,
   SUBTITLE_BOTTOM,
   TranscriptUi,
+  VideoThemed,
   type VideoGeometry,
   type VideoLayout,
 } from "../ui/VideoUi";
@@ -109,7 +110,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     // Kept here: a closed root (production) is not reachable as `host.shadowRoot`.
     const root = host.attachShadow({ mode: shadowRootMode() });
     guardShadowRoot(root);
-    render(ui, root);
+    render(<VideoThemed app={app}>{ui}</VideoThemed>, root);
     roots.push(root);
     parts.push({ host, point, moves: { second: 0, count: 0, parent: null } });
     return host;

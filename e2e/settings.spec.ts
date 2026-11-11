@@ -111,3 +111,21 @@ test("a backup exported in one browser imports into another", async ({
     await other.close();
   }
 });
+
+test("the settings page follows the browser's dark mode until a theme is picked", async ({
+  context,
+  extensionId,
+}) => {
+  const options = await context.newPage();
+  await options.emulateMedia({ colorScheme: "dark" });
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  const background = () =>
+    options.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await expect.poll(background).toBe("rgb(18, 21, 31)");
+
+  await options
+    .getByRole("group", { name: "Theme" })
+    .getByRole("button", { name: "Light" })
+    .click();
+  await expect.poll(background).toBe("rgb(246, 247, 249)");
+});
