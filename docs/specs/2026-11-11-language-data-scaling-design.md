@@ -79,7 +79,7 @@ Missing are mostly function words (him, would, an, them, into) but also common w
 - **Two modes**
   - **Detect** (highlighting): strict, as today — contiguous patterns flagged `detect`, no slots, the existing filters (be/have/do starts, very common words only). Saved phrases also match with slots and gaps, since the user chose them.
   - **Select** (the user selected words): every pattern, with slots and gaps. The pattern covering the most selected words wins; if the selection is part of a longer pattern that the sentence completes, the sentence decides.
-- **A phrase with a gap is not one range**: its span has parts (`turn` and `off` in "turn the lights off"), and the words in the gap keep their own spans, so "lights" is still highlighted and hovered as a word.
+- **A phrase with a gap is not one range**: it becomes one span per contiguous part (`turn` and `off` in "turn the lights off"), each with the phrase's key and its part number, and the words in the gap keep their own spans, so "lights" is still highlighted and hovered as a word. Spans stay ordered and non-overlapping; counters count the phrase once.
 - **Meaning of a selection**: on articles, the phrase bar shows the phrase the selection matched and its short meaning (layout from the mock). The pattern's key is looked up in the pair dictionary with the source order of 3. A selection that matches no pattern gets a literal machine translation, marked as such. Video subtitles have no multi-word selection; that stays so unless the mock adds it.
 - **Saving**: a selection that matches a pattern is saved under the pattern's key ("made up her mind" is saved as `make up one's mind` and highlights "made up his mind" later). Phrases saved before this change keep their keys. The sync codec stores keys as strings, so it needs no change.
 
@@ -135,7 +135,7 @@ Found while planning the implementation; each changed the first proposal as writ
 | `en-defs` holds phrases only | `<L>-en` covers words too, from the first native language other than ja |
 | Source tags per sense contradicted "the first source supplies the term" | One tag per term |
 | Keys with an inflected word ("spill the beans") could never match base forms | Pattern words match the written form or a base form |
-| A phrase with a gap is not one contiguous span | Spans with parts; gap words keep their own spans |
+| A phrase with a gap is not one contiguous span | One span per part; gap words keep their own spans |
 | A selection shows no meaning today; videos have no multi-word selection | Phrase bar shows the matched phrase and meaning (mock); video selection out of scope |
 | No translation queue exists; the translator flag is detected in the service worker, where `Translator` never exists | One queue per page; detection in the UI |
 | `mtCache` had no limit | 20,000 rows, least recently used out, cleared with the pair's packs |
