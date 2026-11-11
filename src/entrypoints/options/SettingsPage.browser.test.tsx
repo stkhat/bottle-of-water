@@ -594,6 +594,24 @@ describe("SettingsPage", () => {
         .toBeChecked();
     });
 
+    it("switches the YouTube comments on their own", async () => {
+      const f = await open();
+      const comments = f.screen.getByRole("switch", {
+        name: "Run Lingo on YouTube comments",
+      });
+      await expect.element(comments).toBeChecked();
+      await expect
+        .element(
+          f.screen.getByText(
+            "Highlights and dictionary in the comments under a video.",
+          ),
+        )
+        .toBeVisible();
+      await comments.click();
+      await expect.poll(() => f.settings().sites.youtubeComments).toBe(false);
+      expect(f.settings().sites.youtube).toBe(true);
+    });
+
     it("lists, adds and removes sites it never runs on", async () => {
       const f = await open({ settings: { neverRunOn: ["mail.google.com"] } });
       const sites = section(f.screen, "Sites");

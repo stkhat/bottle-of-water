@@ -102,11 +102,19 @@ Development pair: learning language = English, native language = Japanese, sites
 - No instructions text under the video
 - **When the video ends**, nothing is shown; unsaved New words are handled as Settings say (see "Unsaved New words at the end" below)
 
+### YouTube comments (mock `YouTube — comments`, 2026-11-12)
+- On watch pages, the comments and replies under the video (`ytd-comments#comments`) work like an article: highlights, the article hover card (with Details), selecting 2–8 words to save a phrase, and the dictionary panel 16px in from the window's top right. Only comment text counts: names, times, buttons, the header and the comment box get nothing
+- Each comment's language is detected on its own (`<html lang>` is YouTube's interface language): a comment the detector reliably says is in another language is left alone; one it cannot decide on counts as the learning language. A comment YouTube translates is checked again
+- Records are kept as on articles: a word saved from a comment keeps the comment's sentence, saved words seen in comments add occurrences, and comment sentences go into the sentence history. The source is the video (`platform` youtube, its watch URL and title) with the sentence as the position, so "Seen elsewhere" reads "YouTube · Nov 12" and links to the video. The Words tab, the popup's "This video" and the end-of-video save count subtitles only
+- Only one dictionary is open at a time: opening the comments panel closes the video's window, and opening the video's window closes the panel
+- Follows Settings → Sites → "YouTube comments" (on by default; needs YouTube on) and the popup's "On this site", not the player's L button. Shorts are not covered
+
 ### Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language
 - While the language's data is missing (downloaded packs, M9c), the page shows nothing; it is analyzed once the data is there (the popup and Settings show the download)
 - Color by category with the **CSS Custom Highlight API** (no DOM rewriting). `::highlight()` cannot draw padding, rounded corners or box shadows, so the mock's bottom bar is drawn as a 2px underline and the Learning background covers only the text height — the closest the API allows. Process only the visible range, progressively, and follow page changes with a MutationObserver
   - In browsers where highlights cannot be underlined, use background colors only (see "Absorbing browser differences")
+  - The text of a word with a background (New, Learning) is drawn in the mock's ink (`#14182B`): the backgrounds are light, and a dark page's white text (YouTube's dark theme) would vanish on them
 - Find the hovered word with `caretPositionFromPoint`
 - When 2–8 words are selected, snap the range to word boundaries and show the same card as a hovered phrase, where that card would sit, with the status "Selected · not saved" (mock PhraseMeaning): it names the phrase pattern the selection matched (the pattern covering the most selected words; the sentence decides when the selection is part of a longer pattern) with its IPA, short meaning and main word, and saving uses the pattern's key ("made up her mind" is saved as `make up one's mind`). A selection that matches no pattern shows the selected words with their literal translation and the "Machine translation" mark. "+ Learning" / "Known" save the phrase; the card and the selection then go and the phrase is highlighted. "Details" opens the dictionary panel for the phrase ("Not saved" until saved from there). Hover cards do not show while the selection card does. Phrases saved earlier keep their keys
 - No card sits on the page (highlight toggles live in the toolbar popup). The dictionary panel sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header)
@@ -154,7 +162,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice
   - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")
   - **Video subtitles**: subtitle position (In video / Below video), subtitle translation, transcript translation
-  - **Sites**: on/off for YouTube / Netflix / other articles, and a "Never run on" list
+  - **Sites**: on/off for YouTube / YouTube comments / Netflix / other articles, and a "Never run on" list
   - **Sentence history** (phase 2): see "Phase 2 screens"
   - **Sync and backup**
     - Browser sync switch ("Sync word status with Chrome sync"; the name follows the browser). The description explains that data reaches other devices when the user is signed in to the browser with sync on

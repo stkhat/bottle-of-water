@@ -31,7 +31,13 @@ export interface Settings {
   /** How dark the box behind the subtitle over the video is, in percent (the L menu's Background). */
   subtitleOpacity: number;
   transcriptTranslation: boolean;
-  sites: { youtube: boolean; netflix: boolean; articles: boolean };
+  /** Where Lingo runs; `youtubeComments` also needs `youtube`. */
+  sites: {
+    youtube: boolean;
+    youtubeComments: boolean;
+    netflix: boolean;
+    articles: boolean;
+  };
   /** The player's L button per platform: the next video there starts this way. */
   videoOn: { youtube: boolean; netflix: boolean };
   /** Hosts the extension never runs on (Settings → Sites). */
@@ -85,7 +91,12 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   subtitleSize: 100,
   subtitleOpacity: 80,
   transcriptTranslation: true,
-  sites: { youtube: true, netflix: true, articles: true },
+  sites: {
+    youtube: true,
+    youtubeComments: true,
+    netflix: true,
+    articles: true,
+  },
   videoOn: { youtube: true, netflix: true },
   neverRunOn: [],
   disabledSites: [],

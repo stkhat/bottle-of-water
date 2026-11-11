@@ -7,23 +7,28 @@ import { isPageRequest, unsupportedPage } from "../../messaging/page-protocol";
 import { leaveWhenOrphaned, sendWhileConnected } from "../orphan";
 import { mountVideoUi } from "./mount";
 import type { PlatformAdapter } from "./platform";
-import { startVideo } from "./session";
+import { startVideo, type VideoDeps, type VideoSession } from "./session";
+
+/** How the video session works with the other parts of the page (YouTube's comments). */
+export type VideoHooks = Pick<VideoDeps, "onPanelOpen" | "onTermsChanged">;
 
 /**
  * The content script of a video site: runs the video session through the site's
  * adapter, mounts its UI, and answers the popup about the video. Everything is taken
- * down when the extension's context goes away.
+ * down when the extension's context goes away. Resolves the session once it runs.
  */
 export async function runVideoSite(
   ctx: ContentScriptContext,
   adapter: PlatformAdapter,
-): Promise<void> {
+  hooks: VideoHooks = {},
+): Promise<VideoSession | undefined> {
   leaveWhenOrphaned(ctx);
   const started = startVideo({
     send: sendWhileConnected(ctx, send),
     adapter,
     watchSettings,
     watchPackState,
+    ...hooks,
   }).catch((error: unknown) => {
     console.warn("Lingo:", error);
     return undefined;
@@ -51,7 +56,7 @@ export async function runVideoSite(
   const session = await started;
   if (!session) {
     adapter.dispose();
-    return;
+    return undefined;
   }
   const unmount = mountVideoUi({ adapter, app: session.app });
   ctx.onInvalidated(() => {
@@ -59,4 +64,5 @@ export async function runVideoSite(
     session.stop();
     adapter.dispose();
   });
+  return session;
 }

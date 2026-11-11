@@ -112,6 +112,8 @@
   "settings.video.transcriptTranslationDesc": "The line in your language on each transcript card. Set separately from the subtitle.",
   "settings.sites.lead": "Where Lingo runs. You can also switch it off for one site from the toolbar popup.",
   "settings.sites.youtubeDesc": "Subtitle bar, transcript and dictionary window on video pages.",
+  "settings.sites.youtubeComments": "YouTube comments",
+  "settings.sites.youtubeCommentsDesc": "Highlights and dictionary in the comments under a video.",
   "settings.sites.netflixDesc": "Same video tools on Netflix.",
   "settings.sites.articles": "Articles on other sites",
   "settings.sites.articlesDesc": "Highlights and dictionary on pages written in your learning language.",
