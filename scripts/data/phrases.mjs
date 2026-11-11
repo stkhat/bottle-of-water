@@ -49,6 +49,16 @@ const LITERAL_GLOSS = /^Used other than figuratively or idiomatically/;
 export const IDIOM_COMMON_RANK = 100;
 /** A phrase or prepositional-phrase entry counts only when a literal word is rarer than this rank ("on the" does not). */
 export const PHRASE_COMMON_RANK = 1000;
+/**
+ * Adverb particles: a pair of common words is detected only when it ends in one ("give
+ * up", "find out"), not in a preposition ("come to", "live in") or another word ("very
+ * well"): such pairs are mostly meant literally ("come to Tokyo").
+ */
+export const ADVERB_PARTICLES = new Set([
+  ...["up", "out", "off", "down", "back", "away", "over", "around", "round"],
+  ...["about", "along", "apart", "aside", "ahead", "behind", "by", "through"],
+  ...["together", "after", "across", "forward"],
+]);
 // The top-level headword, which kaikki writes right before the language.
 const HEADWORD =
   /"word": ("(?:[^"\\]|\\.)*"), "lang": "English", "lang_code": "en"/;
@@ -110,6 +120,20 @@ export function isNonConstituent(entry) {
 }
 
 /**
+ * Whether a kaikki pattern is a pair of common words (each within PHRASE_COMMON_RANK)
+ * that text mostly uses literally, so it is not detected: one that does not end in an
+ * adverb particle ("very well", "come to"; not "give up").
+ */
+export function isCommonPair(key, rarestRank) {
+  const words = key.split(" ");
+  return (
+    words.length === 2 &&
+    rarestRank <= PHRASE_COMMON_RANK &&
+    !ADVERB_PARTICLES.has(words[1])
+  );
+}
+
+/**
  * Whether a usable sense makes its entry a phrase: a phrasal verb always; an idiomatic
  * sense when a literal word is outside the top IDIOM_COMMON_RANK; a phrase or
  * prepositional phrase when a literal word is outside the top PHRASE_COMMON_RANK.
@@ -144,8 +168,9 @@ export function shortOf(text) {
  * Streams the kaikki JSONL and builds the phrase patterns: EJDict multi-word headwords
  * plus kaikki idioms, phrasal verbs and phrases, whose words are vocabulary words,
  * inflected forms (`lemmas`) or slots. `detect` holds the patterns without a slot that
- * pass the detection filters, `more` the other ones (with a slot, or kaikki ones starting
- * with be / have / do), `gap` the phrasal verbs among both. Japanese translations
+ * pass the detection filters, `more` the other ones (with a slot, kaikki ones starting
+ * with be / have / do, and kaikki pairs of common words not ending in an adverb particle:
+ * `isCommonPair`), `gap` the phrasal verbs among both. Japanese translations
  * cover the kaikki patterns EJDict lacks.
  *
  * The rank thresholds look at the literal words only (a slot stands for any word), and
@@ -202,10 +227,11 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
           gap: false,
           senseJa: [],
           topJa: [],
+          rarestRank: rarestRankOf(key),
         }),
       );
     japaneseOf(entry.translations, item.topJa);
-    const rarestRank = rarestRankOf(key);
+    const { rarestRank } = item;
     for (const sense of entry.senses ?? []) {
       if (!isUsable(sense)) continue;
       item.phrase ||= isPhraseSense(entry, sense, rarestRank);
@@ -225,9 +251,18 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
     .filter(([, item]) => item.phrase)
     .map(([key]) => key)
     .sort(byCodeUnit);
+  const commonPair = (key) => isCommonPair(key, found.get(key).rarestRank);
+  const ejdictDetect = new Set(fromEjdict.filter((key) => !hasSlot(key)));
+  const kaikkiCandidates = fromKaikki.filter(
+    (key) => !hasSlot(key) && !startsWithAuxiliary(key),
+  );
+  // Left out only by isCommonPair (an EJDict headword is detected anyway).
+  const trivial = kaikkiCandidates.filter(
+    (key) => commonPair(key) && !ejdictDetect.has(key),
+  );
   const detect = new Set([
-    ...fromEjdict.filter((key) => !hasSlot(key)),
-    ...fromKaikki.filter((key) => !hasSlot(key) && !startsWithAuxiliary(key)),
+    ...ejdictDetect,
+    ...kaikkiCandidates.filter((key) => !commonPair(key)),
   ]);
   const all = new Set([...fromEjdict, ...fromKaikki]);
   const phrases = {
@@ -249,6 +284,7 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
       ...stats,
       detect: phrases.detect.length,
       more: phrases.more.length,
+      trivial: trivial.length,
       gap: phrases.gap.length,
       fromEjdict: fromEjdict.length,
       fromKaikki: fromKaikki.length,
@@ -274,7 +310,8 @@ async function main() {
   const { stats } = result;
   console.log(
     `phrases: ${stats.entries} multi-word entries (${stats.unparsable} unparsable); ` +
-      `${stats.detect} detected and ${stats.more} more patterns, ${stats.gap} with a gap ` +
+      `${stats.detect} detected and ${stats.more} more patterns (${stats.trivial} common-word pairs), ` +
+      `${stats.gap} with a gap ` +
       `(${stats.fromEjdict} from EJDict, ${stats.fromKaikki} from kaikki); ` +
       `${stats.ja} with Japanese translations`,
   );

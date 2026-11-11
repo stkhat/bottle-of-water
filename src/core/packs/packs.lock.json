@@ -24,7 +24,7 @@
         },
         {
           "path": "phrases.json",
-          "sha256": "bd77bfc13dbd207d972683011565c2444e9f4a12a2bb3e0abdff618c120ade43",
+          "sha256": "47fd7154ba30085665e20d86fecd6834abeeae38cc61e2a6dccca84d09bdeb26",
           "size": 413319
         },
         {
@@ -40,7 +40,7 @@
       ],
       "format": 1,
       "package": "@lingo-data/en",
-      "version": "2026.1111.0"
+      "version": "2026.1111.1"
     },
     "en-defs": {
       "bundled": true,
