@@ -351,6 +351,9 @@ describe("runArticle", () => {
   const off = (hostname = "www.example.com") => ({
     supported: false,
     hostname,
+    scope: "page",
+    unsaved: 0,
+    done: null,
   });
 
   it("removes Lingo when the site is switched off and brings it back when switched on", async () => {
@@ -373,6 +376,9 @@ describe("runArticle", () => {
     expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
       hostname: "www.example.com",
+      scope: "page",
+      unsaved: 2,
+      done: null,
     });
   });
 

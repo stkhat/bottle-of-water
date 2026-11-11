@@ -216,6 +216,13 @@ interface Watch {
   asked: Set<string>;
   /** Saved status by key as this video last saw it (newer than a summary on its way). */
   statuses: Map<string, TermBrief["status"]>;
+  /** The popup's last "Mark all as …" on this video, until it is undone. */
+  lastBatch?: {
+    batchId: string;
+    keys: ReadonlySet<string>;
+    status: TermStatus;
+    count: number;
+  };
 }
 
 const isAbort = (error: unknown) =>
@@ -677,27 +684,57 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     store.set({ spans });
   }
 
-  /** Saves every unsaved new word of the video as Known (Settings `unsavedAtEnd`). */
-  async function markUnsavedKnown(w: Watch) {
-    if (watch !== w) return;
+  /** Saves every unsaved new word of the video with the status, as one batch. */
+  async function saveUnsaved(w: Watch, status: TermStatus) {
+    if (watch !== w) return undefined;
     const keys = unsavedKeys();
-    if (keys.length === 0) return;
-    await deps.send({
+    if (keys.length === 0) return undefined;
+    const result = await deps.send({
       type: "saveAll",
       lang: lang(),
       keys,
-      status: "known",
+      status,
       source: source(),
     });
-    if (watch !== w) return;
+    if (watch !== w) return undefined;
     const saved = new Set(keys);
     for (const key of keys) w.saved.add(key);
     recategorize(w, (s) =>
-      s.category === "new" && saved.has(s.key) ? "known" : undefined,
+      s.category === "new" && saved.has(s.key) ? status : undefined,
     );
     noteStatuses(
       w,
-      keys.map((key) => [key, "known"]),
+      keys.map((key) => [key, status]),
+    );
+    await refreshOpenCards();
+    return { ...result, keys: saved };
+  }
+
+  /** Saves every unsaved new word of the video as Known (Settings `unsavedAtEnd`). */
+  async function markUnsavedKnown(w: Watch) {
+    await saveUnsaved(w, "known");
+  }
+
+  /** The popup's "Mark all as Learning / Known". */
+  async function saveAll(w: Watch, status: TermStatus) {
+    const result = await saveUnsaved(w, status);
+    if (result) w.lastBatch = { ...result, status };
+  }
+
+  async function undoSaveAll(w: Watch) {
+    const batch = w.lastBatch;
+    if (!batch) return;
+    await deps.send({ type: "undoSaveAll", batchId: batch.batchId });
+    w.lastBatch = undefined;
+    if (watch !== w) return;
+    for (const key of batch.keys) w.saved.delete(key);
+    // Those words were new before; the ones changed since stay as they are.
+    recategorize(w, (s) =>
+      s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
+    );
+    noteStatuses(
+      w,
+      [...batch.keys].map((key) => [key, "new"]),
     );
     await refreshOpenCards();
   }
@@ -991,8 +1028,15 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   const summary = (): PageSummary => {
     const state = store.get();
-    if (state.status !== "ready") return unsupportedPage(hostname());
-    return { supported: true, hostname: hostname() };
+    if (state.status !== "ready") return unsupportedPage(hostname(), "video");
+    const batch = watch?.lastBatch;
+    return {
+      supported: true,
+      hostname: hostname(),
+      scope: "video",
+      unsaved: unsavedKeys().length,
+      done: batch ? { count: batch.count, target: batch.status } : null,
+    };
   };
 
   const offNavigate = adapter.onNavigate(open);
@@ -1009,7 +1053,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   return {
     app,
-    handlePageRequest() {
+    handlePageRequest(request) {
+      if (request.type === "pageSaveAll")
+        withWatch((w) => saveAll(w, request.status));
+      else if (request.type === "pageUndo") withWatch(undoSaveAll);
       // Answer after everything asked before has been done.
       return queue.then(summary);
     },
