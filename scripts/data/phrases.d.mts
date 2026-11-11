@@ -12,7 +12,6 @@ export interface PhrasePatterns {
 }
 export interface PhrasesResult {
   phrases: PhrasePatterns;
-  defs: Defs;
   ja: Dict;
   stats: {
     entries: number;
@@ -25,7 +24,6 @@ export interface PhrasesResult {
     fromEjdict: number;
     fromKaikki: number;
     ja: number;
-    defs: number;
   };
 }
 export const SLOT_WORDS: ReadonlySet<string>;

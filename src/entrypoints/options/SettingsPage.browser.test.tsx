@@ -230,7 +230,11 @@ describe("SettingsPage", () => {
     ]);
     const native = screen.getByRole("combobox", { name: /Your language/ });
     await expect.element(native).toHaveDisplayValue("Japanese (日本語)");
-    expect(optionLabels(native.element())).toEqual(["Japanese (日本語)"]);
+    expect(optionLabels(native.element())).toEqual([
+      "Japanese (日本語)",
+      "Spanish (Español)",
+      "Portuguese (Português)",
+    ]);
     const ui = screen.getByRole("combobox", { name: /Interface language/ });
     await expect.element(ui).toHaveDisplayValue("English");
     expect(optionLabels(ui.element())).toEqual(["English"]);
@@ -874,7 +878,7 @@ describe("SettingsPage", () => {
     await expect
       .element(
         section(f.screen, "About").getByText(
-          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, phrase meanings and the Spanish–English dictionary: Wiktionary (CC BY-SA)",
+          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the Spanish and Portuguese dictionaries: Wiktionary, Wikcionario and Wikcionário (CC BY-SA)",
         ),
       )
       .toBeVisible();

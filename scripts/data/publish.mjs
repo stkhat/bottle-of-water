@@ -18,6 +18,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { isMain, ROOT } from "./common.mjs";
 import { PACKS } from "./formats.mjs";
+import { gateReport, offeredPairs } from "./gate.mjs";
 
 /** Where the extension fetches a downloaded pack's files from, tried in order. */
 export const MIRRORS = [
@@ -91,11 +92,13 @@ function checkFolders(packs) {
 /**
  * The lock for the packs' files as they are now. `previous` is the current lock (its
  * versions are kept for unchanged packs); `download` names the packs that are not
- * bundled, which must be downloadable (data/packs/).
+ * bundled, which must be downloadable (data/packs/); `pairs` are the language pairs
+ * offered (learning language → native languages, the default first), those passing
+ * the quality gate.
  */
 export function buildLock(
   packs,
-  { previous, download = [], now = new Date() } = {},
+  { previous, download = [], now = new Date(), pairs = {} } = {},
 ) {
   for (const name of download) {
     if (!Object.hasOwn(packs, name)) throw new Error(`Unknown pack: ${name}`);
@@ -121,7 +124,12 @@ export function buildLock(
       };
       return [name, entry];
     });
-  return { v: 1, mirrors: MIRRORS, packs: Object.fromEntries(entries) };
+  return {
+    v: 1,
+    mirrors: MIRRORS,
+    packs: Object.fromEntries(entries),
+    pairs,
+  };
 }
 
 function sortKeys(value) {
@@ -218,11 +226,12 @@ export function publish({
   publishDir = PUBLISH_DIR,
   download = [],
   now = new Date(),
+  pairs = {},
 } = {}) {
   const previous = existsSync(lockPath)
     ? JSON.parse(readFileSync(lockPath, "utf8"))
     : undefined;
-  const lock = buildLock(packs, { previous, download, now });
+  const lock = buildLock(packs, { previous, download, now, pairs });
   mkdirSync(dirname(lockPath), { recursive: true });
   writeFileSync(lockPath, stringifyLock(lock));
   return { lock, previous, packages: writePackages(packs, lock, publishDir) };
@@ -234,7 +243,8 @@ function main() {
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
-  const { lock, previous, packages } = publish({ download });
+  const pairs = offeredPairs(gateReport());
+  const { lock, previous, packages } = publish({ download, pairs });
   for (const [name, entry] of Object.entries(lock.packs)) {
     const was = previous?.packs?.[name]?.version;
     const change = was === entry.version ? "unchanged" : `was ${was ?? "new"}`;
@@ -244,6 +254,11 @@ function main() {
         `${entry.bundled ? "bundled" : "downloaded"}, ${entry.files.length} files, ${(size / 1e6).toFixed(2)} MB`,
     );
   }
+  console.log(
+    `Pairs offered (passing the quality gate): ${Object.entries(lock.pairs)
+      .flatMap(([learning, natives]) => natives.map((n) => `${learning}-${n}`))
+      .join(", ")}`,
+  );
   console.log(`Wrote ${relative(ROOT, LOCK_PATH)}`);
   if (packages.length > 0)
     console.log(

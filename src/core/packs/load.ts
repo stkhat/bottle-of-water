@@ -4,6 +4,7 @@ import type {
   FreqPack,
   IpaPack,
   LemmaPack,
+  PairPack,
   PhrasesPack,
   PosPack,
   ShardIndex,
@@ -33,6 +34,8 @@ export interface PackFiles {
     phrases: PhrasesPack;
   };
   "es-en": { defs: DefsPack };
+  "en-es": { dict: PairPack };
+  "en-pt": { dict: PairPack };
 }
 export type PackName = keyof PackFiles;
 
@@ -78,6 +81,12 @@ const LOADERS: {
     loadFiles("es", ["lemmas", "freq", "ipa", "vocab", "phrases"], fetchJson),
   "es-en": async (fetchJson) => ({
     defs: await loadShards("/packs/es-en", fetchJson),
+  }),
+  "en-es": async (fetchJson) => ({
+    dict: await loadShards("/packs/en-es", fetchJson),
+  }),
+  "en-pt": async (fetchJson) => ({
+    dict: await loadShards("/packs/en-pt", fetchJson),
   }),
 };
 

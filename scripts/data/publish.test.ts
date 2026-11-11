@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PACK_FORMATS, PACKS, type PackInfo } from "./formats.mjs";
+import { gateReport, offeredPairs } from "./gate.mjs";
 import {
   buildLock,
   dateVersion,
@@ -189,7 +190,13 @@ describe("buildLock", () => {
           ],
         },
       },
+      pairs: {},
     });
+  });
+  it("writes the offered pairs", () => {
+    expect(
+      buildLock(packs, { now: NOV_11, pairs: { en: ["ja", "es"] } }).pairs,
+    ).toEqual({ en: ["ja", "es"] });
   });
   it("marks the packs to download as not bundled", () => {
     const lock = buildLock(packs, { download: ["es"], now: NOV_11 });
@@ -227,7 +234,7 @@ describe("publish", () => {
     const text = read("src/packs.lock.json");
     const lock = JSON.parse(text) as PackLock;
     expect(text).toBe(`${JSON.stringify(sortKeys(lock), null, 2)}\n`);
-    expect(Object.keys(lock)).toEqual(["mirrors", "packs", "v"]);
+    expect(Object.keys(lock)).toEqual(["mirrors", "packs", "pairs", "v"]);
     expect(Object.keys(lock.packs.es!)).toEqual([
       "bundled",
       "files",
@@ -295,7 +302,13 @@ describe("the committed lock", () => {
     const download = Object.entries(lock.packs)
       .filter(([, entry]) => !entry.bundled)
       .map(([name]) => name);
-    expect(buildLock(PACKS, { previous: lock, download })).toEqual(lock);
+    expect(
+      buildLock(PACKS, {
+        previous: lock,
+        download,
+        pairs: offeredPairs(gateReport()),
+      }),
+    ).toEqual(lock);
     expect(
       Object.fromEntries(
         Object.entries(lock.packs).map(([name, e]) => [name, e.format]),

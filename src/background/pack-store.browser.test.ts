@@ -78,7 +78,10 @@ async function testLock(
       es: packs.es ?? (await lockEntry("es", "2026.1111.0", ES_V1)),
       "es-en":
         packs["es-en"] ?? (await lockEntry("es-en", "2026.1111.0", ES_EN)),
+      "en-es": bundled("en-es"),
+      "en-pt": bundled("en-pt"),
     },
+    pairs: { en: ["ja", "es", "pt"], es: ["en"] },
   };
 }
 

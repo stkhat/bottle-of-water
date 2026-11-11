@@ -3,6 +3,11 @@ import type { DictPack, PosPack } from "./types";
 export interface Sense {
   pos?: string;
   text: string;
+  /**
+   * The English sense a translation-table sense translates ("source of
+   * illumination"), shown before its words.
+   */
+  hint?: string;
 }
 export interface Entry {
   short: string;

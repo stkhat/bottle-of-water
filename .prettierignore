@@ -15,7 +15,11 @@ CLAUDE.md
 e2e/pages
 public/packs
 data/packs
+data/gate
 
 # Recorded or hand-written subtitle data; keep byte for byte
 src/core/subtitles/fixtures
 e2e/fixtures
+
+# Written by npm run data:publish (scripts/data/publish.mjs stringifyLock)
+src/core/packs/packs.lock.json

@@ -34,7 +34,8 @@ export interface DictionaryEntryView {
    * `translated`: the browser translator's translation of the sense, shown with `text`
    * below it; any translated sense marks the Meanings heading "Machine translation".
    */
-  senses: { pos?: string; text: string; translated?: string }[];
+  /** `hint`: a translation table's English sense, shown above its native words. */
+  senses: { pos?: string; text: string; hint?: string; translated?: string }[];
   /**
    * Language of the senses' `text` when it is not the native language (an English
    * definition).
@@ -445,12 +446,28 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
                   </span>
                 </>
               ) : (
-                <span
-                  lang={glossLang}
-                  style={{ fontSize: "15px", lineHeight: 1.55 }}
-                >
-                  {sense.text}
-                </span>
+                <>
+                  {sense.hint && (
+                    // Mock TranslatedSenses: a translation table's English sense
+                    // above its words in the native language.
+                    <span
+                      lang="en"
+                      style={{
+                        fontSize: "13px",
+                        lineHeight: 1.5,
+                        color: color.muted,
+                      }}
+                    >
+                      {sense.hint}
+                    </span>
+                  )}
+                  <span
+                    lang={glossLang}
+                    style={{ fontSize: "15px", lineHeight: 1.55 }}
+                  >
+                    {sense.text}
+                  </span>
+                </>
               )}
             </div>
           ))}

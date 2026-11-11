@@ -217,60 +217,6 @@ describe("importPhrases", () => {
       "by heart": ["そらで", ["そらで", "暗記して"]],
     });
   });
-  it("gives English definitions to every pattern without EJDict or Japanese meanings", () => {
-    expect(Object.keys(result.defs).sort()).toEqual([
-      "be all ears",
-      "be on",
-      "figure out",
-      "from scratch",
-      "give up",
-      "have it in for",
-      "kick in",
-      "later back",
-      "make up one's mind",
-      "pull someone's leg",
-      "see to",
-      "spill the beans",
-      "very well",
-    ]);
-    expect(result.defs["make up one's mind"]).toEqual([
-      "To decide",
-      [["verb", "To decide; to reach a conclusion."]],
-    ]);
-  });
-  it("merges senses of entries with the same headword, up to 4, skipping archaic ones", () => {
-    expect(result.defs["give up"]).toEqual([
-      "To surrender (someone or something)",
-      [
-        [
-          "verb",
-          "To surrender (someone or something); to inform on (someone).",
-        ],
-        ["verb", "To stop or quit (an activity, etc.)."],
-        ["adjective", "Become fully taken over by a certain quality."],
-        ["adjective", "Too tired to go on."],
-      ],
-    ]);
-  });
-  it("labels the part of speech and drops the final period from the short meaning", () => {
-    expect(result.defs["from scratch"]).toEqual([
-      "From the beginning",
-      [
-        [
-          "prepositional phrase",
-          "From the beginning; starting with no advantage or prior preparation.",
-        ],
-        ["prepositional phrase", "From basic materials or raw ingredients."],
-      ],
-    ]);
-  });
-  it("keeps every usable sense, not only the idiomatic ones", () => {
-    expect(result.defs["figure out"]?.[1]).toEqual([
-      ["verb", "To come to understand; to discover or find a solution."],
-      ["verb", "To calculate."],
-    ]);
-  });
-
   it("counts multi-word entries, unparsable lines and patterns", () => {
     expect(result.stats).toEqual({
       entries: 28,
@@ -282,7 +228,6 @@ describe("importPhrases", () => {
       fromEjdict: 5,
       fromKaikki: 15,
       ja: 1,
-      defs: 13,
     });
   });
 });

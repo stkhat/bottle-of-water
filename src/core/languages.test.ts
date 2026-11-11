@@ -8,8 +8,8 @@ describe("learningLanguages", () => {
 });
 
 describe("nativeLanguages", () => {
-  it("lists the languages each learning language has a dictionary into", () => {
-    expect(nativeLanguages("en")).toEqual(["ja"]);
+  it("lists the languages each learning language has a dictionary into, from the lock", () => {
+    expect(nativeLanguages("en")).toEqual(["ja", "es", "pt"]);
     expect(nativeLanguages("es")).toEqual(["en"]);
   });
 

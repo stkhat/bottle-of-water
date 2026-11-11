@@ -47,23 +47,71 @@
       "files": [
         {
           "path": "dict-1.json",
-          "sha256": "64b24f78437b8807024280b78c679c2cfbca4edbd88de99c83e95d70380d0247",
-          "size": 1999636
+          "sha256": "ede54bfc8c95dc1f89b0c0f30da19684edf1b20d01f623d2bc4a242ef470ee67",
+          "size": 1999755
         },
         {
           "path": "dict-2.json",
-          "sha256": "7cbebbd937d73c7d11caf978dd3ca49fa5232ed860f77c237848e171af8dddd7",
-          "size": 406204
+          "sha256": "721056b9dbda030e1742bc9b049acc39329fe89031a32303fc3d5e874ed6ca26",
+          "size": 1999813
+        },
+        {
+          "path": "dict-3.json",
+          "sha256": "f37894f621c104af18bddaab9183cc2b55d8ede081135af9142e306424821082",
+          "size": 1999902
+        },
+        {
+          "path": "dict-4.json",
+          "sha256": "ec105e8a743a1adba1a9f11c89ad724623aa8f6aa705ab6e93d132e193843f90",
+          "size": 1999948
+        },
+        {
+          "path": "dict-5.json",
+          "sha256": "4aead4a30f709c90987acc270e3a5b65d2a018471107cc62de4e376ffb3e24e0",
+          "size": 1999700
+        },
+        {
+          "path": "dict-6.json",
+          "sha256": "f60f119a5754dd2229704d063743a64d7612bd6777d9185aca24ef3039ee2460",
+          "size": 1999876
+        },
+        {
+          "path": "dict-7.json",
+          "sha256": "c3a61cec13b50f1d4b1a33c791b93a67690d3edb1fff32ba8925799fd51b881d",
+          "size": 1349940
         },
         {
           "path": "index.json",
-          "sha256": "883a7fc4e0d1f47b6dce89987120b395568e11c797e9a61510b30dd5c3ea3940",
-          "size": 151
+          "sha256": "c217a4220514245660129b1c40af80678c57ec7ecb7f3ea5d3b858b0501b6369",
+          "size": 454
         }
       ],
       "format": 1,
       "package": "@lingo-data/en-defs",
-      "version": "2026.1111.0"
+      "version": "2026.1111.2"
+    },
+    "en-es": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "dict-1.json",
+          "sha256": "382076f68aea06480fb0f115cccd16a95316dfb61634bc3dc94cb852b46eb658",
+          "size": 1999973
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "0b69c0ad9229e380b042a26f0e85015ef6220e2dc1f7cd90514ff5b78578cfa9",
+          "size": 1255115
+        },
+        {
+          "path": "index.json",
+          "sha256": "cef3f3bc7256aad852a96a8a537f95aaec27c62b5b5facb240bc1ee453419e4d",
+          "size": 177
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/en-es",
+      "version": "2026.1111.2"
     },
     "en-ja": {
       "bundled": true,
@@ -101,6 +149,29 @@
       ],
       "format": 1,
       "package": "@lingo-data/en-ja",
+      "version": "2026.1111.0"
+    },
+    "en-pt": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "dict-1.json",
+          "sha256": "10fa6f0bb8d85a948fc7564f2e974860a04c715323369652195c6111c8725a9e",
+          "size": 1999833
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "1c8e677b8e65a196bc52a2fe9b64ea04b6945ad764f8f3891328d9e0aed1f53f",
+          "size": 626310
+        },
+        {
+          "path": "index.json",
+          "sha256": "a153c8e7e929d4abca8de73896593fc613eb1b32d87f379dbd47f77ec3a1b895",
+          "size": 191
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/en-pt",
       "version": "2026.1111.0"
     },
     "es": {
@@ -159,6 +230,16 @@
       "package": "@lingo-data/es-en",
       "version": "2026.1111.0"
     }
+  },
+  "pairs": {
+    "en": [
+      "ja",
+      "es",
+      "pt"
+    ],
+    "es": [
+      "en"
+    ]
   },
   "v": 1
 }
