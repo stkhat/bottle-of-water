@@ -1,6 +1,6 @@
 // Build recipes: a pair dictionary merged from human-made sources in order, where the
 // first source that has a term supplies all of it (one source tag per term). See
-// docs/specs/2026-11-11-language-data-scaling-design.md §3.
+// docs/specs/architecture.md "Native meanings and the quality gate".
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { posLabel } from "../kaikki.mjs";

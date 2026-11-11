@@ -1,5 +1,5 @@
 // The most frequent content words of a learning language: what the quality gate
-// measures a pair's dictionary on (docs/specs/2026-11-11-language-data-scaling-design.md §3).
+// measures a pair's dictionary on (docs/specs/architecture.md "Native meanings and the quality gate").
 
 /**
  * Parts of speech that make a word a function word. Dictionaries and translation

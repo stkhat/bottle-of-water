@@ -1,5 +1,5 @@
 /**
- * Browser differences in one place (spec: "Absorbing browser differences").
+ * Browser differences in one place (architecture.md: "Browser differences").
  * Names come from the build target; features are detected on a global object, which
  * tests pass as a stub. Never branch on the user agent.
  *

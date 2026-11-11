@@ -1,105 +1,56 @@
 # Status
 
-Updated whenever a milestone moves. Last update: 2026-11-12.
+Last update: 2026-11-12. Merged work is in git history; data sizes are in [notes/data-sizes.md](notes/data-sizes.md).
 
 ## Where we are
-- **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
-- **Phase 2 is built** on `feat/phase-2` ([plan](plans/2026-11-10-m8-phase-2.md)), PR #6: M8a dictionary phrase detection ([plan](plans/2026-11-10-m8a-phrases.md)), M8b Spanish → English pack ([plan](plans/2026-11-10-m8b-spanish.md)), M8c sentence history ([plan](plans/2026-11-10-m8c-sentence-history.md)), M8d words in this video ([plan](plans/2026-11-10-m8d-video-words.md)), M8e fullscreen ([plan](plans/2026-11-10-m8e-fullscreen.md))
-- Real-site checks (2026-11-10, user's Chrome via Claude in Chrome): YouTube (Ken Robinson TED talk) and Netflix (Friends, `watch/70274124`) work — subtitles, translations, transcript, hover card, dictionary window, saving, L/^ controls, seek. Details: [notes/youtube-captions.md](notes/youtube-captions.md), [notes/netflix.md](notes/netflix.md)
-- Phase 2 real-site checks (2026-11-10, same videos plus Wikipedia): the Words tab (219 rows on the TED talk), detected phrases ("play out", "running through", "used to") with English definitions, fullscreen on both sites (youtube.com makes `<html>` fullscreen, so Lingo's page layer stays in `<body>`; netflix.com makes `.watch-video` fullscreen and the layer moves into it), the 34 px subtitle, hover card, dictionary window at the top right and the reduced ^ menu, "Seen elsewhere · 11" for an unsaved word after visiting two other Wikipedia pages. Netflix's subtitle lift above the control bar and the ^ menu now checked
-- YouTube auto-generated captions (2026-11-11, branch `fix/asr-captions`): transcript cards follow the sentences of YouTube's auto-translation, so each card's Japanese is that sentence's translation, and the video shows a card as lines of at most 60 characters. Checked on four ASR videos (`GLNVMi_4Khw`, `1w5R5QOjbVY`, `RVzIGNFyvYU`, `P30_ec_t0Y8`); details in [notes/youtube-captions.md](notes/youtube-captions.md)
+- Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
+- Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
+- **In progress**: codebase refactor ([plan](plans/2026-11-12-refactor.md))
+- Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
 
-- Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
+## Known issues and open points
 
-- Dictionary window and transcript (2026-11-11, branch `claude/dictionary-popup-video-ui-d462d4`): a press outside the dictionary window closes it (video and article; × stays), "In this video" marks the term in each line, and transcript words show the hover card and open the dictionary on a click
-- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md), [measurements](notes/definition-translation.md)) merged through PR #21: the hover card translates the short meaning, the dictionary window up to four senses with the English below, cached on the device (`mtCache`, 20,000 rows)
-- **M9c downloaded language packs** on `feat/pack-downloads` ([plan](plans/2026-11-11-m9c-pack-downloads.md)): a lock file (`src/core/packs/packs.lock.json`, written by `npm run data:publish` with the npm package folders) says per pack whether it is bundled or downloaded; downloads come from npm mirrors, are checked against the lock's SHA-256, kept in IndexedDB and switched in one transaction, with retries (1, 5, 30 min, then 6 h) and Retry. Pages wait quietly while their data is missing and analyze again once it is there; the popup and the video column show "Downloading Spanish data · n%" or "Couldn't download Spanish data" with Retry, Settings → Languages a "Language data" row. **Hosting comes later** (user, 2026-11-11): the npm scope and public data repository do not exist yet, so production builds keep every pack bundled. The download path runs in E2E against a local mirror (`npm run build:check-download`, `e2e/pack-downloads.spec.ts`: the page waits, downloads, is highlighted; a corrupted file fails and Retry recovers)
-- **M9d new native languages** on `feat/native-languages` ([plan](plans/2026-11-11-m9d-native-languages.md)): learners of English can choose Spanish or Portuguese as their language. Each pair dictionary (`data/packs/en-es/`, `en-pt/`) is built by a recipe (`npm run data:native -- es pt`) from the native Wiktionary edition, then English Wiktionary's translation tables, one source per term; a translation-table sense shows its English sense above the native words (mock `TranslatedSenses`). `en-defs` now holds English definitions of words as well as phrases, the fallback of every English pair. The quality gate (95% of the top 5,000 English content words, confirmed by the user) is reported by `npm run data:stats`; `npm run data:publish` writes the passing pairs into the lock, which Settings reads. **ECDICT is not used** (its Chinese sources cannot be traced) and **zh is left for later** (91.2%, under the gate; user, 2026-11-11). The new packs are bundled until hosting starts
-- **YouTube comments** (2026-11-12, branch `feat/youtube-comments`; spec "YouTube comments", mock `YouTube — comments`, [notes](notes/youtube-comments.md)): the comments and replies under a video work like an article (highlights, hover card, dictionary panel at the top right, phrase selection, saving, history and occurrences with the video as the source). Each comment's language is detected on its own; Settings → Sites → "YouTube comments" (on by default). One dictionary at a time, and a term saved in the comments updates the subtitles and transcript (and the other way round). Built on the article engine through a `PageSurface` (`src/content/article/surface.ts`, `src/content/video/youtube-comments.tsx`)
-## What phase 1 contains
-| Area | Where | Plan |
-|---|---|---|
-| Dev environment, CI/CD, CLAUDE.md check | `.github/`, `scripts/`, `e2e/`, `tests/` | [dev-environment](plans/2026-11-09-dev-environment.md) |
-| Language data (EJDict, Wiktionary/kaikki, frequency) | `scripts/data/`, `public/packs/`, `data/packs/` | [m2](plans/2026-11-09-m2-data-import.md) |
-| Settings, BrowserEnv, tokenizer, packs, dictionary, classifier, TermStore (IndexedDB), sync, messaging | `src/core/`, `src/background/`, `src/messaging/` | [m3](plans/2026-11-09-m3-foundation.md) |
-| Hover card (also over a selection), dictionary window/panel | `src/ui/lookup/` | [m4](plans/2026-11-09-m4-lookup-ui.md) |
-| Article UI | `src/content/article/` | [m5](plans/2026-11-09-m5-article-ui.md) |
-| Video UI (YouTube, Netflix) | `src/content/video/`, `src/ui/video/`, `src/core/subtitles/` | [m6](plans/2026-11-09-m6-video-ui.md) |
-| Popup, settings page, word list page | `src/entrypoints/{popup,options,wordlist}/` | [m7](plans/2026-11-10-m7-popup-settings-wordlist.md) |
-
-Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-check` (loaded unpacked in the user's Chrome) and the extension reloads itself ([development.md](development.md)).
-
-## Known issues and open points (phase 1)
-- Netflix: Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
-- YouTube: real-site layout in theater mode and the narrow single-column layout not checked
-- Article UI: a word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)
-- Popup: "On this site" reflects only `disabledSites` (a "Never run on" host still shows the switch on); relative times read "2 minutes ago" where the mock says "2 min ago"
-- Word list: re-saving a removed word brings back one occurrence (removal deletes the others)
-- `storage.sync` holds about 12,400 English terms, not the 15,000–20,000 the spec estimated (see "Data"); demotion of "save all" terms keeps it working
-- Firefox (not released yet): `data_collection_permissions` missing in the manifest; `supportsHighlightUnderline()` always returns true; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; Playwright's Firefox does not launch on the dev Mac (CI covers it)
-- E2E selects phrases with the Selection API (a Playwright mouse drag selects nothing on the article fixture in headless Chromium)
-
-## Known issues and open points (phase 2)
-- Phrase data: some first meanings from Wiktionary fit badly ("talk about" → an interjection sense, "used to" → "accustomed to" where the habitual past is meant); a few literal word pairs remain ("and change"); very common idioms such as "of course" and "a lot" are not in the list
-- Article sentences from Wikipedia keep citation brackets ("5] …", "…[") in "On this page" and the history
-- YouTube: after using L or ^ the focus stays on Lingo's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked
+### Video
+- Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
 - Netflix: the in-video subtitle is centered on the whole video, so its right end can run under the transcript side panel
-- A selected (saved) phrase only finds history sentences recorded after it was saved: index keys are fixed when a sentence is kept
-- The 50 MB history figure is Lingo's own estimate; IndexedDB's indexes take more space on disk
-- Production builds use closed shadow roots, so E2E drives the page UI on the check build only
-- YouTube ASR: in stretches where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts); a card can then hold a long run-on (up to ~70 words), shown as several lines. Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma
+- YouTube: real-site layout in theater mode and the narrow single-column layout not checked
+- YouTube: after using L or ^ the focus stays on Lingo's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked
+- YouTube ASR: where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts) and a card can hold a long run-on (up to ~70 words), shown as several lines. Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma
+- Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
+- Video lines that play while the language data is missing are classified later but not kept in the sentence history
 
-## Known issues and open points (YouTube comments)
-- Short comments ("lol", "wow") are often not decided by the language detector and count as the learning language; one in another language that the detector cannot decide on is analyzed (words not in the vocabulary get nothing)
+### YouTube comments
+- Short comments ("lol", "wow") are often not decided by the language detector and count as the learning language
 - A comment cut off by "Read more" is analyzed whole; its hidden part gets highlights once expanded
 - Shorts' comment panel is not covered
 
-## Known issues and open points (M9)
-- Phrase gaps: a saved phrasal verb may match words that do not belong together (up to three words between its parts; a conjunction or a subject ends the gap, but there is no part-of-speech check)
-- A phrase saved before M9a whose key happens to contain a slot word ("someone else") now also matches the slot's fillers ("him else")
+### Articles
+- A word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)
+- Wikipedia sentences keep citation brackets ("5] …", "…[") in "On this page" and the history
+- On an article whose language pack is there but whose dictionary is not (one of the pair's packs failed), hovering a word shows nothing and logs nothing
+
+### Popup, word list, history, sync
+- Popup: "On this site" reflects only `disabledSites` (a "Never run on" host still shows the switch on); relative times read "2 minutes ago" where the mock says "2 min ago"
+- Word list: re-saving a removed word brings back one occurrence (removal deletes the others)
+- A saved phrase only finds history sentences recorded after it was saved (index keys are fixed when a sentence is kept)
+- The 50 MB history figure is Lingo's own estimate; IndexedDB's indexes take more space on disk
+- `storage.sync` holds about 12,400 English terms; demotion of "save all" terms keeps it working
+
+### Phrases and language data
+- Some first meanings from Wiktionary fit badly ("talk about" → an interjection sense, "used to" → "accustomed to"); a few literal word pairs remain ("and change"); "of course" and "a lot" are not in the list
+- A saved phrasal verb may match words that do not belong together (up to three words between its parts; no part-of-speech check)
+- A phrase saved before M9a whose key contains a slot word ("someone else") also matches the slot's fillers ("him else")
 - Phrases dropped only by the rank thresholds ("see you later", "in it") are in neither `detect` nor `more`, so a selection cannot match them
-- Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
-- Machine-translated definitions: about 70 of 100 read well in Chrome's en→ja; fragments ("prudish, straight-laced") and jargon translate badly, so the window keeps the English under each translated sense. "Synonym of" and other pointer senses stay English
-- The first definition translation needs Chrome's model (en→N). Its download needs a click (dictionary window, or choosing a language in Settings); until then hover cards show English. A pair still downloading waits outside the page's translation queue
-- Downloaded packs (M9c): hosting is pending (npm scope, public data repository, `npm publish`, then `data:publish -- --download es,es-en` and a release); the real CDN download is checked only after that. Until then production behaves as before (everything bundled)
-- Downloaded packs: video lines that play while the data is missing are classified later but not kept in the sentence history (it records lines as they play)
-- Downloaded packs: on an article whose language pack is there but whose dictionary is not (one of the pair's packs failed), hovering a word shows nothing and logs nothing
-- Downloaded packs: the Firefox build is only built (`npm run build:firefox`), not run: Playwright's Firefox does not launch on the dev Mac and E2E loads Chromium only
-- Native languages (M9d): the editions' glosses are of mixed kinds — a word ("Luz"), a list, or a whole definition (pt "software" has a long sentence as its short meaning); translation-table senses can be rarer words (es "a. m., de la mañana"). Phrases are covered far less than words (es 24.7%, pt 17.7%); the rest fall back to English definitions, translated at display time
-- Native languages: the gate's word list still counts some names EJDict writes in lowercase (billy, phoebe) and forms the lemma data lacks (gotten, ladies, nights)
-- Chinese: the zh Wiktionary edition covers 36% of the gate's words, translation tables 88%, both 91.2%; the edition writes Traditional characters (zh would need a conversion to Simplified). Not offered
+- Machine-translated definitions: about 70 of 100 read well in Chrome's en→ja; fragments and jargon translate badly, so the window keeps the English under each sense. The first translation needs Chrome's model, whose download needs a click; until then hover cards show English
+- Native editions' glosses are of mixed kinds (a word, a list, or a whole definition); translation-table senses can be rare words. Phrases are covered far less than words (es 24.7%, pt 17.7%)
+- The gate's word list still counts some names EJDict writes in lowercase (billy, phoebe) and forms the lemma data lacks (gotten, ladies, nights)
+- Chinese is not offered: 91.2% of the gate (under 95%), and the zh edition writes Traditional characters
+
+### Hosting and Firefox
+- Pack hosting is pending: npm scope, public data repository, `npm publish`, then `npm run data:publish -- --download es,es-en` and a release. The real CDN download is checked only after that
+- Firefox (not released): `data_collection_permissions` missing in the manifest; highlight-underline support not detected; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; the Firefox build is only built, not run (Playwright's Firefox does not launch on the dev Mac; CI runs Firefox browser tests)
 
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
 - Trader / non-trader declaration, 2-Step Verification on the developer account
-- Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling (processed in memory; with Sentence history on, the lines that played are kept on the device), sentence history described in the listing
-- See the spec's "Chrome Web Store requirements"
-
-## Decisions (2026-11-11)
-- Articles: only the title and body get highlights, the end-of-article "Mark as Known", the sentence history and "Seen elsewhere" encounters; words in menus, sidebars and related-story links still show the hover card and the dictionary. Settings → Articles → "Highlight only the article" (on by default) switches it; off, the whole page counts as before. Main content is found by `findMainContent` (`src/content/article/main-content.ts`)
-- No page card on articles and no end cards: the toolbar popup keeps the highlight toggles. Settings → Highlighting → "New words you didn't save" (Keep as New, default / Mark as Known) decides what happens to unsaved New words when a video ends or the end of an article comes into view
-- The popup's "This page" section is back: "Mark all as Learning" / "Mark all as Known" save every unsaved New word of the tab at once, with Undo (popup only, no end cards)
-- IPA is shown in dictionary style (no syllable dots or tie bars, r instead of ɹ) in Noto Sans or the system UI font
-
-## Decisions (2026-11-09 / 10)
-- Tatoeba example sentences and Anki/CSV export moved to phase 3; the phase-2 language pack is Spanish → English
-- Chrome Web Store: keep YouTube + Netflix (subtitles processed in memory; played lines kept on the device while Sentence history is on), keep `<all_urls>`, sentence history on by default
-- Mock artboards for the word list page and the phase 2 screens were approved as they are (2026-11-10)
-- Real-site checks that Playwright cannot do go through Claude in Chrome in the user's Chrome
-
-## Data
-Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kaikki English dump of that day, 1,499,161 entries).
-- Vocabulary (single-word EJDict headwords, `en/vocab.json`): 40,197 words; the dictionary has 46,612 headwords including multi-word ones
-- Lemma entries (inflected form → base): 54,399. A form that is itself a dictionary word keeps a base only when its own kaikki entry confirms it (is → be, does → do; this and news have none)
-- IPA: 26,758 words; coverage over the frequency list: 16,719 of 19,089 base forms (87.6%)
-- Parts of speech: 39,436 words
-- Phrases (M8a, 2026-11-10): 16,384 phrases (5,240 from EJDict, 11,385 from kaikki, some in both); meanings from EJDict 5,240, Wiktionary Japanese translations 725, English definitions 10,419. `en/phrases.json` 0.27 MB, `en-ja/phrases.json` 0.05 MB, `en-defs/dict-1.json` 1.90 MB; all pack files 12.67 MB. Classifying ~1,400 words takes ~0.4 ms. Chrome zip 3.9 MB (phase 1: ~3 MB)
-- Phrase patterns (M9a, 2026-11-11): English 19,932 patterns — 18,327 detect (all 16,384 earlier phrases kept; +1,943 with inflected words such as "spill the beans"), 1,605 more (1,432 with a slot: one's 899, someone's 272, someone 168, oneself 94, something 37; 173 starting with be/have/do), 4,725 gap (phrasal verbs). Meanings: EJDict 5,737, Wiktionary Japanese translations 901, English definitions 13,294, none 0. Spanish 2,467 detect, 3 more. `en/phrases.json` 0.41 MB, `en-defs` 2.00 + 0.41 MB; all pack files 19.87 MB. Classifying a 27,000-word corpus takes ~13 ms (unchanged), ~15 ms with 375 saved phrases (+20%)
-- Common-word pairs (2026-11-11): kaikki two-word patterns whose words are both in the top 1000 are detected only when the second word is an adverb particle (give up, find out); 854 others (come to, go to, live in, look at, very well, kind of, after all) moved from detect to more. English now 17,473 detect, 2,459 more; meanings unchanged
-- Spanish (M8b, 2026-11-10; kaikki Spanish dump, Wiktionary "Frequency lists/Spanish/Mixed 730K", first 150,000 list entries): vocabulary 33,812 words (proper-noun-only entries left out), lemma entries 53,007, IPA 29,595 words (93.9% of the top 20,000 bases; Castilian pronunciation), es-en dictionary 35,438 terms, 1,626 phrases. `es/` 3.0 MB, `es-en/` 3.4 MB in 2 shards; all pack files 19.1 MB; Chrome zip 5.5 MB. Building the es pack and classifier ~29 ms in Node (en ~44 ms)
-- Native languages (M9d, 2026-11-11; kaikki extracts of the es / pt / zh Wiktionary editions downloaded that day): `en-es` 29,685 terms (10,280 Wikcionario, 19,405 translation tables), 3.27 MB in 2 shards; `en-pt` 25,093 terms (7,785 Wikcionário, 17,308 translation tables), 2 shards. Quality gate, top 5,000 English content words: en-ja 100%, en-es 96.8% (top 2,000: 98.4%), en-pt 95.1% (96.7%), es-en 100%; phrases with a native meaning: en-ja 33.3%, en-es 24.7%, en-pt 17.7%. `en-defs`: 34,548 words and 18,846 phrases, 13.22 MB in 7 shards (2.4 MB before). Production Chrome zip 10.65 MB (5.76 MB before), `background.js` 157.1 KB
-- Downloaded packs (M9c, 2026-11-11): the production Chrome zip is 5.76 MB (5,763,636 bytes; 5,752,636 before M9c, the same pack files, +11 KB of code), its `background.js` 154.9 KB (142.6 KB before). The E2E download build (`chrome-mv3-check-download`, without `es` and `es-en`) is 14.20 MB unpacked against 20.68 MB for production, about 4.1 MB zipped; the Spanish data it downloads is 6.54 MB (`es` 3.03 MB, `es-en` 3.51 MB; Settings shows "6.2 MB", in MiB)
-- Sizes (phase 1): `en/` 3.8 MB (lemmas 1.25, ipa 0.79, freq 0.21, pos 1.04, vocab 0.48), `en-ja/` 6.7 MB in 4 shards; total 10.45 MB, about 3 MB zipped. Every file stays under 4 MB (`scripts/data/pack-sizes.test.ts`; AMO rejects text files over 5 MB)
-- Performance: first `analyze` after a service-worker start ~80–125 ms (loads `en`), later calls 5–25 ms; the dictionary loads right after the first `analyze` (`warmDictionary`)
-- Sync capacity: 12,402 English terms fit in 102,400 bytes (`src/core/sync/codec.capacity.test.ts`); alternatives measured: up to ~16,300 with a column format (not adopted)
-- Raw downloads in `data/raw/` (git-ignored): kaikki English (3.4 GB), kaikki Spanish (1.1 GB, for phase 2), EJDict, Wiktionary TV/2006 frequency pages
+- Review justifications: `<all_urls>`, page hooks on YouTube/Netflix, subtitle handling, sentence history described in the listing ([architecture](specs/architecture.md) "Chrome Web Store requirements")
