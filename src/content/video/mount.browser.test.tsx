@@ -6,7 +6,7 @@ import type { Cue } from "../../core/subtitles/types";
 import type { TermCard } from "../lookup/describe";
 import { createStore } from "../store";
 import { mountVideoUi } from "./mount";
-import type { VideoApp, VideoState } from "./session";
+import type { VideoApp, VideoState } from "./state";
 import { createYouTubeAdapter } from "./youtube/adapter";
 import {
   createTestPage,

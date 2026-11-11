@@ -1,21 +1,16 @@
-import type { Category, Span, TermStatus } from "../../core/classify";
+import type { Category, Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
-import { collapseSpaces, splitSentences } from "../../core/text/sentences";
-import { termId } from "../../core/term-id";
 import {
   unsupportedPage,
   type PageRequest,
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
-import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import type { TermCard } from "../lookup/describe";
-import { wordBoxes, type Box } from "../lookup/geometry";
 import {
   createLookup,
   createMarkAll,
-  latest,
   sameTerm,
   type LookupDeps,
   type Term,
@@ -23,28 +18,24 @@ import {
 import { sendStatus } from "../lookup/status";
 import { warn } from "../lookup/warn";
 import { inOtherLanguage } from "../page-language";
-import { createStore, type Store } from "../store";
+import { createStore } from "../store";
+import { createCards, writtenOf } from "./cards";
 import { watchEndOfArticle } from "./end-of-article";
 import { createHighlighter } from "./highlighter";
 import { watchInteractions } from "./interactions";
 import {
   createBlockIndex,
-  selectionKey,
-  snapSelection,
   spanAtPoint,
-  type Snapped,
   type SpanMap,
   type SpanRef,
 } from "./locate";
 import type { MainContent } from "./main-content";
-import {
-  collectBlocks,
-  createPageText,
-  rangeOf,
-  type TextBlock,
-} from "./page-text";
+import { collectBlocks, createPageText, type TextBlock } from "./page-text";
+import { createRecorder } from "./recorder";
+import { createSelection } from "./selection";
 import { sentenceAt } from "./sentence";
 import type { DetectLanguage } from "./should-run";
+import type { ArticleApp, ArticleState } from "./state";
 import { articleSurface, type PageSurface } from "./surface";
 import { batches, watchVisibleBlocks } from "./visibility";
 
@@ -85,89 +76,6 @@ function pageOf(options: ArticleOptions) {
   return { hostname, surface };
 }
 
-/** The hover card over a word: where the word is and what it says. */
-interface HoverState {
-  anchor: Box;
-  card: TermCard;
-}
-
-/** The dictionary panel for the clicked word. */
-interface PanelState {
-  card: TermCard;
-  /** Sentences on this page with the term, in page order. */
-  here: string[];
-  dictionaries: DictionaryLink[];
-  /** The clicked word's boxes, outlined. */
-  outline: Box[];
-}
-
-/** The card over a selection of words, which saves them as a phrase. */
-interface PhraseState {
-  anchor: Box;
-  /**
-   * The dictionary pattern the words stand for ("make up one's mind" for "made up her
-   * mind"), or the words themselves when no pattern matches.
-   */
-  card: TermCard;
-}
-
-/**
- * The pattern selected words stand for, and where its words are in the block: from
- * its first word to its last, gap included. The sentence may complete the selection
- * ("made up" → "made up her mind").
- */
-interface PatternMatch {
-  key: string;
-  start: number;
-  end: number;
-}
-
-/** The selected words, and the phrase they stand for. */
-interface Selected {
-  /** The latest snap of the words (they are read again after snapping). */
-  snapped: Snapped;
-  /** The background's answer: undefined when no pattern matches. */
-  match: Promise<PatternMatch | undefined>;
-  /**
-   * Once the background has answered: the phrase as a span of the block, the pattern's
-   * words or else the selected ones (not one of the page's spans).
-   */
-  ref?: SpanRef;
-  /** The phrase's card, once looked up. */
-  card?: TermCard;
-}
-
-/** What the UI shows. */
-interface ArticleState {
-  settings: Settings;
-  hover: HoverState | null;
-  panel: PanelState | null;
-  phrase: PhraseState | null;
-}
-
-/** The UI's view of the page: its state and what its controls do. */
-export interface ArticleApp {
-  readonly store: Store<ArticleState>;
-  /** The hover card's "+ Learning" / "Known". */
-  setHoverStatus(status: TermStatus): void;
-  /** The pointer entered the hover card: keep it. */
-  keepHover(): void;
-  /** The pointer left the hover card: hide it soon. */
-  releaseHover(): void;
-  /** The hover card's "Details": opens the panel for its word. */
-  openDetails(): void;
-  /** The panel's Learning / Known / Remove. */
-  setPanelStatus(status: WordStatus): void;
-  speak(): void;
-  closePanel(): void;
-  /** Scrolls to the panel's "On this page" sentence. */
-  goToSentence(index: number): void;
-  /** The selection card's "+ Learning" / "Known". */
-  savePhrase(status: TermStatus): void;
-  /** The selection card's "Details": opens the panel for its phrase. */
-  openPhraseDetails(): void;
-}
-
 export interface ArticleSession {
   /** Classifies every analyzed block again (after saved terms changed elsewhere). */
   reanalyze(): Promise<void>;
@@ -179,12 +87,6 @@ export interface ArticleSession {
   /** Removes highlights, the UI and every observer and listener. */
   stop(): void;
 }
-
-/** The term as written: the whole phrase for a part of a phrase with a gap. */
-const writtenOf = ({ block, span }: SpanRef) => {
-  const { start, end } = span.part ?? span;
-  return collapseSpaces(block.text.slice(start, end));
-};
 
 /**
  * Runs the article UI on the page when it qualifies (`shouldRunArticle`): mounts the
@@ -232,7 +134,7 @@ export async function startArticle(
   const lookup = createLookup(deps, {
     settings: () => settings,
     lang: () => lang,
-    url: surface.url,
+    url: () => surface.url(),
     packsReady() {
       const blocks = [...waiting].filter((block) => live.has(block));
       waiting.clear();
@@ -240,15 +142,43 @@ export async function startArticle(
     },
   });
   const { run } = lookup;
-
   const store = createStore<ArticleState>({
     settings,
     hover: null,
     panel: null,
     phrase: null,
   });
-
   const source = (): SourceInput => ({ ...surface.source(), lang });
+  const recorder = createRecorder({
+    send: deps.send,
+    lang,
+    source,
+    settings: () => settings,
+    spans,
+  });
+  const cards = createCards({
+    store,
+    lookup,
+    lang,
+    spans,
+    blocks: () => pageText.blocks(),
+    selecting: () => selection.selecting(),
+    onPanelOpen: deps.onPanelOpen,
+  });
+  const selection = createSelection({
+    send: deps.send,
+    store,
+    lookup,
+    lang,
+    source,
+    index,
+    spans,
+    dismissHover: () => interactions.dismissHover(),
+    async saved() {
+      deps.onTermsChanged?.();
+      await reanalyze();
+    },
+  });
 
   /**
    * The block gets highlights and counts for the end-of-article save, the history and
@@ -278,8 +208,8 @@ export async function startArticle(
         entered.push(block);
       } else shown.delete(block);
     }
-    recordEncounters(entered, savedKeys);
-    recordHistory(entered);
+    recorder.encounters(entered, savedKeys);
+    recorder.history(entered);
   }
 
   /** Whether each block is in the learning language, once detected (`perBlockLanguage`). */
@@ -331,77 +261,9 @@ export async function startArticle(
     });
     for (const key of result.saved) savedKeys.add(key);
     const counted = fresh.filter(inScope);
-    recordEncounters(counted, new Set(result.saved));
-    recordHistory(counted);
+    recorder.encounters(counted, new Set(result.saved));
+    recorder.history(counted);
   }
-
-  /** Sentences already sent to the sentence history in this page view. */
-  const kept = new Set<string>();
-
-  /** Sends the background the blocks' sentences not sent yet, for the sentence history. */
-  function recordHistory(blocks: TextBlock[]) {
-    if (!settings.sentenceHistory) return;
-    const sentences = [];
-    for (const block of blocks) {
-      for (const text of splitSentences(block.text, lang)) {
-        if (kept.has(text)) continue;
-        kept.add(text);
-        sentences.push({ text, pos: { textQuote: text } });
-      }
-    }
-    if (sentences.length > 0)
-      deps
-        .send({ type: "recordHistory", source: source(), sentences })
-        .catch(warn);
-  }
-
-  /** Sentences already recorded for a saved term in this page view ("key\nsentence"). */
-  const recorded = new Set<string>();
-
-  /** Tells the background which saved terms the page has, with their sentences. */
-  function recordEncounters(blocks: TextBlock[], saved: ReadonlySet<string>) {
-    const items = [];
-    for (const block of blocks) {
-      for (const span of spans.get(block) ?? []) {
-        if (!saved.has(span.key)) continue;
-        const sentence = sentenceAt(block.text, span.start, span.end, lang);
-        const seen = `${span.key}\n${sentence}`;
-        if (recorded.has(seen)) continue;
-        recorded.add(seen);
-        items.push({
-          termId: termId(lang, span.key),
-          sentence,
-          pos: { textQuote: sentence },
-        });
-      }
-    }
-    if (items.length > 0)
-      deps
-        .send({ type: "recordEncounters", source: source(), items })
-        .catch(warn);
-  }
-
-  /** Distinct keys of unsaved new words on the analyzed part of the page, in page order. */
-  function unsavedOnPage(): string[] {
-    const keys = new Set<string>();
-    for (const block of pageText.blocks().filter(inScope))
-      for (const span of spans.get(block) ?? [])
-        if (span.category === "new") keys.add(span.key);
-    return [...keys];
-  }
-
-  const marks = createMarkAll({
-    send: deps.send,
-    lang: () => lang,
-    source,
-    unsaved: unsavedOnPage,
-    async marked(keys, from, to) {
-      recategorize((s) =>
-        s.category === from && keys.has(s.key) ? to : undefined,
-      );
-      await refreshOpenCards();
-    },
-  });
 
   /** Analyzes blocks again (all analyzed ones by default), in batches. */
   async function reanalyze(blocks: readonly TextBlock[] = [...spans.keys()]) {
@@ -424,21 +286,32 @@ export async function startArticle(
     }
   }
 
+  /** Distinct keys of unsaved new words on the analyzed part of the page, in page order. */
+  function unsavedOnPage(): string[] {
+    const keys = new Set<string>();
+    for (const block of pageText.blocks().filter(inScope))
+      for (const span of spans.get(block) ?? [])
+        if (span.category === "new") keys.add(span.key);
+    return [...keys];
+  }
+
+  const marks = createMarkAll({
+    send: deps.send,
+    lang: () => lang,
+    source,
+    unsaved: unsavedOnPage,
+    async marked(keys, from, to) {
+      recategorize((s) =>
+        s.category === from && keys.has(s.key) ? to : undefined,
+      );
+      await cards.refreshOpen();
+    },
+  });
+
   const blocksWith = (term: Term) =>
     [...spans]
       .filter(([, list]) => list.some((s) => sameTerm(s, term)))
       .map(([block]) => block);
-
-  const describe = (ref: SpanRef, shownIn: "hover" | "window" = "hover") =>
-    lookup.describe(
-      {
-        key: ref.span.key,
-        kind: ref.span.kind,
-        surface: writtenOf(ref),
-        category: ref.span.category,
-      },
-      shownIn,
-    );
 
   /** True when `ref` is one of the page's spans (not a selection's phrase). */
   const onPage = ({ block, span }: SpanRef) =>
@@ -466,288 +339,39 @@ export async function startArticle(
     else if (card.status === "new" && !onPage(ref)) await reanalyze();
     else recategorize((s) => (sameTerm(s, card) ? to : undefined));
     deps.onTermsChanged?.();
-    await refreshCards(card);
-  }
-
-  // Hover card.
-  let hoverRef: SpanRef | undefined;
-  const hoverTicket = latest();
-
-  async function showHover(ref: SpanRef) {
-    // The selection card is the card for the words under the pointer.
-    if (phrase) return;
-    const isLatest = hoverTicket.next();
-    const card = await describe(ref);
-    if (!isLatest()) return;
-    const [anchor] = wordBoxes(
-      rangeOf(ref.block, ref.span.start, ref.span.end),
-    );
-    if (!anchor) return;
-    hoverRef = ref;
-    store.set({ hover: { anchor, card } });
-  }
-
-  function hideHover() {
-    hoverTicket.drop();
-    hoverRef = undefined;
-    if (store.get().hover) store.set({ hover: null });
-  }
-
-  // Dictionary panel.
-  let panelRef: SpanRef | undefined;
-  const panelTicket = latest();
-  /** The span of each "On this page" sentence, for scrolling to it. */
-  let panelRanges: Range[] = [];
-
-  function sentencesOnPage(term: Term) {
-    const here: string[] = [];
-    const ranges: Range[] = [];
-    for (const block of pageText.blocks()) {
-      for (const span of spans.get(block) ?? []) {
-        if (!sameTerm(span, term)) continue;
-        const sentence = sentenceAt(block.text, span.start, span.end, lang);
-        if (here.includes(sentence)) continue;
-        here.push(sentence);
-        ranges.push(rangeOf(block, span.start, span.end));
-      }
-    }
-    return { here, ranges };
-  }
-
-  const outlineOf = (ref: SpanRef) =>
-    wordBoxes(rangeOf(ref.block, ref.span.start, ref.span.end));
-
-  async function openPanel(ref: SpanRef) {
-    const isLatest = panelTicket.next();
-    const card = await describe(ref, "window");
-    if (!isLatest()) return;
-    panelRef = ref;
-    showPanel(ref, card);
-    deps.onPanelOpen?.();
-  }
-
-  function showPanel(ref: SpanRef, card: TermCard) {
-    const { here, ranges } = sentencesOnPage(card);
-    panelRanges = ranges;
-    lookup.showPanel(store, {
-      card,
-      here,
-      dictionaries: lookup.dictionaries(card.head),
-      outline: outlineOf(ref),
-    });
-  }
-
-  function closePanel() {
-    panelTicket.drop();
-    panelRef = undefined;
-    panelRanges = [];
-    store.set({ panel: null });
-  }
-
-  /** Looks the term up again where the hover card or the panel shows it. */
-  async function refreshCards(term: Term) {
-    const { hover, panel } = store.get();
-    if (hover && hoverRef && sameTerm(hoverRef.span, term)) {
-      const ref = hoverRef;
-      const card = await describe(ref);
-      if (hoverRef === ref)
-        store.set({ hover: { ...store.get().hover!, card } });
-    }
-    if (panel && panelRef && sameTerm(panelRef.span, term)) {
-      const ref = panelRef;
-      const isCurrent = panelTicket.current();
-      const card = await describe(ref, "window");
-      if (isCurrent()) showPanel(ref, card);
-    }
-  }
-
-  /** Looks up again whatever the hover card and the panel show. */
-  async function refreshOpenCards() {
-    const refs = [hoverRef, panelRef].filter((r) => r !== undefined);
-    for (const { span } of refs) await refreshCards(span);
-  }
-
-  // Selection card.
-  let phrase: Selected | undefined;
-
-  const snappedRange = (s: Snapped) => rangeOf(s.block, s.start, s.end);
-  /** The same words: the selection is read again after it is snapped. */
-  const sameSnap = (a: Snapped | undefined, b: Snapped) =>
-    a !== undefined &&
-    a.block === b.block &&
-    a.start === b.start &&
-    a.end === b.end;
-
-  /** The pattern snapped words stand for; undefined when none matches or on failure. */
-  function patternOf({
-    block,
-    start,
-    end,
-  }: Snapped): Promise<PatternMatch | undefined> {
-    return deps
-      .send({ type: "matchSelection", lang, text: block.text, start, end })
-      .then(
-        (match) =>
-          match.key !== undefined &&
-          match.start !== undefined &&
-          match.end !== undefined
-            ? { key: match.key, start: match.start, end: match.end }
-            : undefined,
-        (error: unknown) => {
-          warn(error);
-          return undefined;
-        },
-      );
-  }
-
-  /** Shows the card of the selected words once it is looked up, above them. */
-  function showSelected(selected: Selected) {
-    const { card } = selected;
-    const [anchor] = wordBoxes(snappedRange(selected.snapped));
-    if (card && anchor) store.set({ phrase: { anchor, card } });
-  }
-
-  /**
-   * Looks up the phrase the selected words stand for: the pattern they match, as a
-   * span over the pattern's words; else the words under their own keys.
-   */
-  async function describeSelected(selected: Selected) {
-    const match = await selected.match;
-    const { snapped } = selected;
-    const { start, end } = match ?? snapped;
-    const ref: SpanRef = {
-      block: snapped.block,
-      span: {
-        start,
-        end,
-        key: match?.key ?? selectionKey(snapped),
-        kind: "phrase",
-        category: "new",
-      },
-    };
-    const card = await describe(ref);
-    // Dropped when other words are selected by now.
-    if (phrase !== selected) return;
-    selected.ref = ref;
-    selected.card = card;
-    showSelected(selected);
-  }
-
-  function dropSelected() {
-    phrase = undefined;
-    if (store.get().phrase) store.set({ phrase: null });
-  }
-
-  function onSelection(range: Range | undefined) {
-    const snapped = range && snapSelection(range, index, spans);
-    if (!snapped) {
-      dropSelected();
-      return;
-    }
-    if (phrase && sameSnap(phrase.snapped, snapped)) {
-      // The same words, read again: their phrase has been asked for.
-      phrase.snapped = snapped;
-    } else {
-      dropSelected();
-      interactions.dismissHover();
-      const selected: Selected = { snapped, match: patternOf(snapped) };
-      phrase = selected;
-      void describeSelected(selected).catch(warn);
-    }
-    const whole = snappedRange(snapped);
-    if (
-      range.compareBoundaryPoints(Range.START_TO_START, whole) !== 0 ||
-      range.compareBoundaryPoints(Range.END_TO_END, whole) !== 0
-    ) {
-      // Show what will be saved: the whole words.
-      const selection = getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(whole);
-    }
-    showSelected(phrase);
-  }
-
-  /**
-   * Saves the words under the pattern they stand for, as the pattern's words are
-   * written ("made up her mind" for a selection of "made up"); else the selected words
-   * under their own keys. A press before the background has answered waits for the
-   * answer, so the words are saved alike whenever the card is pressed.
-   */
-  async function savePhrase(
-    snapped: Snapped,
-    pattern: Promise<PatternMatch | undefined>,
-    status: TermStatus,
-  ) {
-    const { block } = snapped;
-    const match = await pattern;
-    const { start, end } = match ?? snapped;
-    const sentence = sentenceAt(block.text, start, end, lang);
-    await deps.send({
-      type: "saveTerm",
-      lang,
-      key: match?.key ?? selectionKey(snapped),
-      display: collapseSpaces(block.text.slice(start, end)),
-      kind: "phrase",
-      status,
-      source: source(),
-      sentence,
-      pos: { textQuote: sentence },
-    });
-    if (phrase && sameSnap(phrase.snapped, snapped)) {
-      dropSelected();
-      getSelection()?.removeAllRanges();
-    }
-    deps.onTermsChanged?.();
-    // The phrase may be anywhere on the page: classify again to find it.
-    await reanalyze();
-  }
-
-  function onScroll() {
-    const { panel } = store.get();
-    if (panel && panelRef)
-      store.set({ panel: { ...panel, outline: outlineOf(panelRef) } });
-    if (phrase) showSelected(phrase);
+    await cards.refresh(card);
   }
 
   const app: ArticleApp = {
     store,
     setHoverStatus(status) {
-      const ref = hoverRef;
+      const ref = cards.hoverRef();
       const card = store.get().hover?.card;
       if (ref && card) run(() => changeStatus(ref, card, status));
     },
     keepHover: () => interactions.keepHover(),
     releaseHover: () => interactions.releaseHover(),
     openDetails() {
-      const ref = hoverRef;
+      const ref = cards.hoverRef();
       if (!ref) return;
       interactions.dismissHover();
-      void openPanel(ref).catch(warn);
+      void cards.openPanel(ref).catch(warn);
     },
     setPanelStatus(status) {
-      const ref = panelRef;
+      const ref = cards.panelRef();
       const card = store.get().panel?.card;
       if (ref && card) run(() => changeStatus(ref, card, status));
     },
     speak: () => lookup.speak(store.get().panel?.card.head),
-    closePanel,
-    goToSentence(i) {
-      panelRanges[i]?.startContainer.parentElement?.scrollIntoView({
-        block: "center",
-        behavior: "smooth",
-      });
-    },
+    closePanel: cards.closePanel,
+    goToSentence: cards.goToSentence,
     savePhrase(status) {
-      if (!phrase) return;
-      const { snapped, match } = phrase;
-      run(() => savePhrase(snapped, match, status));
+      const task = selection.saveTask(status);
+      if (task) run(task);
     },
     openPhraseDetails() {
-      const ref = phrase?.ref;
-      if (!ref) return;
-      dropSelected();
-      getSelection()?.removeAllRanges();
-      void openPanel(ref).catch(warn);
+      const ref = selection.takeForDetails();
+      if (ref) void cards.openPanel(ref).catch(warn);
     },
   };
 
@@ -793,22 +417,24 @@ export async function startArticle(
   visible.add(pageText.blocks());
   end.update(main.last);
 
+  const closePanel = () => {
+    if (store.get().panel) cards.closePanel();
+  };
   const interactions = watchInteractions({
     spanAt(x, y) {
       const ref = spanAtPoint(x, y, index, spans);
       return ref && ref.span.category !== "ignored" ? ref : undefined;
     },
-    showHover: (ref) => void showHover(ref).catch(warn),
-    hideHover,
-    click: (ref) => void openPanel(ref).catch(warn),
-    selection: onSelection,
-    escape() {
-      if (store.get().panel) closePanel();
+    showHover: (ref) => void cards.showHover(ref).catch(warn),
+    hideHover: cards.hideHover,
+    click: (ref) => void cards.openPanel(ref).catch(warn),
+    selection: selection.select,
+    escape: closePanel,
+    pressAway: closePanel,
+    scroll() {
+      cards.follow();
+      selection.follow();
     },
-    pressAway() {
-      if (store.get().panel) closePanel();
-    },
-    scroll: onScroll,
   });
 
   const unwatch = deps.watchSettings((next) => {
@@ -854,7 +480,6 @@ export async function startArticle(
     },
   };
 }
-
 /** The article UI on a page, started and stopped as the site is switched on and off. */
 export interface ArticleRunner {
   /** Answers the popup about this page (see `page-protocol.ts`). */

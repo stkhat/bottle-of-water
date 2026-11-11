@@ -1,6 +1,6 @@
 import type { LookupHooks } from "../../lookup/lookup";
 import { warn } from "../../lookup/warn";
-import type { VideoSession } from "../session";
+import type { VideoSession } from "../state";
 import type { CommentsRunner } from "./comments";
 
 /**

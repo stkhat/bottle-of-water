@@ -1,4 +1,4 @@
-import type { ArticleApp } from "./article";
+import type { ArticleApp } from "./state";
 import { hoverView, windowView } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";

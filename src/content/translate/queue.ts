@@ -12,7 +12,6 @@ const RANK: Readonly<Record<TranslationPriority, number>> = {
   hover: 2,
 };
 
-/** The languages a text is translated from and into. */
 export interface TranslationPair {
   from: string;
   to: string;

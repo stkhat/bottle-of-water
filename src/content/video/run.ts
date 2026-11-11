@@ -6,7 +6,8 @@ import { leaveWhenOrphaned } from "../orphan";
 import { answerPageRequests, contentDeps } from "../wiring";
 import { mountVideoUi } from "./mount";
 import type { PlatformAdapter } from "./platform";
-import { startVideo, type VideoSession } from "./session";
+import { startVideo } from "./session";
+import type { VideoSession } from "./state";
 
 /**
  * The content script of a video site: runs the video session through the site's

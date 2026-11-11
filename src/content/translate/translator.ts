@@ -1,4 +1,3 @@
-/** Translates short text from one language to another. */
 export interface TranslationProvider {
   /**
    * Gets the translator ready, which may mean downloading its model: true once it can

@@ -10,7 +10,7 @@ import {
   MOVIE_ID,
   type TestPage,
 } from "../../../testing/netflix-page";
-import type { VideoApp, VideoState } from "../session";
+import type { VideoApp, VideoState } from "../state";
 import type { PlatformAdapter } from "../platform";
 
 const STATE: VideoState = {

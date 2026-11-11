@@ -72,6 +72,8 @@ export function latest() {
   };
 }
 
+export type Lookup = ReturnType<typeof createLookup>;
+
 /**
  * What the article and video sessions share: one translator queue (subtitles, hover
  * cards and windows in that order), the term lookups, the dictionary panel, the

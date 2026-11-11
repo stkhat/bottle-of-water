@@ -15,7 +15,7 @@ import {
   type VideoLayout,
 } from "./VideoUi";
 import type { InsertionPoint, PlatformAdapter } from "./platform";
-import type { VideoApp } from "./session";
+import type { VideoApp } from "./state";
 
 export interface MountOptions {
   adapter: PlatformAdapter;

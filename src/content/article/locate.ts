@@ -4,7 +4,6 @@ import { blockOffset, rangeOf, type TextBlock } from "./page-text";
 /** The spans of each analyzed block. */
 export type SpanMap = Map<TextBlock, readonly Span[]>;
 
-/** A span and the block it is in. */
 export interface SpanRef {
   block: TextBlock;
   span: Span;
