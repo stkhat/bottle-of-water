@@ -6,5 +6,6 @@ test-results
 playwright-report
 reports
 data/raw
+data/publish
 .stryker-tmp
 .vitest

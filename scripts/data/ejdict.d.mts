@@ -13,4 +13,4 @@ export interface DictShards {
 }
 export function shardDict(dict: Dict, maxBytes?: number): DictShards;
 export function writeDictPacks(dict: Dict): DictShards;
-export function readDictPacks(dir?: string): Dict;
+export function readDictPacks(pack?: string, root?: string): Dict;

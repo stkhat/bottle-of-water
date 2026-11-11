@@ -3,6 +3,7 @@ import {
   backupFileName,
   kilobytes,
   megabytes,
+  megabytesTenths,
   relativeTime,
   sameDay,
   shortDate,
@@ -43,6 +44,20 @@ describe("kilobytes", () => {
 
   it("shows any data as at least 1 KB", () => {
     expect(kilobytes(120)).toBe(1);
+  });
+});
+
+describe("megabytesTenths", () => {
+  it("gives MB of 1,048,576 bytes to one decimal", () => {
+    expect(megabytesTenths(6_539_114)).toBe("6.2");
+    expect(megabytesTenths(9.1 * 1024 * 1024)).toBe("9.1");
+    expect(megabytesTenths(12 * 1024 * 1024)).toBe("12.0");
+    expect(megabytesTenths(1500 * 1024 * 1024)).toBe("1,500.0");
+    expect(megabytesTenths(0)).toBe("0.0");
+  });
+
+  it("shows any data as at least 0.1 MB", () => {
+    expect(megabytesTenths(120)).toBe("0.1");
   });
 });
 

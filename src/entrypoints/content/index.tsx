@@ -7,6 +7,7 @@ import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
 import { ArticleUi } from "../../content/ui/ArticleUi";
 import { shadowRootMode } from "../../content/ui/shadow-mode";
 import { send } from "../../messaging/client";
+import { watchPackState } from "../../messaging/pack-state";
 import { guardShadowRoot } from "../../ui/from-user";
 import { isPageRequest } from "../../messaging/page-protocol";
 
@@ -21,6 +22,7 @@ export default defineContentScript({
     const runner = runArticle({
       send: sendWhileConnected(ctx, send),
       watchSettings,
+      watchPackState,
       detectLanguage: (text) => browser.i18n.detectLanguage(text),
       async mountUi(app) {
         const ui = await createShadowRootUi(ctx, {

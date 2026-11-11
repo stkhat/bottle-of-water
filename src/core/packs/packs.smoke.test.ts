@@ -1,8 +1,8 @@
-// Smoke test over the generated pack files in public/packs/ (npm run data:build),
-// read through the real pack loader.
+// Smoke test over the generated pack files in public/packs/ and data/packs/
+// (npm run data:build, npm run data:es), read through the real pack loader.
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { packSourcePath } from "../../../scripts/data/formats.mjs";
 import { createDefsDictionary, createEnJaDictionary } from "../dictionary";
 import { createLanguagePack } from "../language-pack";
 import { buildFreqIndex, rankOf } from "./frequency";
@@ -12,9 +12,8 @@ import { createPackLoader } from "./load";
 import { lookup } from "./lookup";
 import type { DictPack, ShardIndex } from "./types";
 
-const publicDir = join(import.meta.dirname, "..", "..", "..", "public");
 const read = (path: string): unknown =>
-  JSON.parse(readFileSync(join(publicDir, path), "utf8"));
+  JSON.parse(readFileSync(packSourcePath(path), "utf8"));
 const loadPack = createPackLoader(async (path) => read(path));
 
 const {

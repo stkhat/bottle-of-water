@@ -99,6 +99,25 @@ export interface MtCacheRecord {
   usedAt: number;
 }
 
+/**
+ * A file of a downloaded pack, verified against the lock, keyed by its SHA-256 (hex).
+ * A file shared by versions (unchanged between them) is stored once.
+ */
+export interface PackFileRecord {
+  sha256: string;
+  blob: Blob;
+}
+
+/** The version of a downloaded pack in use, and its files. */
+export interface PackVersionRecord {
+  pack: string;
+  version: string;
+  /** The data format of its files (`PACK_FORMATS`). */
+  format: number;
+  /** Each file's path in the pack ("freq.json") and SHA-256 (a `packFiles` row). */
+  files: { path: string; sha256: string }[];
+}
+
 /** `historyBytes`: the counted size of all of the sentence history. */
 export type MetaKey = "lastExportAt" | "lastSavedAt" | "historyBytes";
 
@@ -115,6 +134,8 @@ export type LingoDb = Dexie & {
   historyPages: EntityTable<HistoryPageRecord, "id">;
   historySentences: EntityTable<HistorySentenceRecord, "id">;
   mtCache: EntityTable<MtCacheRecord, "key">;
+  packFiles: EntityTable<PackFileRecord, "sha256">;
+  packVersions: EntityTable<PackVersionRecord, "pack">;
 };
 
 /** The extension's IndexedDB database. Tests pass a unique name per test. */
@@ -133,6 +154,10 @@ export function openLingoDb(name = "lingo"): LingoDb {
   });
   db.version(3).stores({
     mtCache: "key, usedAt, pair",
+  });
+  db.version(4).stores({
+    packFiles: "sha256",
+    packVersions: "pack",
   });
   return db;
 }

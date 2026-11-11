@@ -2,6 +2,7 @@ import { browser } from "wxt/browser";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { watchSettings } from "../../background/settings-store";
 import { send } from "../../messaging/client";
+import { watchPackState } from "../../messaging/pack-state";
 import { isPageRequest, unsupportedPage } from "../../messaging/page-protocol";
 import { leaveWhenOrphaned, sendWhileConnected } from "../orphan";
 import { mountVideoUi } from "./mount";
@@ -22,6 +23,7 @@ export async function runVideoSite(
     send: sendWhileConnected(ctx, send),
     adapter,
     watchSettings,
+    watchPackState,
   }).catch((error: unknown) => {
     console.warn("Lingo:", error);
     return undefined;

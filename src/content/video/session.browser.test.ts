@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PackName } from "../../core/packs/load";
+import type { PackState } from "../../core/packs/state";
 import type { Settings } from "../../core/settings";
 import videoUrl from "../../../e2e/fixtures/video.webm?url";
 import type { Cue } from "../../core/subtitles/types";
@@ -117,14 +119,19 @@ async function start(
     settings?: Partial<Settings>;
     /** Stands between the session and the background (to hold answers back). */
     send?: (send: ReturnType<typeof testBackground>["send"]) => typeof send;
+    /** Downloaded packs not on the device yet. */
+    missingPacks?: PackName[];
   } = {},
 ) {
   const video = await createVideo();
   const site = fakeSite(video, captions);
-  const bg = testBackground({
-    highlight: { new: true, learning: true, known: false },
-    ...options.settings,
-  });
+  const bg = testBackground(
+    {
+      highlight: { new: true, learning: true, known: false },
+      ...options.settings,
+    },
+    { missingPacks: options.missingPacks },
+  );
   cleanups.push(() => bg.close());
   await options.before?.(bg);
   const settingsListeners = new Set<(settings: Settings) => void>();
@@ -135,6 +142,7 @@ async function start(
       settingsListeners.add(listener);
       return () => settingsListeners.delete(listener);
     },
+    watchPackState: bg.watchPackState,
     createTranslator: () =>
       options.translator ?? { translate: async () => undefined },
     translatorAvailable: async () => options.translatorAvailable ?? false,
@@ -1435,5 +1443,94 @@ describe("translating English definitions", () => {
       .poll(() => state().panel?.card, { timeout: 1000 })
       .toMatchObject({ short: "To come to understand", shortLang: "en" });
     expect(state().panel?.card.senses[0]).not.toHaveProperty("translated");
+  });
+});
+
+describe("a video without its language data", () => {
+  const READY: PackState = { state: "ready", received: 100, total: 100 };
+  const quiet = () => {
+    const warn = vi.spyOn(console, "warn");
+    const error = vi.spyOn(console, "error");
+    cleanups.push(() => vi.restoreAllMocks());
+    return () => {
+      expect(warn).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+    };
+  };
+
+  it("shows the cues unclassified and the download line, quietly, then classifies them once the data is ready", async () => {
+    const noWarnings = quiet();
+    const { state, bg } = await start(undefined, { missingPacks: ["en"] });
+    await ready(state);
+    await expect
+      .poll(() => state().dataNote)
+      .toEqual({ state: "downloading", percent: 0 });
+    expect(state().spans).toEqual([null, null, null]);
+    expect(bg.sent("analyze")).toHaveLength(1);
+
+    bg.setPackStates({
+      en: { state: "downloading", received: 45, total: 100 },
+    });
+    await expect
+      .poll(() => state().dataNote)
+      .toEqual({ state: "downloading", percent: 45 });
+    expect(state().spans).toEqual([null, null, null]);
+    expect(bg.sent("analyze")).toHaveLength(1);
+
+    bg.setPackStates({ en: READY });
+    await classified(state);
+    expect(state().dataNote).toBeNull();
+    expect(state().status).toBe("ready");
+    expect(bg.sent("analyze")).toHaveLength(2);
+    expect(bg.packWatchers()).toBe(1); // The download line's.
+    noWarnings();
+  });
+
+  it("shows a failed download with Retry, which asks the background to try again", async () => {
+    const noWarnings = quiet();
+    const { state, bg, app } = await start(undefined, { missingPacks: ["en"] });
+    await ready(state);
+    bg.setPackStates({
+      en: { state: "failed", received: 0, total: 100, error: "HTTP 404" },
+    });
+    await expect.poll(() => state().dataNote).toEqual({ state: "failed" });
+    app.retryPacks();
+    await expect.poll(() => bg.retries()).toBe(1);
+    noWarnings();
+  });
+
+  it("asks the words' meanings again once the dictionary's data is ready", async () => {
+    const noWarnings = quiet();
+    const { state, bg } = await start(undefined, { missingPacks: ["en-ja"] });
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => bg.sent("termSummaries").length).toBeGreaterThan(0);
+    expect(state().summaries).toEqual({});
+    await expect
+      .poll(() => state().dataNote)
+      .toEqual({ state: "downloading", percent: 0 });
+
+    bg.setPackStates({ "en-ja": READY });
+    await expect.poll(() => state().summaries.yeast?.short).toBe("yeastの訳");
+    expect(state().dataNote).toBeNull();
+    noWarnings();
+  });
+
+  it("keeps the download line for the next video", async () => {
+    const { state, site } = await start(
+      { vid1: captionsOf(CUES), vid2: captionsOf(CUES) },
+      { missingPacks: ["en"] },
+    );
+    await expect.poll(() => state().dataNote).not.toBeNull();
+    site.navigate("vid2");
+    await expect.poll(() => state().videoId).toBe("vid2");
+    expect(state().dataNote).toEqual({ state: "downloading", percent: 0 });
+  });
+
+  it("stops watching the data when it stops", async () => {
+    const { session, bg } = await start(undefined, { missingPacks: ["en"] });
+    await expect.poll(() => bg.packWatchers()).toBe(2);
+    session.stop();
+    expect(bg.packWatchers()).toBe(0);
   });
 });

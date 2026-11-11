@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 
 export const ROOT = resolve(import.meta.dirname, "..", "..");
 export const RAW_DIR = join(ROOT, "data", "raw");
+/** Packs that are always bundled with the extension (en, en-ja, en-defs). */
 export const PACKS_DIR = join(ROOT, "public", "packs");
+/**
+ * Packs that can be downloaded (es, es-en): bundled or not as their lock entry says
+ * (scripts/data/publish.mjs, the build hook in wxt.config.ts).
+ */
+export const DOWNLOAD_PACKS_DIR = join(ROOT, "data", "packs");
 const USER_AGENT =
   "LingoDataImport/0.1 (https://github.com/stkhat/bottle-of-water)";
 
@@ -42,8 +48,9 @@ export function writePack(relPath, value, dir = PACKS_DIR, options = {}) {
   writeFileSync(path, stringifyPack(value, options));
 }
 
-export function readPack(relPath) {
-  return JSON.parse(readFileSync(join(PACKS_DIR, relPath), "utf8"));
+/** Reads <dir>/<relPath>, public/packs/<relPath> by default. */
+export function readPack(relPath, dir = PACKS_DIR) {
+  return JSON.parse(readFileSync(join(dir, relPath), "utf8"));
 }
 
 export async function fetchText(url) {
