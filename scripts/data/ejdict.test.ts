@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { stringifyPack } from "./common.mjs";
-import { cleanShort, parseEjdict, shardDict, vocabularyOf } from "./ejdict.mjs";
+import {
+  capitalizedOnly,
+  cleanShort,
+  parseEjdict,
+  shardDict,
+  vocabularyOf,
+} from "./ejdict.mjs";
 
 const fixture = readFileSync(
   join(import.meta.dirname, "fixtures", "ejdict.txt"),
@@ -131,5 +137,20 @@ describe("shardDict", () => {
   });
   it("fails when one entry alone is over the limit", () => {
     expect(() => shardDict(dict, 10)).toThrow("over 10 bytes");
+  });
+});
+
+describe("capitalizedOnly", () => {
+  it("lists single words EJDict writes only with capitals, lowercase", () => {
+    const text = [
+      "David\tダビデ",
+      "May\t5月",
+      "may\tかもしれない",
+      "TV\ttelevision",
+      "Mr.,Mr\tMister",
+      "Jim Crow\t黒人差別",
+      "bill\t勘定書",
+    ].join("\n");
+    expect(capitalizedOnly(text)).toEqual(["david", "mr", "tv"]);
   });
 });

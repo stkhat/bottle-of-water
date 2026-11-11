@@ -1,14 +1,13 @@
 // Phrase patterns (idioms, phrasal verbs, prepositional phrases) from EJDict and the
 // kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/phrases.json
-// ({ detect, more, gap }), public/packs/en-ja/phrases.json (Japanese translations) and
-// public/packs/en-defs/{index,dict-<n>}.json (English definitions)
+// ({ detect, more, gap }) and public/packs/en-ja/phrases.json (Japanese translations).
+// English definitions come from en-defs.mjs.
 // Usage: node scripts/data/phrases.mjs [path]   (default data/raw/kaikki-en.jsonl; run ejdict.mjs, kaikki.mjs and frequency.mjs first)
-import { createReadStream, existsSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { isMain, PACKS_DIR, readPack, writePack } from "./common.mjs";
-import { readDictPacks, shardDict } from "./ejdict.mjs";
-import { KAIKKI_PATH, posLabel } from "./kaikki.mjs";
+import { readDictPacks } from "./ejdict.mjs";
+import { KAIKKI_PATH } from "./kaikki.mjs";
 
 /**
  * Slot words: they stand for any person or thing ("make up one's mind"). The matcher
@@ -50,7 +49,6 @@ const LITERAL_GLOSS = /^Used other than figuratively or idiomatically/;
 export const IDIOM_COMMON_RANK = 100;
 /** A phrase or prepositional-phrase entry counts only when a literal word is rarer than this rank ("on the" does not). */
 export const PHRASE_COMMON_RANK = 1000;
-const MAX_SENSES = 4;
 // The top-level headword, which kaikki writes right before the language.
 const HEADWORD =
   /"word": ("(?:[^"\\]|\\.)*"), "lang": "English", "lang_code": "en"/;
@@ -147,8 +145,8 @@ export function shortOf(text) {
  * plus kaikki idioms, phrasal verbs and phrases, whose words are vocabulary words,
  * inflected forms (`lemmas`) or slots. `detect` holds the patterns without a slot that
  * pass the detection filters, `more` the other ones (with a slot, or kaikki ones starting
- * with be / have / do), `gap` the phrasal verbs among both. Japanese translations and
- * English definitions cover every kaikki pattern EJDict lacks.
+ * with be / have / do), `gap` the phrasal verbs among both. Japanese translations
+ * cover the kaikki patterns EJDict lacks.
  *
  * The rank thresholds look at the literal words only (a slot stands for any word), and
  * rank a word outside the vocabulary (an inflected form, "beans") as its most common base
@@ -173,7 +171,7 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
         .map(rankOf),
     );
   const stats = { entries: 0, unparsable: 0 };
-  // key → { phrase, gap, senses: [pos, text][], senseJa, topJa: string[] }, entries merged in file order
+  // key → { phrase, gap, senseJa, topJa: string[] }, entries merged in file order
   const found = new Map();
   const lines = createInterface({
     input: createReadStream(path, { highWaterMark: 1 << 20 }),
@@ -202,19 +200,16 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
         (item = {
           phrase: false,
           gap: false,
-          senses: [],
           senseJa: [],
           topJa: [],
         }),
       );
     japaneseOf(entry.translations, item.topJa);
     const rarestRank = rarestRankOf(key);
-    const pos = typeof entry.pos === "string" ? posLabel(entry.pos) : "";
     for (const sense of entry.senses ?? []) {
       if (!isUsable(sense)) continue;
       item.phrase ||= isPhraseSense(entry, sense, rarestRank);
       item.gap ||= inCategory(sense.categories, "phrasal verbs");
-      item.senses.push([pos, sense.glosses.at(-1).trim()]);
       japaneseOf(sense.translations, item.senseJa);
     }
   }
@@ -241,21 +236,14 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
     gap: fromKaikki.filter((key) => found.get(key).gap),
   };
   const ja = {};
-  const defs = {};
   for (const key of fromKaikki) {
     if (Object.hasOwn(dict, key)) continue;
     const item = found.get(key);
     const translations = [...new Set([...item.senseJa, ...item.topJa])];
-    if (translations.length > 0) {
-      ja[key] = [translations[0], translations];
-      continue;
-    }
-    const senses = item.senses.slice(0, MAX_SENSES);
-    defs[key] = [shortOf(senses[0][1]), senses];
+    if (translations.length > 0) ja[key] = [translations[0], translations];
   }
   return {
     phrases,
-    defs,
     ja,
     stats: {
       ...stats,
@@ -265,23 +253,14 @@ export async function importPhrases(path, vocab, dict, freq, lemmas) {
       fromEjdict: fromEjdict.length,
       fromKaikki: fromKaikki.length,
       ja: Object.keys(ja).length,
-      defs: Object.keys(defs).length,
     },
   };
 }
 
-/** Writes the phrase patterns, the Japanese translations and the English definition shards; removes old shards. */
-export function writePhrasePacks({ phrases, defs, ja }) {
-  const dir = join(PACKS_DIR, "en-defs");
-  if (existsSync(dir))
-    for (const name of readdirSync(dir))
-      if (/^(dict-\d+|index)\.json$/.test(name)) rmSync(join(dir, name));
-  const { index, shards } = shardDict(defs);
-  for (const shard of shards) writePack(`en-defs/${shard.file}`, shard.dict);
-  writePack("en-defs/index.json", index);
+/** Writes the phrase patterns and the Japanese translations. */
+export function writePhrasePacks({ phrases, ja }) {
   writePack("en/phrases.json", phrases, PACKS_DIR, { lists: true });
   writePack("en-ja/phrases.json", ja);
-  return { index };
 }
 
 async function main() {
@@ -291,14 +270,13 @@ async function main() {
   const lemmas = readPack("en/lemmas.json");
   const path = process.argv[2] ?? KAIKKI_PATH;
   const result = await importPhrases(path, vocab, dict, freq, lemmas);
-  const { index } = writePhrasePacks(result);
+  writePhrasePacks(result);
   const { stats } = result;
   console.log(
     `phrases: ${stats.entries} multi-word entries (${stats.unparsable} unparsable); ` +
       `${stats.detect} detected and ${stats.more} more patterns, ${stats.gap} with a gap ` +
       `(${stats.fromEjdict} from EJDict, ${stats.fromKaikki} from kaikki); ` +
-      `${stats.ja} with Japanese translations, ${stats.defs} with English definitions ` +
-      `in ${index.shards.length} shards`,
+      `${stats.ja} with Japanese translations`,
   );
   if (stats.unparsable > 0) process.exitCode = 1;
 }

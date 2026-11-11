@@ -12,6 +12,8 @@ export const PACKS_DIR = join(ROOT, "public", "packs");
  * (scripts/data/publish.mjs, the build hook in wxt.config.ts).
  */
 export const DOWNLOAD_PACKS_DIR = join(ROOT, "data", "packs");
+/** Word lists the quality gate reads (scripts/data/stats.mjs); not part of any pack. */
+export const GATE_DIR = join(ROOT, "data", "gate");
 const USER_AGENT =
   "LingoDataImport/0.1 (https://github.com/stkhat/bottle-of-water)";
 

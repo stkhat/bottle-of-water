@@ -2,6 +2,7 @@ export const ROOT: string;
 export const RAW_DIR: string;
 export const PACKS_DIR: string;
 export const DOWNLOAD_PACKS_DIR: string;
+export const GATE_DIR: string;
 export function isMain(url: string): boolean;
 export interface PackFormat {
   /** Write each value of an object (all arrays) one item per line too. */

@@ -27,3 +27,8 @@ export interface PackInfo {
 }
 export const PACKS: Readonly<Record<string, PackInfo>>;
 export function packSourcePath(path: string): string;
+export const PAIRS: readonly {
+  learning: string;
+  native: string;
+  dictionary: string;
+}[];
