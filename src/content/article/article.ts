@@ -16,7 +16,7 @@ import {
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import { createStore, type Store } from "../ui/store";
 import { describeTerm, type TermCard } from "./describe";
-import { lastMainBlock, watchEndOfArticle } from "./end-of-article";
+import { watchEndOfArticle } from "./end-of-article";
 import { wordBoxes, type Box } from "./geometry";
 import { createHighlighter, type Highlighter } from "./highlighter";
 import { watchInteractions } from "./interactions";
@@ -29,6 +29,7 @@ import {
   type SpanMap,
   type SpanRef,
 } from "./locate";
+import { findMainContent, type MainContent } from "./main-content";
 import {
   collectBlocks,
   createPageText,
@@ -214,6 +215,12 @@ export async function startArticle(
   const versions = new Map<TextBlock, number>();
   let version = 0;
   let warmed = false;
+  /** The page's title and body (`findMainContent`), found again after page changes. */
+  let main: MainContent = findMainContent(root, []);
+  /** Analyzed blocks whose spans are highlighted (in scope). */
+  const shown = new Set<TextBlock>();
+  /** Saved terms the analyses found on the page. */
+  const savedKeys = new Set<string>();
 
   const store = createStore<ArticleState>({
     settings,
@@ -229,9 +236,36 @@ export async function startArticle(
     lang,
   });
 
+  /**
+   * The block gets highlights and counts for the end-of-article save, the history and
+   * the encounters: always, or only in the title and body (`articleMainOnly`). Every
+   * block still answers hovers and clicks.
+   */
+  const inScope = (block: TextBlock) =>
+    !settings.articleMainOnly || main.contains(block);
+
   function setSpans(block: TextBlock, blockSpans: readonly Span[]) {
     spans.set(block, blockSpans);
-    highlighter.set(block, blockSpans);
+    const on = inScope(block);
+    highlighter.set(block, on ? blockSpans : []);
+    if (on) shown.add(block);
+    else shown.delete(block);
+  }
+
+  /** Highlights blocks that came into scope and drops those that left it. */
+  function rescope() {
+    const entered: TextBlock[] = [];
+    for (const [block, list] of spans) {
+      const on = inScope(block);
+      if (on === shown.has(block)) continue;
+      highlighter.set(block, on ? list : []);
+      if (on) {
+        shown.add(block);
+        entered.push(block);
+      } else shown.delete(block);
+    }
+    recordEncounters(entered, savedKeys);
+    recordHistory(entered);
   }
 
   async function analyze(batch: TextBlock[]) {
@@ -257,8 +291,10 @@ export async function startArticle(
       setSpans(block, result.spans[i] ?? []);
       fresh.push(block);
     });
-    recordEncounters(fresh, new Set(result.saved));
-    recordHistory(fresh);
+    for (const key of result.saved) savedKeys.add(key);
+    const counted = fresh.filter(inScope);
+    recordEncounters(counted, new Set(result.saved));
+    recordHistory(counted);
   }
 
   /** Sentences already sent to the sentence history in this page view. */
@@ -310,7 +346,7 @@ export async function startArticle(
   /** Distinct keys of unsaved new words on the analyzed part of the page, in page order. */
   function unsavedOnPage(): string[] {
     const keys = new Set<string>();
-    for (const block of pageText.blocks())
+    for (const block of pageText.blocks().filter(inScope))
       for (const span of spans.get(block) ?? [])
         if (span.category === "new") keys.add(span.key);
     return [...keys];
@@ -323,7 +359,7 @@ export async function startArticle(
    * visible blocks are queued), and blocks waiting for analysis are waited for.
    */
   async function markUnsavedKnown() {
-    const last = lastMainBlock(root, pageText.blocks());
+    const last = main.last;
     if (last && live.has(last) && !spans.has(last)) await analyze([last]);
     await visible.idle();
     const keys = unsavedOnPage();
@@ -686,7 +722,7 @@ export async function startArticle(
   const unmountUi = await deps.mountUi(app);
 
   const visible = watchVisibleBlocks(analyze);
-  const end = watchEndOfArticle(root, () => {
+  const end = watchEndOfArticle(() => {
     if (settings.unsavedAtEnd === "known") run(markUnsavedKnown);
   });
 
@@ -697,19 +733,23 @@ export async function startArticle(
         spans.delete(block);
         versions.delete(block);
         highlighter.remove(block);
+        shown.delete(block);
       }
       index.remove(removed);
       visible.remove(removed);
       for (const block of added) live.add(block);
       index.add(added);
       visible.add(added);
-      end.update(pageText.blocks());
+      main = findMainContent(root, pageText.blocks());
+      end.update(main.last);
+      rescope();
     },
   });
+  main = findMainContent(root, pageText.blocks());
   for (const block of pageText.blocks()) live.add(block);
   index.add(pageText.blocks());
   visible.add(pageText.blocks());
-  end.update(pageText.blocks());
+  end.update(main.last);
 
   const interactions = watchInteractions({
     spanAt(x, y) {
@@ -728,9 +768,11 @@ export async function startArticle(
 
   const unwatch = deps.watchSettings((next) => {
     const levelChanged = next.knownLevel !== settings.knownLevel;
+    const scopeChanged = next.articleMainOnly !== settings.articleMainOnly;
     settings = next;
     store.set({ settings });
     highlighter.setEnabled(next.highlight);
+    if (scopeChanged) rescope();
     if (levelChanged) run(() => reanalyze());
   });
 
@@ -754,6 +796,7 @@ export async function startArticle(
       visible.disconnect();
       highlighter.destroy();
       spans.clear();
+      shown.clear();
       live.clear();
       unmountUi();
     },

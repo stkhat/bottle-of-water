@@ -10,6 +10,7 @@ describe("DEFAULT_SETTINGS", () => {
       knownLevel: 3000,
       highlight: { new: false, learning: true, known: false },
       unsavedAtEnd: "keep",
+      articleMainOnly: true,
       dictionaries: {
         cambridge: true,
         wiktionary: true,
@@ -88,6 +89,13 @@ describe("mergeSettings", () => {
     } as unknown);
     expect(merged).not.toHaveProperty("bogus");
     expect(merged.highlight).not.toHaveProperty("bogus");
+  });
+
+  it("keeps a boolean articleMainOnly and drops other values", () => {
+    expect(mergeSettings({ articleMainOnly: false }).articleMainOnly).toBe(
+      false,
+    );
+    expect(mergeSettings({ articleMainOnly: "no" }).articleMainOnly).toBe(true);
   });
 
   it("keeps a valid unsavedAtEnd and drops the old end-card switch", () => {
