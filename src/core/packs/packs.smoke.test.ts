@@ -111,14 +111,56 @@ describe("generated phrases", () => {
     ipa,
   });
 
-  it("list dictionary phrases", () => {
+  const isSorted = (list: readonly string[]) =>
+    list.every((key, i) => i === 0 || byCodeUnit(list[i - 1]!, key) < 0);
+
+  it("detect dictionary phrases", () => {
     for (const phrase of ["from scratch", "figure out", "give up"])
-      expect(phrases).toContain(phrase);
+      expect(phrases.detect).toContain(phrase);
+  });
+
+  it("detect phrases with an inflected word", () => {
+    expect(phrases.detect).toContain("spill the beans");
+  });
+
+  it("keep patterns with a slot for selections only", () => {
+    expect(phrases.more).toContain("make up one's mind");
+    expect(phrases.more).toContain("pull someone's leg");
+    expect(phrases.detect).not.toContain("make up one's mind");
+  });
+
+  it("flag phrasal verbs as patterns with a gap", () => {
+    expect(phrases.gap).toContain("figure out");
+    expect(phrases.gap).not.toContain("from scratch");
+  });
+
+  it("list each pattern once, sorted, with the gap ones among them", () => {
+    expect(isSorted(phrases.detect)).toBe(true);
+    expect(isSorted(phrases.more)).toBe(true);
+    expect(isSorted(phrases.gap)).toBe(true);
+    const detect = new Set(phrases.detect);
+    expect(phrases.more.filter((key) => detect.has(key))).toEqual([]);
+    const all = new Set([...phrases.detect, ...phrases.more]);
+    expect(phrases.gap.filter((key) => !all.has(key))).toEqual([]);
   });
 
   it("have a meaning for each of those phrases", () => {
-    for (const phrase of ["from scratch", "figure out", "give up"])
-      expect(dictionary.entry(phrase)?.short).toBeTruthy();
+    for (const phrase of [
+      "from scratch",
+      "figure out",
+      "give up",
+      "spill the beans",
+      "make up one's mind",
+      "pull someone's leg",
+    ])
+      expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
+  });
+
+  it("have a meaning for every pattern", () => {
+    const missing = [...phrases.detect, ...phrases.more].filter(
+      (phrase) => !dictionary.short(phrase),
+    );
+    expect(missing).toEqual([]);
   });
 
   it("take Japanese translations before English definitions", () => {
@@ -141,7 +183,7 @@ describe("generated Spanish pack and es-en dictionary", () => {
     freq: es.freq,
     ipa: es.ipa,
     vocab: new Set(es.vocab),
-    phrases: new Set(es.phrases),
+    patterns: es.phrases,
   });
   const dictionary = createDefsDictionary({
     from: "es",
@@ -178,9 +220,17 @@ describe("generated Spanish pack and es-en dictionary", () => {
     expect(pack.rank("comer")).toBeLessThan(pack.rank("manzana"));
   });
 
-  it("have a meaning for every phrase", () => {
-    expect(es.phrases.length).toBeGreaterThan(0);
-    for (const phrase of es.phrases)
+  it("have a meaning for every phrase pattern", () => {
+    expect(es.phrases.detect.length).toBeGreaterThan(0);
+    for (const phrase of [...es.phrases.detect, ...es.phrases.more])
       expect(dictionary.short(phrase), phrase).toBeTruthy();
+  });
+
+  it("keep patterns with a slot for selections only, without gaps", () => {
+    expect(es.phrases.more).toContain("la pelota está en el tejado de alguien");
+    expect(es.phrases.detect).not.toContain(
+      "la pelota está en el tejado de alguien",
+    );
+    expect(es.phrases.gap).toEqual([]);
   });
 });

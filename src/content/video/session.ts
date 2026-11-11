@@ -710,13 +710,17 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       settings.nativeLang,
     ));
 
-  /** The span `ref` points at, with its text as written. */
+  /**
+   * The span `ref` points at, with its term as written (the whole phrase for a part of
+   * a phrase with a gap).
+   */
   function spanOf(ref: WordRef) {
     const { cues, spans } = store.get();
     const cue = cues[ref.cue];
     const span = spans[ref.cue]?.[ref.span];
     if (!cue || !span) return undefined;
-    return { cue, span, surface: flat(cue.text.slice(span.start, span.end)) };
+    const { start, end } = span.part ?? span;
+    return { cue, span, surface: flat(cue.text.slice(start, end)) };
   }
 
   async function describe(ref: WordRef): Promise<TermCard | undefined> {

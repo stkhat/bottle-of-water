@@ -22,9 +22,11 @@ const forms = [
   "comer",
   "ajeno",
   "rosa",
+  "a",
+  "pelos",
 ];
-// Base ranks: de 1, la 2, el 3, comer 4, casa 5, casar 6, hablar 7, tomar 8, pelo 9, rosa 10.
-// "brasil" has only a proper-noun entry, so it is not a vocabulary word.
+// Base ranks: de 1, la 2, el 3, comer 4, casa 5, casar 6, hablar 7, tomar 8, pelo 9,
+// rosa 10, a 11. "brasil" has only a proper-noun entry, so it is not a vocabulary word.
 const options = { commonRank: 4 };
 
 describe("buildEsPacks", () => {
@@ -35,6 +37,7 @@ describe("buildEsPacks", () => {
 
   it("builds the vocabulary from the bases with meanings that the listed forms reach", () => {
     expect(packs.vocab).toEqual([
+      "a",
       "casa",
       "casar",
       "comer",
@@ -68,6 +71,7 @@ describe("buildEsPacks", () => {
       "comiendo",
       "comí",
       "hablo",
+      "pelos",
     ]);
   });
   it("takes the first phonemic IPA of each vocabulary word", () => {
@@ -93,6 +97,7 @@ describe("buildEsPacks", () => {
       "tomar",
       "pelo",
       "rosa",
+      "a",
     ]);
   });
   it("ranks a form that is a vocabulary word only as itself", async () => {
@@ -132,12 +137,28 @@ describe("buildEsPacks", () => {
     expect(packs.defs).not.toHaveProperty("casas");
     expect(packs.defs).not.toHaveProperty("zapato");
   });
-  it("lists idiomatic and phrase entries of vocabulary words with a word outside the common ranks", () => {
-    expect(packs.phrases).toEqual(["de la casa", "tomar el pelo"]);
+  it("detects idiomatic and phrase entries of vocabulary words and forms with a word outside the common ranks", () => {
+    expect(packs.phrases.detect).toEqual([
+      "de la casa",
+      "de pelos",
+      "tomar el pelo",
+    ]);
     expect(packs.defs["tomar el pelo"]).toEqual([
       "to pull someone's leg",
       [["verb", "to pull someone's leg; to tease"]],
     ]);
+  });
+  it("ranks a form outside the vocabulary as its base", () => {
+    // "pelos" ranks as "pelo" (9), outside the common ranks (4).
+    expect(packs.phrases.detect).toContain("de pelos");
+    expect(packs.defs["de pelos"]?.[0]).toBe("great, awesome");
+  });
+  it("keeps patterns with a slot apart, defined, for selections only", () => {
+    expect(packs.phrases.more).toEqual(["tomar el pelo a alguien"]);
+    expect(packs.phrases.gap).toEqual([]);
+    expect(packs.defs["tomar el pelo a alguien"]?.[0]).toBe(
+      "to pull someone's leg",
+    );
   });
   it("merges phrase entries that differ only in case", () => {
     expect(packs.defs["de la casa"]?.[1]).toEqual([
@@ -149,11 +170,12 @@ describe("buildEsPacks", () => {
     expect(packs.stats).toMatchObject({
       unparsable: 0,
       forms: forms.length,
-      vocab: 10,
-      lemmas: 5,
+      vocab: 11,
+      lemmas: 6,
       ipa: 10,
-      phrases: 2,
-      terms: 12,
+      detect: 3,
+      more: 1,
+      terms: 15,
     });
   });
 });
@@ -187,12 +209,20 @@ describe("writeEsPacks", () => {
     ]);
     expect([...written].sort()).toEqual(filesUnder(dir).sort());
   });
+  it("writes the phrase patterns as lists, one pattern per line", () => {
+    expect(readFileSync(join(dir, "es", "phrases.json"), "utf8")).toBe(
+      '{\n"detect":[\n"de la casa",\n"de pelos",\n"tomar el pelo"\n],\n' +
+        '"gap":[],\n"more":[\n"tomar el pelo a alguien"\n]\n}\n',
+    );
+  });
   it("shards the dictionary with an index", () => {
     const index = JSON.parse(
       readFileSync(join(dir, "es-en", "index.json"), "utf8"),
     );
     expect(index).toEqual({
-      shards: [{ file: "dict-1.json", first: "casa", last: "tomar el pelo" }],
+      shards: [
+        { file: "dict-1.json", first: "a", last: "tomar el pelo a alguien" },
+      ],
     });
   });
 });

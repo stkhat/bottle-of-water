@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DictionaryEntry } from "../../core/dictionary";
 import type { LookupResult, Request } from "../../messaging/protocol";
+import { rulesFor } from "../../core/phrases/rules";
 import { describeTerm, inflectionNote, mainWord } from "./describe";
 
 const ENTRIES: Record<string, DictionaryEntry> = {
@@ -57,6 +58,12 @@ describe("mainWord", () => {
     expect(mainWord("from scratch")).toBe("scratch");
     expect(mainWord("rise and fall")).toBe("rise");
   });
+  it("passes over the language's slot words", () => {
+    const en = rulesFor("en");
+    expect(mainWord("make up one's mind", en)).toBe("make");
+    expect(mainWord("pull someone's leg", en)).toBe("pull");
+    expect(mainWord("one's", en)).toBe("one's");
+  });
 });
 
 describe("inflectionNote", () => {
@@ -112,8 +119,25 @@ describe("describeTerm", () => {
       sub: "figure — 数字、姿、人物",
       status: "new",
       senses: [],
+      machineTranslated: true,
     });
     expect(card.ipa).toBeUndefined();
+  });
+
+  it("notes the main word of a phrase with a slot, not the slot", async () => {
+    const { send, requests } = fakeSend();
+    await describeTerm(
+      {
+        key: "make up one's mind",
+        kind: "phrase",
+        surface: "made up her mind",
+      },
+      { send, lang: "en", sourceUrl: "https://example.com/a", translator },
+    );
+    expect(requests.map((r) => r.type === "lookup" && r.key)).toEqual([
+      "make up one's mind",
+      "make",
+    ]);
   });
 
   it("shows a phrase's English definition with its language, without translating it", async () => {
@@ -140,6 +164,7 @@ describe("describeTerm", () => {
       glossLang: "en",
       senses: [{ pos: "verb", text: "To investigate or examine." }],
     });
+    expect(card).not.toHaveProperty("machineTranslated");
     expect(calls).toEqual([]);
   });
 
@@ -165,6 +190,23 @@ describe("describeTerm", () => {
     });
   });
 
+  it("does not wait long for a translator whose model is still downloading", async () => {
+    const { send } = fakeSend();
+    const pending = { translate: () => new Promise<undefined>(() => {}) };
+    const card = await describeTerm(
+      { key: "rise and fall", kind: "phrase", surface: "rise and fall" },
+      {
+        send,
+        lang: "en",
+        sourceUrl: "https://example.com/a",
+        translator: pending,
+        translationWaitMs: 20,
+      },
+    );
+    expect(card.short).toBeUndefined();
+    expect(card).not.toHaveProperty("machineTranslated");
+  });
+
   it("leaves out what is not known", async () => {
     const { send } = fakeSend();
     const none = { translate: async () => undefined };
@@ -179,5 +221,6 @@ describe("describeTerm", () => {
     );
     expect(card.short).toBeUndefined();
     expect(card.sub).toBeUndefined();
+    expect(card).not.toHaveProperty("machineTranslated");
   });
 });

@@ -7,7 +7,11 @@ const files: Record<string, unknown> = {
   "/packs/en/ipa.json": { loaf: "/loʊf/" },
   "/packs/en/pos.json": { loaf: ["noun"] },
   "/packs/en/vocab.json": ["dough", "loaf"],
-  "/packs/en/phrases.json": ["figure out", "give up"],
+  "/packs/en/phrases.json": {
+    detect: ["figure out", "give up"],
+    more: ["make up one's mind"],
+    gap: ["figure out", "give up"],
+  },
   "/packs/en-ja/index.json": {
     shards: [
       { file: "dict-1.json", first: "dough", last: "dough" },
@@ -30,7 +34,7 @@ const files: Record<string, unknown> = {
   "/packs/es/freq.json": ["de", "comer"],
   "/packs/es/ipa.json": { comer: "/koˈmeɾ/" },
   "/packs/es/vocab.json": ["casa", "casar", "comer", "de"],
-  "/packs/es/phrases.json": ["a escondidas"],
+  "/packs/es/phrases.json": { detect: ["a escondidas"], more: [], gap: [] },
   "/packs/es-en/index.json": {
     shards: [
       { file: "dict-1.json", first: "casa", last: "casar" },
@@ -66,7 +70,11 @@ describe("createPackLoader", () => {
       ipa: { loaf: "/loʊf/" },
       pos: { loaf: ["noun"] },
       vocab: ["dough", "loaf"],
-      phrases: ["figure out", "give up"],
+      phrases: {
+        detect: ["figure out", "give up"],
+        more: ["make up one's mind"],
+        gap: ["figure out", "give up"],
+      },
     });
   });
 
@@ -103,7 +111,7 @@ describe("createPackLoader", () => {
       freq: ["de", "comer"],
       ipa: { comer: "/koˈmeɾ/" },
       vocab: ["casa", "casar", "comer", "de"],
-      phrases: ["a escondidas"],
+      phrases: { detect: ["a escondidas"], more: [], gap: [] },
     });
     expect(fetchJson.mock.calls.map(([path]) => path).sort()).toEqual([
       "/packs/es/freq.json",

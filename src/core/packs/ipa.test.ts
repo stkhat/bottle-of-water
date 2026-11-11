@@ -12,6 +12,29 @@ describe("ipaFor", () => {
     expect(ipaFor("figure out", ipa)).toBe("/ˈfɪɡjər aʊt/");
     expect(ipaFor(" figure  out ", ipa)).toBe("/ˈfɪɡjər aʊt/");
   });
+  it("builds a possessive without an entry from its base word", () => {
+    const ipa = {
+      one: "/wʌn/",
+      cat: "/kæt/",
+      boss: "/bɔs/",
+      "one's": undefined,
+    };
+    const pack = Object.fromEntries(
+      Object.entries(ipa).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>;
+    expect(
+      ipaFor("make up one's mind", {
+        ...pack,
+        make: "/meɪk/",
+        up: "/ʌp/",
+        mind: "/maɪnd/",
+      }),
+    ).toBe("/meɪk ʌp wʌnz maɪnd/");
+    expect(ipaFor("cat's", pack)).toBe("/kæts/");
+    expect(ipaFor("boss’s", pack)).toBe("/bɔsɪz/");
+    expect(ipaFor("dog's", pack)).toBeUndefined();
+  });
+
   it("gives undefined when any word has no IPA", () => {
     expect(ipaFor("figure it out", ipa)).toBeUndefined();
     expect(ipaFor("zzyzx", ipa)).toBeUndefined();

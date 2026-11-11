@@ -1,6 +1,7 @@
 import type { CSSProperties } from "preact";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
+import { MachineTranslationMark } from "./MachineTranslationMark";
 import { IPA_FONT, color, root, statusButton } from "./styles";
 
 export type WordStatus = "learning" | "known" | "new";
@@ -10,10 +11,14 @@ export interface HoverCardProps {
   variant: "video" | "article";
   kind: "word" | "phrase";
   status: WordStatus;
+  /** The card of selected words (articles): unsaved, it reads "Selected · not saved". */
+  selection?: boolean;
   head: string;
   ipa?: string;
   /** Short translation, in the native language (or `glossLang`). */
   short?: string;
+  /** `short` came from the browser's translator: marked "Machine translation". */
+  machineTranslated?: boolean;
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
   /** The native language: the `lang` of `short` unless `glossLang` says otherwise. */
@@ -96,7 +101,11 @@ export function HoverCard(props: HoverCardProps) {
           {t(props.kind === "word" ? "lookup.kind.word" : "lookup.kind.phrase")}
         </span>
         <span style={{ fontSize: "12px", color: color.muted }}>
-          {t(STATUS_LABEL[props.status])}
+          {t(
+            props.selection && props.status === "new"
+              ? "lookup.status.selected"
+              : STATUS_LABEL[props.status],
+          )}
         </span>
       </div>
       <div style={{ fontSize: "17px", fontWeight: 600, marginTop: "2px" }}>
@@ -116,10 +125,18 @@ export function HoverCard(props: HoverCardProps) {
       )}
       {props.short && (
         <div
-          lang={props.glossLang ?? props.nativeLang}
-          style={{ fontSize: "15px", color: color.ink2, marginTop: "2px" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "8px",
+            fontSize: "15px",
+            color: color.ink2,
+            marginTop: "2px",
+          }}
         >
-          {props.short}
+          <span lang={props.glossLang ?? props.nativeLang}>{props.short}</span>
+          {props.machineTranslated && <MachineTranslationMark />}
         </div>
       )}
       {props.sub && (

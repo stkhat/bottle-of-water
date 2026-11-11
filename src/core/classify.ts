@@ -1,4 +1,5 @@
 import type { LanguagePack } from "./language-pack";
+import { longestMatch, type PhraseMatch } from "./phrases/matcher";
 import type { Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
@@ -6,7 +7,8 @@ export type TermKind = "word" | "phrase";
 
 /**
  * Saved terms of one language: key → status. A word's key is its base form; a
- * phrase's key is its words' base forms joined by single spaces ("figure out").
+ * phrase's key is a dictionary pattern's key ("figure out", "make up one's mind") or
+ * its words' keys joined by single spaces.
  */
 export type TermIndex = ReadonlyMap<string, TermStatus>;
 
@@ -17,12 +19,30 @@ export type TermIndex = ReadonlyMap<string, TermStatus>;
  */
 export type Category = TermStatus | "new" | "ignored";
 
+/** Which part of a phrase with a gap a span is, and where the whole phrase is. */
+export interface SpanPart {
+  /** 0 for the first part. */
+  index: number;
+  /** How many parts the phrase has. */
+  count: number;
+  /** The whole phrase: its first word's start to its last word's end, gap included. */
+  start: number;
+  end: number;
+}
+
 export interface Span {
   start: number;
   end: number;
   key: string;
   kind: TermKind;
   category: Category;
+  /**
+   * Set on each part of a phrase matched with a gap: "figure" and "out" in "figure it
+   * out" are two spans with the key "figure out", and "it" keeps its own span between
+   * them. Each part has the phrase's key, kind and category; count the phrase once
+   * (at `index` 0).
+   */
+  part?: SpanPart;
 }
 
 export interface ClassifyOptions {
@@ -34,40 +54,9 @@ export interface ClassifyOptions {
 export interface Classifier {
   /**
    * Spans for the words, saved phrases and dictionary phrases among the tokens of one
-   * block of text.
+   * block of text, in text order and without overlaps.
    */
   classify(tokens: readonly Token[], options: ClassifyOptions): Span[];
-}
-
-interface PhraseIndex {
-  phrases: ReadonlySet<string>;
-  /** Every leading run of words of a phrase ("look", "look up", "look up to"). */
-  prefixes: ReadonlySet<string>;
-}
-
-function buildPhraseIndex(keys: Iterable<string>): PhraseIndex {
-  const phrases = new Set<string>();
-  const prefixes = new Set<string>();
-  for (const key of keys) {
-    if (!key.includes(" ")) continue;
-    phrases.add(key);
-    const words = key.split(" ");
-    for (let n = 1; n <= words.length; n++)
-      prefixes.add(words.slice(0, n).join(" "));
-  }
-  return { phrases, prefixes };
-}
-
-/** The saved phrases of each term index, built on first use. */
-const savedPhraseIndexes = new WeakMap<TermIndex, PhraseIndex>();
-
-function savedPhraseIndexOf(terms: TermIndex): PhraseIndex {
-  let index = savedPhraseIndexes.get(terms);
-  if (!index) {
-    index = buildPhraseIndex(terms.keys());
-    savedPhraseIndexes.set(terms, index);
-  }
-  return index;
 }
 
 const normalize = (text: string) => text.toLowerCase().replaceAll("’", "'");
@@ -76,96 +65,107 @@ const normalize = (text: string) => text.toLowerCase().replaceAll("’", "'");
 const isIgnorable = (text: string) =>
   /\p{N}/u.test(text) || [...text].length === 1;
 
+/** A match's words as runs of consecutive words, each as [first, last]. */
+function runsOf(words: readonly number[]): [number, number][] {
+  const runs: [number, number][] = [];
+  for (const word of words) {
+    const run = runs.at(-1);
+    if (run && run[1] === word - 1) run[1] = word;
+    else runs.push([word, word]);
+  }
+  return runs;
+}
+
 /**
  * Classifies words, saved phrases and the pack's dictionary phrases.
  *
- * - Phrases: a saved or dictionary phrase matches consecutive words (separated only by
- *   spaces) when any combination of their base forms equals its key. Saved phrases win:
+ * - Phrases (`pack.matcher`): a pattern's word matches a word as written or by any of
+ *   its base forms, and the words of a match are separated only by spaces. Saved
+ *   phrases match in "saved" mode (slots: "made up his mind" is `make up one's mind`;
+ *   a gap when the pack flags the phrase as one: "figure it out" is `figure out`);
+ *   dictionary phrases in "detect" mode (contiguous, no slots). Saved phrases win:
  *   where any saved phrase matches, the longest saved one is used, even when a
- *   dictionary phrase is longer; otherwise the longest dictionary phrase. The words
- *   inside a match get no spans of their own. A saved phrase takes its status; an
- *   unsaved dictionary phrase is new (the known level applies to words only) and does
- *   not match over a word saved as learning, which keeps its own span.
+ *   dictionary phrase is longer; otherwise the longest dictionary phrase. A saved
+ *   phrase takes its status; an unsaved dictionary phrase is new (the known level
+ *   applies to words only) and does not match over a word saved as learning, which
+ *   keeps its own span.
+ * - A phrase's words get no spans of their own. A phrase with a gap gets one span per
+ *   run of its words (`part`); the words in the gap are classified as words.
  * - A word with several base forms ("better" → better, good, well) takes a saved base
  *   when there is one, a learning one before a known one. Otherwise its key is the
  *   first base form (the word itself when it is in the vocabulary), and it is known
  *   when its most common base form is ranked within the known level.
  */
 export function createClassifier(pack: LanguagePack): Classifier {
-  // Built once per pack: the dictionary phrases do not change.
-  const dictionary = buildPhraseIndex(pack.phrases);
+  // One matcher per pack: its dictionary trie is built once.
+  const { matcher } = pack;
+  const detects = pack.patterns.detect.length > 0;
   return {
     classify(tokens, { terms, knownLevel }) {
-      const words = tokens.filter((token) => token.isWord);
-      const bases = words.map((word) => pack.lemmas(word.text));
-      const joined = joinedToNext(tokens);
-      const saved = savedPhraseIndexOf(terms);
+      const input = matcher.prepare(tokens);
+      const { words } = input;
       const spans: Span[] = [];
 
-      const isPrefix = (run: string) =>
-        dictionary.prefixes.has(run) || saved.prefixes.has(run);
-
       /** Words with a base saved as learning: unsaved dictionary phrases skip them. */
-      const learning = bases.map((list) =>
-        list.some((base) => terms.get(base) === "learning"),
+      const learning = words.map(({ bases }) =>
+        bases.some((base) => terms.get(base) === "learning"),
       );
 
-      const basesOrSelf = (i: number) =>
-        bases[i]!.length > 0 ? bases[i]! : [normalize(words[i]!.text)];
-
       /**
-       * The phrase starting at word i, as [key, last word index]: the longest saved
-       * phrase, or when no saved phrase matches, the longest dictionary phrase. An
-       * unsaved dictionary phrase does not match over a word saved as learning.
+       * The phrase starting at word i: the longest saved phrase, or when no saved
+       * phrase matches, the longest dictionary phrase without a word saved as learning.
        */
-      const phraseAt = (i: number): [string, number] | undefined => {
-        if (dictionary.phrases.size === 0 && saved.phrases.size === 0)
-          return undefined;
-        let savedMatch: [string, number] | undefined;
-        let dictionaryMatch: [string, number] | undefined;
-        let overLearning = learning[i]!;
-        let runs = basesOrSelf(i).filter(isPrefix);
-        for (let j = i + 1; runs.length > 0 && j < words.length; j++) {
-          if (!joined.has(words[j - 1]!)) break;
-          overLearning ||= learning[j]!;
-          const next = new Set<string>();
-          for (const run of runs)
-            for (const base of basesOrSelf(j)) {
-              const candidate = `${run} ${base}`;
-              if (isPrefix(candidate)) next.add(candidate);
-            }
-          runs = [...next];
-          const savedRun = runs.find((run) => saved.phrases.has(run));
-          if (savedRun !== undefined) savedMatch = [savedRun, j];
-          const dictionaryRun = overLearning
-            ? undefined
-            : runs.find((run) => dictionary.phrases.has(run));
-          if (dictionaryRun !== undefined) dictionaryMatch = [dictionaryRun, j];
-        }
-        return savedMatch ?? dictionaryMatch;
+      const phraseAt = (i: number): PhraseMatch | undefined => {
+        const saved = matcher.longestAt(input, i, "saved", terms);
+        if (saved || !detects) return saved;
+        const matches = matcher.matchesAt(input, i, "detect");
+        return matches.length === 0
+          ? undefined
+          : longestMatch(
+              matches.filter((match) => !match.words.some((j) => learning[j])),
+            );
+      };
+
+      const pushWord = (i: number) => {
+        const { token, bases } = words[i]!;
+        spans.push({
+          start: token.start,
+          end: token.end,
+          kind: "word",
+          ...classifyWord(token.text, bases, terms, knownLevel, pack),
+        });
       };
 
       for (let i = 0; i < words.length; i++) {
-        const word = words[i]!;
-        const phrase = phraseAt(i);
-        if (phrase) {
-          const [key, last] = phrase;
-          spans.push({
-            start: word.start,
-            end: words[last]!.end,
-            key,
-            kind: "phrase",
-            category: terms.get(key) ?? "new",
-          });
-          i = last;
+        const match = phraseAt(i);
+        if (!match) {
+          pushWord(i);
           continue;
         }
-        spans.push({
-          start: word.start,
-          end: word.end,
-          kind: "word",
-          ...classifyWord(word.text, bases[i]!, terms, knownLevel, pack),
+        const { key } = match;
+        const category = terms.get(key) ?? "new";
+        const last = match.words.at(-1)!;
+        const runs = runsOf(match.words);
+        const whole = {
+          start: words[i]!.token.start,
+          end: words[last]!.token.end,
+        };
+        runs.forEach(([first, end], index) => {
+          // The words in the gap before this part.
+          if (index > 0)
+            for (let j = runs[index - 1]![1] + 1; j < first; j++) pushWord(j);
+          spans.push({
+            start: words[first]!.token.start,
+            end: words[end]!.token.end,
+            key,
+            kind: "phrase",
+            category,
+            ...(runs.length > 1 && {
+              part: { index, count: runs.length, ...whole },
+            }),
+          });
         });
+        i = last;
       }
       return spans;
     },
@@ -191,22 +191,10 @@ function classifyWord(
   return { key: bases[0]!, category: rank <= knownLevel ? "known" : "new" };
 }
 
-/** Word tokens followed by another word with only whitespace between them. */
-function joinedToNext(tokens: readonly Token[]): Set<Token> {
-  const joined = new Set<Token>();
-  let previous: Token | undefined;
-  for (const token of tokens) {
-    if (token.isWord) {
-      if (previous) joined.add(previous);
-      previous = token;
-    } else if (!/^\s+$/.test(token.text)) {
-      previous = undefined;
-    }
-  }
-  return joined;
-}
-
-/** Distinct keys of unsaved new words and phrases, in order: what "save all" adds. */
+/**
+ * Distinct keys of unsaved new words and phrases, in order: what "save all" adds (the
+ * parts of a phrase with a gap share one key).
+ */
 export function unsavedKeys(spans: readonly Span[]): string[] {
   const keys = new Set<string>();
   for (const span of spans) if (span.category === "new") keys.add(span.key);

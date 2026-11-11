@@ -334,6 +334,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             ipa: panel.card.ipa,
             sub: panel.card.sub,
             short: panel.card.short,
+            machineTranslated: panel.card.machineTranslated,
             senses: panel.card.senses,
             glossLang: panel.card.glossLang,
           }}
@@ -369,6 +370,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             head={hover.card.head}
             ipa={hover.card.ipa}
             short={hover.card.short}
+            machineTranslated={hover.card.machineTranslated}
             glossLang={hover.card.glossLang}
             sub={hover.card.sub}
             nativeLang={settings.nativeLang}

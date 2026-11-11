@@ -1,11 +1,11 @@
-import type { Defs } from "./phrases.mjs";
+import type { Defs, PhrasePatterns } from "./phrases.mjs";
 
 export interface EsPacks {
   freq: string[];
   vocab: string[];
   lemmas: Record<string, string | string[]>;
   ipa: Record<string, string>;
-  phrases: string[];
+  phrases: PhrasePatterns;
   defs: Defs;
   stats: {
     entries: number;
@@ -14,11 +14,13 @@ export interface EsPacks {
     vocab: number;
     lemmas: number;
     ipa: number;
-    phrases: number;
+    detect: number;
+    more: number;
     terms: number;
   };
 }
 export const KAIKKI_ES_PATH: string;
+export const ES_SLOT_WORDS: ReadonlySet<string>;
 export function buildEsPacks(
   path: string,
   forms: string[],

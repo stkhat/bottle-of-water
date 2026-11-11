@@ -134,6 +134,58 @@ describe("videoWords", () => {
     ).toEqual([["loaf", 1]]);
   });
 
+  it("counts a phrase with a gap once, headed by its whole match", () => {
+    const text = "Figure it out, then figure\nthem out.";
+    const whole = (start: number, end: number) => ({ start, end });
+    const part = (
+      start: number,
+      end: number,
+      index: number,
+      match: { start: number; end: number },
+    ): Span => ({
+      ...span(start, end, "figure out", "learning", "phrase"),
+      part: { index, count: 2, ...match },
+    });
+    const first = whole(0, 13);
+    const second = whole(20, 35);
+    const spans: (Span[] | null)[] = [
+      [
+        part(0, 6, 0, first),
+        span(7, 9, "it", "new"),
+        part(10, 13, 1, first),
+        part(20, 26, 0, second),
+        span(27, 31, "them", "new"),
+        part(32, 35, 1, second),
+      ],
+    ];
+    expect(videoWords([cue(text)], spans, {})).toEqual<VideoWord[]>([
+      {
+        key: "figure out",
+        kind: "phrase",
+        head: "Figure it out",
+        category: "learning",
+        count: 2,
+        first: { cue: 0, span: 0 },
+      },
+      {
+        key: "it",
+        kind: "word",
+        head: "it",
+        category: "new",
+        count: 1,
+        first: { cue: 0, span: 1 },
+      },
+      {
+        key: "them",
+        kind: "word",
+        head: "them",
+        category: "new",
+        count: 1,
+        first: { cue: 0, span: 4 },
+      },
+    ]);
+  });
+
   it("is empty before anything is classified", () => {
     expect(
       videoWords(

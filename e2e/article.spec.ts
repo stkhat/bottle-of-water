@@ -192,40 +192,67 @@ test("a word saved from the dictionary panel keeps its Learning highlight", asyn
     .toEqual(["tangy"]);
 });
 
-test("a selected phrase is saved and highlighted", async ({
-  context,
-  extensionId,
-}) => {
-  await showNewWords(context, extensionId);
-  const page = await openArticle(context);
-  await textBox(page, "rise and fall");
-  // Select from inside "rise" to inside "fall" with the Selection API. Mouse
-  // selection is covered by the browser tests: in headless Chromium a mouse drag
-  // selects nothing on this page, and Shift+click is unreliable on Linux.
-  await page.evaluate(() => {
+/**
+ * Selects from inside the first word of `phrase` to inside its last with the Selection
+ * API. Mouse selection is covered by the browser tests: in headless Chromium a mouse
+ * drag selects nothing on this page, and Shift+click is unreliable on Linux.
+ */
+async function selectInArticle(page: Page, phrase: string) {
+  await textBox(page, phrase);
+  await page.evaluate((phrase) => {
     const walker = document.createTreeWalker(
       document.querySelector("article")!,
       NodeFilter.SHOW_TEXT,
     );
     while (walker.nextNode()) {
       const node = walker.currentNode as Text;
-      const start = node.data.indexOf("rise and");
+      const start = node.data.indexOf(phrase);
       if (start < 0) continue;
-      const end = node.data.indexOf("fall", start) + 2;
+      const end = start + phrase.length - 2;
       getSelection()!.setBaseAndExtent(node, start + 1, node, end);
       return;
     }
-    throw new Error("rise and fall not found");
-  });
-  const bar = page.getByText("Save “rise and fall” as a phrase");
-  await expect(bar).toBeVisible();
+    throw new Error(`${phrase} not found`);
+  }, phrase);
+}
+
+test("a selected phrase is saved and highlighted", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  await selectInArticle(page, "rise and fall");
+  const selected = page.getByText(en["lookup.status.selected"]);
+  await expect(selected).toBeVisible();
+  await expect(page.getByText("rise and fall", { exact: true })).toBeVisible();
   await page
-    .getByRole("button", { name: en["phrase.learning"], exact: true })
+    .getByRole("button", { name: en["hover.addLearning"], exact: true })
     .click();
-  await expect(bar).toHaveCount(0);
+  await expect(selected).toHaveCount(0);
   await expect
     .poll(() => highlighted(page, "lingo-learning"))
     .toEqual(["rise and fall"]);
+});
+
+test("a selection shows the phrase pattern it matches and is saved under its key", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  await selectInArticle(page, "made up her mind");
+  await expect(page.getByText(en["lookup.status.selected"])).toBeVisible();
+  await expect(
+    page.getByText("make up one's mind", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: en["hover.addLearning"], exact: true })
+    .click();
+  // Saved with a slot, it is found with other words in the slot.
+  await expect
+    .poll(() => highlighted(page, "lingo-learning"))
+    .toEqual(["made up her mind", "made up his mind"]);
 });
 
 test("reaching the end marks every unsaved new word Known when Settings say so", async ({

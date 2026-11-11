@@ -16,7 +16,7 @@ import {
 import type { send } from "../../messaging/client";
 import type { Request } from "../../messaging/protocol";
 
-/** Ranked within 27: known at any level. The rare words come after rank 3,400: new. */
+/** Ranked within 29: known at any level. The rare words come after rank 3,400: new. */
 const COMMON = [
   "the",
   "they",
@@ -45,10 +45,12 @@ const COMMON = [
   "this",
   "page",
   "end",
+  "make",
+  "mind",
 ];
 const filler = (from: number, count: number) =>
   Array.from({ length: count }, (_, i) => `filler${from + i}`);
-/** Ranked 2,428: known at 3,000, new at 2,000. */
+/** Ranked 2,430: known at 3,000, new at 2,000. */
 const DOUGH = ["dough"];
 const RARE = [
   "knead",
@@ -79,16 +81,27 @@ const DICT: Record<string, readonly [string, readonly string[]]> = {
   fall: ["下落", ["下落；落下"]],
   tangy: ["ぴりっとした、酸味のある", ["ぴりっとする；酸味の効いた"]],
   dough: ["パン生地", ["パン生地"]],
+  make: ["作る", ["作る；こしらえる"]],
+  mind: ["心、精神", ["心；精神"]],
 };
 
 const vocab = [...new Set([...COMMON, ...DOUGH, ...RARE])].sort();
 for (const word of vocab) DICT[word] ??= [`${word}の訳`, [`${word}の訳`]];
 
-/** Dictionary phrases: "figure out" has an English definition, the others Japanese. */
-const PHRASES = ["figure out", "from scratch", "give up"];
+/**
+ * Dictionary phrases: "figure out" has an English definition, the others Japanese.
+ * "figure out" is a phrasal verb: saved, it matches with a gap ("figure it out").
+ * "make up one's mind" has a slot: matched only when saved or selected.
+ */
+const PHRASES = {
+  detect: ["figure out", "from scratch", "give up"],
+  more: ["make up one's mind"],
+  gap: ["figure out"],
+};
 const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
   "from scratch": ["最初から", ["最初から", "ゼロから"]],
   "give up": ["諦める", ["諦める", "やめる"]],
+  "make up one's mind": ["決心する、決める", ["決心する", "決める"]],
 };
 const DEFS: PackFiles["en-defs"]["defs"] = {
   "figure out": [
@@ -104,6 +117,7 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
       crackles: "crackle",
       starches: "starch",
       gave: "give",
+      made: "make",
     },
     freq: [
       ...COMMON,

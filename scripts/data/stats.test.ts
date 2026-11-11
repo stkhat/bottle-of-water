@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ipaCoverage, phraseMeanings } from "./stats.mjs";
+import { ipaCoverage, patternCounts, phraseMeanings } from "./stats.mjs";
 
 describe("ipaCoverage", () => {
   const freq = ["you", "i", "the", "zzyzx"];
@@ -21,15 +21,31 @@ describe("ipaCoverage", () => {
   });
 });
 
+describe("patternCounts", () => {
+  it("counts the detected patterns, the others and the ones with a gap", () => {
+    expect(
+      patternCounts({
+        detect: ["figure out", "give up"],
+        more: ["make up one's mind"],
+        gap: ["figure out", "give up"],
+      }),
+    ).toEqual({ patterns: 3, detect: 2, more: 1, gap: 2 });
+  });
+});
+
 describe("phraseMeanings", () => {
-  it("counts the phrases with a meaning from each source", () => {
+  it("counts the patterns, detected and the others, with a meaning from each source", () => {
     expect(
       phraseMeanings(
-        ["by heart", "figure out", "give up", "in spite of", "zzyzx out"],
+        {
+          detect: ["by heart", "figure out", "give up", "in spite of"],
+          more: ["make up one's mind", "zzyzx out"],
+          gap: ["figure out", "give up"],
+        },
         { "in spite of": ["", []], give: ["", []] },
-        { "by heart": ["", []] },
+        { "by heart": ["", []], "make up one's mind": ["", []] },
         { "figure out": ["", []], "give up": ["", []] },
       ),
-    ).toEqual({ phrases: 5, ejdict: 1, ja: 1, defs: 2, none: 1 });
+    ).toEqual({ phrases: 6, ejdict: 1, ja: 2, defs: 2, none: 1 });
   });
 });

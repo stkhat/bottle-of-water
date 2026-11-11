@@ -2,7 +2,7 @@
 {"pos": "verb", "head_templates": [{"name": "en-verb", "args": {"1": "give up"}}], "word": "give up", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To surrender (someone or something); to inform on (someone)."], "tags": ["transitive"], "categories": [{"name": "English phrasal verbs formed with \"up\"", "kind": "other"}]}, {"glosses": ["To yield."], "tags": ["archaic"]}, {"glosses": ["To stop or quit (an activity, etc.)."], "tags": ["transitive"], "translations": [{"lang": "French", "lang_code": "fr", "word": "abandonner"}]}]}
 {"pos": "adj", "word": "give up", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Become fully taken over by a certain quality."], "tags": ["US", "dialectal"]}, {"glosses": ["Exhausted", "Too tired to go on."]}, {"glosses": ["Defeated."]}]}
 {"pos": "prep_phrase", "word": "From scratch", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used other than figuratively or idiomatically: see from, scratch."]}, {"glosses": ["From the beginning; starting with no advantage or prior preparation."]}, {"glosses": ["From basic materials or raw ingredients."]}]}
-{"pos": "verb", "word": "figure out", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To come to understand; to discover or find a solution."], "tags": ["idiomatic", "informal"]}, {"glosses": ["To calculate."], "tags": ["informal"]}]}
+{"pos": "verb", "word": "figure out", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To come to understand; to discover or find a solution."], "tags": ["idiomatic", "informal"], "categories": [{"name": "English phrasal verbs formed with \"out\"", "kind": "other"}]}, {"glosses": ["To calculate."], "tags": ["informal"]}]}
 {"pos": "verb", "word": "thrown away", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["past participle of throw away"], "tags": ["form-of", "idiomatic", "participle", "past"], "form_of": [{"word": "throw away"}]}]}
 {"pos": "verb", "word": "make up one's mind", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To decide; to reach a conclusion."], "tags": ["idiomatic"]}]}
 {"pos": "noun", "word": "carbon copy", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A duplicate or lookalike."], "tags": ["broadly"]}]}
@@ -19,4 +19,8 @@
 {"pos": "verb", "word": "cut in", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used other than figuratively or idiomatically: see cut, in."], "tags": ["idiomatic"]}]}
 {"pos": "verb", "word": "be on", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be wearing."], "categories": [{"name": "English phrasal verbs formed with \"on\"", "kind": "other"}]}]}
 {"pos": "verb", "word": "have it in for", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be very angry with."], "tags": ["idiomatic"]}]}
+{"pos": "verb", "word": "pull somebody's leg", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To tease someone by telling them something untrue."], "tags": ["idiomatic"]}]}
+{"pos": "verb", "word": "spill the beans", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To reveal a secret."], "tags": ["idiomatic"]}]}
+{"pos": "verb", "word": "be all ears", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To listen attentively."], "tags": ["idiomatic"]}]}
+{"pos": "adj", "word": "given to", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Inclined to."], "tags": ["idiomatic"]}]}
 {"word": "broken line

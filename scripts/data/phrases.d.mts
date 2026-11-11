@@ -4,25 +4,39 @@ export type Defs = Record<
   string,
   [short: string, senses: [pos: string, text: string][]]
 >;
+/** en/phrases.json (and es/phrases.json): pattern keys, each list sorted by code unit. */
+export interface PhrasePatterns {
+  detect: string[];
+  more: string[];
+  gap: string[];
+}
 export interface PhrasesResult {
-  phrases: string[];
+  phrases: PhrasePatterns;
   defs: Defs;
   ja: Dict;
   stats: {
     entries: number;
     unparsable: number;
-    phrases: number;
+    detect: number;
+    more: number;
+    gap: number;
     fromEjdict: number;
     fromKaikki: number;
     ja: number;
     defs: number;
   };
 }
-export const PLACEHOLDER_WORDS: ReadonlySet<string>;
+export const SLOT_WORDS: ReadonlySet<string>;
+export const SLOT_SPELLINGS: ReadonlyMap<string, string>;
 export const AUXILIARIES: ReadonlySet<string>;
 export const IDIOM_COMMON_RANK: number;
 export const PHRASE_COMMON_RANK: number;
 export const PHRASE_POS: ReadonlySet<string>;
+export function patternKey(
+  headword: string,
+  isWord: (word: string) => boolean,
+): string | undefined;
+export function hasSlot(key: string): boolean;
 export function isUsable(sense: unknown): boolean;
 export function isNonConstituent(entry: unknown): boolean;
 export function shortOf(text: string): string;
@@ -31,6 +45,7 @@ export function importPhrases(
   vocab: Iterable<string>,
   dict: Dict,
   freq: string[],
+  lemmas: Record<string, string | string[]>,
 ): Promise<PhrasesResult>;
 export function writePhrasePacks(result: PhrasesResult): {
   index: { shards: { file: string; first: string; last: string }[] };

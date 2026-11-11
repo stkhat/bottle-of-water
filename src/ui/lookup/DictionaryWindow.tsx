@@ -1,6 +1,7 @@
 import type { CSSProperties } from "preact";
 import { t } from "../../i18n/t";
 import type { WordStatus } from "./HoverCard";
+import { MachineTranslationMark } from "./MachineTranslationMark";
 import {
   IPA_FONT,
   SERIF_FONT,
@@ -20,6 +21,8 @@ export interface DictionaryEntryView {
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
   short?: string;
+  /** `short` came from the browser's translator: marked "Machine translation". */
+  machineTranslated?: boolean;
   senses: { pos?: string; text: string }[];
   /**
    * Language of `short` and `senses` when it is not the native language (an English
@@ -253,6 +256,14 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
 function Content(props: DictionaryWindowProps & { icon: Style }) {
   const { entry, status } = props;
   const glossLang = entry.glossLang ?? props.nativeLang;
+  const short = entry.short && (
+    <p
+      lang={glossLang}
+      style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
+    >
+      {entry.short}
+    </p>
+  );
 
   return (
     <>
@@ -327,13 +338,20 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
             {entry.sub}
           </span>
         )}
-        {entry.short && (
-          <p
-            lang={glossLang}
-            style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
+        {short && entry.machineTranslated ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}
           >
-            {entry.short}
-          </p>
+            {short}
+            <MachineTranslationMark />
+          </div>
+        ) : (
+          short
         )}
       </div>
 

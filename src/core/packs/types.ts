@@ -10,8 +10,19 @@ export type FreqPack = readonly string[];
 export type PosPack = Readonly<Record<string, readonly string[]>>;
 /** en/vocab.json: the words Lingo knows (single-word dictionary headwords), sorted. */
 export type VocabPack = readonly string[];
-/** en/phrases.json: the dictionary phrases detected in text (keys as for saved phrases), sorted. */
-export type PhrasesPack = readonly string[];
+/**
+ * en/phrases.json (and es/phrases.json): the dictionary's phrase patterns, by key (as
+ * for saved phrases; slot words such as "one's" stand for any filler). `detect` and
+ * `more` are disjoint, each sorted by code unit, and together hold every pattern:
+ * `detect` the ones highlighted in text without being saved (no slot, the detection
+ * filters pass), `more` the others, matched only when selected or saved. `gap`, sorted,
+ * lists the patterns (phrasal verbs) whose words may have a gap between them.
+ */
+export type PhrasesPack = Readonly<{
+  detect: readonly string[];
+  more: readonly string[];
+  gap: readonly string[];
+}>;
 /**
  * en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. en-ja/phrases.json has
  * the same shape: Japanese translations of phrases EJDict lacks.

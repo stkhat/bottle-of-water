@@ -24,7 +24,7 @@ export interface VideoWord {
  * The words and phrases of the classified cards, grouped by key and kind, in order of
  * first appearance. Leaves out what the transcript does not highlight (`visibleSpans`)
  * and words known only by the frequency level: a known span counts only once its
- * summary says it is saved as known.
+ * summary says it is saved as known. A phrase with a gap counts once, by its first part.
  */
 export function videoWords(
   cues: readonly Cue[],
@@ -36,7 +36,8 @@ export function videoWords(
     if (!list) return;
     for (const [span, index] of visibleSpans(list)) {
       const { key, kind, category } = span;
-      if (category === "ignored") continue;
+      if (category === "ignored" || (span.part && span.part.index > 0))
+        continue;
       if (
         category === "known" &&
         (!Object.hasOwn(summaries, key) || summaries[key]!.status !== "known")
@@ -49,12 +50,14 @@ export function videoWords(
         continue;
       }
       const text = cues[cue]?.text ?? "";
+      // A phrase with a gap as a whole.
+      const { start, end } = span.part ?? span;
       rows.set(id, {
         key,
         kind,
         head:
           kind === "phrase"
-            ? text.slice(span.start, span.end).replaceAll("\n", " ")
+            ? text.slice(start, end).replaceAll("\n", " ")
             : key,
         category,
         count: 1,

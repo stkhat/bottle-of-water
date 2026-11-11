@@ -27,3 +27,7 @@
 {"pos": "phrase", "word": "comer la casa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to eat the house"], "tags": ["idiomatic"], "categories": [{"name": "Spanish non-constituents", "kind": "other"}]}]}
 {"pos": "name", "word": "rosa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈrosa/ [ˈro.sa]"}], "senses": [{"glosses": ["a female given name"], "tags": ["feminine"]}]}
 {"pos": "noun", "word": "rosa", "lang": "Spanish", "lang_code": "es", "sounds": [{"ipa": "/ˈrosa/ [ˈro.sa]"}], "senses": [{"glosses": ["rose"], "tags": ["feminine"]}]}
+{"pos": "prep", "word": "a", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to"]}]}
+{"pos": "noun", "word": "pelos", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["plural of pelo"], "tags": ["form-of", "masculine", "plural"], "form_of": [{"word": "pelo"}]}]}
+{"pos": "verb", "word": "tomar el pelo a alguien", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to pull someone's leg"], "tags": ["idiomatic"]}]}
+{"pos": "phrase", "word": "de pelos", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["great, awesome"], "tags": ["Mexico", "colloquial"]}]}

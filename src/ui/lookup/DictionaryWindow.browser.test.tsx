@@ -92,6 +92,29 @@ describe("DictionaryWindow", () => {
       .toHaveAttribute("lang", "ja");
   });
 
+  test("marks a machine-translated translation", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...panel}
+        entry={{
+          head: "wait an hour",
+          kind: "phrase",
+          short: "1時間待つ",
+          senses: [],
+          machineTranslated: true,
+        }}
+      />,
+    );
+    await expect
+      .element(screen.getByText("1時間待つ"))
+      .toHaveAttribute("lang", "ja");
+    await expect
+      .element(screen.getByText("Machine translation", { exact: true }))
+      .toBeVisible();
+    await screen.rerender(<DictionaryWindow {...panel} />);
+    expect(screen.container.textContent).not.toContain("Machine translation");
+  });
+
   test("marks an English definition and its senses as English", async () => {
     const screen = await mountInShadowRoot(
       <DictionaryWindow

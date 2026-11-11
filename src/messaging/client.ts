@@ -28,6 +28,7 @@ const REPEATABLE: Record<RequestType, boolean> = {
   setSettings: true,
   getBrowserEnv: true,
   analyze: true,
+  matchSelection: true,
   warmDictionary: true,
   lookup: true,
   saveTerm: true,

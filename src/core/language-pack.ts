@@ -2,9 +2,15 @@ import { buildFreqIndex, rankOf } from "./packs/frequency";
 import { ipaFor } from "./packs/ipa";
 import { lemmatize } from "./packs/lemmatize";
 import type { FreqPack, IpaPack, LemmaPack } from "./packs/types";
+import { createPhraseMatcher, type PhraseMatcher } from "./phrases/matcher";
+import type { PhrasePatterns, PhraseRules } from "./phrases/pattern";
+import { rulesFor } from "./phrases/rules";
 import { tokenize, type Token } from "./text/tokenize";
 
-/** Word segmentation, base forms, frequency rank and IPA for one learning language. */
+/**
+ * Word segmentation, base forms, frequency rank, IPA and phrase patterns for one
+ * learning language.
+ */
 export interface LanguagePack {
   readonly lang: string;
   tokenize(text: string): Token[];
@@ -17,8 +23,17 @@ export interface LanguagePack {
   rank(base: string): number;
   /** IPA of a word, or of a phrase's words inside one pair of slashes. */
   ipa(term: string): string | undefined;
-  /** Dictionary phrases to detect in text, keyed like saved phrases ("figure out"). */
+  /** The dictionary's phrase patterns, keyed like saved phrases ("figure out"). */
+  readonly patterns: PhrasePatterns;
+  /** How the language's phrase patterns match text: its slots and gaps. */
+  readonly rules: PhraseRules;
+  /** The `detect` patterns: dictionary phrases highlighted in text without being saved. */
   readonly phrases: ReadonlySet<string>;
+  /**
+   * Matches text against the patterns and saved phrases. Built on first use, then
+   * shared, so its tries are built once per pack.
+   */
+  readonly matcher: PhraseMatcher;
 }
 
 /** What a learning language's pack is built from (public/packs/<lang>/). */
@@ -28,25 +43,43 @@ export interface LanguagePackData {
   ipa: IpaPack;
   /** The words Lingo knows (single-word dictionary headwords). */
   vocab: ReadonlySet<string>;
-  /** Dictionary phrases (idioms, phrasal verbs, prepositional phrases). */
-  phrases: ReadonlySet<string>;
+  /** Dictionary phrase patterns (idioms, phrasal verbs, prepositional phrases). */
+  patterns: PhrasePatterns;
 }
 
 export type EnglishPackData = LanguagePackData;
 
-/** The pack of a learning language: words segmented with `Intl.Segmenter(lang)`. */
+/**
+ * The pack of a learning language: words segmented with `Intl.Segmenter(lang)`, phrases
+ * matched under the language's rules (`rulesFor`).
+ */
 export function createLanguagePack(
   lang: string,
   data: LanguagePackData,
 ): LanguagePack {
   const ranks = buildFreqIndex(data.freq);
+  const rules = rulesFor(lang);
+  const lemmas = (word: string) => lemmatize(word, data.lemmas, data.vocab);
+  let phrases: ReadonlySet<string> | undefined;
+  let matcher: PhraseMatcher | undefined;
   return {
     lang,
     tokenize: (text) => tokenize(text, lang),
-    lemmas: (word) => lemmatize(word, data.lemmas, data.vocab),
+    lemmas,
     rank: (base) => rankOf(base.toLowerCase(), ranks),
     ipa: (term) => ipaFor(term, data.ipa),
-    phrases: data.phrases,
+    patterns: data.patterns,
+    rules,
+    get phrases() {
+      return (phrases ??= new Set(data.patterns.detect));
+    },
+    get matcher() {
+      return (matcher ??= createPhraseMatcher({
+        rules,
+        patterns: data.patterns,
+        lemmas,
+      }));
+    },
   };
 }
 
