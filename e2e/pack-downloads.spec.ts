@@ -46,6 +46,8 @@ async function mirror(
 }
 
 const test = base.extend<{
+  // Playwright types a fixture without a value as void.
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   resetMirror: void;
   port: number;
   cdp: BrowserCdp;

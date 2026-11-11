@@ -67,7 +67,7 @@ describe("PlayerButtons", () => {
     const screen = await mountInShadowRoot(<PlayerButtons {...base} />);
     const menu = screen.getByRole("button", { name: "Lingo menu" });
     await expect.element(menu).toHaveAttribute("aria-expanded", "false");
-    screen.rerender(<PlayerButtons {...base} menuOpen />);
+    await screen.rerender(<PlayerButtons {...base} menuOpen />);
     await expect.element(menu).toHaveAttribute("aria-expanded", "true");
   });
 });

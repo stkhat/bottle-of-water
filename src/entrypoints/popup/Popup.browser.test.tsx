@@ -427,7 +427,7 @@ describe("Popup", () => {
       const f = fake();
       const screen = await render(<Popup deps={f.deps} />);
       await expect.poll(() => f.packWatchers()).toBe(1);
-      screen.unmount();
+      await screen.unmount();
       expect(f.packWatchers()).toBe(0);
     });
   });

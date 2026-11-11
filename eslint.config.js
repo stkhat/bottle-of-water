@@ -23,10 +23,12 @@ export default tseslint.config(
     ],
   },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.strict,
   {
     languageOptions: { globals: { ...globals.browser } },
     rules: {
+      // noUncheckedIndexedAccess is on: `!` states an index the code knows is present.
+      "@typescript-eslint/no-non-null-assertion": "off",
       "no-restricted-globals": [
         "error",
         {
@@ -49,6 +51,25 @@ export default tseslint.config(
             "MemberExpression[property.name='userAgent'][object.property.name='navigator']",
           message: "Detect features, not browsers",
         },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        { considerDefaultExhaustiveForUnions: true },
       ],
     },
   },

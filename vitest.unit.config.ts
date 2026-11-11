@@ -1,8 +1,7 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, defineProject } from "vitest/config";
 import { WxtVitest } from "wxt/testing/vitest-plugin";
 
-// Unit project only; used by Stryker (mutation testing), which cannot select a project.
-export default defineConfig({
+export const unit = defineProject({
   plugins: [WxtVitest()],
   test: {
     name: "unit",
@@ -11,3 +10,6 @@ export default defineConfig({
     exclude: ["src/**/*.browser.test.ts"],
   },
 });
+
+// The unit project alone, for Stryker, which cannot select a project.
+export default defineConfig(unit);

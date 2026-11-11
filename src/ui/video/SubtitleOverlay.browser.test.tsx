@@ -69,7 +69,7 @@ describe("SubtitleOverlay", () => {
       <SubtitleOverlay {...base} showTranslation={false} />,
     );
     expect(screen.container.textContent).not.toContain("今日は");
-    screen.rerender(<SubtitleOverlay {...base} translation="" />);
+    await screen.rerender(<SubtitleOverlay {...base} translation="" />);
     expect(screen.container.querySelectorAll("[lang=ja]")).toHaveLength(0);
   });
 
@@ -81,7 +81,7 @@ describe("SubtitleOverlay", () => {
     expect(getComputedStyle(word(screen, "bread")).boxShadow).toBe("none");
     expect(getComputedStyle(word(screen, "today")).boxShadow).toBe("none");
 
-    screen.rerender(
+    await screen.rerender(
       <SubtitleOverlay
         {...base}
         highlight={{ new: true, learning: false, known: true }}

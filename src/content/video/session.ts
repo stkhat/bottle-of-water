@@ -753,10 +753,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     return [...keys];
   }
 
-  function recategorize(
-    w: Watch,
-    change: (span: Span) => Category | undefined,
-  ) {
+  function recategorize(change: (span: Span) => Category | undefined) {
     const spans = store.get().spans.map(
       (list) =>
         list?.map((span) => {
@@ -784,7 +781,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (watch !== w) return undefined;
     const saved = new Set(keys);
     for (const key of keys) w.saved.add(key);
-    recategorize(w, (s) =>
+    recategorize((s) =>
       s.category === "new" && saved.has(s.key) ? status : undefined,
     );
     noteStatuses(
@@ -814,7 +811,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (watch !== w) return;
     for (const key of batch.keys) w.saved.delete(key);
     // Those words were new before; the ones changed since stay as they are.
-    recategorize(w, (s) =>
+    recategorize((s) =>
       s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
     );
     noteStatuses(
@@ -1022,7 +1019,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         await deps.send({ type: "setStatus", id: card.termId, status: to });
       }
       if (watch !== w) return;
-      recategorize(w, (s) => (sameTerm(s, key, kind) ? to : undefined));
+      recategorize((s) => (sameTerm(s, key, kind) ? to : undefined));
       noteStatuses(w, [[key, to]]);
     }
     deps.onTermsChanged?.();

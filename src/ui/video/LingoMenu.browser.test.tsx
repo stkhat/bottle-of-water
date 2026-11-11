@@ -42,7 +42,7 @@ describe("LingoMenu", () => {
     const menu = screen.getByRole("dialog", { name: "Lingo menu" });
     await expect.element(menu).toBeVisible();
     await expect.element(screen.getByText("On for this video")).toBeVisible();
-    screen.rerender(<LingoMenu {...base} enabled={false} />);
+    await screen.rerender(<LingoMenu {...base} enabled={false} />);
     await expect.element(screen.getByText("Off for this video")).toBeVisible();
   });
 
@@ -59,7 +59,7 @@ describe("LingoMenu", () => {
     await expect.element(below).toHaveAttribute("aria-pressed", "false");
     await below.click();
     expect(onPosition).toHaveBeenCalledWith("belowVideo");
-    screen.rerender(<LingoMenu {...base} position="belowVideo" />);
+    await screen.rerender(<LingoMenu {...base} position="belowVideo" />);
     await expect.element(below).toHaveAttribute("aria-pressed", "true");
     await expect.element(inVideo).toHaveAttribute("aria-pressed", "false");
   });
@@ -86,7 +86,7 @@ describe("LingoMenu", () => {
     await expect
       .element(screen.getByRole("button", { name: "Open settings" }))
       .toBeVisible();
-    screen.rerender(<LingoMenu {...base} showPositions />);
+    await screen.rerender(<LingoMenu {...base} showPositions />);
     await expect
       .element(screen.getByRole("group", { name: "Subtitle position" }))
       .toBeVisible();
@@ -103,7 +103,7 @@ describe("LingoMenu", () => {
     await expect.element(sw).toHaveAttribute("aria-checked", "true");
     await sw.click();
     expect(onToggleTranslation).toHaveBeenCalledTimes(1);
-    screen.rerender(<LingoMenu {...base} showTranslation={false} />);
+    await screen.rerender(<LingoMenu {...base} showTranslation={false} />);
     await expect.element(sw).toHaveAttribute("aria-checked", "false");
   });
 
