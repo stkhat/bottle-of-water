@@ -54,16 +54,16 @@ const CHIP: Style = {
 };
 const CHIP_ON: Style = {
   ...CHIP,
-  background: color.white,
+  background: color.card,
   color: color.ink,
-  border: "1px solid #8C92A3",
+  border: `1px solid ${color.chipLine}`,
   fontWeight: 600,
 };
 const CHIP_OFF: Style = {
   ...CHIP,
   background: "transparent",
   color: color.ink3,
-  border: "1px dashed #C9CDD6",
+  border: `1px dashed ${color.track}`,
 };
 
 /** "All 9 · New 3 · …": one chip pressed at a time. */
@@ -133,7 +133,7 @@ const ROW_ON: Style = {
 };
 
 /** Inline styles cannot hover; the shadow root keeps this rule to the list. */
-const HOVER = `[data-word-row][aria-pressed="false"]:hover{background:#EEF0F3 !important}`;
+const HOVER = `[data-word-row][aria-pressed="false"]:hover{background:${color.soft} !important}`;
 
 /** The words of the video: head with its highlight, count and short meaning. */
 export function WordsList(props: WordsListProps) {
@@ -189,7 +189,7 @@ function Row(props: WordsListProps & { row: WordRow }) {
         <span
           lang={props.learningLang}
           style={{
-            ...termStyle(row.category, ALL_ON, "page"),
+            ...termStyle(row.category, ALL_ON, "ui"),
             fontSize: "15px",
             fontWeight: 600,
             padding: "0 3px",

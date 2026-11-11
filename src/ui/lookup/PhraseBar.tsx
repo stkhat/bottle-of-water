@@ -30,8 +30,8 @@ export function PhraseBar(props: PhraseBarProps) {
         alignItems: "center",
         gap: "8px",
         padding: "8px 8px 8px 14px",
-        background: color.ink,
-        color: color.surfaceGray,
+        background: color.inverse,
+        color: color.onInverse,
         borderRadius: "10px",
         boxShadow: "0 14px 36px rgba(20,20,30,0.25)",
         whiteSpace: "nowrap",
@@ -46,7 +46,7 @@ export function PhraseBar(props: PhraseBarProps) {
         onClick={onlyFromUser(() => props.onLearning())}
         style={{
           ...BUTTON,
-          border: "1px solid #0F9F7E",
+          border: `1px solid ${color.greenBright}`,
           background: color.green,
           color: color.white,
         }}
@@ -58,9 +58,9 @@ export function PhraseBar(props: PhraseBarProps) {
         onClick={onlyFromUser(() => props.onKnown())}
         style={{
           ...BUTTON,
-          border: "1px solid #52525B",
+          border: `1px solid ${color.inverseLine}`,
           background: "transparent",
-          color: color.surfaceGray,
+          color: color.onInverse,
         }}
       >
         {t("phrase.known")}

@@ -57,7 +57,7 @@ const TAB: Style = {
 };
 const TAB_ON: Style = {
   ...TAB,
-  background: color.white,
+  background: color.raised,
   color: color.ink,
   fontWeight: 600,
   boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
@@ -78,7 +78,7 @@ export function VideoPanel(props: VideoPanelProps) {
         flexDirection: "column",
         width: "100%",
         height: `${props.height}px`,
-        background: color.white,
+        background: color.card,
         border: `1px solid ${color.line}`,
         borderRadius: "12px",
         overflow: "hidden",

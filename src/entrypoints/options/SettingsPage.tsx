@@ -37,6 +37,7 @@ export interface SettingsDeps extends BackupDeps {
 
 const SECTIONS = [
   { id: "languages", label: "settings.section.languages" },
+  { id: "appearance", label: "settings.section.appearance" },
   { id: "level", label: "settings.section.level" },
   { id: "highlighting", label: "settings.section.highlighting" },
   { id: "dictionaries", label: "settings.section.dictionaries" },
@@ -52,21 +53,24 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 const CSS = `
 body{background:${color.surface}}
 a{color:${color.greenText}}a:hover{color:${color.greenDark}}
-.card{background:#FFFFFF;border:1px solid ${color.line};border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:18px;scroll-margin-top:24px}
+.card{background:${color.card};border:1px solid ${color.line};border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:18px;scroll-margin-top:24px}
 .h2{margin:0;font-size:18px;font-weight:700}
 .lead{margin:-10px 0 0;font-size:14px;line-height:1.5;color:${color.muted}}
-.row{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid #EEF0F3}
+.row{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid ${color.soft}}
 .lbl{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
 .lt{font-size:15px;font-weight:600}
 .ld{font-size:13px;line-height:1.45;color:${color.muted}}
-.sel{height:40px;min-width:220px;padding:0 12px;border:1px solid ${color.lineStrong};border-radius:8px;background:#FFFFFF;color:${color.ink};font:inherit;font-size:14px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:#FFFFFF;color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.sel{height:40px;min-width:220px;padding:0 12px;border:1px solid ${color.lineStrong};border-radius:8px;background:${color.card};color:${color.ink};font:inherit;font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:${color.card};color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .nav{display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:${color.ink2};text-decoration:none;font-size:14px}
-.nav:hover{background:#EEF0F3;color:${color.ink}}
+.nav:hover{background:${color.soft};color:${color.ink}}
 .nav[aria-current="true"]{background:${color.greenPale};color:${color.greenDark};font-weight:600}
 .chk{width:18px;height:18px;accent-color:${color.green};margin:0}
 .soon{font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${color.muted};background:${color.surfaceGray};border-radius:999px;padding:3px 8px}
 `;
+
+/** The subtitle-position pictures draw a video frame, dark in both themes. */
+const VIDEO_FRAME = "#14182B";
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
@@ -169,7 +173,7 @@ function ChoiceRow<T extends string>(props: {
                 cursor: "pointer",
                 ...(on
                   ? {
-                      background: color.white,
+                      background: color.raised,
                       color: color.ink,
                       boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
                     }
@@ -235,19 +239,22 @@ const HIGHLIGHT_ROWS = [
     id: "new",
     label: "card.chip.new",
     desc: "settings.highlighting.newDesc",
-    sample: { boxShadow: "inset 0 -2px 0 #2F6FE4" },
+    sample: { boxShadow: `inset 0 -2px 0 ${color.hlNewLine}` },
   },
   {
     id: "learning",
     label: "card.chip.learning",
     desc: "settings.highlighting.learningDesc",
-    sample: { background: "#D3F1E5", boxShadow: "inset 0 -2px 0 #0F9F7E" },
+    sample: {
+      background: color.hlLearning,
+      boxShadow: `inset 0 -2px 0 ${color.hlLearningLine}`,
+    },
   },
   {
     id: "known",
     label: "card.chip.known",
     desc: "settings.highlighting.knownDesc",
-    sample: { boxShadow: "inset 0 -2px 0 #A3A8B7" },
+    sample: { boxShadow: `inset 0 -2px 0 ${color.knownLine}` },
   },
 ] as const;
 
@@ -399,7 +406,7 @@ function NeverRunOn(props: {
                 width: "200px",
                 boxSizing: "border-box",
                 padding: "0 12px",
-                border: `1px solid ${invalid ? "#B42318" : color.lineStrong}`,
+                border: `1px solid ${invalid ? color.danger : color.lineStrong}`,
                 borderRadius: "999px",
                 font: "inherit",
                 fontSize: "13px",
@@ -427,7 +434,7 @@ function NeverRunOn(props: {
         )}
       </div>
       {invalid && (
-        <span role="alert" style={{ fontSize: "13px", color: "#B42318" }}>
+        <span role="alert" style={{ fontSize: "13px", color: color.danger }}>
           {t("settings.sites.invalid")}
         </span>
       )}
@@ -441,6 +448,12 @@ const UNSAVED_AT_END: readonly {
 }[] = [
   { id: "keep", label: "settings.highlighting.keepNew" },
   { id: "known", label: "settings.highlighting.markKnown" },
+];
+
+const THEME_OPTIONS: readonly { id: Settings["theme"]; label: MessageKey }[] = [
+  { id: "system", label: "settings.appearance.system" },
+  { id: "light", label: "settings.appearance.light" },
+  { id: "dark", label: "settings.appearance.dark" },
 ];
 
 /** The settings page (mock Settings): every section, bound to the settings live. */
@@ -664,6 +677,16 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
           )}
         </Section>
 
+        <Section id="appearance" label="settings.section.appearance">
+          <ChoiceRow
+            title={t("settings.appearance.theme")}
+            desc={t("settings.appearance.themeDesc")}
+            options={THEME_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+            value={s.theme}
+            onPick={(id) => set("theme", id)}
+          />
+        </Section>
+
         <Section
           id="level"
           label="settings.section.level"
@@ -845,7 +868,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                           border: `2px solid ${color.green}`,
                         }
                       : {
-                          background: color.white,
+                          background: color.card,
                           border: `2px solid ${color.line}`,
                         }),
                   }}
@@ -859,7 +882,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                       height: "90px",
                       marginBottom: "18px",
                       borderRadius: "6px",
-                      background: color.ink,
+                      background: VIDEO_FRAME,
                     }}
                   >
                     <span
@@ -977,7 +1000,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                   width: `${historyShare}%`,
                   height: "100%",
                   borderRadius: "3px",
-                  background: "#0F9F7E",
+                  background: color.greenBright,
                 }}
               ></div>
             </div>
@@ -1050,7 +1073,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                   width: `${share}%`,
                   height: "100%",
                   borderRadius: "4px",
-                  background: "#0F9F7E",
+                  background: color.greenBright,
                 }}
               ></div>
             </div>
@@ -1075,7 +1098,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                   style={{
                     fontSize: "13px",
                     lineHeight: 1.45,
-                    color: note.ok ? color.greenDark : "#B42318",
+                    color: note.ok ? color.greenDark : color.danger,
                   }}
                 >
                   {note.text}

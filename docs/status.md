@@ -9,6 +9,8 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 - Phase 2 real-site checks (2026-11-10, same videos plus Wikipedia): the Words tab (219 rows on the TED talk), detected phrases ("play out", "running through", "used to") with English definitions, fullscreen on both sites (youtube.com makes `<html>` fullscreen, so Lingo's page layer stays in `<body>`; netflix.com makes `.watch-video` fullscreen and the layer moves into it), the 34 px subtitle, hover card, dictionary window at the top right and the reduced ^ menu, "Seen elsewhere · 11" for an unsaved word after visiting two other Wikipedia pages. Netflix's subtitle lift above the control bar and the ^ menu now checked
 - YouTube auto-generated captions (2026-11-11, branch `fix/asr-captions`): transcript cards follow the sentences of YouTube's auto-translation, so each card's Japanese is that sentence's translation, and the video shows a card as lines of at most 60 characters. Checked on four ASR videos (`GLNVMi_4Khw`, `1w5R5QOjbVY`, `RVzIGNFyvYU`, `P30_ec_t0Y8`); details in [notes/youtube-captions.md](notes/youtube-captions.md)
 
+- Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
+
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
