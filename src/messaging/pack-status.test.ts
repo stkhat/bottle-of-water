@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PackStates } from "../core/packs/state";
+import { DEFAULT_SETTINGS, mergeSettings } from "../core/settings";
+import { settingsListeners } from "../testing/stubs";
 import type { send } from "./client";
 import { followPackStatus, pairNote } from "./pack-status";
 import type { PackStatus, Request } from "./protocol";
@@ -26,6 +28,7 @@ function fake(answers: PackStatus[]) {
   const asked: Request[] = [];
   const resolvers: ((status: PackStatus) => void)[] = [];
   let listener: ((states: PackStates) => void) | undefined;
+  const settings = settingsListeners(DEFAULT_SETTINGS);
   const deps = {
     send: ((request: Request) => {
       asked.push(request);
@@ -40,10 +43,14 @@ function fake(answers: PackStatus[]) {
         listener = undefined;
       };
     },
+    watchSettings: settings.watch,
   };
   return {
     deps,
     asked,
+    /** Settings changed elsewhere. */
+    changeSettings: (patch: Parameters<typeof mergeSettings>[0]) =>
+      settings.emit(mergeSettings(patch, DEFAULT_SETTINGS)),
     /** Answers the oldest request still waiting. */
     answer: (status: PackStatus) => resolvers.shift()!(status),
     change: (states: PackStates) => listener?.(states),
@@ -95,6 +102,15 @@ describe("followPackStatus", () => {
     await flush();
     expect(seen).toHaveBeenCalledTimes(1);
     expect(seen).toHaveBeenLastCalledWith(newer);
+  });
+
+  it("asks again when another language pair is chosen, not on other changes", async () => {
+    const f = fake([STATUS, STATUS]);
+    followPackStatus(f.deps, vi.fn());
+    f.changeSettings({ theme: "dark" });
+    expect(f.asked).toHaveLength(1);
+    f.changeSettings({ theme: "dark", learningLang: "es", nativeLang: "en" });
+    expect(f.asked).toHaveLength(2);
   });
 
   it("stops: no more status, no more watching", async () => {

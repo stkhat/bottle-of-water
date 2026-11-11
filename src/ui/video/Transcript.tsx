@@ -1,26 +1,22 @@
 import type { CSSProperties } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import type { Span } from "../../core/classify";
+import type { Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import type { Cue } from "../../core/subtitles/types";
 import { t } from "../../i18n/t";
-import { fromUser, onlyFromUser } from "../from-user";
-import { formatTime } from "../lookup/elsewhere";
-import { keepOpen } from "../lookup/keep-open";
-import {
-  HighlightChips,
-  type HighlightCategory,
-} from "../lookup/HighlightChips";
-import { color } from "../lookup/styles";
-import { Switch } from "../lookup/Switch";
+import { formatTime } from "../format/format";
+import { PlayIcon } from "../icons";
+import { HighlightChips } from "../lookup/HighlightChips";
+import { color } from "../styles";
+import { Switch } from "../Switch";
 import { renderTerms, termStyle } from "./terms";
+import { TermSpan } from "./TermSpan";
 
 export interface TranscriptControlsProps {
-  /** The transcript translation switch. */
   showTranslation: boolean;
   onToggleTranslation: () => void;
   highlight: Settings["highlight"];
-  onToggleHighlight: (category: HighlightCategory) => void;
+  onToggleHighlight: (category: WordStatus) => void;
 }
 
 export interface TranscriptProps {
@@ -74,18 +70,6 @@ const CARD_NOW: Style = {
   border: `1px solid ${color.greenLine}`,
   background: color.greenPale,
 };
-
-const PLAY_ICON = (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    aria-hidden="true"
-  >
-    <path d="M7 5l12 7-12 7z"></path>
-  </svg>
-);
 
 /** The Transcript tab's controls: the Highlight chips and the Translation switch. */
 export function TranscriptControls(props: TranscriptControlsProps) {
@@ -181,26 +165,19 @@ function Card(
     (span, i, text) => {
       const style = termStyle(span.category, props.highlight, "ui");
       return (
-        <span
+        <TermSpan
           key={`${span.start}`}
-          data-span={i}
-          onPointerEnter={onlyFromUser((e) =>
-            props.onWordEnter(index, i, e.currentTarget as HTMLElement),
-          )}
-          onPointerLeave={() => props.onWordLeave()}
-          onPointerDown={keepOpen}
-          onClick={(e) => {
-            // The word opens; the card's seek is for the rest of the card.
-            e.stopPropagation();
-            if (fromUser(e)) props.onWordClick(index, i);
-          }}
+          index={i}
+          onEnter={(element) => props.onWordEnter(index, i, element)}
+          onLeave={props.onWordLeave}
+          onClick={() => props.onWordClick(index, i)}
+          stopClick
           style={{
-            cursor: "pointer",
             ...(style && { ...style, padding: "0 2px", borderRadius: "4px" }),
           }}
         >
           {text}
-        </span>
+        </TermSpan>
       );
     },
   );
@@ -224,7 +201,7 @@ function Card(
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {PLAY_ICON}
+          <PlayIcon />
           {t("video.nowPlaying", { time })}
         </span>
       ) : (

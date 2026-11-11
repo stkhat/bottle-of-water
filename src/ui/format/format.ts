@@ -50,12 +50,23 @@ export function megabytesTenths(bytes: number): string {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** A count with thousands grouped: "12,345". */
+export const fmt = (n: number) => n.toLocaleString("en-US");
+
+/** A playback time as m:ss, or h:mm:ss from an hour on. */
+export function formatTime(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = pad(total % 60);
+  return h > 0 ? `${h}:${pad(m)}:${s}` : `${m}:${s}`;
+}
+
 /** `lingo-backup-YYYY-MM-DD.json`, by the local date. */
 export function backupFileName(date: Date): string {
   return `lingo-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
 }
 
-/** Both times fall on the same local calendar day. */
 export function sameDay(a: number, b: number): boolean {
   const x = new Date(a);
   const y = new Date(b);

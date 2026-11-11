@@ -3,6 +3,8 @@ import { longestMatch, type PhraseMatch } from "./phrases/matcher";
 import { normalizeWord, type Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
+/** A term as the UI shows it: saved, or `new` while not saved. Also the highlight categories. */
+export type WordStatus = TermStatus | "new";
 /**
  * A removed term stays as a tombstone (its `updatedAt` is the removal time) so that
  * sync and import carry the removal to other copies.
@@ -22,7 +24,7 @@ export type TermIndex = ReadonlyMap<string, TermStatus>;
  * (treated as known, not saved). `new` covers unsaved words above the level and unsaved
  * dictionary phrases. `ignored`: not in the vocabulary, numbers, single letters.
  */
-export type Category = TermStatus | "new" | "ignored";
+export type Category = WordStatus | "ignored";
 
 /** Which part of a phrase with a gap a span is, and where the whole phrase is. */
 interface SpanPart {

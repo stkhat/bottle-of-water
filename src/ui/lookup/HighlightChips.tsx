@@ -1,9 +1,7 @@
-import type { CSSProperties } from "preact";
+import type { WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import { t, type MessageKey } from "../../i18n/t";
-import { color, sectionHeading } from "./styles";
-
-export type HighlightCategory = keyof Settings["highlight"];
+import { color, sectionHeading, termMark } from "../styles";
 
 export interface HighlightChipsProps {
   /**
@@ -11,43 +9,23 @@ export interface HighlightChipsProps {
    * chips under an uppercase heading).
    */
   look: "video" | "popup";
-  /** Which categories are highlighted (`settings.highlight`). */
   highlight: Settings["highlight"];
-  onToggle: (category: HighlightCategory) => void;
+  onToggle: (category: WordStatus) => void;
 }
 
-const CHIPS: readonly {
-  id: HighlightCategory;
-  label: MessageKey;
-  swatch: CSSProperties;
-}[] = [
-  {
-    id: "new",
-    label: "card.chip.new",
-    swatch: {
-      boxShadow: `inset 0 -3px 0 ${color.hlNewLine}`,
-      background: color.hlNew,
-    },
-  },
-  {
-    id: "learning",
-    label: "status.learning",
-    swatch: {
-      background: color.hlLearning,
-      boxShadow: `inset 0 -3px 0 ${color.hlLearningLine}`,
-    },
-  },
-  {
-    id: "known",
-    label: "status.known",
-    swatch: {
-      boxShadow: `inset 0 -3px 0 ${color.knownLine}`,
-      background: color.surfaceGray,
-    },
-  },
+const CHIPS: readonly { id: WordStatus; label: MessageKey }[] = [
+  { id: "new", label: "card.chip.new" },
+  { id: "learning", label: "status.learning" },
+  { id: "known", label: "status.known" },
 ];
 
-const LOOK = {
+/** A chip's swatch: the highlight with a 3px bar; Known's on gray. */
+const swatch = (id: WordStatus) => ({
+  ...termMark(id, "ui", 3),
+  ...(id === "known" && { background: color.surfaceGray }),
+});
+
+const CHIP = {
   on: {
     background: color.card,
     color: color.ink,
@@ -63,7 +41,6 @@ const LOOK = {
 
 /** "Highlight" and a toggle chip per category. */
 export function HighlightChips(props: HighlightChipsProps) {
-  const look = LOOK;
   const chips = CHIPS.map((c) => {
     const pressed = props.highlight[c.id];
     return (
@@ -83,7 +60,7 @@ export function HighlightChips(props: HighlightChipsProps) {
           font: "inherit",
           fontSize: "13px",
           cursor: "pointer",
-          ...(pressed ? look.on : look.off),
+          ...(pressed ? CHIP.on : CHIP.off),
         }}
       >
         <span
@@ -92,7 +69,7 @@ export function HighlightChips(props: HighlightChipsProps) {
             width: "16px",
             height: "12px",
             borderRadius: "3px",
-            ...c.swatch,
+            ...swatch(c.id),
           }}
         ></span>
         {t(c.label)}

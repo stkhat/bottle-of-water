@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   backupFileName,
+  fmt,
+  formatTime,
   kilobytes,
   megabytes,
   megabytesTenths,
@@ -100,5 +102,19 @@ describe("sameDay", () => {
     const now = new Date(2026, 10, 10, 9, 30).getTime();
     expect(sameDay(new Date(2026, 10, 10, 23, 0).getTime(), now)).toBe(true);
     expect(sameDay(new Date(2026, 10, 9, 23, 0).getTime(), now)).toBe(false);
+  });
+});
+
+describe("formatTime", () => {
+  it("writes m:ss, and h:mm:ss from an hour", () => {
+    expect(formatTime(0)).toBe("0:00");
+    expect(formatTime(154_900)).toBe("2:34");
+    expect(formatTime(3_725_000)).toBe("1:02:05");
+  });
+});
+
+describe("fmt", () => {
+  it("groups thousands", () => {
+    expect(fmt(12_345)).toBe("12,345");
   });
 });

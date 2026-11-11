@@ -1,7 +1,6 @@
-import type { TermStatus } from "../../core/classify";
+import type { TermStatus, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";

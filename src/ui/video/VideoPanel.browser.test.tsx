@@ -63,7 +63,7 @@ const ROWS: WordRow[] = [
   },
 ];
 
-const base: VideoPanelProps = {
+const base: VideoPanelProps<WordRow> = {
   tab: "transcript",
   onTab: () => {},
   words: ROWS,
@@ -461,6 +461,8 @@ describe("the tabs", () => {
     await screen.getByRole("button", { name: "New 1" }).click();
     expect(onWordsFilter).toHaveBeenCalledWith("new");
     await screen.getByRole("button", { name: /^bunch/ }).click();
-    expect(onOpenWord).toHaveBeenCalledWith("word\nbunch");
+    expect(onOpenWord).toHaveBeenCalledWith(
+      expect.objectContaining({ head: "bunch" }),
+    );
   });
 });

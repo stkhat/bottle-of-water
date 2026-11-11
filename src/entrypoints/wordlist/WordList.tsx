@@ -2,6 +2,7 @@ import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { sendStatus } from "../../content/lookup/status";
 import { warn } from "../../content/lookup/warn";
+import type { WordStatus } from "../../core/classify";
 import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
 import { PacksUnavailableError } from "../../core/packs/unavailable";
@@ -11,26 +12,22 @@ import { t, type MessageKey } from "../../i18n/t";
 import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
 import {
   BackupButtons,
+  BackupStatus,
   type BackupDeps,
   type BackupNote,
 } from "../../ui/backup/BackupButtons";
+import { BrandHeader } from "../../ui/BrandHeader";
 import { sameDay, shortDate } from "../../ui/format/format";
-import { ElsewhereRow } from "../../ui/lookup/DictionaryWindow";
+import { SearchIcon } from "../../ui/icons";
 import { occurrenceItem } from "../../ui/lookup/elsewhere";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
+import { ElsewhereRow } from "../../ui/lookup/ElsewhereRow";
+import { EntryHeader } from "../../ui/lookup/EntryHeader";
 import { StatusButtons } from "../../ui/lookup/StatusButtons";
-import {
-  badge,
-  color,
-  FONT,
-  IPA_FONT,
-  iconButton,
-  sectionHeading,
-} from "../../ui/lookup/styles";
+import { Segmented } from "../../ui/Segmented";
+import { color, FONT, iconButton, sectionHeading } from "../../ui/styles";
 
 /** What the word list works with; `main.tsx` passes the browser's, tests pass fakes. */
 export interface WordListDeps extends BackupDeps {
-  /** Says `text` aloud in the language `lang`. */
   speak(text: string, lang: string): void;
   /** The background's pack states now and after every change (`watchPackState`). */
   watchPackState(listener: (states: PackStates) => void): () => void;
@@ -68,15 +65,15 @@ const WINDOW_ABOVE = 500;
 /** Rows rendered beyond the view on each side while windowing. */
 const OVERSCAN = 6;
 
-const STATUS_TABS: readonly [StatusFilter, MessageKey][] = [
-  ["all", "filter.all"],
-  ["learning", "status.learning"],
-  ["known", "status.known"],
+const STATUS_TABS: readonly { id: StatusFilter; label: MessageKey }[] = [
+  { id: "all", label: "filter.all" },
+  { id: "learning", label: "status.learning" },
+  { id: "known", label: "status.known" },
 ];
-const KIND_TABS: readonly [KindFilter, MessageKey][] = [
-  ["all", "filter.all"],
-  ["word", "kind.words"],
-  ["phrase", "kind.phrases"],
+const KIND_TABS: readonly { id: KindFilter; label: MessageKey }[] = [
+  { id: "all", label: "filter.all" },
+  { id: "word", label: "kind.words" },
+  { id: "phrase", label: "kind.phrases" },
 ];
 const SORTS: readonly [Sort, MessageKey][] = [
   ["recent", "wordlist.sort.recent"],
@@ -91,56 +88,22 @@ const COMPARE: Record<Sort, (a: TermSummary, b: TermSummary) => number> = {
   seen: (a, b) => b.seen - a.seen || b.lastSeen - a.lastSeen || byKey(a, b),
 };
 
-/** Mock WordList `segBtn`: a segmented control's button. */
-const segment = (active: boolean): Style => ({
-  height: "34px",
-  padding: "0 14px",
-  borderRadius: "8px",
-  border: 0,
-  font: "inherit",
-  fontSize: "13px",
-  cursor: "pointer",
-  ...(active
-    ? {
-        background: color.raised,
-        color: color.ink,
-        fontWeight: 600,
-        boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
-      }
-    : { background: "transparent", color: color.ink3 }),
-});
-
-function Segmented<T extends string>(props: {
+/** Mock WordList's filters: a segmented control on the tab gray. */
+function FilterTabs<T extends string>(props: {
   label: string;
-  tabs: readonly [T, MessageKey][];
+  tabs: readonly { id: T; label: MessageKey }[];
   value: T;
-  onChange: (value: T) => void;
+  onPick: (value: T) => void;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={props.label}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-        gap: "2px",
-        padding: "3px",
-        borderRadius: "10px",
-        background: color.tab,
-      }}
-    >
-      {props.tabs.map(([value, label]) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={props.value === value}
-          onClick={() => props.onChange(value)}
-          style={segment(props.value === value)}
-        >
-          {t(label)}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label={props.label}
+      options={props.tabs.map((tab) => ({ ...tab, label: t(tab.label) }))}
+      value={props.value}
+      onPick={props.onPick}
+      style={{ background: color.tab }}
+      button={() => ({ height: "34px", padding: "0 14px" })}
+    />
   );
 }
 
@@ -367,23 +330,6 @@ function Rows(props: {
   );
 }
 
-const SPEAKER = (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.8"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
-    <path d="M16 9a4 4 0 0 1 0 6"></path>
-    <path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"></path>
-  </svg>
-);
-
 /** The occurrence a removed word is saved again from: where it was saved, else the newest. */
 const savedFrom = (occurrences: readonly OccurrenceView[]) =>
   occurrences.find((o) => o.origin === "saved") ?? occurrences[0];
@@ -400,7 +346,6 @@ function DetailsPanel(props: {
   const { details, now } = props;
   const { entry, term, occurrences } = details;
   const head = entry?.head ?? term.key;
-  const ipa = entry?.ipa ?? details.ipa;
   const items = occurrences.map((o) => {
     const item = occurrenceItem(o);
     const parts = [item.meta];
@@ -434,67 +379,16 @@ function DetailsPanel(props: {
           gap: "18px",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              flexWrap: "wrap",
-            }}
-          >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "26px",
-                fontWeight: 650,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              {head}
-            </h2>
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: color.greenDark,
-                background: color.greenPale,
-                borderRadius: "999px",
-                padding: "3px 9px",
-              }}
-            >
-              {t(term.kind === "phrase" ? "kind.phrase" : "kind.word")}
-            </span>
-            <button
-              type="button"
-              class="ib"
-              aria-label={t("dict.speak")}
-              onClick={() => props.onSpeak(head)}
-              style={iconButton}
-            >
-              {SPEAKER}
-            </button>
-          </div>
-          {ipa && (
-            <span
-              style={{
-                fontFamily: IPA_FONT,
-                fontSize: "16px",
-                color: color.ink3,
-              }}
-            >
-              {ipa}
-            </span>
-          )}
-          {entry?.short && (
-            <p
-              lang={entry.glossLang ?? props.nativeLang}
-              style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
-            >
-              {entry.short}
-            </p>
-          )}
-        </div>
+        <EntryHeader
+          head={head}
+          kind={term.kind}
+          ipa={entry?.ipa ?? details.ipa}
+          short={entry?.short}
+          shortLang={entry?.glossLang ?? props.nativeLang}
+          onSpeak={() => props.onSpeak(head)}
+          speakStyle={iconButton}
+          speakClass="ib"
+        />
 
         <StatusButtons
           status={details.status}
@@ -713,25 +607,14 @@ export function WordList({ deps }: { deps: WordListDeps }) {
     >
       <style>{CSS}</style>
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <span style={badge(32, 9, 16)}>L</span>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>
-          {t("wordlist.title")}
-        </h1>
-        <span style={{ fontSize: "14px", color: color.muted }}>
-          {languagePair(langs.learning, langs.native)}
-        </span>
+        <BrandHeader
+          size="page"
+          heading
+          title={t("wordlist.title")}
+          pair={languagePair(langs.learning, langs.native)}
+        />
         <span style={{ flex: 1 }}></span>
-        {note && (
-          <span
-            role="status"
-            style={{
-              fontSize: "13px",
-              color: note.ok ? color.greenDark : color.danger,
-            }}
-          >
-            {note.text}
-          </span>
-        )}
+        <BackupStatus note={note} />
         <BackupButtons
           deps={deps}
           class="btn"
@@ -763,19 +646,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             color: color.muted,
           }}
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="6"></circle>
-            <path d="M20 20l-4.5-4.5"></path>
-          </svg>
+          <SearchIcon />
           <input
             type="search"
             aria-label={t("wordlist.search")}
@@ -794,17 +665,17 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             }}
           />
         </label>
-        <Segmented
+        <FilterTabs
           label={t("wordlist.status")}
           tabs={STATUS_TABS}
           value={status}
-          onChange={setStatus}
+          onPick={setStatus}
         />
-        <Segmented
+        <FilterTabs
           label={t("wordlist.kind")}
           tabs={KIND_TABS}
           value={kind}
-          onChange={setKind}
+          onPick={setKind}
         />
         <span style={{ flex: 1 }}></span>
         <label for="sort" style={{ fontSize: "13px", color: color.muted }}>

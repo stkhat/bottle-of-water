@@ -1,7 +1,8 @@
 import type { CSSProperties } from "preact";
 import type { DataNote } from "../../core/packs/state";
 import { t } from "../../i18n/t";
-import { color } from "../lookup/styles";
+import { Meter } from "../Meter";
+import { color } from "../styles";
 
 type Style = CSSProperties;
 
@@ -68,26 +69,7 @@ export function LanguageDataNote(props: {
       }}
     >
       <span>{t("data.downloading", { language, percent: note.percent })}</span>
-      <span
-        aria-hidden="true"
-        style={{
-          display: "block",
-          width: "100%",
-          height: "6px",
-          borderRadius: "3px",
-          background: color.line,
-        }}
-      >
-        <span
-          style={{
-            display: "block",
-            width: `${note.percent}%`,
-            height: "100%",
-            borderRadius: "3px",
-            background: color.greenBright,
-          }}
-        ></span>
-      </span>
+      <Meter share={note.percent} />
     </div>
   );
 }

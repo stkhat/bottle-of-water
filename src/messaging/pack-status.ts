@@ -1,16 +1,21 @@
 import { dataNote, type DataNote, type PackStates } from "../core/packs/state";
+import type { Settings } from "../core/settings";
 import type { send } from "./client";
 import type { PackStatus } from "./protocol";
 
 /** What following the language data needs; the browser's or a test's. */
 export interface PackStatusDeps {
   send: typeof send;
-  /** `watchPackState` (./pack-state.ts): the states now, then each change. */
+  /** `watchPackState` (./storage.ts): the states now, then each change. */
   watchPackState(listener: (states: PackStates) => void): () => void;
+  /** `watchSettings` (./storage.ts). */
+  watchSettings(
+    listener: (settings: Settings, previous: Settings) => void,
+  ): () => void;
 }
 
 export interface PackStatusFollower {
-  /** Asks the background again: another pair was chosen, or a pack was removed. */
+  /** Asks the background again (a pack was removed). */
   refresh(): void;
   stop(): void;
 }
@@ -33,8 +38,9 @@ function withStates(status: PackStatus, states: PackStates): PackStatus {
 /**
  * Follows the chosen pair's language data for the popup, Settings and the video
  * column: asks the background for `packStatus`, then applies each change of the pack
- * states (`packState`) to the pair's packs. An answer that comes after a newer one is
- * dropped; a failed one leaves the last status.
+ * states (`packState`) to the pair's packs, and asks again when another pair is
+ * chosen. An answer that comes after a newer one is dropped; a failed one leaves the
+ * last status.
  */
 export function followPackStatus(
   deps: PackStatusDeps,
@@ -67,12 +73,20 @@ export function followPackStatus(
     states = next;
     emit();
   });
+  const unwatchSettings = deps.watchSettings((next, previous) => {
+    if (
+      next.learningLang !== previous.learningLang ||
+      next.nativeLang !== previous.nativeLang
+    )
+      refresh();
+  });
   refresh();
   return {
     refresh,
     stop() {
       stopped = true;
       unwatch();
+      unwatchSettings();
     },
   };
 }

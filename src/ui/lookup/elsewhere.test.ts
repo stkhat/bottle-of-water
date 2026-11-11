@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OccurrenceView } from "../../messaging/protocol";
-import { elsewhereItems, formatTime, occurrenceItem } from "./elsewhere";
+import { elsewhereItems, occurrenceItem } from "./elsewhere";
 
 /** Nov 8 and Nov 10, 2026, at noon local time. */
 const NOV_8 = new Date(2026, 10, 8, 12).getTime();
@@ -18,14 +18,6 @@ const view = (patch: Partial<OccurrenceView>): OccurrenceView => ({
   },
   link: "https://www.youtube.com/watch?v=abc&t=100s",
   ...patch,
-});
-
-describe("formatTime", () => {
-  it("writes m:ss, and h:mm:ss from an hour", () => {
-    expect(formatTime(0)).toBe("0:00");
-    expect(formatTime(154_900)).toBe("2:34");
-    expect(formatTime(3_725_000)).toBe("1:02:05");
-  });
 });
 
 describe("occurrenceItem and elsewhereItems", () => {

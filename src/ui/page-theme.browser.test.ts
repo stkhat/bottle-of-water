@@ -7,7 +7,7 @@ import {
 import type { send } from "../messaging/client";
 import { colorScheme } from "../testing/media";
 import { listeners } from "../testing/stubs";
-import { color } from "./lookup/styles";
+import { color } from "./styles";
 import { followTheme } from "./page-theme";
 import { palettes } from "./theme";
 

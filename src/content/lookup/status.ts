@@ -1,6 +1,6 @@
+import type { WordStatus } from "../../core/classify";
 import type { send as sendFn } from "../../messaging/client";
 import type { SaveTermInput } from "../../messaging/protocol";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
 
 /**
  * Sends a term's new status: "new" removes it, a term not saved yet is saved (`save`

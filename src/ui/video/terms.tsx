@@ -1,7 +1,7 @@
 import type { CSSProperties, JSX } from "preact";
 import type { Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
-import { termMark } from "../lookup/styles";
+import { termMark } from "../styles";
 
 type Style = CSSProperties;
 

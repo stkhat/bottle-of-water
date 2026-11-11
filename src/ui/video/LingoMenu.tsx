@@ -10,17 +10,16 @@ import {
 } from "../../core/settings";
 import { t } from "../../i18n/t";
 import { fromUser } from "../from-user";
-import { badge, color, root } from "../lookup/styles";
-import { Switch } from "../lookup/Switch";
 import { GearIcon } from "../icons";
+import { Segmented } from "../Segmented";
+import { badge, color, root, sectionHeading } from "../styles";
+import { Switch } from "../Switch";
 
 export interface LingoMenuProps {
-  /** Lingo is on for this video. */
   enabled: boolean;
   position: Settings["subtitlePosition"];
   /** The subtitle position group; not in fullscreen (mock Fullscreen). Default: shown. */
   showPositions?: boolean;
-  /** The subtitle translation switch. */
   showTranslation: boolean;
   /** `Settings.subtitleSize`, or the value being dragged. */
   size: number;
@@ -43,7 +42,6 @@ const POSITIONS = [
   ["belowVideo", "video.menu.belowVideo"],
 ] as const;
 
-/** A labelled slider row: label on the left, the range on the right. */
 function MenuSlider(props: {
   label: string;
   value: number;
@@ -217,65 +215,21 @@ export function LingoMenu(props: LingoMenuProps) {
       />
       {props.showPositions !== false && (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span
-            style={{
-              flex: "none",
-              fontSize: "12px",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: color.muted,
-              fontWeight: 600,
-            }}
-          >
+          <span style={{ ...sectionHeading, flex: "none" }}>
             {t("video.menu.subtitles")}
           </span>
-          <div
-            role="group"
-            aria-label={t("subtitle.position")}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: "2px",
-              padding: "3px",
-              borderRadius: "10px",
-              background: color.surfaceGray,
-            }}
-          >
-            {POSITIONS.map(([value, label]) => {
-              const pressed = props.position === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={pressed}
-                  onClick={() => props.onPosition(value)}
-                  style={{
-                    height: "32px",
-                    padding: "0 6px",
-                    margin: 0,
-                    borderRadius: "8px",
-                    border: 0,
-                    font: "inherit",
-                    fontSize: "13px",
-                    whiteSpace: "nowrap",
-                    cursor: "pointer",
-                    ...(pressed
-                      ? {
-                          background: color.raised,
-                          color: color.ink,
-                          fontWeight: 600,
-                          boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
-                        }
-                      : { background: "transparent", color: color.ink3 }),
-                  }}
-                >
-                  {t(label)}
-                </button>
-              );
+          <Segmented
+            label={t("subtitle.position")}
+            options={POSITIONS.map(([id, label]) => ({ id, label: t(label) }))}
+            value={props.position}
+            onPick={props.onPosition}
+            style={{ flex: 1, minWidth: 0 }}
+            button={() => ({
+              height: "32px",
+              padding: "0 6px",
+              whiteSpace: "nowrap",
             })}
-          </div>
+          />
         </div>
       )}
     </div>

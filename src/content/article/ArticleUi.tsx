@@ -4,7 +4,7 @@ import type { Box } from "../lookup/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
-import { color } from "../../ui/lookup/styles";
+import { color } from "../../ui/styles";
 import { ThemeScope } from "../../ui/ThemeScope";
 import { Floating, TOP_LAYER } from "../lookup/Floating";
 import { useStore } from "../store";

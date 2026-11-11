@@ -1,8 +1,8 @@
 import type { CSSProperties, JSX } from "preact";
+import type { WordStatus } from "../../core/classify";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
-import type { WordStatus } from "./HoverCard";
-import { color } from "./styles";
+import { color, statusButton } from "../styles";
 
 type Style = CSSProperties;
 
@@ -13,12 +13,6 @@ const SEGMENT: Style = {
   fontSize: "13px",
   fontWeight: 600,
   cursor: "pointer",
-};
-
-const SEGMENT_OFF: Style = {
-  background: color.card,
-  color: color.ink3,
-  border: `1px solid ${color.lineStrong}`,
 };
 
 /**
@@ -50,7 +44,7 @@ export function StatusButtons(props: {
         onClick={onlyFromUser(() => props.onStatus(value))}
         style={{
           ...SEGMENT,
-          ...(pressed ? on : SEGMENT_OFF),
+          ...(pressed ? on : statusButton.known(false)),
           ...(disabled && { cursor: "default", opacity: 0.5 }),
         }}
       >
@@ -73,21 +67,13 @@ export function StatusButtons(props: {
       {segment(
         "learning",
         t("status.learning"),
-        {
-          background: color.green,
-          color: color.white,
-          border: `1px solid ${color.green}`,
-        },
+        statusButton.learning(true),
         cannotSave,
       )}
       {segment(
         "known",
         t("status.known"),
-        {
-          background: color.ink,
-          color: color.onInk,
-          border: `1px solid ${color.ink}`,
-        },
+        statusButton.known(true),
         cannotSave,
       )}
       {segment(

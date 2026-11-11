@@ -1,31 +1,30 @@
-import type { Span } from "../../core/classify";
+import type { Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
-import { highlight } from "../../ui/lookup/styles";
+import { highlight } from "../../ui/styles";
+import { palettes } from "../../ui/theme";
 import { rangeOf, type TextBlock } from "./page-text";
 
-export type HighlightCategory = keyof Settings["highlight"];
-
-const CATEGORIES: readonly HighlightCategory[] = ["new", "learning", "known"];
+const CATEGORIES: readonly WordStatus[] = ["new", "learning", "known"];
 
 /** The names the highlights are registered under in `CSS.highlights`. */
-export const HIGHLIGHT_NAMES: Readonly<Record<HighlightCategory, string>> = {
+export const HIGHLIGHT_NAMES: Readonly<Record<WordStatus, string>> = {
   new: "lingo-new",
   learning: "lingo-learning",
   known: "lingo-known",
 };
 
 /** Backgrounds where highlights cannot be underlined (the chip swatches). */
-const FALLBACK_BACKGROUND: Readonly<Record<HighlightCategory, string>> = {
+const FALLBACK_BACKGROUND: Readonly<Record<WordStatus, string>> = {
   new: highlight.page.new.background,
   learning: highlight.page.learning.background,
-  known: "#F1F2F5",
+  known: palettes.light.surfaceGray,
 };
 
 /**
  * The text color under a highlight's background (the mock's ink): the backgrounds are
  * light, so white text on a dark page (YouTube's dark theme) would vanish on them.
  */
-const INK_ON_BACKGROUND = "#14182B";
+const INK_ON_BACKGROUND = palettes.light.ink;
 
 /**
  * Where the underline sits below the baseline, the same for every category: flush
@@ -71,13 +70,12 @@ export interface Highlighter {
 }
 
 interface Placed {
-  category: HighlightCategory;
+  category: WordStatus;
   range: Range;
 }
 
-const isHighlighted = (
-  category: Span["category"],
-): category is HighlightCategory => category !== "ignored";
+const isHighlighted = (category: Span["category"]): category is WordStatus =>
+  category !== "ignored";
 
 /**
  * Highlights spans with the CSS Custom Highlight API: one `Highlight` per category,
@@ -88,7 +86,7 @@ const isHighlighted = (
 export function createHighlighter(on: Settings["highlight"]): Highlighter {
   const highlights = Object.fromEntries(
     CATEGORIES.map((c) => [c, new Highlight()]),
-  ) as Record<HighlightCategory, Highlight>;
+  ) as Record<WordStatus, Highlight>;
   const placed = new Map<TextBlock, Placed[]>();
 
   const sheet = new CSSStyleSheet();

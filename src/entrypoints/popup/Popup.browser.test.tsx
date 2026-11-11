@@ -10,7 +10,7 @@ import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import { Popup, type PopupDeps } from "./Popup";
-import { listeners } from "../../testing/stubs";
+import { listeners, settingsListeners } from "../../testing/stubs";
 
 const NOW = Date.UTC(2026, 10, 10, 12, 0, 0);
 const MINUTE = 60_000;
@@ -63,7 +63,7 @@ function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let page = options.page;
   let counts = options.counts ?? { learning: 128, known: 2341, phrases: 37 };
-  const settingsWatchers = listeners<Settings>();
+  const settingsWatchers = settingsListeners(settings);
   const packWatchers = listeners<PackStates>();
   const sent: Request[] = [];
   const asked: PageRequest[] = [];

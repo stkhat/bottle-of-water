@@ -1,12 +1,10 @@
 import type { CSSProperties } from "preact";
-import { tokens } from "../theme";
+import type { WordStatus } from "../core/classify";
+import { palettes, tokens } from "./theme";
 
 type Style = CSSProperties;
 
-/**
- * The palette shared by every UI part (mock: Main, Article, Toolbar), as theme
- * variables (`../theme`). `white` stays white: text on green and the switch knob.
- */
+/** The theme's colors as variables (`./theme`). `white` stays white: text on green, the switch knob. */
 export const color = { ...tokens, white: "#FFFFFF" } as const;
 
 export const FONT =
@@ -20,16 +18,18 @@ export const IPA_FONT = "'Noto Sans', system-ui, sans-serif";
 /** "On this page" sentences follow the mock article's serif. */
 export const SERIF_FONT = "'Source Serif 4', Georgia, serif";
 
+const light = palettes.light;
+
 /**
- * Highlight colors per category: `page` painted into a website's own text (never
- * themed), `ui` in Lingo's own panels (themed), `onVideo` brighter for subtitles
- * drawn over a dark video (mock Main `hlStyle` / `ovStyle`).
+ * Highlight colors: `page` is painted into a website's own text (never themed), `ui`
+ * is in Lingo's own panels (themed), `onVideo` is brighter for subtitles over a dark
+ * video (mock Main `hlStyle` / `ovStyle`).
  */
 export const highlight = {
   page: {
-    learning: { background: "#D3F1E5", underline: "#0F9F7E" },
-    new: { background: "#EAF0FD", underline: "#2F6FE4" },
-    known: { background: undefined, underline: "#A3A8B7" },
+    learning: { background: light.hlLearning, underline: light.hlLearningLine },
+    new: { background: light.hlNew, underline: light.hlNewLine },
+    known: { background: undefined, underline: light.knownLine },
   },
   ui: {
     learning: { background: color.hlLearning, underline: color.hlLearningLine },
@@ -43,24 +43,25 @@ export const highlight = {
   },
 } as const;
 
-/**
- * A term's highlight (background, when the category has one, and a 2px underline) in
- * the given colors, whatever the highlight switches say.
- */
+/** The mock's highlight bar: an inset line at the bottom of the box. */
+export const underline = (line: string, px = 2) => `inset 0 -${px}px 0 ${line}`;
+
+/** A term's highlight (its background, if any, and the bar), whatever the switches say. */
 export function termMark(
-  category: keyof typeof highlight.ui,
+  status: WordStatus,
   colors: "ui" | "onVideo",
+  px = 2,
 ): Style {
-  const { background, underline } = highlight[colors][category];
+  const { background, underline: line } = highlight[colors][status];
   return {
     ...(background && { backgroundColor: background }),
-    boxShadow: `inset 0 -2px 0 ${underline}`,
+    boxShadow: underline(line, px),
   };
 }
 
 /**
- * The root of every lookup part. `all: initial` comes first so page styles inherited
- * through the shadow host cannot leak in; then the base font and color.
+ * The root of every part on a web page: `all: initial` first, so page styles inherited
+ * through the shadow host cannot leak in.
  */
 export function root(style: Style): Style {
   return {
@@ -93,7 +94,7 @@ export function badge(size: number, radius: number, fontSize: number): Style {
   };
 }
 
-/** Mock `.ib`: a 40px square icon button. */
+/** Mock `.ib`. */
 export const iconButton: Style = {
   display: "inline-flex",
   alignItems: "center",
@@ -110,7 +111,7 @@ export const iconButton: Style = {
   margin: 0,
 };
 
-/** Mock `.sh`: an uppercase section heading. */
+/** Mock `.sh`. */
 export const sectionHeading: Style = {
   margin: 0,
   fontSize: "12px",
@@ -120,7 +121,7 @@ export const sectionHeading: Style = {
   fontWeight: 600,
 };
 
-/** "+ Learning" / "Known": the selected state is filled. */
+/** Learning and Known buttons: the selected one is filled. */
 export const statusButton = {
   learning: (selected: boolean): Style =>
     selected

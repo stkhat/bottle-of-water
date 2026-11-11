@@ -1,4 +1,4 @@
-import type { Span, TermStatus } from "../../core/classify";
+import type { Span, TermStatus, WordStatus } from "../../core/classify";
 import type { DataNote } from "../../core/packs/state";
 import type { Settings, SettingsPatch } from "../../core/settings";
 import type { SubtitleLine } from "../../core/subtitles/cues";
@@ -7,13 +7,13 @@ import type { Cue } from "../../core/subtitles/types";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import type { TermBrief } from "../../messaging/protocol";
 import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
-import type { HighlightCategory } from "../../ui/lookup/HighlightChips";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
-import type { PanelTab } from "../../ui/video/VideoPanel";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
 import type { WordsFilter } from "./words";
+
+/** The tabs of the column beside the video. */
+type PanelTab = "transcript" | "words";
 
 /** Where a hovered word is shown. */
 export type WordPlace = "subtitle" | "transcript";
@@ -136,7 +136,7 @@ export interface VideoApp {
   closePanel(): void;
   /** A line of the window's "In this video" was clicked. */
   seekTo(ms: number): void;
-  toggleHighlight(category: HighlightCategory): void;
+  toggleHighlight(category: WordStatus): void;
   /** The menu's and the transcript's switches. */
   changeSettings(patch: SettingsPatch): void;
   /**
