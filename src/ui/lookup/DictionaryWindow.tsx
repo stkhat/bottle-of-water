@@ -1,6 +1,7 @@
-import type { CSSProperties } from "preact";
+import type { CSSProperties, JSX } from "preact";
 import { t } from "../../i18n/t";
 import type { WordStatus } from "./HoverCard";
+import { keepOpen } from "./keep-open";
 import { MachineTranslationMark } from "./MachineTranslationMark";
 import {
   IPA_FONT,
@@ -10,6 +11,7 @@ import {
   iconButton,
   root,
   sectionHeading,
+  termMark,
 } from "./styles";
 import { StatusButtons } from "./StatusButtons";
 import { useDrag } from "./useDrag";
@@ -44,6 +46,12 @@ export interface DictionaryEntryView {
 export interface HereItem {
   time?: string;
   text: string;
+  /** The term's place in `text` (each part of a phrase with a gap), drawn highlighted. */
+  marks?: {
+    start: number;
+    end: number;
+    category: "new" | "learning" | "known";
+  }[];
   onClick?: () => void;
 }
 
@@ -156,6 +164,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
         ref={drag.ref}
         aria-label={t("dict.window")}
         onKeyDown={onKeyDown}
+        onPointerDown={keepOpen}
         style={root({
           ...BOX,
           left: `${drag.pos.left}px`,
@@ -235,6 +244,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
     <aside
       aria-label={t("dict.title")}
       onKeyDown={onKeyDown}
+      onPointerDown={keepOpen}
       style={root({
         ...BOX,
         top: `${props.frame.top}px`,
@@ -574,7 +584,7 @@ function HereRow(props: {
           {item.time}
         </span>
       )}
-      <span lang={props.lang}>{item.text}</span>
+      <span lang={props.lang}>{marked(item)}</span>
     </>
   );
   return item.onClick ? (
@@ -588,6 +598,33 @@ function HereRow(props: {
   ) : (
     <div style={style}>{children}</div>
   );
+}
+
+/** The item's text with its marks highlighted as in the transcript. */
+function marked(item: HereItem) {
+  const marks = [...(item.marks ?? [])].sort((a, b) => a.start - b.start);
+  const out: (string | JSX.Element)[] = [];
+  let at = 0;
+  for (const mark of marks) {
+    if (mark.start < at) continue;
+    if (mark.start > at) out.push(item.text.slice(at, mark.start));
+    out.push(
+      <span
+        key={mark.start}
+        data-mark
+        style={{
+          ...termMark(mark.category, "ui"),
+          padding: "0 2px",
+          borderRadius: "4px",
+        }}
+      >
+        {item.text.slice(mark.start, mark.end)}
+      </span>,
+    );
+    at = mark.end;
+  }
+  if (at < item.text.length) out.push(item.text.slice(at));
+  return out;
 }
 
 /** An occurrence in another source: its icon, title, meta and sentence; a link when it has one. */

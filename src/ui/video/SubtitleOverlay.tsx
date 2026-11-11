@@ -3,6 +3,7 @@ import type { Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
+import { keepOpen } from "../lookup/keep-open";
 import { color, root } from "../lookup/styles";
 import { renderTerms, termStyle } from "./terms";
 
@@ -159,6 +160,7 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
           props.onWordEnter(index, e.currentTarget as HTMLElement),
         )}
         onPointerLeave={() => props.onWordLeave()}
+        onPointerDown={keepOpen}
         onClick={onlyFromUser(() => props.onWordClick(index))}
         style={{
           // As in the mock: a phrase is not broken across lines.

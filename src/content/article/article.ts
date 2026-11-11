@@ -866,6 +866,9 @@ export async function startArticle(
     escape() {
       if (store.get().panel) closePanel();
     },
+    pressAway() {
+      if (store.get().panel) closePanel();
+    },
     scroll: onScroll,
   });
 

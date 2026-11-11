@@ -896,8 +896,19 @@ describe("words in the subtitles", () => {
     expect(state().panel).toMatchObject({
       ref,
       here: [
-        { cue: 0, timeMs: 0, text: "The yeast smells tangy." },
-        { cue: 2, timeMs: 2500, text: "It is a tangy loaf." },
+        {
+          cue: 0,
+          timeMs: 0,
+          text: "The yeast smells tangy.",
+          // The term in each line, with its category.
+          marks: [{ start: 17, end: 22, category: "new" }],
+        },
+        {
+          cue: 2,
+          timeMs: 2500,
+          text: "It is a tangy loaf.",
+          marks: [{ start: 8, end: 13, category: "new" }],
+        },
       ],
     });
     expect(state().panel!.dictionaries.map((d) => d.label)).toEqual([

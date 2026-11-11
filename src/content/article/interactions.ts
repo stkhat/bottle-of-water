@@ -11,6 +11,8 @@ export interface InteractionCallbacks {
   /** The page's selection settled (the pointer is up); undefined when it is collapsed. */
   selection(range: Range | undefined): void;
   escape(): void;
+  /** The user pressed the page somewhere other than a word a click opens. */
+  pressAway(): void;
   /** The page or an element in it scrolled, or the window was resized. */
   scroll(): void;
 }
@@ -127,6 +129,7 @@ export function watchInteractions(
     if (!fromUser(event) || inLingoUi(event)) return;
     pressed = true;
     hideNow();
+    if (!opensWord(event)) cb.pressAway();
   }
 
   function readSelection(delay: number) {
@@ -149,6 +152,13 @@ export function watchInteractions(
 
   function onSelectionChange() {
     if (!pressed) readSelection(selectionDelayMs);
+  }
+
+  /** A click at the event's point would open a word (see `onClick`). */
+  function opensWord(event: MouseEvent): boolean {
+    const target = event.target;
+    if (target instanceof Element && target.closest(INTERACTIVE)) return false;
+    return cb.spanAt(event.clientX, event.clientY) !== undefined;
   }
 
   function onClick(event: MouseEvent) {

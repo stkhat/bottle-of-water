@@ -85,6 +85,10 @@ const base: VideoPanelProps = {
   onToggleHighlight: () => {},
   current: 1,
   onSeek: () => {},
+  onWordEnter: () => {},
+  onWordLeave: () => {},
+  onWordClick: () => {},
+  onListScroll: () => {},
   learningLang: "en",
   nativeLang: "ja",
   height: 300,
@@ -210,6 +214,85 @@ describe("the Transcript tab", () => {
     );
     await screen.getByRole("button", { name: /^1:09/ }).click();
     expect(onSeek).toHaveBeenCalledWith(3);
+  });
+
+  test("a word tells when the pointer enters and leaves it; clicking it opens it, not a seek", async () => {
+    const onWordEnter = vi.fn();
+    const onWordLeave = vi.fn();
+    const onWordClick = vi.fn();
+    const onSeek = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel
+        {...base}
+        onWordEnter={onWordEnter}
+        onWordLeave={onWordLeave}
+        onWordClick={onWordClick}
+        onSeek={onSeek}
+      />,
+    );
+    const bunch = screen.getByText("bunch").element() as HTMLElement;
+    await userEvent.hover(bunch);
+    expect(onWordEnter).toHaveBeenCalledWith(2, 0, bunch);
+    await userEvent.unhover(bunch);
+    expect(onWordLeave).toHaveBeenCalled();
+    await userEvent.click(bunch);
+    expect(onWordClick).toHaveBeenCalledWith(2, 0);
+    expect(onSeek).not.toHaveBeenCalled();
+    // Elsewhere on the card still seeks.
+    await screen.getByText("1:03").click();
+    expect(onSeek).toHaveBeenCalledWith(2);
+  });
+
+  test("ignores the pointer and clicks a page script makes on a word", async () => {
+    const onWordEnter = vi.fn();
+    const onWordClick = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel
+        {...base}
+        onWordEnter={onWordEnter}
+        onWordClick={onWordClick}
+      />,
+    );
+    const bunch = screen.getByText("bunch").element();
+    bunch.dispatchEvent(new PointerEvent("pointerenter"));
+    bunch.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onWordEnter).not.toHaveBeenCalled();
+    expect(onWordClick).not.toHaveBeenCalled();
+  });
+
+  test("tells when its list scrolls", async () => {
+    const onListScroll = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} height={200} onListScroll={onListScroll} />,
+    );
+    const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    list.scrollTop = 40;
+    await expect.poll(() => onListScroll.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  test("holds its auto-scroll while a word's card shows", async () => {
+    const many: Cue[] = Array.from({ length: 40 }, (_, i) => ({
+      startMs: i * 1000,
+      endMs: i * 1000 + 1000,
+      text: `Line number ${i}.`,
+    }));
+    const props = {
+      ...base,
+      cues: many,
+      spans: many.map(() => []),
+      translations: many.map(() => ""),
+      current: 0,
+    };
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...props} holdScroll />,
+    );
+    const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    screen.rerender(<VideoPanel {...props} holdScroll current={30} />);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(list.scrollTop).toBe(0);
+    // Once the card goes, the next card brings the list along.
+    screen.rerender(<VideoPanel {...props} current={31} />);
+    await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
   });
 
   test("scrolls the playing card into view inside its list, not the page", async () => {
