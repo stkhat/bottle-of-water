@@ -24,31 +24,40 @@ const CHIPS: readonly {
   {
     id: "new",
     label: "card.chip.new",
-    swatch: { boxShadow: "inset 0 -3px 0 #2F6FE4", background: "#EAF0FD" },
+    swatch: {
+      boxShadow: `inset 0 -3px 0 ${color.hlNewLine}`,
+      background: color.hlNew,
+    },
   },
   {
     id: "learning",
     label: "card.chip.learning",
-    swatch: { background: "#D3F1E5", boxShadow: "inset 0 -3px 0 #0F9F7E" },
+    swatch: {
+      background: color.hlLearning,
+      boxShadow: `inset 0 -3px 0 ${color.hlLearningLine}`,
+    },
   },
   {
     id: "known",
     label: "card.chip.known",
-    swatch: { boxShadow: "inset 0 -3px 0 #A3A8B7", background: "#F1F2F5" },
+    swatch: {
+      boxShadow: `inset 0 -3px 0 ${color.knownLine}`,
+      background: color.surfaceGray,
+    },
   },
 ];
 
 const LOOK = {
   on: {
-    background: color.white,
+    background: color.card,
     color: color.ink,
-    border: "1px solid #8C92A3",
+    border: `1px solid ${color.chipLine}`,
     fontWeight: 600,
   },
   off: {
     background: "transparent",
     color: color.muted,
-    border: "1px dashed #C9CDD6",
+    border: `1px dashed ${color.track}`,
   },
 };
 

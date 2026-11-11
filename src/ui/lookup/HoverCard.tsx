@@ -75,7 +75,7 @@ export function HoverCard(props: HoverCardProps) {
         display: "block",
         width: box.width,
         padding: "14px",
-        background: color.white,
+        background: color.card,
         border: `1px solid ${color.line}`,
         borderRadius: "12px",
         boxShadow: box.boxShadow,

@@ -5,6 +5,7 @@ import { watchSettings } from "../../background/settings-store";
 import { createBrowserEnv } from "../../core/browser-env";
 import { send } from "../../messaging/client";
 import type { PageSummary } from "../../messaging/page-protocol";
+import { followTheme } from "../../ui/page-theme";
 import { Popup, type PopupDeps } from "./Popup";
 
 const deps: PopupDeps = {
@@ -41,5 +42,6 @@ const deps: PopupDeps = {
   refreshMs: 1000,
 };
 
+followTheme(deps);
 document.body.style.margin = "0";
 render(<Popup deps={deps} />, document.getElementById("app")!);

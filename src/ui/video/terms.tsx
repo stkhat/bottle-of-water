@@ -6,13 +6,13 @@ import { highlight } from "../lookup/styles";
 type Style = CSSProperties;
 
 /**
- * A term's highlight: mock Main `hlStyle` (`page`) or the brighter `ovStyle` over a
+ * A term's highlight: mock Main `hlStyle` (`ui`, themed) or the brighter `ovStyle` over a
  * dark video (`onVideo`). Nothing for categories that are switched off.
  */
 export function termStyle(
   category: Span["category"],
   on: Settings["highlight"],
-  colors: "page" | "onVideo",
+  colors: "ui" | "onVideo",
 ): Style | undefined {
   if (category === "ignored" || !on[category]) return undefined;
   const { background, underline } = highlight[colors][category];

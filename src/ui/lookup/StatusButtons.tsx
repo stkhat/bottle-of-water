@@ -16,7 +16,7 @@ const SEGMENT: Style = {
 };
 
 const SEGMENT_OFF: Style = {
-  background: color.white,
+  background: color.card,
   color: color.ink3,
   border: `1px solid ${color.lineStrong}`,
 };
@@ -85,7 +85,7 @@ export function StatusButtons(props: {
         t("dict.status.known"),
         {
           background: color.ink,
-          color: color.white,
+          color: color.onInk,
           border: `1px solid ${color.ink}`,
         },
         cannotSave,
