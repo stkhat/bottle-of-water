@@ -5,6 +5,9 @@ import {
   type PackFiles,
   type PackName,
 } from "../core/packs/load";
+import { readLock } from "../core/packs/lock";
+import { PacksUnavailableError } from "../core/packs/unavailable";
+import type { HandlerDeps } from "./handlers";
 
 export const TEST_PACKS: PackFiles = {
   en: {
@@ -139,12 +142,17 @@ export const TEST_FILES: Readonly<Record<string, unknown>> = {
 
 /**
  * The real pack loader over a stub of the extension's files (the boundary). Packs in
- * `fail` cannot be read; `fetchJson` records every file read.
+ * `fail` cannot be read; packs in `missing` are not on the device (not downloaded);
+ * `fetchJson` records every file read.
  */
-export function stubPackLoader(fail: ReadonlySet<PackName> = new Set()) {
+export function stubPackLoader(
+  fail: ReadonlySet<PackName> = new Set(),
+  missing: ReadonlySet<PackName> = new Set(),
+) {
   const fetchJson = vi.fn(async (path: string) => {
     const name = path.split("/")[2] as PackName;
     if (fail.has(name)) throw new Error(`could not load ${name}`);
+    if (missing.has(name)) throw new PacksUnavailableError([name]);
     if (!Object.hasOwn(TEST_FILES, path)) throw new Error(`not found: ${path}`);
     return TEST_FILES[path];
   });
@@ -154,4 +162,17 @@ export function stubPackLoader(fail: ReadonlySet<PackName> = new Set()) {
 /** The pack files `loadPack` has read so far, sorted. */
 export function filesRead(loadPack: ReturnType<typeof stubPackLoader>) {
   return loadPack.fetchJson.mock.calls.map(([path]) => path).sort();
+}
+
+/** The downloaded packs of a build that bundles every pack: none stored, none fetched. */
+export function bundledPacks(): HandlerDeps["packs"] {
+  return {
+    lock: readLock(),
+    store: {
+      states: async () => ({}),
+      downloaded: async () => [],
+      remove: async () => {},
+    },
+    retry: () => {},
+  };
 }

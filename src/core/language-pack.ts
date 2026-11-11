@@ -36,7 +36,7 @@ export interface LanguagePack {
   readonly matcher: PhraseMatcher;
 }
 
-/** What a learning language's pack is built from (public/packs/<lang>/). */
+/** What a learning language's pack is built from (/packs/<lang>/: public/packs/ or data/packs/). */
 export interface LanguagePackData {
   lemmas: LemmaPack;
   freq: FreqPack;

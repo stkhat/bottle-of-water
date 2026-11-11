@@ -4,30 +4,63 @@ import { createHandlers } from "../background/handlers";
 import { forgetNeverRunOnHosts } from "../background/history-hosts";
 import { createHistoryStore } from "../background/history-store";
 import { createLanguageResources } from "../background/language-resources";
-import { loadPack } from "../background/packs";
+import {
+  createPackDownloads,
+  startPackDownloads,
+} from "../background/pack-downloads";
+import { createPackStore } from "../background/pack-store";
+import { createPackSource } from "../background/packs";
 import { getSettings, setSettings } from "../background/settings-store";
 import { watchBuild } from "../background/self-reload";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import { createTermStore } from "../background/term-store";
 import { createTranslationCache } from "../background/translation-cache";
 import { createBrowserEnv } from "../core/browser-env";
+import { createPackLoader } from "../core/packs/load";
+import { readLock } from "../core/packs/lock";
+import { PACK_STATE_KEY } from "../core/packs/state";
 
 /**
  * Runs each time the service worker starts. Everything is created again on a restart:
  * the database opens on first use, packs load on the first request that needs them,
- * and sync pulls what other devices wrote while the worker was stopped.
+ * the chosen pair's downloaded packs are brought to their lock version (a download the
+ * worker stopped carries on), and sync pulls what other devices wrote while the worker
+ * was stopped.
  */
 export default defineBackground(() => {
   const db = openLingoDb();
   const store = createTermStore(db);
   const history = createHistoryStore(db);
   const sync = createBrowserSyncBackend({ store });
+
+  const lock = readLock();
+  const packStore = createPackStore({
+    db,
+    lock,
+    setState: (states) =>
+      browser.storage.local.set({ [PACK_STATE_KEY]: states }),
+  });
+  const loadPack = createPackLoader(
+    createPackSource({ lock, store: packStore }),
+  );
+  const resources = createLanguageResources(loadPack);
+  // A pack whose version switched (or that was removed) is read again when next used.
+  packStore.onSwitch((pack) => {
+    loadPack.forget(pack);
+    resources.forget(pack);
+  });
+  // Registers its listeners synchronously, so an event that wakes the worker is heard.
+  const { retry: retryPacks } = startPackDownloads(
+    createPackDownloads({ store: packStore, getSettings }),
+  );
+
   const handle = createHandlers({
     store,
     history,
     translations: createTranslationCache(db),
     settings: { get: getSettings, set: setSettings },
-    resources: createLanguageResources(loadPack),
+    resources,
+    packs: { lock, store: packStore, retry: retryPacks },
     sync,
     env: () => createBrowserEnv(),
     openOptionsPage: () => browser.runtime.openOptionsPage(),

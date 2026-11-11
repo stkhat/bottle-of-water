@@ -1,9 +1,12 @@
 import type { SourceInput } from "../../background/term-store";
 import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
 import { speechLang } from "../../core/languages";
+import type { PackStates } from "../../core/packs/state";
+import { PacksUnavailableError } from "../../core/packs/unavailable";
 import type { Settings } from "../../core/settings";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
+import type { AnalyzeResult } from "../../messaging/protocol";
 import {
   unsupportedPage,
   type PageRequest,
@@ -14,6 +17,7 @@ import {
   type DictionaryLink,
 } from "../../ui/lookup/externalDictionaries";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
+import { createPackWait } from "../pack-wait";
 import { createStore, type Store } from "../ui/store";
 import { describeTerm, translateSenses, type TermCard } from "./describe";
 import { watchEndOfArticle } from "./end-of-article";
@@ -60,6 +64,11 @@ export interface ArticleDeps {
   send: typeof send;
   /** Calls `listener` with the new settings after every change; returns an unsubscribe. */
   watchSettings(listener: (settings: Settings) => void): () => void;
+  /**
+   * Calls `listener` with the background's pack states now and after every change
+   * (`watchPackState`); returns an unsubscribe.
+   */
+  watchPackState(listener: (states: PackStates) => void): () => void;
   detectLanguage: DetectLanguage;
   /** Mounts Lingo's UI for the page once it qualifies; returns an unmount. */
   mountUi(app: ArticleApp): (() => void) | Promise<() => void>;
@@ -188,7 +197,9 @@ const sameTerm = (span: Span, key: string, kind: TermKind) =>
  * Runs the article UI on the page when it qualifies (`shouldRunArticle`): mounts the
  * UI, analyzes blocks as they come near the viewport, highlights their spans, follows
  * page changes and the settings, and answers hovers, clicks and the UI's controls.
- * Resolves undefined when it does not run.
+ * While the language data is not on the device, the page shows nothing: the blocks
+ * wait, and are analyzed once the data is ready. Resolves undefined when it does not
+ * run.
  */
 export async function startArticle(
   deps: ArticleDeps,
@@ -229,6 +240,13 @@ export async function startArticle(
   const shown = new Set<TextBlock>();
   /** Saved terms the analyses found on the page. */
   const savedKeys = new Set<string>();
+  /** Blocks whose analysis waits for language data that is not on the device. */
+  const waiting = new Set<TextBlock>();
+  const packs = createPackWait(deps.watchPackState, () => {
+    const blocks = [...waiting].filter((block) => live.has(block));
+    waiting.clear();
+    void reanalyze(blocks).catch(warn);
+  });
 
   const store = createStore<ArticleState>({
     settings,
@@ -276,22 +294,36 @@ export async function startArticle(
     recordHistory(entered);
   }
 
+  /**
+   * Classifies blocks and highlights them. While language data is missing (or once a
+   * request finds it missing), the blocks wait for it instead.
+   */
   async function analyze(batch: TextBlock[]) {
+    if (packs.waiting) {
+      for (const block of batch) waiting.add(block);
+      return;
+    }
     const stamps = batch.map((block) => {
       versions.set(block, ++version);
       return version;
     });
-    const result = await deps.send({
-      type: "analyze",
-      lang,
-      blocks: batch.map((b) => b.text),
-    });
+    let result: AnalyzeResult;
+    try {
+      result = await deps.send({
+        type: "analyze",
+        lang,
+        blocks: batch.map((b) => b.text),
+      });
+    } catch (error) {
+      if (!(error instanceof PacksUnavailableError)) throw error;
+      for (const block of batch) waiting.add(block);
+      packs.add(error.packs);
+      return;
+    }
     if (!warmed) {
       // Load the dictionary now so the first hover or click does not wait for it.
       warmed = true;
-      deps
-        .send({ type: "warmDictionary", lang })
-        .catch((error: unknown) => console.warn("Lingo:", error));
+      deps.send({ type: "warmDictionary", lang }).catch(warn);
     }
     const fresh: TextBlock[] = [];
     batch.forEach((block, i) => {
@@ -456,9 +488,7 @@ export async function startArticle(
   // One change to saved terms at a time, in the order asked.
   let queue: Promise<unknown> = Promise.resolve();
   function run(task: () => Promise<unknown>) {
-    queue = queue
-      .then(task)
-      .catch((error: unknown) => console.warn("Lingo:", error));
+    queue = queue.then(task).catch(warn);
   }
 
   const translation = () => ({
@@ -833,6 +863,7 @@ export async function startArticle(
     onChange({ removed, added }) {
       for (const block of removed) {
         live.delete(block);
+        waiting.delete(block);
         spans.delete(block);
         versions.delete(block);
         highlighter.remove(block);
@@ -898,6 +929,7 @@ export async function startArticle(
     handlePageRequest,
     stop() {
       unwatch();
+      packs.stop();
       interactions.stop();
       end.disconnect();
       pageText.disconnect();
@@ -906,13 +938,18 @@ export async function startArticle(
       spans.clear();
       shown.clear();
       live.clear();
+      waiting.clear();
       unmountUi();
     },
   };
 }
 
+/**
+ * Reports a failure in the console; language data that is not on the device yet is
+ * no failure (the page waits for it, and Settings and the popup show the download).
+ */
 function warn(error: unknown) {
-  console.warn("Lingo:", error);
+  if (!(error instanceof PacksUnavailableError)) console.warn("Lingo:", error);
 }
 
 /** The article UI on a page, started and stopped as the site is switched on and off. */

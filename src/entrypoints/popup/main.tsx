@@ -4,6 +4,7 @@ import { browser } from "wxt/browser";
 import { watchSettings } from "../../background/settings-store";
 import { createBrowserEnv } from "../../core/browser-env";
 import { send } from "../../messaging/client";
+import { watchPackState } from "../../messaging/pack-state";
 import type { PageSummary } from "../../messaging/page-protocol";
 import { followTheme } from "../../ui/page-theme";
 import { Popup, type PopupDeps } from "./Popup";
@@ -27,6 +28,7 @@ const deps: PopupDeps = {
     }
   },
   watchSettings,
+  watchPackState,
   syncName: createBrowserEnv().syncName,
   openOptions() {
     void browser.runtime.openOptionsPage().finally(() => window.close());

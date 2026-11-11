@@ -9,17 +9,23 @@ import {
 } from "@playwright/test";
 
 /**
- * Which build to load: `npm run build` (production), or `wxt build --mode check` (the
- * build loaded in your own Chrome, with WXT's dev logging and the self-reload). The
- * production build closes the shadow roots of Lingo's UI on web pages
- * (`src/content/ui/shadow-mode.ts`), so Playwright cannot reach into it there: tests
- * that drive the UI use the check build, whose roots are open.
+ * Which build to load: `npm run build` (production), `wxt build --mode check` (the
+ * build loaded in your own Chrome, with WXT's dev logging and the self-reload), or
+ * `npm run build:check-download` (`--mode check-download`: the check build without the
+ * self-reload, whose Spanish data is downloaded from the local mirror in serve.mjs;
+ * see .env.check-download). The production build closes the shadow roots of Lingo's UI
+ * on web pages (`src/content/ui/shadow-mode.ts`), so Playwright cannot reach into it
+ * there: tests that drive the UI use a check build, whose roots are open.
  */
-export type Build = "production" | "check";
+export type Build = "production" | "check" | "download";
 
 const BUILDS: Record<Build, { dir: string; command: string }> = {
   production: { dir: "chrome-mv3", command: "npm run build" },
   check: { dir: "chrome-mv3-check", command: "wxt build --mode check" },
+  download: {
+    dir: "chrome-mv3-check-download",
+    command: "npm run build:check-download",
+  },
 };
 
 /** The folder of a build. */

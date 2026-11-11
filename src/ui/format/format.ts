@@ -34,6 +34,20 @@ export function megabytes(bytes: number): number {
   return Math.max(1, Math.round(bytes / (1024 * 1024)));
 }
 
+const TENTHS = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/**
+ * MB (1,048,576 bytes) to one decimal, as text ("6.4"); any data at all counts as at
+ * least 0.1 MB.
+ */
+export function megabytesTenths(bytes: number): string {
+  if (bytes <= 0) return TENTHS.format(0);
+  return TENTHS.format(Math.max(0.1, bytes / (1024 * 1024)));
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** `lingo-backup-YYYY-MM-DD.json`, by the local date. */

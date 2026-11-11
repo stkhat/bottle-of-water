@@ -312,6 +312,8 @@ export function TranscriptUi(props: {
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}
+      dataNote={state.dataNote}
+      onRetryData={app.retryPacks}
     />
   );
 }

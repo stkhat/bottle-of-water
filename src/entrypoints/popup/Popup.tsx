@@ -1,11 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
 import type { Counts } from "../../background/term-store";
 import { onHost } from "../../content/article/should-run";
+import type { DataNote, PackStates } from "../../core/packs/state";
 import type { Settings, SettingsPatch } from "../../core/settings";
 import type { SyncStatus } from "../../core/sync/backend";
-import { languagePair } from "../../i18n/languages";
+import { languageName, languagePair } from "../../i18n/languages";
 import { t } from "../../i18n/t";
 import type { send } from "../../messaging/client";
+import { followPackStatus, pairNote } from "../../messaging/pack-status";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import { kilobytes, relativeTime } from "../../ui/format/format";
 import { HighlightChips } from "../../ui/lookup/HighlightChips";
@@ -13,6 +15,7 @@ import { SaveAll } from "../../ui/lookup/SaveAll";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
 import { GearIcon, WordListIcon } from "../../ui/icons";
+import { LanguageDataNote } from "../../ui/packs/LanguageDataNote";
 
 /** What the popup works with; `main.tsx` passes the browser's, tests pass fakes. */
 export interface PopupDeps {
@@ -20,6 +23,8 @@ export interface PopupDeps {
   /** Asks the active tab's content script; undefined when nothing there answers. */
   askPage(request: PageRequest): Promise<PageSummary | undefined>;
   watchSettings(listener: (settings: Settings) => void): () => void;
+  /** The background's pack states now and after every change (`watchPackState`). */
+  watchPackState(listener: (states: PackStates) => void): () => void;
   /** `BrowserEnv.syncName`, e.g. "Chrome sync". */
   syncName: string;
   openOptions(): void;
@@ -143,12 +148,16 @@ const headerButton = {
   cursor: "pointer",
 } as const;
 
-/** The toolbar popup (mock Toolbar): this site, highlights, counts, this page, sync. */
+/**
+ * The toolbar popup (mock Toolbar): the language data while it is missing (mock
+ * LanguageData), this site, highlights, counts, this page, sync.
+ */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
   const [counts, setCounts] = useState<Counts>();
   const [page, setPage] = useState<PageState>("asking");
   const [sync, setSync] = useState<SyncStatus>();
+  const [data, setData] = useState<DataNote | null>(null);
   const [now, setNow] = useState(deps.now);
 
   const warn = (error: unknown) => console.warn("Lingo:", error);
@@ -172,19 +181,28 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       deps.send({ type: "syncStatus" }).then(setSync, warn);
       if (lang) refreshCounts(lang);
     };
+    /** The language pair the language data was asked for. */
+    let pair: string | undefined;
+    const pairOf = (s: Settings) => `${s.learningLang}>${s.nativeLang}`;
     deps.send({ type: "getSettings" }).then((s) => {
       lang = s.learningLang;
+      pair ??= pairOf(s);
       setSettings(s);
       refreshCounts(lang);
     }, warn);
     refresh();
+    const packs = followPackStatus(deps, (status) => setData(pairNote(status)));
     const unwatch = deps.watchSettings((s) => {
       lang = s.learningLang;
       setSettings(s);
+      // Another pair has other data.
+      if (pairOf(s) !== pair) packs.refresh();
+      pair = pairOf(s);
     });
     const timer = setInterval(refresh, deps.refreshMs);
     return () => {
       unwatch();
+      packs.stop();
       clearInterval(timer);
     };
   }, []);
@@ -274,6 +292,16 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           gap: "16px",
         }}
       >
+        {data && settings && (
+          <LanguageDataNote
+            note={data}
+            language={languageName(settings.learningLang)}
+            onRetry={() => {
+              deps.send({ type: "retryPacks" }).catch(warn);
+            }}
+          />
+        )}
+
         {summary && (
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div

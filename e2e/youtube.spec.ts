@@ -178,7 +178,7 @@ test("the menu's sliders change the subtitle's text size and background, and are
     })
     .toMatchObject({ subtitleSize: 120, subtitleOpacity: 75 });
   await page.reload();
-  await card(page, LINE).click();
+  await card(page, LINE).click({ position: ON_TIME });
   await expect(inVideo(page).locator("p").first()).toHaveCSS(
     "font-size",
     "28.8px",

@@ -17,7 +17,7 @@ import {
   type SourceInput,
   type TermStore,
 } from "./term-store";
-import { stubPackLoader } from "./test-packs";
+import { bundledPacks, stubPackLoader } from "./test-packs";
 import { createTranslationCache } from "./translation-cache";
 
 const ARTICLE_A: HistorySource = {
@@ -59,6 +59,7 @@ beforeEach(() => {
       set: async (patch) => (settings = mergeSettings(patch, settings)),
     },
     resources: createLanguageResources(stubPackLoader()),
+    packs: bundledPacks(),
     sync: { status: () => Promise.reject(new Error("not used")) },
     env: () => createBrowserEnv(),
     openOptionsPage: async () => {},

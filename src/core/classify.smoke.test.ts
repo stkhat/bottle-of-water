@@ -1,14 +1,13 @@
-// Smoke test of the classifier over the generated pack files in public/packs/.
+// Smoke test of the classifier over the generated pack files (public/packs/, data/packs/).
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { packSourcePath } from "../../scripts/data/formats.mjs";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
 import { createEnglishPack, createLanguagePack } from "./language-pack";
 import { createPackLoader } from "./packs/load";
 
-const publicDir = join(import.meta.dirname, "..", "..", "public");
 const loadPack = createPackLoader(async (path) =>
-  JSON.parse(readFileSync(join(publicDir, path), "utf8")),
+  JSON.parse(readFileSync(packSourcePath(path), "utf8")),
 );
 
 const en = await loadPack("en");

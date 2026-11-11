@@ -1,9 +1,10 @@
 // Guard: addons.mozilla.org's linter (web-ext lint) rejects text files over 5 MB, so
-// every bundled pack file must stay well under that.
+// every pack file that may be bundled (public/packs/, and data/packs/ while its lock
+// entry says bundled) must stay well under that.
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PACKS_DIR } from "./common.mjs";
+import { DOWNLOAD_PACKS_DIR, PACKS_DIR, ROOT } from "./common.mjs";
 
 const LIMIT_BYTES = 4_000_000;
 
@@ -14,15 +15,17 @@ function filesUnder(dir: string): string[] {
   });
 }
 
-describe("bundled pack files", () => {
-  const files = filesUnder(PACKS_DIR);
+describe.each(
+  [PACKS_DIR, DOWNLOAD_PACKS_DIR].map((dir) => [relative(ROOT, dir), dir]),
+)("pack files in %s", (_name, dir) => {
+  const files = filesUnder(dir);
 
   it("exist", () => {
     expect(files.length).toBeGreaterThan(0);
   });
-  it.each(files.map((path) => [relative(PACKS_DIR, path), path]))(
+  it.each(files.map((path) => [relative(dir, path), path]))(
     "%s is under 4 MB",
-    (_name, path) => {
+    (_file, path) => {
       expect(statSync(path).size).toBeLessThan(LIMIT_BYTES);
     },
   );

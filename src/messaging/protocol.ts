@@ -20,6 +20,7 @@ import type { TranslationItem } from "../background/translation-cache";
 import type { BrowserEnv } from "../core/browser-env";
 import type { Span, TermKind, TermStatus } from "../core/classify";
 import type { DictionaryEntry } from "../core/dictionary";
+import type { PackState } from "../core/packs/state";
 import type { Settings, SettingsPatch } from "../core/settings";
 import type { SyncStatus } from "../core/sync/backend";
 import type { Platform, Position } from "../core/url";
@@ -75,8 +76,12 @@ export type Request =
   | { type: "lastExport" }
   /** Saved terms of a language (no tombstones), for the word list. */
   | { type: "listTerms"; lang: string }
-  /** The word list's rows: saved terms with their short meaning and occurrence stats. */
-  | { type: "listTermsWithStats"; lang: string }
+  /**
+   * The word list's rows: saved terms with their short meaning and occurrence stats.
+   * `meanings: false` leaves the meanings out without reading the dictionary, for
+   * while the language's dictionary is not on the device.
+   */
+  | { type: "listTermsWithStats"; lang: string; meanings?: boolean }
   /** Short meaning and saved status of terms (a video's word list), by key. */
   | {
       type: "termSummaries";
@@ -103,7 +108,20 @@ export type Request =
    * At most `MAX_CACHED_TRANSLATIONS` items are kept per request; empty or oversized
    * ones are skipped.
    */
-  | { type: "cacheTranslations"; lang: string; items: TranslationItem[] };
+  | { type: "cacheTranslations"; lang: string; items: TranslationItem[] }
+  /** The language data of the chosen pair, and the other downloaded packs (Settings). */
+  | { type: "packStatus" }
+  /**
+   * Starts downloading the chosen pair's missing packs now (Retry). Answers at once;
+   * `packState` in `storage.local` shows the progress.
+   */
+  | { type: "retryPacks" }
+  /**
+   * Deletes a downloaded pack the chosen pair does not use, and the machine
+   * translations (`mtCache`) of every offered pair whose packs include it. A pack that
+   * is not downloaded is left as it is.
+   */
+  | { type: "removePack"; pack: string };
 
 /** `cacheTranslations` keeps at most this many items of a request. */
 export const MAX_CACHED_TRANSLATIONS = 16;
@@ -197,6 +215,24 @@ export interface TermBrief {
   status: TermStatus | "new";
 }
 
+/** A downloaded pack of the chosen pair: its size in the lock and its state. */
+export interface PairPackStatus extends PackState {
+  pack: string;
+  /** Bytes of its files, from the lock. */
+  size: number;
+}
+
+export interface PackStatus {
+  pair: {
+    /** Every pack of the pair is bundled: there is no language data to show. */
+    bundled: boolean;
+    /** The pair's packs that are downloaded (not bundled), in `packsFor` order. */
+    packs: PairPackStatus[];
+  };
+  /** Stored packs the chosen pair does not use (Settings offers to remove them). */
+  others: { pack: string; size: number }[];
+}
+
 export interface ResponseMap {
   getSettings: Settings;
   setSettings: Settings;
@@ -238,10 +274,19 @@ export interface ResponseMap {
   historyStatus: HistoryStatus;
   clearHistory: null;
   cacheTranslations: null;
+  packStatus: PackStatus;
+  retryPacks: null;
+  removePack: null;
 }
 
 export type ResponseOf<T extends RequestType> = ResponseMap[T];
 
-/** What the background sends back for every request. */
+/**
+ * What the background sends back for every request. An error with the code
+ * `packsUnavailable` names the packs the request needs that are not on the device
+ * (`send` throws it as `PacksUnavailableError`).
+ */
 export type Reply<T = unknown> =
-  { ok: true; value: T } | { ok: false; error: string };
+  | { ok: true; value: T }
+  | { ok: false; error: string; code?: undefined }
+  | { ok: false; error: string; code: "packsUnavailable"; packs: string[] };

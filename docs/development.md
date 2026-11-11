@@ -22,15 +22,24 @@
 | `npm run test:browser` | browser-mode tests (set `VITEST_BROWSERS=chromium` to skip Firefox) |
 | `npm run build` / `npm run build:firefox` | build to `.output/chrome-mv3` / `.output/firefox-mv3` |
 | `npm run build:check` | self-reloading Chrome build in `.output/lingo-check` (see below) |
+| `npm run build:check-download` | check build that downloads its Spanish data from the E2E server's mirror, in `.output/chrome-mv3-check-download` (see "Language data downloads in E2E") |
 | `npm run test:manifest` | check both built manifests |
-| `npm run test:e2e:build` | production and check builds, then run E2E |
+| `npm run test:e2e:build` | production, check and check-download builds, then run E2E |
 | `npm run test:e2e:real` | E2E error checks on real sites (Wikipedia, BBC, YouTube); needs the network |
 | `npm run verify` | check, unit, browser (Chromium), builds and E2E, with terse output |
 | `npm run zip` / `npm run zip:firefox` | store-ready zips in `.output/` |
 | `npm run test:mutation` | Stryker report in `reports/mutation/` |
 
 ## How E2E loads the extension
-`e2e/fixtures.ts` launches Playwright's bundled Chromium (`channel: "chromium"`) with `--load-extension` pointing at `.output/chrome-mv3`. Stable Chrome 137+ ignores `--load-extension`, so it cannot be used. The extension id is read from the service worker URL. Pages come from a static server (`e2e/serve.mjs`).
+`e2e/fixtures.ts` launches Playwright's bundled Chromium (`channel: "chromium"`) with `--load-extension` pointing at a build: `.output/chrome-mv3-check` by default, `.output/chrome-mv3` (production) or `.output/chrome-mv3-check-download` where a test asks for it. Stable Chrome 137+ ignores `--load-extension`, so it cannot be used. The extension id is read from the service worker URL. Pages come from a static server (`e2e/serve.mjs`), which Playwright starts, or reuses when one already listens on port 4719 (not in CI): stop an old one after changing `serve.mjs`.
+
+## Language data downloads in E2E
+Production builds bundle every pack, so the download path is tested against a local npm mirror:
+- `npm run build:check-download` builds in mode `check-download`: the check build (open shadow roots, debug logging, no self-reload) with the variables in `.env.check-download` (WXT reads `.env.<mode>`): `es` and `es-en` are left out of the build and downloaded from `http://localhost:4719/mirror/{package}@{version}/{file}`.
+- `e2e/serve.mjs` writes the npm package folders `data/publish/<pack>/` from the committed lock when it starts (the publish script's `writePackages`; the lock is not rewritten), then serves them under `/mirror/` in the npm CDNs' URL shape (`/mirror/@lingo-data/es@2026.1111.0/freq.json`; another version is a 404). Its answers carry `access-control-allow-origin: *`, as jsDelivr's and unpkg's do: the extension has no host permissions.
+- `/mirror-control` switches how the mirror answers: `GET` gives `{ broken, hold, held, served }`; `POST ?broken=1` sends every file with one byte changed (its SHA-256 no longer matches the lock), `POST ?hold=1` keeps requests waiting until `?hold=0`, `POST ?reset` turns both off (answering what was held) and zeroes `served`.
+- `e2e/pack-downloads.spec.ts` holds the mirror to see a Spanish page wait, the popup, Settings and the word list show the download, and the page highlighted once it ends; then breaks it to see "Couldn't download" and Retry. Its tests share the lock `local-pack-mirror`, so they run one at a time.
+- To run only these: `npm run build:check-download && npx playwright test e2e/pack-downloads.spec.ts`. To try it by hand: `node e2e/serve.mjs`, load `.output/chrome-mv3-check-download` unpacked, choose Spanish → English in Settings and open `http://localhost:4719/article-es.html`; `curl -X POST 'http://localhost:4719/mirror-control?broken=1'` makes the next download fail.
 
 ## Checking in your own Chrome
 `npm run build:check` builds Chrome in mode `check` (to `.output/chrome-mv3-check`), copies it into `.output/lingo-check` (overwriting changed files, deleting ones the build no longer has) and writes `build-id.txt` (time and commit) last.
@@ -54,6 +63,14 @@ Limits:
 npm run build:firefox
 npx web-ext lint -s .output/firefox-mv3
 ```
+
+## Language data
+- The scripts in `scripts/data/` build the packs from raw files in `data/raw/` (git-ignored): `npm run data:build` (English: `public/packs/`, always bundled) and `npm run data:es` (Spanish: `data/packs/`, can be downloaded). `npm run data:stats` prints the numbers recorded in `docs/status.md`.
+- `scripts/data/formats.mjs` lists every pack: its folder, data `format` (bump it when the code that reads the pack changes), npm package (scope `@lingo-data`, a placeholder) and sources.
+- After the pack files change, run `npm run data:publish`. It writes `src/core/packs/packs.lock.json` (committed; a unit test fails while it is out of date) and an npm package folder per `data/packs/` pack in `data/publish/<pack>/` (git-ignored). A pack keeps its version while its files are unchanged; otherwise it becomes `<year>.<month × 100 + day>.<n>` for the UTC build date (2026-11-11 → `2026.1111.0`), with n counting up for each later change that day. These are plain semver versions (no prerelease suffix) that order by date.
+- `npm run data:publish -- --download es,es-en` marks those packs as downloaded (`bundled: false`): the build leaves them out and the extension fetches them from the mirrors. Without `--download` every pack is bundled. Only `data/packs/` packs can be downloaded.
+- Test builds (any mode but production) can override the lock: `WXT_PACKS_DOWNLOAD=es,es-en` downloads those packs, `WXT_PACK_MIRRORS=<template>,…` replaces the mirrors (`src/core/packs/lock.ts`). Production builds ignore both. `.env.check-download` sets them for the E2E download build (see "Language data downloads in E2E").
+- Publishing to npm is manual and pending: the scope and the public data repository do not exist yet, so every pack stays bundled. Then: `npm publish` in each `data/publish/<pack>/`, run `data:publish -- --download …`, release.
 
 ## CI/CD
 - Tests run locally first: `npm run verify` before every push. GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.

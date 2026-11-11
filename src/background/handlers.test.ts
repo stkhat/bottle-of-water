@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { createBrowserEnv } from "../core/browser-env";
 import type { TermIndex } from "../core/classify";
+import type { PackName } from "../core/packs/load";
+import { applyOverrides, readLock, type PackLock } from "../core/packs/lock";
+import type { PackState } from "../core/packs/state";
 import type { SyncStatus } from "../core/sync/backend";
 import type {
   Reply,
@@ -20,6 +23,7 @@ import type {
   HistoryStore,
 } from "./history-store";
 import { createLanguageResources } from "./language-resources";
+import type { DownloadedPack, PackStore } from "./pack-store";
 import { getSettings, setSettings } from "./settings-store";
 import type {
   OccurrenceWithSource,
@@ -105,6 +109,38 @@ function fakeTranslations(): FakeTranslations {
   };
 }
 
+type FakePacks = {
+  lock: PackLock;
+  store: {
+    [K in "states" | "downloaded" | "remove"]: Mock<PackStore[K]>;
+  };
+  retry: Mock<() => void>;
+};
+
+/** The lock of a build that downloads es and es-en. */
+const DOWNLOAD_LOCK = applyOverrides(
+  readLock(),
+  { WXT_PACKS_DOWNLOAD: "es,es-en" },
+  "test",
+);
+
+/** A pack's size in the lock. */
+const lockSize = (pack: PackName) =>
+  DOWNLOAD_LOCK.packs[pack].files.reduce((sum, file) => sum + file.size, 0);
+
+/** Downloaded packs: none stored and no state unless a test says so. */
+function fakePacks(): FakePacks {
+  return {
+    lock: DOWNLOAD_LOCK,
+    store: {
+      states: vi.fn(async () => ({})),
+      downloaded: vi.fn(async (): Promise<DownloadedPack[]> => []),
+      remove: vi.fn(async () => {}),
+    },
+    retry: vi.fn(),
+  };
+}
+
 const SYNC_STATUS: SyncStatus = {
   enabled: true,
   bytesUsed: 120,
@@ -140,6 +176,7 @@ let deps: HandlerDeps;
 let handle: Handle;
 let openOptionsPage: Mock<() => Promise<void>>;
 let loadPack: ReturnType<typeof stubPackLoader>;
+let packs: FakePacks;
 
 beforeEach(() => {
   fakeBrowser.reset();
@@ -148,6 +185,7 @@ beforeEach(() => {
   translations = fakeTranslations();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
   loadPack = stubPackLoader();
+  packs = fakePacks();
   openOptionsPage = vi.fn(async () => {});
   deps = {
     store,
@@ -155,6 +193,7 @@ beforeEach(() => {
     translations,
     settings: { get: getSettings, set: setSettings },
     resources: createLanguageResources(loadPack),
+    packs,
     sync,
     env: () => createBrowserEnv("chrome", {}),
     openOptionsPage,
@@ -355,6 +394,179 @@ describe("handlers: errors", () => {
     expect(
       await handle({ type: "analyze", lang: "fr", blocks: ["Bonjour"] }),
     ).toEqual({ ok: false, error: "No language pack for fr" });
+  });
+});
+
+describe("handlers: language data", () => {
+  const ready = (pack: PackName): PackState => ({
+    state: "ready",
+    received: lockSize(pack),
+    total: lockSize(pack),
+  });
+
+  /** Handlers whose packs in `missing` are not on the device. */
+  function withMissing(...missing: PackName[]) {
+    return createHandlers({
+      ...deps,
+      resources: createLanguageResources(
+        stubPackLoader(new Set(), new Set(missing)),
+      ),
+    });
+  }
+
+  it("answers packsUnavailable with the packs a request needs that are not on the device", async () => {
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    const handle = withMissing("es", "es-en");
+    const analyzed = await handle({
+      type: "analyze",
+      lang: "es",
+      blocks: ["Estoy comiendo."],
+    });
+    expect(analyzed).toEqual({
+      ok: false,
+      error: "Language data not available: es",
+      code: "packsUnavailable",
+      packs: ["es"],
+    });
+    expect(JSON.parse(JSON.stringify(analyzed))).toEqual(analyzed);
+    expect(
+      await handle({ type: "lookup", lang: "es", key: "comer", kind: "word" }),
+    ).toEqual({
+      ok: false,
+      error: "Language data not available: es, es-en",
+      code: "packsUnavailable",
+      packs: ["es", "es-en"],
+    });
+  });
+
+  it("names only the packs that are missing", async () => {
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    const handle = withMissing("es-en");
+    expect(
+      await handle({ type: "analyze", lang: "es", blocks: ["Estoy."] }),
+    ).toMatchObject({ ok: true });
+    expect(await handle({ type: "warmDictionary", lang: "es" })).toMatchObject({
+      ok: false,
+      code: "packsUnavailable",
+      packs: ["es-en"],
+    });
+  });
+
+  it("lists the word list's rows without meanings, and without the dictionary, when asked", async () => {
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    const comer: TermRecord = {
+      id: "es:comer",
+      lang: "es",
+      key: "comer",
+      display: "comiendo",
+      kind: "word",
+      status: "learning",
+      createdAt: 500,
+      updatedAt: 500,
+    };
+    store.listTerms.mockResolvedValue([comer]);
+    store.occurrenceStats.mockResolvedValue(
+      new Map([["es:comer", { count: 2, lastSeen: 900 }]]),
+    );
+    const handle = withMissing("es-en");
+    expect(
+      await handle({ type: "listTermsWithStats", lang: "es" }),
+    ).toMatchObject({ ok: false, code: "packsUnavailable", packs: ["es-en"] });
+    expect(
+      await handle({ type: "listTermsWithStats", lang: "es", meanings: false }),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          id: "es:comer",
+          key: "comer",
+          display: "comiendo",
+          kind: "word",
+          status: "learning",
+          seen: 2,
+          lastSeen: 900,
+          createdAt: 500,
+        },
+      ],
+    });
+  });
+
+  it("gives no data row for a pair whose packs are all bundled, and lists the other downloaded packs", async () => {
+    packs.store.downloaded.mockResolvedValue([
+      { pack: "es", version: "2026.1111.0", size: 120 },
+      { pack: "es-en", version: "2026.1111.0", size: 80 },
+    ]);
+    expect(await value({ type: "packStatus" })).toEqual({
+      pair: { bundled: true, packs: [] },
+      others: [
+        { pack: "es", size: 120 },
+        { pack: "es-en", size: 80 },
+      ],
+    });
+  });
+
+  it("gives the state and size of each downloaded pack of the pair", async () => {
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    const downloading: PackState = {
+      state: "downloading",
+      received: 1000,
+      total: lockSize("es-en"),
+    };
+    packs.store.states.mockResolvedValue({
+      es: ready("es"),
+      "es-en": downloading,
+    });
+    packs.store.downloaded.mockResolvedValue([
+      { pack: "es", version: "2026.1111.0", size: lockSize("es") },
+    ]);
+    expect(await value({ type: "packStatus" })).toEqual({
+      pair: {
+        bundled: false,
+        packs: [
+          { pack: "es", size: lockSize("es"), ...ready("es") },
+          { pack: "es-en", size: lockSize("es-en"), ...downloading },
+        ],
+      },
+      others: [],
+    });
+    expect(packs.store.states).toHaveBeenCalledWith(["es", "es-en"]);
+  });
+
+  it("starts the current pair's downloads again for retryPacks", async () => {
+    expect(await value({ type: "retryPacks" })).toBeNull();
+    expect(packs.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a downloaded pack and the machine translations of the pairs that use it", async () => {
+    packs.store.downloaded.mockResolvedValue([
+      { pack: "es", version: "2026.1111.0", size: 120 },
+      { pack: "es-en", version: "2026.1111.0", size: 80 },
+    ]);
+    translations.clearPair.mockResolvedValue();
+    expect(await value({ type: "removePack", pack: "es-en" })).toBeNull();
+    expect(packs.store.remove).toHaveBeenCalledWith("es-en");
+    expect(translations.clearPair.mock.calls).toEqual([["es>en"]]);
+    expect(await value({ type: "removePack", pack: "es" })).toBeNull();
+    expect(packs.store.remove).toHaveBeenLastCalledWith("es");
+    expect(translations.clearPair.mock.calls).toEqual([["es>en"], ["es>en"]]);
+  });
+
+  it("removes nothing that is not downloaded, and nothing the chosen languages use", async () => {
+    packs.store.downloaded.mockResolvedValue([
+      { pack: "es", version: "2026.1111.0", size: 120 },
+    ]);
+    expect(await value({ type: "removePack", pack: "es-en" })).toBeNull();
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    expect(await value({ type: "removePack", pack: "en-defs" })).toBeNull();
+    expect(await handle({ type: "removePack", pack: "es" })).toEqual({
+      ok: false,
+      error: "es is used by the chosen languages",
+    });
+    expect(
+      await handle({ type: "removePack", pack: 3 } as unknown as Request),
+    ).toEqual({ ok: false, error: "No pack to remove" });
+    expect(packs.store.remove).not.toHaveBeenCalled();
+    expect(translations.clearPair).not.toHaveBeenCalled();
   });
 });
 

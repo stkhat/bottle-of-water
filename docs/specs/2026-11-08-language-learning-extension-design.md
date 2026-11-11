@@ -98,11 +98,13 @@ Development pair: learning language = English, native language = Japanese, sites
   - Each card is a **sentence**: subtitle cues that do not end a sentence (. ? ! … ♪, maybe before a closing quote) are joined with the next cue when it starts less than 1.5 s later, up to 3 cues and about 25 words. Sound labels ("[MUSIC]") stay alone; a cue starting with a speaker's dash ("- …") starts a card, and a cue with two speakers' lines ends one. The subtitle in the video still shows one cue at a time
   - Auto-generated (ASR) tracks come as rolling fragments with word timings, often without punctuation. With YouTube's auto-translation, the cards follow its sentences: YouTube translates whole sentences and spreads them over the fragments, so each sentence end in the translation (。！？, or . ! ? before a space; not inside brackets) marks the nearest likely boundary in the original (a sentence end, a speaker change ">>", a comma, a pause, or an English sentence starter such as "so" or "I"), and each card gets exactly the translated sentences between its ends. Without it, a sentence ends at . ? !, sound labels and ">>", plus pauses of 0.8 s in tracks without punctuation, up to 20 words (40 in punctuated tracks). In the video an ASR card shows as lines of at most 60 characters (30 for languages written without spaces), split where the halves balance best, preferring pauses and punctuation; the card's whole translation stays under each line
   - Header: "Highlight" category toggles and the transcript translation switch
+  - **While the language's data is missing** (downloaded packs, M9c; mock `LanguageData`): one line at the top of the column, "Downloading Spanish data · 45%" over a bar, or "Couldn't download Spanish data" with Retry. The cards show without highlights and are classified once the data is there; the line then goes
 - No instructions text under the video
 - **When the video ends**, nothing is shown; unsaved New words are handled as Settings say (see "Unsaved New words at the end" below)
 
 ### Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language
+- While the language's data is missing (downloaded packs, M9c), the page shows nothing; it is analyzed once the data is there (the popup and Settings show the download)
 - Color by category with the **CSS Custom Highlight API** (no DOM rewriting). `::highlight()` cannot draw padding, rounded corners or box shadows, so the mock's bottom bar is drawn as a 2px underline and the Learning background covers only the text height — the closest the API allows. Process only the visible range, progressively, and follow page changes with a MutationObserver
   - In browsers where highlights cannot be underlined, use background colors only (see "Absorbing browser differences")
 - Find the hovered word with `caretPositionFromPoint`
@@ -124,6 +126,7 @@ Development pair: learning language = English, native language = Japanese, sites
 ### Toolbar popup (click the extension icon)
 - Toolbar icon: the green rounded square with a white "L" (`#0B8A6C`, as in the mock), 16/32/48/128 px, drawn from `scripts/icons/icon.svg`
 - Header: Lingo, language pair (English → Japanese), then at the right a word list button (a list icon, "Word list") and a gear for settings (the same gear as in the player menu)
+- **While the chosen pair's data is downloading or failed** (downloaded packs, M9c; mock `LanguageData`): one line under the header, "Downloading Spanish data · 45%" over a bar, or "Couldn't download Spanish data" with Retry. None once the data can be used (an older version in use while an update downloads counts)
 - "On this site": on/off for this site
 - "Highlight": category toggles
 - Word counts: Learning / Known / Phrases
@@ -141,7 +144,11 @@ Development pair: learning language = English, native language = Japanese, sites
 ### Settings page (the extension's options page, opens in a new tab)
 - Three ways to open it: ① the gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from the gear in the menu next to L in the video player bar
 - Sections
-  - **Languages**: learning language, native language, interface language (English only for now). The choices list only the pairs the lock file offers (those passing the quality gate). From M9c a "Language data" row lists, nested under it, the chosen pair's data (size; Downloaded / Downloading n% / Failed with Retry) and the data of pairs no longer chosen (size, Remove). Pairs bundled with Lingo have no data row (layout from the mock)
+  - **Languages**: learning language, native language, interface language (English only for now). From M9d the choices list only the pairs the lock file offers (those passing the quality gate)
+    - **Language data** (M9c; mock `LanguageData`): "Words and dictionaries Lingo keeps on this device." Nested under it:
+      - the chosen pair ("Spanish → English"), when its data is downloaded rather than bundled: its size ("6.4 MB") and "Downloaded" with a check, "Downloading · 45%" with a bar, or "Couldn't download" (red) with Retry
+      - downloaded data the chosen pair does not use, grouped by the pair it belongs to ("English → Korean", "Not used by your languages now · 9.1 MB") with Remove, which deletes that data and its cached translations
+    - The row shows when the chosen pair's data is downloaded rather than bundled, or when other downloaded data is on the device; a bundled pair with nothing else downloaded has none
   - **Appearance**: Theme — System (default) / Light / Dark, a three-option segmented choice (see "Shared: theme")
   - **New-word level**: slider "Treat the N most common words as known" (1,000–20,000, default 3,000)
   - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice
@@ -170,6 +177,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - The first row is selected when the page opens. Remove takes the word out of the list at once; its panel stays with "Not saved" pressed, and Learning / Known save it again from the occurrence it was saved from (its other occurrences are gone with the removal). A word removed without any occurrence cannot be saved again here
   - Export / Import are the settings page's buttons; the import result ("Imported N words" or the error) shows beside them and the list is read again. The list is also read again when the tab becomes visible
   - More than 500 words: only the rows in view are rendered
+  - While the language's dictionary is not on the device (downloaded packs, M9c), the list shows without meanings and the details wait; both are read again once the data is there
 
 ### Phase 2 screens (mock, approved 2026-11-10)
 - **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
@@ -191,7 +199,7 @@ Development pair: learning language = English, native language = Japanese, sites
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation | YouTube / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `SyncBackend` (`BrowserSyncBackend`) + Export/Import |
 | `BrowserEnv` | Browser differences in one place: browser name, sync name and delay, how to open the settings page, feature detection results | Chrome (Firefox values only need to build) |
-| `PackSource` / `PackStore` (M9c) | Where a pack's files come from: bundled with the extension, or downloaded, verified against the lock file and kept in IndexedDB | `en`, `en-ja`, `en-defs` bundled; `es`, `es-en` and later packs downloaded from npm via jsDelivr / unpkg |
+| `PackSource` / `PackStore` (M9c) | Where a pack's files come from, as the lock file says. `PackSource` reads a bundled pack with `runtime.getURL` and a downloaded one from `PackStore`; a pack not on the device fails the request with `packsUnavailable`, and pages wait for `packState`. `PackStore` fetches the lock's files from the mirrors in order, checks each against its SHA-256, keeps them in IndexedDB (`packFiles`, `packVersions`), switches a pack to a new version in one transaction and retries failures (1, 5, 30 min, then every 6 h) | Every pack bundled until the npm packages are published; then `es`, `es-en` and later packs downloaded from npm via jsDelivr, then unpkg (`en`, `en-ja`, `en-defs` stay bundled). The E2E build `check-download` downloads `es`, `es-en` from a local mirror |
 | `Classifier` | Classify New / Learning / Known / ignored, match phrases, count unsaved words on a page | shared |
 | `LookupUI` | Hover card, dictionary window, phrase saving, save all (popup "This page") | shared by text and video UI |
 
@@ -205,11 +213,11 @@ Development pair: learning language = English, native language = Japanese, sites
   - Detect the end of an article with an IntersectionObserver on the last element of the body
 
 ### Data sources
-Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files, which are committed: bundled packs into `public/packs/<pack>/` (copied into the build and read by the background with `runtime.getURL`), downloaded packs into `data/packs/<pack>/` (M9c). Notices go in About and `THIRD_PARTY_NOTICES.md`.
+Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files, which are committed: packs that are always bundled into `public/packs/<pack>/` (`en`, `en-ja`, `en-defs`; copied into the build and read by the background with `runtime.getURL`), packs that can be downloaded into `data/packs/<pack>/` (`es`, `es-en`; a build hook copies them into the build's `packs/` while their lock entry says bundled). `npm run data:publish` (M9c) writes the lock file `src/core/packs/packs.lock.json` (committed: for each pack its npm package, version, data format, whether it is bundled, and its files with size and SHA-256; and the mirrors) and an npm package folder per `data/packs/` pack in `data/publish/<pack>/` (git-ignored; `npm publish` by hand). Until the npm scope and the public data repository exist, every pack is bundled; moving `es` and `es-en` to downloads is then `npm run data:publish -- --download es,es-en` and a release. Notices go in About and `THIRD_PARTY_NOTICES.md`.
 
 Language data that scales with more languages (adopted 2026-11-11; [design](2026-11-11-language-data-scaling-design.md)):
 - **Units**: a learning-language pack `<L>` (shared by every native language), a pair dictionary `<L>-<N>`, and English definitions `<L>-en` (the last fallback)
-- **Distribution (M9c)**: one npm package per pack in a public data repository, fetched from jsDelivr, then unpkg; a lock file bundled with the extension (`src/core/packs/packs.lock.json`) lists each pack's version, data format, files with size and SHA-256, the mirrors and the offered pairs. Data fixes ship with an extension release
+- **Distribution (M9c)**: one npm package per pack in a public data repository, fetched from jsDelivr, then unpkg; a lock file bundled with the extension (`src/core/packs/packs.lock.json`) lists each pack's version, data format, files with size and SHA-256 and the mirrors (the offered pairs join it with the quality gate, M9d). Data fixes ship with an extension release
 - **Native meanings (M9d)**: each pair has a build recipe merging sources in order — a bilingual dictionary, the native language's Wiktionary edition, English Wiktionary's translation tables — where the first source with a term supplies all of it (one source tag per term). At display time the browser's translator translates the English definition (M9b); without one the English definition shows
 - **Quality gate (M9d)**: a pair is offered only when the human-made sources give a meaning for at least 95% of the learning language's 5,000 most frequent content words (value to confirm); `npm run data:stats` reports and checks it
 

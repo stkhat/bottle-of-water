@@ -3,6 +3,7 @@ import { render } from "preact";
 import { watchSettings } from "../../background/settings-store";
 import { speechLang } from "../../core/languages";
 import { send } from "../../messaging/client";
+import { watchPackState } from "../../messaging/pack-state";
 import { download } from "../../ui/backup/download";
 import { followTheme } from "../../ui/page-theme";
 import { WordList, type WordListDeps } from "./WordList";
@@ -11,6 +12,7 @@ const deps: WordListDeps = {
   send,
   now: Date.now,
   download,
+  watchPackState,
   speak(text, lang) {
     if (typeof speechSynthesis === "undefined") return;
     const utterance = new SpeechSynthesisUtterance(text);

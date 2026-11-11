@@ -1,7 +1,10 @@
 import type { CSSProperties } from "preact";
 import { useRef } from "preact/hooks";
+import type { DataNote } from "../../core/packs/state";
+import { languageName } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import { badge, color, root } from "../lookup/styles";
+import { LanguageDataNote } from "../packs/LanguageDataNote";
 import {
   Transcript,
   TranscriptControls,
@@ -32,6 +35,13 @@ export interface VideoPanelProps
   onOpenWord: (id: string) => void;
   /** The height of the whole panel, in px. */
   height: number;
+  /**
+   * The chosen pair's language data while some of it is not on the device: a line at
+   * the top of the column (mock LanguageData). None by default.
+   */
+  dataNote?: DataNote | null;
+  /** The line's Retry. */
+  onRetryData?: () => void;
 }
 
 type Style = CSSProperties;
@@ -96,6 +106,15 @@ export function VideoPanel(props: VideoPanelProps) {
         <span style={badge(24, 7, 12)}>L</span>
         <Tabs tab={props.tab} onTab={props.onTab} />
       </div>
+      {props.dataNote && (
+        <div style={{ padding: "12px 12px 0" }}>
+          <LanguageDataNote
+            note={props.dataNote}
+            language={languageName(props.learningLang)}
+            onRetry={() => props.onRetryData?.()}
+          />
+        </div>
+      )}
       {TABS.map(({ id }) => (
         <div
           key={id}

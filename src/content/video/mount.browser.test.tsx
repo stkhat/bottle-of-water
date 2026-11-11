@@ -61,6 +61,7 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     panelTab: "transcript",
     wordsFilter: "all",
     summaries: {},
+    dataNote: null,
     ...patch,
   };
 }
@@ -186,6 +187,35 @@ describe("mountVideoUi", () => {
     expect(text("lingo-video-below")).toBe("");
     expect(text("lingo-transcript")).toContain("Knead the dough.");
     expect(text("lingo-player-buttons")).toContain("L");
+  });
+
+  it("shows the language data line at the top of the transcript column while the data is missing", async () => {
+    const { store, spy } = mount(
+      readyState({ dataNote: { state: "downloading", percent: 45 } }),
+    );
+    await expect
+      .poll(() => text("lingo-transcript"))
+      .toContain("Downloading English data · 45%");
+    const status = () =>
+      inside("lingo-transcript")!.querySelector("[role=status]")!;
+    const tabs = inside("lingo-transcript")!.querySelector("[role=tablist]")!;
+    expect(
+      status().getBoundingClientRect().top -
+        tabs.getBoundingClientRect().bottom,
+    ).toBeCloseTo(12, 1); // Firefox lays out to a fraction of a pixel (12.00003)
+
+    store.set({ dataNote: { state: "failed" } });
+    await expect
+      .poll(() => text("lingo-transcript"))
+      .toContain("Couldn't download English data");
+    await userEvent.click(status().querySelector("button")!);
+    expect(spy("retryPacks")).toHaveBeenCalledOnce();
+
+    store.set({ dataNote: null });
+    await expect
+      .poll(() => inside("lingo-transcript")!.querySelector("[role=status]"))
+      .toBeNull();
+    expect(text("lingo-transcript")).toContain("Knead the dough.");
   });
 
   it("places the subtitle over the bottom of the video", async () => {

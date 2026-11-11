@@ -14,6 +14,7 @@ CLAUDE.md
 .vitest
 e2e/pages
 public/packs
+data/packs
 
 # Recorded or hand-written subtitle data; keep byte for byte
 src/core/subtitles/fixtures

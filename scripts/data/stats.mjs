@@ -2,17 +2,23 @@
 // Usage: node scripts/data/stats.mjs   (after npm run data:build and npm run data:es)
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { isMain, PACKS_DIR, readPack } from "./common.mjs";
+import {
+  DOWNLOAD_PACKS_DIR,
+  isMain,
+  PACKS_DIR,
+  readPack,
+  ROOT,
+} from "./common.mjs";
 import { readDictPacks } from "./ejdict.mjs";
 
-/** Every file under public/packs/, as paths relative to it, sorted. */
-function packFiles(dir = PACKS_DIR) {
+/** Every file under `root` (public/packs/ or data/packs/), as paths relative to it, sorted. */
+function packFiles(root, dir = root) {
   return readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
       const path = join(dir, entry.name);
       return entry.isDirectory()
-        ? packFiles(path)
-        : [relative(PACKS_DIR, path)];
+        ? packFiles(root, path)
+        : [relative(root, path)];
     })
     .sort();
 }
@@ -93,13 +99,15 @@ function main() {
     `Phrase meanings (all ${phrases.phrases} patterns): ${phrases.ejdict} EJDict, ` +
       `${phrases.ja} Japanese translations, ${phrases.defs} English definitions, ${phrases.none} none`,
   );
-  const esFreq = readPack("es/freq.json");
-  const esIpa = readPack("es/ipa.json");
+  const esFreq = readPack("es/freq.json", DOWNLOAD_PACKS_DIR);
+  const esIpa = readPack("es/ipa.json", DOWNLOAD_PACKS_DIR);
   const esCoverage = ipaCoverage(esFreq, esIpa, 20000);
   console.log("Spanish (es, es-en):");
-  console.log(`  Vocabulary: ${readPack("es/vocab.json").length}`);
   console.log(
-    `  Lemma entries (inflected forms): ${Object.keys(readPack("es/lemmas.json")).length}`,
+    `  Vocabulary: ${readPack("es/vocab.json", DOWNLOAD_PACKS_DIR).length}`,
+  );
+  console.log(
+    `  Lemma entries (inflected forms): ${Object.keys(readPack("es/lemmas.json", DOWNLOAD_PACKS_DIR)).length}`,
   );
   console.log(`  Words with IPA: ${Object.keys(esIpa).length}`);
   console.log(`  Frequency list: ${esFreq.length} base forms`);
@@ -107,16 +115,21 @@ function main() {
     `  IPA coverage, top ${esCoverage.words} base forms: ${esCoverage.withIpa} (${(esCoverage.ratio * 100).toFixed(1)}%)`,
   );
   console.log(
-    `  Dictionary terms: ${Object.keys(readDictPacks("es-en")).length}`,
+    `  Dictionary terms: ${Object.keys(readDictPacks("es-en", DOWNLOAD_PACKS_DIR)).length}`,
   );
   console.log(
-    `  Phrase patterns: ${describePatterns(readPack("es/phrases.json"))}`,
+    `  Phrase patterns: ${describePatterns(readPack("es/phrases.json", DOWNLOAD_PACKS_DIR))}`,
   );
   let total = 0;
-  for (const file of packFiles()) {
-    const size = statSync(join(PACKS_DIR, file)).size;
-    total += size;
-    console.log(`${file}: ${(size / 1e6).toFixed(2)} MB`);
+  for (const root of [PACKS_DIR, DOWNLOAD_PACKS_DIR]) {
+    let subtotal = 0;
+    for (const file of packFiles(root)) {
+      const size = statSync(join(root, file)).size;
+      subtotal += size;
+      console.log(`${file}: ${(size / 1e6).toFixed(2)} MB`);
+    }
+    console.log(`${relative(ROOT, root)}: ${(subtotal / 1e6).toFixed(2)} MB`);
+    total += subtotal;
   }
   console.log(`Total: ${(total / 1e6).toFixed(2)} MB`);
 }

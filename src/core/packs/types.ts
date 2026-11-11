@@ -1,4 +1,4 @@
-/** Shapes of the bundled pack files in public/packs/ (see docs/plans/2026-11-09-m2-data-import.md). */
+/** Shapes of the pack files in public/packs/ and data/packs/ (see docs/plans/2026-11-09-m2-data-import.md). */
 
 /** en/lemmas.json: inflected form → base form(s). */
 export type LemmaPack = Readonly<Record<string, string | readonly string[]>>;

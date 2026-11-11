@@ -1,6 +1,7 @@
 export const ROOT: string;
 export const RAW_DIR: string;
 export const PACKS_DIR: string;
+export const DOWNLOAD_PACKS_DIR: string;
 export function isMain(url: string): boolean;
 export interface PackFormat {
   /** Write each value of an object (all arrays) one item per line too. */
@@ -16,6 +17,6 @@ export function writePack(
   dir?: string,
   options?: PackFormat,
 ): void;
-export function readPack(relPath: string): unknown;
+export function readPack(relPath: string, dir?: string): unknown;
 export function fetchText(url: string): Promise<string>;
 export function singleIpa(ipa: string): string | undefined;
