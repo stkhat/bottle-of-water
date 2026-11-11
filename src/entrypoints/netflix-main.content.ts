@@ -1,6 +1,6 @@
-import { installNetflixHooks } from "../content/video/netflix-page";
+import { installNetflixHooks } from "../content/video/netflix/page";
 
-/** netflix.com's own world: reads subtitle tracks from the player's manifests (see netflix-page.ts). */
+/** netflix.com's own world: reads subtitle tracks from the player's manifests. */
 export default defineContentScript({
   matches: ["*://www.netflix.com/*"],
   world: "MAIN",

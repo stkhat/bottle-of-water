@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeSettings } from "../../core/settings";
+import { mergeSettings } from "../../../core/settings";
 import { commentsAllowedOn } from "./comments";
 
 const settings = (patch: object = {}) => mergeSettings(patch);

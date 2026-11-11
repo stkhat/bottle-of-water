@@ -7,17 +7,16 @@ import {
   expect,
   it,
 } from "vitest";
-import enImsc from "../../core/subtitles/fixtures/netflix/en.imsc.ttml?raw";
-import { readManifest } from "./netflix-manifest";
+import enImsc from "../../../core/subtitles/fixtures/netflix/en.imsc.ttml?raw";
+import { readManifest } from "./manifest";
+import { isReplyMessage } from "../page-channel";
 import {
-  FROM_PAGE,
-  TO_PAGE,
-  isReplyMessage,
+  CHANNEL,
   isTracksMessage,
   type PageCall,
   type TracksMessage,
-} from "./netflix-messages";
-import { installNetflixHooks } from "./netflix-page";
+} from "./messages";
+import { installNetflixHooks } from "./page";
 import {
   createTestPage,
   EPISODE,
@@ -25,7 +24,7 @@ import {
   SHOW,
   testManifest,
   type TestPage,
-} from "../../testing/netflix-page";
+} from "../../../testing/netflix-page";
 
 const posted: TracksMessage[] = [];
 function onMessage(event: MessageEvent) {
@@ -54,7 +53,7 @@ describe("reading manifests from JSON.parse", () => {
     expect(parsed).toStrictEqual(await new Response(text).json());
     await expect.poll(() => posted.length).toBe(1);
     expect(posted[0]).toEqual({
-      source: FROM_PAGE,
+      source: CHANNEL.fromPage,
       type: "tracks",
       ...readManifest(parsed),
     });
@@ -101,12 +100,16 @@ describe("answering the content script", () => {
     return new Promise<{ ok: boolean; value?: unknown; error?: string }>(
       (resolve) => {
         const listener = (event: MessageEvent) => {
-          if (!isReplyMessage(event.data) || event.data.id !== id) return;
+          if (!isReplyMessage(event.data, CHANNEL) || event.data.id !== id)
+            return;
           window.removeEventListener("message", listener);
           resolve(event.data);
         };
         window.addEventListener("message", listener);
-        window.postMessage({ source: TO_PAGE, id, call: c }, location.origin);
+        window.postMessage(
+          { source: CHANNEL.toPage, id, call: c },
+          location.origin,
+        );
       },
     );
   }
@@ -154,7 +157,7 @@ describe("answering the content script", () => {
   it("ignores calls from other sources and malformed calls", async () => {
     let replies = 0;
     const count = (event: MessageEvent) => {
-      if (isReplyMessage(event.data)) replies++;
+      if (isReplyMessage(event.data, CHANNEL)) replies++;
     };
     window.addEventListener("message", count);
     window.postMessage(
@@ -162,11 +165,11 @@ describe("answering the content script", () => {
       location.origin,
     );
     window.postMessage(
-      { source: TO_PAGE, id: "y", call: { type: "seek", ms: "1" } },
+      { source: CHANNEL.toPage, id: "y", call: { type: "seek", ms: "1" } },
       location.origin,
     );
     window.postMessage(
-      { source: TO_PAGE, id: "z", call: { type: "eval" } },
+      { source: CHANNEL.toPage, id: "z", call: { type: "eval" } },
       location.origin,
     );
     await flush();

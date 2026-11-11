@@ -7,12 +7,13 @@ import type { TermCard } from "../article/describe";
 import { createStore } from "../ui/store";
 import { mountVideoUi } from "./mount";
 import type { VideoApp, VideoState } from "./session";
-import { createYouTubeAdapter, type YouTubeAdapter } from "./youtube";
+import { createYouTubeAdapter } from "./youtube/adapter";
 import {
   createTestPage,
   VIDEO_ID,
   type TestPage,
 } from "../../testing/youtube-page";
+import type { PlatformAdapter } from "./platform";
 
 const CUES: Cue[] = [
   { startMs: 0, endMs: 1000, text: "The yeast smells tangy." },
@@ -90,7 +91,7 @@ function fakeApp(state: VideoState) {
 }
 
 let page: TestPage;
-let adapter: YouTubeAdapter;
+let adapter: PlatformAdapter;
 let unmount: (() => void) | undefined;
 let style: HTMLStyleElement;
 

@@ -74,7 +74,6 @@ function fakeSite(
   const log = { hidden: [] as boolean[], seeks: [] as number[], loads: 0 };
   const adapter: PlatformAdapter = {
     platform: "youtube",
-    matches: () => true,
     videoId: () => id,
     title: () => `Title of ${id}`,
     url: () => `https://www.youtube.com/watch?v=${id}`,

@@ -3,13 +3,6 @@ export interface HoverIntentCallbacks<T> {
   hide(): void;
 }
 
-export interface HoverIntentOptions {
-  /** How long the pointer rests on a word before its card shows (ms). */
-  showDelayMs?: number;
-  /** How long the card stays after the pointer leaves the word and the card (ms). */
-  hideDelayMs?: number;
-}
-
 export interface HoverIntent<T> {
   /** The pointer entered a word. */
   enter(target: T): void;
@@ -23,13 +16,14 @@ export interface HoverIntent<T> {
   cancel(): void;
 }
 
-/**
- * When a word's card shows and hides, from the pointer entering and leaving words and
- * the card (the article UI's timing: 250 ms to show, 200 ms to hide).
- */
+/** How long the pointer rests on a word before its card shows (ms), as in the article UI. */
+const SHOW_DELAY_MS = 250;
+/** How long the card stays after the pointer leaves the word and the card (ms). */
+const HIDE_DELAY_MS = 200;
+
+/** When a word's card shows and hides, from the pointer entering and leaving words and the card. */
 export function createHoverIntent<T>(
   cb: HoverIntentCallbacks<T>,
-  { showDelayMs = 250, hideDelayMs = 200 }: HoverIntentOptions = {},
 ): HoverIntent<T> {
   let shown: { target: T } | undefined;
   let showTimer: ReturnType<typeof setTimeout> | undefined;
@@ -40,7 +34,7 @@ export function createHoverIntent<T>(
     hideTimer = setTimeout(() => {
       shown = undefined;
       cb.hide();
-    }, hideDelayMs);
+    }, HIDE_DELAY_MS);
   }
 
   return {
@@ -53,7 +47,7 @@ export function createHoverIntent<T>(
         clearTimeout(hideTimer);
         shown = { target };
         cb.show(target);
-      }, showDelayMs);
+      }, SHOW_DELAY_MS);
     },
     leave() {
       clearTimeout(showTimer);

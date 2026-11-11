@@ -23,6 +23,7 @@ MV3 / TypeScript / WXT + Preact, UI inside Shadow DOM. UI behaviour: [ui.md](ui.
   - **YouTube:** hook fetch/XHR in the page (MAIN world) and receive the `/api/timedtext` (json3) responses the player itself requests
   - **Netflix:** hook `JSON.parse` in the page to read subtitle track URLs from the manifest, then parse TTML/WebVTT. Seek through Netflix's player API
   - Sync with subtitles via `requestVideoFrameCallback` + binary search over cues. Detect the video end with the `ended` event
+  - Code: `src/content/video/youtube/` and `netflix/`, each a MAIN-world `page.ts` (no dependencies), its `messages.ts` and the `adapter.ts` (`PlatformAdapter`). Both talk over `page-channel.ts` (`postMessage` to the page's own origin, shapes checked on both sides); `adapter-kit.ts` and `recent.ts` hold what the adapters share
   - Detect the end of an article with an IntersectionObserver on the last element of the body
 
 ## Language data

@@ -1,6 +1,6 @@
 import type { TranslationChoice } from "../../core/subtitles/translation";
 import type { Cue, Track } from "../../core/subtitles/types";
-import type { Platform } from "../../core/url";
+import { onHost, type Platform } from "../../core/url";
 
 /** What `loadCaptions` needs to choose the tracks. */
 export interface CaptionRequest {
@@ -34,10 +34,20 @@ export interface InsertionPoint {
   before: Element | null;
 }
 
-/** What the video UI needs from a video site (YouTube, Netflix). */
+type VideoPlatform = Exclude<Platform, "web">;
+
+/** The site of each `PlatformAdapter`: the video UI owns it and its subdomains. */
+const VIDEO_SITES: Record<VideoPlatform, string> = {
+  youtube: "youtube.com",
+  netflix: "netflix.com",
+};
+
+export const isVideoSite = (hostname: string): boolean =>
+  Object.values(VIDEO_SITES).some((site) => onHost(hostname, site));
+
+/** What the video UI needs from a video site. */
 export interface PlatformAdapter {
-  readonly platform: Platform;
-  matches(url: URL): boolean;
+  readonly platform: VideoPlatform;
   /** The current video, undefined when the page shows none. */
   videoId(): string | undefined;
   title(): string;

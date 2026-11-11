@@ -1,5 +1,5 @@
 import { startContentErrorLog } from "../check/start";
-import { createNetflixAdapter } from "../content/video/netflix";
+import { createNetflixAdapter } from "../content/video/netflix/adapter";
 import { runVideoSite } from "../content/video/run";
 
 export default defineContentScript({

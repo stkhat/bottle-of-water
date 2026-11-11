@@ -1,17 +1,17 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
-import type { Settings } from "../../core/settings";
-import { clickOn, dictionary, highlighted } from "../../testing/article";
-import { testBackground } from "../../testing/background";
-import { noTranslation } from "../../testing/stubs";
-import type { DetectLanguage } from "../article/should-run";
+import type { Settings } from "../../../core/settings";
+import { clickOn, dictionary, highlighted } from "../../../testing/article";
+import { testBackground } from "../../../testing/background";
+import { noTranslation } from "../../../testing/stubs";
+import type { DetectLanguage } from "../../article/should-run";
 import { isCommentText } from "./comments";
-import type { PlatformAdapter } from "./platform";
+import type { PlatformAdapter } from "../platform";
 import {
   mountCommentsUi,
   startYouTubeComments,
   type CommentsHooks,
-} from "./youtube-comments";
+} from "./comments";
 
 beforeAll(async () => {
   await page.viewport(1100, 800);

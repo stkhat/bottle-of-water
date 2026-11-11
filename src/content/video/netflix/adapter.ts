@@ -1,34 +1,36 @@
-import { parseTtml } from "../../core/subtitles/ttml";
-import { chooseTranslation } from "../../core/subtitles/translation";
-import type { Cue } from "../../core/subtitles/types";
-import { parseWebVtt } from "../../core/subtitles/webvtt";
-import { createNetflixBridge, type NetflixBridge } from "./netflix-bridge";
-import {
-  asTrack,
-  pickOriginalTrack,
-  translationTracks,
-  type NetflixTextTrack,
-} from "./netflix-manifest";
-import { isTrackList } from "./netflix-messages";
-import {
-  CONTROL_BAR_HEIGHT,
-  HIDE_CAPTIONS_CSS,
-  query,
-  SELECTORS,
-  titleText,
-  TOP_BAR_HEIGHT,
-} from "./netflix-site";
+import { parseTtml } from "../../../core/subtitles/ttml";
+import type { Cue } from "../../../core/subtitles/types";
+import { parseWebVtt } from "../../../core/subtitles/webvtt";
+import { firstTranslation, siteCaptionsHider } from "../adapter-kit";
+import { createPageBridge } from "../page-channel";
+import { createRecent } from "../recent";
 import type {
   CaptionRequest,
   InsertionPoint,
   PlatformAdapter,
   VideoCaptions,
-} from "./platform";
+} from "../platform";
+import type { NetflixTextTrack } from "./manifest";
+import {
+  CHANNEL,
+  isTrackList,
+  isTracksMessage,
+  type PageCall,
+  type PageCallResults,
+  type TracksMessage,
+} from "./messages";
+import {
+  CONTROL_BAR_HEIGHT,
+  HIDE_CAPTIONS_CSS,
+  KEEP_TITLES,
+  query,
+  SELECTORS,
+  titleText,
+  TOP_BAR_HEIGHT,
+} from "./site";
+import { asTrack, pickOriginalTrack, translationTracks } from "./tracks";
 
 export interface NetflixAdapterOptions {
-  /** Default: a bridge to the page script on this window. */
-  bridge?: NetflixBridge;
-  document?: Document;
   /** Default: `location.href`. */
   href?: () => string;
   /** How long to wait for the player to parse the title's manifest. */
@@ -41,27 +43,16 @@ export interface NetflixAdapterOptions {
   fetch?: typeof fetch;
 }
 
-export interface NetflixAdapter extends PlatformAdapter {
-  readonly platform: "netflix";
-}
-
-const HIDE_STYLE_ID = "lingo-hide-netflix-captions";
-/** Titles whose tracks are kept (the playing one, the next episode, a few before). */
-const KEEP_TITLES = 6;
 /** The transcript panel's width (px). */
 const PANEL_WIDTH = 360;
 /** Lingo's parts over the page, above Netflix's player (below the dictionary window). */
 const PANEL_LAYER = 2147483600;
 
-function abortError(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException("Aborted", "AbortError");
-}
-
 const WATCH = /^\/watch\/(\d+)/;
 
 /**
  * Netflix's watch page. Subtitles come from the manifest the player parses, observed by
- * the page script (`netflix-page.ts`): the learning language's track is the original,
+ * the page script (`page.ts`): the learning language's track is the original,
  * the native language's track the translation (Netflix has no machine translation).
  * Netflix has no column beside the video, so the transcript is a panel at the right of
  * the player, and the subtitle box "below the video" sits at the player's bottom. The
@@ -71,58 +62,28 @@ const WATCH = /^\/watch\/(\d+)/;
  */
 export function createNetflixAdapter(
   options: NetflixAdapterOptions = {},
-): NetflixAdapter {
-  const doc = options.document ?? document;
-  const win = doc.defaultView ?? window;
+): PlatformAdapter {
   const href = options.href ?? (() => location.href);
-  const bridge = options.bridge ?? createNetflixBridge();
+  const bridge = createPageBridge<PageCall, PageCallResults, TracksMessage>({
+    channel: CHANNEL,
+    isEvent: isTracksMessage,
+  });
+  const hideCaptions = siteCaptionsHider(
+    "lingo-hide-netflix-captions",
+    HIDE_CAPTIONS_CSS,
+  );
   const tracksTimeoutMs = options.tracksTimeoutMs ?? 15_000;
   const pollMs = options.pollMs ?? 500;
   const idleMs = options.idleMs ?? 3000;
   const fetchText =
     options.fetch ?? ((url: string, init?: RequestInit) => fetch(url, init));
 
-  const titles = new Map<string, NetflixTextTrack[]>();
+  const titles = createRecent<NetflixTextTrack[]>(KEEP_TITLES);
   const names = new Map<string, string>();
-  const waiters = new Set<(movieId: string) => void>();
   const cleanups: (() => void)[] = [];
-
-  function remember(movieId: string, tracks: NetflixTextTrack[]) {
-    titles.delete(movieId);
-    titles.set(movieId, tracks);
-    while (titles.size > KEEP_TITLES)
-      titles.delete(titles.keys().next().value as string);
-    for (const waiter of [...waiters]) waiter(movieId);
-  }
   cleanups.push(
-    bridge.onTracks((message) => remember(message.movieId, message.tracks)),
+    bridge.onEvent((message) => titles.set(message.movieId, message.tracks)),
   );
-
-  function waitForTracks(
-    movieId: string,
-    ms: number,
-    signal?: AbortSignal,
-  ): Promise<NetflixTextTrack[] | undefined> {
-    return new Promise((resolve, reject) => {
-      const finish = (value: NetflixTextTrack[] | undefined) => {
-        clearTimeout(timer);
-        waiters.delete(waiter);
-        signal?.removeEventListener("abort", onAbort);
-        resolve(value);
-      };
-      const waiter = (id: string) => {
-        if (id === movieId) finish(titles.get(id));
-      };
-      const onAbort = () => {
-        clearTimeout(timer);
-        waiters.delete(waiter);
-        reject(abortError(signal!));
-      };
-      const timer = setTimeout(() => finish(undefined), ms);
-      waiters.add(waiter);
-      signal?.addEventListener("abort", onAbort, { once: true });
-    });
-  }
 
   /** The tracks the page script has seen for `movieId`, if any. */
   async function seenTracks(
@@ -134,7 +95,7 @@ export function createNetflixAdapter(
       .call({ type: "getTracks", movieId })
       .catch(() => null);
     if (!isTrackList(fromPage)) return undefined;
-    remember(movieId, fromPage);
+    titles.set(movieId, fromPage);
     return fromPage;
   }
 
@@ -145,7 +106,7 @@ export function createNetflixAdapter(
   ): Promise<NetflixTextTrack[] | undefined> {
     const seen =
       (await seenTracks(movieId)) ??
-      (await waitForTracks(movieId, tracksTimeoutMs, signal));
+      (await titles.wait(movieId, tracksTimeoutMs, signal));
     if (seen) return seen;
     signal?.throwIfAborted();
     // The URL can name a show while the player plays one of its episodes.
@@ -222,30 +183,22 @@ export function createNetflixAdapter(
     const cues = await cuesOf(original, signal);
     if (cues.length === 0) return undefined;
 
-    // The native language's track if one can be read, else the built-in translator.
-    let candidates = translationTracks(tracks, original);
-    for (;;) {
-      signal?.throwIfAborted();
-      const choice = chooseTranslation({
-        tracks: candidates,
-        nativeLang: request.nativeLang,
-        canAutoTranslate: false,
-        translatorAvailable: request.translatorAvailable,
-      });
-      const captions = (source: typeof choice.source, list: Cue[]) => ({
-        track: asTrack(original),
-        cues,
-        translation: { source, lang: request.nativeLang, cues: list },
-      });
-      if (choice.source !== "siteTrack") return captions(choice.source, []);
-      const picked = tracks.find((t) => t.id === choice.track.id);
-      const list = picked ? await cuesOf(picked, signal) : [];
-      if (list.length > 0) return captions("siteTrack", list);
-      candidates = candidates.filter((t) => t !== choice.track);
-    }
+    // The native language's track if one can be read (Netflix has no machine translation).
+    const translation = await firstTranslation(
+      request,
+      { tracks: translationTracks(tracks, original), canAutoTranslate: false },
+      async (choice) => {
+        const picked =
+          choice.source === "siteTrack"
+            ? tracks.find((t) => t.id === choice.track.id)
+            : undefined;
+        return picked ? cuesOf(picked, signal) : [];
+      },
+    );
+    return { track: asTrack(original), cues, translation };
   }
 
-  const player = () => query(doc, SELECTORS.player);
+  const player = () => query(SELECTORS.player);
 
   /** One element of Lingo's own, made once and put back where it belongs when the page re-renders. */
   function own(
@@ -259,7 +212,7 @@ export function createNetflixAdapter(
       const at = parent();
       if (!at) return null;
       if (!element) {
-        element = doc.createElement(name);
+        element = document.createElement(name);
         element.style.cssText = style;
       }
       if (element.parentElement !== at) at.append(element);
@@ -279,16 +232,16 @@ export function createNetflixAdapter(
     `position: fixed; z-index: ${PANEL_LAYER}; right: 16px; width: ${PANEL_WIDTH}px;
      top: ${TOP_BAR_HEIGHT}px; bottom: ${CONTROL_BAR_HEIGHT}px; overflow: hidden;
      pointer-events: none;`,
-    () => doc.body,
+    () => document.body,
   );
   // No transcript in fullscreen (mock Fullscreen): the side panel steps aside.
   const onFullscreen = () => {
-    const element = doc.querySelector<HTMLElement>("lingo-netflix-side");
-    if (element) element.hidden = doc.fullscreenElement !== null;
+    const element = document.querySelector<HTMLElement>("lingo-netflix-side");
+    if (element) element.hidden = document.fullscreenElement !== null;
   };
-  doc.addEventListener("fullscreenchange", onFullscreen);
+  document.addEventListener("fullscreenchange", onFullscreen);
   cleanups.push(() =>
-    doc.removeEventListener("fullscreenchange", onFullscreen),
+    document.removeEventListener("fullscreenchange", onFullscreen),
   );
 
   const floating = own(
@@ -299,7 +252,7 @@ export function createNetflixAdapter(
   );
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const onPointerMove = () => {
-    const group = doc.querySelector<HTMLElement>("lingo-netflix-controls");
+    const group = document.querySelector<HTMLElement>("lingo-netflix-controls");
     if (!group) return;
     group.style.visibility = "visible";
     clearTimeout(idleTimer);
@@ -310,10 +263,13 @@ export function createNetflixAdapter(
   // On the window, capturing: the page cannot keep the moves from Lingo.
   const POINTER = ["pointermove", "mousemove"] as const;
   for (const type of POINTER)
-    win.addEventListener(type, onPointerMove, { capture: true, passive: true });
+    window.addEventListener(type, onPointerMove, {
+      capture: true,
+      passive: true,
+    });
   cleanups.push(() => {
     for (const type of POINTER)
-      win.removeEventListener(type, onPointerMove, { capture: true });
+      window.removeEventListener(type, onPointerMove, { capture: true });
     clearTimeout(idleTimer);
   });
 
@@ -329,7 +285,7 @@ export function createNetflixAdapter(
   function before(anchor: Element): InsertionPoint {
     for (
       let slot: Element = anchor, row = anchor.parentElement;
-      row && row !== doc.body;
+      row && row !== document.body;
       slot = row, row = row.parentElement
     ) {
       const others = row.querySelectorAll(SELECTORS.controlButton.join(", "));
@@ -346,12 +302,12 @@ export function createNetflixAdapter(
   }
 
   function controlsPoint(): InsertionPoint | null {
-    const anchor = query(doc, SELECTORS.controlsAnchor);
+    const anchor = query(SELECTORS.controlsAnchor);
     if (anchor?.parentElement) {
       if (!barSeen) {
         barSeen = true;
         // The buttons live in the bar from now on.
-        doc.querySelector("lingo-netflix-controls")?.remove();
+        document.querySelector("lingo-netflix-controls")?.remove();
       }
       return before(anchor);
     }
@@ -366,7 +322,7 @@ export function createNetflixAdapter(
    * back arrow at the top).
    */
   function controlBarTop(): number | null {
-    const bar = query(doc, SELECTORS.controlBar);
+    const bar = query(SELECTORS.controlBar);
     const view = player();
     if (!bar || !view) return null;
     const { top, bottom } = view.getBoundingClientRect();
@@ -386,24 +342,23 @@ export function createNetflixAdapter(
 
   return {
     platform: "netflix",
-    matches: (url) =>
-      url.hostname === "www.netflix.com" || url.hostname === "netflix.com",
     videoId,
     title() {
       const id = videoId();
       const named = id ? names.get(id) : undefined;
       if (named) return named;
-      const bar = query(doc, SELECTORS.title);
+      const bar = query(SELECTORS.title);
       const text = bar ? titleText(bar) : "";
       if (text) return text;
-      const page = doc.title.replace(/\s*[-|]\s*Netflix$/i, "").trim();
+      const page = document.title.replace(/\s*[-|]\s*Netflix$/i, "").trim();
       return page === "Netflix" ? "" : page;
     },
     url() {
       const id = videoId();
       return id ? `https://www.netflix.com/watch/${id}` : href();
     },
-    video: () => player()?.querySelector("video") ?? doc.querySelector("video"),
+    video: () =>
+      player()?.querySelector("video") ?? document.querySelector("video"),
     playerElement: player,
     controlsPoint,
     belowVideoElement: below,
@@ -431,34 +386,22 @@ export function createNetflixAdapter(
         last = now;
         listener();
       };
-      win.addEventListener("popstate", check);
+      window.addEventListener("popstate", check);
       const timer = setInterval(check, pollMs);
-      const off = bridge.onTracks(check);
+      const off = bridge.onEvent(check);
       return () => {
-        win.removeEventListener("popstate", check);
+        window.removeEventListener("popstate", check);
         clearInterval(timer);
         off();
       };
     },
-    hideSiteCaptions(hidden) {
-      const existing = doc.getElementById(HIDE_STYLE_ID);
-      if (!hidden) {
-        existing?.remove();
-        return;
-      }
-      if (existing) return;
-      const style = doc.createElement("style");
-      style.id = HIDE_STYLE_ID;
-      style.textContent = HIDE_CAPTIONS_CSS;
-      (doc.head ?? doc.documentElement).append(style);
-    },
+    hideSiteCaptions: hideCaptions,
     dispose() {
       for (const cleanup of cleanups.splice(0)) cleanup();
-      waiters.clear();
       titles.clear();
       names.clear();
-      doc.getElementById(HIDE_STYLE_ID)?.remove();
-      if (!options.bridge) bridge.dispose();
+      hideCaptions(false);
+      bridge.dispose();
     },
   };
 }

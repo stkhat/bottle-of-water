@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { page } from "vitest/browser";
-import { clickOn, dictionary, highlighted } from "../../testing/article";
-import { testBackground } from "../../testing/background";
-import { detectEnglish, noTranslation } from "../../testing/stubs";
-import { createTestPage, VIDEO_ID } from "../../testing/youtube-page";
-import { startVideo, type VideoSession } from "./session";
-import { createYouTubeAdapter } from "./youtube";
-import { mountCommentsUi, startYouTubeComments } from "./youtube-comments";
-import { installYouTubeHooks } from "./youtube-page";
-import { startYouTubeParts } from "./youtube-parts";
+import { clickOn, dictionary, highlighted } from "../../../testing/article";
+import { testBackground } from "../../../testing/background";
+import { detectEnglish, noTranslation } from "../../../testing/stubs";
+import { createTestPage, VIDEO_ID } from "../../../testing/youtube-page";
+import { startVideo, type VideoSession } from "../session";
+import { createYouTubeAdapter } from "./adapter";
+import { mountCommentsUi, startYouTubeComments } from "./comments";
+import { installYouTubeHooks } from "./page";
+import { startYouTubeParts } from "./parts";
 
 let uninstall: () => void;
 beforeAll(async () => {

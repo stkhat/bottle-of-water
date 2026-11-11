@@ -1,10 +1,9 @@
 /**
- * Everything Lingo assumes about Netflix's watch page and player API, in one place
- * (manifest fields are in `netflix-manifest.ts`). None of it is documented by Netflix;
- * it follows public descriptions of the web player and is listed for checking in
- * docs/notes/netflix.md. Each lookup tries its candidates in order and gives null when
- * none matches, so a changed page means "no Lingo on this video", never a broken page.
- * Imported by the page script: keep this file free of runtime dependencies.
+ * Everything Lingo assumes about Netflix's watch page and player API (manifest fields are
+ * in `manifest.ts`). None of it is documented by Netflix; see docs/notes/netflix.md.
+ * Each lookup tries its candidates in order and gives null when none matches, so a
+ * changed page means "no Lingo on this video", never a broken page. Imported by the
+ * page script: no runtime dependencies.
  */
 
 /** CSS selectors, most likely first. */
@@ -53,15 +52,18 @@ export const SELECTORS = {
 /** Hides Netflix's own subtitles while Lingo shows its own. */
 export const HIDE_CAPTIONS_CSS = `${SELECTORS.captions.join(", ")} { display: none !important; }`;
 
+/** Titles whose tracks are kept: the playing one, the next episode (prefetched), a few before. */
+export const KEEP_TITLES = 6;
+
 /** Lingo's parts over the player keep clear of the control bar at the bottom (px). */
 export const CONTROL_BAR_HEIGHT = 120;
 /** Netflix's back arrow and flag sit at the top of the player (px). */
 export const TOP_BAR_HEIGHT = 72;
 
-/** The first element matching one of `selectors`, inside `root`. */
+/** The first element matching one of `selectors`. */
 export function query<E extends Element = HTMLElement>(
-  root: ParentNode,
   selectors: readonly string[],
+  root: ParentNode = document,
 ): E | null {
   for (const selector of selectors) {
     const found = root.querySelector<E>(selector);
@@ -82,10 +84,8 @@ export function titleText(element: Element): string {
     .join(" ");
 }
 
-// Page world: Netflix's player API on `window.netflix`.
-
 /** One playback session's player (Netflix's `videoPlayer` session object). */
-export interface NetflixSessionPlayer {
+interface NetflixSessionPlayer {
   seek(ms: number): void;
   getMovieId?(): unknown;
 }
@@ -130,15 +130,15 @@ interface NetflixGlobal {
   };
 }
 
-const playerApp = (win: Window) =>
-  (win as unknown as NetflixGlobal).netflix?.appContext?.state?.playerApp;
+const playerApp = () =>
+  (window as unknown as NetflixGlobal).netflix?.appContext?.state?.playerApp;
 
 /**
  * The player of the playing title: the session whose id names the watch page
  * ("watch-…"), else the first one. Undefined when the API is not there.
  */
-export function netflixPlayer(win: Window): NetflixSessionPlayer | undefined {
-  const api = playerApp(win)?.getAPI?.()?.videoPlayer;
+export function netflixPlayer(): NetflixSessionPlayer | undefined {
+  const api = playerApp()?.getAPI?.()?.videoPlayer;
   const ids = api?.getAllPlayerSessionIds?.();
   if (!api || !Array.isArray(ids) || ids.length === 0) return undefined;
   const id =
@@ -149,10 +149,10 @@ export function netflixPlayer(win: Window): NetflixSessionPlayer | undefined {
 }
 
 /** "Show · S1:E2 Episode" or the film's title, from the player's metadata. */
-export function netflixTitle(win: Window, movieId: string): string | undefined {
+export function netflixTitle(movieId: string): string | undefined {
   const video =
-    playerApp(win)?.getState?.()?.videoPlayer?.videoMetadata?.[movieId]
-      ?._metadata?.video;
+    playerApp()?.getState?.()?.videoPlayer?.videoMetadata?.[movieId]?._metadata
+      ?.video;
   if (!video || typeof video.title !== "string" || !video.title)
     return undefined;
   for (const season of Array.isArray(video.seasons) ? video.seasons : [])

@@ -2,7 +2,7 @@ import { render } from "preact";
 import { browser } from "wxt/browser";
 import { startContentErrorLog } from "../../check/start";
 import { runArticle } from "../../content/article/article";
-import { isVideoSite } from "../../content/article/should-run";
+import { isVideoSite } from "../../content/video/platform";
 import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
 import { ArticleUi } from "../../content/ui/ArticleUi";
 import { shadowRootMode } from "../../content/ui/shadow-mode";

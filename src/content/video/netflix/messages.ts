@@ -1,31 +1,24 @@
-/**
- * Messages between Lingo's page script on netflix.com (MAIN world, `netflix-page.ts`)
- * and its content script (isolated world, `netflix-bridge.ts`), sent with
- * `window.postMessage` to the page's own origin. The page can read and forge these, so
- * both sides check the shape of what they receive and treat it as untrusted data.
- * Imported by the page script: keep this file free of runtime dependencies.
- */
-import type { NetflixTextTrack } from "./netflix-manifest";
+// Messages between the page script (`page.ts`) and the adapter, over `page-channel.ts`.
+import { isObject, isString, type PageChannel } from "../page-channel";
+import type { NetflixTextTrack } from "./manifest";
 
-/** `source` of messages from the page script. */
-export const FROM_PAGE = "lingo-nf";
-/** `source` of messages to the page script. */
-export const TO_PAGE = "lingo-nf-request";
+export const CHANNEL = {
+  fromPage: "lingo-nf",
+  toPage: "lingo-nf-request",
+} as const satisfies PageChannel;
 
 /** The subtitle tracks of a manifest the player parsed, posted as it is parsed. */
 export interface TracksMessage {
-  source: typeof FROM_PAGE;
+  source: typeof CHANNEL.fromPage;
   type: "tracks";
   movieId: string;
   /** Their URLs carry tokens: keep them in memory only. */
   tracks: NetflixTextTrack[];
 }
 
-/** What the content script can ask the page script for. */
 export type PageCall =
   /** The tracks of a title whose manifest the page script has seen (null if none). */
   | { type: "getTracks"; movieId: string }
-  /** The id of the title the player plays. */
   | { type: "currentMovieId" }
   /** The title's name from the player's metadata. */
   | { type: "title"; movieId: string }
@@ -42,30 +35,7 @@ export interface PageCallResults {
   seek: null;
 }
 
-export interface CallMessage {
-  source: typeof TO_PAGE;
-  id: string;
-  call: PageCall;
-}
-
-export interface ReplyMessage {
-  source: typeof FROM_PAGE;
-  type: "reply";
-  id: string;
-  ok: boolean;
-  value?: unknown;
-  error?: string;
-}
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isString = (value: unknown): value is string => typeof value === "string";
-
-export function isCallMessage(data: unknown): data is CallMessage {
-  if (!isObject(data) || data.source !== TO_PAGE) return false;
-  if (!isString(data.id) || !isObject(data.call)) return false;
-  const call = data.call;
+export function isCall(call: Record<string, unknown>): boolean {
   switch (call.type) {
     case "getTracks":
     case "title":
@@ -81,8 +51,7 @@ export function isCallMessage(data: unknown): data is CallMessage {
   }
 }
 
-/** A track as the page script posts it (checked field by field). */
-export function isTextTrack(value: unknown): value is NetflixTextTrack {
+function isTextTrack(value: unknown): value is NetflixTextTrack {
   return (
     isObject(value) &&
     isString(value.id) &&
@@ -109,19 +78,9 @@ export const isTrackList = (value: unknown): value is NetflixTextTrack[] =>
 export function isTracksMessage(data: unknown): data is TracksMessage {
   return (
     isObject(data) &&
-    data.source === FROM_PAGE &&
+    data.source === CHANNEL.fromPage &&
     data.type === "tracks" &&
     isString(data.movieId) &&
     isTrackList(data.tracks)
-  );
-}
-
-export function isReplyMessage(data: unknown): data is ReplyMessage {
-  return (
-    isObject(data) &&
-    data.source === FROM_PAGE &&
-    data.type === "reply" &&
-    isString(data.id) &&
-    typeof data.ok === "boolean"
   );
 }

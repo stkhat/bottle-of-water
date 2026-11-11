@@ -84,9 +84,8 @@ const boxOf = (element: Element | null | undefined): Box | null => {
 /**
  * Mounts the video UI on the site's page, each part in its own shadow root: the
  * subtitle and the menu inside the player, the subtitle box under it, the transcript in
- * the side column, the L and ^ buttons in the player bar, and the hover card, the
- * dictionary window and the end card over the page (inside the fullscreen element while
- * there is one). The site re-renders its page (YouTube is a single-page app): a
+ * the side column, the L and ^ buttons in the player bar, and the hover card and the
+ * dictionary window over the page (inside the fullscreen element while there is one). The site re-renders its page (YouTube is a single-page app): a
  * MutationObserver puts the parts back. Returns an unmount.
  */
 export function mountVideoUi({ adapter, app }: MountOptions): () => void {
@@ -116,7 +115,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     return host;
   }
 
-  /** The player buttons' host, once made. */
+  /** The hosts the geometry measures, once made. */
   const made: { buttons?: HTMLElement; transcript?: HTMLElement } = {};
   const geometry: VideoGeometry = {
     player: () => boxOf(adapter.playerElement()),

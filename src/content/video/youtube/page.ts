@@ -1,17 +1,16 @@
 /**
- * Runs in youtube.com's own JavaScript world (MAIN), from document_start. It watches the
- * player's /api/timedtext responses and answers the content script's calls to the
- * player API (see `youtube-messages.ts`). Requests and responses pass through unchanged.
- * No dependencies: this code runs inside the page.
+ * youtube.com's MAIN world, from document_start: posts the player's /api/timedtext
+ * responses and answers the adapter's calls to the player API. Requests and responses
+ * pass through unchanged. No dependencies: this code runs inside the page.
  */
+import { installPageScript } from "../page-channel";
 import {
-  FROM_PAGE,
-  isCallMessage,
+  CHANNEL,
+  isCall,
   type PageCall,
   type PageCallResults,
-  type ReplyMessage,
   type TimedtextMessage,
-} from "./youtube-messages";
+} from "./messages";
 
 /** The parts of YouTube's player API (on `#movie_player`) Lingo calls. */
 interface PlayerApi {
@@ -31,25 +30,21 @@ interface CaptionTrackOption {
   kind?: string;
 }
 
-let uninstallCurrent: (() => void) | undefined;
+export const installYouTubeHooks = () =>
+  installPageScript<PageCall>(CHANNEL, isCall, install);
 
-/** Installs the hooks once per page; returns a function that removes them (for tests). */
-export function installYouTubeHooks(
-  win: Window & typeof globalThis = window,
-): () => void {
-  if (uninstallCurrent) return uninstallCurrent;
-
-  const origin = win.location.origin;
-  const XHR = win.XMLHttpRequest.prototype;
+function install() {
+  const origin = location.origin;
+  const XHR = XMLHttpRequest.prototype;
   const originalOpen = XHR.open;
   const originalSend = XHR.send;
-  const originalFetch = win.fetch;
+  const originalFetch = window.fetch;
   const openedUrls = new WeakMap<XMLHttpRequest, string>();
 
   /** The absolute URL when it is a same-origin /api/timedtext request. */
   function timedtextUrl(url: string): URL | undefined {
     try {
-      const parsed = new URL(url, win.location.href);
+      const parsed = new URL(url, location.href);
       return parsed.origin === origin && parsed.pathname === TIMEDTEXT_PATH
         ? parsed
         : undefined;
@@ -61,7 +56,7 @@ export function installYouTubeHooks(
   function post(url: URL, body: string) {
     const q = url.searchParams;
     const message: TimedtextMessage = {
-      source: FROM_PAGE,
+      source: CHANNEL.fromPage,
       type: "timedtext",
       url: url.href,
       videoId: q.get("v"),
@@ -70,7 +65,7 @@ export function installYouTubeHooks(
       kind: q.get("kind"),
       body,
     };
-    win.postMessage(message, origin);
+    window.postMessage(message, origin);
   }
 
   function xhrBody(xhr: XMLHttpRequest): string {
@@ -115,9 +110,9 @@ export function installYouTubeHooks(
     return originalSend.apply(this, args);
   };
 
-  win.fetch = function fetch(
+  window.fetch = function fetch(
     this: unknown,
-    ...args: Parameters<typeof win.fetch>
+    ...args: Parameters<typeof window.fetch>
   ) {
     const result = originalFetch.apply(this, args);
     const [input] = args;
@@ -131,11 +126,10 @@ export function installYouTubeHooks(
         .catch(() => {});
     }
     return result;
-  } as typeof win.fetch;
+  } as typeof window.fetch;
 
   const player = () =>
-    win.document.getElementById("movie_player") as
-      (HTMLElement & PlayerApi) | null;
+    document.getElementById("movie_player") as (HTMLElement & PlayerApi) | null;
 
   /** A plain copy that survives postMessage (player objects may hold functions). */
   const plain = (value: unknown): unknown =>
@@ -184,7 +178,7 @@ export function installYouTubeHooks(
       case "fetchTimedtext": {
         const url = timedtextUrl(call.url);
         if (!url) throw new Error("Not a timedtext URL");
-        const response = await originalFetch.call(win, url.href, {
+        const response = await originalFetch.call(window, url.href, {
           credentials: "same-origin",
         });
         return response.text();
@@ -195,28 +189,12 @@ export function installYouTubeHooks(
     }
   }
 
-  function onMessage(event: MessageEvent) {
-    if (event.source !== win || event.origin !== origin) return;
-    const data: unknown = event.data;
-    if (!isCallMessage(data)) return;
-    const reply = (fields: Partial<ReplyMessage>) =>
-      win.postMessage(
-        { source: FROM_PAGE, type: "reply", id: data.id, ...fields },
-        origin,
-      );
-    answer(data.call).then(
-      (value) => reply({ ok: true, value }),
-      (error: unknown) => reply({ ok: false, error: String(error) }),
-    );
-  }
-  win.addEventListener("message", onMessage);
-
-  uninstallCurrent = () => {
-    XHR.open = originalOpen;
-    XHR.send = originalSend;
-    win.fetch = originalFetch;
-    win.removeEventListener("message", onMessage);
-    uninstallCurrent = undefined;
+  return {
+    answer,
+    uninstall() {
+      XHR.open = originalOpen;
+      XHR.send = originalSend;
+      window.fetch = originalFetch;
+    },
   };
-  return uninstallCurrent;
 }

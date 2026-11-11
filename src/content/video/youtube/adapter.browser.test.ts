@@ -7,20 +7,21 @@ import {
   expect,
   it,
 } from "vitest";
-import captionTracks from "../../core/subtitles/fixtures/youtube/captionTracks.json";
-import en from "../../core/subtitles/fixtures/youtube/en.json3?raw";
-import enTlangJa from "../../core/subtitles/fixtures/youtube/en-tlang-ja.json3?raw";
-import ja from "../../core/subtitles/fixtures/youtube/ja.json3?raw";
-import { parseYouTubeJson3 } from "../../core/subtitles/youtube-json3";
-import { createYouTubeAdapter, type YouTubeAdapter } from "./youtube";
-import { FROM_PAGE, type TimedtextMessage } from "./youtube-messages";
-import { installYouTubeHooks } from "./youtube-page";
+import captionTracks from "../../../core/subtitles/fixtures/youtube/captionTracks.json";
+import en from "../../../core/subtitles/fixtures/youtube/en.json3?raw";
+import enTlangJa from "../../../core/subtitles/fixtures/youtube/en-tlang-ja.json3?raw";
+import ja from "../../../core/subtitles/fixtures/youtube/ja.json3?raw";
+import { parseYouTubeJson3 } from "../../../core/subtitles/youtube-json3";
+import { createYouTubeAdapter } from "./adapter";
+import { CHANNEL, type TimedtextMessage } from "./messages";
+import { installYouTubeHooks } from "./page";
 import {
   createTestPage,
   TITLE,
   VIDEO_ID,
   type TestPage,
-} from "../../testing/youtube-page";
+} from "../../../testing/youtube-page";
+import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
   learningLang: "en",
@@ -35,7 +36,7 @@ beforeAll(() => {
 afterAll(() => uninstall());
 
 let page: TestPage;
-let adapter: YouTubeAdapter;
+let adapter: PlatformAdapter;
 let href: string;
 
 function start(options: Parameters<typeof createTestPage>[0] = {}) {
@@ -103,15 +104,6 @@ describe("the watch page", () => {
     expect(adapter.url()).toBe(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
     href = "https://www.youtube.com/feed/subscriptions";
     expect(adapter.videoId()).toBeUndefined();
-  });
-
-  it("matches youtube.com only", () => {
-    expect(adapter.matches(new URL("https://www.youtube.com/watch?v=x"))).toBe(
-      true,
-    );
-    expect(adapter.matches(new URL("https://www.netflix.com/watch/1"))).toBe(
-      false,
-    );
   });
 
   it("knows when an ad plays", () => {
@@ -240,7 +232,7 @@ describe("loading captions", () => {
   it("ignores caption requests of another video (ads)", async () => {
     start();
     const ad: TimedtextMessage = {
-      source: FROM_PAGE,
+      source: CHANNEL.fromPage,
       type: "timedtext",
       url: `${location.origin}/api/timedtext?v=adVideo&lang=en&pot=T&fmt=json3`,
       videoId: "adVideo",

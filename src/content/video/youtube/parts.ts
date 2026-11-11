@@ -1,6 +1,6 @@
-import type { VideoHooks } from "./run";
-import type { VideoSession } from "./session";
-import type { CommentsHooks, CommentsRunner } from "./youtube-comments";
+import type { VideoHooks } from "../run";
+import type { VideoSession } from "../session";
+import type { CommentsHooks, CommentsRunner } from "./comments";
 
 const warn = (error: unknown) => console.warn("Lingo:", error);
 

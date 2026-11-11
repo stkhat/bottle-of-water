@@ -1,21 +1,40 @@
 import { render } from "preact";
 import { browser } from "wxt/browser";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import { send } from "../../messaging/client";
-import { watchPackState, watchSettings } from "../../messaging/storage";
-import { guardShadowRoot } from "../../ui/from-user";
+import { hostBlocked, type Settings } from "../../../core/settings";
+import { send } from "../../../messaging/client";
+import { watchPackState, watchSettings } from "../../../messaging/storage";
+import { guardShadowRoot } from "../../../ui/from-user";
 import {
   runArticle,
   type ArticleApp,
   type ArticleDeps,
   type ArticleRunner,
-} from "../article/article";
-import { WHOLE_ROOT, type PageSurface } from "../article/surface";
-import { sendWhileConnected } from "../orphan";
-import { ArticleUi } from "../ui/ArticleUi";
-import { shadowRootMode } from "../ui/shadow-mode";
-import { COMMENTS_ROOT, commentsAllowedOn, isCommentText } from "./comments";
-import type { PlatformAdapter } from "./platform";
+} from "../../article/article";
+import { WHOLE_ROOT, type PageSurface } from "../../article/surface";
+import { sendWhileConnected } from "../../orphan";
+import { ArticleUi } from "../../ui/ArticleUi";
+import { shadowRootMode } from "../../ui/shadow-mode";
+import type { PlatformAdapter } from "../platform";
+
+/** A comment's text on a YouTube watch page (its replies' too). */
+const COMMENT_TEXT = "#content-text";
+
+/** The comment section under the video (not the hidden engagement-panel copy). */
+const COMMENTS_ROOT = "ytd-comments#comments";
+
+/**
+ * Whether Lingo runs in YouTube's comments: YouTube and its comments are switched on
+ * and the host is not blocked. The player's L button does not matter.
+ */
+export const commentsAllowedOn = (hostname: string, settings: Settings) =>
+  settings.sites.youtube &&
+  settings.sites.youtubeComments &&
+  !hostBlocked(hostname, settings);
+
+/** True for text inside a comment's body, so names, times and buttons are never read. */
+export const isCommentText = (node: Text) =>
+  node.parentElement?.closest(COMMENT_TEXT) != null;
 
 /** How the comments work with the video UI on the same page. */
 export interface CommentsHooks {
@@ -45,7 +64,7 @@ export interface CommentsOptions extends CommentsHooks {
  * language is detected on its own, everything read counts (there is no end to reach),
  * and the video is the source of what is saved and recorded.
  */
-export function commentsSurface(
+function commentsSurface(
   options: CommentsOptions & { hostname: string },
 ): PageSurface {
   const { adapter, hostname } = options;
@@ -156,8 +175,7 @@ const PRIVATE_EVENTS = [
 
 /**
  * Mounts the comments' hover card, selection card and dictionary panel in their own
- * shadow root in `<body>` (no `innerHTML`: YouTube enforces Trusted Types). Returns an
- * unmount.
+ * shadow root in `<body>` (no `innerHTML`: YouTube enforces Trusted Types).
  */
 export function mountCommentsUi(app: ArticleApp): () => void {
   const host = document.createElement("lingo-comments");

@@ -1,8 +1,8 @@
 import { startContentErrorLog } from "../check/start";
 import { runVideoSite } from "../content/video/run";
-import { createYouTubeAdapter } from "../content/video/youtube";
-import { runYouTubeComments } from "../content/video/youtube-comments";
-import { startYouTubeParts } from "../content/video/youtube-parts";
+import { createYouTubeAdapter } from "../content/video/youtube/adapter";
+import { runYouTubeComments } from "../content/video/youtube/comments";
+import { startYouTubeParts } from "../content/video/youtube/parts";
 
 export default defineContentScript({
   matches: ["*://www.youtube.com/*"],
