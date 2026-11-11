@@ -13,7 +13,7 @@ import {
 import { browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { send } from "./client";
-import type { Counts } from "../background/term-store";
+import type { Counts } from "../messaging/protocol";
 import { PacksUnavailableError } from "../core/packs/unavailable";
 import type { AnalyzeResult, Reply } from "./protocol";
 
@@ -60,7 +60,6 @@ describe("send", () => {
       type: "lookup",
       lang: "es",
       key: "comer",
-      kind: "word",
     });
     await expect(lookup).rejects.toThrow(PacksUnavailableError);
     await expect(lookup).rejects.toMatchObject({

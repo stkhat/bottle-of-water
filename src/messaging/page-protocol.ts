@@ -7,7 +7,7 @@ import type { TermStatus } from "../core/classify";
 export type PageRequest =
   /** What "save all" would do on this page, and the last one done. */
   | { type: "pageSummary" }
-  /** Saves every unsaved new word of the page, as the end card does. */
+  /** Saves every unsaved new word of the page. */
   | { type: "pageSaveAll"; status: TermStatus }
   /** Undoes the last save-all of the page. */
   | { type: "pageUndo" };

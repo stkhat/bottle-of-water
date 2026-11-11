@@ -33,7 +33,7 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
   const page = await context.newPage();
   await page.goto(YOUTUBE_WATCH);
   const transcript = page.getByRole("complementary", {
-    name: en["video.panel"],
+    name: en["app.name"],
   });
   // A card's time, top left: the words in a card open the dictionary instead.
   await transcript

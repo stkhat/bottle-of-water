@@ -318,9 +318,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
               padding: "3px 9px",
             }}
           >
-            {t(
-              entry.kind === "word" ? "lookup.kind.word" : "lookup.kind.phrase",
-            )}
+            {t(entry.kind === "word" ? "kind.word" : "kind.phrase")}
           </span>
           <button
             type="button"

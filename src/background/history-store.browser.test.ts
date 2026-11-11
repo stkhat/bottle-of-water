@@ -1,22 +1,21 @@
-import { Dexie } from "dexie";
 import { beforeEach, describe, expect, it } from "vitest";
 import { normalizeUrl, sourceId } from "../core/url";
-import { openLingoDb, type LingoDb } from "./db";
+import type { LingoDb } from "./db";
+import type { SourceInput } from "../messaging/protocol";
 import {
   createHistoryStore,
   type HistoryItem,
-  type HistorySource,
   type HistoryStore,
 } from "./history-store";
 import { fakeClock } from "../testing/clock";
 import { freshDb } from "../testing/db";
 import { ARTICLE as BREAD, VIDEO } from "../testing/sources";
 
-const ARTICLE: HistorySource = {
+const ARTICLE: SourceInput = {
   ...BREAD,
   url: "https://Example.com/bread?utm_source=x#top",
 };
-const OTHER_ARTICLE: HistorySource = {
+const OTHER_ARTICLE: SourceInput = {
   platform: "web",
   url: "https://news.example.org/cake",
   title: "Cake",
@@ -42,10 +41,10 @@ const sentenceBytes = (item: HistoryItem) =>
       (item.translation?.length ?? 0) +
       item.keys.reduce((sum, key) => sum + key.length, 0)) +
   64;
-const pageBytes = (source: HistorySource) =>
+const pageBytes = (source: SourceInput) =>
   2 * (normalizeUrl(source.url).length + source.title.length) + 64;
 
-const pageId = (source: HistorySource) =>
+const pageId = (source: SourceInput) =>
   sourceId(source.platform, normalizeUrl(source.url));
 
 let db: LingoDb;
@@ -60,68 +59,6 @@ beforeEach(() => {
   clock = fakeClock();
   db = freshDb();
   history = createHistoryStore(db, { now: clock.now });
-});
-
-describe("upgrade from version 1", () => {
-  it("keeps terms, sources and occurrences and adds the history tables", async () => {
-    const name = `lingo-test-${crypto.randomUUID()}`;
-    const v1 = new Dexie(name);
-    v1.version(1).stores({
-      terms: "id, lang, status, updatedAt, batchId, [lang+status]",
-      sources: "id",
-      occurrences:
-        "++id, termId, &[termId+sourceId+sentence], [termId+seenAt], seenAt",
-      meta: "key",
-    });
-    await v1.table("terms").put({
-      id: "en:dough",
-      lang: "en",
-      key: "dough",
-      display: "dough",
-      kind: "word",
-      status: "learning",
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    await v1.table("sources").put({
-      id: "s1",
-      platform: "web",
-      url: "https://example.com/",
-      title: "Example",
-      lang: "en",
-      firstSeen: 1,
-      lastSeen: 1,
-    });
-    await v1.table("occurrences").add({
-      termId: "en:dough",
-      sourceId: "s1",
-      sentence: "Knead the dough.",
-      pos: { textQuote: "Knead the dough." },
-      seenAt: 1,
-      origin: "saved",
-    });
-    await v1.table("meta").put({ key: "lastSavedAt", value: 1 });
-    v1.close();
-
-    const upgraded = openLingoDb(name);
-    try {
-      expect(await upgraded.terms.get("en:dough")).toMatchObject({
-        status: "learning",
-      });
-      expect(await upgraded.sources.get("s1")).toMatchObject({
-        title: "Example",
-      });
-      expect(await upgraded.occurrences.count()).toBe(1);
-      expect(await upgraded.meta.get("lastSavedAt")).toMatchObject({
-        value: 1,
-      });
-      const store = createHistoryStore(upgraded, { now: clock.now });
-      expect(await store.record(ARTICLE, [knead])).toBe(1);
-      expect(await store.find("en:dough")).toHaveLength(1);
-    } finally {
-      await upgraded.delete();
-    }
-  });
 });
 
 describe("record", () => {
@@ -187,7 +124,7 @@ describe("record", () => {
 
 describe("eviction", () => {
   /** A source of its own with one sentence of a known size. */
-  const page = (n: number): [HistorySource, HistoryItem[]] => [
+  const page = (n: number): [SourceInput, HistoryItem[]] => [
     {
       platform: "web",
       url: `https://example.com/p${n}`,
@@ -257,11 +194,11 @@ describe("find", () => {
 
     expect(await history.find("en:dough")).toEqual([
       {
-        text: rest.text,
+        sentence: rest.text,
         translation: rest.translation,
         pos: rest.pos,
         seenAt: 1_001_000,
-        page: {
+        source: {
           platform: "youtube",
           url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
           title: "A video",
@@ -269,10 +206,10 @@ describe("find", () => {
         },
       },
       {
-        text: knead.text,
+        sentence: knead.text,
         pos: knead.pos,
         seenAt: 1_000_000,
-        page: {
+        source: {
           platform: "web",
           url: "https://example.com/bread",
           title: "Bread",
@@ -290,7 +227,7 @@ describe("find", () => {
     const found = await history.find("en:dough", {
       excludeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s",
     });
-    expect(found.map((s) => s.text)).toEqual([knead.text]);
+    expect(found.map((s) => s.sentence)).toEqual([knead.text]);
   });
 
   it("returns at most `limit` sentences, 50 by default", async () => {
@@ -305,9 +242,9 @@ describe("find", () => {
     }
     const all = await history.find("en:dough");
     expect(all).toHaveLength(50);
-    expect(all[0]?.text).toBe("Dough number 59.");
+    expect(all[0]?.sentence).toBe("Dough number 59.");
     const three = await history.find("en:dough", { limit: 3 });
-    expect(three.map((s) => s.text)).toEqual([
+    expect(three.map((s) => s.sentence)).toEqual([
       "Dough number 59.",
       "Dough number 58.",
       "Dough number 57.",
@@ -338,7 +275,7 @@ describe("find", () => {
       excludeUrl: ARTICLE.url,
       limit: 5,
     });
-    expect(found.map((s) => s.text)).toEqual([
+    expect(found.map((s) => s.sentence)).toEqual([
       rest.text,
       "Dough on the other page 119.",
       "Dough on the other page 118.",

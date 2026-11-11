@@ -7,13 +7,12 @@ import {
   createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
-} from "../dictionary";
-import { createLanguagePack } from "../language-pack";
-import { buildFreqIndex, rankOf } from "./frequency";
-import { ipaFor } from "./ipa";
-import { lemmatize } from "./lemmatize";
+} from "../lexicon/dictionary";
+import { createLanguagePack } from "../lexicon/language-pack";
+import { ipaFor } from "../lexicon/ipa";
+import { lemmatize } from "../lexicon/lemmatize";
 import { createPackLoader } from "./load";
-import { lookup } from "./lookup";
+import { lookup } from "../lexicon/lookup";
 import type { DictPack, ShardIndex } from "./types";
 
 const read = (path: string): unknown =>
@@ -97,11 +96,11 @@ describe("generated packs", () => {
     expect(labels).toContain("verb");
   });
   it("rank the most common words first", () => {
-    const index = buildFreqIndex(freq);
-    expect(rankOf("the", index)).toBeLessThanOrEqual(5);
-    expect(rankOf("you", index)).toBe(1);
+    const rank = (word: string) => freq.indexOf(word) + 1 || Infinity;
+    expect(rank("the")).toBeLessThanOrEqual(5);
+    expect(rank("you")).toBe(1);
     expect(freq.length).toBeGreaterThan(15000);
-    expect(rankOf("thi", index)).toBeGreaterThan(5000);
+    expect(rank("thi")).toBeGreaterThan(5000);
   });
 });
 
@@ -161,7 +160,7 @@ describe("generated phrases", () => {
 
   it("have a meaning for every pattern", () => {
     const missing = [...phrases.detect, ...phrases.more].filter(
-      (phrase) => !dictionary.short(phrase),
+      (phrase) => !dictionary.entry(phrase)?.short,
     );
     expect(missing).toEqual([]);
   });
@@ -189,8 +188,6 @@ describe("generated Spanish pack and es-en dictionary", () => {
     patterns: es.phrases,
   });
   const dictionary = createDefsDictionary({
-    from: "es",
-    to: "en",
     defs: esEn,
     ipa: es.ipa,
   });
@@ -226,7 +223,7 @@ describe("generated Spanish pack and es-en dictionary", () => {
   it("have a meaning for every phrase pattern", () => {
     expect(es.phrases.detect.length).toBeGreaterThan(0);
     for (const phrase of [...es.phrases.detect, ...es.phrases.more])
-      expect(dictionary.short(phrase), phrase).toBeTruthy();
+      expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
   });
 
   it("keep patterns with a slot for selections only, without gaps", () => {
@@ -242,8 +239,6 @@ const { dict: enEs } = await loadPack("en-es");
 
 describe("generated en-es dictionary", () => {
   const dictionary = createPairDictionary({
-    from: "en",
-    to: "es",
     dict: enEs,
     defs,
     ipa,

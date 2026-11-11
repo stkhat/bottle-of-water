@@ -1,4 +1,8 @@
-import type { SourceInput } from "../../background/term-store";
+import type {
+  AnalyzeResult,
+  SourceInput,
+  TermBrief,
+} from "../../messaging/protocol";
 import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
 import {
   mergeSettings,
@@ -25,7 +29,6 @@ import { PacksUnavailableError } from "../../core/packs/unavailable";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
 import { followPackStatus, pairNote } from "../../messaging/pack-status";
-import type { AnalyzeResult, TermBrief } from "../../messaging/protocol";
 import {
   unsupportedPage,
   type PageRequest,
@@ -668,8 +671,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
    */
   function summarize(w: Watch, spans: Span[], saved: ReadonlySet<string>) {
     const statuses = new Map<string, TermBrief["status"]>();
-    const terms: { key: string; kind: TermKind }[] = [];
-    for (const { key, kind, category } of spans) {
+    const keys: string[] = [];
+    for (const { key, category } of spans) {
       if (category === "ignored") continue;
       // A saved term's span has its status; "known" alone may be the level's.
       statuses.set(
@@ -678,12 +681,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       );
       if (w.asked.has(key)) continue;
       w.asked.add(key);
-      terms.push({ key, kind });
+      keys.push(key);
     }
     noteStatuses(w, statuses);
-    if (terms.length === 0) return;
+    if (keys.length === 0) return;
     deps
-      .send({ type: "termSummaries", lang: lang(), terms })
+      .send({ type: "termSummaries", lang: lang(), keys })
       .then((answer) => {
         if (watch !== w) return;
         const summaries = { ...store.get().summaries };
@@ -696,7 +699,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       })
       .catch((error: unknown) => {
         // Asked again with the next batch, or once the dictionary's data is there.
-        for (const { key } of terms) w.asked.delete(key);
+        for (const key of keys) w.asked.delete(key);
         if (error instanceof PacksUnavailableError) packs.add(error.packs);
         warn(error);
       });

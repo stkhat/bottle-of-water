@@ -1,44 +1,26 @@
+import type { Classifier, ClassifyOptions } from "../core/classify";
+import type { LanguagePack } from "../core/lexicon/language-pack";
+import { termId } from "../core/term-id";
 import {
-  normalizeUrl,
+  hostnameOf,
   onHost,
   sourceId,
+  normalizeUrl,
+  tryNormalizeUrl,
   type Platform,
-  type Position,
 } from "../core/url";
+import { watchSettings } from "../messaging/storage";
+import type {
+  HistorySentenceInput,
+  HistoryStatus,
+  SourceInput,
+} from "../messaging/protocol";
 import type { HistoryPageRecord, HistorySentenceRecord, LingoDb } from "./db";
+import type { ImportedOccurrence } from "./term-store";
 
-export interface HistorySource {
-  platform: Platform;
-  /** Any form of the page or video URL; the store normalizes it. */
-  url: string;
-  title: string;
-  /** The language of the page or video. */
-  lang: string;
-}
-
-export interface HistoryItem {
-  text: string;
-  translation?: string;
-  pos: Position;
-  /** The term ids (`lang:key`) the sentence is found by. */
+export interface HistoryItem extends HistorySentenceInput {
+  /** The term ids the sentence is found by (`historyKeys`). */
   keys: readonly string[];
-}
-
-/** A kept sentence with the page or video it was seen on. */
-export interface HistorySentence {
-  text: string;
-  translation?: string;
-  pos: Position;
-  seenAt: number;
-  page: Pick<HistoryPageRecord, "platform" | "url" | "title" | "lang">;
-}
-
-export interface HistoryStatus {
-  /** The counted size of everything kept. */
-  bytes: number;
-  cap: number;
-  /** Pages and videos kept. */
-  pages: number;
 }
 
 export interface HistoryStore {
@@ -47,7 +29,7 @@ export interface HistoryStore {
    * no keys are skipped. Then removes the oldest pages while over the cap. Returns
    * how many sentences were added.
    */
-  record(source: HistorySource, items: readonly HistoryItem[]): Promise<number>;
+  record(source: SourceInput, items: readonly HistoryItem[]): Promise<number>;
   /**
    * Kept sentences with the term id, newest first (in the order they were kept), at
    * most `limit` (50), without the page at `excludeUrl`.
@@ -55,9 +37,8 @@ export interface HistoryStore {
   find(
     termId: string,
     options?: { excludeUrl?: string; limit?: number },
-  ): Promise<HistorySentence[]>;
+  ): Promise<ImportedOccurrence[]>;
   status(): Promise<HistoryStatus>;
-  /** Removes every kept page and sentence. */
   clear(): Promise<void>;
   /** Removes the pages of a host and its subdomains. Returns how many. */
   forgetHost(host: string): Promise<number>;
@@ -69,16 +50,18 @@ export interface HistoryStoreOptions {
   capBytes?: number;
 }
 
-export const HISTORY_CAP_BYTES = 50 * 1024 * 1024;
+const HISTORY_CAP_BYTES = 50 * 1024 * 1024;
+
+/** Base forms ranked within this many are too common to find sentences by. */
+const COMMON_RANK = 300;
 
 const PLATFORMS: readonly Platform[] = ["web", "youtube", "netflix"];
 
-/** After going over the cap, pages are removed until the total is at most this share of it. */
 const EVICT_TO = 0.9;
 /** Counted per record on top of its strings. */
 const RECORD_OVERHEAD = 64;
 
-/** The counted size of strings: UTF-16, two bytes per code unit. */
+/** UTF-16, two bytes per code unit. */
 const utf16 = (...texts: readonly string[]) =>
   texts.reduce((sum, text) => sum + 2 * text.length, 0);
 
@@ -91,12 +74,53 @@ const sentenceSize = (
   utf16(sentence.text, sentence.translation ?? "", ...sentence.keys) +
   RECORD_OVERHEAD;
 
-function normalizedOrRaw(url: string) {
-  try {
-    return normalizeUrl(url);
-  } catch {
-    return url;
+/**
+ * The term ids a kept sentence is found by: every base form of each word except the
+ * most common ones, then the phrases (dictionary and saved) the classifier finds in it.
+ * Each id once, in that order.
+ */
+export function historyKeys(
+  text: string,
+  pack: LanguagePack,
+  classifier: Classifier,
+  options: ClassifyOptions,
+): string[] {
+  const keys = new Set<string>();
+  const tokens = pack.tokenize(text);
+  for (const token of tokens) {
+    if (!token.isWord) continue;
+    for (const base of pack.lemmas(token.text))
+      if (pack.rank(base) > COMMON_RANK) keys.add(termId(pack.lang, base));
   }
+  for (const span of classifier.classify(tokens, options))
+    if (span.kind === "phrase") keys.add(termId(pack.lang, span.key));
+  return [...keys];
+}
+
+const host = (entry: string) => entry.trim().toLowerCase();
+
+/** The hosts in `after` that were not in `before` (case and spaces ignored), each once. */
+export function addedHosts(
+  before: readonly string[],
+  after: readonly string[],
+): string[] {
+  const old = new Set(before.map(host));
+  return [...new Set(after.map(host))].filter(
+    (entry) => entry !== "" && !old.has(entry),
+  );
+}
+
+/**
+ * Removes the kept pages of each host added to "Never run on" (here or on another
+ * device), with its subdomains. Only changes count: nothing is removed on start.
+ */
+export function forgetNeverRunOnHosts(
+  history: Pick<HistoryStore, "forgetHost">,
+): () => void {
+  return watchSettings((settings, previous) => {
+    for (const entry of addedHosts(previous.neverRunOn, settings.neverRunOn))
+      history.forgetHost(entry).catch((error: unknown) => console.error(error));
+  });
 }
 
 export function createHistoryStore(
@@ -158,12 +182,13 @@ export function createHistoryStore(
           const sentence: HistorySentenceRecord = {
             pageId: id,
             text: item.text,
+            ...(item.translation !== undefined && {
+              translation: item.translation,
+            }),
             pos: item.pos,
             keys: [...new Set(item.keys)],
             seenAt: at,
           };
-          if (item.translation !== undefined)
-            sentence.translation = item.translation;
           await db.historySentences.add(sentence);
           added += sentenceSize(sentence);
           count++;
@@ -173,7 +198,7 @@ export function createHistoryStore(
           id,
           platform: source.platform,
           url,
-          host: new URL(url).hostname.toLowerCase(),
+          host: hostnameOf(url)!.toLowerCase(),
           title,
           lang: source.lang,
           firstSeen: existing?.firstSeen ?? at,
@@ -191,7 +216,9 @@ export function createHistoryStore(
         excludeUrl === undefined
           ? new Set<string>()
           : new Set(
-              PLATFORMS.map((p) => sourceId(p, normalizedOrRaw(excludeUrl))),
+              PLATFORMS.map((p) =>
+                sourceId(p, tryNormalizeUrl(excludeUrl) ?? excludeUrl),
+              ),
             );
       // Ids grow as sentences are added: the index in reverse key order is newest first.
       const sentences = await db.historySentences
@@ -201,30 +228,26 @@ export function createHistoryStore(
         .filter((s) => !excluded.has(s.pageId))
         .limit(limit)
         .toArray();
-      const ids = [...new Set(sentences.map((s) => s.pageId))];
-      const pages = await db.historyPages.bulkGet(ids);
-      const byId = new Map<string, HistoryPageRecord>();
-      pages.forEach((page, i) => {
-        if (page) byId.set(ids[i]!, page);
+      const pages = await db.historyPages.bulkGet([
+        ...new Set(sentences.map((s) => s.pageId)),
+      ]);
+      const byId = new Map(
+        pages.filter((page) => page !== undefined).map((p) => [p.id, p]),
+      );
+      return sentences.flatMap(({ pageId, text, translation, pos, seenAt }) => {
+        const page = byId.get(pageId);
+        if (!page) return [];
+        const { platform, url, title, lang } = page;
+        return [
+          {
+            sentence: text,
+            ...(translation !== undefined && { translation }),
+            pos,
+            seenAt,
+            source: { platform, url, title, lang },
+          },
+        ];
       });
-      return sentences
-        .filter((s) => byId.has(s.pageId))
-        .map((s) => {
-          const page = byId.get(s.pageId)!;
-          const found: HistorySentence = {
-            text: s.text,
-            pos: s.pos,
-            seenAt: s.seenAt,
-            page: {
-              platform: page.platform,
-              url: page.url,
-              title: page.title,
-              lang: page.lang,
-            },
-          };
-          if (s.translation !== undefined) found.translation = s.translation;
-          return found;
-        });
     },
 
     async status() {

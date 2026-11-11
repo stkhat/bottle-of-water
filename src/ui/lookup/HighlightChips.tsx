@@ -31,7 +31,7 @@ const CHIPS: readonly {
   },
   {
     id: "learning",
-    label: "card.chip.learning",
+    label: "status.learning",
     swatch: {
       background: color.hlLearning,
       boxShadow: `inset 0 -3px 0 ${color.hlLearningLine}`,
@@ -39,7 +39,7 @@ const CHIPS: readonly {
   },
   {
     id: "known",
-    label: "card.chip.known",
+    label: "status.known",
     swatch: {
       boxShadow: `inset 0 -3px 0 ${color.knownLine}`,
       background: color.surfaceGray,

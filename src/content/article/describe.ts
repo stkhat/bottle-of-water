@@ -1,11 +1,11 @@
 import type { Category, TermKind } from "../../core/classify";
-import { cleanDefinition, MAX_TRANSLATED_SENSES } from "../../core/definitions";
-import type { Sense } from "../../core/dictionary";
 import {
-  NO_RULES,
-  normalizeWord,
-  type PhraseRules,
-} from "../../core/phrases/pattern";
+  cleanDefinition,
+  MAX_TRANSLATED_SENSES,
+} from "../../core/lexicon/definitions";
+import type { Sense } from "../../core/lexicon/dictionary";
+import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
+import { normalizeWord } from "../../core/text/tokenize";
 import { rulesFor } from "../../core/phrases/rules";
 import type { send as sendFn } from "../../messaging/client";
 import {
@@ -108,14 +108,12 @@ export function mainWord(
   );
 }
 
-const normalize = (text: string) => text.toLowerCase().replaceAll("’", "'");
-
 /** "loaves → loaf" when the form on the page is not its base form. */
 export function inflectionNote(
   surface: string,
   key: string,
 ): string | undefined {
-  const form = normalize(surface);
+  const form = normalizeWord(surface);
   return form === key ? undefined : `${form} → ${key}`;
 }
 
@@ -196,9 +194,9 @@ export async function describeTerm(
     shownIn = "hover",
   }: DescribeDeps,
 ): Promise<TermCard> {
-  const lookup = (key: string, kind: TermKind) =>
-    send({ type: "lookup", lang, key, kind, sourceUrl });
-  const found = await lookup(term.key, term.kind);
+  const lookup = (key: string) =>
+    send({ type: "lookup", lang, key, sourceUrl });
+  const found = await lookup(term.key);
   const { entry } = found;
   const ipa = entry?.ipa ?? found.ipa;
   const pair = definitionPair(entry?.glossLang, nativeLang);
@@ -234,7 +232,7 @@ export async function describeTerm(
           translationWaitMs,
         )
       : undefined,
-    main !== undefined ? lookup(main, "word") : undefined,
+    main !== undefined ? lookup(main) : undefined,
   ]);
 
   let short = entry?.short;

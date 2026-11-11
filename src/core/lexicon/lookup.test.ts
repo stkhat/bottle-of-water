@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lookup } from "./lookup";
-import type { DictPack } from "./types";
+import type { DictPack } from "../packs/types";
 
 const dict: DictPack = {
   dough: [

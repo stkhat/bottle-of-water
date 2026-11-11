@@ -139,7 +139,7 @@ function fake(options: FakeOptions = {}) {
             ...(request.key !== "heavy lifting" && {
               entry: {
                 head: request.key,
-                kind: request.kind,
+                kind: request.key.includes(" ") ? "phrase" : "word",
                 ipa: `/${request.key}/`,
                 short: `short of ${request.key}`,
                 senses: [],

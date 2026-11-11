@@ -13,7 +13,7 @@ test("a word saved from the dictionary is Learning, and in every form after a re
   const panel = page.getByRole("complementary", { name: en["dict.title"] });
   await expect(panel.getByRole("heading", { name: "loaf" })).toBeVisible();
   await panel
-    .getByRole("button", { name: en["dict.status.learning"], exact: true })
+    .getByRole("button", { name: en["status.learning"], exact: true })
     .click();
   await expect
     .poll(() => highlighted(page, "lingo-learning"))

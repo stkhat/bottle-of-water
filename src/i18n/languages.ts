@@ -1,8 +1,9 @@
+import { own } from "../core/util";
 import { t, type MessageKey } from "./t";
 
 /** Language names as menus offer them ("Japanese (日本語)"). */
 const OPTIONS: Readonly<Record<string, MessageKey>> = {
-  en: "language.en",
+  en: "languageName.en",
   ja: "language.ja",
   es: "language.es",
   pt: "language.pt",
@@ -16,8 +17,10 @@ const NAMES: Readonly<Record<string, MessageKey>> = {
   pt: "languageName.pt",
 };
 
-const named = (table: Readonly<Record<string, MessageKey>>, code: string) =>
-  Object.hasOwn(table, code) ? t(table[code]!) : code;
+const named = (table: Readonly<Record<string, MessageKey>>, code: string) => {
+  const key = own(table, code);
+  return key ? t(key) : code;
+};
 
 /** A language as a menu offers it; a code without a name shows as itself. */
 export const languageOption = (code: string) => named(OPTIONS, code);

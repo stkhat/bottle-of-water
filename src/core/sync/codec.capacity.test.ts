@@ -3,7 +3,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { encode, type SyncRecord, type SyncRecordStatus } from "./codec";
+import type { StoredStatus } from "../classify";
+import { encode, type SyncRecord } from "./codec";
 import { chunkKey, itemBytes, metaKey, type SyncMeta } from "./layout";
 
 const packs = join(import.meta.dirname, "..", "..", "..", "public", "packs");
@@ -64,7 +65,7 @@ function library(n: number): SyncRecord[] {
   return saved.map(({ key, at }) => {
     const later = () => at + Math.floor(next() * (END - at));
     const roll = next();
-    let status: SyncRecordStatus = "learning";
+    let status: StoredStatus = "learning";
     let updatedMinutes = at;
     if (roll < 0.05) {
       status = "removed";

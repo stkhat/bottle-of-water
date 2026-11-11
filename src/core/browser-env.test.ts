@@ -1,38 +1,17 @@
 import { describe, expect, it } from "vitest";
-import {
-  createBrowserEnv,
-  detectFeatures,
-  hasBuiltInAi,
-  hasFileSystemAccess,
-  hasHighlightUnderline,
-} from "./browser-env";
-
-const cssStub = (highlights: boolean, underline: boolean) => ({
-  CSS: {
-    ...(highlights && { highlights: new Map() }),
-    supports: (property: string, value: string) =>
-      underline && property === "text-decoration-line" && value === "underline",
-  },
-});
+import { createBrowserEnv } from "./browser-env";
 
 describe("createBrowserEnv", () => {
-  it("names Chrome's sync and extensions page for the chrome build", () => {
+  it("names Chrome and its sync for the chrome build", () => {
     const env = createBrowserEnv("chrome", {});
     expect(env.name).toBe("Chrome");
     expect(env.syncName).toBe("Chrome sync");
-    expect(env.extensionsPage).toBe("chrome://extensions");
   });
 
-  it("names Firefox's sync and add-ons page for the firefox build", () => {
+  it("names Firefox and its sync for the firefox build", () => {
     const env = createBrowserEnv("firefox", {});
     expect(env.name).toBe("Firefox");
     expect(env.syncName).toBe("Firefox Sync");
-    expect(env.extensionsPage).toBe("about:addons");
-  });
-
-  it("gives a rough sync delay in minutes, longer in Firefox", () => {
-    expect(createBrowserEnv("chrome", {}).syncDelayHint).toBe(1);
-    expect(createBrowserEnv("firefox", {}).syncDelayHint).toBe(10);
   });
 
   it("uses Chrome's names for other Chromium build targets", () => {
@@ -45,41 +24,19 @@ describe("createBrowserEnv", () => {
     );
   });
 
-  it("carries the detected features of the given global", () => {
-    const env = createBrowserEnv("chrome", {
-      LanguageModel: {},
-      ...cssStub(true, true),
-    });
-    expect(env.features).toEqual({
-      builtInAi: true,
-      highlightUnderline: true,
+  it("detects built-in AI and the File System Access API on the given global", () => {
+    expect(createBrowserEnv("chrome", {}).features).toEqual({
+      builtInAi: false,
       fileSystemAccess: false,
     });
-  });
-});
-
-describe("feature detection", () => {
-  it("detects built-in AI", () => {
-    expect(hasBuiltInAi({ LanguageModel: {} })).toBe(true);
-    expect(hasBuiltInAi({})).toBe(false);
-  });
-
-  it("detects the File System Access API", () => {
-    expect(hasFileSystemAccess({ showDirectoryPicker: () => {} })).toBe(true);
-    expect(hasFileSystemAccess({})).toBe(false);
-  });
-
-  it("detects highlight underlines only with CSS.highlights and underline support", () => {
-    expect(hasHighlightUnderline(cssStub(true, true))).toBe(true);
-    expect(hasHighlightUnderline(cssStub(false, true))).toBe(false);
-    expect(hasHighlightUnderline(cssStub(true, false))).toBe(false);
-    expect(hasHighlightUnderline({})).toBe(false);
-  });
-
-  it("finds nothing in a bare global", () => {
-    expect(detectFeatures({})).toEqual({
-      builtInAi: false,
-      highlightUnderline: false,
+    expect(
+      createBrowserEnv("chrome", {
+        LanguageModel: {},
+        showDirectoryPicker: () => {},
+      }).features,
+    ).toEqual({ builtInAi: true, fileSystemAccess: true });
+    expect(createBrowserEnv("chrome", { LanguageModel: {} }).features).toEqual({
+      builtInAi: true,
       fileSystemAccess: false,
     });
   });

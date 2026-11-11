@@ -1,4 +1,5 @@
 import lockFile from "./packs/packs.lock.json";
+import { own } from "./util";
 
 /**
  * The language pairs Lingo offers: each learning language (one with a language pack)
@@ -22,13 +23,12 @@ export function learningLanguages(): string[] {
 }
 
 /** The native languages `learning` has a dictionary into, the default first. */
-export function nativeLanguages(learning: string): readonly string[] {
-  return Object.hasOwn(LANGUAGE_PAIRS, learning)
-    ? LANGUAGE_PAIRS[learning]!
-    : [];
-}
+export const nativeLanguages = (learning: string): readonly string[] =>
+  own(LANGUAGE_PAIRS, learning) ?? [];
 
 /** The language tag to speak `lang` with: a regional voice where one is chosen. */
-export function speechLang(lang: string): string {
-  return Object.hasOwn(SPEECH_LANGS, lang) ? SPEECH_LANGS[lang]! : lang;
-}
+export const speechLang = (lang: string) => own(SPEECH_LANGS, lang) ?? lang;
+
+/** The primary subtag of a language tag, lowercase: "pt-BR" → "pt". */
+export const primary = (tag: string) =>
+  tag.trim().split(/[-_]/)[0]!.toLowerCase();

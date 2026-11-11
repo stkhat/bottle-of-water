@@ -1,6 +1,5 @@
 // The sentence history brought into a newly saved term, with the real stores on IndexedDB.
 import { beforeEach, describe, expect, it } from "vitest";
-import { createBrowserEnv } from "../core/browser-env";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
@@ -8,14 +7,10 @@ import {
 } from "../core/settings";
 import type { LingoDb } from "./db";
 import { createHandlers, type Handle } from "./handlers";
-import { createHistoryStore, type HistorySource } from "./history-store";
+import { createHistoryStore } from "./history-store";
 import { createLanguageResources } from "./language-resources";
-import {
-  createTermStore,
-  MAX_OCCURRENCES,
-  type SourceInput,
-  type TermStore,
-} from "./term-store";
+import type { SourceInput } from "../messaging/protocol";
+import { createTermStore, MAX_OCCURRENCES, type TermStore } from "./term-store";
 import { fakeClock } from "../testing/clock";
 import { freshDb } from "../testing/db";
 import { replyValue } from "../testing/handlers";
@@ -23,11 +18,11 @@ import { bundledPacks, stubPackLoader } from "../testing/packs";
 import { ARTICLE } from "../testing/sources";
 import { createTranslationCache } from "./translation-cache";
 
-const ARTICLE_A: HistorySource = {
+const ARTICLE_A: SourceInput = {
   ...ARTICLE,
   url: "https://example.com/bread?utm_source=feed",
 };
-const VIDEO_B: HistorySource = {
+const VIDEO_B: SourceInput = {
   platform: "youtube",
   url: "https://youtu.be/abc",
   title: "Baking",
@@ -61,14 +56,13 @@ beforeEach(() => {
     resources: createLanguageResources(stubPackLoader()),
     packs: bundledPacks(),
     sync: { status: () => Promise.reject(new Error("not used")) },
-    env: () => createBrowserEnv(),
     openOptionsPage: async () => {},
   });
 });
 
 const value = replyValue(() => handle);
 
-const keep = (source: HistorySource, ...texts: string[]) =>
+const keep = (source: SourceInput, ...texts: string[]) =>
   value({
     type: "recordHistory",
     source,
@@ -115,7 +109,6 @@ describe("saving a term brings its kept sentences in", () => {
       type: "lookup",
       lang: "en",
       key: "yeast",
-      kind: "word",
       sourceUrl: ARTICLE_C.url,
     });
     expect(before.elsewhere.map((o) => o.sentence)).toEqual([
@@ -148,7 +141,6 @@ describe("saving a term brings its kept sentences in", () => {
       type: "lookup",
       lang: "en",
       key: "yeast",
-      kind: "word",
       sourceUrl: ARTICLE_C.url,
     });
     expect(after.here.map((o) => o.sentence)).toEqual(["Fresh yeast."]);

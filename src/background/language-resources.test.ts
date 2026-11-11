@@ -124,7 +124,7 @@ describe("createLanguageResources", () => {
     );
     failing.clear();
     expect((await resources.pack("en")).lang).toBe("en");
-    expect((await resources.dictionary("en", "ja")).short("loaf")).toBe(
+    expect((await resources.dictionary("en", "ja")).entry("loaf")?.short).toBe(
       "パンのひと塊",
     );
   });
@@ -144,7 +144,7 @@ describe("createLanguageResources", () => {
       packs: ["es-en"],
     });
     missing.clear();
-    expect((await resources.dictionary("es", "en")).short("comer")).toBe(
+    expect((await resources.dictionary("es", "en")).entry("comer")?.short).toBe(
       "to eat",
     );
   });
@@ -205,8 +205,6 @@ describe("createLanguageResources", () => {
     const loadPack = stubLoader();
     const resources = createLanguageResources(loadPack);
     const dictionary = await resources.dictionary("es", "en");
-    expect(dictionary.from).toBe("es");
-    expect(dictionary.to).toBe("en");
     expect(dictionary.entry("comer")).toEqual({
       head: "comer",
       kind: "word",
@@ -260,8 +258,9 @@ describe("createLanguageResources", () => {
     for (const learning of learningLanguages()) {
       expect((await resources.pack(learning)).lang).toBe(learning);
       for (const native of nativeLanguages(learning)) {
-        const dictionary = await resources.dictionary(learning, native);
-        expect([dictionary.from, dictionary.to]).toEqual([learning, native]);
+        await expect(
+          resources.dictionary(learning, native),
+        ).resolves.toBeDefined();
       }
     }
   });

@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "vitest-browser-preact";
-import type { Counts } from "../../background/term-store";
+import type {
+  Counts,
+  PackStatus,
+  Request,
+  SyncStatus,
+} from "../../messaging/protocol";
 import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
-import type { SyncStatus } from "../../core/sync/backend";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
-import type { PackStatus, Request } from "../../messaging/protocol";
 import { Popup, type PopupDeps } from "./Popup";
 import { listeners } from "../../testing/stubs";
 

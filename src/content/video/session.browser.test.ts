@@ -532,7 +532,6 @@ describe("occurrences", () => {
       type: "lookup",
       lang: "en",
       key: "tangy",
-      kind: "word",
       sourceUrl: "https://www.youtube.com/watch?v=vid1",
     });
     expect(lookup.here.map((o) => o.pos)).toEqual([
@@ -1049,17 +1048,12 @@ describe("words in this video", () => {
       {
         type: "termSummaries",
         lang: "en",
-        terms: [
-          { key: "of", kind: "word" },
-          { key: "the", kind: "word" },
-          { key: "tangy", kind: "word" },
-          { key: "loaf", kind: "word" },
-        ],
+        keys: ["of", "the", "tangy", "loaf"],
       },
       {
         type: "termSummaries",
         lang: "en",
-        terms: [{ key: "dough", kind: "word" }],
+        keys: ["dough"],
       },
     ]);
     await expect
@@ -1203,8 +1197,8 @@ describe("words in this video", () => {
     await ready(state);
     // A new video asks again.
     await expect
-      .poll(() => bg.sent("termSummaries").at(-1)?.terms)
-      .toEqual([{ key: "loaf", kind: "word" }]);
+      .poll(() => bg.sent("termSummaries").at(-1)?.keys)
+      .toEqual(["loaf"]);
     await expect.poll(() => state().summaries.loaf).toBeDefined();
   });
 });

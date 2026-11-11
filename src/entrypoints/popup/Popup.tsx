@@ -1,9 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
-import type { Counts } from "../../background/term-store";
+import type { Counts, SyncStatus } from "../../messaging/protocol";
 import { onHost } from "../../content/article/should-run";
 import type { DataNote, PackStates } from "../../core/packs/state";
 import type { Settings, SettingsPatch } from "../../core/settings";
-import type { SyncStatus } from "../../core/sync/backend";
 import { languageName, languagePair } from "../../i18n/languages";
 import { t } from "../../i18n/t";
 import type { send } from "../../messaging/client";
@@ -89,7 +88,7 @@ function SyncLine(props: {
 }) {
   const { status } = props;
   if (!status.enabled)
-    return <span style={{ fontSize: "13px" }}>{t("popup.sync.off")}</span>;
+    return <span style={{ fontSize: "13px" }}>{t("sync.off")}</span>;
   const used = kilobytes(status.bytesUsed);
   const quota = kilobytes(status.quotaBytes);
   const share = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
@@ -110,7 +109,7 @@ function SyncLine(props: {
                 syncName: props.syncName,
                 when: relativeTime(status.lastSavedAt, props.now),
               })
-            : t("popup.sync.notSaved")}
+            : t("sync.notSaved")}
         </span>
       </div>
       <div
@@ -266,8 +265,8 @@ export function Popup({ deps }: { deps: PopupDeps }) {
         <span style={{ flex: 1 }}></span>
         <button
           type="button"
-          aria-label={t("popup.wordList")}
-          title={t("popup.wordList")}
+          aria-label={t("wordlist.title")}
+          title={t("wordlist.title")}
           onClick={deps.openWordList}
           style={headerButton}
         >
@@ -275,8 +274,8 @@ export function Popup({ deps }: { deps: PopupDeps }) {
         </button>
         <button
           type="button"
-          aria-label={t("popup.openSettings")}
-          title={t("popup.openSettings")}
+          aria-label={t("action.openSettings")}
+          title={t("action.openSettings")}
           onClick={deps.openOptions}
           style={headerButton}
         >
@@ -362,14 +361,11 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           >
             <CountTile
               value={counts.learning}
-              label={t("popup.count.learning")}
+              label={t("status.learning")}
               green
             />
-            <CountTile value={counts.known} label={t("popup.count.known")} />
-            <CountTile
-              value={counts.phrases}
-              label={t("popup.count.phrases")}
-            />
+            <CountTile value={counts.known} label={t("status.known")} />
+            <CountTile value={counts.phrases} label={t("kind.phrases")} />
           </div>
         )}
 

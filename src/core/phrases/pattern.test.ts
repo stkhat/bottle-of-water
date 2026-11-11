@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ENGLISH_RULES } from "./en";
 import { SPANISH_RULES } from "./es";
-import { NO_RULES, normalizeWord, parsePattern } from "./pattern";
+import { normalizeWord } from "../text/tokenize";
+import { NO_RULES, parsePattern } from "./pattern";
 import { rulesFor } from "./rules";
 
 describe("parsePattern", () => {

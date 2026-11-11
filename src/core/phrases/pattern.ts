@@ -1,3 +1,4 @@
+import { normalizeWord } from "../text/tokenize";
 /**
  * How one language's phrase patterns match text: which words are slots, what fills
  * them, and how many words a phrasal verb may have between its parts.
@@ -22,8 +23,10 @@ export interface PhraseRules {
 }
 
 /**
- * A language's phrase patterns, each a key of words joined by single spaces. `detect`
- * and `more` are disjoint and together are every pattern; `gap` is a subset of them.
+ * A language's phrase patterns (`<lang>/phrases.json`), each a key of words joined by
+ * single spaces, slot words such as "one's" standing for any filler. `detect` and `more`
+ * are disjoint, each sorted by code unit, and together are every pattern; `gap` is a
+ * sorted subset of them.
  */
 export interface PhrasePatterns {
   /** Highlighted without being saved: no slots, and the pack's filters passed. */
@@ -34,7 +37,7 @@ export interface PhrasePatterns {
   readonly gap: readonly string[];
 }
 
-export interface PatternWord {
+interface PatternWord {
   /** The word, normalized (`normalizeWord`). */
   readonly text: string;
   /** Filled by the slot's words instead of matching a token's forms. */
@@ -48,10 +51,6 @@ export interface Pattern {
 
 /** No slots and no gaps: every pattern word is literal. */
 export const NO_RULES: PhraseRules = { slots: new Map(), maxGap: 0 };
-
-/** A word as patterns compare it: lowercase, with ’ written as '. */
-export const normalizeWord = (text: string) =>
-  text.toLowerCase().replaceAll("’", "'");
 
 /** A key's words, each a slot when the rules name it one. The key is kept as given. */
 export function parsePattern(key: string, rules: PhraseRules): Pattern {

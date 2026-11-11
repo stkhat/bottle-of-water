@@ -65,8 +65,8 @@ const BUTTON: CSSProperties = {
 };
 
 const STATUS_LABEL = {
-  learning: "lookup.status.learning",
-  known: "lookup.status.known",
+  learning: "status.learning",
+  known: "status.known",
   new: "lookup.status.new",
 } as const;
 
@@ -101,7 +101,7 @@ export function HoverCard(props: HoverCardProps) {
             fontWeight: box.kindWeight,
           }}
         >
-          {t(props.kind === "word" ? "lookup.kind.word" : "lookup.kind.phrase")}
+          {t(props.kind === "word" ? "kind.word" : "kind.phrase")}
         </span>
         <span style={{ fontSize: "12px", color: color.muted }}>
           {t(
@@ -171,7 +171,7 @@ export function HoverCard(props: HoverCardProps) {
           onClick={onlyFromUser(() => props.onKnown())}
           style={{ ...BUTTON, ...known }}
         >
-          {t("hover.known")}
+          {t("status.known")}
         </button>
         {props.onDetails && (
           <button

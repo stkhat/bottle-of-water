@@ -1,5 +1,6 @@
 import { useRef } from "preact/hooks";
-import type { ImportResult } from "../../background/term-store";
+import { errorText } from "../../core/util";
+import type { ImportResult } from "../../messaging/protocol";
 import { t } from "../../i18n/t";
 import type { send } from "../../messaging/client";
 import { backupFileName } from "../format/format";
@@ -14,9 +15,6 @@ export interface BackupDeps {
 
 /** The result of the last export or import, as a short line; null while there is none. */
 export type BackupNote = { ok: boolean; text: string } | null;
-
-const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 

@@ -164,8 +164,8 @@ export function LingoMenu(props: LingoMenuProps) {
         </span>
         <button
           type="button"
-          aria-label={t("video.menu.openSettings")}
-          title={t("video.menu.openSettings")}
+          aria-label={t("action.openSettings")}
+          title={t("action.openSettings")}
           onClick={props.onOpenSettings}
           style={{
             display: "inline-flex",
@@ -193,7 +193,7 @@ export function LingoMenu(props: LingoMenuProps) {
         </span>
         <Switch
           checked={props.showTranslation}
-          label={t("video.menu.translationSwitch")}
+          label={t("subtitle.translation")}
           onToggle={props.onToggleTranslation}
         />
       </div>
@@ -231,7 +231,7 @@ export function LingoMenu(props: LingoMenuProps) {
           </span>
           <div
             role="group"
-            aria-label={t("video.menu.position")}
+            aria-label={t("subtitle.position")}
             style={{
               flex: 1,
               minWidth: 0,

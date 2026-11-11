@@ -1,7 +1,7 @@
 import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { createPackWait, type PackWait } from "../../content/pack-wait";
-import type { DictionaryEntry } from "../../core/dictionary";
+import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
 import { PacksUnavailableError } from "../../core/packs/unavailable";
 import { languagePair } from "../../i18n/languages";
@@ -67,14 +67,14 @@ const WINDOW_ABOVE = 500;
 const OVERSCAN = 6;
 
 const STATUS_TABS: readonly [StatusFilter, MessageKey][] = [
-  ["all", "wordlist.all"],
-  ["learning", "wordlist.learning"],
-  ["known", "wordlist.known"],
+  ["all", "filter.all"],
+  ["learning", "status.learning"],
+  ["known", "status.known"],
 ];
 const KIND_TABS: readonly [KindFilter, MessageKey][] = [
-  ["all", "wordlist.all"],
-  ["word", "wordlist.words"],
-  ["phrase", "wordlist.phrases"],
+  ["all", "filter.all"],
+  ["word", "kind.words"],
+  ["phrase", "kind.phrases"],
 ];
 const SORTS: readonly [Sort, MessageKey][] = [
   ["recent", "wordlist.sort.recent"],
@@ -158,7 +158,7 @@ function StatusBadge(props: { status: TermSummary["status"] }) {
         color: learning ? color.greenDark : color.ink2,
       }}
     >
-      {t(learning ? "wordlist.learning" : "wordlist.known")}
+      {t(learning ? "status.learning" : "status.known")}
     </span>
   );
 }
@@ -233,7 +233,7 @@ function Row(props: {
           {term.key}
         </span>
         {term.kind === "phrase" && (
-          <span style={phraseTag}>{t("wordlist.phrase")}</span>
+          <span style={phraseTag}>{t("kind.phrase")}</span>
         )}
       </span>
       <span
@@ -461,11 +461,7 @@ function DetailsPanel(props: {
                 padding: "3px 9px",
               }}
             >
-              {t(
-                term.kind === "phrase"
-                  ? "lookup.kind.phrase"
-                  : "lookup.kind.word",
-              )}
+              {t(term.kind === "phrase" ? "kind.phrase" : "kind.word")}
             </span>
             <button
               type="button"
@@ -638,7 +634,6 @@ export function WordList({ deps }: { deps: WordListDeps }) {
         type: "lookup",
         lang: langs.learning,
         key: term.key,
-        kind: term.kind,
       })
       .then((result) => {
         if (looking.current !== term.id) return;
@@ -849,9 +844,9 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           }}
         >
           <div style={{ display: "grid", gridTemplateColumns: COLUMNS }}>
-            <span class="th">{t("wordlist.col.word")}</span>
+            <span class="th">{t("kind.word")}</span>
             <span class="th">{t("wordlist.col.meaning")}</span>
-            <span class="th">{t("wordlist.col.status")}</span>
+            <span class="th">{t("wordlist.status")}</span>
             <span class="th">{t("wordlist.col.seen")}</span>
             <span class="th">{t("wordlist.col.lastSeen")}</span>
           </div>

@@ -1,8 +1,13 @@
-import type { LanguagePack } from "./language-pack";
+import type { LanguagePack } from "./lexicon/language-pack";
 import { longestMatch, type PhraseMatch } from "./phrases/matcher";
-import type { Token } from "./text/tokenize";
+import { normalizeWord, type Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
+/**
+ * A removed term stays as a tombstone (its `updatedAt` is the removal time) so that
+ * sync and import carry the removal to other copies.
+ */
+export type StoredStatus = TermStatus | "removed";
 export type TermKind = "word" | "phrase";
 
 /**
@@ -20,7 +25,7 @@ export type TermIndex = ReadonlyMap<string, TermStatus>;
 export type Category = TermStatus | "new" | "ignored";
 
 /** Which part of a phrase with a gap a span is, and where the whole phrase is. */
-export interface SpanPart {
+interface SpanPart {
   /** 0 for the first part. */
   index: number;
   /** How many parts the phrase has. */
@@ -58,8 +63,6 @@ export interface Classifier {
    */
   classify(tokens: readonly Token[], options: ClassifyOptions): Span[];
 }
-
-const normalize = (text: string) => text.toLowerCase().replaceAll("’", "'");
 
 /** Numbers and single letters are never classified ("I", "a", "3,000", "1st"). */
 const isIgnorable = (text: string) =>
@@ -180,7 +183,7 @@ function classifyWord(
   pack: LanguagePack,
 ): { key: string; category: Category } {
   if (isIgnorable(text) || bases.length === 0)
-    return { key: normalize(text), category: "ignored" };
+    return { key: normalizeWord(text), category: "ignored" };
   const saved = bases.filter((base) => terms.has(base));
   if (saved.length > 0) {
     const key =

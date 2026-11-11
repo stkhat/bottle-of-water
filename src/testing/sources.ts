@@ -1,4 +1,4 @@
-import type { SourceInput } from "../background/term-store";
+import type { SourceInput } from "../messaging/protocol";
 
 export const ARTICLE: SourceInput = {
   platform: "web",

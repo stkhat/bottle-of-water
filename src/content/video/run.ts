@@ -1,8 +1,7 @@
 import { browser } from "wxt/browser";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import { watchSettings } from "../../background/settings-store";
 import { send } from "../../messaging/client";
-import { watchPackState } from "../../messaging/pack-state";
+import { watchPackState, watchSettings } from "../../messaging/storage";
 import { isPageRequest, unsupportedPage } from "../../messaging/page-protocol";
 import { leaveWhenOrphaned, sendWhileConnected } from "../orphan";
 import { mountVideoUi } from "./mount";

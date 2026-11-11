@@ -1,4 +1,4 @@
-import type { SourceInput } from "../../background/term-store";
+import type { SourceInput } from "../../messaging/protocol";
 import type { Settings } from "../../core/settings";
 import { findMainContent, type MainContent } from "./main-content";
 import type { AcceptText, TextBlock } from "./page-text";

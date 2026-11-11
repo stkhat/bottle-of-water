@@ -48,7 +48,7 @@ type Style = CSSProperties;
 
 const TABS: readonly { id: PanelTab; label: MessageKey }[] = [
   { id: "transcript", label: "video.transcript" },
-  { id: "words", label: "video.words" },
+  { id: "words", label: "kind.words" },
 ];
 
 const tabId = (tab: PanelTab) => `lingo-tab-${tab}`;
@@ -82,7 +82,7 @@ const TAB_OFF: Style = {
 export function VideoPanel(props: VideoPanelProps) {
   return (
     <aside
-      aria-label={t("video.panel")}
+      aria-label={t("app.name")}
       style={root({
         display: "flex",
         flexDirection: "column",

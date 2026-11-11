@@ -1,5 +1,7 @@
+import { primary } from "../languages";
 import {
   isSoundLabel,
+  lowerBound,
   SENTENCE_END,
   type SentenceCards,
   type SubtitleLine,
@@ -51,7 +53,6 @@ const PUNCTUATED_SHARE = 0.02;
 const SPEAKER_CHANGE = /^>>/;
 
 const clean = (text: string) => normalizeCueText(text).replace(/\n/g, " ");
-const primary = (lang: string) => lang.toLowerCase().split(/[-_]/)[0] ?? "";
 
 function tokensOf(cues: readonly Cue[], joiner: string): Token[] {
   const tokens: Token[] = [];
@@ -361,16 +362,8 @@ function translatedSentences(
 }
 
 /** First index in `candidates` whose `toMs` is at or after `ms`. */
-function firstEndingAtOrAfter(candidates: readonly Candidate[], ms: number) {
-  let lo = 0;
-  let hi = candidates.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if ((candidates[mid] as Candidate).toMs < ms) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-}
+const firstEndingAtOrAfter = (candidates: readonly Candidate[], ms: number) =>
+  lowerBound(candidates.length, (i) => candidates[i]!.toMs < ms);
 
 interface Row {
   lo: number;

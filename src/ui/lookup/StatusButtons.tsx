@@ -72,7 +72,7 @@ export function StatusButtons(props: {
     >
       {segment(
         "learning",
-        t("dict.status.learning"),
+        t("status.learning"),
         {
           background: color.green,
           color: color.white,
@@ -82,7 +82,7 @@ export function StatusButtons(props: {
       )}
       {segment(
         "known",
-        t("dict.status.known"),
+        t("status.known"),
         {
           background: color.ink,
           color: color.onInk,
@@ -92,7 +92,7 @@ export function StatusButtons(props: {
       )}
       {segment(
         "new",
-        t(status !== "new" ? "dict.status.remove" : "dict.status.notSaved"),
+        t(status !== "new" ? "action.remove" : "dict.status.notSaved"),
         {
           background: color.surfaceGray,
           color: color.ink,

@@ -1,4 +1,5 @@
-import { isSoundLabel } from "./cues";
+import { primary } from "../languages";
+import { isSoundLabel, lowerBound } from "./cues";
 import type { Cue, Track } from "./types";
 
 /**
@@ -24,8 +25,6 @@ export interface TranslationInput {
   /** The browser's built-in translator can translate the original language into the native one. */
   translatorAvailable: boolean;
 }
-
-const primary = (lang: string) => lang.toLowerCase().split(/[-_]/)[0] ?? "";
 
 export function chooseTranslation(input: TranslationInput): TranslationChoice {
   const native = input.nativeLang.toLowerCase();
@@ -93,16 +92,8 @@ export function alignByOverlap(
 }
 
 /** Index of the first cue in `cues` (sorted by start) that starts at or after `ms`. */
-function firstStartingAtOrAfter(cues: readonly Cue[], ms: number): number {
-  let lo = 0;
-  let hi = cues.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if ((cues[mid] as Cue).startMs < ms) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-}
+const firstStartingAtOrAfter = (cues: readonly Cue[], ms: number) =>
+  lowerBound(cues.length, (i) => cues[i]!.startMs < ms);
 
 /**
  * Index of the original cue that overlaps `t` the most, or -1 when none does. A spoken

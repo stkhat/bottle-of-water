@@ -1,4 +1,4 @@
-import type { Platform } from "../../core/url";
+import { hostnameOf, type Platform } from "../../core/url";
 import { t, type MessageKey } from "../../i18n/t";
 import type { OccurrenceView } from "../../messaging/protocol";
 import { shortDate } from "../format/format";
@@ -18,13 +18,7 @@ const SITE = {
   netflix: "platform.netflix",
 } as const satisfies Record<Exclude<Platform, "web">, MessageKey>;
 
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
+const hostOf = (url: string) => hostnameOf(url)?.replace(/^www\./, "") ?? url;
 
 /**
  * An occurrence as a "Seen elsewhere" row: the source, where in it (site and time, or

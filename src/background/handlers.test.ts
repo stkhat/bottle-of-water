@@ -1,24 +1,28 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
-import { createBrowserEnv } from "../core/browser-env";
 import type { TermIndex } from "../core/classify";
 import type { PackName } from "../core/packs/load";
 import { applyOverrides, readLock, type PackLock } from "../core/packs/lock";
 import type { PackState } from "../core/packs/state";
-import type { SyncStatus } from "../core/sync/backend";
-import type { Reply, Request, TermSummary } from "../messaging/protocol";
-import type { OccurrenceRecord, SourceRecord, TermRecord } from "./db";
-import { createHandlers, type Handle, type HandlerDeps } from "./handlers";
 import type {
-  HistoryItem,
-  HistorySentence,
-  HistorySource,
-  HistoryStore,
-} from "./history-store";
+  Reply,
+  Request,
+  SourceInput,
+  SyncStatus,
+  TermRecord,
+  TermSummary,
+} from "../messaging/protocol";
+import type { OccurrenceRecord, SourceRecord } from "./db";
+import { createHandlers, type Handle, type HandlerDeps } from "./handlers";
+import type { HistoryItem, HistoryStore } from "./history-store";
 import { createLanguageResources } from "./language-resources";
 import type { DownloadedPack, PackStore } from "./pack-store";
 import { getSettings, setSettings } from "./settings-store";
-import type { OccurrenceWithSource, TermStore } from "./term-store";
+import type {
+  ImportedOccurrence,
+  OccurrenceWithSource,
+  TermStore,
+} from "./term-store";
 import { replyValue } from "../testing/handlers";
 import { filesRead, stubPackLoader } from "../testing/packs";
 import { ARTICLE } from "../testing/sources";
@@ -63,7 +67,7 @@ function fakeHistory(): FakeHistory {
   };
   return {
     record: vi.fn(fail("record")),
-    find: vi.fn(async (): Promise<HistorySentence[]> => []),
+    find: vi.fn(async (): Promise<ImportedOccurrence[]> => []),
     status: vi.fn(fail("status")),
     clear: vi.fn(fail("clear")),
     forgetHost: vi.fn(fail("forgetHost")),
@@ -181,7 +185,6 @@ beforeEach(() => {
     resources: createLanguageResources(loadPack),
     packs,
     sync,
-    env: () => createBrowserEnv("chrome", {}),
     openOptionsPage,
   };
   handle = createHandlers(deps);
@@ -198,13 +201,6 @@ describe("handlers: routing", () => {
       await value({ type: "setSettings", patch: { knownLevel: 5000 } }),
     ).toMatchObject({ knownLevel: 5000 });
     expect(await getSettings()).toMatchObject({ knownLevel: 5000 });
-  });
-
-  it("answers getBrowserEnv with the environment", async () => {
-    expect(await value({ type: "getBrowserEnv" })).toMatchObject({
-      syncName: "Chrome sync",
-      extensionsPage: "chrome://extensions",
-    });
   });
 
   it("opens the options page for openOptions (content scripts cannot)", async () => {
@@ -321,12 +317,6 @@ describe("handlers: routing", () => {
       args: ["{}"],
       result: { terms: 1, sources: 0, occurrences: 0 },
     },
-    {
-      request: { type: "listTerms", lang: "en" },
-      method: "listTerms",
-      args: ["en"],
-      result: [LOAF],
-    },
   ])("routes $request.type to the store", async (c) => {
     const method = store[c.method] as Mock;
     method.mockResolvedValue(c.result);
@@ -406,9 +396,7 @@ describe("handlers: language data", () => {
       packs: ["es"],
     });
     expect(JSON.parse(JSON.stringify(analyzed))).toEqual(analyzed);
-    expect(
-      await handle({ type: "lookup", lang: "es", key: "comer", kind: "word" }),
-    ).toEqual({
+    expect(await handle({ type: "lookup", lang: "es", key: "comer" })).toEqual({
       ok: false,
       error: "Language data not available: es, es-en",
       code: "packsUnavailable",
@@ -788,12 +776,7 @@ describe("handlers: termSummaries", () => {
       await value({
         type: "termSummaries",
         lang: "en",
-        terms: [
-          { key: "loaf", kind: "word" },
-          { key: "give up", kind: "phrase" },
-          { key: "figure out", kind: "phrase" },
-          { key: "sourdough", kind: "word" },
-        ],
+        keys: ["loaf", "give up", "figure out", "sourdough"],
       }),
     ).toEqual({
       loaf: { short: "パンのひと塊", status: "learning" },
@@ -811,7 +794,7 @@ describe("handlers: termSummaries", () => {
 
   it("answers an empty list with nothing", async () => {
     expect(
-      await value({ type: "termSummaries", lang: "en", terms: [] }),
+      await value({ type: "termSummaries", lang: "en", keys: [] }),
     ).toEqual({});
   });
 
@@ -821,7 +804,7 @@ describe("handlers: termSummaries", () => {
       await handle({
         type: "termSummaries",
         lang: "en",
-        terms: [{ key: "loaf", kind: "word" }],
+        keys: ["loaf"],
       }),
     ).toEqual({ ok: false, error: "No dictionary from en to fr" });
   });
@@ -850,7 +833,6 @@ describe("handlers: lookup", () => {
       type: "lookup",
       lang: "en",
       key: "loaf",
-      kind: "word",
       sourceUrl: "https://example.com/bread?utm_source=feed#top",
     });
     expect(store.occurrencesOf).toHaveBeenCalledWith("en:loaf");
@@ -905,7 +887,6 @@ describe("handlers: lookup", () => {
       type: "lookup",
       lang: "en",
       key: "loaf",
-      kind: "word",
       sourceUrl: "https://youtu.be/abc?t=30",
     });
     expect(result).toMatchObject({
@@ -920,7 +901,6 @@ describe("handlers: lookup", () => {
         type: "lookup",
         lang: "en",
         key: "loaf",
-        kind: "word",
         ...(sourceUrl !== undefined && { sourceUrl }),
       });
       expect(result).toMatchObject({ here: [] });
@@ -935,7 +915,6 @@ describe("handlers: lookup", () => {
         type: "lookup",
         lang: "en",
         key: "sourdough",
-        kind: "word",
       }),
     ).toEqual({
       status: "new",
@@ -952,7 +931,6 @@ describe("handlers: lookup", () => {
         type: "lookup",
         lang: "en",
         key: "yeast loaf",
-        kind: "phrase",
       }),
     ).toEqual({
       ipa: "/jist loʊf/",
@@ -970,7 +948,6 @@ describe("handlers: lookup", () => {
         type: "lookup",
         lang: "en",
         key: "figure out",
-        kind: "phrase",
       }),
     ).toMatchObject({
       entry: { short: "To come to understand", glossLang: "en" },
@@ -979,15 +956,16 @@ describe("handlers: lookup", () => {
 
   it("loads the dictionary on the first lookup", async () => {
     expect(filesRead(loadPack)).toEqual([]);
-    await value({ type: "lookup", lang: "en", key: "loaf", kind: "word" });
+    await value({ type: "lookup", lang: "en", key: "loaf" });
     expect(filesRead(loadPack)).toContain("/packs/en-ja/index.json");
   });
 
   it("looks up in the dictionary of the native language from the settings", async () => {
     await setSettings({ nativeLang: "fr" });
-    expect(
-      await handle({ type: "lookup", lang: "en", key: "loaf", kind: "word" }),
-    ).toEqual({ ok: false, error: "No dictionary from en to fr" });
+    expect(await handle({ type: "lookup", lang: "en", key: "loaf" })).toEqual({
+      ok: false,
+      error: "No dictionary from en to fr",
+    });
   });
 });
 
@@ -1003,8 +981,7 @@ describe("handlers: machine translations of English definitions", () => {
     for (const [text, translated] of Object.entries(entries))
       translations.rows.set(`${pair}:${text}`, translated);
   };
-  const lookUp = (key: string) =>
-    value({ type: "lookup", lang: "en", key, kind: "phrase" });
+  const lookUp = (key: string) => value({ type: "lookup", lang: "en", key });
 
   it("gives the cached translations of the short meaning and the first four senses, by cleaned English", async () => {
     cache("en>ja", {
@@ -1037,7 +1014,6 @@ describe("handlers: machine translations of English definitions", () => {
       type: "lookup",
       lang: "en",
       key: "loaf",
-      kind: "word",
     });
     expect(result).not.toHaveProperty("translations");
     expect(translations.get).not.toHaveBeenCalled();
@@ -1132,10 +1108,7 @@ describe("handlers: machine translations of English definitions", () => {
       await value({
         type: "termSummaries",
         lang: "en",
-        terms: [
-          { key: "figure out", kind: "phrase" },
-          { key: "loaf", kind: "word" },
-        ],
+        keys: ["figure out", "loaf"],
       }),
     ).toEqual({
       "figure out": {
@@ -1182,13 +1155,13 @@ describe("handlers: machine translations of English definitions", () => {
     await value({
       type: "termSummaries",
       lang: "en",
-      terms: [{ key: "loaf", kind: "word" }],
+      keys: ["loaf"],
     });
     expect(translations.get).not.toHaveBeenCalled();
   });
 });
 
-const PAGE: HistorySource = {
+const PAGE: SourceInput = {
   platform: "web",
   url: "https://news.example.com/bread",
   title: "Bread news",
@@ -1198,7 +1171,7 @@ const PAGE: HistorySource = {
 /** Sends recordHistory with one sentence per text and returns the items kept. */
 async function recordedKeys(
   texts: string[],
-  source: HistorySource = PAGE,
+  source: SourceInput = PAGE,
 ): Promise<string[][]> {
   history.record.mockImplementation(async (_source, items) => items.length);
   await value({
@@ -1406,13 +1379,13 @@ describe("handlers: historyStatus and clearHistory", () => {
   });
 });
 
-const KEPT: HistorySentence[] = [
+const KEPT: ImportedOccurrence[] = [
   {
-    text: "Shape the loaf.",
+    sentence: "Shape the loaf.",
     translation: "パンを成形する。",
     pos: { timeMs: 12_500 },
     seenAt: 9_000,
-    page: {
+    source: {
       platform: "youtube",
       url: "https://www.youtube.com/watch?v=abc",
       title: "Baking video",
@@ -1420,10 +1393,10 @@ const KEPT: HistorySentence[] = [
     },
   },
   {
-    text: "A warm loaf.",
+    sentence: "A warm loaf.",
     pos: { textQuote: "A warm loaf." },
     seenAt: 8_000,
-    page: {
+    source: {
       platform: "web",
       url: "https://example.org/cake",
       title: "Cake",
@@ -1439,7 +1412,6 @@ describe("handlers: lookup from the sentence history", () => {
       type: "lookup",
       lang: "en",
       key: "loaf",
-      kind: "word",
       sourceUrl: "https://example.com/bread",
     });
     expect(history.find).toHaveBeenCalledWith("en:loaf", {
@@ -1482,7 +1454,6 @@ describe("handlers: lookup from the sentence history", () => {
       type: "lookup",
       lang: "en",
       key: "loaf",
-      kind: "word",
       sourceUrl: "https://example.com/bread",
     });
     expect(result).toMatchObject({ status: "new", here: [], elsewhere: [] });
@@ -1497,7 +1468,6 @@ describe("handlers: lookup from the sentence history", () => {
       type: "lookup",
       lang: "en",
       key: "loaf",
-      kind: "word",
     });
     expect(result.elsewhere).toEqual([]);
     expect(history.find).not.toHaveBeenCalled();

@@ -108,7 +108,7 @@ export function TranscriptControls(props: TranscriptControlsProps) {
         {t("video.translation")}
         <Switch
           checked={props.showTranslation}
-          label={t("video.transcriptTranslation")}
+          label={t("transcript.translation")}
           onToggle={props.onToggleTranslation}
         />
       </span>

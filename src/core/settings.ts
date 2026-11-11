@@ -1,6 +1,8 @@
 import { onHost } from "./url";
 
-/** User settings, stored in `storage.sync` (spec: "Settings page", "Data model"). */
+/** The `storage.sync` key that holds the whole settings object. */
+export const SETTINGS_KEY = "settings";
+
 export interface Settings {
   learningLang: string;
   nativeLang: string;
@@ -45,7 +47,6 @@ export interface Settings {
   /** Hosts switched off with the popup's "On this site". */
   disabledSites: string[];
   syncEnabled: boolean;
-  /** Phase 2; stored now so the shape stays stable. */
   sentenceHistory: boolean;
   /** Light or dark UI; `system` follows the browser's appearance. */
   theme: "system" | "light" | "dark";
@@ -105,19 +106,17 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   theme: "system",
 });
 
-const UNSAVED_AT_END: readonly Settings["unsavedAtEnd"][] = ["keep", "known"];
-
-const SUBTITLE_POSITIONS: readonly Settings["subtitlePosition"][] = [
-  "inVideo",
-  "belowVideo",
-];
-
-export const THEMES: readonly Settings["theme"][] = ["system", "light", "dark"];
-
 type Dict = Record<string, unknown>;
 
 const isDict = (value: unknown): value is Dict =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** `value` when it is one of `options`, else `base`. */
+const oneOf = <T extends string>(
+  value: unknown,
+  base: T,
+  options: readonly T[],
+): T => (options.includes(value as T) ? (value as T) : base);
 
 function bool(value: unknown, base: boolean): boolean {
   return typeof value === "boolean" ? value : base;
@@ -183,18 +182,13 @@ export function mergeSettings(
     uiLocale: nonEmptyString(v.uiLocale, base.uiLocale),
     knownLevel: stepped(v.knownLevel, base.knownLevel, KNOWN_LEVEL),
     highlight: flags(v.highlight, base.highlight),
-    unsavedAtEnd: UNSAVED_AT_END.includes(
-      v.unsavedAtEnd as Settings["unsavedAtEnd"],
-    )
-      ? (v.unsavedAtEnd as Settings["unsavedAtEnd"])
-      : base.unsavedAtEnd,
+    unsavedAtEnd: oneOf(v.unsavedAtEnd, base.unsavedAtEnd, ["keep", "known"]),
     articleMainOnly: bool(v.articleMainOnly, base.articleMainOnly),
     dictionaries: flags(v.dictionaries, base.dictionaries),
-    subtitlePosition: SUBTITLE_POSITIONS.includes(
-      v.subtitlePosition as Settings["subtitlePosition"],
-    )
-      ? (v.subtitlePosition as Settings["subtitlePosition"])
-      : base.subtitlePosition,
+    subtitlePosition: oneOf(v.subtitlePosition, base.subtitlePosition, [
+      "inVideo",
+      "belowVideo",
+    ]),
     subtitleTranslation: bool(v.subtitleTranslation, base.subtitleTranslation),
     subtitleSize: stepped(v.subtitleSize, base.subtitleSize, SUBTITLE_SIZE),
     subtitleOpacity: stepped(
@@ -212,9 +206,7 @@ export function mergeSettings(
     disabledSites: strings(v.disabledSites, base.disabledSites),
     syncEnabled: bool(v.syncEnabled, base.syncEnabled),
     sentenceHistory: bool(v.sentenceHistory, base.sentenceHistory),
-    theme: THEMES.includes(v.theme as Settings["theme"])
-      ? (v.theme as Settings["theme"])
-      : base.theme,
+    theme: oneOf(v.theme, base.theme, ["system", "light", "dark"]),
   };
 }
 

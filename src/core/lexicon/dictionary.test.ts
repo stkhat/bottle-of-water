@@ -43,14 +43,9 @@ const dictionary = createEnJaDictionary({
 });
 
 describe("createEnJaDictionary", () => {
-  it("translates from English to Japanese", () => {
-    expect(dictionary.from).toBe("en");
-    expect(dictionary.to).toBe("ja");
-  });
-
   it("gives a word's short translation", () => {
-    expect(dictionary.short("dough")).toBe("練り粉,こね粉,生パン");
-    expect(dictionary.short("Dough")).toBe("練り粉,こね粉,生パン");
+    expect(dictionary.entry("dough")?.short).toBe("練り粉,こね粉,生パン");
+    expect(dictionary.entry("Dough")?.short).toBe("練り粉,こね粉,生パン");
   });
 
   it("gives a word's entry with IPA and labeled senses", () => {
@@ -77,7 +72,7 @@ describe("createEnJaDictionary", () => {
   });
 
   it("takes a phrase EJDict lacks from the Japanese translations, without labels", () => {
-    expect(dictionary.short("Give up")).toBe("諦める");
+    expect(dictionary.entry("Give up")?.short).toBe("諦める");
     expect(dictionary.entry("give up")).toEqual({
       head: "give up",
       kind: "phrase",
@@ -88,7 +83,7 @@ describe("createEnJaDictionary", () => {
   });
 
   it("takes a phrase neither has from the English definitions, marked as English", () => {
-    expect(dictionary.short("from scratch")).toBe("From the beginning");
+    expect(dictionary.entry("from scratch")?.short).toBe("From the beginning");
     expect(dictionary.entry("from scratch")).toEqual({
       head: "from scratch",
       kind: "phrase",
@@ -113,17 +108,15 @@ describe("createEnJaDictionary", () => {
   });
 
   it("gives undefined for an unknown term", () => {
-    expect(dictionary.short("zzyzx")).toBeUndefined();
+    expect(dictionary.entry("zzyzx")?.short).toBeUndefined();
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("figure it out")).toBeUndefined();
-    expect(dictionary.short("figure it out")).toBeUndefined();
+    expect(dictionary.entry("figure it out")?.short).toBeUndefined();
   });
 });
 
 describe("createDefsDictionary", () => {
   const dictionary = createDefsDictionary({
-    from: "es",
-    to: "en",
     defs: {
       comer: [
         "to eat",
@@ -138,14 +131,9 @@ describe("createDefsDictionary", () => {
     ipa: { comer: "/koˈmeɾ/", a: "/a/", escondidas: "/eskonˈdidas/" },
   });
 
-  it("translates between the languages it is given", () => {
-    expect(dictionary.from).toBe("es");
-    expect(dictionary.to).toBe("en");
-  });
-
   it("gives a word's short meaning", () => {
-    expect(dictionary.short("comer")).toBe("to eat");
-    expect(dictionary.short("Comer")).toBe("to eat");
+    expect(dictionary.entry("comer")?.short).toBe("to eat");
+    expect(dictionary.entry("Comer")?.short).toBe("to eat");
   });
 
   it("gives a word's entry with IPA and the senses' parts of speech, in the target language", () => {
@@ -176,7 +164,7 @@ describe("createDefsDictionary", () => {
   });
 
   it("gives undefined for an unknown term", () => {
-    expect(dictionary.short("zzyzx")).toBeUndefined();
+    expect(dictionary.entry("zzyzx")?.short).toBeUndefined();
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("__proto__")).toBeUndefined();
   });
@@ -184,8 +172,6 @@ describe("createDefsDictionary", () => {
 
 describe("createPairDictionary", () => {
   const dictionary = createPairDictionary({
-    from: "en",
-    to: "es",
     dict: {
       light: [
         "luz",
@@ -204,9 +190,7 @@ describe("createPairDictionary", () => {
   });
 
   it("looks a term up in the pair pack, keeping translation-table hints", () => {
-    expect(dictionary.from).toBe("en");
-    expect(dictionary.to).toBe("es");
-    expect(dictionary.short("Light")).toBe("luz");
+    expect(dictionary.entry("Light")?.short).toBe("luz");
     expect(dictionary.entry("light")).toEqual({
       head: "light",
       kind: "word",
@@ -233,6 +217,6 @@ describe("createPairDictionary", () => {
   });
   it("has nothing for a term neither has", () => {
     expect(dictionary.entry("zzyzx")).toBeUndefined();
-    expect(dictionary.short("zzyzx")).toBeUndefined();
+    expect(dictionary.entry("zzyzx")?.short).toBeUndefined();
   });
 });

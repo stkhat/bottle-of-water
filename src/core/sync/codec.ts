@@ -1,15 +1,13 @@
 /**
- * The compact form of a language's terms in `storage.sync` (spec: "Sync").
  * One line per term, `key \t code \t minutes in base36`, sorted by key, gzip, base64,
  * cut into chunks small enough for one `storage.sync` item each.
  */
-
-export type SyncRecordStatus = "learning" | "known" | "removed";
+import type { StoredStatus } from "../classify";
 
 export interface SyncRecord {
   /** The term's key; a phrase's base forms are joined by spaces. */
   key: string;
-  status: SyncRecordStatus;
+  status: StoredStatus;
   /** Last change, in whole minutes since the Unix epoch. */
   updatedMinutes: number;
 }
@@ -22,16 +20,13 @@ const MINUTE = 60_000;
 export const toMinutes = (ms: number) => Math.floor(ms / MINUTE);
 export const fromMinutes = (minutes: number) => minutes * MINUTE;
 
-const CODES: Record<SyncRecordStatus, string> = {
+const CODES: Record<StoredStatus, string> = {
   learning: "l",
   known: "k",
   removed: "x",
 };
 const STATUSES = new Map(
-  Object.entries(CODES).map(([status, code]) => [
-    code,
-    status as SyncRecordStatus,
-  ]),
+  Object.entries(CODES).map(([status, code]) => [code, status as StoredStatus]),
 );
 
 const ESCAPES: Record<string, string> = {
