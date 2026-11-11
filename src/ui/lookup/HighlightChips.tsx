@@ -1,7 +1,7 @@
 import type { WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import { t, type MessageKey } from "../../i18n/t";
-import { color, sectionHeading, termMark } from "../styles";
+import { color, sectionHeading, termMark, toggleChip } from "../styles";
 
 export interface HighlightChipsProps {
   /**
@@ -25,20 +25,6 @@ const swatch = (id: WordStatus) => ({
   ...(id === "known" && { background: color.surfaceGray }),
 });
 
-const CHIP = {
-  on: {
-    background: color.card,
-    color: color.ink,
-    border: `1px solid ${color.chipLine}`,
-    fontWeight: 600,
-  },
-  off: {
-    background: "transparent",
-    color: color.muted,
-    border: `1px dashed ${color.track}`,
-  },
-};
-
 /** "Highlight" and a toggle chip per category. */
 export function HighlightChips(props: HighlightChipsProps) {
   const chips = CHIPS.map((c) => {
@@ -49,19 +35,7 @@ export function HighlightChips(props: HighlightChipsProps) {
         type="button"
         aria-pressed={pressed}
         onClick={() => props.onToggle(c.id)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          height: "32px",
-          padding: "0 10px",
-          margin: 0,
-          borderRadius: "999px",
-          font: "inherit",
-          fontSize: "13px",
-          cursor: "pointer",
-          ...(pressed ? CHIP.on : CHIP.off),
-        }}
+        style={toggleChip(pressed, color.muted)}
       >
         <span
           style={{

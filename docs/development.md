@@ -19,8 +19,8 @@
 | Command | What it does |
 | --- | --- |
 | `npm run dev` / `npm run dev:firefox` | dev build with reload |
-| `npm run check` | typecheck, lint, format check, CLAUDE.md line limit |
-| `npm run check:dead` | knip report of unused files, exports and dependencies (report only) |
+| `npm run check` | typecheck, lint, format check, CLAUDE.md line limit, dead code (knip) |
+| `npm run check:dead` | knip: unused files, exports and dependencies |
 | `npm test` | unit tests |
 | `npm run test:browser` | browser-mode tests (set `VITEST_BROWSERS=chromium` to skip Firefox) |
 | `npm run build` / `npm run build:firefox` | build to `.output/chrome-mv3` / `.output/firefox-mv3` |
@@ -35,12 +35,12 @@
 
 ## Hooks and static checks
 - `npm install` installs the git hooks (`prepare` runs `simple-git-hooks`; after changing the `simple-git-hooks` key in `package.json`, run `npm run prepare`). **pre-commit**: `lint-staged` runs `prettier --write` and `eslint --fix` on the staged files and restages them; no typecheck, to keep commits fast. **pre-push**: `npm run check`.
-- Claude Code: the `PostToolUse` hook in `.claude/settings.json` runs `scripts/format-hook.mjs`, which formats each edited file with Prettier.
+- Claude Code: the `PostToolUse` hook in `.claude/settings.json` runs `scripts/format-hook.mjs`, which formats each edited file with Prettier. The hook scripts (`format-hook.mjs`, `check-claude-md.mjs`) stay JavaScript because `.claude/settings.json` names them.
 - In an emergency, `git commit --no-verify` skips the pre-commit hook. Never skip the pre-push hook for a push to a PR.
 - TypeScript: `strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `noImplicitOverride` and `noUncheckedIndexedAccess` (WXT's generated tsconfig already turned on the last three; `tsconfig.json` states them so they do not depend on it).
 - ESLint: `tseslint.configs.strict` everywhere, plus type-aware rules on `src/` (`no-floating-promises`, `no-misused-promises`, `await-thenable`, `consistent-type-imports`, `switch-exhaustiveness-check` with a `default` counting as exhaustive). `no-non-null-assertion` is off: with `noUncheckedIndexedAccess`, `!` states an index the code knows is present.
 - Prettier does not format `docs/` or `CLAUDE.md`: it pads every table column and adds blank lines, growing the docs by about 17%, which sessions read as context.
-- `npm run check:dead` (knip, configured under `knip` in `package.json`) only reports for now; the refactor phases use it to find dead exports.
+- knip (`npm run check:dead`, part of `check`; configured under `knip` in `package.json`) fails on unused files, exports and dependencies. An export only a test uses counts as used.
 
 ## How E2E loads the extension
 `e2e/fixtures.ts` launches Playwright's bundled Chromium (`channel: "chromium"`) with `--load-extension` pointing at a build: `.output/chrome-mv3-check` by default, `.output/chrome-mv3` (production) or `.output/chrome-mv3-check-download` where a test asks for it (`test.use({ build })`). Stable Chrome 137+ ignores `--load-extension`, so it cannot be used. The extension id is read from the service worker URL. Pages come from a static server (`e2e/serve.mjs`), which Playwright starts, or reuses when one already listens on port 4719 (not in CI): stop an old one after changing `serve.mjs`.

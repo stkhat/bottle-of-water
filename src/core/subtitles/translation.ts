@@ -91,7 +91,6 @@ export function alignByOverlap(
   return parts.map((list) => list.join(joiner));
 }
 
-/** Index of the first cue in `cues` (sorted by start) that starts at or after `ms`. */
 const firstStartingAtOrAfter = (cues: readonly Cue[], ms: number) =>
   lowerBound(cues.length, (i) => cues[i]!.startMs < ms);
 

@@ -4,7 +4,7 @@
 import { createServer } from "node:net";
 import type { BrowserContext, ConsoleMessage } from "@playwright/test";
 
-export interface ExtensionReport {
+interface ExtensionReport {
   /** "service worker", "extension page /popup.html", "content script on www.youtube.com"… */
   source: string;
   level: "error" | "warning";
@@ -50,7 +50,7 @@ interface CdpCallFrame {
   columnNumber: number;
   functionName: string;
 }
-export interface CdpMessage {
+interface CdpMessage {
   id?: number;
   method?: string;
   sessionId?: string;
@@ -81,7 +81,6 @@ export interface BrowserCdp {
     params?: Record<string, unknown>,
     sessionId?: string,
   ): Promise<CdpMessage>;
-  /** Calls `listener` with every event; returns an unsubscribe. */
   onEvent(listener: (message: CdpMessage) => void): () => void;
   close(): void;
 }

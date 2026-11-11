@@ -2,6 +2,9 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, sendToBackground } from "./fixtures";
 
+/** A transcript card's time, top left: the words in a card open the dictionary instead. */
+export const ON_TIME = { x: 16, y: 12 };
+
 /** The text of every range under a highlight name ([] when it is not registered). */
 export function highlighted(page: Page, name: string): Promise<string[]> {
   return page.evaluate(

@@ -34,7 +34,7 @@ E2E covers only what needs the built extension in a real Chromium: the MAIN-worl
 - `pack-downloads.spec.ts`: a broken mirror, Retry, the page highlighted.
 - `youtube.spec.ts`, `netflix.spec.ts`: one smoke test each, hook to subtitle with its highlights and Japanese line.
 
-Helpers: `e2e/page.ts` (`highlighted`, `pointOn`, `openArticle`, `showNewWords`, `saveTerm`), `e2e/fixtures.ts` (`test` with a `build` option, `testWithErrors`, `sendToBackground` through one extension page kept open, `openPopupFor`), `e2e/sites.ts` (the routed YouTube and Netflix pages).
+Helpers: `e2e/page.ts` (`highlighted`, `pointOn`, `ON_TIME`, `openArticle`, `showNewWords`, `saveTerm`), `e2e/fixtures.ts` (`test` with a `build` option, `testWithErrors`, `sendToBackground` through one extension page kept open, `openPopupFor`), `e2e/sites.ts` (the routed YouTube and Netflix pages).
 
 ## Running them
 - While iterating, run only the files you touch: `npx vitest run src/path/to/file.test.ts`, `VITEST_BROWSERS=chromium npx vitest run --project browser src/path/to/file.browser.test.tsx`, `npx playwright test e2e/<spec>.ts -g "<test name>"` (after `npm run build && wxt build --mode check` when source changed).

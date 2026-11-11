@@ -33,7 +33,6 @@ export interface SetupOptions {
   background?: ReturnType<typeof testBackground>;
 }
 
-/** Text nodes under `root` in order. */
 function textNodes(root: Node): Text[] {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: Text[] = [];
@@ -123,7 +122,6 @@ export async function pointAt(root: Node, text: string, nth = 0) {
   });
 }
 
-/** Moves the mouse to a viewport point. */
 export async function pointTo(x: number, y: number) {
   await userEvent.pointer({ coords: { x, y } });
 }

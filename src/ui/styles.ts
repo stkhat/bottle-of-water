@@ -121,6 +121,32 @@ export const sectionHeading: Style = {
   fontWeight: 600,
 };
 
+/** The transcript's pill chips (highlight toggles, word filters); `offInk` colors an unpressed one. */
+export const toggleChip = (pressed: boolean, offInk: string): Style => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  height: "32px",
+  padding: "0 10px",
+  margin: 0,
+  borderRadius: "999px",
+  font: "inherit",
+  fontSize: "13px",
+  cursor: "pointer",
+  ...(pressed
+    ? {
+        background: color.card,
+        color: color.ink,
+        border: `1px solid ${color.chipLine}`,
+        fontWeight: 600,
+      }
+    : {
+        background: "transparent",
+        color: offInk,
+        border: `1px dashed ${color.track}`,
+      }),
+});
+
 /** Learning and Known buttons: the selected one is filled. */
 export const statusButton = {
   learning: (selected: boolean): Style =>

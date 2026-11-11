@@ -19,7 +19,6 @@ interface Token {
   startMs: number;
   /** As the site sent it, with the space before it ("" or the joiner for a cue's first word). */
   text: string;
-  /** End of the cue the token came from. */
   cueEndMs: number;
 }
 
@@ -361,7 +360,6 @@ function translatedSentences(
   return { texts, endsMs };
 }
 
-/** First index in `candidates` whose `toMs` is at or after `ms`. */
 const firstEndingAtOrAfter = (candidates: readonly Candidate[], ms: number) =>
   lowerBound(candidates.length, (i) => candidates[i]!.toMs < ms);
 

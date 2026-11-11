@@ -289,7 +289,7 @@ export function createRelay(options: {
 }
 
 /** A web page's request (see `readCheckErrors`). */
-export interface PageRequest {
+interface PageRequest {
   type: typeof MESSAGE_TYPE;
   action: "read" | "clear";
   id: string;

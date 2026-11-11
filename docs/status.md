@@ -5,7 +5,7 @@ Last update: 2026-11-12. Merged work is in git history; data sizes are in [notes
 ## Where we are
 - Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
 - Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
-- **In progress**: codebase refactor ([plan](plans/2026-11-12-refactor.md))
+- Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
 
 ## Known issues and open points
@@ -27,6 +27,7 @@ Last update: 2026-11-12. Merged work is in git history; data sizes are in [notes
 ### Articles
 - A word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)
 - Wikipedia sentences keep citation brackets ("5] …", "…[") in "On this page" and the history
+- A page whose first analysis ends just as the language pair changes can log "No dictionary from en to en": `warmDictionary` pairs the page's language with the new native language (a rare E2E flake in `extension-errors.spec.ts`)
 - On an article whose language pack is there but whose dictionary is not (one of the pair's packs failed), hovering a word shows nothing and logs nothing
 
 ### Popup, word list, history, sync
