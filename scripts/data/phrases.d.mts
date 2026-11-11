@@ -19,6 +19,8 @@ export interface PhrasesResult {
     unparsable: number;
     detect: number;
     more: number;
+    /** kaikki patterns left undetected only because they are common-word pairs (isCommonPair). */
+    trivial: number;
     gap: number;
     fromEjdict: number;
     fromKaikki: number;
@@ -32,6 +34,8 @@ export const AUXILIARIES: ReadonlySet<string>;
 export const IDIOM_COMMON_RANK: number;
 export const PHRASE_COMMON_RANK: number;
 export const PHRASE_POS: ReadonlySet<string>;
+export const ADVERB_PARTICLES: ReadonlySet<string>;
+export function isCommonPair(key: string, rarestRank: number): boolean;
 export function patternKey(
   headword: string,
   isWord: (word: string) => boolean,
