@@ -691,7 +691,10 @@ describe("mountVideoUi", () => {
         .poll(() => menu()?.querySelector("[role=group]") ?? null)
         .toBeNull();
       expect(menu()!.textContent).toContain("Show translation");
-      expect(menu()!.textContent).toContain("Open all settings");
+      expect(
+        menu()!.querySelector('[aria-label="Open settings"]'),
+      ).not.toBeNull();
+      expect(menu()!.querySelector("input[type=range]")).not.toBeNull();
       // Still above the L and ^ buttons.
       const dialog = menu()!.getBoundingClientRect();
       const buttons = host("lingo-player-buttons").getBoundingClientRect();
@@ -736,13 +739,13 @@ describe("mountVideoUi", () => {
       expect(spy("setEnabled")).toHaveBeenCalledWith(false);
     });
 
-    it("do not reach the menu's switch or Open all settings; the user's clicks do", async () => {
+    it("do not reach the menu's switch or gear; the user's clicks do", async () => {
       const { spy } = mount(readyState({ menuOpen: true }));
       const toggle = await button(
         "lingo-video-player",
         "Show translation under the subtitle",
       );
-      const settings = await button("lingo-video-player", "Open all settings");
+      const settings = await button("lingo-video-player", "Open settings");
       syntheticClick(toggle);
       syntheticClick(settings);
       expect(spy("changeSettings")).not.toHaveBeenCalled();

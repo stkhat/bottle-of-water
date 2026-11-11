@@ -214,7 +214,9 @@
   "video.menu.belowVideo": "Below video",
   "video.menu.showTranslation": "Show translation",
   "video.menu.translationSwitch": "Show translation under the subtitle",
-  "video.menu.openSettings": "Open all settings",
+  "video.menu.openSettings": "Open settings",
+  "video.menu.size": "Text size",
+  "video.menu.opacity": "Background",
   "time.justNow": "just now",
   "time.today": "Today"
 }

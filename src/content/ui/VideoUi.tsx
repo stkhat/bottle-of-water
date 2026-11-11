@@ -114,6 +114,8 @@ function Subtitle(props: {
       highlight={settings.highlight}
       translation={line ? state.subtitleTranslation : ""}
       showTranslation={settings.subtitleTranslation}
+      size={settings.subtitleSize}
+      opacity={settings.subtitleOpacity}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       selected={selected >= 0 ? selected : null}
@@ -189,8 +191,20 @@ export function InPlayerUi(props: {
             position={settings.subtitlePosition}
             showPositions={!fullscreen}
             showTranslation={settings.subtitleTranslation}
+            size={settings.subtitleSize}
+            opacity={settings.subtitleOpacity}
             onPosition={(subtitlePosition) =>
               app.changeSettings({ subtitlePosition })
+            }
+            onPreview={({ size, opacity }) =>
+              app.previewSettings({
+                ...(size !== undefined && { subtitleSize: size }),
+                ...(opacity !== undefined && { subtitleOpacity: opacity }),
+              })
+            }
+            onSize={(subtitleSize) => app.changeSettings({ subtitleSize })}
+            onOpacity={(subtitleOpacity) =>
+              app.changeSettings({ subtitleOpacity })
             }
             onToggleTranslation={() =>
               app.changeSettings({
