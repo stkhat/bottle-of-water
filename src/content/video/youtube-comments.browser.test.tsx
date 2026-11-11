@@ -1,8 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
-import { mergeSettings, type Settings } from "../../core/settings";
-import { clickOn, dictionary, highlighted } from "../article/article-testing";
-import { testBackground } from "../article/test-background";
+import type { Settings } from "../../core/settings";
+import { clickOn, dictionary, highlighted } from "../../testing/article";
+import { testBackground } from "../../testing/background";
+import { noTranslation } from "../../testing/stubs";
 import type { DetectLanguage } from "../article/should-run";
 import { isCommentText } from "./comments";
 import type { PlatformAdapter } from "./platform";
@@ -99,32 +100,20 @@ function start(
     ...options.settings,
   });
   cleanups.push(() => background.close());
-  const listeners = new Set<(s: Settings) => void>();
   const fake = fakeAdapter();
   const runner = startYouTubeComments(
     {
       send: background.send,
-      watchSettings(listener) {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
+      watchSettings: background.watchSettings,
       watchPackState: background.watchPackState,
       detectLanguage: detect,
       mountUi: mountCommentsUi,
-      createTranslator: () => ({ translate: async () => undefined }),
+      createTranslator: () => noTranslation,
     },
     { adapter: fake.adapter, hostname: "www.youtube.com", ...options.hooks },
   );
   cleanups.push(() => runner.stop());
-  return {
-    background,
-    runner,
-    navigate: fake.navigate,
-    changeSettings(patch: object) {
-      const next = mergeSettings(patch, background.settings());
-      for (const listener of listeners) listener(next);
-    },
-  };
+  return { background, runner, navigate: fake.navigate };
 }
 
 const newWords = () => highlighted("lingo-new").sort();
@@ -218,15 +207,15 @@ describe("YouTube comments", () => {
 
   it("goes when the comments, YouTube or the site are switched off", async () => {
     addComments();
-    const { changeSettings } = start();
+    const { background } = start();
     await expect.poll(newWords, { timeout: 5000 }).toHaveLength(2);
-    changeSettings({ sites: { youtubeComments: false } });
+    background.changeSettings({ sites: { youtubeComments: false } });
     await expect.poll(newWords).toEqual([]);
     expect(document.querySelector("lingo-comments")).toBeNull();
 
-    changeSettings({ sites: { youtubeComments: true } });
+    background.changeSettings({ sites: { youtubeComments: true } });
     await expect.poll(newWords, { timeout: 5000 }).toHaveLength(2);
-    changeSettings({ disabledSites: ["www.youtube.com"] });
+    background.changeSettings({ disabledSites: ["www.youtube.com"] });
     await expect.poll(newWords).toEqual([]);
   });
 

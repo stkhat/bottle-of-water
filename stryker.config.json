@@ -5,6 +5,7 @@
   "mutate": [
     "src/**/*.ts",
     "!src/entrypoints/**",
+    "!src/testing/**",
     "!**/*.test.ts",
     "!**/*.browser.test.*"
   ],

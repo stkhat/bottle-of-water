@@ -5,7 +5,11 @@ import { createStore } from "../ui/store";
 import { mountVideoUi } from "./mount";
 import { createNetflixAdapter, type NetflixAdapter } from "./netflix";
 import { installNetflixHooks } from "./netflix-page";
-import { createTestPage, MOVIE_ID, type TestPage } from "./netflix-test-page";
+import {
+  createTestPage,
+  MOVIE_ID,
+  type TestPage,
+} from "../../testing/netflix-page";
 import type { VideoApp, VideoState } from "./session";
 
 const STATE: VideoState = {

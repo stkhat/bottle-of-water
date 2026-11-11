@@ -15,6 +15,8 @@ import {
   type ArticleDeps,
   type ArticleSession,
 } from "./article";
+import { highlighted } from "../../testing/article";
+import { detectEnglish, listeners } from "../../testing/stubs";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => cleanups.splice(0).forEach((c) => c()));
@@ -42,7 +44,7 @@ const CATEGORIES: Record<string, Category> = {
  */
 function fakeDeps(settings: Settings, missingPacks: readonly string[] = []) {
   const requests: Request[] = [];
-  const listeners: ((s: Settings) => void)[] = [];
+  const settingsWatchers = listeners<Settings>();
   const packListeners = new Set<(states: PackStates) => void>();
   const missing = new Set(missingPacks);
   let packStates: PackStates = {};
@@ -76,10 +78,7 @@ function fakeDeps(settings: Settings, missingPacks: readonly string[] = []) {
         return { kept: request.sentences.length };
       throw new Error(`unexpected ${request.type}`);
     }) as ArticleDeps["send"],
-    watchSettings(listener) {
-      listeners.push(listener);
-      return () => listeners.splice(listeners.indexOf(listener), 1);
-    },
+    watchSettings: settingsWatchers.watch,
     // As storage.local is read: the states come a little later, unless a change
     // came first.
     watchPackState(listener) {
@@ -90,10 +89,7 @@ function fakeDeps(settings: Settings, missingPacks: readonly string[] = []) {
       }, 0);
       return () => packListeners.delete(listener);
     },
-    detectLanguage: async () => ({
-      isReliable: true,
-      languages: [{ language: "en", percentage: 99 }],
-    }),
+    detectLanguage: detectEnglish,
     mountUi() {
       mounted++;
       return () => mounted--;
@@ -105,9 +101,9 @@ function fakeDeps(settings: Settings, missingPacks: readonly string[] = []) {
     mounted: () => mounted,
     changeSettings(s: Settings) {
       current = s;
-      [...listeners].forEach((l) => l(s));
+      settingsWatchers.emit(s);
     },
-    listeners,
+    settingsWatchers: settingsWatchers.count,
     /** The background writes `packState`: packs ready there are on the device. */
     setPackStates(
       states: PackStates,
@@ -150,11 +146,6 @@ async function start(
   if (session) cleanups.push(() => session.stop());
   return session;
 }
-
-const highlighted = (name: string) =>
-  [...(CSS.highlights.get(name) ?? [])]
-    .map((r) => (r as Range).toString())
-    .sort();
 
 describe("startArticle", () => {
   it("analyzes the page's blocks and highlights the categories that are on", async () => {
@@ -215,7 +206,7 @@ describe("startArticle", () => {
     added.textContent = "Knead it again.";
     root.append(added);
     await expect
-      .poll(() => highlighted("lingo-new"))
+      .poll(() => highlighted("lingo-new").sort())
       .toEqual(["Knead", "knead"]);
   });
 
@@ -341,7 +332,7 @@ describe("startArticle", () => {
     ).resolves.toBeUndefined();
     expect(fake.mounted()).toBe(0);
     expect(fake.requests.map((r) => r.type)).toEqual(["getSettings"]);
-    expect(fake.listeners).toHaveLength(0);
+    expect(fake.settingsWatchers()).toBe(0);
   });
 
   it("does nothing on a host in neverRunOn", async () => {
@@ -377,7 +368,7 @@ describe("startArticle", () => {
     expect(CSS.highlights.has("lingo-new")).toBe(false);
     expect(document.adoptedStyleSheets.length).toBe(sheets);
     expect(fake.mounted()).toBe(0);
-    expect(fake.listeners).toHaveLength(0);
+    expect(fake.settingsWatchers()).toBe(0);
   });
 });
 
@@ -537,6 +528,6 @@ describe("runArticle", () => {
     await expect.poll(() => fake.mounted()).toBe(1);
     runner.stop();
     expect(fake.mounted()).toBe(0);
-    expect(fake.listeners).toHaveLength(0);
+    expect(fake.settingsWatchers()).toBe(0);
   });
 });

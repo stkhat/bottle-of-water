@@ -7,41 +7,30 @@ import {
   metaKey,
   type SyncMeta,
 } from "../../core/sync/layout";
-import { openLingoDb, type LingoDb } from "../db";
 import type { TermStatus } from "../../core/classify";
-import {
-  createTermStore,
-  type SourceInput,
-  type TermStore,
-} from "../term-store";
+import { createTermStore, type TermStore } from "../term-store";
 import {
   createBrowserSyncBackend,
   type BrowserSyncBackend,
 } from "./browser-sync-backend";
-import { createFakeSyncArea, type FakeSyncArea } from "./fake-sync-area";
+import { createFakeSyncArea, type FakeSyncArea } from "../../testing/sync-area";
+import { freshDb } from "../../testing/db";
+import { ARTICLE } from "../../testing/sources";
 
 const MIN = 60_000;
 const DAY = 24 * 60 * MIN;
-const SOURCE: SourceInput = {
-  platform: "web",
-  url: "https://example.com/bread",
-  title: "Bread",
-  lang: "en",
-};
+const SOURCE = ARTICLE;
 
 let time: number;
-let dbs: LingoDb[];
 let backends: BrowserSyncBackend[];
 
 beforeEach(() => {
   time = Date.UTC(2026, 10, 9);
-  dbs = [];
   backends = [];
 });
 
-afterEach(async () => {
+afterEach(() => {
   for (const backend of backends) backend.stop();
-  await Promise.all(dbs.map((db) => db.delete()));
 });
 
 /** setTimeout/clearTimeout driven by `advance`, so debounce and backoff run on demand. */
@@ -80,9 +69,7 @@ interface Device {
 
 /** A simulated device: its own database, sharing the given sync area. */
 function device(area: FakeSyncArea): Device {
-  const db = openLingoDb(`lingo-sync-test-${crypto.randomUUID()}`);
-  dbs.push(db);
-  const store = createTermStore(db, { now: () => time });
+  const store = createTermStore(freshDb(), { now: () => time });
   const timers = manualTimers();
   const backend = createBrowserSyncBackend({
     store,

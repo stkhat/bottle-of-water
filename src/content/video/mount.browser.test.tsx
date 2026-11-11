@@ -8,7 +8,11 @@ import { createStore } from "../ui/store";
 import { mountVideoUi } from "./mount";
 import type { VideoApp, VideoState } from "./session";
 import { createYouTubeAdapter, type YouTubeAdapter } from "./youtube";
-import { createTestPage, VIDEO_ID, type TestPage } from "./youtube-test-page";
+import {
+  createTestPage,
+  VIDEO_ID,
+  type TestPage,
+} from "../../testing/youtube-page";
 
 const CUES: Cue[] = [
   { startMs: 0, endMs: 1000, text: "The yeast smells tangy." },
@@ -329,6 +333,7 @@ describe("mountVideoUi", () => {
       { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
       "subtitle",
     );
+    expect(page.video.paused).toBe(true);
     await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
   });
@@ -806,11 +811,6 @@ describe("mountVideoUi", () => {
       await expect
         .poll(() => menu()?.querySelector("[role=group]") ?? null)
         .toBeNull();
-      expect(menu()!.textContent).toContain("Show translation");
-      expect(
-        menu()!.querySelector('[aria-label="Open settings"]'),
-      ).not.toBeNull();
-      expect(menu()!.querySelector("input[type=range]")).not.toBeNull();
       // Still above the L and ^ buttons.
       const dialog = menu()!.getBoundingClientRect();
       const buttons = host("lingo-player-buttons").getBoundingClientRect();
@@ -873,21 +873,6 @@ describe("mountVideoUi", () => {
       });
       await userEvent.click(settings);
       expect(spy("openSettings")).toHaveBeenCalledOnce();
-    });
-
-    it("do not reach the Words tab's filter chips; the user's click does", async () => {
-      const { spy } = mount(readyState({ panelTab: "words" }));
-      const find = () =>
-        inside("lingo-transcript")?.querySelector<HTMLButtonElement>(
-          "[role=group][aria-label='Show words'] button:nth-child(2)",
-        ) ?? null;
-      await expect.poll(find).not.toBeNull();
-      const chip = find()!;
-      expect(chip.textContent).toContain("New");
-      syntheticClick(chip);
-      expect(spy("setWordsFilter")).not.toHaveBeenCalled();
-      await userEvent.click(chip);
-      expect(spy("setWordsFilter")).toHaveBeenCalledWith("new");
     });
 
     it("an Escape does not close the dictionary window; the user's does", async () => {

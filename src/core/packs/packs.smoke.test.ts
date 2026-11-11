@@ -274,6 +274,11 @@ describe("generated en-es dictionary", () => {
     expect(fromTables.length).toBeGreaterThan(10000);
     for (const [, [, senses]] of fromTables.slice(0, 100))
       for (const [, , hint] of senses) expect(hint).toBeTruthy();
+    expect(enEs.tangy).toEqual([
+      "acidulado",
+      [["adjective", "acidulado, acídulo", "having a sharp, pungent flavor"]],
+      index.sources!.indexOf("enwiktionary-translations"),
+    ]);
   });
 
   it("falls back to English definitions for a term without a Spanish meaning", () => {

@@ -5,126 +5,30 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
+import type { FakeNetflixControl } from "../tests/fake-netflix-player";
 import { fixtureManifest } from "../tests/netflix-subtitles";
 import { fixturePlayerResponse } from "../tests/youtube-timedtext";
-import {
-  collectExtensionErrors,
-  connectBrowserCdp,
-  freePort,
-  type BrowserCdp,
-  type ErrorCollector,
-} from "./error-collector";
 import { checkErrorLog } from "./check-error-log";
-import type { FakeNetflixControl } from "./fake-netflix-player";
 import {
-  test as base,
-  type Build,
-  extensionIdOf,
+  testWithErrors as test,
+  expect,
   extensionPathOf,
-  launchWithExtension,
   openPopupFor,
   sendToBackground,
 } from "./fixtures";
+import {
+  highlighted,
+  openArticle,
+  pointOn,
+  saveTerm,
+  showNewWords,
+} from "./page";
 import {
   NETFLIX_WATCH,
   YOUTUBE_WATCH,
   routeNetflix,
   routeYouTube,
 } from "./sites";
-
-const test = base.extend<{
-  build: Build;
-  port: number;
-  cdp: BrowserCdp;
-  errors: ErrorCollector;
-}>({
-  build: ["production", { option: true }],
-  // eslint-disable-next-line no-empty-pattern
-  port: async ({}, use) => {
-    await use(await freePort());
-  },
-  context: async ({ build, port }, use) => {
-    const context = await launchWithExtension(
-      [
-        `--remote-debugging-port=${port}`,
-        // For CDP's Extensions.loadUnpacked, which reloads the extension.
-        "--enable-unsafe-extension-debugging",
-      ],
-      build,
-    );
-    await use(context);
-    await context.close();
-  },
-  extensionId: async ({ context }, use) => {
-    await use(await extensionIdOf(context));
-  },
-  cdp: async ({ context, port }, use) => {
-    void context;
-    const cdp = await connectBrowserCdp(port);
-    await use(cdp);
-    cdp.close();
-  },
-  errors: [
-    async ({ context, extensionId, cdp }, use) => {
-      const errors = await collectExtensionErrors(context, extensionId, cdp);
-      await use(errors);
-      // A last round trip: whatever the background was doing has been reported.
-      await sendToBackground(context, extensionId, { type: "getSettings" });
-      errors.stop();
-      expect(errors.format(), "Lingo's reports on the Errors page").toBe("");
-    },
-    { auto: true },
-  ],
-});
-const expect = test.expect;
-
-/** The text of every range registered under a highlight name ([] when it is not registered). */
-function highlighted(page: Page, name: string) {
-  return page.evaluate(
-    (name) =>
-      [...(CSS.highlights.get(name) ?? [])].map((r) => (r as Range).toString()),
-    name,
-  );
-}
-
-/** Scrolls `text` (inside the article) into view and returns a point on it. */
-function pointOn(page: Page, text: string) {
-  return page.evaluate((text) => {
-    const walker = document.createTreeWalker(
-      document.querySelector("article")!,
-      NodeFilter.SHOW_TEXT,
-    );
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text;
-      const i = node.data.indexOf(text);
-      if (i < 0) continue;
-      const range = document.createRange();
-      range.setStart(node, i);
-      range.setEnd(node, i + text.length);
-      node.parentElement!.scrollIntoView({ block: "center" });
-      const r = range.getBoundingClientRect();
-      return { x: r.left + 3, y: r.top + r.height / 2 };
-    }
-    throw new Error(`"${text}" not found`);
-  }, text);
-}
-
-async function showNewWords(context: BrowserContext, extensionId: string) {
-  await sendToBackground(context, extensionId, {
-    type: "setSettings",
-    patch: { highlight: { new: true } },
-  });
-}
-
-/** Opens the article fixture and waits for its first analysis. */
-async function openArticle(context: BrowserContext, url = "/article-en.html") {
-  const page = await context.newPage();
-  await page.goto(url);
-  await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
-    .toBeGreaterThan(0);
-  return page;
-}
 
 /** A transcript card's time, top left: the words in a card open the dictionary instead. */
 const ON_TIME = { x: 16, y: 12 };
@@ -382,7 +286,7 @@ for (const build of ["production", "check"] as const)
       await expect(video.locator("lingo-video-player")).toHaveCount(0);
     });
 
-    test("articles: reading, saving, the end of the article, another language, the popup", async ({
+    test("articles: reading, saving, the end of the article, other languages, the popup", async ({
       context,
       extensionId,
     }) => {
@@ -403,42 +307,33 @@ for (const build of ["production", "check"] as const)
       const hostile = await context.newPage();
       await hostile.goto("/hostile.html");
       await expect(hostile.locator("lingo-article")).toHaveCount(1);
+      if (reachesUi) await useSpanishArticle(context, extensionId);
     });
 
-    if (checkBuildOnly)
-      test("a Spanish article: reading and saving with the Spanish pack", async ({
-        context,
-        extensionId,
-      }) => {
-        await sendToBackground(context, extensionId, {
-          type: "setSettings",
-          patch: {
-            learningLang: "es",
-            nativeLang: "en",
-            knownLevel: 1000,
-            highlight: { new: true },
-          },
-        });
-        const page = await openArticle(context, "/article-es.html");
-        const word = await pointOn(page, "comiendo");
-        await page.mouse.move(word.x, word.y);
-        await expect(page.getByText("to eat", { exact: true })).toBeVisible();
-        await page.mouse.click(word.x, word.y);
-        const panel = dictionary(page);
-        await expect(
-          panel.getByRole("heading", { name: "comer" }),
-        ).toBeVisible();
-        await panel
-          .getByRole("button", {
-            name: en["dict.status.learning"],
-            exact: true,
-          })
-          .click();
-        await expect
-          .poll(() => highlighted(page, "lingo-learning"))
-          .toContain("comiendo");
-        await usePopup(context, extensionId, page, { toggleSite: false });
+    /** Learning Spanish: reading and saving with the Spanish pack. */
+    async function useSpanishArticle(
+      context: BrowserContext,
+      extensionId: string,
+    ) {
+      await sendToBackground(context, extensionId, {
+        type: "setSettings",
+        patch: { learningLang: "es", nativeLang: "en", knownLevel: 1000 },
       });
+      const page = await openArticle(context, "/article-es.html");
+      const word = await pointOn(page, "comiendo");
+      await page.mouse.move(word.x, word.y);
+      await expect(page.getByText("to eat", { exact: true })).toBeVisible();
+      await page.mouse.click(word.x, word.y);
+      const panel = dictionary(page);
+      await expect(panel.getByRole("heading", { name: "comer" })).toBeVisible();
+      await panel
+        .getByRole("button", { name: en["dict.status.learning"], exact: true })
+        .click();
+      await expect
+        .poll(() => highlighted(page, "lingo-learning"))
+        .toContain("comiendo");
+      await usePopup(context, extensionId, page, { toggleSite: false });
+    }
 
     const transcript = (page: Page) =>
       page.getByRole("complementary", { name: en["video.panel"] });
@@ -737,32 +632,6 @@ for (const build of ["production", "check"] as const)
       await expect(videoCard(page, NF_LINE)).toBeVisible();
     }
 
-    /** Saves a word as the content scripts do. */
-    async function saveWord(
-      context: BrowserContext,
-      extensionId: string,
-      key: string,
-      status: "learning" | "known",
-    ) {
-      const reply = await sendToBackground(context, extensionId, {
-        type: "saveTerm",
-        lang: "en",
-        key,
-        display: key,
-        kind: key.includes(" ") ? "phrase" : "word",
-        status,
-        source: {
-          platform: "youtube",
-          url: "https://www.youtube.com/watch?v=bake1",
-          title: "Baking bread from scratch at home",
-          lang: "en",
-        },
-        sentence: `A sentence with ${key} in it.`,
-        pos: { timeMs: 75_000 },
-      });
-      expect(reply).toMatchObject({ ok: true });
-    }
-
     if (checkBuildOnly)
       test("extension pages: the popup without a content script, settings, word list", async ({
         context,
@@ -837,10 +706,10 @@ for (const build of ["production", "check"] as const)
         ).toBeVisible();
 
         // Backup: export, import it back, and a file that is not a backup.
-        await saveWord(context, extensionId, "knead", "learning");
-        await saveWord(context, extensionId, "tedious", "learning");
-        await saveWord(context, extensionId, "honestly", "known");
-        await saveWord(context, extensionId, "rise and fall", "learning");
+        await saveTerm(context, extensionId, "knead", "learning");
+        await saveTerm(context, extensionId, "tedious", "learning");
+        await saveTerm(context, extensionId, "honestly", "known");
+        await saveTerm(context, extensionId, "rise and fall", "learning");
         const backup = options.getByRole("region", { name: "Sync and backup" });
         const downloading = options.waitForEvent("download");
         await backup.getByRole("button", { name: en["backup.export"] }).click();
@@ -912,7 +781,9 @@ for (const build of ["production", "check"] as const)
       }) => {
         await showNewWords(context, extensionId);
         await routeYouTube(context);
+        const cold = Date.now();
         const article = await openArticle(context);
+        const coldMs = Date.now() - cold;
         const video = await context.newPage();
         await video.goto(YOUTUBE_WATCH);
         await videoCard(video, YT_LINE).click({ position: ON_TIME });
@@ -945,10 +816,18 @@ for (const build of ["production", "check"] as const)
           .poll(() => article.evaluate(() => CSS.highlights.has("lingo-known")))
           .toBe(true);
         await stop();
+        const restart = Date.now();
         await article.reload();
         await expect
           .poll(async () => (await highlighted(article, "lingo-new")).length)
           .toBeGreaterThan(0);
+        // Load to first highlights: the packs are loaded again after a restart.
+        const timings = { cold: coldMs, restart: Date.now() - restart };
+        for (const [name, ms] of Object.entries(timings))
+          test.info().annotations.push({
+            type: `analyze-${name}-ms`,
+            description: String(ms),
+          });
       });
 
     if (checkBuildOnly)
@@ -987,7 +866,7 @@ for (const build of ["production", "check"] as const)
         const article = await openArticle(context);
         await useArticle(article);
         for (const key of ["knead", "tedious", "honestly", "loaf", "yeast"])
-          await saveWord(context, extensionId, key, "learning");
+          await saveTerm(context, extensionId, key, "learning");
         // The popup shows how full the space is, and saving keeps working.
         await usePopup(context, extensionId, article, { toggleSite: true });
         const options = await context.newPage();

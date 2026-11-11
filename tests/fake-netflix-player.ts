@@ -22,6 +22,20 @@ export interface FakeNetflixOptions {
   controlBar?: { idleMs: number; title: string[] };
 }
 
+/** The synthetic title's show, as the player's metadata gives it. */
+export const FIXTURE_METADATA = {
+  title: "Lingo Test Show",
+  seasons: [
+    {
+      seq: 1,
+      episodes: [
+        { id: 80000001, seq: 1, title: "Pilot" },
+        { id: 80000002, seq: 2, title: "Second" },
+      ],
+    },
+  ],
+};
+
 /** What the fake records, on `window.lingoFakeNetflix.log`. */
 export interface FakeNetflixLog {
   seek: number[];

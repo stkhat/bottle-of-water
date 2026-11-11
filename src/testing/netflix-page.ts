@@ -1,22 +1,18 @@
-// Test helper: a trimmed Netflix watch page (the parts Lingo uses, as in
+// A trimmed Netflix watch page (the parts Lingo uses, as in
 // e2e/fixtures/netflix-watch.html) with the fake player API on `window.netflix`.
 import {
+  FIXTURE_METADATA,
   installFakeNetflixPlayer,
   type FakeNetflixControl,
   type FakeNetflixOptions,
-} from "../../../e2e/fake-netflix-player";
-import manifest from "../../core/subtitles/fixtures/netflix/manifest.json";
-import videoUrl from "../../../e2e/fixtures/video.webm?url";
+} from "../../tests/fake-netflix-player";
+import manifest from "../core/subtitles/fixtures/netflix/manifest.json";
+import videoUrl from "../../tests/fixtures/video.webm?url";
 
 export const MOVIE_ID = "80000001";
-export const SHOW = "Lingo Test Show";
-export const EPISODE = "Pilot";
-export const METADATA = {
-  title: SHOW,
-  seasons: [
-    { seq: 1, episodes: [{ id: Number(MOVIE_ID), seq: 1, title: EPISODE }] },
-  ],
-};
+export const METADATA = FIXTURE_METADATA;
+export const SHOW = METADATA.title;
+export const EPISODE = METADATA.seasons[0]!.episodes[0]!.title;
 
 /**
  * The synthetic manifest's text with its CDN URLs on the test server (see

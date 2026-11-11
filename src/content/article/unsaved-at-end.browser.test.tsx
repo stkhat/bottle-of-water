@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
-import { cleanUp, highlighted, setup } from "./article-testing";
+import { cleanUp, highlighted, setup } from "../../testing/article";
 
 const ARTICLE = `
   <article>

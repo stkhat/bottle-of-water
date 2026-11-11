@@ -1,32 +1,33 @@
-// Test helper: the real background (handlers, TermStore on IndexedDB, classifier and
-// dictionary) over a small stub pack, answering in-process instead of through messaging.
-import { createHandlers } from "../../background/handlers";
-import { createLanguageResources } from "../../background/language-resources";
-import { openLingoDb } from "../../background/db";
-import { createHistoryStore } from "../../background/history-store";
-import { createTermStore } from "../../background/term-store";
-import { createTranslationCache } from "../../background/translation-cache";
-import { createBrowserEnv } from "../../core/browser-env";
+// The real background (handlers, TermStore on IndexedDB, classifier and dictionary)
+// over a small stub pack, answering in-process instead of through messaging.
+import { createHandlers } from "../background/handlers";
+import { createLanguageResources } from "../background/language-resources";
+import { openLingoDb } from "../background/db";
+import { createHistoryStore } from "../background/history-store";
+import { createTermStore } from "../background/term-store";
+import { createTranslationCache } from "../background/translation-cache";
+import { createBrowserEnv } from "../core/browser-env";
 import {
   createPackLoader,
   type PackFiles,
   type PackName,
-} from "../../core/packs/load";
-import { applyOverrides, readLock } from "../../core/packs/lock";
+} from "../core/packs/load";
+import { applyOverrides, readLock } from "../core/packs/lock";
 import {
   packUsable,
   type PackState,
   type PackStates,
-} from "../../core/packs/state";
-import { PacksUnavailableError } from "../../core/packs/unavailable";
+} from "../core/packs/state";
+import { PacksUnavailableError } from "../core/packs/unavailable";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
   type Settings,
   type SettingsPatch,
-} from "../../core/settings";
-import type { send } from "../../messaging/client";
-import type { Request } from "../../messaging/protocol";
+} from "../core/settings";
+import type { send } from "../messaging/client";
+import type { Request } from "../messaging/protocol";
+import { listeners } from "./stubs";
 
 /** Ranked within 29: known at any level. The rare words come after rank 3,400: new. */
 const COMMON = [
@@ -185,6 +186,7 @@ export function testBackground(
   options: TestBackgroundOptions = {},
 ) {
   let settings = mergeSettings(initial, DEFAULT_SETTINGS);
+  const settingsWatchers = listeners<Settings>();
   const missing = new Set<string>(options.missingPacks);
   // A build that downloads the missing packs; the others are bundled.
   const lock = applyOverrides(
@@ -274,6 +276,12 @@ export function testBackground(
       );
     },
     settings: () => settings,
+    watchSettings: settingsWatchers.watch,
+    /** A change made elsewhere: stored, then told to the watchers as `storage.onChanged` does. */
+    changeSettings(patch: SettingsPatch) {
+      settings = mergeSettings(patch, settings);
+      settingsWatchers.emit(settings);
+    },
     /** How many times the options page was opened. */
     optionsOpened: () => optionsOpened,
     /**

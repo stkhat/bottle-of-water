@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
+import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
 import { PlayerButtons, type PlayerButtonsProps } from "./PlayerButtons";
 
 const base: PlayerButtonsProps = {

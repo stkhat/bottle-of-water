@@ -4,7 +4,11 @@ import {
   DictionaryWindow,
   type DictionaryWindowProps,
 } from "./DictionaryWindow";
-import { addPageStyle, cleanUpMounts, mountInShadowRoot } from "./testing";
+import {
+  addPageStyle,
+  cleanUpMounts,
+  mountInShadowRoot,
+} from "../../testing/shadow-root";
 
 const figureOut: DictionaryWindowProps = {
   variant: "window",

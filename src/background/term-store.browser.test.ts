@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SyncRecord } from "../core/sync/codec";
-import { openLingoDb, type LingoDb } from "./db";
+import type { LingoDb } from "./db";
 import {
   createTermStore,
   type LingoExport,
@@ -8,19 +8,11 @@ import {
   type SourceInput,
   type TermStore,
 } from "./term-store";
+import { fakeClock } from "../testing/clock";
+import { freshDb } from "../testing/db";
+import { ARTICLE as BREAD, VIDEO } from "../testing/sources";
 
-const VIDEO: SourceInput = {
-  platform: "youtube",
-  url: "https://youtu.be/dQw4w9WgXcQ?si=share",
-  title: "A video",
-  lang: "en",
-};
-const ARTICLE: SourceInput = {
-  platform: "web",
-  url: "https://example.com/bread#top",
-  title: "Bread",
-  lang: "en",
-};
+const ARTICLE: SourceInput = { ...BREAD, url: "https://example.com/bread#top" };
 
 const dough = (overrides: Partial<SaveTermInput> = {}): SaveTermInput => ({
   lang: "en",
@@ -46,31 +38,21 @@ const figureOut = (overrides: Partial<SaveTermInput> = {}): SaveTermInput =>
 
 let db: LingoDb;
 let store: TermStore;
-let time: number;
-const tick = (ms = 1000) => (time += ms);
+let clock: ReturnType<typeof fakeClock>;
 
 beforeEach(() => {
-  time = 1_000_000;
-  db = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
+  clock = fakeClock();
+  db = freshDb();
   let batch = 0;
   store = createTermStore(db, {
-    now: () => time,
+    now: clock.now,
     newBatchId: () => `batch-${++batch}`,
   });
 });
 
-afterEach(async () => {
-  await db.delete();
-});
-
 /** A second store on its own database, for import tests. */
 async function withOtherStore(fn: (other: TermStore) => Promise<void>) {
-  const otherDb = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
-  try {
-    await fn(createTermStore(otherDb, { now: () => time }));
-  } finally {
-    await otherDb.delete();
-  }
+  await fn(createTermStore(freshDb(), { now: clock.now }));
 }
 
 describe("saveTerm", () => {
@@ -83,8 +65,8 @@ describe("saveTerm", () => {
       display: "dough",
       kind: "word",
       status: "learning",
-      createdAt: time,
-      updatedAt: time,
+      createdAt: clock.time,
+      updatedAt: clock.time,
     });
     expect(await store.listTerms("en")).toEqual([term]);
   });
@@ -104,8 +86,8 @@ describe("saveTerm", () => {
       url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       title: "A video",
       lang: "en",
-      firstSeen: time,
-      lastSeen: time,
+      firstSeen: clock.time,
+      lastSeen: clock.time,
     });
   });
 
@@ -118,43 +100,43 @@ describe("saveTerm", () => {
       sentence: "Knead the dough.",
       translation: "生地をこねる。",
       pos: { timeMs: 12_000 },
-      seenAt: time,
+      seenAt: clock.time,
       origin: "saved",
     });
   });
 
   it("updates an existing term and keeps its creation time", async () => {
-    const created = time;
+    const created = clock.time;
     await store.saveTerm(dough());
-    tick();
+    clock.tick();
     const term = await store.saveTerm(dough({ status: "known" }));
     expect(term).toMatchObject({
       status: "known",
       createdAt: created,
-      updatedAt: time,
+      updatedAt: clock.time,
     });
   });
 
   it("keeps one source per page and updates when it was last seen", async () => {
     await store.saveTerm(dough());
-    tick();
+    clock.tick();
     await store.saveTerm(
       figureOut({ source: { ...VIDEO, url: VIDEO.url + "&t=3" } }),
     );
     const [doughSeen] = await store.occurrencesOf("en:dough");
     const [phraseSeen] = await store.occurrencesOf("en:figure out");
     expect(phraseSeen!.sourceId).toBe(doughSeen!.sourceId);
-    expect(phraseSeen!.source.firstSeen).toBe(time - 1000);
-    expect(phraseSeen!.source.lastSeen).toBe(time);
+    expect(phraseSeen!.source.firstSeen).toBe(clock.time - 1000);
+    expect(phraseSeen!.source.lastSeen).toBe(clock.time);
   });
 });
 
 describe("setStatus", () => {
   it("changes the status and the update time", async () => {
     await store.saveTerm(dough());
-    tick();
+    clock.tick();
     const term = await store.setStatus("en:dough", "known");
-    expect(term).toMatchObject({ status: "known", updatedAt: time });
+    expect(term).toMatchObject({ status: "known", updatedAt: clock.time });
     expect((await store.termIndex("en")).get("dough")).toBe("known");
   });
 
@@ -168,14 +150,14 @@ describe("setStatus", () => {
 describe("removeTerm", () => {
   it("leaves a tombstone with the time of removal", async () => {
     await store.saveTerm(dough());
-    tick();
+    clock.tick();
     await store.removeTerm("en:dough");
     const all = await store.listTerms("en", { includeRemoved: true });
     expect(all).toEqual([
       expect.objectContaining({
         id: "en:dough",
         status: "removed",
-        updatedAt: time,
+        updatedAt: clock.time,
       }),
     ]);
   });
@@ -208,12 +190,12 @@ describe("removeTerm", () => {
   it("saves a removed term again as a new term", async () => {
     await store.saveTerm(dough());
     await store.removeTerm("en:dough");
-    tick();
+    clock.tick();
     const term = await store.saveTerm(dough());
     expect(term).toMatchObject({
       status: "learning",
-      createdAt: time,
-      updatedAt: time,
+      createdAt: clock.time,
+      updatedAt: clock.time,
     });
   });
 });
@@ -221,7 +203,7 @@ describe("removeTerm", () => {
 describe("recordEncounters", () => {
   it("records a saved term seen in another sentence", async () => {
     await store.saveTerm(dough());
-    tick();
+    clock.tick();
     const added = await store.recordEncounters(ARTICLE, [
       {
         termId: "en:dough",
@@ -234,7 +216,7 @@ describe("recordEncounters", () => {
     expect(newest).toMatchObject({
       sentence: "The dough rises.",
       pos: { textQuote: "dough rises" },
-      seenAt: time,
+      seenAt: clock.time,
       origin: "encountered",
     });
     expect(newest!.source.url).toBe("https://example.com/bread");
@@ -260,7 +242,7 @@ describe("recordEncounters", () => {
       pos: { textQuote: "dough rises" },
     };
     await store.recordEncounters(ARTICLE, [item]);
-    tick();
+    clock.tick();
     const added = await store.recordEncounters(ARTICLE, [item, item]);
     expect(added).toBe(0);
     expect(await store.occurrencesOf("en:dough")).toHaveLength(2);
@@ -292,7 +274,7 @@ describe("recordEncounters", () => {
   it("keeps the newest 50 occurrences of a term", async () => {
     await store.saveTerm(dough());
     for (let i = 1; i <= 55; i++) {
-      tick();
+      clock.tick();
       await encounter(i);
     }
     const occurrences = await store.occurrencesOf("en:dough");
@@ -304,7 +286,7 @@ describe("recordEncounters", () => {
   it("never drops the sentence a term was saved from to make room", async () => {
     await store.saveTerm(dough());
     for (let i = 1; i <= 55; i++) {
-      tick();
+      clock.tick();
       await encounter(i);
     }
     const occurrences = await store.occurrencesOf("en:dough");
@@ -320,10 +302,10 @@ describe("recordEncounters", () => {
 
   it("keeps every saved sentence even when they fill the 50", async () => {
     for (let i = 1; i <= 51; i++) {
-      tick();
+      clock.tick();
       await store.saveTerm(dough({ sentence: `Saved ${i}.` }));
     }
-    tick();
+    clock.tick();
     await encounter(1);
     const occurrences = await store.occurrencesOf("en:dough");
     expect(occurrences).toHaveLength(51);
@@ -334,7 +316,7 @@ describe("recordEncounters", () => {
 describe("occurrencesOf", () => {
   it("lists the newest first, each with its source", async () => {
     await store.saveTerm(dough());
-    tick();
+    clock.tick();
     await store.recordEncounters(ARTICLE, [
       { termId: "en:dough", sentence: "Later.", pos: { textQuote: "Later" } },
     ]);
@@ -349,9 +331,9 @@ describe("occurrencesOf", () => {
 describe("occurrenceStats", () => {
   it("counts each term's occurrences of a language and when it was last seen", async () => {
     await store.saveTerm(dough());
-    const savedAt = time;
+    const savedAt = clock.time;
     await store.saveTerm(figureOut());
-    tick();
+    clock.tick();
     await store.recordEncounters(ARTICLE, [
       { termId: "en:dough", sentence: "Later.", pos: { textQuote: "Later" } },
     ]);
@@ -361,7 +343,7 @@ describe("occurrenceStats", () => {
     const stats = await store.occurrenceStats("en");
     expect(stats).toEqual(
       new Map([
-        ["en:dough", { count: 2, lastSeen: time }],
+        ["en:dough", { count: 2, lastSeen: clock.time }],
         ["en:figure out", { count: 1, lastSeen: savedAt }],
       ]),
     );
@@ -396,7 +378,7 @@ describe("saveAll", () => {
 
   it("leaves terms that are already saved as they are", async () => {
     const saved = await store.saveTerm(dough());
-    tick();
+    clock.tick();
     const result = await store.saveAll(
       "en",
       ["dough", "loaf"],
@@ -410,7 +392,7 @@ describe("saveAll", () => {
 
   it("makes a bulk term an ordinary one when it is saved by hand", async () => {
     await store.saveAll("en", ["dough"], "known", ARTICLE);
-    tick();
+    clock.tick();
     const term = await store.saveTerm(dough());
     expect(term.bulk).toBeUndefined();
   });
@@ -434,7 +416,7 @@ describe("undoSaveAll", () => {
       "known",
       ARTICLE,
     );
-    tick();
+    clock.tick();
     expect(await store.undoSaveAll(batchId)).toBe(2);
     expect(await store.listTerms("en")).toEqual([]);
     expect(await store.counts("en")).toEqual({
@@ -466,7 +448,7 @@ describe("undoSaveAll", () => {
       "known",
       ARTICLE,
     );
-    tick();
+    clock.tick();
     await store.setStatus("en:loaf", "learning");
     expect(await store.undoSaveAll(batchId)).toBe(1);
     expect((await store.listTerms("en")).map((t) => t.id)).toEqual(["en:loaf"]);
@@ -619,7 +601,7 @@ describe("applySynced", () => {
   });
 
   it("changes the status of an older local term and keeps the rest", async () => {
-    time = 100 * MIN;
+    clock.time = 100 * MIN;
     await store.saveTerm(figureOut());
     await store.applySynced("en", [synced("figure out", "known", 101)]);
     const [term] = await store.listTerms("en");
@@ -633,7 +615,7 @@ describe("applySynced", () => {
   });
 
   it("leaves a local term that is as new or newer alone", async () => {
-    time = 100 * MIN + 30_000;
+    clock.time = 100 * MIN + 30_000;
     await store.saveTerm(dough());
     const count = await store.applySynced("en", [
       synced("dough", "known", 100),
@@ -641,12 +623,12 @@ describe("applySynced", () => {
     expect(count).toBe(0);
     expect((await store.listTerms("en"))[0]).toMatchObject({
       status: "learning",
-      updatedAt: time,
+      updatedAt: clock.time,
     });
   });
 
   it("removes a term, its occurrences and its bulk mark", async () => {
-    time = 100 * MIN;
+    clock.time = 100 * MIN;
     await store.saveTerm(dough());
     await store.saveAll("en", ["bread"], "known", ARTICLE);
     await store.applySynced("en", [
@@ -672,7 +654,7 @@ describe("applySynced", () => {
   });
 
   it("brings a removed term back when the synced version is newer", async () => {
-    time = 100 * MIN;
+    clock.time = 100 * MIN;
     await store.saveTerm(dough());
     await store.removeTerm("en:dough");
     await store.applySynced("en", [synced("dough", "known", 101)]);
@@ -682,7 +664,7 @@ describe("applySynced", () => {
   });
 
   it("makes a synced change to a bulk term an ordinary one", async () => {
-    time = 100 * MIN;
+    clock.time = 100 * MIN;
     await store.saveAll("en", ["bread"], "learning", ARTICLE);
     await store.applySynced("en", [synced("bread", "known", 101)]);
     const [term] = await store.listTerms("en");
@@ -724,7 +706,7 @@ describe("exportJson", () => {
     expect(data).toMatchObject({
       format: "lingo-export",
       version: 1,
-      exportedAt: time,
+      exportedAt: clock.time,
     });
     expect(data.terms.map((t) => t.id)).toEqual(["en:dough"]);
     expect(data.sources.map((s) => s.url)).toEqual([
@@ -746,7 +728,7 @@ describe("exportJson", () => {
 
   it("records the time of the export", async () => {
     await store.exportJson();
-    expect(await store.getMeta("lastExportAt")).toBe(time);
+    expect(await store.getMeta("lastExportAt")).toBe(clock.time);
   });
 });
 
@@ -776,7 +758,7 @@ describe("importJson", () => {
   it("takes a term that is newer in the file", async () => {
     await withOtherStore(async (other) => {
       await other.saveTerm(dough());
-      tick();
+      clock.tick();
       await store.saveTerm(dough({ status: "known" }));
       await other.importJson(await store.exportJson());
       expect((await other.termIndex("en")).get("dough")).toBe("known");
@@ -786,7 +768,7 @@ describe("importJson", () => {
   it("keeps a term that is newer here", async () => {
     await store.saveTerm(dough({ status: "known" }));
     const json = await store.exportJson();
-    tick();
+    clock.tick();
     await withOtherStore(async (other) => {
       await other.saveTerm(dough());
       expect((await other.importJson(json)).terms).toBe(0);
@@ -798,7 +780,7 @@ describe("importJson", () => {
     await withOtherStore(async (other) => {
       await other.saveTerm(dough());
       await store.saveTerm(dough());
-      tick();
+      clock.tick();
       await store.removeTerm("en:dough");
       await other.importJson(await store.exportJson());
       expect(await other.listTerms("en")).toEqual([]);
@@ -811,7 +793,7 @@ describe("importJson", () => {
     const json = await store.exportJson();
     await withOtherStore(async (other) => {
       await other.saveTerm(dough());
-      tick();
+      clock.tick();
       await other.removeTerm("en:dough");
       await other.importJson(json);
       expect(await other.listTerms("en")).toEqual([]);

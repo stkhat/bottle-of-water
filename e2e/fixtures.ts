@@ -7,15 +7,21 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import {
+  collectExtensionErrors,
+  connectBrowserCdp,
+  freePort,
+  type BrowserCdp,
+  type ErrorCollector,
+} from "./error-collector";
 
 /**
  * Which build to load: `npm run build` (production), `wxt build --mode check` (the
  * build loaded in your own Chrome, with WXT's dev logging and the self-reload), or
- * `npm run build:check-download` (`--mode check-download`: the check build without the
- * self-reload, whose Spanish data is downloaded from the local mirror in serve.mjs;
- * see .env.check-download). The production build closes the shadow roots of Lingo's UI
- * on web pages (`src/content/ui/shadow-mode.ts`), so Playwright cannot reach into it
- * there: tests that drive the UI use a check build, whose roots are open.
+ * `npm run build:check-download` (the check build without the self-reload, whose
+ * Spanish data comes from the local mirror in serve.mjs; see .env.check-download).
+ * Production closes the shadow roots of Lingo's UI on web pages, so Playwright cannot
+ * reach into it there: tests that drive the UI use a check build.
  */
 export type Build = "production" | "check" | "download";
 
@@ -28,7 +34,6 @@ const BUILDS: Record<Build, { dir: string; command: string }> = {
   },
 };
 
-/** The folder of a build. */
 export const extensionPathOf = (build: Build) =>
   path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -36,15 +41,14 @@ export const extensionPathOf = (build: Build) =>
     BUILDS[build].dir,
   );
 
-/** A fresh browser profile with a built extension (the check build by default) loaded, and `args` for Chromium. */
-export async function launchWithExtension(
-  args: string[] = [],
-  build: Build = "check",
+/** A fresh browser profile with a built extension loaded. */
+async function launchWithExtension(
+  build: Build,
+  port: number,
 ): Promise<BrowserContext> {
   const extensionPath = extensionPathOf(build);
-  if (!fs.existsSync(path.join(extensionPath, "manifest.json"))) {
+  if (!fs.existsSync(path.join(extensionPath, "manifest.json")))
     throw new Error(`Build first: ${BUILDS[build].command}`);
-  }
   const headed = !!process.env.PWDEBUG || !!process.env.HEADED;
   return chromium.launchPersistentContext("", {
     // Bundled Chromium: stable Chrome 137+ ignores --load-extension.
@@ -53,13 +57,15 @@ export async function launchWithExtension(
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
-      ...args,
+      // For the error collector's CDP connection.
+      `--remote-debugging-port=${port}`,
+      // For CDP's Extensions.loadUnpacked, which reloads the extension.
+      "--enable-unsafe-extension-debugging",
     ],
   });
 }
 
-/** The extension's id in a context, from its service worker's URL. */
-export async function extensionIdOf(context: BrowserContext): Promise<string> {
+async function extensionIdOf(context: BrowserContext): Promise<string> {
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker"));
@@ -67,12 +73,18 @@ export async function extensionIdOf(context: BrowserContext): Promise<string> {
 }
 
 export const test = base.extend<{
+  build: Build;
+  port: number;
   context: BrowserContext;
   extensionId: string;
 }>({
+  build: ["check", { option: true }],
   // eslint-disable-next-line no-empty-pattern
-  context: async ({}, use) => {
-    const context = await launchWithExtension();
+  port: async ({}, use) => {
+    await use(await freePort());
+  },
+  context: async ({ build, port }, use) => {
+    const context = await launchWithExtension(build, port);
     await use(context);
     await context.close();
   },
@@ -83,16 +95,46 @@ export const test = base.extend<{
 
 export const expect = test.expect;
 
-/** How many English words are saved as Known (asked from the background). */
-export async function knownCount(
-  context: BrowserContext,
-  extensionId: string,
-): Promise<number> {
-  const reply = (await sendToBackground(context, extensionId, {
-    type: "counts",
-    lang: "en",
-  })) as { ok: boolean; value?: { known: number } };
-  return reply.value?.known ?? -1;
+/**
+ * Fails each test with what Chrome's chrome://extensions → Errors page would show: the
+ * extension logged an error or a warning, or threw (error-collector.ts).
+ */
+export const testWithErrors = test.extend<{
+  cdp: BrowserCdp;
+  errors: ErrorCollector;
+}>({
+  cdp: async ({ context, port }, use) => {
+    void context;
+    const cdp = await connectBrowserCdp(port);
+    await use(cdp);
+    cdp.close();
+  },
+  errors: [
+    async ({ context, extensionId, cdp }, use) => {
+      const errors = await collectExtensionErrors(context, extensionId, cdp);
+      await use(errors);
+      // A last round trip: whatever the background was doing has been reported.
+      await sendToBackground(context, extensionId, { type: "getSettings" });
+      errors.stop();
+      expect(errors.format(), "Lingo's reports on the Errors page").toBe("");
+    },
+    { auto: true },
+  ],
+});
+
+const senders = new WeakMap<BrowserContext, Promise<Page>>();
+
+/** An extension page kept open for `sendToBackground` (a new one after a reload). */
+function senderPage(context: BrowserContext, extensionId: string) {
+  let page = senders.get(context);
+  if (!page) {
+    page = context.newPage().then(async (p) => {
+      await p.goto(`chrome-extension://${extensionId}/popup.html`);
+      return p;
+    });
+    senders.set(context, page);
+  }
+  return page;
 }
 
 /**
@@ -104,17 +146,19 @@ export async function sendToBackground(
   extensionId: string,
   request: { type: string } & Record<string, unknown>,
 ): Promise<unknown> {
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  // The extension page's own `chrome.runtime`; the test drives Chromium directly.
-  const reply = await page.evaluate((message) => {
+  let page = await senderPage(context, extensionId);
+  // Reloading the extension closes its pages.
+  if (page.isClosed()) {
+    senders.delete(context);
+    page = await senderPage(context, extensionId);
+  }
+  return page.evaluate((message) => {
+    // The extension page's own `chrome.runtime`; the test drives Chromium directly.
     const { chrome: api } = globalThis as unknown as {
       chrome: { runtime: { sendMessage(m: unknown): Promise<unknown> } };
     };
     return api.runtime.sendMessage(message);
   }, request);
-  await page.close();
-  return reply;
 }
 
 /**

@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { palettes } from "../theme";
 import { ThemeScope } from "../ThemeScope";
 import { SaveAll, type SaveAllProps } from "./SaveAll";
-import { addPageStyle, cleanUpMounts, mountInShadowRoot } from "./testing";
+import {
+  addPageStyle,
+  cleanUpMounts,
+  mountInShadowRoot,
+} from "../../testing/shadow-root";
 
 const popup: SaveAllProps = {
   scope: "page",

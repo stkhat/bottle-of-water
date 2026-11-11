@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
-import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
+import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
 import { SubtitleOverlay, type SubtitleOverlayProps } from "./SubtitleOverlay";
 
 const TEXT =

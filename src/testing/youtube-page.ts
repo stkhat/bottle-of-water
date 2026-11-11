@@ -1,15 +1,15 @@
-// Test helper: a trimmed YouTube watch page (the parts Lingo uses, as in
+// A trimmed YouTube watch page (the parts Lingo uses, as in
 // e2e/fixtures/youtube-watch.html) with the fake player API on #movie_player.
 import {
   installFakeYouTubePlayer,
   type FakePlayerLog,
-} from "../../../e2e/fake-youtube-player";
-import captionTracks from "../../core/subtitles/fixtures/youtube/captionTracks.json";
-import videoUrl from "../../../e2e/fixtures/video.webm?url";
+} from "../../tests/fake-youtube-player";
+import captionTracks from "../core/subtitles/fixtures/youtube/captionTracks.json";
+import videoUrl from "../../tests/fixtures/video.webm?url";
 
 export const VIDEO_ID = "iG9CE55wbtY";
 export const TITLE = "Do schools kill creativity? | Sir Ken Robinson | TED";
-export const PLAYER_RESPONSE: unknown = captionTracks;
+const PLAYER_RESPONSE: unknown = captionTracks;
 
 export interface TestPage {
   root: HTMLElement;

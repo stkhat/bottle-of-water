@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PackName } from "../../core/packs/load";
 import type { PackState } from "../../core/packs/state";
 import type { Settings } from "../../core/settings";
-import videoUrl from "../../../e2e/fixtures/video.webm?url";
+import videoUrl from "../../../tests/fixtures/video.webm?url";
 import type { Cue } from "../../core/subtitles/types";
 import { termId } from "../../core/term-id";
-import { testBackground } from "../article/test-background";
+import { testBackground } from "../../testing/background";
+import { noTranslation } from "../../testing/stubs";
 import type { TranslationProvider } from "../translate/translator";
 import type { PlatformAdapter, VideoCaptions } from "./platform";
 import {
@@ -140,37 +141,22 @@ async function start(
   );
   cleanups.push(() => bg.close());
   await options.before?.(bg);
-  const settingsListeners = new Set<(settings: Settings) => void>();
   const session: VideoSession = await startVideo({
     send: options.send?.(bg.send) ?? bg.send,
     adapter: site.adapter,
-    watchSettings(listener) {
-      settingsListeners.add(listener);
-      return () => settingsListeners.delete(listener);
-    },
+    watchSettings: bg.watchSettings,
     watchPackState: bg.watchPackState,
-    createTranslator: () =>
-      options.translator ?? { translate: async () => undefined },
+    createTranslator: () => options.translator ?? noTranslation,
     translatorAvailable: async () => options.translatorAvailable ?? false,
     ...options.hooks,
   });
   cleanups.push(() => session.stop());
-  /** Changes the stored settings and tells the session, as storage.onChanged does. */
-  async function changeSettings(
-    patch: Parameters<typeof bg.send>[0] & {
-      type: "setSettings";
-    },
-  ) {
-    const next = await bg.send(patch);
-    for (const listener of settingsListeners) listener(next);
-  }
   return {
     video,
     site,
     bg,
     session,
     app: session.app,
-    changeSettings,
     state: () => session.app.store.get(),
   };
 }
@@ -1278,17 +1264,14 @@ describe("where Lingo runs", () => {
   });
 
   it("not on a site switched off in the popup, and again once it is back on", async () => {
-    const { state, site, changeSettings } = await start(undefined, {
+    const { state, site, bg } = await start(undefined, {
       settings: { disabledSites: ["www.youtube.com"] },
     });
     expect(state().status).toBe("idle");
-    await changeSettings({ type: "setSettings", patch: { disabledSites: [] } });
+    bg.changeSettings({ disabledSites: [] });
     await ready(state);
     expect(site.log.loads).toBe(1);
-    await changeSettings({
-      type: "setSettings",
-      patch: { sites: { youtube: false } },
-    });
+    bg.changeSettings({ sites: { youtube: false } });
     expect(state().status).toBe("idle");
     expect(site.log.hidden.at(-1)).toBe(false);
   });
@@ -1378,7 +1361,7 @@ describe("the popup's requests", () => {
 });
 
 describe("translating English definitions", () => {
-  /** "figure out" has only an English definition (test-background.ts). */
+  /** "figure out" has only an English definition (src/testing/background.ts). */
   const FIGURE: Cue[] = [
     { startMs: 0, endMs: 1000, text: "You figure out the yeast." },
     { startMs: 1000, endMs: 2000, text: "Knead the dough." },

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { HoverCard, type HoverCardProps } from "./HoverCard";
-import { addPageStyle, cleanUpMounts, mountInShadowRoot } from "./testing";
+import {
+  addPageStyle,
+  cleanUpMounts,
+  mountInShadowRoot,
+} from "../../testing/shadow-root";
 
 const figureOut: HoverCardProps = {
   variant: "video",

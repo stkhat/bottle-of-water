@@ -1,32 +1,29 @@
 import { Dexie } from "dexie";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { openLingoDb, type LingoDb } from "./db";
 import {
   createTranslationCache,
   translationPair,
   type TranslationCache,
 } from "./translation-cache";
+import { fakeClock } from "../testing/clock";
+import { freshDb } from "../testing/db";
 
 const EN_JA = translationPair("en", "ja");
 const ES_JA = translationPair("es", "ja");
 
 let db: LingoDb;
 let cache: TranslationCache;
-let time: number;
-const tick = (ms = 1000) => (time += ms);
+let clock: ReturnType<typeof fakeClock>;
 
 function cacheWithLimit(limit: number) {
-  return createTranslationCache(db, { limit, now: () => time });
+  return createTranslationCache(db, { limit, now: clock.now });
 }
 
 beforeEach(() => {
-  time = 1_000_000;
-  db = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
-  cache = createTranslationCache(db, { now: () => time });
-});
-
-afterEach(async () => {
-  await db.delete();
+  clock = fakeClock();
+  db = freshDb();
+  cache = createTranslationCache(db, { now: clock.now });
 });
 
 describe("translationPair", () => {
@@ -62,13 +59,13 @@ describe("translation cache", () => {
       pair: EN_JA,
       text: "secretly",
       translated: "こっそり",
-      usedAt: time,
+      usedAt: clock.time,
     });
   });
 
   it("replaces a translation that is put again", async () => {
     await cache.put(EN_JA, [{ text: "To quit.", translated: "やめる。" }]);
-    tick();
+    clock.tick();
     await cache.put(EN_JA, [{ text: "To quit.", translated: "辞める。" }]);
     expect(await cache.get(EN_JA, ["To quit."])).toEqual({
       "To quit.": "辞める。",
@@ -88,8 +85,8 @@ describe("translation cache", () => {
       { text: "a", translated: "あ" },
       { text: "b", translated: "び" },
     ]);
-    const putAt = time;
-    tick(5_000);
+    const putAt = clock.time;
+    clock.tick(5_000);
     await cache.get(EN_JA, ["a", "missing"]);
     expect((await db.mtCache.get("en>ja:a"))?.usedAt).toBe(putAt + 5_000);
     expect((await db.mtCache.get("en>ja:b"))?.usedAt).toBe(putAt);
@@ -100,11 +97,11 @@ describe("translation cache", () => {
     const small = cacheWithLimit(3);
     for (const text of ["a", "b", "c"]) {
       await small.put(EN_JA, [{ text, translated: text.toUpperCase() }]);
-      tick();
+      clock.tick();
     }
     // "a" is read again, so "b" is now the least recently used.
     await small.get(EN_JA, ["a"]);
-    tick();
+    clock.tick();
     await small.put(ES_JA, [
       { text: "d", translated: "D" },
       { text: "e", translated: "E" },

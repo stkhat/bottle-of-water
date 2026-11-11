@@ -1,4 +1,4 @@
-// Test helper: tiny packs served through the real pack loader, as the bundled files would be.
+// Tiny packs served through the real pack loader, as the bundled files would be.
 import { vi } from "vitest";
 import {
   createPackLoader,
@@ -7,9 +7,9 @@ import {
 } from "../core/packs/load";
 import { readLock } from "../core/packs/lock";
 import { PacksUnavailableError } from "../core/packs/unavailable";
-import type { HandlerDeps } from "./handlers";
+import type { HandlerDeps } from "../background/handlers";
 
-export const TEST_PACKS: PackFiles = {
+const TEST_PACKS: PackFiles = {
   en: {
     // "rose" is a word of its own and a form of "rise".
     lemmas: {
@@ -119,7 +119,7 @@ const { comer, ...esDefs1 } = TEST_PACKS["es-en"].defs;
  * The bundled files behind TEST_PACKS, by path: the EJDict dictionary and the Spanish →
  * English one are each split into two shards.
  */
-export const TEST_FILES: Readonly<Record<string, unknown>> = {
+const TEST_FILES: Readonly<Record<string, unknown>> = {
   ...Object.fromEntries(
     Object.entries(TEST_PACKS.en).map(([file, value]) => [
       `/packs/en/${file}.json`,

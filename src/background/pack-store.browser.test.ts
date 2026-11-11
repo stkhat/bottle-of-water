@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PackLock, PackLockEntry } from "../core/packs/lock";
 import type { PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
-import { openLingoDb, type LingoDb } from "./db";
+import type { LingoDb } from "./db";
 import { createPackStore, type PackStore } from "./pack-store";
+import { freshDb } from "../testing/db";
 
 const MIRRORS = [
   "https://one.test/npm/{package}@{version}/{file}",
@@ -140,15 +141,11 @@ let time: number;
 let clock: () => number;
 
 beforeEach(() => {
-  db = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
+  db = freshDb();
   mirrors = fakeMirrors();
   written = [];
   time = 1_000_000;
   clock = () => time;
-});
-
-afterEach(async () => {
-  await db.delete();
 });
 
 /** A pack store as one service worker has it (a new one per worker). */

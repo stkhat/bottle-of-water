@@ -8,6 +8,7 @@ import type { HistoryStatus } from "../../background/history-store";
 import type { SyncStatus } from "../../core/sync/backend";
 import type { PackStatus, Request } from "../../messaging/protocol";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
+import { listeners } from "../../testing/stubs";
 
 const NOW = new Date(2026, 10, 10, 12, 0, 0).getTime();
 const MINUTE = 60_000;
@@ -42,8 +43,8 @@ function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let lastExport = options.lastExport ?? null;
   let history = options.history ?? HISTORY;
-  const listeners = new Set<(s: Settings) => void>();
-  const packListeners = new Set<(states: PackStates) => void>();
+  const settingsWatchers = listeners<Settings>();
+  const packWatchers = listeners<PackStates>();
   const removed = new Set<string>();
   const sent: Request[] = [];
   const downloads: { name: string; text: string }[] = [];
@@ -55,7 +56,7 @@ function fake(options: FakeOptions = {}) {
           return settings;
         case "setSettings":
           settings = mergeSettings(request.patch, settings);
-          for (const l of listeners) l(settings);
+          settingsWatchers.emit(settings);
           return settings;
         case "syncStatus":
           return { ...SYNC, enabled: settings.syncEnabled };
@@ -94,14 +95,8 @@ function fake(options: FakeOptions = {}) {
           throw new Error(`unexpected ${request.type}`);
       }
     }) as SettingsDeps["send"],
-    watchSettings(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    watchPackState(listener) {
-      packListeners.add(listener);
-      return () => packListeners.delete(listener);
-    },
+    watchSettings: settingsWatchers.watch,
+    watchPackState: packWatchers.watch,
     env: {
       name: "Chrome",
       syncName: "Chrome sync",
@@ -123,11 +118,11 @@ function fake(options: FakeOptions = {}) {
     settings: () => settings,
     changeSettings(patch: Partial<Settings>) {
       settings = mergeSettings(patch, settings);
-      for (const l of listeners) l(settings);
+      settingsWatchers.emit(settings);
     },
     /** The background writes `packState`. */
     setPackStates(states: PackStates) {
-      for (const l of packListeners) l(states);
+      packWatchers.emit(states);
     },
   };
 }
