@@ -11,6 +11,8 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
 
+- Dictionary window and transcript (2026-11-11, branch `claude/dictionary-popup-video-ui-d462d4`): a press outside the dictionary window closes it (video and article; × stays), "In this video" marks the term in each line, and transcript words show the hover card and open the dictionary on a click
+
 - **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md), [measurements](notes/definition-translation.md)) on `feat/definition-translation`: the hover card translates the short meaning, the dictionary window up to four senses with the English below, cached on the device (`mtCache`, 20,000 rows)
 ## What phase 1 contains
 | Area | Where | Plan |

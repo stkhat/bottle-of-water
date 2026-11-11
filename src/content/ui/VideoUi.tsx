@@ -1,6 +1,8 @@
 import type { ComponentChildren } from "preact";
-import { useMemo } from "preact/hooks";
+import { useEffect, useMemo } from "preact/hooks";
+import { fromUser } from "../../ui/from-user";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
+import { keptOpen } from "../../ui/lookup/keep-open";
 import { elsewhereItems, formatTime } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { LingoMenu } from "../../ui/video/LingoMenu";
@@ -114,10 +116,14 @@ function Subtitle(props: {
       highlight={settings.highlight}
       translation={line ? state.subtitleTranslation : ""}
       showTranslation={settings.subtitleTranslation}
+      size={settings.subtitleSize}
+      opacity={settings.subtitleOpacity}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       selected={selected >= 0 ? selected : null}
-      onWordEnter={(span, element) => app.enterWord(ref(span), boxOf(element))}
+      onWordEnter={(span, element) =>
+        app.enterWord(ref(span), boxOf(element), "subtitle")
+      }
       onWordLeave={app.leaveWord}
       onWordClick={(span) => app.clickWord(ref(span))}
     />
@@ -189,8 +195,20 @@ export function InPlayerUi(props: {
             position={settings.subtitlePosition}
             showPositions={!fullscreen}
             showTranslation={settings.subtitleTranslation}
+            size={settings.subtitleSize}
+            opacity={settings.subtitleOpacity}
             onPosition={(subtitlePosition) =>
               app.changeSettings({ subtitlePosition })
+            }
+            onPreview={({ size, opacity }) =>
+              app.previewSettings({
+                ...(size !== undefined && { subtitleSize: size }),
+                ...(opacity !== undefined && { subtitleOpacity: opacity }),
+              })
+            }
+            onSize={(subtitleSize) => app.changeSettings({ subtitleSize })}
+            onOpacity={(subtitleOpacity) =>
+              app.changeSettings({ subtitleOpacity })
             }
             onToggleTranslation={() =>
               app.changeSettings({
@@ -242,6 +260,7 @@ export function TranscriptUi(props: {
   const idOf = (row: { key: string; kind: string }) =>
     `${row.kind}\n${row.key}`;
   const open = panel && idOf(panel.card);
+  const fromTranscript = state.hover?.from === "transcript";
   return (
     <VideoPanel
       tab={state.panelTab}
@@ -259,6 +278,16 @@ export function TranscriptUi(props: {
       onToggleHighlight={app.toggleHighlight}
       current={state.card}
       onSeek={app.seekToCue}
+      onWordEnter={(cue, span, element) =>
+        app.enterWord({ cue, span }, boxOf(element), "transcript")
+      }
+      onWordLeave={app.leaveWord}
+      onWordClick={(cue, span) => app.clickWord({ cue, span })}
+      holdScroll={fromTranscript}
+      onListScroll={() => {
+        // The card would stay where the word was.
+        if (fromTranscript) app.dismissHover();
+      }}
       words={filterRows(words, state.wordsFilter).map((row) => {
         const brief = Object.hasOwn(summaries, row.key)
           ? summaries[row.key]
@@ -304,6 +333,30 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
 }
 
 /**
+ * While the dictionary window is open, a press anywhere else closes it: on the video,
+ * the page or Lingo's other controls. Presses on the window, the hover card and words
+ * are marked by them (`keepOpen`): a word's click opens it in the same window.
+ */
+function useClosedByPressAway(app: VideoApp, open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onPress = (event: PointerEvent) => {
+      if (!fromUser(event)) return;
+      // Decided once the press has reached every part, which mark theirs.
+      timer = setTimeout(() => {
+        if (!keptOpen(event)) app.closePanel();
+      });
+    };
+    addEventListener("pointerdown", onPress, true);
+    return () => {
+      removeEventListener("pointerdown", onPress, true);
+      clearTimeout(timer);
+    };
+  }, [open]);
+}
+
+/**
  * Over the page: the hover card, the dictionary window and the end card (in fullscreen
  * too: the host is then inside the fullscreen element).
  */
@@ -320,6 +373,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
       ? dictionaryFrame(player, position, viewport, geometry.transcript())
       : { left: viewport.width - 376, top: 64, height: 400 };
   }, [panel?.opened, fullscreen]);
+  useClosedByPressAway(app, !!panel);
   if (!showing(state)) return null;
 
   return (
@@ -342,6 +396,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
             items: panel.here.map((line) => ({
               time: formatTime(line.timeMs),
               text: line.text,
+              marks: line.marks,
               onClick: () => app.seekTo(line.timeMs),
             })),
           }}

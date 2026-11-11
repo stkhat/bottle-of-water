@@ -327,9 +327,73 @@ describe("mountVideoUi", () => {
     expect(spy("enterWord")).toHaveBeenCalledWith(
       { cue: 0, span: 1 },
       { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
+      "subtitle",
     );
     await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
+  });
+
+  it("tells the app about hovered and clicked words in the transcript", async () => {
+    const { spy } = mount();
+    await expect
+      .poll(() => inside("lingo-transcript")?.querySelector("[data-span]"))
+      .not.toBeNull();
+    const tangy = [
+      ...inside("lingo-transcript")!.querySelectorAll<HTMLElement>(
+        "[data-span]",
+      ),
+    ].find((el) => el.textContent === "tangy")!;
+    await userEvent.hover(tangy);
+    const box = tangy.getBoundingClientRect();
+    expect(spy("enterWord")).toHaveBeenCalledWith(
+      { cue: 0, span: 1 },
+      { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
+      "transcript",
+    );
+    await userEvent.click(tangy);
+    expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
+    expect(spy("seekToCue")).not.toHaveBeenCalled();
+  });
+
+  it("a press outside the dictionary window closes it; a press in it or on a word does not", async () => {
+    // Mock Main's video size: the window leaves the subtitle free.
+    page.player.style.width = "880px";
+    page.player.style.height = "495px";
+    const { store, spy } = mount();
+    store.set({
+      panel: {
+        ref: { cue: 0, span: 1 },
+        card: TANGY,
+        here: [],
+        dictionaries: [],
+        opened: 1,
+      },
+    });
+    await expect
+      .poll(() => inside("lingo-video")?.querySelector("aside"))
+      .not.toBeNull();
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+    await userEvent.click(
+      inside("lingo-video")!.querySelector<HTMLElement>("aside h2")!,
+    );
+    const word = (name: string) =>
+      [...inside(name)!.querySelectorAll<HTMLElement>("[data-span]")].find(
+        (el) => el.textContent === "tangy",
+      )!;
+    await userEvent.click(word("lingo-video-player"));
+    await userEvent.click(word("lingo-transcript"));
+    await settle();
+    expect(spy("closePanel")).not.toHaveBeenCalled();
+
+    // A press a page script makes is not the user's.
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await settle();
+    expect(spy("closePanel")).not.toHaveBeenCalled();
+
+    await userEvent.click(page.player, { position: { x: 40, y: 40 } });
+    await expect.poll(() => spy("closePanel").mock.calls.length).toBe(1);
   });
 
   it("shows only the playing line's part of a sentence card, with the card's word refs", async () => {
@@ -443,7 +507,14 @@ describe("mountVideoUi", () => {
           senses: [],
           elsewhere: [],
         },
-        here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+        here: [
+          {
+            cue: 0,
+            timeMs: 0,
+            text: "The yeast smells tangy.",
+            marks: [{ start: 17, end: 22, category: "new" }],
+          },
+        ],
         dictionaries: [],
         opened: 1,
       },
@@ -489,7 +560,14 @@ describe("mountVideoUi", () => {
           senses: [],
           elsewhere: [],
         },
-        here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+        here: [
+          {
+            cue: 0,
+            timeMs: 0,
+            text: "The yeast smells tangy.",
+            marks: [{ start: 17, end: 22, category: "new" }],
+          },
+        ],
         dictionaries: [],
         opened: 1,
       },
@@ -514,7 +592,14 @@ describe("mountVideoUi", () => {
       panel: {
         ref: { cue: 0, span: 1 },
         card: TANGY,
-        here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+        here: [
+          {
+            cue: 0,
+            timeMs: 0,
+            text: "The yeast smells tangy.",
+            marks: [{ start: 17, end: 22, category: "new" }],
+          },
+        ],
         dictionaries: [],
         opened,
       },
@@ -627,6 +712,7 @@ describe("mountVideoUi", () => {
       store.set({
         hover: {
           ref: { cue: 0, span: 1 },
+          from: "subtitle",
           anchor: {
             left: r.left,
             top: r.top,
@@ -721,7 +807,10 @@ describe("mountVideoUi", () => {
         .poll(() => menu()?.querySelector("[role=group]") ?? null)
         .toBeNull();
       expect(menu()!.textContent).toContain("Show translation");
-      expect(menu()!.textContent).toContain("Open all settings");
+      expect(
+        menu()!.querySelector('[aria-label="Open settings"]'),
+      ).not.toBeNull();
+      expect(menu()!.querySelector("input[type=range]")).not.toBeNull();
       // Still above the L and ^ buttons.
       const dialog = menu()!.getBoundingClientRect();
       const buttons = host("lingo-player-buttons").getBoundingClientRect();
@@ -766,13 +855,13 @@ describe("mountVideoUi", () => {
       expect(spy("setEnabled")).toHaveBeenCalledWith(false);
     });
 
-    it("do not reach the menu's switch or Open all settings; the user's clicks do", async () => {
+    it("do not reach the menu's switch or gear; the user's clicks do", async () => {
       const { spy } = mount(readyState({ menuOpen: true }));
       const toggle = await button(
         "lingo-video-player",
         "Show translation under the subtitle",
       );
-      const settings = await button("lingo-video-player", "Open all settings");
+      const settings = await button("lingo-video-player", "Open settings");
       syntheticClick(toggle);
       syntheticClick(settings);
       expect(spy("changeSettings")).not.toHaveBeenCalled();
@@ -807,7 +896,14 @@ describe("mountVideoUi", () => {
           panel: {
             ref: { cue: 0, span: 1 },
             card: TANGY,
-            here: [{ cue: 0, timeMs: 0, text: "The yeast smells tangy." }],
+            here: [
+              {
+                cue: 0,
+                timeMs: 0,
+                text: "The yeast smells tangy.",
+                marks: [{ start: 17, end: 22, category: "new" }],
+              },
+            ],
             dictionaries: [],
             opened: 1,
           },

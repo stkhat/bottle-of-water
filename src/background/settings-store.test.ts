@@ -87,4 +87,19 @@ describe("settings store", () => {
     await browser.storage.local.set({ settings: { knownLevel: 9000 } });
     expect(seen).not.toHaveBeenCalled();
   });
+
+  it("stops watching quietly in a content script whose extension was reloaded", () => {
+    const unwatch = watchSettings(vi.fn());
+    // Chrome takes `storage` away from a content script cut off by a reload.
+    const storage = Object.getOwnPropertyDescriptor(fakeBrowser, "storage")!;
+    Object.defineProperty(fakeBrowser, "storage", {
+      value: undefined,
+      configurable: true,
+    });
+    try {
+      expect(() => unwatch()).not.toThrow();
+    } finally {
+      Object.defineProperty(fakeBrowser, "storage", storage);
+    }
+  });
 });

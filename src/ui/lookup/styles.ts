@@ -44,6 +44,21 @@ export const highlight = {
 } as const;
 
 /**
+ * A term's highlight (background, when the category has one, and a 2px underline) in
+ * the given colors, whatever the highlight switches say.
+ */
+export function termMark(
+  category: keyof typeof highlight.ui,
+  colors: "ui" | "onVideo",
+): Style {
+  const { background, underline } = highlight[colors][category];
+  return {
+    ...(background && { backgroundColor: background }),
+    boxShadow: `inset 0 -2px 0 ${underline}`,
+  };
+}
+
+/**
  * The root of every lookup part. `all: initial` comes first so page styles inherited
  * through the shadow host cannot leak in; then the base font and color.
  */

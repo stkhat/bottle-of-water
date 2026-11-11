@@ -1,7 +1,7 @@
 import type { CSSProperties, JSX } from "preact";
 import type { Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
-import { highlight } from "../lookup/styles";
+import { termMark } from "../lookup/styles";
 
 type Style = CSSProperties;
 
@@ -15,11 +15,7 @@ export function termStyle(
   colors: "ui" | "onVideo",
 ): Style | undefined {
   if (category === "ignored" || !on[category]) return undefined;
-  const { background, underline } = highlight[colors][category];
-  return {
-    ...(background && { backgroundColor: background }),
-    boxShadow: `inset 0 -2px 0 ${underline}`,
-  };
+  return termMark(category, colors);
 }
 
 /** The spans that can be shown, in text order, without overlaps or ignored words. */

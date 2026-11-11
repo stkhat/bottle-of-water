@@ -48,6 +48,8 @@ async function moveOverVideo(page: Page) {
   await page.mouse.move(viewport.width / 3 + 10, viewport.height / 2 + 10);
   await expect(controlBar(page)).toBeVisible();
 }
+/** A transcript card's time, top left: the words in a card open the dictionary instead. */
+const ON_TIME = { x: 16, y: 12 };
 const card = (page: Page, text: string) =>
   transcript(page).getByRole("button", { name: text });
 const currentTime = (page: Page) =>
@@ -81,7 +83,7 @@ async function openAtLine(context: BrowserContext, extensionId: string) {
   await routeNetflix(context);
   const page = await context.newPage();
   await page.goto(WATCH);
-  await card(page, LINE).click();
+  await card(page, LINE).click({ position: ON_TIME });
   await expect(inVideo(page)).toContainText(LINE);
   return page;
 }
@@ -184,7 +186,7 @@ test("a transcript card seeks to its line", async ({
 }) => {
   const page = await openAtLine(context, extensionId);
   const first = card(page, flat(EN[0]!.text));
-  await first.click();
+  await first.click({ position: ON_TIME });
   await expect(inVideo(page)).toContainText(flat(EN[0]!.text));
   expect(await currentTime(page)).toBeCloseTo(EN[0]!.startMs / 1000, 1);
   await expect(first).toHaveAttribute("aria-current", "true");
@@ -352,7 +354,7 @@ test("the next episode gets its own subtitles", async ({
   await expect(card(page, flat(CARDS[PAIR_INDEX]!.text))).not.toContainText(
     PAIR_JA,
   );
-  await card(page, LINE).click();
+  await card(page, LINE).click({ position: ON_TIME });
   await expect(inVideo(page)).toContainText(LINE);
   await expect(inVideo(page).getByText(LINE_JA)).toHaveCount(0);
 });

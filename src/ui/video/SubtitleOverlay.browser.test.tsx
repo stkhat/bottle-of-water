@@ -32,6 +32,8 @@ const base: SubtitleOverlayProps = {
   highlight: { new: false, learning: true, known: false },
   translation: "今日はパンを一から作る方法を探っていきます。",
   showTranslation: true,
+  size: 100,
+  opacity: 80,
   nativeLang: "ja",
   learningLang: "en",
   selected: null,
@@ -228,5 +230,70 @@ describe("SubtitleOverlay", () => {
       screen.container.querySelector("[lang=en]")!.getBoundingClientRect()
         .height,
     ).toBeLessThan(50);
+  });
+
+  describe("size and opacity", () => {
+    const lines = (screen: { container: HTMLElement }) => {
+      const [line, translation] = [
+        ...screen.container.querySelectorAll<HTMLElement>("p"),
+      ];
+      return {
+        line: getComputedStyle(line!),
+        tr: getComputedStyle(translation!),
+      };
+    };
+
+    test("by default the boxes over the video are as in the mock", async () => {
+      const screen = await mountInShadowRoot(<SubtitleOverlay {...base} />);
+      const { line, tr } = lines(screen);
+      expect(line.fontSize).toBe("24px");
+      expect(line.backgroundColor).toBe("rgba(8, 10, 16, 0.8)");
+      expect(tr.fontSize).toBe("17px");
+      expect(tr.backgroundColor).toBe("rgba(8, 10, 16, 0.72)");
+    });
+
+    test("size scales the line and the translation, opacity shades their boxes", async () => {
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay {...base} size={150} opacity={40} />,
+      );
+      const { line, tr } = lines(screen);
+      expect(line.fontSize).toBe("36px");
+      expect(tr.fontSize).toBe("25.5px");
+      expect(line.backgroundColor).toBe("rgba(8, 10, 16, 0.4)");
+      expect(tr.backgroundColor).toBe("rgba(8, 10, 16, 0.36)");
+    });
+
+    test("in fullscreen too", async () => {
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay
+          {...base}
+          variant="fullscreen"
+          size={50}
+          opacity={0}
+        />,
+      );
+      const { line, tr } = lines(screen);
+      expect(line.fontSize).toBe("17px");
+      expect(tr.fontSize).toBe("12px");
+      expect(line.backgroundColor).toBe("rgba(8, 10, 16, 0)");
+    });
+
+    test("below the video the text scales but the light box keeps its look", async () => {
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay
+          {...base}
+          variant="belowVideo"
+          size={120}
+          opacity={0}
+        />,
+      );
+      const { line } = lines(screen);
+      expect(line.fontSize).toBe("31.2px");
+      const box = screen.getByRole("region", { name: "Subtitle" }).element();
+      expect(getComputedStyle(box).backgroundColor).not.toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+      expect(line.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    });
   });
 });

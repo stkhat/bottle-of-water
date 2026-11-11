@@ -14,7 +14,7 @@ import { HighlightChips } from "../../ui/lookup/HighlightChips";
 import { SaveAll } from "../../ui/lookup/SaveAll";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
-import { GearIcon } from "../../ui/icons";
+import { GearIcon, WordListIcon } from "../../ui/icons";
 import { LanguageDataNote } from "../../ui/packs/LanguageDataNote";
 
 /** What the popup works with; `main.tsx` passes the browser's, tests pass fakes. */
@@ -133,17 +133,18 @@ function SyncLine(props: {
   );
 }
 
-const footerButton = {
-  display: "flex",
+/** The header's icon buttons (word list, settings). */
+const headerButton = {
+  display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
+  width: "40px",
   height: "40px",
-  margin: 0,
-  padding: 0,
   borderRadius: "8px",
-  font: "inherit",
-  fontSize: "14px",
-  fontWeight: 600,
+  color: color.ink3,
+  border: 0,
+  background: "none",
+  padding: 0,
   cursor: "pointer",
 } as const;
 
@@ -265,21 +266,19 @@ export function Popup({ deps }: { deps: PopupDeps }) {
         <span style={{ flex: 1 }}></span>
         <button
           type="button"
+          aria-label={t("popup.wordList")}
+          title={t("popup.wordList")}
+          onClick={deps.openWordList}
+          style={headerButton}
+        >
+          <WordListIcon size={20} />
+        </button>
+        <button
+          type="button"
           aria-label={t("popup.openSettings")}
+          title={t("popup.openSettings")}
           onClick={deps.openOptions}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            color: color.ink3,
-            border: 0,
-            background: "none",
-            padding: 0,
-            cursor: "pointer",
-          }}
+          style={headerButton}
         >
           <GearIcon size={20} />
         </button>
@@ -394,41 +393,6 @@ export function Popup({ deps }: { deps: PopupDeps }) {
             <SyncLine status={sync} syncName={deps.syncName} now={now} />
           </div>
         )}
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-          gap: "8px",
-          padding: "12px 16px 16px",
-          borderTop: `1px solid ${color.line}`,
-        }}
-      >
-        <button
-          type="button"
-          onClick={deps.openWordList}
-          style={{
-            ...footerButton,
-            border: `1px solid ${color.lineStrong}`,
-            background: color.card,
-            color: color.ink,
-          }}
-        >
-          {t("popup.wordList")}
-        </button>
-        <button
-          type="button"
-          onClick={deps.openOptions}
-          style={{
-            ...footerButton,
-            border: 0,
-            background: color.green,
-            color: color.white,
-          }}
-        >
-          {t("popup.settings")}
-        </button>
       </div>
     </div>
   );
