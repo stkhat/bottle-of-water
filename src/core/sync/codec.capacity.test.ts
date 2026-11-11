@@ -1,5 +1,5 @@
 // How many English terms fit in storage.sync with the codec, on the real frequency list.
-// The numbers are recorded in docs/status.md ("Data"); rerun with --silent=false to print them.
+// The numbers are recorded in docs/notes/data-sizes.md; rerun with --silent=false to print them.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -105,7 +105,7 @@ it("measures how many English terms fit in 100 KB", async () => {
   console.log(
     `sync capacity: ${fits} terms fit in ${QUOTA} bytes; 20,000 terms take ${bytesFor20k} bytes`,
   );
-  // Measured on 2026-11-09: 12,402 terms; 20,000 take 170,367 bytes (docs/status.md).
+  // Measured on 2026-11-09: 12,402 terms; 20,000 take 170,367 bytes (docs/notes/data-sizes.md).
   // 20,000 do not fit: the spec's estimate of 15,000–20,000 was too high.
   expect(fits).toBeGreaterThanOrEqual(12_000);
   expect(bytesFor20k).toBeGreaterThan(QUOTA);

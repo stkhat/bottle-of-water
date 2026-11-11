@@ -1,6 +1,6 @@
 // The quality gate: a language pair is offered only when human-made sources give a
 // native meaning for at least GATE.share of the learning language's GATE.top most
-// frequent content words (docs/specs/2026-11-11-language-data-scaling-design.md §3).
+// frequent content words (docs/specs/architecture.md "Native meanings and the quality gate").
 // English definitions and the browser's translator do not count.
 import { existsSync } from "node:fs";
 import { join } from "node:path";

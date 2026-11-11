@@ -1,17 +1,17 @@
 # Lingo (working name) — language-learning browser extension (Chrome first)
 
-A browser extension (MV3) for learning a language right on top of the videos (YouTube / Netflix) and web articles you like. Phase 1 publishes only the Chrome version; Firefox, Edge and others come later.
+A browser extension (MV3) for learning a language right on top of the videos (YouTube / Netflix) and web articles you like. Only the Chrome version is published first; Firefox, Edge and others come later.
 Core features: highlights by category (New / Learning / Known), meaning on hover, dictionary window on click, saving phrases, recording sources and re-occurrences.
 
 ## Read first
-1. **Design spec**: [docs/specs/2026-11-08-language-learning-extension-design.md](docs/specs/2026-11-08-language-learning-extension-design.md)
-2. **Current status and next steps**: [docs/status.md](docs/status.md)
-3. **Roadmap**: [docs/plans/2026-11-09-roadmap.md](docs/plans/2026-11-09-roadmap.md)
-4. **Testing policy**: [docs/testing.md](docs/testing.md)
-5. **Tooling, CI/CD, release**: [docs/development.md](docs/development.md)
-6. **UI mock (Claude Design)**: https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS
+1. **Status and next steps**: [docs/status.md](docs/status.md); roadmap: [docs/plans/roadmap.md](docs/plans/roadmap.md)
+2. **Spec**: [design](docs/specs/design.md) (decisions, phases), [UI](docs/specs/ui.md) (follows the mock), [architecture](docs/specs/architecture.md). Read the part your task touches
+3. **Testing policy**: [docs/testing.md](docs/testing.md)
+4. **Tooling, CI/CD, release**: [docs/development.md](docs/development.md)
+5. **UI mock (Claude Design)**: https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS
    - Private (owner only). Read it with the Artifact tool's `read`: `project/canvas.json` and each screen — `project/Main.dc.html` (YouTube), `project/Article.dc.html` (article), `project/Toolbar.dc.html` (toolbar popup), `project/Settings.dc.html` (settings page)
-   - **When the spec and the mock disagree, the mock wins.** When the mock changes, update the spec's "UI spec (follows the mock)" to match
+   - **When the spec and the mock disagree, the mock wins.** When the mock changes, update [docs/specs/ui.md](docs/specs/ui.md) to match
+- Background notes (site internals, measurements, research): `docs/notes/`, read only when relevant
 
 ## Commands
 - `npm run dev`: dev build with reload
@@ -22,7 +22,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 
 ## Constraints
 - **The developer runs no servers** (the extension will be public). Data lives only on the device (IndexedDB) and in the user's own browser sync (`storage.sync`: a Google account in Chrome, a Mozilla account in Firefox)
-- **Browser-neutral code**: call extension APIs through WXT's `browser` (never `chrome.*` directly). Features that differ between browsers sit behind a part and are detected by whether the feature exists, not by browser name. Strings containing a browser name come from `BrowserEnv` (spec: "Absorbing browser differences")
+- **Browser-neutral code**: call extension APIs through WXT's `browser` (never `chrome.*` directly). Features that differ between browsers sit behind a part and are detected by whether the feature exists, not by browser name. Strings containing a browser name come from `BrowserEnv` (architecture: "Browser differences")
 - Browser sync just stores locally when signed out, and the extension cannot tell the difference. The UI says "Saved", never "Synced"
 - Development pair: learning = English, native = Japanese, sites = YouTube and Netflix. Language pairs and sites grow by adding parts (`LanguagePack` / `DictionaryProvider` / `PlatformAdapter` …)
 - The UI is English only. Every string goes through `t("key")` so it can be switched later

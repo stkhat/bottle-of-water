@@ -1,9 +1,9 @@
 // The English → <native> pair dictionaries, each built by its recipe from human-made
 // sources in order → data/packs/en-<native>/{index,dict-<n>}.json. Per term the first
 // source that has it supplies all of it; index.json names the sources, and each entry
-// carries the index of its own (docs/specs/2026-11-11-language-data-scaling-design.md §3).
+// carries the index of its own (docs/specs/architecture.md "Native meanings and the quality gate").
 // Usage: node scripts/data/recipes/native.mjs <native>…   (e.g. es; run the English
-// scripts first and download the native edition, see docs/plans/2026-11-11-m9d-native-languages.md)
+// scripts first and download the native edition, see docs/development.md "Language data")
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {

@@ -1,4 +1,4 @@
-// Prints the numbers recorded in docs/status.md ("Data") and each language pair's
+// Prints the numbers recorded in docs/notes/data-sizes.md and each language pair's
 // coverage for the quality gate; fails when a pair the lock offers is under the gate.
 // Usage: node scripts/data/stats.mjs [--json]   (after npm run data:build, data:es and data:native)
 //   --json: only the gate report, as JSON

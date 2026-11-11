@@ -1,5 +1,5 @@
 /**
- * Definitions to translate with the browser's translator (spec: language data, §5): an
+ * Definitions to translate with the browser's translator (architecture.md: "Definitions translated at display time"): an
  * English definition is cleaned before it is translated, and its cleaned text is the
  * key of the translation cache, so the background and the UI clean it the same way.
  */

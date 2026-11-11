@@ -71,7 +71,6 @@ Limits:
 - In check builds, Chrome's console attributes console errors and warnings to the log's wrapper; the entries' `stack` has the caller.
 - The worker sleeps after about 30 s without events, and then nothing polls. The reload happens on its next start: open a YouTube or Netflix page, or the popup.
 - Open pages keep the old content scripts until they are reloaded.
-- The folder loaded before this change has no self-reload: click reload on it once.
 - A build that breaks the service worker cannot reload itself again: fix it and click reload.
 - Check builds include WXT's debug logging (`[wxt]` in the console).
 
@@ -82,7 +81,7 @@ npx web-ext lint -s .output/firefox-mv3
 ```
 
 ## Language data
-- The scripts in `scripts/data/` build the packs from raw files in `data/raw/` (git-ignored): `npm run data:build` (English: `public/packs/`, always bundled) and `npm run data:es` (Spanish: `data/packs/`, can be downloaded). `npm run data:stats` prints the numbers recorded in `docs/status.md`.
+- The scripts in `scripts/data/` build the packs from raw files in `data/raw/` (git-ignored): `npm run data:build` (English: `public/packs/`, always bundled) and `npm run data:es` (Spanish: `data/packs/`, can be downloaded). `npm run data:native -- es pt` builds the English → native pair dictionaries from the kaikki extracts of those Wiktionary editions (`kaikki.org/dictionary/downloads/<ed>/<ed>-extract.jsonl.gz`, unpacked to `data/raw/kaikki-<ed>-edition.jsonl`). `npm run data:stats` prints the numbers recorded in `docs/notes/data-sizes.md`.
 - `scripts/data/formats.mjs` lists every pack: its folder, data `format` (bump it when the code that reads the pack changes), npm package (scope `@lingo-data`, a placeholder) and sources.
 - After the pack files change, run `npm run data:publish`. It writes `src/core/packs/packs.lock.json` (committed; a unit test fails while it is out of date) and an npm package folder per `data/packs/` pack in `data/publish/<pack>/` (git-ignored). A pack keeps its version while its files are unchanged; otherwise it becomes `<year>.<month × 100 + day>.<n>` for the UTC build date (2026-11-11 → `2026.1111.0`), with n counting up for each later change that day. These are plain semver versions (no prerelease suffix) that order by date.
 - `npm run data:publish -- --download es,es-en` marks those packs as downloaded (`bundled: false`): the build leaves them out and the extension fetches them from the mirrors. Without `--download` every pack is bundled. Only `data/packs/` packs can be downloaded.
