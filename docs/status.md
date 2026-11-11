@@ -11,7 +11,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
 
-- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md)) on `feat/definition-translation`
+- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md), [measurements](notes/definition-translation.md)) on `feat/definition-translation`: the hover card translates the short meaning, the dictionary window up to four senses with the English below, cached on the device (`mtCache`, 20,000 rows)
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
@@ -50,6 +50,8 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - A phrase saved before M9a whose key happens to contain a slot word ("someone else") now also matches the slot's fillers ("him else")
 - Phrases dropped only by the rank thresholds ("see you later", "in it") are in neither `detect` nor `more`, so a selection cannot match them
 - Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
+- Machine-translated definitions: about 70 of 100 read well in Chrome's en→ja; fragments ("prudish, straight-laced") and jargon translate badly, so the window keeps the English under each translated sense. "Synonym of" and other pointer senses stay English
+- The first definition translation needs Chrome's model (en→N). Its download needs a click (dictionary window, or choosing a language in Settings); until then hover cards show English. A pair still downloading waits outside the page's translation queue
 
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
