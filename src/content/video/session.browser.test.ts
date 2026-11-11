@@ -1288,14 +1288,38 @@ describe("fullscreen", () => {
 });
 
 describe("the popup's requests", () => {
-  it("answers for the video", async () => {
+  it("answers for the video: unsaved words, mark all and undo", async () => {
     const { state, session } = await start();
     await ready(state);
     await classified(state);
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
       hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 4,
+      done: null,
     });
+    expect(
+      await session.handlePageRequest({
+        type: "pageSaveAll",
+        status: "learning",
+      }),
+    ).toEqual({
+      supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 0,
+      done: { count: 4, target: "learning" },
+    });
+    expect(state().summaries.loaf?.status).toBe("learning");
+    expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
+      supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 4,
+      done: null,
+    });
+    expect(state().summaries.loaf?.status).toBe("new");
   });
 
   it("is not supported without subtitles", async () => {
@@ -1304,6 +1328,9 @@ describe("the popup's requests", () => {
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: false,
       hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 0,
+      done: null,
     });
   });
 });

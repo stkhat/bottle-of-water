@@ -357,6 +357,23 @@ export async function startArticle(
     return [...keys];
   }
 
+  /** Saves the keys with the status as one batch and highlights them so. */
+  async function saveKeys(keys: string[], status: TermStatus) {
+    const result = await deps.send({
+      type: "saveAll",
+      lang,
+      keys,
+      status,
+      source: source(),
+    });
+    const saved = new Set(keys);
+    recategorize((s) =>
+      s.category === "new" && saved.has(s.key) ? status : undefined,
+    );
+    await refreshOpenCards();
+    return { ...result, keys: saved };
+  }
+
   /**
    * Saves every unsaved new word of the analyzed part of the page as Known, once the
    * end of the article is in view and Settings say so (`unsavedAtEnd`). The last
@@ -368,22 +385,44 @@ export async function startArticle(
     if (last && live.has(last) && !spans.has(last)) await analyze([last]);
     await visible.idle();
     const keys = unsavedOnPage();
+    if (keys.length > 0) await saveKeys(keys, "known");
+  }
+
+  /** The popup's last "Mark all as …" on this page view, until it is undone. */
+  let lastBatch:
+    | { batchId: string; keys: ReadonlySet<string>; status: TermStatus }
+    | undefined;
+  let done: PageSummary["done"] = null;
+
+  /** The popup's "Mark all as Learning / Known": every unsaved new word of the page. */
+  async function saveAll(status: TermStatus) {
+    const keys = unsavedOnPage();
     if (keys.length === 0) return;
-    await deps.send({
-      type: "saveAll",
-      lang,
-      keys,
-      status: "known",
-      source: source(),
-    });
-    const saved = new Set(keys);
+    const { batchId, count, keys: saved } = await saveKeys(keys, status);
+    lastBatch = { batchId, keys: saved, status };
+    done = { count, target: status };
+  }
+
+  async function undoSaveAll() {
+    const batch = lastBatch;
+    if (!batch) return;
+    await deps.send({ type: "undoSaveAll", batchId: batch.batchId });
+    lastBatch = undefined;
+    done = null;
+    // Those words were new before; the ones changed since stay as they are.
     recategorize((s) =>
-      s.category === "new" && saved.has(s.key) ? "known" : undefined,
+      s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
     );
     await refreshOpenCards();
   }
 
-  const summary = (): PageSummary => ({ supported: true, hostname });
+  const summary = (): PageSummary => ({
+    supported: true,
+    hostname,
+    scope: "page",
+    unsaved: unsavedOnPage().length,
+    done,
+  });
 
   /** Analyzes blocks again (all analyzed ones by default), in batches. */
   async function reanalyze(blocks: readonly TextBlock[] = [...spans.keys()]) {
@@ -816,7 +855,9 @@ export async function startArticle(
     if (levelChanged) run(() => reanalyze());
   });
 
-  function handlePageRequest(): Promise<PageSummary> {
+  function handlePageRequest(request: PageRequest): Promise<PageSummary> {
+    if (request.type === "pageSaveAll") run(() => saveAll(request.status));
+    else if (request.type === "pageUndo") run(undoSaveAll);
     // Answer after everything asked before has been done.
     return queue.then(summary);
   }
@@ -901,7 +942,7 @@ export function runArticle(
       await queue;
       return session
         ? session.handlePageRequest(request)
-        : unsupportedPage(hostname);
+        : unsupportedPage(hostname, "page");
     },
     stop() {
       stopped = true;

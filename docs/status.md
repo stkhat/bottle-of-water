@@ -59,7 +59,8 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 
 ## Decisions (2026-11-11)
 - Articles: only the title and body get highlights, the end-of-article "Mark as Known", the sentence history and "Seen elsewhere" encounters; words in menus, sidebars and related-story links still show the hover card and the dictionary. Settings → Articles → "Highlight only the article" (on by default) switches it; off, the whole page counts as before. Main content is found by `findMainContent` (`src/content/article/main-content.ts`)
-- No page card on articles and no end cards: the toolbar popup keeps the highlight toggles, and the popup's "This page" save-all is gone. Settings → Highlighting → "New words you didn't save" (Keep as New, default / Mark as Known) decides what happens to unsaved New words when a video ends or the end of an article comes into view
+- No page card on articles and no end cards: the toolbar popup keeps the highlight toggles. Settings → Highlighting → "New words you didn't save" (Keep as New, default / Mark as Known) decides what happens to unsaved New words when a video ends or the end of an article comes into view
+- The popup's "This page" section is back: "Mark all as Learning" / "Mark all as Known" save every unsaved New word of the tab at once, with Undo (popup only, no end cards)
 - IPA is shown in dictionary style (no syllable dots or tie bars, r instead of ɹ) in Noto Sans or the system UI font
 
 ## Decisions (2026-11-09 / 10)
