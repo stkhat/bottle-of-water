@@ -1,5 +1,7 @@
 import type { BrowserEnv } from "../core/browser-env";
 import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
+import { cleanDefinition, definitionTexts } from "../core/definitions";
+import type { DictionaryEntry } from "../core/dictionary";
 import { learningLanguages } from "../core/languages";
 import type { MatchWord } from "../core/phrases/matcher";
 import {
@@ -9,13 +11,15 @@ import {
 } from "../core/settings";
 import type { SyncBackend } from "../core/sync/backend";
 import { normalizeUrl, occurrenceLink } from "../core/url";
-import type {
-  OccurrenceView,
-  Reply,
-  RequestOf,
-  RequestType,
-  ResponseOf,
-  TermBrief,
+import {
+  MAX_CACHED_TRANSLATIONS,
+  MAX_TRANSLATION_TEXT,
+  type OccurrenceView,
+  type Reply,
+  type RequestOf,
+  type RequestType,
+  type ResponseOf,
+  type TermBrief,
 } from "../messaging/protocol";
 import { historyKeys } from "./history-keys";
 import type { HistorySentence, HistoryStore } from "./history-store";
@@ -27,12 +31,19 @@ import {
   type OccurrenceWithSource,
   type TermStore,
 } from "./term-store";
+import {
+  translationPair,
+  type TranslationCache,
+  type TranslationItem,
+} from "./translation-cache";
 
 /** What the handlers work with; tests pass fakes. */
 export interface HandlerDeps {
   store: TermStore;
   /** The sentence history: sentences kept from pages and videos, on this device only. */
   history: HistoryStore;
+  /** Machine translations of English definitions, on this device only. */
+  translations: TranslationCache;
   settings: {
     get(): Promise<Settings>;
     set(patch: SettingsPatch): Promise<Settings>;
@@ -128,6 +139,35 @@ function wordsTouched(
   return { from, to };
 }
 
+/** A short meaning as lists show it (`TermBrief`, `TermSummary`). */
+type ShortMeaning = Pick<
+  TermBrief,
+  "short" | "glossLang" | "machineTranslated"
+>;
+
+/**
+ * Whether an entry's glosses are in a language other than the native one (an English
+ * definition): the UI translates those, and the background gives back cached ones.
+ */
+const glossedInOtherLanguage = (
+  entry: DictionaryEntry | undefined,
+  nativeLang: string,
+): entry is DictionaryEntry & { glossLang: string } =>
+  entry?.glossLang !== undefined && entry.glossLang !== nativeLang;
+
+/** A translation `cacheTranslations` keeps: both texts present and not oversized. */
+function isTranslationItem(item: unknown): item is TranslationItem {
+  const { text, translated } = (item ?? {}) as Record<string, unknown>;
+  return (
+    typeof text === "string" &&
+    typeof translated === "string" &&
+    text.trim() !== "" &&
+    translated.trim() !== "" &&
+    text.length <= MAX_TRANSLATION_TEXT &&
+    translated.length <= 4 * MAX_TRANSLATION_TEXT
+  );
+}
+
 function hostnameOf(url: string) {
   try {
     return new URL(url).hostname;
@@ -149,12 +189,57 @@ function normalizedOrUndefined(url: string | undefined) {
 export function createHandlers({
   store,
   history,
+  translations,
   settings,
   resources,
   sync,
   env,
   openOptionsPage,
 }: HandlerDeps): Handle {
+  /** Cached translations of `texts`; best effort: none when the cache cannot be read. */
+  async function cachedTranslations(
+    pair: string,
+    texts: readonly string[],
+  ): Promise<Record<string, string>> {
+    if (texts.length === 0) return {};
+    try {
+      return await translations.get(pair, texts);
+    } catch (error) {
+      console.error("Lingo: could not read the translation cache", error);
+      return {};
+    }
+  }
+
+  /**
+   * The short meanings of entries, in order: a cached translation of an English
+   * definition replaces it (never translated here), the others are as the dictionary
+   * has them.
+   */
+  async function shortMeanings(
+    lang: string,
+    nativeLang: string,
+    entries: readonly (DictionaryEntry | undefined)[],
+  ): Promise<ShortMeaning[]> {
+    const cleaned = entries.map((entry) =>
+      glossedInOtherLanguage(entry, nativeLang)
+        ? cleanDefinition(entry.short)
+        : undefined,
+    );
+    const found = await cachedTranslations(translationPair(lang, nativeLang), [
+      ...new Set(cleaned.filter((text) => text !== undefined)),
+    ]);
+    return entries.map((entry, i): ShortMeaning => {
+      if (entry === undefined) return {};
+      const text = cleaned[i];
+      if (text !== undefined && Object.hasOwn(found, text))
+        return { short: found[text]!, machineTranslated: true };
+      return {
+        short: entry.short,
+        ...(entry.glossLang !== undefined && { glossLang: entry.glossLang }),
+      };
+    });
+  }
+
   const handlers: Handlers = {
     getSettings: () => settings.get(),
     setSettings: ({ patch }) => settings.set(patch),
@@ -228,6 +313,12 @@ export function createHandlers({
       }
       const entry = dictionary.entry(key);
       const ipa = pack.ipa(key);
+      const translated = glossedInOtherLanguage(entry, nativeLang)
+        ? await cachedTranslations(
+            translationPair(lang, nativeLang),
+            definitionTexts(entry),
+          )
+        : {};
       return {
         ...(entry !== undefined && { entry }),
         ...(ipa !== undefined && { ipa }),
@@ -235,6 +326,7 @@ export function createHandlers({
         termId: id,
         here,
         elsewhere,
+        ...(Object.keys(translated).length > 0 && { translations: translated }),
       };
     },
 
@@ -282,17 +374,20 @@ export function createHandlers({
         store.occurrenceStats(lang),
         resources.dictionary(lang, nativeLang),
       ]);
-      return terms.map((term) => {
+      const meanings = await shortMeanings(
+        lang,
+        nativeLang,
+        terms.map((term) => dictionary.entry(term.key)),
+      );
+      return terms.map((term, i) => {
         const seen = stats.get(term.id);
-        const entry = dictionary.entry(term.key);
         return {
           id: term.id,
           key: term.key,
           display: term.display,
           kind: term.kind,
           status: term.status as TermStatus,
-          ...(entry !== undefined && { short: entry.short }),
-          ...(entry?.glossLang !== undefined && { glossLang: entry.glossLang }),
+          ...meanings[i],
           seen: seen?.count ?? 0,
           lastSeen: seen?.lastSeen ?? term.createdAt,
           createdAt: term.createdAt,
@@ -306,22 +401,31 @@ export function createHandlers({
         store.termIndex(lang),
         resources.dictionary(lang, nativeLang),
       ]);
+      const meanings = await shortMeanings(
+        lang,
+        nativeLang,
+        terms.map(({ key }) => dictionary.entry(key)),
+      );
       // fromEntries: any key is an own property, "__proto__" included.
       return Object.fromEntries(
-        terms.map(({ key }): [string, TermBrief] => {
-          const entry = dictionary.entry(key);
-          return [
-            key,
-            {
-              ...(entry !== undefined && { short: entry.short }),
-              ...(entry?.glossLang !== undefined && {
-                glossLang: entry.glossLang,
-              }),
-              status: index.get(key) ?? "new",
-            },
-          ];
-        }),
+        terms.map(({ key }, i): [string, TermBrief] => [
+          key,
+          { ...meanings[i], status: index.get(key) ?? "new" },
+        ]),
       );
+    },
+
+    async cacheTranslations({ lang, items }) {
+      if (!learningLanguages().includes(lang) || !Array.isArray(items))
+        return null;
+      const kept = items
+        .filter(isTranslationItem)
+        .slice(0, MAX_CACHED_TRANSLATIONS)
+        .map(({ text, translated }) => ({ text, translated }));
+      if (kept.length === 0) return null;
+      const { nativeLang } = await settings.get();
+      await translations.put(translationPair(lang, nativeLang), kept);
+      return null;
     },
 
     async recordHistory({ source, sentences }, sender) {

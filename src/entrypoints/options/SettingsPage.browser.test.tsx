@@ -83,7 +83,6 @@ function fake(options: FakeOptions = {}) {
       name: "Chrome",
       syncName: "Chrome sync",
       features: {
-        translator: true,
         builtInAi: options.builtInAi ?? true,
         highlightUnderline: true,
         fileSystemAccess: true,

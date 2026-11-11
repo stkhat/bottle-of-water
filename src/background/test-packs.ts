@@ -52,11 +52,19 @@ export const TEST_PACKS: PackFiles = {
       "give up": ["諦める", ["諦める", "やめる"]],
     },
   },
+  // "figure out" has more senses than are translated (four), a labelled one and
+  // pointers: the background asks the translation cache for cleaned definitions only.
   "en-defs": {
     defs: {
       "figure out": [
         "To come to understand",
-        [["verb", "To come to understand; to discover."]],
+        [
+          ["verb", "To come to understand; to discover."],
+          ["verb", "(transitive, informal) To solve (a problem)."],
+          ["verb", "Synonym of work out."],
+          ["verb", "Synonym of puzzle out: to find a solution by thinking."],
+          ["verb", "To calculate an amount."],
+        ],
       ],
     },
   },

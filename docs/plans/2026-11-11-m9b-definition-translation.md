@@ -24,7 +24,7 @@
   - `key` is `${L}>${N}:${cleaned English text}`. The same English text always translates the same way, so the term key and sense index are not needed. `pair` is `${L}>${N}`.
   - At most 20,000 rows: after a write that goes over, the least recently used rows are deleted.
   - The cache is device only: it is not synced, and it is not exported.
-  - `clearTranslations(pair)` is used by M9c when a pair's packs are removed.
+  - `clearPair(pair)` is used by M9c when a pair's packs are removed.
 - **Messages**
   - `lookup` adds `translations?: Record<string, string>`: the cached translations for this entry's cleaned short and senses, keyed by the cleaned English. Reading them touches `usedAt`.
   - New request `cacheTranslations { lang, items: { text, translated }[] }` → `null`. The native language comes from settings. It is repeatable.
