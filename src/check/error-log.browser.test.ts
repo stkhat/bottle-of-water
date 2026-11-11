@@ -57,7 +57,8 @@ describe("recordErrors", () => {
       expect.objectContaining({
         level: "error",
         message: "Lingo: TypeError: bad",
-        stack: expect.stringContaining("bad"),
+        // Firefox's stacks hold the frames only, not the message.
+        stack: expect.stringMatching(/\S/),
         context: "content script youtube",
         url: "https://www.youtube.com/watch?v=x",
         time: "2026-11-12T10:00:00.000Z",
@@ -91,6 +92,7 @@ describe("recordErrors", () => {
       "Error: the page's\n    at https://www.youtube.com/s/player.js:1:1";
     window.dispatchEvent(new ErrorEvent("error", { error: page }));
     const ours = new Error("ours");
+    ours.stack = "Error: ours\n    at chrome-extension://ours/content.js:1:1";
     window.dispatchEvent(new ErrorEvent("error", { error: ours }));
     expect(entries.map((e) => e.message)).toEqual(["Uncaught Error: ours"]);
   });
