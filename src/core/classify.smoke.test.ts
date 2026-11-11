@@ -61,6 +61,27 @@ describe("dictionary phrases over the generated packs", () => {
     const phrases = spans.filter((s) => s.kind === "phrase");
     expect(phrases.map((s) => s.key)).toEqual(["give up", "from scratch"]);
   });
+
+  it("does not detect pairs of common words that are meant literally", () => {
+    const text =
+      "I came to Tokyo. I'm going to live in Paris. Very well, let's find out.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    const phrases = spans.filter((s) => s.kind === "phrase");
+    expect(phrases.map((s) => s.key)).toEqual(["find out"]);
+  });
+
+  it("still matches such a pair once it is saved", () => {
+    const text = "He came to an hour later.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map([["come to", "learning"]]),
+      knownLevel: 3000,
+    });
+    const phrases = spans.filter((s) => s.kind === "phrase");
+    expect(phrases.map((s) => s.key)).toEqual(["come to"]);
+  });
 });
 
 describe("phrase patterns over the generated packs", () => {
