@@ -77,6 +77,11 @@ describe("phrase patterns over the generated packs", () => {
     ]);
   });
 
+  it("gives phrases with an -s form or a possessive their IPA", () => {
+    expect(pack.ipa("spill the beans")).toBe("/spɪl ðə ˈbi(ː)nz/");
+    expect(pack.ipa("make up one's mind")).toBe("/meɪk ʌp wʌnz maɪnd/");
+  });
+
   it("matches saved phrases with slots and gaps", () => {
     const terms: TermIndex = new Map([
       ["make up one's mind", "learning"],

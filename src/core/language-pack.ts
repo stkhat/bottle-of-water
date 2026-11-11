@@ -67,7 +67,8 @@ export function createLanguagePack(
     tokenize: (text) => tokenize(text, lang),
     lemmas,
     rank: (base) => rankOf(base.toLowerCase(), ranks),
-    ipa: (term) => ipaFor(term, data.ipa),
+    // English -s forms ("beans") take their base's IPA with the English ending.
+    ipa: (term) => ipaFor(term, data.ipa, lang === "en" ? lemmas : undefined),
     patterns: data.patterns,
     rules,
     get phrases() {
