@@ -7,12 +7,12 @@ import {
   expect,
   it,
 } from "vitest";
-import enDfxp from "../../core/subtitles/fixtures/netflix/en.dfxp?raw";
-import enImsc from "../../core/subtitles/fixtures/netflix/en.imsc.ttml?raw";
-import jaImsc from "../../core/subtitles/fixtures/netflix/ja.imsc.ttml?raw";
-import { parseTtml } from "../../core/subtitles/ttml";
-import { createNetflixAdapter, type NetflixAdapter } from "./netflix";
-import { installNetflixHooks } from "./netflix-page";
+import enDfxp from "../../../core/subtitles/fixtures/netflix/en.dfxp?raw";
+import enImsc from "../../../core/subtitles/fixtures/netflix/en.imsc.ttml?raw";
+import jaImsc from "../../../core/subtitles/fixtures/netflix/ja.imsc.ttml?raw";
+import { parseTtml } from "../../../core/subtitles/ttml";
+import { createNetflixAdapter } from "./adapter";
+import { installNetflixHooks } from "./page";
 import {
   createTestPage,
   EPISODE,
@@ -21,7 +21,8 @@ import {
   SHOW,
   testManifest,
   type TestPage,
-} from "../../testing/netflix-page";
+} from "../../../testing/netflix-page";
+import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
   learningLang: "en",
@@ -36,7 +37,7 @@ beforeAll(() => {
 afterAll(() => uninstall());
 
 let page: TestPage;
-let adapter: NetflixAdapter;
+let adapter: PlatformAdapter;
 let href: string;
 
 function start(
@@ -119,15 +120,6 @@ describe("the watch page", () => {
     expect(adapter.title()).toBe(`${SHOW} E1 ${EPISODE}`);
     href = "https://www.netflix.com/browse";
     expect(adapter.videoId()).toBeUndefined();
-  });
-
-  it("matches netflix.com only", () => {
-    expect(adapter.matches(new URL("https://www.netflix.com/watch/1"))).toBe(
-      true,
-    );
-    expect(adapter.matches(new URL("https://www.youtube.com/watch?v=x"))).toBe(
-      false,
-    );
   });
 
   it("puts the subtitle box at the bottom of the player and the transcript in a panel at the right", () => {

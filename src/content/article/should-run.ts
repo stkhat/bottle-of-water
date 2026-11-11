@@ -1,6 +1,7 @@
 import { hostBlocked, type Settings } from "../../core/settings";
 import { onHost } from "../../core/url";
 import { isGenericLang, matchesLearningLanguage } from "../page-language";
+import { isVideoSite } from "../video/platform";
 
 export { hostBlocked, onHost };
 
@@ -10,15 +11,8 @@ export type DetectLanguage = (text: string) => Promise<{
   languages: { language: string; percentage: number }[];
 }>;
 
-/** The video UI owns these sites (and their subdomains). */
-const VIDEO_SITES = ["youtube.com", "netflix.com"];
-
 /** The shortest text sample the language is detected on. */
 export const MIN_DETECT_SAMPLE = 200;
-
-/** The video UI owns this host (YouTube, Netflix and their subdomains). */
-export const isVideoSite = (hostname: string): boolean =>
-  VIDEO_SITES.some((entry) => onHost(hostname, entry));
 
 /**
  * Whether the article UI may run on a host, before the page language is known: not on

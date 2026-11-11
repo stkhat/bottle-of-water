@@ -1,20 +1,19 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import en from "../../core/subtitles/fixtures/youtube/en.json3?raw";
-import enTlangJa from "../../core/subtitles/fixtures/youtube/en-tlang-ja.json3?raw";
-import { installYouTubeHooks } from "./youtube-page";
+import en from "../../../core/subtitles/fixtures/youtube/en.json3?raw";
+import enTlangJa from "../../../core/subtitles/fixtures/youtube/en-tlang-ja.json3?raw";
+import { installYouTubeHooks } from "./page";
+import { isReplyMessage } from "../page-channel";
 import {
-  FROM_PAGE,
-  TO_PAGE,
-  isReplyMessage,
+  CHANNEL,
   isTimedtextMessage,
   type PageCall,
   type TimedtextMessage,
-} from "./youtube-messages";
+} from "./messages";
 import {
   createTestPage,
   VIDEO_ID,
   type TestPage,
-} from "../../testing/youtube-page";
+} from "../../../testing/youtube-page";
 
 const TRACK = `/api/timedtext?v=${VIDEO_ID}&lang=en&pot=TOKEN&fmt=json3`;
 
@@ -55,7 +54,7 @@ describe("observing /api/timedtext", () => {
     expect(request.responseText).toBe(en);
     await expect.poll(() => posted.length).toBe(1);
     expect(posted[0]).toEqual({
-      source: FROM_PAGE,
+      source: CHANNEL.fromPage,
       type: "timedtext",
       url: new URL(TRACK, location.href).href,
       videoId: VIDEO_ID,
@@ -115,12 +114,16 @@ describe("answering the content script", () => {
     return new Promise<{ ok: boolean; value?: unknown; error?: string }>(
       (resolve) => {
         const listener = (event: MessageEvent) => {
-          if (!isReplyMessage(event.data) || event.data.id !== id) return;
+          if (!isReplyMessage(event.data, CHANNEL) || event.data.id !== id)
+            return;
           window.removeEventListener("message", listener);
           resolve(event.data);
         };
         window.addEventListener("message", listener);
-        window.postMessage({ source: TO_PAGE, id, call: c }, location.origin);
+        window.postMessage(
+          { source: CHANNEL.toPage, id, call: c },
+          location.origin,
+        );
       },
     );
   }
@@ -154,7 +157,7 @@ describe("answering the content script", () => {
       asr: false,
     });
     expect(reply).toEqual({
-      source: FROM_PAGE,
+      source: CHANNEL.fromPage,
       type: "reply",
       id: expect.any(String),
       ok: true,
@@ -230,15 +233,15 @@ describe("answering the content script", () => {
   it("ignores malformed calls", async () => {
     const replies: unknown[] = [];
     const listener = (event: MessageEvent) => {
-      if (isReplyMessage(event.data)) replies.push(event.data);
+      if (isReplyMessage(event.data, CHANNEL)) replies.push(event.data);
     };
     window.addEventListener("message", listener);
     window.postMessage(
-      { source: TO_PAGE, id: "x", call: { type: "seek", seconds: "1" } },
+      { source: CHANNEL.toPage, id: "x", call: { type: "seek", seconds: "1" } },
       location.origin,
     );
     window.postMessage(
-      { source: TO_PAGE, id: "y", call: { type: "eval" } },
+      { source: CHANNEL.toPage, id: "y", call: { type: "eval" } },
       location.origin,
     );
     await flush();

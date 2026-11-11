@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
-import captionTracks from "../../core/subtitles/fixtures/youtube/captionTracks.json";
-import { youtubeCaptionInfo } from "../../core/subtitles/youtube-json3";
-import {
-  autoTranslateCode,
-  pickOriginalTrack,
-  trackUrl,
-} from "./youtube-timedtext";
+import captionTracks from "../../../core/subtitles/fixtures/youtube/captionTracks.json";
+import { youtubeCaptionInfo } from "../../../core/subtitles/youtube-json3";
+import { autoTranslateCode, pickOriginalTrack, trackUrl } from "./timedtext";
 
 const info = youtubeCaptionInfo(captionTracks);
 const captured =

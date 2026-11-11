@@ -1,16 +1,17 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
-import { DEFAULT_SETTINGS } from "../../core/settings";
-import { createStore } from "../ui/store";
-import { mountVideoUi } from "./mount";
-import { createNetflixAdapter, type NetflixAdapter } from "./netflix";
-import { installNetflixHooks } from "./netflix-page";
+import { DEFAULT_SETTINGS } from "../../../core/settings";
+import { createStore } from "../../ui/store";
+import { mountVideoUi } from "../mount";
+import { createNetflixAdapter } from "./adapter";
+import { installNetflixHooks } from "./page";
 import {
   createTestPage,
   MOVIE_ID,
   type TestPage,
-} from "../../testing/netflix-page";
-import type { VideoApp, VideoState } from "./session";
+} from "../../../testing/netflix-page";
+import type { VideoApp, VideoState } from "../session";
+import type { PlatformAdapter } from "../platform";
 
 const STATE: VideoState = {
   settings: DEFAULT_SETTINGS,
@@ -58,7 +59,7 @@ beforeAll(() => {
 afterAll(() => uninstall());
 
 let page: TestPage;
-let adapter: NetflixAdapter;
+let adapter: PlatformAdapter;
 let unmount: () => void;
 
 function start(options: Parameters<typeof createTestPage>[0] = {}) {

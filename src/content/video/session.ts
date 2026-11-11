@@ -82,8 +82,6 @@ export interface VideoDeps {
   createTranslator?(from: string, to: string): TranslationProvider;
   /** Default: asks the built-in translator. */
   translatorAvailable?(from: string, to: string): Promise<boolean>;
-  /** How long the pointer rests on a word before its card shows (ms). */
-  hoverDelayMs?: number;
   /** The dictionary window opened (another of Lingo's windows on the page may close). */
   onPanelOpen?(): void;
   /** A term was saved, changed or removed here (other parts of the page may follow). */
@@ -365,7 +363,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       return "";
     }
   };
-  const platform = adapter.platform as "youtube" | "netflix";
+  const { platform } = adapter;
   const siteOn = () =>
     settings.sites[platform] !== false && !hostBlocked(hostname(), settings);
 
@@ -901,29 +899,26 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   }
 
   let hoverTicket = 0;
-  const hover = createHoverIntent<string>(
-    {
-      show(id) {
-        // The same word in the subtitle and the transcript are two targets.
-        const [from, cue, span] = id.split(":") as [WordPlace, string, string];
-        const ref = { cue: Number(cue), span: Number(span) };
-        const anchor = pendingAnchor;
-        const ticket = ++hoverTicket;
-        void describe(ref)
-          .then((card) => {
-            if (ticket !== hoverTicket || !card || !anchor) return;
-            store.set({ hover: { ref, from, anchor, card } });
-          })
-          .catch(warn);
-      },
-      hide() {
-        hoverTicket++;
-        onCard = false;
-        if (store.get().hover) store.set({ hover: null });
-      },
+  const hover = createHoverIntent<string>({
+    show(id) {
+      // The same word in the subtitle and the transcript are two targets.
+      const [from, cue, span] = id.split(":") as [WordPlace, string, string];
+      const ref = { cue: Number(cue), span: Number(span) };
+      const anchor = pendingAnchor;
+      const ticket = ++hoverTicket;
+      void describe(ref)
+        .then((card) => {
+          if (ticket !== hoverTicket || !card || !anchor) return;
+          store.set({ hover: { ref, from, anchor, card } });
+        })
+        .catch(warn);
     },
-    { showDelayMs: deps.hoverDelayMs },
-  );
+    hide() {
+      hoverTicket++;
+      onCard = false;
+      if (store.get().hover) store.set({ hover: null });
+    },
+  });
   let pendingAnchor: Box | undefined;
   /** The pointer is on the hover card. */
   let onCard = false;

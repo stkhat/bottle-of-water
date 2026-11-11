@@ -2,13 +2,11 @@
  * What Lingo reads from the manifest the Netflix player parses for each title: its
  * subtitle tracks and where to download them. Every assumption about the manifest's
  * shape is here (see docs/notes/netflix.md); a manifest that does not match gives
- * nothing, and Lingo then leaves the video alone. Imported by the page script: keep
- * this file free of runtime dependencies.
+ * nothing, and Lingo then leaves the video alone.
  */
-import type { Track } from "../../core/subtitles/types";
 
 /** One way to download a track, with every CDN's URL (they carry tokens: memory only). */
-export interface NetflixDownload {
+interface NetflixDownload {
   format: string;
   urls: string[];
 }
@@ -26,7 +24,7 @@ export interface NetflixTextTrack {
   downloads: NetflixDownload[];
 }
 
-export interface NetflixManifestTracks {
+interface NetflixManifestTracks {
   /** The title's id, as in `/watch/<id>`. */
   movieId: string;
   tracks: NetflixTextTrack[];
@@ -36,7 +34,7 @@ export interface NetflixManifestTracks {
  * Text formats (profiles) in a track's `downloadables`, in order of preference: TTML
  * (IMSC, DFXP, simple SDH) first, then WebVTT. Image formats (`nflx-cmisc`) cannot be read.
  */
-export const TEXT_FORMATS = [
+const TEXT_FORMATS = [
   "imsc1.1",
   "dfxp-ls-sdh",
   "simplesdh",
@@ -124,51 +122,4 @@ export function readManifest(
     if (track) tracks.push(track);
   });
   return { movieId: String(movieId), tracks };
-}
-
-const primary = (lang: string) => lang.toLowerCase().split(/[-_]/)[0] ?? "";
-
-/**
- * The track Lingo shows as the original: a non-forced track in the learning language,
- * subtitles before closed captions, the exact language before a regional one.
- */
-export function pickOriginalTrack(
-  tracks: readonly NetflixTextTrack[],
-  learningLang: string,
-): NetflixTextTrack | undefined {
-  const lang = learningLang.toLowerCase();
-  const usable = tracks.filter((t) => !t.forced);
-  const order = [
-    (t: NetflixTextTrack) =>
-      t.kind === "subtitles" && t.lang.toLowerCase() === lang,
-    (t: NetflixTextTrack) =>
-      t.kind === "subtitles" && primary(t.lang) === primary(lang),
-    (t: NetflixTextTrack) => t.lang.toLowerCase() === lang,
-    (t: NetflixTextTrack) => primary(t.lang) === primary(lang),
-  ];
-  for (const matches of order) {
-    const track = usable.find(matches);
-    if (track) return track;
-  }
-  return undefined;
-}
-
-/** As a `Track` (every Netflix track is human-made). */
-export const asTrack = (track: NetflixTextTrack): Track => ({
-  id: track.id,
-  lang: track.lang,
-  kind: "manual",
-  label: track.label,
-});
-
-/** The tracks that may translate `original`: the other non-forced ones, subtitles first. */
-export function translationTracks(
-  tracks: readonly NetflixTextTrack[],
-  original: NetflixTextTrack,
-): Track[] {
-  const others = tracks.filter((t) => t !== original && !t.forced);
-  return [
-    ...others.filter((t) => t.kind === "subtitles"),
-    ...others.filter((t) => t.kind !== "subtitles"),
-  ].map(asTrack);
 }

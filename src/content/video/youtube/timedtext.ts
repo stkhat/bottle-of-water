@@ -1,8 +1,9 @@
-import { primary } from "../../core/languages";
+import { primary } from "../../../core/languages";
+import { pickTrack } from "../adapter-kit";
 import type {
   YouTubeCaptionInfo,
   YouTubeTrack,
-} from "../../core/subtitles/youtube-json3";
+} from "../../../core/subtitles/youtube-json3";
 
 /**
  * The URL of another track of the same video, made from a timedtext URL the player
@@ -28,24 +29,10 @@ export function trackUrl(
  * The track Lingo shows as the original: the manual track in the learning language,
  * else its auto-generated one. A regional code (`en-GB`) counts as its language.
  */
-export function pickOriginalTrack(
+export const pickOriginalTrack = (
   tracks: readonly YouTubeTrack[],
   learningLang: string,
-): YouTubeTrack | undefined {
-  const lang = learningLang.toLowerCase();
-  const order = [
-    (t: YouTubeTrack) => t.kind === "manual" && t.lang.toLowerCase() === lang,
-    (t: YouTubeTrack) =>
-      t.kind === "manual" && primary(t.lang) === primary(lang),
-    (t: YouTubeTrack) => t.kind === "asr" && t.lang.toLowerCase() === lang,
-    (t: YouTubeTrack) => t.kind === "asr" && primary(t.lang) === primary(lang),
-  ];
-  for (const matches of order) {
-    const track = tracks.find(matches);
-    if (track) return track;
-  }
-  return undefined;
-}
+) => pickTrack(tracks, learningLang, (t) => t.kind === "manual");
 
 /** The `tlang` code that machine-translates `track` into the native language, if any. */
 export function autoTranslateCode(
