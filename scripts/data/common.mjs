@@ -18,24 +18,28 @@ export function isMain(url) {
 
 /**
  * Deterministic JSON: object keys sorted by code unit, one entry per line,
- * so regenerated packs give small, stable diffs.
+ * so regenerated packs give small, stable diffs. With `lists`, an object's values are
+ * arrays written one item per line too ({ "detect": [ …one per line… ], … }).
  */
-export function stringifyPack(value) {
+export function stringifyPack(value, { lists = false } = {}) {
   const lines = Array.isArray(value)
     ? value.map((item) => JSON.stringify(item))
     : Object.keys(value)
         .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-        .map((key) => `${JSON.stringify(key)}:${JSON.stringify(value[key])}`);
+        .map(
+          (key) =>
+            `${JSON.stringify(key)}:${lists ? stringifyPack(value[key]).trimEnd() : JSON.stringify(value[key])}`,
+        );
   const [open, close] = Array.isArray(value) ? ["[", "]"] : ["{", "}"];
   if (lines.length === 0) return `${open}${close}\n`;
   return `${open}\n${lines.join(",\n")}\n${close}\n`;
 }
 
-/** Writes `value` to <dir>/<relPath>, public/packs/<relPath> by default. */
-export function writePack(relPath, value, dir = PACKS_DIR) {
+/** Writes `value` to <dir>/<relPath>, public/packs/<relPath> by default (options as for stringifyPack). */
+export function writePack(relPath, value, dir = PACKS_DIR, options = {}) {
   const path = join(dir, relPath);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, stringifyPack(value));
+  writeFileSync(path, stringifyPack(value, options));
 }
 
 export function readPack(relPath) {

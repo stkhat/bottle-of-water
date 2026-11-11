@@ -61,7 +61,7 @@ function languagePack(lang: string, files: LanguagePackFiles): LanguagePack {
     freq: files.freq,
     ipa: files.ipa,
     vocab: new Set(files.vocab),
-    phrases: new Set(files.phrases),
+    phrases: new Set(files.phrases.detect),
   };
   return createLanguagePack(lang, data);
 }

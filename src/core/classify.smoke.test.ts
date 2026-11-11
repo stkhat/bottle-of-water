@@ -17,7 +17,7 @@ const pack = createEnglishPack({
   freq: en.freq,
   ipa: en.ipa,
   vocab: new Set(en.vocab),
-  phrases: new Set(en.phrases),
+  phrases: new Set(en.phrases.detect),
 });
 const classifier = createClassifier(pack);
 
@@ -144,7 +144,7 @@ describe("classifier over the generated Spanish pack", () => {
     freq: es.freq,
     ipa: es.ipa,
     vocab: new Set(es.vocab),
-    phrases: new Set(es.phrases),
+    phrases: new Set(es.phrases.detect),
   });
   const esClassifier = createClassifier(esPack);
   const classify = (text: string) =>
@@ -159,7 +159,7 @@ describe("classifier over the generated Spanish pack", () => {
   });
 
   it("detects a dictionary phrase in text", () => {
-    expect(es.phrases).toContain("a escondidas");
+    expect(es.phrases.detect).toContain("a escondidas");
     expect(classify("Se vieron a escondidas en el parque.")).toContainEqual(
       expect.objectContaining({
         text: "a escondidas",

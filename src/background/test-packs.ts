@@ -25,7 +25,11 @@ export const TEST_PACKS: PackFiles = {
     ],
     // Meanings: "figure out" in the English definitions, the others in the Japanese
     // translations of phrases.
-    phrases: ["figure out", "from scratch", "give up"],
+    phrases: {
+      detect: ["figure out", "from scratch", "give up"],
+      more: [],
+      gap: [],
+    },
   },
   "en-ja": {
     dict: {
@@ -62,7 +66,7 @@ export const TEST_PACKS: PackFiles = {
       ...["a", "casa", "casar", "comer", "de", "escondidas", "estar"],
       ...["manzana", "un"],
     ],
-    phrases: ["a escondidas"],
+    phrases: { detect: ["a escondidas"], more: [], gap: [] },
   },
   "es-en": {
     defs: {

@@ -85,7 +85,11 @@ const vocab = [...new Set([...COMMON, ...DOUGH, ...RARE])].sort();
 for (const word of vocab) DICT[word] ??= [`${word}の訳`, [`${word}の訳`]];
 
 /** Dictionary phrases: "figure out" has an English definition, the others Japanese. */
-const PHRASES = ["figure out", "from scratch", "give up"];
+const PHRASES = {
+  detect: ["figure out", "from scratch", "give up"],
+  more: [],
+  gap: [],
+};
 const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
   "from scratch": ["最初から", ["最初から", "ゼロから"]],
   "give up": ["諦める", ["諦める", "やめる"]],

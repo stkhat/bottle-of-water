@@ -14,4 +14,15 @@ describe("stringifyPack", () => {
     expect(stringifyPack({})).toBe("{}\n");
     expect(stringifyPack([])).toBe("[]\n");
   });
+  it("writes the lists of an object of lists one item per line too, if asked", () => {
+    const value = { more: ["b"], detect: ["a", "c"], gap: [] };
+    const text = stringifyPack(value, { lists: true });
+    expect(text).toBe(
+      '{\n"detect":[\n"a",\n"c"\n],\n"gap":[],\n"more":[\n"b"\n]\n}\n',
+    );
+    expect(JSON.parse(text)).toEqual(value);
+    expect(stringifyPack(value)).toBe(
+      '{\n"detect":["a","c"],\n"gap":[],\n"more":["b"]\n}\n',
+    );
+  });
 });

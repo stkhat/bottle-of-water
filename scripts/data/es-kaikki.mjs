@@ -1,5 +1,6 @@
 // kaikki.org Spanish Wiktionary extract (CC BY-SA) and the Spanish frequency list →
-// public/packs/es/{freq,vocab,lemmas,ipa,phrases}.json and public/packs/es-en/{index,dict-<n>}.json
+// public/packs/es/{freq,vocab,lemmas,ipa,phrases}.json (phrases: { detect, more, gap })
+// and public/packs/es-en/{index,dict-<n>}.json
 // Usage: node scripts/data/es-kaikki.mjs [path]   (default data/raw/kaikki-es.jsonl; run es-frequency.mjs first)
 import { createReadStream, existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -18,6 +19,12 @@ import {
 } from "./phrases.mjs";
 
 export const KAIKKI_ES_PATH = join(RAW_DIR, "kaikki-es.jsonl");
+/**
+ * Spanish slot words ("tomar el pelo a alguien"), as Wiktionary writes them. The matcher
+ * fills each only with itself (src/core/phrases/es.ts); a pattern with a slot is not
+ * detected in text.
+ */
+export const ES_SLOT_WORDS = new Set(["alguien", "algo"]);
 const WORD = /^\p{L}+$/u;
 const FREQ_TOP = 30000;
 const MAX_SENSES = 6;
@@ -164,18 +171,34 @@ export async function buildEsPacks(
     freqTop,
   );
 
+  // Phrase patterns: each word is a slot, a vocabulary word or a listed form. The rank
+  // threshold looks at the literal words only, and ranks a form outside the vocabulary
+  // as its most common base.
   const ranks = new Map(freq.map((word, i) => [word, i + 1]));
-  const phrases = [];
+  const isPatternWord = (w) =>
+    ES_SLOT_WORDS.has(w) || vocabSet.has(w) || Object.hasOwn(lemmas, w);
+  const rankOf = (w) =>
+    ranks.get(w) ??
+    (vocabSet.has(w)
+      ? Infinity
+      : Math.min(...[lemmas[w]].flat().map((b) => ranks.get(b) ?? Infinity)));
+  const detect = [];
+  const more = [];
   for (const [key, item] of multiWord) {
     if (!item.phrase) continue;
     const words = key.split(" ");
-    if (!words.every((w) => vocabSet.has(w))) continue;
-    if (Math.max(...words.map((w) => ranks.get(w) ?? Infinity)) <= commonRank)
-      continue;
-    phrases.push(key);
+    if (!words.every(isPatternWord)) continue;
+    const literals = words.filter((w) => !ES_SLOT_WORDS.has(w));
+    if (literals.length === 0) continue;
+    if (Math.max(...literals.map(rankOf)) <= commonRank) continue;
+    (literals.length < words.length ? more : detect).push(key);
     defs[key] = definition(item.senses);
   }
-  phrases.sort(byCodeUnit);
+  const phrases = {
+    detect: detect.sort(byCodeUnit),
+    more: more.sort(byCodeUnit),
+    gap: [],
+  };
 
   return {
     freq,
@@ -190,7 +213,8 @@ export async function buildEsPacks(
       vocab: vocab.length,
       lemmas: Object.keys(lemmas).length,
       ipa: Object.keys(ipa).length,
-      phrases: phrases.length,
+      detect: detect.length,
+      more: more.length,
       terms: Object.keys(defs).length,
     },
   };
@@ -220,7 +244,7 @@ export function writeEsPacks({ freq, vocab, lemmas, ipa, phrases, defs }, dir) {
     "es-en/index.json": index,
   };
   for (const [relPath, value] of Object.entries(files))
-    writePack(relPath, value, root);
+    writePack(relPath, value, root, { lists: relPath === "es/phrases.json" });
   return Object.keys(files);
 }
 
@@ -233,7 +257,8 @@ async function main() {
     `kaikki-es: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `${stats.forms} frequency-list forms (first ${ES_FORMS} entries) → ` +
       `${stats.vocab} vocabulary words, ${stats.lemmas} lemma forms, ${stats.ipa} IPA, ` +
-      `${stats.phrases} phrases, ${stats.terms} dictionary terms in ` +
+      `${stats.detect} detected and ${stats.more} more phrase patterns, ` +
+      `${stats.terms} dictionary terms in ` +
       `${written.filter((p) => p.startsWith("es-en/dict-")).length} shards`,
   );
   if (stats.unparsable > 0) process.exitCode = 1;

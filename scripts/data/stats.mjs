@@ -24,8 +24,22 @@ export function ipaCoverage(freq, ipa, top) {
   return { words: words.length, withIpa, ratio: withIpa / words.length };
 }
 
-/** How many phrases have a meaning from EJDict, the Japanese translations, the English definitions, or none. */
-export function phraseMeanings(phrases, dict, ja, defs) {
+/** How many patterns are detected, kept for selections only (more) and have a gap. */
+export function patternCounts({ detect, more, gap }) {
+  return {
+    patterns: detect.length + more.length,
+    detect: detect.length,
+    more: more.length,
+    gap: gap.length,
+  };
+}
+
+/**
+ * How many phrase patterns (detected and the others) have a meaning from EJDict, the
+ * Japanese translations, the English definitions, or none.
+ */
+export function phraseMeanings({ detect, more }, dict, ja, defs) {
+  const phrases = [...detect, ...more];
   const counts = {
     phrases: phrases.length,
     ejdict: 0,
@@ -40,6 +54,11 @@ export function phraseMeanings(phrases, dict, ja, defs) {
     else counts.none++;
   }
   return counts;
+}
+
+function describePatterns(patterns) {
+  const { patterns: all, detect, more, gap } = patternCounts(patterns);
+  return `${all} (${detect} detected, ${more} more; ${gap} with a gap)`;
 }
 
 function main() {
@@ -62,15 +81,17 @@ function main() {
   console.log(
     `IPA coverage, top ${words} base forms: ${withIpa} (${(ratio * 100).toFixed(1)}%)`,
   );
+  const patterns = readPack("en/phrases.json");
   const phrases = phraseMeanings(
-    readPack("en/phrases.json"),
+    patterns,
     dict,
     readPack("en-ja/phrases.json"),
     readDictPacks("en-defs"),
   );
+  console.log(`Phrase patterns: ${describePatterns(patterns)}`);
   console.log(
-    `Phrases: ${phrases.phrases} (meanings: ${phrases.ejdict} EJDict, ` +
-      `${phrases.ja} Japanese translations, ${phrases.defs} English definitions, ${phrases.none} none)`,
+    `Phrase meanings (all ${phrases.phrases} patterns): ${phrases.ejdict} EJDict, ` +
+      `${phrases.ja} Japanese translations, ${phrases.defs} English definitions, ${phrases.none} none`,
   );
   const esFreq = readPack("es/freq.json");
   const esIpa = readPack("es/ipa.json");
@@ -88,7 +109,9 @@ function main() {
   console.log(
     `  Dictionary terms: ${Object.keys(readDictPacks("es-en")).length}`,
   );
-  console.log(`  Phrases: ${readPack("es/phrases.json").length}`);
+  console.log(
+    `  Phrase patterns: ${describePatterns(readPack("es/phrases.json"))}`,
+  );
   let total = 0;
   for (const file of packFiles()) {
     const size = statSync(join(PACKS_DIR, file)).size;
