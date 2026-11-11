@@ -1,4 +1,4 @@
-import type { SourceInput } from "../../background/term-store";
+import type { AnalyzeResult, SourceInput } from "../../messaging/protocol";
 import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
 import { speechLang } from "../../core/languages";
 import type { PackStates } from "../../core/packs/state";
@@ -6,7 +6,6 @@ import { PacksUnavailableError } from "../../core/packs/unavailable";
 import type { Settings } from "../../core/settings";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
-import type { AnalyzeResult } from "../../messaging/protocol";
 import {
   unsupportedPage,
   type PageRequest,

@@ -1,3 +1,4 @@
+import { own } from "../util";
 /**
  * The state of downloaded packs, which the background keeps in `storage.local` under
  * this key for pages, the popup and Settings to watch: `{ [pack]: PackState }`. Only
@@ -55,9 +56,7 @@ export function dataNote(
   states: PackStates,
   packs: readonly string[],
 ): DataNote | null {
-  const list = [...new Set(packs)].map((pack) =>
-    Object.hasOwn(states, pack) ? states[pack] : undefined,
-  );
+  const list = [...new Set(packs)].map((pack) => own(states, pack));
   const missing = list.filter((state) => !packUsable(state));
   if (missing.length === 0) return null;
   if (missing.some((state) => state?.state === "failed"))

@@ -4,22 +4,15 @@ import {
   createEnJaDictionary,
   createPairDictionary,
   type DictionaryProvider,
-} from "../core/dictionary";
+} from "../core/lexicon/dictionary";
 import {
   createLanguagePack,
   type LanguagePack,
-  type LanguagePackData,
-} from "../core/language-pack";
+} from "../core/lexicon/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
-import { DICTIONARY_PACKS, LANGUAGE_PACK_PACKS } from "../core/packs/pairs";
+import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/pairs";
 import { allOf } from "../core/packs/unavailable";
-import type {
-  FreqPack,
-  IpaPack,
-  LemmaPack,
-  PhrasesPack,
-  VocabPack,
-} from "../core/packs/types";
+import { own, promiseCache } from "../core/util";
 
 /**
  * The language pack, classifier and dictionary of each language, built on first use.
@@ -33,7 +26,6 @@ export interface LanguageResources {
   forget(pack: string): void;
 }
 
-/** How a resource is built: it loads its packs, then makes the resource of them. */
 interface Recipe<T> {
   readonly packs: readonly PackName[];
   build(loadPack: LoadPack): Promise<T>;
@@ -41,11 +33,7 @@ interface Recipe<T> {
 
 type Loaded<P extends PackName> = { [K in P]: PackFiles[K] };
 
-/**
- * A recipe that loads `packs` (and nothing else) and makes the resource of them. When
- * packs are not on the device, it fails with one `PacksUnavailableError` naming all of
- * them; any other failure comes through as it is.
- */
+/** Loads `packs` (all of them, so one `PacksUnavailableError` names every missing one), then makes the resource. */
 function recipe<P extends PackName, T>(
   packs: readonly P[],
   make: (files: Loaded<P>) => T,
@@ -64,164 +52,95 @@ function recipe<P extends PackName, T>(
   };
 }
 
-/** The files of a learning language's pack, as bundled. */
-interface LanguagePackFiles {
-  lemmas: LemmaPack;
-  freq: FreqPack;
-  ipa: IpaPack;
-  vocab: VocabPack;
-  phrases: PhrasesPack;
-}
-
-function languagePack(lang: string, files: LanguagePackFiles): LanguagePack {
-  const data: LanguagePackData = {
-    lemmas: files.lemmas,
-    freq: files.freq,
-    ipa: files.ipa,
-    vocab: new Set(files.vocab),
-    patterns: files.phrases,
-  };
-  return createLanguagePack(lang, data);
-}
-
-/**
- * The learning languages. Each pack (and so `analyze`) needs only its language's pack,
- * whose vocabulary is its dictionary's single-word headwords and whose phrase patterns
- * are detected in text, or matched when saved or selected.
- */
-const LANGUAGE_PACKS: {
-  readonly [L in keyof typeof LANGUAGE_PACK_PACKS]: Recipe<LanguagePack>;
-} = {
-  en: recipe(LANGUAGE_PACK_PACKS.en, ({ en }) => languagePack("en", en)),
-  es: recipe(LANGUAGE_PACK_PACKS.es, ({ es }) => languagePack("es", es)),
-};
-
-/**
- * The dictionaries, by "<from>-<to>". They load on the first lookup:
- * - en-ja: EJDict (`en-ja`) with Wiktionary's English definitions of phrases (`en-defs`),
- *   parts of speech and IPA from `en`
- * - es-en: Wiktionary's English meanings (`es-en`), IPA from `es`
- * - en-es, en-pt: the recipe's Spanish or Portuguese meanings (`en-es`, `en-pt`), then
- *   English Wiktionary's definitions (`en-defs`), IPA from `en`
- */
-const DICTIONARIES: {
-  readonly [P in keyof typeof DICTIONARY_PACKS]: Recipe<DictionaryProvider>;
-} = {
-  "en-ja": recipe(
-    DICTIONARY_PACKS["en-ja"],
-    ({ en, "en-ja": enJa, "en-defs": enDefs }) =>
-      createEnJaDictionary({
-        dict: enJa.dict,
-        phrases: enJa.phrases,
-        defs: enDefs.defs,
-        pos: en.pos,
-        ipa: en.ipa,
+const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
+  Object.fromEntries(
+    LANGUAGE_PACKS.map((lang) => [
+      lang,
+      recipe([lang], (files) => {
+        const { lemmas, freq, ipa, vocab, phrases } = files[lang];
+        return createLanguagePack(lang, {
+          lemmas,
+          freq,
+          ipa,
+          vocab: new Set(vocab),
+          patterns: phrases,
+        });
       }),
-  ),
-  "es-en": recipe(DICTIONARY_PACKS["es-en"], ({ es, "es-en": esEn }) =>
-    createDefsDictionary({
-      from: "es",
-      to: "en",
-      defs: esEn.defs,
-      ipa: es.ipa,
+    ]),
+  );
+
+/** en-es, en-pt: the recipe's meanings, then English Wiktionary's definitions. */
+const pairRecipe = (pair: "en-es" | "en-pt") =>
+  recipe(DICTIONARY_PACKS[pair], (files) =>
+    createPairDictionary({
+      dict: files[pair].dict,
+      defs: files["en-defs"].defs,
+      ipa: files.en.ipa,
     }),
-  ),
-  "en-es": recipe(
-    DICTIONARY_PACKS["en-es"],
-    ({ en, "en-es": enEs, "en-defs": enDefs }) =>
-      createPairDictionary({
-        from: "en",
-        to: "es",
-        dict: enEs.dict,
-        defs: enDefs.defs,
-        ipa: en.ipa,
-      }),
-  ),
-  "en-pt": recipe(
-    DICTIONARY_PACKS["en-pt"],
-    ({ en, "en-pt": enPt, "en-defs": enDefs }) =>
-      createPairDictionary({
-        from: "en",
-        to: "pt",
-        dict: enPt.dict,
-        defs: enDefs.defs,
-        ipa: en.ipa,
-      }),
-  ),
-};
+  );
 
-const languageRecipe = (lang: string): Recipe<LanguagePack> | undefined =>
-  Object.hasOwn(LANGUAGE_PACKS, lang)
-    ? LANGUAGE_PACKS[lang as keyof typeof LANGUAGE_PACKS]
-    : undefined;
-
-const dictionaryRecipe = (
-  from: string,
-  to: string,
-): Recipe<DictionaryProvider> | undefined => {
-  const pair = `${from}-${to}`;
-  return Object.hasOwn(DICTIONARIES, pair)
-    ? DICTIONARIES[pair as keyof typeof DICTIONARIES]
-    : undefined;
-};
+const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
+  {
+    "en-ja": recipe(DICTIONARY_PACKS["en-ja"], (files) =>
+      createEnJaDictionary({
+        ...files["en-ja"],
+        defs: files["en-defs"].defs,
+        pos: files.en.pos,
+        ipa: files.en.ipa,
+      }),
+    ),
+    "es-en": recipe(DICTIONARY_PACKS["es-en"], (files) =>
+      createDefsDictionary({ defs: files["es-en"].defs, ipa: files.es.ipa }),
+    ),
+    "en-es": pairRecipe("en-es"),
+    "en-pt": pairRecipe("en-pt"),
+  };
 
 /**
- * Resources built from the packs, each once per context (the background's service
- * worker) until a pack it was built from is forgotten: nothing is loaded until a
- * resource is first asked for, overlapping calls share one build, and a failed build
- * is forgotten so the next call tries again. Languages and dictionaries without a
- * recipe above are rejected.
+ * Each resource is built once per worker, until a pack it was built from is forgotten;
+ * overlapping calls share one build and a failed build is tried again on the next call.
  */
 export function createLanguageResources(loadPack: LoadPack): LanguageResources {
-  const builds = new Map<
-    string,
-    { promise: Promise<unknown>; packs: readonly string[] }
-  >();
+  const builds = promiseCache<unknown>({ keep: true });
+  const packsOf = new Map<string, readonly string[]>();
 
   function once<T>(
     key: string,
     packs: readonly string[],
     build: () => Promise<T>,
   ): Promise<T> {
-    const built = builds.get(key);
-    if (built) return built.promise as Promise<T>;
-    const promise = build();
-    builds.set(key, { promise, packs });
-    // Only this build: a newer one may have replaced it after a `forget`.
-    promise.catch(() => {
-      if (builds.get(key)?.promise === promise) builds.delete(key);
-    });
-    return promise;
+    packsOf.set(key, packs);
+    return builds.get(key, build) as Promise<T>;
   }
 
   function pack(lang: string): Promise<LanguagePack> {
-    const recipe = languageRecipe(lang);
-    if (!recipe)
+    const found = own(LANGUAGE_RECIPES, lang);
+    if (!found)
       return Promise.reject(new Error(`No language pack for ${lang}`));
-    return once(`pack:${lang}`, recipe.packs, () => recipe.build(loadPack));
+    return once(`pack:${lang}`, found.packs, () => found.build(loadPack));
   }
 
   return {
     pack,
 
     classifier(lang) {
-      const packs = languageRecipe(lang)?.packs ?? [];
+      const packs = own(LANGUAGE_RECIPES, lang)?.packs ?? [];
       return once(`classifier:${lang}`, packs, async () =>
         createClassifier(await pack(lang)),
       );
     },
 
     dictionary(from, to) {
-      const recipe = dictionaryRecipe(from, to);
-      if (!recipe)
+      const found = own(DICTIONARY_RECIPES, `${from}-${to}`);
+      if (!found)
         return Promise.reject(new Error(`No dictionary from ${from} to ${to}`));
-      return once(`dictionary:${from}-${to}`, recipe.packs, () =>
-        recipe.build(loadPack),
+      return once(`dictionary:${from}-${to}`, found.packs, () =>
+        found.build(loadPack),
       );
     },
 
     forget(name) {
-      for (const [key, { packs }] of builds)
+      for (const [key, packs] of packsOf)
         if (packs.includes(name)) builds.delete(key);
     },
   };

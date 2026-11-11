@@ -63,6 +63,24 @@ export function normalizeUrl(input: string): string {
   return url.href;
 }
 
+/** `normalizeUrl`, or undefined for text that is not a URL. */
+export function tryNormalizeUrl(input: string): string | undefined {
+  try {
+    return normalizeUrl(input);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Undefined for text that is not a URL. */
+export function hostnameOf(input: string): string | undefined {
+  try {
+    return new URL(input).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
 /** FNV-1a 64-bit hash of the UTF-8 bytes of `text`, as 16 hex digits. */
 export function fnv1a64(text: string): string {
   let hash = 0xcbf29ce484222325n;

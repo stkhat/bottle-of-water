@@ -6,7 +6,7 @@ export interface Json3 {
   events?: Json3Event[];
 }
 
-export interface Json3Event {
+interface Json3Event {
   tStartMs?: number;
   dDurationMs?: number;
   /** 1 when the event adds to the window instead of starting a new line (ASR line breaks). */

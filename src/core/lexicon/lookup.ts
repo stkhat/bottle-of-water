@@ -1,4 +1,5 @@
-import type { DictPack, PosPack } from "./types";
+import type { DictPack, PosPack } from "../packs/types";
+import { own } from "../util";
 
 export interface Sense {
   pos?: string;
@@ -65,9 +66,10 @@ export function lookup(
   pos: PosPack,
 ): Entry | undefined {
   const key = term.toLowerCase();
-  if (!Object.hasOwn(dict, key)) return undefined;
-  const [short, senses] = dict[key]!;
-  const candidates = Object.hasOwn(pos, key) ? (pos[key] ?? []) : [];
+  const found = own(dict, key);
+  if (!found) return undefined;
+  const [short, senses] = found;
+  const candidates = own(pos, key) ?? [];
   return {
     short,
     senses: senses.map((raw) => {

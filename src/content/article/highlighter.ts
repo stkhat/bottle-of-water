@@ -35,14 +35,6 @@ const INK_ON_BACKGROUND = "#14182B";
 const UNDERLINE_OFFSET = "0.2em";
 
 /**
- * Whether highlights can be underlined in this browser.
- * TODO(Firefox): detect `text-decoration` support in `::highlight()` (docs/status.md).
- */
-export function supportsHighlightUnderline(): boolean {
-  return true;
-}
-
-/**
  * The page's highlight styles: only `::highlight(lingo-*)` rules. The mock draws a
  * 2px inset bar at the bottom of each word, which `::highlight()` cannot (no
  * box-shadow), so a 2px underline stands in for it. Without underlines, every
@@ -100,7 +92,8 @@ export function createHighlighter(on: Settings["highlight"]): Highlighter {
   const placed = new Map<TextBlock, Placed[]>();
 
   const sheet = new CSSStyleSheet();
-  sheet.replaceSync(highlightCss(supportsHighlightUnderline()));
+  // Firefox 140 does not underline highlights; detecting that waits for Firefox support.
+  sheet.replaceSync(highlightCss(true));
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 
   function setEnabled(flags: Settings["highlight"]) {

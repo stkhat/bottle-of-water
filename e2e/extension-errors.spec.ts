@@ -46,13 +46,13 @@ async function useArticle(page: Page) {
   const panel = dictionary(page);
   await expect(panel.getByRole("heading", { name: "tangy" })).toBeVisible();
   await panel
-    .getByRole("button", { name: en["dict.status.learning"], exact: true })
+    .getByRole("button", { name: en["status.learning"], exact: true })
     .click();
   await expect
     .poll(() => highlighted(page, "lingo-learning"))
     .toContain("tangy");
   await panel
-    .getByRole("button", { name: en["dict.status.known"], exact: true })
+    .getByRole("button", { name: en["status.known"], exact: true })
     .click();
   await expect
     .poll(() => highlighted(page, "lingo-learning"))
@@ -327,7 +327,7 @@ for (const build of ["production", "check"] as const)
       const panel = dictionary(page);
       await expect(panel.getByRole("heading", { name: "comer" })).toBeVisible();
       await panel
-        .getByRole("button", { name: en["dict.status.learning"], exact: true })
+        .getByRole("button", { name: en["status.learning"], exact: true })
         .click();
       await expect
         .poll(() => highlighted(page, "lingo-learning"))
@@ -336,7 +336,7 @@ for (const build of ["production", "check"] as const)
     }
 
     const transcript = (page: Page) =>
-      page.getByRole("complementary", { name: en["video.panel"] });
+      page.getByRole("complementary", { name: en["app.name"] });
     const inVideo = (page: Page) =>
       page.locator("lingo-video-player").getByRole("region", {
         name: en["video.subtitle"],
@@ -430,10 +430,10 @@ for (const build of ["production", "check"] as const)
         name: en["dict.window"],
       });
       await window
-        .getByRole("button", { name: en["dict.status.learning"], exact: true })
+        .getByRole("button", { name: en["status.learning"], exact: true })
         .click();
       await expect(
-        window.getByRole("button", { name: en["dict.status.remove"] }),
+        window.getByRole("button", { name: en["action.remove"] }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
 
@@ -444,7 +444,7 @@ for (const build of ["production", "check"] as const)
         .getByRole("button", { name: en["video.menu.belowVideo"] })
         .click();
       const translation = menu.getByRole("switch", {
-        name: en["video.menu.translationSwitch"],
+        name: en["subtitle.translation"],
       });
       await translation.click();
       await translation.click();
@@ -456,7 +456,7 @@ for (const build of ["production", "check"] as const)
 
       // The transcript's own switch, and a card that seeks.
       const ownSwitch = transcript(page).getByRole("switch", {
-        name: en["video.transcriptTranslation"],
+        name: en["transcript.translation"],
       });
       await ownSwitch.click();
       await ownSwitch.click();
@@ -464,7 +464,7 @@ for (const build of ["production", "check"] as const)
 
       // The Words tab: a filter, a row's dictionary window, back to the transcript.
       const panel = transcript(page);
-      await panel.getByRole("tab", { name: en["video.words"] }).click();
+      await panel.getByRole("tab", { name: en["kind.words"] }).click();
       await panel
         .getByRole("group", { name: en["video.words.filter"] })
         .getByRole("button", { name: /^Learning \d+$/ })
@@ -496,10 +496,10 @@ for (const build of ["production", "check"] as const)
         .locator("lingo-comments")
         .getByRole("complementary");
       await comments
-        .getByRole("button", { name: en["dict.status.known"], exact: true })
+        .getByRole("button", { name: en["status.known"], exact: true })
         .click();
       await expect(
-        comments.getByRole("button", { name: en["dict.status.remove"] }),
+        comments.getByRole("button", { name: en["action.remove"] }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(comments).toHaveCount(0);
@@ -525,7 +525,7 @@ for (const build of ["production", "check"] as const)
       await window.getByRole("button", { name: en["dict.close"] }).click();
       await page.getByRole("button", { name: en["video.menu"] }).click();
       await expect(
-        menu.getByRole("button", { name: en["video.menu.openSettings"] }),
+        menu.getByRole("button", { name: en["action.openSettings"] }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Exit full screen (f)" }).click();
@@ -625,7 +625,7 @@ for (const build of ["production", "check"] as const)
       const menuButton = page.getByRole("button", { name: en["video.menu"] });
       await menuButton.click();
       await expect(
-        page.getByRole("button", { name: en["video.menu.openSettings"] }),
+        page.getByRole("button", { name: en["action.openSettings"] }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Exit full screen" }).click();
@@ -672,7 +672,7 @@ for (const build of ["production", "check"] as const)
           await box.click();
         }
         const positions = options.getByRole("group", {
-          name: en["settings.video.position"],
+          name: en["subtitle.position"],
         });
         await positions.getByRole("button").last().click();
         await positions.getByRole("button").first().click();

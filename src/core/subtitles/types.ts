@@ -14,7 +14,7 @@ export interface Cue {
   words?: CueWord[];
 }
 
-export type TrackKind = "manual" | "asr";
+type TrackKind = "manual" | "asr";
 
 /** A subtitle track a site offers for the current video. */
 export interface Track {

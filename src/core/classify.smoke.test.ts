@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.mjs";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
-import { createEnglishPack, createLanguagePack } from "./language-pack";
+import { createLanguagePack } from "./lexicon/language-pack";
 import { createPackLoader } from "./packs/load";
 
 const loadPack = createPackLoader(async (path) =>
@@ -11,7 +11,7 @@ const loadPack = createPackLoader(async (path) =>
 );
 
 const en = await loadPack("en");
-const pack = createEnglishPack({
+const pack = createLanguagePack("en", {
   lemmas: en.lemmas,
   freq: en.freq,
   ipa: en.ipa,

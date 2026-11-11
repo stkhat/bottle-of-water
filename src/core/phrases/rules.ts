@@ -1,5 +1,6 @@
 import { ENGLISH_RULES } from "./en";
 import { SPANISH_RULES } from "./es";
+import { own } from "../util";
 import { NO_RULES, type PhraseRules } from "./pattern";
 
 const RULES: Readonly<Record<string, PhraseRules>> = {
@@ -8,6 +9,5 @@ const RULES: Readonly<Record<string, PhraseRules>> = {
 };
 
 /** The phrase rules of a learning language; no slots and no gaps without rules. */
-export function rulesFor(lang: string): PhraseRules {
-  return Object.hasOwn(RULES, lang) ? RULES[lang]! : NO_RULES;
-}
+export const rulesFor = (lang: string): PhraseRules =>
+  own(RULES, lang) ?? NO_RULES;

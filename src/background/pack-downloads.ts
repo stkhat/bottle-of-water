@@ -1,8 +1,9 @@
 import { browser } from "wxt/browser";
-import { packsFor } from "../core/packs/pairs";
+import { packsFor, translationPair } from "../core/packs/pairs";
+import { promiseCache } from "../core/util";
 import type { Settings } from "../core/settings";
 import type { EnsureResult, PackStore } from "./pack-store";
-import { watchSettings } from "./settings-store";
+import { watchSettings } from "../messaging/storage";
 
 /** The alarm that tries the chosen pair's downloads again after a failure. */
 export const PACKS_RETRY_ALARM = "lingo-packs-retry";
@@ -10,7 +11,7 @@ export const PACKS_RETRY_ALARM = "lingo-packs-retry";
 export const PACKS_RETRY_FAILURES_KEY = "packRetryFailures";
 
 /** The error a pack's state shows while a scheduled retry waits for its download. */
-export const RETRY_PENDING = "Retry pending";
+const RETRY_PENDING = "Retry pending";
 
 /** Minutes to wait after the first, second and third failure in a row. */
 const RETRY_DELAYS_MINUTES = [1, 5, 30];
@@ -68,7 +69,7 @@ export function createPackDownloads({
   store,
   getSettings,
 }: PackDownloadsDeps): PackDownloads {
-  const runs = new Map<string, Promise<EnsureResult>>();
+  const runs = promiseCache<EnsureResult>({ keep: false });
 
   async function run(learning: string, native: string) {
     const result = await store.ensure(packsFor(learning, native));
@@ -84,15 +85,9 @@ export function createPackDownloads({
   return {
     async ensurePair() {
       const { learningLang, nativeLang } = await getSettings();
-      const pair = `${learningLang}>${nativeLang}`;
-      let current = runs.get(pair);
-      if (!current) {
-        current = run(learningLang, nativeLang).finally(() =>
-          runs.delete(pair),
-        );
-        runs.set(pair, current);
-      }
-      return current;
+      return runs.get(translationPair(learningLang, nativeLang), () =>
+        run(learningLang, nativeLang),
+      );
     },
 
     async retryPending() {

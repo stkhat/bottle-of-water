@@ -98,7 +98,7 @@ test("a broken file on the mirror: Couldn't download, then Retry in Settings dow
     en["data.failed"].replace("{language}", "Spanish"),
   );
   await expect(
-    note.getByRole("button", { name: en["data.retry"] }),
+    note.getByRole("button", { name: en["action.retry"] }),
   ).toBeVisible();
   // The mirror's bytes were refused: their SHA-256 is not the lock's.
   const states = (await popup.evaluate(async () => {
@@ -119,9 +119,7 @@ test("a broken file on the mirror: Couldn't download, then Retry in Settings dow
   expect(await highlighted(page, "lingo-new")).toEqual([]);
 
   await mirror({ broken: false });
-  await row
-    .getByRole("button", { name: en["settings.languages.dataRetry"] })
-    .click();
+  await row.getByRole("button", { name: en["action.retry"] }).click();
   await expect(row).toContainText(en["settings.languages.dataDownloaded"]);
   await expect(row).toContainText(SPANISH_SIZE);
   await expect(note).toHaveCount(0);

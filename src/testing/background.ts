@@ -6,7 +6,6 @@ import { openLingoDb } from "../background/db";
 import { createHistoryStore } from "../background/history-store";
 import { createTermStore } from "../background/term-store";
 import { createTranslationCache } from "../background/translation-cache";
-import { createBrowserEnv } from "../core/browser-env";
 import {
   createPackLoader,
   type PackFiles,
@@ -249,7 +248,6 @@ export function testBackground(
         droppedKnownCount: 0,
       }),
     },
-    env: () => createBrowserEnv(),
     openOptionsPage: async () => {
       optionsOpened++;
     },

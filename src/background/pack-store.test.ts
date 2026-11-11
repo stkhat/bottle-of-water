@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { applyOverrides, readLock } from "../core/packs/lock";
 import { PacksUnavailableError } from "../core/packs/unavailable";
-import { createPackSource, fetchPackJson } from "./packs";
+import { createPackSource, fetchPackJson } from "./pack-store";
 
 beforeEach(() => fakeBrowser.reset());
 afterEach(() => vi.unstubAllGlobals());

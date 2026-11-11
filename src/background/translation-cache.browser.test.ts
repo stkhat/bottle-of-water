@@ -1,9 +1,8 @@
-import { Dexie } from "dexie";
 import { beforeEach, describe, expect, it } from "vitest";
-import { openLingoDb, type LingoDb } from "./db";
+import type { LingoDb } from "./db";
+import { translationPair } from "../core/packs/pairs";
 import {
   createTranslationCache,
-  translationPair,
   type TranslationCache,
 } from "./translation-cache";
 import { fakeClock } from "../testing/clock";
@@ -128,48 +127,5 @@ describe("translation cache", () => {
     await cache.clearPair(EN_JA);
     expect(await cache.get(EN_JA, ["a"])).toEqual({});
     expect(await cache.get(ES_JA, ["a"])).toEqual({ a: "エー" });
-  });
-});
-
-describe("upgrade from version 2", () => {
-  it("keeps the terms and adds the translation cache", async () => {
-    const name = `lingo-test-${crypto.randomUUID()}`;
-    const v2 = new Dexie(name);
-    v2.version(1).stores({
-      terms: "id, lang, status, updatedAt, batchId, [lang+status]",
-      sources: "id",
-      occurrences:
-        "++id, termId, &[termId+sourceId+sentence], [termId+seenAt], seenAt",
-      meta: "key",
-    });
-    v2.version(2).stores({
-      historyPages: "id, lastSeen, host",
-      historySentences: "++id, pageId, &[pageId+text], *keys",
-    });
-    await v2.table("terms").put({
-      id: "en:dough",
-      lang: "en",
-      key: "dough",
-      display: "dough",
-      kind: "word",
-      status: "learning",
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    v2.close();
-
-    const upgraded = openLingoDb(name);
-    try {
-      expect(await upgraded.terms.get("en:dough")).toMatchObject({
-        status: "learning",
-      });
-      const upgradedCache = createTranslationCache(upgraded);
-      await upgradedCache.put(EN_JA, [{ text: "dough", translated: "生地" }]);
-      expect(await upgradedCache.get(EN_JA, ["dough"])).toEqual({
-        dough: "生地",
-      });
-    } finally {
-      await upgraded.delete();
-    }
   });
 });

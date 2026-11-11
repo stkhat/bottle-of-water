@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SyncRecord } from "../core/sync/codec";
+import type { SaveTermInput, SourceInput } from "../messaging/protocol";
 import type { LingoDb } from "./db";
 import {
   createTermStore,
   type LingoExport,
-  type SaveTermInput,
-  type SourceInput,
   type TermStore,
 } from "./term-store";
 import { fakeClock } from "../testing/clock";

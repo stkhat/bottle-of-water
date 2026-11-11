@@ -1,7 +1,6 @@
-import type { Token } from "../text/tokenize";
+import { normalizeWord, type Token } from "../text/tokenize";
 import {
   NO_RULES,
-  normalizeWord,
   parsePattern,
   type PhrasePatterns,
   type PhraseRules,
@@ -41,7 +40,7 @@ export interface PhraseMatch {
 }
 
 /** Saved terms (a `TermIndex`, or a set of keys); single words among them are ignored. */
-export interface SavedKeys {
+interface SavedKeys {
   keys(): Iterable<string>;
 }
 

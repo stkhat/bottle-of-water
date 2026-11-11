@@ -8,12 +8,12 @@ test("the header icons open the settings and the word list", async ({
 }) => {
   const pages = [
     [
-      en["popup.openSettings"],
+      en["action.openSettings"],
       "options.html",
       "navigation",
       "settings.navLabel",
     ],
-    [en["popup.wordList"], "wordlist.html", "region", "wordlist.list"],
+    [en["wordlist.title"], "wordlist.html", "region", "wordlist.list"],
   ] as const;
   for (const [button, path, role, name] of pages) {
     // The popup closes itself once it opens a page.

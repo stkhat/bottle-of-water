@@ -1,6 +1,5 @@
 export interface Token {
   text: string;
-  /** Offset of the first UTF-16 code unit in the text. */
   start: number;
   /** Offset just past the last code unit. */
   end: number;
@@ -10,24 +9,29 @@ export interface Token {
 
 const segmenters = new Map<string, Intl.Segmenter>();
 
-function segmenterFor(lang: string): Intl.Segmenter {
-  let segmenter = segmenters.get(lang);
+export function segmenterFor(
+  lang: string,
+  granularity: "word" | "sentence",
+): Intl.Segmenter {
+  const key = `${granularity}:${lang}`;
+  let segmenter = segmenters.get(key);
   if (!segmenter) {
-    segmenter = new Intl.Segmenter(lang, { granularity: "word" });
-    segmenters.set(lang, segmenter);
+    segmenter = new Intl.Segmenter(lang, { granularity });
+    segmenters.set(key, segmenter);
   }
   return segmenter;
 }
 
-/**
- * Splits text into word and non-word tokens with `Intl.Segmenter`. Apostrophes inside
- * words stay in the token ("don't", "teacher’s"); hyphens and dashes split words.
- */
+/** Apostrophes inside words stay in the token ("don't", "teacher’s"); hyphens and dashes split words. */
 export function tokenize(text: string, lang: string): Token[] {
-  return Array.from(segmenterFor(lang).segment(text), (s) => ({
+  return Array.from(segmenterFor(lang, "word").segment(text), (s) => ({
     text: s.segment,
     start: s.index,
     end: s.index + s.segment.length,
     isWord: s.isWordLike ?? false,
   }));
 }
+
+/** A word as keys and patterns compare it: lowercase, with ’ written as '. */
+export const normalizeWord = (text: string) =>
+  text.toLowerCase().replaceAll("’", "'");

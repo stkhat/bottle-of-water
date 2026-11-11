@@ -7,20 +7,22 @@ type Timed = Pick<Cue, "startMs" | "endMs">;
  * Index of the last cue (sorted by start time) that started at or before `ms`, or -1
  * before the first one.
  */
-export function lastStartedIndex(cues: readonly Timed[], ms: number): number {
+export const lastStartedIndex = (cues: readonly Timed[], ms: number) =>
+  lowerBound(cues.length, (i) => cues[i]!.startMs <= ms) - 1;
+
+/** The first index in `0…length` where `before` is false; `before` holds for a prefix of them. */
+export function lowerBound(
+  length: number,
+  before: (i: number) => boolean,
+): number {
   let lo = 0;
-  let hi = cues.length - 1;
-  let found = -1;
-  while (lo <= hi) {
+  let hi = length;
+  while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if ((cues[mid] as Timed).startMs <= ms) {
-      found = mid;
-      lo = mid + 1;
-    } else {
-      hi = mid - 1;
-    }
+    if (before(mid)) lo = mid + 1;
+    else hi = mid;
   }
-  return found;
+  return lo;
 }
 
 /**

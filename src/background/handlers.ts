@@ -1,10 +1,9 @@
-import type { BrowserEnv } from "../core/browser-env";
 import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
-import { cleanDefinition, definitionTexts } from "../core/definitions";
-import type { DictionaryEntry } from "../core/dictionary";
-import { learningLanguages, nativeLanguages } from "../core/languages";
-import type { PackLock } from "../core/packs/lock";
-import { packsFor } from "../core/packs/pairs";
+import { cleanDefinition, definitionTexts } from "../core/lexicon/definitions";
+import type { DictionaryEntry } from "../core/lexicon/dictionary";
+import { learningLanguages } from "../core/languages";
+import { packBytes, type PackLock } from "../core/packs/lock";
+import { packsFor, pairsOfPack, translationPair } from "../core/packs/pairs";
 import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
 import type { MatchWord } from "../core/phrases/matcher";
 import {
@@ -12,73 +11,60 @@ import {
   type Settings,
   type SettingsPatch,
 } from "../core/settings";
-import type { SyncBackend } from "../core/sync/backend";
-import { normalizeUrl, occurrenceLink } from "../core/url";
+import { termId } from "../core/term-id";
+import { hostnameOf, occurrenceLink, tryNormalizeUrl } from "../core/url";
+import { errorText, omit } from "../core/util";
 import {
   MAX_CACHED_TRANSLATIONS,
   MAX_TRANSLATION_TEXT,
   type OccurrenceView,
+  type Origin,
   type Reply,
   type RequestOf,
   type RequestType,
   type ResponseOf,
+  type ShortMeaning,
+  type SyncStatus,
   type TermBrief,
+  type TranslationItem,
 } from "../messaging/protocol";
-import { historyKeys } from "./history-keys";
-import type { HistorySentence, HistoryStore } from "./history-store";
+import { historyKeys, type HistoryStore } from "./history-store";
 import type { LanguageResources } from "./language-resources";
 import type { PackStore } from "./pack-store";
 import {
   MAX_OCCURRENCES,
-  termId,
   type ImportedOccurrence,
-  type OccurrenceWithSource,
   type TermStore,
 } from "./term-store";
-import {
-  translationPair,
-  type TranslationCache,
-  type TranslationItem,
-} from "./translation-cache";
+import type { TranslationCache } from "./translation-cache";
 
 /** What the handlers work with; tests pass fakes. */
 export interface HandlerDeps {
   store: TermStore;
-  /** The sentence history: sentences kept from pages and videos, on this device only. */
   history: HistoryStore;
-  /** Machine translations of English definitions, on this device only. */
   translations: TranslationCache;
   settings: {
     get(): Promise<Settings>;
     set(patch: SettingsPatch): Promise<Settings>;
   };
   resources: LanguageResources;
-  /** Downloaded language packs. */
   packs: {
     /** The lock this build uses: which packs are bundled, and their sizes. */
     lock: PackLock;
     store: Pick<PackStore, "states" | "downloaded" | "remove">;
-    /**
-     * Starts bringing the chosen pair's packs to their lock version (and schedules
-     * retries when that fails); does not wait for it.
-     */
+    /** Starts bringing the chosen pair's packs to their lock version; does not wait. */
     retry(): void;
   };
-  sync: Pick<SyncBackend, "status">;
-  env(): BrowserEnv;
-  /** `runtime.openOptionsPage`. */
+  sync: { status(): Promise<SyncStatus> };
   openOptionsPage(): Promise<void>;
 }
 
-/** Who sent a message: the part of `runtime.MessageSender` the handlers use. */
-export interface MessageSender {
+/** The part of `runtime.MessageSender` the handlers use; extension pages have no tab. */
+interface MessageSender {
   tab?: { incognito?: boolean };
 }
 
-/**
- * Answers one message. Never rejects: failures come back as `{ ok: false }`.
- * `sender` is the message's sender; messages from the extension's own pages have no tab.
- */
+/** Answers one message. Never rejects: failures come back as `{ ok: false }`. */
 export type Handle = (
   request: unknown,
   sender?: MessageSender,
@@ -94,44 +80,17 @@ type Handlers = {
 /** Private (incognito) windows leave nothing behind: no history, no encounters. */
 const fromIncognito = (sender: MessageSender) => sender.tab?.incognito === true;
 
-const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
-
-function view(o: OccurrenceWithSource): OccurrenceView {
+/** An occurrence, or a kept sentence of the history (an encounter), as the UI shows it. */
+function view(o: ImportedOccurrence & { origin?: Origin }): OccurrenceView {
   const { title, platform, url } = o.source;
   return {
     sentence: o.sentence,
     ...(o.translation !== undefined && { translation: o.translation }),
     pos: o.pos,
     seenAt: o.seenAt,
-    origin: o.origin,
+    origin: o.origin ?? "encountered",
     source: { title, platform, url },
     link: occurrenceLink(o.source, o.pos),
-  };
-}
-
-/** A kept sentence as an occurrence seen elsewhere (an unsaved term's history). */
-function historyView(h: HistorySentence): OccurrenceView {
-  const { title, platform, url } = h.page;
-  return {
-    sentence: h.text,
-    ...(h.translation !== undefined && { translation: h.translation }),
-    pos: h.pos,
-    seenAt: h.seenAt,
-    origin: "encountered",
-    source: { title, platform, url },
-    link: occurrenceLink(h.page, h.pos),
-  };
-}
-
-/** A kept sentence as an occurrence to bring into a newly saved term. */
-function imported(h: HistorySentence): ImportedOccurrence {
-  return {
-    source: h.page,
-    sentence: h.text,
-    ...(h.translation !== undefined && { translation: h.translation }),
-    pos: h.pos,
-    seenAt: h.seenAt,
   };
 }
 
@@ -154,15 +113,9 @@ function wordsTouched(
   return { from, to };
 }
 
-/** A short meaning as lists show it (`TermBrief`, `TermSummary`). */
-type ShortMeaning = Pick<
-  TermBrief,
-  "short" | "glossLang" | "machineTranslated"
->;
-
 /**
- * Whether an entry's glosses are in a language other than the native one (an English
- * definition): the UI translates those, and the background gives back cached ones.
+ * An entry glossed in another language than the native one (an English definition):
+ * the UI translates those, and the background gives back cached ones.
  */
 const glossedInOtherLanguage = (
   entry: DictionaryEntry | undefined,
@@ -170,7 +123,6 @@ const glossedInOtherLanguage = (
 ): entry is DictionaryEntry & { glossLang: string } =>
   entry?.glossLang !== undefined && entry.glossLang !== nativeLang;
 
-/** A translation `cacheTranslations` keeps: both texts present and not oversized. */
 function isTranslationItem(item: unknown): item is TranslationItem {
   const { text, translated } = (item ?? {}) as Record<string, unknown>;
   return (
@@ -183,42 +135,6 @@ function isTranslationItem(item: unknown): item is TranslationItem {
   );
 }
 
-/** Bytes of a pack's files in the lock. */
-const lockSize = (lock: PackLock, pack: keyof PackLock["packs"]) =>
-  lock.packs[pack].files.reduce((sum, file) => sum + file.size, 0);
-
-/**
- * The offered language pairs whose packs include `pack`, as translation pairs
- * ("es>en"): removing the pack clears their machine translations.
- */
-function pairsUsing(pack: string): string[] {
-  return learningLanguages().flatMap((learning) =>
-    nativeLanguages(learning)
-      .filter((native) =>
-        (packsFor(learning, native) as string[]).includes(pack),
-      )
-      .map((native) => translationPair(learning, native)),
-  );
-}
-
-function hostnameOf(url: string) {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return undefined;
-  }
-}
-
-function normalizedOrUndefined(url: string | undefined) {
-  if (url === undefined) return undefined;
-  try {
-    return normalizeUrl(url);
-  } catch {
-    return undefined;
-  }
-}
-
-/** The background's dispatcher: routes each request to the store, settings or packs. */
 export function createHandlers({
   store,
   history,
@@ -227,7 +143,6 @@ export function createHandlers({
   resources,
   packs,
   sync,
-  env,
   openOptionsPage,
 }: HandlerDeps): Handle {
   /** Cached translations of `texts`; best effort: none when the cache cannot be read. */
@@ -277,7 +192,6 @@ export function createHandlers({
   const handlers: Handlers = {
     getSettings: () => settings.get(),
     setSettings: ({ patch }) => settings.set(patch),
-    getBrowserEnv: async () => env(),
     async openOptions() {
       await openOptionsPage();
       return null;
@@ -328,7 +242,8 @@ export function createHandlers({
         store.termIndex(lang),
         store.occurrencesOf(id),
       ]);
-      const hereUrl = normalizedOrUndefined(sourceUrl);
+      const hereUrl =
+        sourceUrl === undefined ? undefined : tryNormalizeUrl(sourceUrl);
       const here: OccurrenceView[] = [];
       const elsewhere: OccurrenceView[] = [];
       for (const o of occurrences)
@@ -340,7 +255,7 @@ export function createHandlers({
           const kept = await history.find(id, {
             ...(sourceUrl !== undefined && { excludeUrl: sourceUrl }),
           });
-          elsewhere.push(...kept.map(historyView));
+          elsewhere.push(...kept.map(view));
         } catch (error) {
           console.error("Lingo: could not read the sentence history", error);
         }
@@ -365,10 +280,7 @@ export function createHandlers({
     },
 
     async saveTerm(request) {
-      const input: Omit<typeof request, "type"> & { type?: string } = {
-        ...request,
-      };
-      delete input.type;
+      const input = omit(request, "type");
       const wasSaved = (await store.termIndex(input.lang)).has(input.key);
       const term = await store.saveTerm(input);
       // A term saved now (new, or saved again after removal) takes in the sentences
@@ -377,8 +289,7 @@ export function createHandlers({
       if (!wasSaved) {
         try {
           const kept = await history.find(term.id, { limit: MAX_OCCURRENCES });
-          if (kept.length > 0)
-            await store.importOccurrences(term.id, kept.map(imported));
+          if (kept.length > 0) await store.importOccurrences(term.id, kept);
         } catch (error) {
           console.error("Lingo: could not import the sentence history", error);
         }
@@ -400,7 +311,6 @@ export function createHandlers({
     exportJson: () => store.exportJson(),
     importJson: ({ json }) => store.importJson(json),
     lastExport: async () => (await store.getMeta("lastExportAt")) ?? null,
-    listTerms: ({ lang }) => store.listTerms(lang),
     async listTermsWithStats({ lang, meanings: withMeanings = true }) {
       const { nativeLang } = await settings.get();
       const [terms, stats, dictionary] = await allOf([
@@ -431,7 +341,7 @@ export function createHandlers({
       });
     },
 
-    async termSummaries({ lang, terms }) {
+    async termSummaries({ lang, keys }) {
       const { nativeLang } = await settings.get();
       const [index, dictionary] = await allOf([
         store.termIndex(lang),
@@ -440,11 +350,11 @@ export function createHandlers({
       const meanings = await shortMeanings(
         lang,
         nativeLang,
-        terms.map(({ key }) => dictionary.entry(key)),
+        keys.map((key) => dictionary.entry(key)),
       );
       // fromEntries: any key is an own property, "__proto__" included.
       return Object.fromEntries(
-        terms.map(({ key }, i): [string, TermBrief] => [
+        keys.map((key, i): [string, TermBrief] => [
           key,
           { ...meanings[i], status: index.get(key) ?? "new" },
         ]),
@@ -508,7 +418,7 @@ export function createHandlers({
           bundled: downloaded.length === 0,
           packs: downloaded.map((pack) => ({
             pack,
-            size: lockSize(packs.lock, pack),
+            size: packBytes(packs.lock.packs[pack]),
             ...states[pack]!,
           })),
         },
@@ -532,7 +442,9 @@ export function createHandlers({
       if (!stored.some((d) => d.pack === pack)) return null;
       await packs.store.remove(pack);
       await Promise.all(
-        pairsUsing(pack).map((pair) => translations.clearPair(pair)),
+        pairsOfPack(pack).map(({ learning, native }) =>
+          translations.clearPair(translationPair(learning, native)),
+        ),
       );
       return null;
     },

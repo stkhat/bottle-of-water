@@ -1,7 +1,4 @@
-/**
- * Where a language's sync data lives in `storage.sync`: `sync:<lang>:meta` points at
- * the chunks `sync:<lang>:0` … `sync:<lang>:<n-1>`.
- */
+/** `sync:<lang>:meta` points at the chunks `sync:<lang>:0` … `sync:<lang>:<n-1>`. */
 
 export interface SyncMeta {
   chunks: number;
@@ -16,6 +13,13 @@ export const chunkKey = (lang: string, i: number) => `sync:${lang}:${i}`;
 /** The language of a `sync:<lang>:…` key, or `undefined` for other keys. */
 export function langOfKey(key: string): string | undefined {
   return /^sync:([^:]+):[^:]+$/.exec(key)?.[1];
+}
+
+/** The chunk number of a `sync:<lang>:<n>` key, or `undefined` for other keys. */
+export function chunkIndexOf(lang: string, key: string): number | undefined {
+  const prefix = `sync:${lang}:`;
+  const rest = key.startsWith(prefix) ? key.slice(prefix.length) : "";
+  return /^\d+$/.test(rest) ? Number(rest) : undefined;
 }
 
 const encoder = new TextEncoder();

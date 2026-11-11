@@ -1,13 +1,4 @@
-const segmenters = new Map<string, Intl.Segmenter>();
-
-function segmenterFor(lang: string): Intl.Segmenter {
-  let segmenter = segmenters.get(lang);
-  if (!segmenter) {
-    segmenter = new Intl.Segmenter(lang, { granularity: "sentence" });
-    segmenters.set(lang, segmenter);
-  }
-  return segmenter;
-}
+import { segmenterFor } from "./tokenize";
 
 /** Text with runs of whitespace turned into single spaces, trimmed. */
 export const collapseSpaces = (text: string) =>
@@ -19,19 +10,15 @@ export interface SentenceSegment {
   end: number;
 }
 
-/** The sentences of `text` (Intl.Segmenter, sentence granularity), in order, as offsets. */
 export function* sentenceSegments(
   text: string,
   lang: string,
 ): Generator<SentenceSegment> {
-  for (const { index, segment } of segmenterFor(lang).segment(text))
+  for (const { index, segment } of segmenterFor(lang, "sentence").segment(text))
     yield { start: index, end: index + segment.length };
 }
 
-/**
- * The sentences of `text` (Intl.Segmenter, sentence granularity) with whitespace
- * collapsed; empty and whitespace-only pieces are dropped.
- */
+/** The sentences with whitespace collapsed; empty and whitespace-only pieces are dropped. */
 export function splitSentences(text: string, lang: string): string[] {
   const sentences: string[] = [];
   for (const { start, end } of sentenceSegments(text, lang)) {

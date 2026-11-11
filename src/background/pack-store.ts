@@ -1,8 +1,15 @@
+import { browser, type PublicPath } from "wxt/browser";
 import { PACK_FORMATS } from "../core/packs/formats";
-import type { PackName } from "../core/packs/load";
-import type { PackLock, PackLockEntry, PackLockFile } from "../core/packs/lock";
+import type { FetchJson } from "../core/packs/load";
+import {
+  packBytes,
+  type PackLock,
+  type PackLockEntry,
+  type PackLockFile,
+} from "../core/packs/lock";
 import type { PackState, PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
+import { errorText, listeners, own, promiseCache } from "../core/util";
 import type { LingoDb, PackVersionRecord } from "./db";
 
 /** What `ensure` did: the packs now at their lock version, and those that failed. */
@@ -74,18 +81,9 @@ export interface PackStoreOptions {
 }
 
 /** Progress within a file is written at most this often. */
-export const PROGRESS_INTERVAL_MS = 250;
+const PROGRESS_INTERVAL_MS = 250;
 
-const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
-
-const sum = (values: readonly number[]) =>
-  values.reduce((total, value) => total + value, 0);
-
-const formatOf = (pack: string): number | undefined =>
-  Object.hasOwn(PACK_FORMATS, pack)
-    ? PACK_FORMATS[pack as PackName]
-    : undefined;
+const formatOf = (pack: string) => own<number>(PACK_FORMATS, pack);
 
 async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -148,14 +146,13 @@ export function createPackStore({
 }: PackStoreOptions): PackStore {
   /** The state of the packs this worker brought to their lock version, or tried to. */
   const states = new Map<string, PackState>();
-  /** Downloads in progress, by pack: a pack is downloaded by one at a time. */
-  const inflight = new Map<string, Promise<boolean>>();
-  const listeners = new Set<(pack: string) => void>();
+  /** Downloads in progress: one at a time per pack. */
+  const inflight = promiseCache<boolean>({ keep: false });
+  const switched = listeners<[string]>();
   let lastWrite = -Infinity;
   let writes: Promise<void> = Promise.resolve();
 
-  const lockEntry = (pack: string): PackLockEntry | undefined =>
-    Object.hasOwn(lock.packs, pack) ? lock.packs[pack as PackName] : undefined;
+  const lockEntry = (pack: string) => own<PackLockEntry>(lock.packs, pack);
 
   /**
    * Writes the states (in order, one write at a time). Progress (`force` false) is
@@ -207,47 +204,34 @@ export function createPackStore({
 
   /**
    * A pack's state from what is stored: ready at its lock version, else downloading
-   * with the bytes of its files already stored.
+   * with the bytes of its files already stored; and which of its files are stored.
    */
   async function storedState(
     pack: string,
     entry: PackLockEntry,
-  ): Promise<PackState> {
+  ): Promise<{ state: PackState; stored: Set<string> }> {
     const [active, stored] = await Promise.all([
       db.packVersions.get(pack),
       storedFiles(entry),
     ]);
-    const total = sum(entry.files.map((file) => file.size));
-    if (
-      isLockVersion(active, entry) &&
-      entry.files.every((file) => stored.has(file.sha256))
-    )
-      return { state: "ready", received: total, total };
-    const received = sum(
-      entry.files
-        .filter((file) => stored.has(file.sha256))
-        .map((file) => file.size),
-    );
+    const total = packBytes(entry);
+    const missing = entry.files.filter((file) => !stored.has(file.sha256));
+    if (isLockVersion(active, entry) && missing.length === 0)
+      return { state: { state: "ready", received: total, total }, stored };
+    // An older version in a format this code reads stays in use meanwhile.
     const updating =
       active !== undefined &&
       active.format === formatOf(pack) &&
       !isLockVersion(active, entry);
     return {
-      state: "downloading",
-      received,
-      total,
-      ...(updating && { updating: true as const }),
+      state: {
+        state: "downloading",
+        received: total - packBytes({ files: missing }),
+        total,
+        ...(updating && { updating: true as const }),
+      },
+      stored,
     };
-  }
-
-  function switched(pack: string) {
-    for (const listener of listeners) {
-      try {
-        listener(pack);
-      } catch (error) {
-        console.error(error);
-      }
-    }
   }
 
   /**
@@ -288,7 +272,7 @@ export function createPackStore({
     const entry = lockEntry(pack);
     if (!entry) return false;
     if (entry.bundled) return true;
-    const total = sum(entry.files.map((file) => file.size));
+    const total = packBytes(entry);
     let received = 0;
     let updating = false;
     const set = (state: PackState["state"], error?: string) => {
@@ -301,26 +285,13 @@ export function createPackStore({
       });
     };
     try {
-      const [active, stored] = await Promise.all([
-        db.packVersions.get(pack),
-        storedFiles(entry),
-      ]);
-      const missing = entry.files.filter((file) => !stored.has(file.sha256));
-      if (isLockVersion(active, entry) && missing.length === 0) {
-        received = total;
-        set("ready");
-        publish(true);
-        return true;
-      }
-      // An older version in a format this code reads stays in use meanwhile.
-      updating =
-        active !== undefined &&
-        active.format === formatOf(pack) &&
-        !isLockVersion(active, entry);
-      received = total - sum(missing.map((file) => file.size));
-      set("downloading");
+      const { state, stored } = await storedState(pack, entry);
+      received = state.received;
+      updating = state.updating === true;
+      set(state.state);
       publish(true);
-      for (const file of missing) {
+      if (state.state === "ready") return true;
+      for (const file of entry.files) {
         if (stored.has(file.sha256)) continue;
         const blob = await download(entry, file, (count) => {
           received += count;
@@ -343,7 +314,7 @@ export function createPackStore({
       received = total;
       set("ready");
       publish(true);
-      switched(pack);
+      switched.emit(pack);
       return true;
     } catch (error) {
       set("failed", errorText(error));
@@ -352,19 +323,12 @@ export function createPackStore({
     }
   }
 
-  function ensureOne(pack: string): Promise<boolean> {
-    let run = inflight.get(pack);
-    if (!run) {
-      run = bring(pack).finally(() => inflight.delete(pack));
-      inflight.set(pack, run);
-    }
-    return run;
-  }
-
   return {
     async ensure(packs) {
       const names = [...new Set(packs)];
-      const done = await Promise.all(names.map(ensureOne));
+      const done = await Promise.all(
+        names.map((pack) => inflight.get(pack, () => bring(pack))),
+      );
       await writes;
       return {
         ready: names.filter((_, i) => done[i]),
@@ -394,7 +358,7 @@ export function createPackStore({
     },
 
     async remove(pack) {
-      await inflight.get(pack);
+      await inflight.peek(pack);
       await db.transaction("rw", db.packVersions, db.packFiles, async () => {
         await db.packVersions.delete(pack);
         await collectGarbage();
@@ -402,7 +366,7 @@ export function createPackStore({
       states.delete(pack);
       publish(true);
       await writes;
-      switched(pack);
+      switched.emit(pack);
     },
 
     async downloaded() {
@@ -412,12 +376,12 @@ export function createPackStore({
         versions.map(async ({ pack, version, files }) => {
           const entry = lockEntry(pack);
           if (entry?.version === version)
-            return { pack, version, size: sum(entry.files.map((f) => f.size)) };
+            return { pack, version, size: packBytes(entry) };
           const rows = await db.packFiles.bulkGet(files.map((f) => f.sha256));
           return {
             pack,
             version,
-            size: sum(rows.map((row) => row?.blob.size ?? 0)),
+            size: rows.reduce((sum, row) => sum + (row?.blob.size ?? 0), 0),
           };
         }),
       );
@@ -428,7 +392,8 @@ export function createPackStore({
       for (const pack of new Set(packs)) {
         const entry = lockEntry(pack);
         if (!entry || entry.bundled) continue;
-        result[pack] = states.get(pack) ?? (await storedState(pack, entry));
+        result[pack] =
+          states.get(pack) ?? (await storedState(pack, entry)).state;
       }
       return result;
     },
@@ -436,8 +401,8 @@ export function createPackStore({
     async markFailed(packs, error) {
       for (const pack of new Set(packs)) {
         const entry = lockEntry(pack);
-        if (!entry || entry.bundled || inflight.has(pack)) continue;
-        const state = await storedState(pack, entry);
+        if (!entry || entry.bundled || inflight.peek(pack)) continue;
+        const { state } = await storedState(pack, entry);
         states.set(
           pack,
           state.state === "ready"
@@ -449,9 +414,38 @@ export function createPackStore({
       await writes;
     },
 
-    onSwitch(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    onSwitch: switched.add,
+  };
+}
+
+/** Reads a JSON file bundled with the extension (not web-accessible; background only). */
+export async function fetchPackJson(path: string): Promise<unknown> {
+  const response = await fetch(browser.runtime.getURL(path as PublicPath));
+  if (!response.ok)
+    throw new Error(`Could not load ${path} (HTTP ${response.status})`);
+  return response.json();
+}
+
+/**
+ * What the pack loader reads through: a bundled pack's file from the extension, a
+ * downloaded pack's from the store, which rejects with `PacksUnavailableError` while
+ * that pack is not on the device.
+ */
+export function createPackSource({
+  lock,
+  store,
+}: {
+  lock: PackLock;
+  store: Pick<PackStore, "read">;
+}): FetchJson {
+  return (path) => {
+    const [, pack, file] = /^\/packs\/([^/]+)\/(.+)$/.exec(path) ?? [];
+    if (
+      pack !== undefined &&
+      file !== undefined &&
+      own(lock.packs, pack)?.bundled === false
+    )
+      return store.read(pack, file);
+    return fetchPackJson(path);
   };
 }

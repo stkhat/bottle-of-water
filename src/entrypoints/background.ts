@@ -1,22 +1,22 @@
 import { browser } from "wxt/browser";
 import { openLingoDb } from "../background/db";
 import { createHandlers } from "../background/handlers";
-import { forgetNeverRunOnHosts } from "../background/history-hosts";
-import { createHistoryStore } from "../background/history-store";
+import {
+  createHistoryStore,
+  forgetNeverRunOnHosts,
+} from "../background/history-store";
 import { createLanguageResources } from "../background/language-resources";
 import {
   createPackDownloads,
   startPackDownloads,
 } from "../background/pack-downloads";
-import { createPackStore } from "../background/pack-store";
-import { createPackSource } from "../background/packs";
+import { createPackSource, createPackStore } from "../background/pack-store";
 import { getSettings, setSettings } from "../background/settings-store";
 import { watchBuild } from "../background/self-reload";
 import { isCheckLogMessage, startWorkerErrorLog } from "../check/start";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import { createTermStore } from "../background/term-store";
 import { createTranslationCache } from "../background/translation-cache";
-import { createBrowserEnv } from "../core/browser-env";
 import { createPackLoader } from "../core/packs/load";
 import { readLock } from "../core/packs/lock";
 import { PACK_STATE_KEY } from "../core/packs/state";
@@ -67,7 +67,6 @@ export default defineBackground(() => {
     resources,
     packs: { lock, store: packStore, retry: retryPacks },
     sync,
-    env: () => createBrowserEnv(),
     openOptionsPage: () => browser.runtime.openOptionsPage(),
   });
 

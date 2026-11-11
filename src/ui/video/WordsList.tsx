@@ -35,10 +35,10 @@ export interface WordsFilterChipsProps {
 }
 
 const FILTERS: readonly { id: WordsFilter; label: MessageKey }[] = [
-  { id: "all", label: "video.words.all" },
+  { id: "all", label: "filter.all" },
   { id: "new", label: "card.chip.new" },
-  { id: "learning", label: "card.chip.learning" },
-  { id: "known", label: "card.chip.known" },
+  { id: "learning", label: "status.learning" },
+  { id: "known", label: "status.known" },
 ];
 
 const CHIP: Style = {

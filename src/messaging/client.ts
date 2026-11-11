@@ -17,7 +17,6 @@ const NO_RECEIVER = /Receiving end does not exist/;
  * been carried out. Only requests that do the same when repeated are sent again.
  */
 const CHANNEL_CLOSED = /message channel closed before a response was received/;
-/** The waits before each new try. */
 const RETRY_DELAYS_MS = [100, 500];
 
 /**
@@ -27,7 +26,6 @@ const RETRY_DELAYS_MS = [100, 500];
 const REPEATABLE: Record<RequestType, boolean> = {
   getSettings: true,
   setSettings: true,
-  getBrowserEnv: true,
   analyze: true,
   matchSelection: true,
   warmDictionary: true,
@@ -46,7 +44,6 @@ const REPEATABLE: Record<RequestType, boolean> = {
   exportJson: true,
   importJson: true,
   lastExport: true,
-  listTerms: true,
   listTermsWithStats: true,
   termSummaries: true,
   // Would open a second tab.

@@ -53,7 +53,7 @@ export function LanguageDataNote(props: {
           {t("data.failed", { language })}
         </span>
         <button type="button" onClick={props.onRetry} style={RETRY}>
-          {t("data.retry")}
+          {t("action.retry")}
         </button>
       </div>
     );

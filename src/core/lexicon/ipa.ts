@@ -1,4 +1,5 @@
-import type { IpaPack } from "./types";
+import type { IpaPack } from "../packs/types";
+import { own } from "../util";
 
 /**
  * One transcription of a pack value. Packs hold one (`scripts/data/common.mjs`
@@ -37,9 +38,8 @@ export function dictionaryIpa(transcription: string): string {
     .normalize("NFC");
 }
 
-/** The pack's transcription of a word, if it has one. */
 function transcriptionOf(word: string, ipa: IpaPack): string | undefined {
-  const value = Object.hasOwn(ipa, word) ? ipa[word] : undefined;
+  const value = own(ipa, word);
   return value === undefined ? undefined : single(value);
 }
 

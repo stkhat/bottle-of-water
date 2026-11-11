@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createEnglishPack, createLanguagePack } from "./language-pack";
-import { ENGLISH_RULES } from "./phrases/en";
-import { SPANISH_RULES } from "./phrases/es";
+import { createLanguagePack } from "./language-pack";
+import { ENGLISH_RULES } from "../phrases/en";
+import { SPANISH_RULES } from "../phrases/es";
 
-const pack = createEnglishPack({
+const pack = createLanguagePack("en", {
   lemmas: { loaves: "loaf", figured: "figure", better: ["good", "well"] },
   freq: ["the", "you", "good", "figure"],
   ipa: { figure: "/ˈfɪɡjɚ/", out: "/aʊt/" },
@@ -24,7 +24,7 @@ const pack = createEnglishPack({
   },
 });
 
-describe("createEnglishPack", () => {
+describe("createLanguagePack (en)", () => {
   it("is the English pack", () => {
     expect(pack.lang).toBe("en");
   });

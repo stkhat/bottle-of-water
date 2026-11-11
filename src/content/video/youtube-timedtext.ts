@@ -1,9 +1,8 @@
+import { primary } from "../../core/languages";
 import type {
   YouTubeCaptionInfo,
   YouTubeTrack,
 } from "../../core/subtitles/youtube-json3";
-
-const primary = (lang: string) => lang.toLowerCase().split(/[-_]/)[0] ?? "";
 
 /**
  * The URL of another track of the same video, made from a timedtext URL the player

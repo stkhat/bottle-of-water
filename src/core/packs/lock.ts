@@ -1,13 +1,7 @@
-// The pack lock file (packs.lock.json, written by `npm run data:publish`): each pack's
-// npm package, version, data format, whether it is bundled, and its files with their
-// size and SHA-256, plus the mirrors a downloaded pack's files are fetched from and the
-// language pairs offered.
-//
-// Test builds can override it with environment variables at build time, never in
-// production mode (`wxt build`, `wxt zip`). WXT has Vite expose variables starting with
-// WXT_ (or VITE_) to the code as `import.meta.env.*`, read from the environment and from
-// .env files (.env, .env.<mode>, .env.<browser>…); the build hook in wxt.config.ts reads
-// the same variables from `process.env` to decide which packs to copy into the build.
+// packs.lock.json is written by `npm run data:publish`. Test builds override it with
+// WXT_ variables (`import.meta.env`, from the environment or .env.<mode>), never in
+// production mode; the build hook in wxt.config.ts reads the same variables from
+// `process.env` to choose which packs to copy into the build.
 //   WXT_PACKS_DOWNLOAD=es,es-en  → those packs are downloaded (not bundled)
 //   WXT_PACK_MIRRORS=http://localhost:4719/mirror/{package}@{version}/{file},…
 //                                → these URL templates replace the mirrors
@@ -43,6 +37,10 @@ export interface PackLock {
    */
   readonly pairs: Readonly<Record<string, readonly string[]>>;
 }
+
+/** Bytes of a pack version's files. */
+export const packBytes = (entry: Pick<PackLockEntry, "files">) =>
+  entry.files.reduce((sum, file) => sum + file.size, 0);
 
 /** The environment variables that override the lock in builds other than production. */
 export interface LockEnv {

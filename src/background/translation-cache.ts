@@ -1,10 +1,5 @@
+import type { TranslationItem } from "../messaging/protocol";
 import type { LingoDb, MtCacheRecord } from "./db";
-
-/** A cleaned English definition and its translation into the native language. */
-export interface TranslationItem {
-  text: string;
-  translated: string;
-}
 
 /**
  * Machine translations of English definitions on this device (`mtCache`), by language
@@ -32,11 +27,7 @@ export interface TranslationCacheOptions {
   now?: () => number;
 }
 
-export const TRANSLATION_CACHE_LIMIT = 20_000;
-
-/** The pair a translation belongs to: the learning and the native language ("en>ja"). */
-export const translationPair = (lang: string, nativeLang: string) =>
-  `${lang}>${nativeLang}`;
+const TRANSLATION_CACHE_LIMIT = 20_000;
 
 const keyOf = (pair: string, text: string) => `${pair}:${text}`;
 

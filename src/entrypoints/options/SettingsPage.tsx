@@ -1,6 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { HistoryStatus } from "../../background/history-store";
+import type {
+  HistoryStatus,
+  PackStatus,
+  SyncStatus,
+} from "../../messaging/protocol";
 import type { BrowserEnv } from "../../core/browser-env";
 import {
   KNOWN_LEVEL_MAX,
@@ -10,9 +14,8 @@ import {
   type SettingsPatch,
 } from "../../core/settings";
 import { learningLanguages, nativeLanguages } from "../../core/languages";
-import { pairOfPack } from "../../core/packs/pairs";
+import { pairsOfPack } from "../../core/packs/pairs";
 import { combinedState, type PackStates } from "../../core/packs/state";
-import type { SyncStatus } from "../../core/sync/backend";
 import { siteFromInput } from "../../core/url";
 import { downloadTranslationModels } from "../../content/translate/translator";
 import {
@@ -26,7 +29,6 @@ import {
   followPackStatus,
   type PackStatusFollower,
 } from "../../messaging/pack-status";
-import type { PackStatus } from "../../messaging/protocol";
 import {
   BackupButtons,
   type BackupDeps,
@@ -267,7 +269,7 @@ const HIGHLIGHT_ROWS = [
   },
   {
     id: "learning",
-    label: "card.chip.learning",
+    label: "status.learning",
     desc: "settings.highlighting.learningDesc",
     sample: {
       background: color.hlLearning,
@@ -276,7 +278,7 @@ const HIGHLIGHT_ROWS = [
   },
   {
     id: "known",
-    label: "card.chip.known",
+    label: "status.known",
     desc: "settings.highlighting.knownDesc",
     sample: { boxShadow: `inset 0 -2px 0 ${color.knownLine}` },
   },
@@ -498,7 +500,7 @@ interface OtherData {
 function otherData(others: PackStatus["others"]): OtherData[] {
   const groups = new Map<string, OtherData>();
   for (const { pack, size } of others) {
-    const pair = pairOfPack(pack);
+    const pair = pairsOfPack(pack)[0];
     const label = pair ? languagePair(pair.learning, pair.native) : pack;
     const group = groups.get(label);
     if (group) {
@@ -545,7 +547,7 @@ function PairDataState(props: {
         {t("settings.languages.dataFailed")}
       </span>
       <button class="btn" type="button" onClick={props.onRetry}>
-        {t("settings.languages.dataRetry")}
+        {t("action.retry")}
       </button>
     </span>
   );
@@ -616,7 +618,7 @@ function LanguageData(props: {
             })}
             onClick={() => props.onRemove(other.packs)}
           >
-            {t("settings.languages.dataRemove")}
+            {t("action.remove")}
           </button>
         </div>
       ))}
@@ -782,12 +784,12 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const syncLine = !sync
     ? ""
     : !sync.enabled
-      ? t("settings.sync.off")
+      ? t("sync.off")
       : sync.lastSavedAt !== undefined
         ? t("settings.sync.lastSaved", {
             when: relativeTime(sync.lastSavedAt, now),
           })
-        : t("settings.sync.notSaved");
+        : t("sync.notSaved");
 
   return (
     <div
@@ -1055,7 +1057,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
         >
           <div
             role="group"
-            aria-label={t("settings.video.position")}
+            aria-label={t("subtitle.position")}
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -1134,13 +1136,13 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             })}
           </div>
           <SwitchRow
-            title={t("settings.video.subtitleTranslation")}
+            title={t("subtitle.translation")}
             desc={t("settings.video.subtitleTranslationDesc")}
             checked={s.subtitleTranslation}
             onToggle={() => set("subtitleTranslation", !s.subtitleTranslation)}
           />
           <SwitchRow
-            title={t("settings.video.transcriptTranslation")}
+            title={t("transcript.translation")}
             desc={t("settings.video.transcriptTranslationDesc")}
             checked={s.transcriptTranslation}
             onToggle={() =>

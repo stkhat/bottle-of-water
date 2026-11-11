@@ -1,10 +1,9 @@
 import "@fontsource-variable/inter";
 import { render } from "preact";
 import { startPageErrorLog } from "../../check/start";
-import { watchSettings } from "../../background/settings-store";
 import { speechLang } from "../../core/languages";
 import { send } from "../../messaging/client";
-import { watchPackState } from "../../messaging/pack-state";
+import { watchPackState, watchSettings } from "../../messaging/storage";
 import { download } from "../../ui/backup/download";
 import { followTheme } from "../../ui/page-theme";
 import { WordList, type WordListDeps } from "./WordList";

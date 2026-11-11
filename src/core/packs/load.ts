@@ -5,11 +5,12 @@ import type {
   IpaPack,
   LemmaPack,
   PairPack,
-  PhrasesPack,
   PosPack,
   ShardIndex,
   VocabPack,
 } from "./types";
+import type { PhrasePatterns } from "../phrases/pattern";
+import { promiseCache } from "../util";
 
 /**
  * The packs (built into public/packs/<name>/ or data/packs/<name>/, served at
@@ -22,7 +23,7 @@ export interface PackFiles {
     ipa: IpaPack;
     pos: PosPack;
     vocab: VocabPack;
-    phrases: PhrasesPack;
+    phrases: PhrasePatterns;
   };
   "en-ja": { dict: DictPack; phrases: DictPack };
   "en-defs": { defs: DefsPack };
@@ -31,7 +32,7 @@ export interface PackFiles {
     freq: FreqPack;
     ipa: IpaPack;
     vocab: VocabPack;
-    phrases: PhrasesPack;
+    phrases: PhrasePatterns;
   };
   "es-en": { defs: DefsPack };
   "en-es": { dict: PairPack };
@@ -96,20 +97,9 @@ const LOADERS: {
  * share one load; a failed load is forgotten so the next call tries again.
  */
 export function createPackLoader(fetchJson: FetchJson): PackLoader {
-  const loads = new Map<string, Promise<unknown>>();
-  const loadPack = <P extends PackName>(name: P) => {
-    let load = loads.get(name);
-    if (!load) {
-      const started = LOADERS[name](fetchJson);
-      // Only this load: a newer one may have replaced it after a `forget`.
-      started.catch(() => {
-        if (loads.get(name) === started) loads.delete(name);
-      });
-      loads.set(name, started);
-      load = started;
-    }
-    return load as Promise<PackFiles[P]>;
-  };
+  const loads = promiseCache<unknown>({ keep: true });
+  const loadPack = <P extends PackName>(name: P) =>
+    loads.get(name, () => LOADERS[name](fetchJson)) as Promise<PackFiles[P]>;
   return Object.assign(loadPack, {
     forget(name: string) {
       loads.delete(name);

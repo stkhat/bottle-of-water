@@ -1,12 +1,15 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
-import type { ImportResult } from "../../background/term-store";
+import type {
+  HistoryStatus,
+  ImportResult,
+  PackStatus,
+  Request,
+  SyncStatus,
+} from "../../messaging/protocol";
 import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
-import type { HistoryStatus } from "../../background/history-store";
-import type { SyncStatus } from "../../core/sync/backend";
-import type { PackStatus, Request } from "../../messaging/protocol";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
 import { listeners } from "../../testing/stubs";
 
@@ -102,7 +105,6 @@ function fake(options: FakeOptions = {}) {
       syncName: "Chrome sync",
       features: {
         builtInAi: options.builtInAi ?? true,
-        highlightUnderline: true,
         fileSystemAccess: true,
       },
     },

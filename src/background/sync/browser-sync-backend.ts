@@ -1,12 +1,14 @@
 /**
- * `SyncBackend` over the browser's `storage.sync` (spec: "Sync"). Each language's terms
- * are kept as codec chunks under `sync:<lang>:…`; sources and occurrences stay on the
- * device. A signed-out browser keeps `storage.sync` on the device only, which needs no
- * special case here.
+ * Each language's terms are kept as codec chunks under `sync:<lang>:…`; sources and
+ * occurrences stay on the device. A signed-out browser keeps `storage.sync` on the
+ * device only, which needs no special case here.
  */
 import { browser } from "wxt/browser";
-import { DEFAULT_SETTINGS, mergeSettings } from "../../core/settings";
-import type { SyncBackend, SyncStatus } from "../../core/sync/backend";
+import {
+  DEFAULT_SETTINGS,
+  mergeSettings,
+  SETTINGS_KEY,
+} from "../../core/settings";
 import {
   CHUNK_CHARS,
   compareKeys,
@@ -18,31 +20,21 @@ import {
   type SyncRecord,
 } from "../../core/sync/codec";
 import {
+  chunkIndexOf,
   chunkKey,
   itemBytes,
   langOfKey,
   metaKey,
   type SyncMeta,
 } from "../../core/sync/layout";
-import type { TermRecord } from "../db";
-import { SETTINGS_KEY } from "../settings-store";
+import { errorText } from "../../core/util";
+import type { SyncStatus, TermRecord } from "../../messaging/protocol";
+import {
+  watchStorage,
+  type StorageChange,
+  type StorageChangedEvent,
+} from "../../messaging/storage";
 import type { TermStore } from "../term-store";
-
-export interface StorageChange {
-  oldValue?: unknown;
-  newValue?: unknown;
-}
-
-export type StorageChangedListener = (
-  changes: Record<string, StorageChange>,
-  areaName: string,
-) => void;
-
-/** `storage.onChanged`. */
-export interface StorageChangedEvent {
-  addListener(listener: StorageChangedListener): void;
-  removeListener(listener: StorageChangedListener): void;
-}
 
 /** The parts of `storage.sync` the backend uses. */
 export interface SyncArea {
@@ -54,7 +46,7 @@ export interface SyncArea {
   QUOTA_BYTES_PER_ITEM?: number;
 }
 
-export interface Timers {
+interface Timers {
   setTimeout(callback: () => void, ms: number): unknown;
   clearTimeout(handle: unknown): void;
 }
@@ -69,20 +61,27 @@ export interface BrowserSyncBackendOptions {
   timers?: Timers;
 }
 
-export interface BrowserSyncBackend extends SyncBackend {
+export interface BrowserSyncBackend {
+  /** Merges this device's terms of `lang` into the synced copy and writes it. */
+  push(lang: string): Promise<void>;
+  /** Reads the synced copy of `lang` and applies the versions newer than this device's. */
+  pull(lang: string): Promise<void>;
+  status(): Promise<SyncStatus>;
+  /** Pulls every language, then follows local changes (push) and other devices' (pull). */
+  start(): Promise<void>;
+  stop(): void;
   /** Resolves once no push or pull is running or queued (timers not counted). */
   whenIdle(): Promise<void>;
 }
 
 /** Used when the browser does not expose the `storage.sync` constants. */
-export const DEFAULT_QUOTA_BYTES = 102_400;
-export const DEFAULT_QUOTA_BYTES_PER_ITEM = 8_192;
+const DEFAULT_QUOTA_BYTES = 102_400;
+const DEFAULT_QUOTA_BYTES_PER_ITEM = 8_192;
 /** Pushes wait this long after the last local change. */
-export const PUSH_DELAY_MS = 2_000;
-/** The longest wait between retries after storage errors. */
-export const MAX_RETRY_DELAY_MS = 10 * 60_000;
+const PUSH_DELAY_MS = 2_000;
+const MAX_RETRY_DELAY_MS = 10 * 60_000;
 /** Removals older than this are no longer carried to other devices. */
-export const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60_000;
+const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60_000;
 /** The synced copy of a language may fill this share of the room left by other keys. */
 const FILL_LIMIT = 0.9;
 const SYNC_VERSION: SyncMeta["v"] = 1;
@@ -139,9 +138,6 @@ const toRecord = (term: TermRecord): SyncRecord => ({
   updatedMinutes: toMinutes(term.updatedAt),
 });
 
-const isChunkKeyOf = (lang: string, key: string) =>
-  key.startsWith(`sync:${lang}:`) && /^\d+$/.test(key.slice(lang.length + 6));
-
 const sameRecords = (a: SyncRecord[], b: SyncRecord[]) =>
   a.length === b.length &&
   a.every(
@@ -150,9 +146,6 @@ const sameRecords = (a: SyncRecord[], b: SyncRecord[]) =>
       r.status === b[i]!.status &&
       r.updatedMinutes === b[i]!.updatedMinutes,
   );
-
-const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
 
 /** What a value looked like when this device wrote it, to recognize its own writes. */
 const fingerprint = (value: unknown) =>
@@ -184,7 +177,7 @@ export function createBrowserSyncBackend({
   let pullError: string | undefined;
   let failures = 0;
   let started = false;
-  let unsubscribeStore: (() => void) | undefined;
+  let unsubscribe: (() => void) | undefined;
 
   let queue: Promise<void> = Promise.resolve();
   function enqueue(op: () => Promise<void>): Promise<void> {
@@ -200,7 +193,8 @@ export function createBrowserSyncBackend({
   function room(lang: string, all: Record<string, unknown>) {
     let others = 0;
     for (const [key, value] of Object.entries(all)) {
-      if (key === metaKey(lang) || isChunkKeyOf(lang, key)) continue;
+      if (key === metaKey(lang) || chunkIndexOf(lang, key) !== undefined)
+        continue;
       others +=
         key === SETTINGS_KEY
           ? Math.max(itemBytes(key, value), settingsReserve)
@@ -261,6 +255,42 @@ export function createBrowserSyncBackend({
     return { packed: best, count: high };
   }
 
+  /**
+   * The records packed within `limit`: when they do not fit, "save all" terms are left
+   * out oldest first, then known words oldest first.
+   */
+  async function fitToQuota(
+    lang: string,
+    records: SyncRecord[],
+    local: TermRecord[],
+    limit: number,
+    at: number,
+  ): Promise<{ packed: Packed; knownLeftOut: number }> {
+    const packed: Packed = { ...(await pack(lang, records, at)), records };
+    if (packed.bytes <= limit) return { packed, knownLeftOut: 0 };
+    const oldestFirst = (terms: TermRecord[]) =>
+      terms
+        .sort((a, b) => a.updatedAt - b.updatedAt || compareKeys(a.key, b.key))
+        .map((t) => t.key);
+    const bulk = oldestFirst(
+      local.filter((t) => t.bulk && t.status !== "removed"),
+    );
+    const withoutBulk = await leaveOut(lang, records, bulk, limit, at);
+    if (withoutBulk.packed.bytes <= limit)
+      return { packed: withoutBulk.packed, knownLeftOut: 0 };
+    const known = oldestFirst(
+      local.filter((t) => !t.bulk && t.status === "known"),
+    );
+    const withoutKnown = await leaveOut(
+      lang,
+      withoutBulk.packed.records,
+      known,
+      limit,
+      at,
+    );
+    return { packed: withoutKnown.packed, knownLeftOut: withoutKnown.count };
+  }
+
   async function write(
     lang: string,
     all: Record<string, unknown>,
@@ -269,9 +299,7 @@ export function createBrowserSyncBackend({
     const items: Record<string, unknown> = {};
     chunks.forEach((chunk, i) => (items[chunkKey(lang, i)] = chunk));
     const stale = Object.keys(all).filter(
-      (key) =>
-        isChunkKeyOf(lang, key) &&
-        Number(key.slice(lang.length + 6)) >= chunks.length,
+      (key) => (chunkIndexOf(lang, key) ?? -1) >= chunks.length,
     );
     // Chunks first, then the meta that points at them, then chunks nobody needs.
     for (const [key, value] of Object.entries(items))
@@ -301,36 +329,13 @@ export function createBrowserSyncBackend({
     const records = merged.filter(
       (r) => r.status !== "removed" || fromMinutes(r.updatedMinutes) >= cutoff,
     );
-    const limit = FILL_LIMIT * room(lang, all);
-    let packed: Packed = { ...(await pack(lang, records, at)), records };
-    let knownLeftOut = 0;
-    if (packed.bytes > limit) {
-      const oldestFirst = (terms: TermRecord[]) =>
-        terms
-          .sort(
-            (a, b) => a.updatedAt - b.updatedAt || compareKeys(a.key, b.key),
-          )
-          .map((t) => t.key);
-      const bulk = oldestFirst(
-        local.filter((t) => t.bulk && t.status !== "removed"),
-      );
-      const known = oldestFirst(
-        local.filter((t) => !t.bulk && t.status === "known"),
-      );
-      const withoutBulk = await leaveOut(lang, records, bulk, limit, at);
-      packed = withoutBulk.packed;
-      if (packed.bytes > limit) {
-        const withoutKnown = await leaveOut(
-          lang,
-          packed.records,
-          known,
-          limit,
-          at,
-        );
-        packed = withoutKnown.packed;
-        knownLeftOut = withoutKnown.count;
-      }
-    }
+    const { packed, knownLeftOut } = await fitToQuota(
+      lang,
+      records,
+      local,
+      FILL_LIMIT * room(lang, all),
+      at,
+    );
     droppedKnown.set(lang, knownLeftOut);
 
     const unchanged =
@@ -446,8 +451,7 @@ export function createBrowserSyncBackend({
     });
   }
 
-  const onStorageChanged: StorageChangedListener = (changes, areaName) => {
-    if (areaName !== "sync") return;
+  const onStorageChanged = (changes: Record<string, StorageChange>) => {
     const settings = changes[SETTINGS_KEY];
     if (settings) {
       const was = mergeSettings(settings.oldValue).syncEnabled;
@@ -517,10 +521,14 @@ export function createBrowserSyncBackend({
     async start() {
       if (started) return;
       started = true;
-      unsubscribeStore = store.onChange((lang, kind, origin) => {
+      const unsubscribeStore = store.onChange((lang, kind, origin) => {
         if (kind === "terms" && origin === "local") schedulePush(lang);
       });
-      onChanged.addListener(onStorageChanged);
+      const unwatch = watchStorage("sync", onStorageChanged, onChanged);
+      unsubscribe = () => {
+        unsubscribeStore();
+        unwatch();
+      };
       await pullAll().catch((error: unknown) => {
         pullError = errorText(error);
       });
@@ -530,8 +538,7 @@ export function createBrowserSyncBackend({
     stop() {
       if (!started) return;
       started = false;
-      unsubscribeStore?.();
-      onChanged.removeListener(onStorageChanged);
+      unsubscribe?.();
       cancelPushes();
     },
 

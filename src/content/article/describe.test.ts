@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DictionaryEntry } from "../../core/dictionary";
+import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import type { LookupResult, Request } from "../../messaging/protocol";
 import { rulesFor } from "../../core/phrases/rules";
 import type { TranslationPair, TranslationPriority } from "../translate/queue";
@@ -167,7 +167,6 @@ describe("describeTerm", () => {
         type: "lookup",
         lang: "en",
         key: "loaf",
-        kind: "word",
         sourceUrl: "https://example.com/a",
       },
     ]);

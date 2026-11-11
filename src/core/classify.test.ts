@@ -6,7 +6,7 @@ import {
   type TermIndex,
   type TermStatus,
 } from "./classify";
-import { createEnglishPack } from "./language-pack";
+import { createLanguagePack } from "./lexicon/language-pack";
 
 // Ranks: the 1, you 2, out 3, look 4, up 5, good 6, well 7, life 8, live 9, on 10,
 // figure 11, to 12, dough 13, ferment 14, tangy 15.
@@ -27,7 +27,7 @@ const freq = [
   "ferment",
   "tangy",
 ];
-const pack = createEnglishPack({
+const pack = createLanguagePack("en", {
   lemmas: {
     ferments: "ferment",
     figured: "figure",
@@ -154,7 +154,7 @@ describe("classify words", () => {
   });
 
   it("reads curly apostrophes like straight ones", () => {
-    const pack2 = createEnglishPack({
+    const pack2 = createLanguagePack("en", {
       lemmas: {},
       freq: ["don't"],
       ipa: {},

@@ -1,49 +1,29 @@
 import { Dexie } from "dexie";
-import type { TermIndex, TermKind, TermStatus } from "../core/classify";
+import type {
+  StoredStatus,
+  TermIndex,
+  TermKind,
+  TermStatus,
+} from "../core/classify";
 import { fromMinutes, toMinutes, type SyncRecord } from "../core/sync/codec";
-import { termId } from "../core/term-id";
+import { kindOfKey, termId } from "../core/term-id";
 import {
   normalizeUrl,
   sourceId,
   type Platform,
   type Position,
 } from "../core/url";
+import { listeners, omit, promiseCache } from "../core/util";
 import type {
-  LingoDb,
-  MetaKey,
-  OccurrenceRecord,
-  SourceRecord,
-  StoredStatus,
+  Counts,
+  EncounterInput,
+  ImportResult,
+  Origin,
+  SaveTermInput,
+  SourceInput,
   TermRecord,
-} from "./db";
-
-export interface SourceInput {
-  platform: Platform;
-  /** Any form of the page or video URL; the store normalizes it. */
-  url: string;
-  title: string;
-  /** The language of the page or video. */
-  lang: string;
-}
-
-export interface SaveTermInput {
-  lang: string;
-  key: string;
-  display: string;
-  kind: TermKind;
-  status: TermStatus;
-  source: SourceInput;
-  sentence: string;
-  translation?: string;
-  pos: Position;
-}
-
-export interface EncounterInput {
-  termId: string;
-  sentence: string;
-  translation?: string;
-  pos: Position;
-}
+} from "../messaging/protocol";
+import type { LingoDb, MetaKey, OccurrenceRecord, SourceRecord } from "./db";
 
 /** A sentence brought into a term's occurrences from elsewhere (the sentence history). */
 export interface ImportedOccurrence {
@@ -51,22 +31,14 @@ export interface ImportedOccurrence {
   sentence: string;
   translation?: string;
   pos: Position;
-  /** When it was seen (epoch ms). */
   seenAt: number;
-}
-
-/** Live terms only. `learning` and `known` count words; `phrases` counts phrases of either status. */
-export interface Counts {
-  learning: number;
-  known: number;
-  phrases: number;
 }
 
 export interface OccurrenceWithSource extends OccurrenceRecord {
   source: SourceRecord;
 }
 
-export interface OccurrenceStats {
+interface OccurrenceStats {
   count: number;
   /** The newest occurrence's `seenAt`. */
   lastSeen: number;
@@ -82,30 +54,17 @@ export interface LingoExport {
   occurrences: Omit<OccurrenceRecord, "id">[];
 }
 
-/** How many records an import added or replaced. */
-export interface ImportResult {
-  terms: number;
-  sources: number;
-  occurrences: number;
-}
+/** The terms themselves changed (status, added, removed), or only their occurrences. */
+type ChangeKind = "terms" | "occurrences";
 
-/** What changed: the terms themselves (status, added, removed) or only their occurrences. */
-export type ChangeKind = "terms" | "occurrences";
-
-/** `"sync"` for changes applied from another device's synced data, `"local"` otherwise. */
-export type ChangeOrigin = "local" | "sync";
-
-export type ChangeListener = (
-  lang: string,
-  kind: ChangeKind,
-  origin: ChangeOrigin,
-) => void;
+/** `"sync"`: applied from another device's synced data. */
+type ChangeOrigin = "local" | "sync";
 
 export interface TermStore {
-  /** Creates or updates a term and records where it was saved. The source is mandatory. */
+  /** Creates or updates a term and records where it was saved. */
   saveTerm(input: SaveTermInput): Promise<TermRecord>;
   setStatus(id: string, status: TermStatus): Promise<TermRecord>;
-  /** Leaves a tombstone (status `"removed"`) and deletes the term's occurrences. */
+  /** Leaves a tombstone and deletes the term's occurrences. */
   removeTerm(id: string): Promise<void>;
   /**
    * Records saved terms met again. Unsaved terms and sentences already recorded for
@@ -117,9 +76,8 @@ export interface TermStore {
   ): Promise<number>;
   /**
    * Adds sentences seen before saving as the live term's occurrences (`encountered`,
-   * with their own times), upserting their sources. Sentences the term already has in
-   * the same source are skipped; then the oldest encounters over the limit go. Returns
-   * how many were added (0 when the term is not saved).
+   * with their own times). Sentences the term already has in the same source are
+   * skipped; then the oldest encounters over the limit go. Returns how many were added.
    */
   importOccurrences(
     termId: string,
@@ -142,9 +100,8 @@ export interface TermStore {
     lang: string,
     options?: { includeRemoved?: boolean },
   ): Promise<TermRecord[]>;
-  /** Newest first, each with its source. */
+  /** Newest first. */
   occurrencesOf(termId: string): Promise<OccurrenceWithSource[]>;
-  /** Per term id of `lang`: how many occurrences it has and the newest one's time. */
   occurrenceStats(lang: string): Promise<Map<string, OccurrenceStats>>;
   /** All data as `LingoExport` JSON; records `lastExportAt`. */
   exportJson(): Promise<string>;
@@ -156,26 +113,23 @@ export interface TermStore {
   /**
    * Applies synced versions that are newer (by whole minutes) than this copy's:
    * status and update time only. Creates missing terms without a source, and leaves
-   * tombstones for removals. Listeners hear `"sync"`. Returns how many were applied.
+   * tombstones for removals. Returns how many were applied.
    */
   applySynced(lang: string, records: readonly SyncRecord[]): Promise<number>;
   /** Languages that have terms or tombstones. */
   languages(): Promise<string[]>;
   getMeta(key: MetaKey): Promise<number | undefined>;
   setMeta(key: MetaKey, value: number): Promise<void>;
-  /**
-   * Called after every committed change, once per language, with where the change
-   * came from. Returns an unsubscribe function.
-   */
-  onChange(listener: ChangeListener): () => void;
+  /** Called after every committed change, once per language. */
+  onChange(
+    listener: (lang: string, kind: ChangeKind, origin: ChangeOrigin) => void,
+  ): () => void;
 }
 
 export interface TermStoreOptions {
   now?: () => number;
   newBatchId?: () => string;
 }
-
-export { termId };
 
 /** Occurrences kept per term; the oldest encounters go first, saved ones stay. */
 export const MAX_OCCURRENCES = 50;
@@ -188,19 +142,9 @@ type LiveTerm = TermRecord & { status: TermStatus };
 const isLive = (term: TermRecord | undefined): term is LiveTerm =>
   term !== undefined && term.status !== "removed";
 
-/** A copy that is no longer part of a "save all" batch (and no longer bulk). */
-function deliberate(term: TermRecord): TermRecord {
-  const copy = { ...term };
-  delete copy.bulk;
-  delete copy.batchId;
-  return copy;
-}
-
-function withoutBatchId(term: TermRecord): TermRecord {
-  const copy = { ...term };
-  delete copy.batchId;
-  return copy;
-}
+/** No longer part of a "save all" batch, and no longer bulk. */
+const deliberate = (term: TermRecord): TermRecord =>
+  omit(term, "bulk", "batchId");
 
 class Changes {
   private readonly map = new Map<string, ChangeKind>();
@@ -212,6 +156,24 @@ class Changes {
   }
 }
 
+function makeOccurrence(
+  termId: string,
+  sourceId: string,
+  { sentence, translation, pos }: Omit<EncounterInput, "termId">,
+  seenAt: number,
+  origin: Origin,
+): OccurrenceRecord {
+  return {
+    termId,
+    sourceId,
+    sentence,
+    ...(translation !== undefined && { translation }),
+    pos,
+    seenAt,
+    origin,
+  };
+}
+
 export function createTermStore(
   db: LingoDb,
   {
@@ -219,22 +181,9 @@ export function createTermStore(
     newBatchId = () => crypto.randomUUID(),
   }: TermStoreOptions = {},
 ): TermStore {
-  const listeners = new Set<ChangeListener>();
-  const indexes = new Map<string, Promise<TermIndex>>();
+  const changed = listeners<[string, ChangeKind, ChangeOrigin]>();
+  const indexes = promiseCache<TermIndex>({ keep: true });
   const tables = [db.terms, db.sources, db.occurrences];
-
-  function notify(changes: Changes, origin: ChangeOrigin) {
-    for (const [lang, kind] of changes.entries()) {
-      if (kind === "terms") indexes.delete(lang);
-      for (const listener of listeners) {
-        try {
-          listener(lang, kind, origin);
-        } catch (error) {
-          console.error(error);
-        }
-      }
-    }
-  }
 
   /** Runs `fn` in one read-write transaction, then tells listeners what changed. */
   async function mutate<T>(
@@ -243,7 +192,10 @@ export function createTermStore(
   ): Promise<T> {
     const changes = new Changes();
     const result = await db.transaction("rw", tables, () => fn(changes));
-    notify(changes, origin);
+    for (const [lang, kind] of changes.entries()) {
+      if (kind === "terms") indexes.delete(lang);
+      changed.emit(lang, kind, origin);
+    }
     return result;
   }
 
@@ -277,6 +229,13 @@ export function createTermStore(
       .where("[termId+sourceId+sentence]")
       .equals([o.termId, o.sourceId, o.sentence])
       .first();
+
+  /** Adds the occurrence unless the term has the sentence in that source; true when added. */
+  async function addOccurrence(occurrence: OccurrenceRecord) {
+    if (await findOccurrence(occurrence)) return false;
+    await db.occurrences.add(occurrence);
+    return true;
+  }
 
   const occurrencesByAge = (id: string) =>
     db.occurrences
@@ -336,16 +295,13 @@ export function createTermStore(
         };
         await db.terms.put(term);
 
-        const occurrence: OccurrenceRecord = {
-          termId: id,
-          sourceId: await upsertSource(input.source, at),
-          sentence: input.sentence,
-          pos: input.pos,
-          seenAt: at,
-          origin: "saved",
-        };
-        if (input.translation !== undefined)
-          occurrence.translation = input.translation;
+        const occurrence = makeOccurrence(
+          id,
+          await upsertSource(input.source, at),
+          input,
+          at,
+          "saved",
+        );
         const same = await findOccurrence(occurrence);
         if (same) await db.occurrences.put({ ...occurrence, id: same.id });
         else await db.occurrences.add(occurrence);
@@ -385,18 +341,14 @@ export function createTermStore(
           const term = await db.terms.get(item.termId);
           if (!isLive(term)) continue;
           sourceKey ??= await upsertSource(source, at);
-          const occurrence: OccurrenceRecord = {
-            termId: item.termId,
-            sourceId: sourceKey,
-            sentence: item.sentence,
-            pos: item.pos,
-            seenAt: at,
-            origin: "encountered",
-          };
-          if (item.translation !== undefined)
-            occurrence.translation = item.translation;
-          if (await findOccurrence(occurrence)) continue;
-          await db.occurrences.add(occurrence);
+          const occurrence = makeOccurrence(
+            item.termId,
+            sourceKey,
+            item,
+            at,
+            "encountered",
+          );
+          if (!(await addOccurrence(occurrence))) continue;
           await trimOccurrences(item.termId);
           changes.add(term.lang, "occurrences");
           added++;
@@ -412,19 +364,14 @@ export function createTermStore(
         if (!isLive(term)) return 0;
         let added = 0;
         for (const row of rows) {
-          const occurrence: OccurrenceRecord = {
-            termId: id,
-            sourceId: await upsertSource(row.source, row.seenAt),
-            sentence: row.sentence,
-            pos: row.pos,
-            seenAt: row.seenAt,
-            origin: "encountered",
-          };
-          if (row.translation !== undefined)
-            occurrence.translation = row.translation;
-          if (await findOccurrence(occurrence)) continue;
-          await db.occurrences.add(occurrence);
-          added++;
+          const occurrence = makeOccurrence(
+            id,
+            await upsertSource(row.source, row.seenAt),
+            row,
+            row.seenAt,
+            "encountered",
+          );
+          if (await addOccurrence(occurrence)) added++;
         }
         if (added > 0) {
           await trimOccurrences(id);
@@ -448,7 +395,7 @@ export function createTermStore(
             lang,
             key,
             display: key,
-            kind: key.includes(" ") ? "phrase" : "word",
+            kind: kindOfKey(key),
             status,
             bulk: true,
             batchId,
@@ -494,20 +441,10 @@ export function createTermStore(
     },
 
     termIndex(lang) {
-      let index = indexes.get(lang);
-      if (!index) {
-        index = db.terms
-          .where("lang")
-          .equals(lang)
-          .toArray()
-          .then(
-            (terms) =>
-              new Map(terms.filter(isLive).map((t) => [t.key, t.status])),
-          );
-        indexes.set(lang, index);
-        index.catch(() => indexes.delete(lang));
-      }
-      return index;
+      return indexes.get(lang, async () => {
+        const terms = await db.terms.where("lang").equals(lang).toArray();
+        return new Map(terms.filter(isLive).map((t) => [t.key, t.status]));
+      });
     },
 
     async listTerms(lang, { includeRemoved = false } = {}) {
@@ -557,13 +494,9 @@ export function createTermStore(
           format: EXPORT_FORMAT,
           version: EXPORT_VERSION,
           exportedAt,
-          terms: terms.map(withoutBatchId),
+          terms: terms.map((term) => omit(term, "batchId")),
           sources,
-          occurrences: occurrences.map((o) => {
-            const copy = { ...o };
-            delete copy.id;
-            return copy;
-          }),
+          occurrences: occurrences.map((o) => omit(o, "id")),
         };
         return exported;
       });
@@ -579,7 +512,7 @@ export function createTermStore(
         for (const incoming of data.terms) {
           const local = await db.terms.get(incoming.id);
           if (local && incoming.updatedAt <= local.updatedAt) continue;
-          await db.terms.put(withoutBatchId(incoming));
+          await db.terms.put(omit(incoming, "batchId"));
           if (incoming.status === "removed")
             await deleteOccurrences(incoming.id);
           changes.add(incoming.lang, "terms");
@@ -606,8 +539,7 @@ export function createTermStore(
           const term = await db.terms.get(incoming.termId);
           if (!isLive(term)) continue;
           if (!(await db.sources.get(incoming.sourceId))) continue;
-          if (await findOccurrence(incoming)) continue;
-          await db.occurrences.add({ ...incoming });
+          if (!(await addOccurrence({ ...incoming }))) continue;
           touched.add(term.id);
           changes.add(term.lang, "occurrences");
           result.occurrences++;
@@ -640,9 +572,7 @@ export function createTermStore(
               lang,
               key: record.key,
               display: existing?.display ?? record.key,
-              kind:
-                existing?.kind ??
-                (record.key.includes(" ") ? "phrase" : "word"),
+              kind: existing?.kind ?? kindOfKey(record.key),
               status: record.status,
               createdAt: kept ? existing.createdAt : at,
               updatedAt: at,
@@ -667,10 +597,7 @@ export function createTermStore(
       await db.meta.put({ key, value });
     },
 
-    onChange(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    onChange: changed.add,
   };
 }
 
@@ -742,13 +669,8 @@ function parseExport(json: string): LingoExport {
     !occurrences.every(isOccurrence)
   )
     throw new Error("The Lingo export is damaged");
-  const strip = (o: Omit<OccurrenceRecord, "id">) => {
-    const copy = { ...o } as OccurrenceRecord;
-    delete copy.id;
-    return copy;
-  };
   return {
     ...(data as unknown as LingoExport),
-    occurrences: occurrences.map(strip),
+    occurrences: occurrences.map((o) => omit(o as OccurrenceRecord, "id")),
   };
 }
