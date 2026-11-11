@@ -1,33 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { learningLanguages, nativeLanguages } from "../core/languages";
 import type { PackName } from "../core/packs/load";
-import { readLock } from "../core/packs/lock";
 import { PacksUnavailableError } from "../core/packs/unavailable";
-import { createLanguageResources, packsFor } from "./language-resources";
+import { createLanguageResources } from "./language-resources";
 import { filesRead, stubPackLoader as stubLoader } from "./test-packs";
-
-describe("packsFor", () => {
-  it("lists the language's pack, then the dictionary's other packs", () => {
-    expect(packsFor("en", "ja")).toEqual(["en", "en-ja", "en-defs"]);
-    expect(packsFor("es", "en")).toEqual(["es", "es-en"]);
-  });
-
-  it("lists what has a recipe of a pair Lingo does not offer", () => {
-    expect(packsFor("en", "fr")).toEqual(["en"]);
-    expect(packsFor("fr", "ja")).toEqual([]);
-    expect(packsFor("constructor", "toString")).toEqual([]);
-  });
-
-  it("names packs of the lock for every pair the settings offer", () => {
-    const { packs } = readLock();
-    for (const learning of learningLanguages())
-      for (const native of nativeLanguages(learning)) {
-        const needed = packsFor(learning, native);
-        expect(needed.length).toBeGreaterThan(1);
-        for (const pack of needed) expect(Object.keys(packs)).toContain(pack);
-      }
-  });
-});
 
 describe("createLanguageResources", () => {
   it("builds the English pack from the bundled packs, with their vocabulary", async () => {

@@ -2,13 +2,23 @@
 // dictionary) over a small stub pack, answering in-process instead of through messaging.
 import { createHandlers } from "../../background/handlers";
 import { createLanguageResources } from "../../background/language-resources";
-import { bundledPacks } from "../../background/test-packs";
 import { openLingoDb } from "../../background/db";
 import { createHistoryStore } from "../../background/history-store";
 import { createTermStore } from "../../background/term-store";
 import { createTranslationCache } from "../../background/translation-cache";
 import { createBrowserEnv } from "../../core/browser-env";
-import { createPackLoader, type PackFiles } from "../../core/packs/load";
+import {
+  createPackLoader,
+  type PackFiles,
+  type PackName,
+} from "../../core/packs/load";
+import { applyOverrides, readLock } from "../../core/packs/lock";
+import {
+  packUsable,
+  type PackState,
+  type PackStates,
+} from "../../core/packs/state";
+import { PacksUnavailableError } from "../../core/packs/unavailable";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
@@ -157,12 +167,34 @@ const FILES: Readonly<Record<string, unknown>> = {
 
 let dbCount = 0;
 
+export interface TestBackgroundOptions {
+  /**
+   * Packs that are downloaded and not on the device yet: requests that need them fail
+   * with `PacksUnavailableError` until `setPackStates` says they are usable.
+   */
+  missingPacks?: readonly PackName[];
+}
+
 /**
- * A background for content-script tests. `send` answers like the real one and
- * records every request; `settings` can be changed with `setSettings` requests.
+ * A background for content-script tests. `send` answers like the real one (and
+ * `send` in messaging/client.ts) and records every request; `settings` can be changed
+ * with `setSettings` requests.
  */
-export function testBackground(initial: Partial<Settings> = {}) {
+export function testBackground(
+  initial: Partial<Settings> = {},
+  options: TestBackgroundOptions = {},
+) {
   let settings = mergeSettings(initial, DEFAULT_SETTINGS);
+  const missing = new Set<string>(options.missingPacks);
+  // A build that downloads the missing packs; the others are bundled.
+  const lock = applyOverrides(
+    readLock(),
+    { WXT_PACKS_DOWNLOAD: [...missing].join(",") },
+    "test",
+  );
+  let packStates: PackStates = {};
+  const packListeners = new Set<(states: PackStates) => void>();
+  let retries = 0;
   const db = openLingoDb(`lingo-content-test-${Date.now()}-${dbCount++}`);
   const store = createTermStore(db);
   let optionsOpened = 0;
@@ -179,11 +211,32 @@ export function testBackground(initial: Partial<Settings> = {}) {
     },
     resources: createLanguageResources(
       createPackLoader(async (path) => {
+        const pack = path.split("/")[2]!;
+        if (missing.has(pack)) throw new PacksUnavailableError([pack]);
         if (!Object.hasOwn(FILES, path)) throw new Error(`not found: ${path}`);
         return FILES[path];
       }),
     ),
-    packs: bundledPacks(),
+    packs: {
+      lock,
+      store: {
+        async states(names) {
+          const result: Record<string, PackState> = {};
+          for (const name of names)
+            if (Object.hasOwn(lock.packs, name))
+              if (!lock.packs[name as PackName].bundled)
+                result[name] = Object.hasOwn(packStates, name)
+                  ? packStates[name]!
+                  : { state: "downloading", received: 0, total: 0 };
+          return result;
+        },
+        downloaded: async () => [],
+        remove: async () => {},
+      },
+      retry: () => {
+        retries++;
+      },
+    },
     sync: {
       status: async () => ({
         enabled: false,
@@ -203,7 +256,11 @@ export function testBackground(initial: Partial<Settings> = {}) {
   const sendFn = (async (request: Request) => {
     requests.push(request);
     const reply = await handle(request);
-    if (!reply.ok) throw new Error(reply.error);
+    if (!reply.ok) {
+      if (reply.code === "packsUnavailable")
+        throw new PacksUnavailableError(reply.packs);
+      throw new Error(reply.error);
+    }
     return reply.value;
   }) as typeof send;
 
@@ -219,6 +276,34 @@ export function testBackground(initial: Partial<Settings> = {}) {
     settings: () => settings,
     /** How many times the options page was opened. */
     optionsOpened: () => optionsOpened,
+    /**
+     * `watchPackState`: the states a moment later (as storage.local is read, and
+     * dropped when a change came first), then each `setPackStates`.
+     */
+    watchPackState(listener: (states: PackStates) => void) {
+      packListeners.add(listener);
+      const now = packStates;
+      setTimeout(() => {
+        if (packListeners.has(listener) && packStates === now) listener(now);
+      }, 0);
+      return () => {
+        packListeners.delete(listener);
+      };
+    },
+    /**
+     * The background writes `packState`: the packs it says are usable are on the
+     * device from now on.
+     */
+    setPackStates(states: PackStates) {
+      packStates = states;
+      for (const [pack, state] of Object.entries(states))
+        if (packUsable(state)) missing.delete(pack);
+      for (const listener of [...packListeners]) listener(states);
+    },
+    /** How many listeners watch the pack states. */
+    packWatchers: () => packListeners.size,
+    /** How many times `retryPacks` was asked. */
+    retries: () => retries,
     async close() {
       db.close();
       await db.delete();

@@ -10,6 +10,7 @@ import {
   type LanguagePackData,
 } from "../core/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
+import { DICTIONARY_PACKS, LANGUAGE_PACK_PACKS } from "../core/packs/pairs";
 import { allOf } from "../core/packs/unavailable";
 import type {
   FreqPack,
@@ -87,9 +88,11 @@ function languagePack(lang: string, files: LanguagePackFiles): LanguagePack {
  * whose vocabulary is its dictionary's single-word headwords and whose phrase patterns
  * are detected in text, or matched when saved or selected.
  */
-const LANGUAGE_PACKS: Readonly<Record<string, Recipe<LanguagePack>>> = {
-  en: recipe(["en"], ({ en }) => languagePack("en", en)),
-  es: recipe(["es"], ({ es }) => languagePack("es", es)),
+const LANGUAGE_PACKS: {
+  readonly [L in keyof typeof LANGUAGE_PACK_PACKS]: Recipe<LanguagePack>;
+} = {
+  en: recipe(LANGUAGE_PACK_PACKS.en, ({ en }) => languagePack("en", en)),
+  es: recipe(LANGUAGE_PACK_PACKS.es, ({ es }) => languagePack("es", es)),
 };
 
 /**
@@ -98,9 +101,11 @@ const LANGUAGE_PACKS: Readonly<Record<string, Recipe<LanguagePack>>> = {
  *   parts of speech and IPA from `en`
  * - es-en: Wiktionary's English meanings (`es-en`), IPA from `es`
  */
-const DICTIONARIES: Readonly<Record<string, Recipe<DictionaryProvider>>> = {
+const DICTIONARIES: {
+  readonly [P in keyof typeof DICTIONARY_PACKS]: Recipe<DictionaryProvider>;
+} = {
   "en-ja": recipe(
-    ["en", "en-ja", "en-defs"],
+    DICTIONARY_PACKS["en-ja"],
     ({ en, "en-ja": enJa, "en-defs": enDefs }) =>
       createEnJaDictionary({
         dict: enJa.dict,
@@ -110,7 +115,7 @@ const DICTIONARIES: Readonly<Record<string, Recipe<DictionaryProvider>>> = {
         ipa: en.ipa,
       }),
   ),
-  "es-en": recipe(["es", "es-en"], ({ es, "es-en": esEn }) =>
+  "es-en": recipe(DICTIONARY_PACKS["es-en"], ({ es, "es-en": esEn }) =>
     createDefsDictionary({
       from: "es",
       to: "en",
@@ -120,27 +125,20 @@ const DICTIONARIES: Readonly<Record<string, Recipe<DictionaryProvider>>> = {
   ),
 };
 
-const languageRecipe = (lang: string) =>
-  Object.hasOwn(LANGUAGE_PACKS, lang) ? LANGUAGE_PACKS[lang] : undefined;
+const languageRecipe = (lang: string): Recipe<LanguagePack> | undefined =>
+  Object.hasOwn(LANGUAGE_PACKS, lang)
+    ? LANGUAGE_PACKS[lang as keyof typeof LANGUAGE_PACKS]
+    : undefined;
 
-const dictionaryRecipe = (from: string, to: string) => {
+const dictionaryRecipe = (
+  from: string,
+  to: string,
+): Recipe<DictionaryProvider> | undefined => {
   const pair = `${from}-${to}`;
-  return Object.hasOwn(DICTIONARIES, pair) ? DICTIONARIES[pair] : undefined;
+  return Object.hasOwn(DICTIONARIES, pair)
+    ? DICTIONARIES[pair as keyof typeof DICTIONARIES]
+    : undefined;
 };
-
-/**
- * The packs a language pair needs: the learning language's pack, then the other packs
- * of its dictionary into the native language. What has no recipe is left out (an
- * unknown language or pair needs nothing).
- */
-export function packsFor(learning: string, native: string): PackName[] {
-  return [
-    ...new Set([
-      ...(languageRecipe(learning)?.packs ?? []),
-      ...(dictionaryRecipe(learning, native)?.packs ?? []),
-    ]),
-  ];
-}
 
 /**
  * Resources built from the packs, each once per context (the background's service

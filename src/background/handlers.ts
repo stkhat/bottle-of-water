@@ -4,6 +4,7 @@ import { cleanDefinition, definitionTexts } from "../core/definitions";
 import type { DictionaryEntry } from "../core/dictionary";
 import { learningLanguages, nativeLanguages } from "../core/languages";
 import type { PackLock } from "../core/packs/lock";
+import { packsFor } from "../core/packs/pairs";
 import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
 import type { MatchWord } from "../core/phrases/matcher";
 import {
@@ -25,7 +26,7 @@ import {
 } from "../messaging/protocol";
 import { historyKeys } from "./history-keys";
 import type { HistorySentence, HistoryStore } from "./history-store";
-import { packsFor, type LanguageResources } from "./language-resources";
+import type { LanguageResources } from "./language-resources";
 import type { PackStore } from "./pack-store";
 import {
   MAX_OCCURRENCES,

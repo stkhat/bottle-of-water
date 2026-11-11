@@ -10,18 +10,34 @@ import {
   type SettingsPatch,
 } from "../../core/settings";
 import { learningLanguages, nativeLanguages } from "../../core/languages";
+import { pairOfPack } from "../../core/packs/pairs";
+import { combinedState, type PackStates } from "../../core/packs/state";
 import type { SyncStatus } from "../../core/sync/backend";
 import { siteFromInput } from "../../core/url";
 import { downloadTranslationModels } from "../../content/translate/translator";
-import { languageName, languageOption } from "../../i18n/languages";
+import {
+  languageName,
+  languageOption,
+  languagePair,
+} from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { send } from "../../messaging/client";
+import {
+  followPackStatus,
+  type PackStatusFollower,
+} from "../../messaging/pack-status";
+import type { PackStatus } from "../../messaging/protocol";
 import {
   BackupButtons,
   type BackupDeps,
   type BackupNote,
 } from "../../ui/backup/BackupButtons";
-import { kilobytes, megabytes, relativeTime } from "../../ui/format/format";
+import {
+  kilobytes,
+  megabytes,
+  megabytesTenths,
+  relativeTime,
+} from "../../ui/format/format";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
 
@@ -29,6 +45,8 @@ import { badge, color, FONT } from "../../ui/lookup/styles";
 export interface SettingsDeps extends BackupDeps {
   send: typeof send;
   watchSettings(listener: (settings: Settings) => void): () => void;
+  /** The background's pack states now and after every change (`watchPackState`). */
+  watchPackState(listener: (states: PackStates) => void): () => void;
   env: Pick<BrowserEnv, "name" | "syncName" | "features">;
   /** The extension's version, from the manifest. */
   version: string;
@@ -69,6 +87,10 @@ a{color:${color.greenText}}a:hover{color:${color.greenDark}}
 .nav[aria-current="true"]{background:${color.greenPale};color:${color.greenDark};font-weight:600}
 .chk{width:18px;height:18px;accent-color:${color.green};margin:0}
 .soon{font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${color.muted};background:${color.surfaceGray};border-radius:999px;padding:3px 8px}
+.sub{display:flex;align-items:center;gap:16px;padding:10px 0 10px 20px;border-top:1px solid ${color.soft}}
+.st{display:inline-flex;align-items:center;gap:8px;min-width:220px;justify-content:flex-end;font-size:14px;color:${color.ink}}
+.track{display:block;width:120px;height:6px;border-radius:3px;background:${color.line}}
+.fill{display:block;height:100%;border-radius:3px;background:${color.greenBright}}
 `;
 
 /** The subtitle-position pictures draw a video frame, dark in both themes. */
@@ -444,6 +466,159 @@ function NeverRunOn(props: {
   );
 }
 
+const CHECK = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color.green}
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M5 12l5 5 9-10"></path>
+  </svg>
+);
+
+/** Downloaded packs the chosen pair does not use, together by the pair they are for. */
+interface OtherData {
+  /** "Spanish → English"; a pack no offered pair uses shows its name. */
+  label: string;
+  packs: string[];
+  size: number;
+}
+
+function otherData(others: PackStatus["others"]): OtherData[] {
+  const groups = new Map<string, OtherData>();
+  for (const { pack, size } of others) {
+    const pair = pairOfPack(pack);
+    const label = pair ? languagePair(pair.learning, pair.native) : pack;
+    const group = groups.get(label);
+    if (group) {
+      group.packs.push(pack);
+      group.size += size;
+    } else groups.set(label, { label, packs: [pack], size });
+  }
+  return [...groups.values()];
+}
+
+/** The chosen pair's download: Downloaded, its share, or Couldn't download with Retry. */
+function PairDataState(props: {
+  packs: PackStatus["pair"]["packs"];
+  onRetry: () => void;
+}) {
+  const { state, percent } = combinedState(props.packs);
+  if (state === "ready")
+    return (
+      <span class="st">
+        {CHECK}
+        <span>{t("settings.languages.dataDownloaded")}</span>
+      </span>
+    );
+  if (state === "downloading")
+    return (
+      <span class="st">
+        <span>{t("settings.languages.dataDownloading", { percent })}</span>
+        <span class="track" aria-hidden="true">
+          <span class="fill" style={{ width: `${percent}%` }}></span>
+        </span>
+      </span>
+    );
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "12px",
+        minWidth: "220px",
+        justifyContent: "flex-end",
+      }}
+    >
+      <span class="st" style={{ minWidth: 0, color: color.danger }}>
+        {t("settings.languages.dataFailed")}
+      </span>
+      <button class="btn" type="button" onClick={props.onRetry}>
+        {t("settings.languages.dataRetry")}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Languages → Language data (mock LanguageData): the chosen pair's downloaded data with
+ * its state, then other downloaded data, which can be removed. None when the chosen
+ * pair's data is bundled and nothing else is downloaded.
+ */
+function LanguageData(props: {
+  status: PackStatus;
+  learning: string;
+  native: string;
+  onRetry: () => void;
+  onRemove: (packs: string[]) => void;
+}) {
+  const { pair } = props.status;
+  const others = otherData(props.status.others);
+  if (pair.bundled && others.length === 0) return null;
+  const pairSize = pair.packs.reduce((sum, p) => sum + p.size, 0);
+  return (
+    <div
+      class="row"
+      style={{
+        flexDirection: "column",
+        alignItems: "stretch",
+        gap: 0,
+        paddingBottom: 0,
+      }}
+    >
+      <span class="lbl" style={{ paddingBottom: "10px" }}>
+        <span class="lt">{t("settings.languages.data")}</span>
+        <span class="ld">{t("settings.languages.dataDesc")}</span>
+      </span>
+      {!pair.bundled && (
+        <div class="sub">
+          <span class="lbl">
+            <span class="lt" style={{ fontSize: "14px" }}>
+              {languagePair(props.learning, props.native)}
+            </span>
+            <span class="ld">
+              {t("settings.languages.dataSize", {
+                size: megabytesTenths(pairSize),
+              })}
+            </span>
+          </span>
+          <PairDataState packs={pair.packs} onRetry={props.onRetry} />
+        </div>
+      )}
+      {others.map((other) => (
+        <div key={other.label} class="sub">
+          <span class="lbl">
+            <span class="lt" style={{ fontSize: "14px" }}>
+              {other.label}
+            </span>
+            <span class="ld">
+              {t("settings.languages.dataUnused", {
+                size: megabytesTenths(other.size),
+              })}
+            </span>
+          </span>
+          <button
+            class="btn"
+            type="button"
+            aria-label={t("settings.languages.dataRemoveLabel", {
+              pair: other.label,
+            })}
+            onClick={() => props.onRemove(other.packs)}
+          >
+            {t("settings.languages.dataRemove")}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const UNSAVED_AT_END: readonly {
   id: Settings["unsavedAtEnd"];
   label: MessageKey;
@@ -467,8 +642,12 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const [history, setHistory] = useState<HistoryStatus>();
   const [lastExport, setLastExport] = useState<number | null>(null);
   const [note, setNote] = useState<BackupNote>(null);
+  const [packs, setPacks] = useState<PackStatus>();
   const [now, setNow] = useState(deps.now);
   const active = useSectionInView();
+  const packStatus = useRef<PackStatusFollower>(undefined);
+  /** The language pair whose data `packs` is. */
+  const pair = useRef<string>(undefined);
 
   const warn = (error: unknown) => console.warn("Lingo:", error);
   const refreshSync = () =>
@@ -481,9 +660,15 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   function show(next: Settings) {
     setSettings(next);
     setLevel(next.knownLevel);
+    // Another pair has other data.
+    const nextPair = `${next.learningLang}>${next.nativeLang}`;
+    if (pair.current !== undefined && pair.current !== nextPair)
+      packStatus.current?.refresh();
+    pair.current = nextPair;
   }
 
   useEffect(() => {
+    packStatus.current = followPackStatus(deps, setPacks);
     deps.send({ type: "getSettings" }).then(show, warn);
     void refreshSync();
     void refreshHistory();
@@ -499,6 +684,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     }, deps.refreshMs);
     return () => {
       unwatch();
+      packStatus.current?.stop();
       clearInterval(timer);
     };
   }, []);
@@ -685,6 +871,24 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
             "settings.languages.uiDesc",
             "uiLocale",
             ["en"],
+          )}
+          {packs && (
+            <LanguageData
+              status={packs}
+              learning={s.learningLang}
+              native={s.nativeLang}
+              onRetry={() => {
+                deps.send({ type: "retryPacks" }).catch(warn);
+              }}
+              onRemove={(names) => {
+                void (async () => {
+                  for (const pack of names)
+                    await deps.send({ type: "removePack", pack });
+                })()
+                  .catch(warn)
+                  .finally(() => packStatus.current?.refresh());
+              }}
+            />
           )}
         </Section>
 

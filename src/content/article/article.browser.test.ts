@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Category, Span } from "../../core/classify";
+import type { PackState, PackStates } from "../../core/packs/state";
+import { PacksUnavailableError } from "../../core/packs/unavailable";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
@@ -33,16 +35,28 @@ const CATEGORIES: Record<string, Category> = {
   tangy: "new",
 };
 
-/** A background that classifies a few words and records the requests. */
-function fakeDeps(settings: Settings) {
+/**
+ * A background that classifies a few words and records the requests. Packs in
+ * `missing` are not on the device: analyze fails with `PacksUnavailableError` until
+ * `setPackStates` says they are ready (or `stillMissing` keeps them missing).
+ */
+function fakeDeps(settings: Settings, missingPacks: readonly string[] = []) {
   const requests: Request[] = [];
   const listeners: ((s: Settings) => void)[] = [];
+  const packListeners = new Set<(states: PackStates) => void>();
+  const missing = new Set(missingPacks);
+  let packStates: PackStates = {};
   let current = settings;
   let mounted = 0;
   const deps: ArticleDeps = {
     send: (async (request: Request) => {
       requests.push(request);
       if (request.type === "getSettings") return current;
+      if (
+        missing.size > 0 &&
+        ["analyze", "warmDictionary", "recordHistory"].includes(request.type)
+      )
+        throw new PacksUnavailableError([...missing]);
       if (request.type === "analyze") {
         const spans = request.blocks.map((block) =>
           tokenize(block, "en")
@@ -66,6 +80,16 @@ function fakeDeps(settings: Settings) {
       listeners.push(listener);
       return () => listeners.splice(listeners.indexOf(listener), 1);
     },
+    // As storage.local is read: the states come a little later, unless a change
+    // came first.
+    watchPackState(listener) {
+      packListeners.add(listener);
+      const now = packStates;
+      setTimeout(() => {
+        if (packListeners.has(listener) && packStates === now) listener(now);
+      }, 0);
+      return () => packListeners.delete(listener);
+    },
     detectLanguage: async () => ({
       isReliable: true,
       languages: [{ language: "en", percentage: 99 }],
@@ -84,8 +108,27 @@ function fakeDeps(settings: Settings) {
       [...listeners].forEach((l) => l(s));
     },
     listeners,
+    /** The background writes `packState`: packs ready there are on the device. */
+    setPackStates(
+      states: PackStates,
+      options: { stillMissing?: boolean } = {},
+    ) {
+      packStates = states;
+      if (!options.stillMissing)
+        for (const [pack, state] of Object.entries(states))
+          if (state.state === "ready") missing.delete(pack);
+      for (const listener of [...packListeners]) listener(states);
+    },
+    packWatchers: () => packListeners.size,
   };
 }
+
+const READY: PackState = { state: "ready", received: 100, total: 100 };
+const DOWNLOADING: PackState = {
+  state: "downloading",
+  received: 40,
+  total: 100,
+};
 
 const ARTICLE = `
   <p>Most home bakers rush the process. They knead, wait an hour, and bake.</p>
@@ -335,6 +378,88 @@ describe("startArticle", () => {
     expect(document.adoptedStyleSheets.length).toBe(sheets);
     expect(fake.mounted()).toBe(0);
     expect(fake.listeners).toHaveLength(0);
+  });
+});
+
+describe("startArticle without its language data", () => {
+  const quiet = () => {
+    const warn = vi.spyOn(console, "warn");
+    const error = vi.spyOn(console, "error");
+    cleanups.push(() => vi.restoreAllMocks());
+    return () => {
+      expect(warn).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+    };
+  };
+  const analyzed = (fake: ReturnType<typeof fakeDeps>) =>
+    fake.requests.filter((r) => r.type === "analyze").length;
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+  it("shows nothing, quietly, while the data is missing, and highlights the page once it is ready", async () => {
+    const noWarnings = quiet();
+    const fake = fakeDeps(settings({ highlight: { new: true } }), ["en"]);
+    const session = (await start(fake, fixture(ARTICLE))) as ArticleSession;
+    await expect.poll(() => analyzed(fake)).toBe(1);
+    await expect.poll(() => fake.packWatchers()).toBe(1);
+
+    fake.setPackStates({ en: DOWNLOADING });
+    await pause();
+    expect(analyzed(fake)).toBe(1);
+    expect(session.spans.size).toBe(0);
+    expect(highlighted("lingo-new")).toEqual([]);
+
+    fake.setPackStates({ en: READY });
+    await expect
+      .poll(() => highlighted("lingo-new"))
+      .toEqual(["knead", "tangy"]);
+    // The blocks that waited, in one request; nothing watched any more.
+    expect(analyzed(fake)).toBe(2);
+    expect(fake.packWatchers()).toBe(0);
+    noWarnings();
+  });
+
+  it("analyzes again at once when the data was ready by the time it looked", async () => {
+    const noWarnings = quiet();
+    const fake = fakeDeps(settings({ highlight: { new: true } }), ["en"]);
+    // The download ends between the failed request and the look at the states.
+    const send = fake.deps.send;
+    fake.deps.send = (async (request: Request) => {
+      try {
+        return await send(request as never);
+      } finally {
+        if (request.type === "analyze") fake.setPackStates({ en: READY });
+      }
+    }) as typeof send;
+    await start(fake, fixture(ARTICLE));
+    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    expect(analyzed(fake)).toBe(2);
+    noWarnings();
+  });
+
+  it("waits for a change when the data still fails with the states it ran on", async () => {
+    const noWarnings = quiet();
+    const fake = fakeDeps(settings({ highlight: { new: true } }), ["en"]);
+    await start(fake, fixture(ARTICLE));
+    await expect.poll(() => fake.packWatchers()).toBe(1);
+    fake.setPackStates({ en: READY }, { stillMissing: true });
+    await expect.poll(() => analyzed(fake)).toBe(2);
+    await pause();
+    expect(analyzed(fake)).toBe(2);
+    expect(fake.packWatchers()).toBe(1);
+
+    fake.setPackStates({ en: DOWNLOADING });
+    fake.setPackStates({ en: READY });
+    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    expect(analyzed(fake)).toBe(3);
+    noWarnings();
+  });
+
+  it("stops watching the data when it stops", async () => {
+    const fake = fakeDeps(settings(), ["en"]);
+    const session = (await start(fake, fixture(ARTICLE))) as ArticleSession;
+    await expect.poll(() => fake.packWatchers()).toBe(1);
+    session.stop();
+    expect(fake.packWatchers()).toBe(0);
   });
 });
 

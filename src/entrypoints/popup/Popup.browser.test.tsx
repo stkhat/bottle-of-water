@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "vitest-browser-preact";
 import type { Counts } from "../../background/term-store";
+import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
 import type { SyncStatus } from "../../core/sync/backend";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
-import type { Request } from "../../messaging/protocol";
+import type { PackStatus, Request } from "../../messaging/protocol";
 import { Popup, type PopupDeps } from "./Popup";
 
 const NOW = Date.UTC(2026, 10, 10, 12, 0, 0);
@@ -35,7 +36,23 @@ interface FakeOptions {
   counts?: Counts;
   sync?: SyncStatus;
   refreshMs?: number;
+  /** What `packStatus` answers for the settings (default: every pack bundled). */
+  packStatus?: (settings: Settings) => PackStatus;
 }
+
+const BUNDLED: PackStatus = { pair: { bundled: true, packs: [] }, others: [] };
+
+/** The Spanish pair's packs, downloaded, in these states. */
+const spanish = (es: PackState, esEn: PackState): PackStatus => ({
+  pair: {
+    bundled: false,
+    packs: [
+      { pack: "es", size: 3_000_000, ...es },
+      { pack: "es-en", size: 3_500_000, ...esEn },
+    ],
+  },
+  others: [],
+});
 
 /** A background, settings storage and active tab behind the popup. */
 function fake(options: FakeOptions = {}) {
@@ -43,6 +60,7 @@ function fake(options: FakeOptions = {}) {
   let page = options.page;
   let counts = options.counts ?? { learning: 128, known: 2341, phrases: 37 };
   const listeners = new Set<(s: Settings) => void>();
+  const packListeners = new Set<(states: PackStates) => void>();
   const sent: Request[] = [];
   const asked: PageRequest[] = [];
   const deps: PopupDeps = {
@@ -59,6 +77,10 @@ function fake(options: FakeOptions = {}) {
           return counts;
         case "syncStatus":
           return options.sync ?? SYNC;
+        case "packStatus":
+          return options.packStatus?.(settings) ?? BUNDLED;
+        case "retryPacks":
+          return null;
         default:
           throw new Error(`unexpected ${request.type}`);
       }
@@ -86,6 +108,10 @@ function fake(options: FakeOptions = {}) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    watchPackState(listener) {
+      packListeners.add(listener);
+      return () => packListeners.delete(listener);
+    },
     syncName: "Chrome sync",
     openOptions: vi.fn(),
     openWordList: vi.fn(),
@@ -105,6 +131,11 @@ function fake(options: FakeOptions = {}) {
       settings = mergeSettings(patch, settings);
       for (const l of listeners) l(settings);
     },
+    /** The background writes `packState`. */
+    setPackStates(states: PackStates) {
+      for (const l of packListeners) l(states);
+    },
+    packWatchers: () => packListeners.size,
   };
 }
 
@@ -274,6 +305,130 @@ describe("Popup", () => {
       await expect.element(screen.getByText("Sync is off")).toBeVisible();
       expect(screen.getByText(/Sync space/).query()).toBeNull();
       expect(screen.getByText(/Saved to/).query()).toBeNull();
+    });
+  });
+
+  describe("language data", () => {
+    const SPANISH = { learningLang: "es", nativeLang: "en" };
+    const ready = (total: number): PackState => ({
+      state: "ready",
+      received: total,
+      total,
+    });
+
+    it("shows the download under the header while the pair's data is missing, and nothing once it is there", async () => {
+      const f = fake({
+        settings: SPANISH,
+        page: ARTICLE,
+        packStatus: () =>
+          spanish(ready(3_000_000), {
+            state: "downloading",
+            received: 0,
+            total: 3_500_000,
+          }),
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      const line = screen.getByRole("status");
+      await expect
+        .element(line)
+        .toHaveTextContent("Downloading Spanish data · 46%");
+      // Under the header, before the rest of the popup.
+      const header = screen.getByText("Spanish → English").element();
+      const site = screen.getByText("On this site").element();
+      expect(
+        header.compareDocumentPosition(line.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        line.element().compareDocumentPosition(site) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
+      f.setPackStates({
+        "es-en": {
+          state: "downloading",
+          received: 2_500_000,
+          total: 3_500_000,
+        },
+      });
+      await expect
+        .element(line)
+        .toHaveTextContent("Downloading Spanish data · 84%");
+
+      f.setPackStates({ es: ready(3_000_000), "es-en": ready(3_500_000) });
+      await expect.element(screen.getByRole("status")).not.toBeInTheDocument();
+      expect(f.sent.filter((r) => r.type === "packStatus")).toHaveLength(1);
+    });
+
+    it("says the download failed, and Retry asks the background to try again", async () => {
+      const f = fake({
+        settings: SPANISH,
+        packStatus: () =>
+          spanish(ready(3_000_000), {
+            state: "failed",
+            received: 0,
+            total: 3_500_000,
+            error: "HTTP 404",
+          }),
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect
+        .element(screen.getByRole("status"))
+        .toMatchTextContent("Couldn't download Spanish data");
+      await screen.getByRole("button", { name: "Retry" }).click();
+      expect(f.sent).toContainEqual({ type: "retryPacks" });
+
+      f.setPackStates({
+        "es-en": { state: "downloading", received: 0, total: 3_500_000 },
+      });
+      await expect
+        .element(screen.getByRole("status"))
+        .toHaveTextContent("Downloading Spanish data · 46%");
+    });
+
+    it("treats a pack updating while its older version is in use as there", async () => {
+      const f = fake({
+        settings: SPANISH,
+        packStatus: () =>
+          spanish(ready(3_000_000), {
+            state: "downloading",
+            received: 0,
+            total: 3_500_000,
+            updating: true,
+          }),
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(screen.getByText("2,341")).toBeVisible();
+      expect(screen.getByRole("status").query()).toBeNull();
+    });
+
+    it("shows nothing for a pair whose data is bundled, and asks again for another pair", async () => {
+      const f = fake({
+        packStatus: (s) =>
+          s.learningLang === "es"
+            ? spanish(ready(3_000_000), {
+                state: "downloading",
+                received: 0,
+                total: 3_500_000,
+              })
+            : BUNDLED,
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(screen.getByText("2,341")).toBeVisible();
+      expect(screen.getByRole("status").query()).toBeNull();
+
+      f.changeSettings(SPANISH);
+      await expect
+        .element(screen.getByRole("status"))
+        .toHaveTextContent("Downloading Spanish data · 46%");
+    });
+
+    it("stops watching the data when it closes", async () => {
+      const f = fake();
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.poll(() => f.packWatchers()).toBe(1);
+      screen.unmount();
+      expect(f.packWatchers()).toBe(0);
     });
   });
 

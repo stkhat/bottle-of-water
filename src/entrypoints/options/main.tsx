@@ -4,6 +4,7 @@ import { browser } from "wxt/browser";
 import { watchSettings } from "../../background/settings-store";
 import { createBrowserEnv } from "../../core/browser-env";
 import { send } from "../../messaging/client";
+import { watchPackState } from "../../messaging/pack-state";
 import { followTheme } from "../../ui/page-theme";
 import { download } from "../../ui/backup/download";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
@@ -11,6 +12,7 @@ import { SettingsPage, type SettingsDeps } from "./SettingsPage";
 const deps: SettingsDeps = {
   send,
   watchSettings,
+  watchPackState,
   // Detected in this page's own context (built-in AI, File System Access).
   env: createBrowserEnv(),
   version: browser.runtime.getManifest().version,

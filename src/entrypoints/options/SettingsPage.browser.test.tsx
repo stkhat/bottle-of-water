@@ -2,10 +2,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type { ImportResult } from "../../background/term-store";
+import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
 import type { HistoryStatus } from "../../background/history-store";
 import type { SyncStatus } from "../../core/sync/backend";
-import type { Request } from "../../messaging/protocol";
+import type { PackStatus, Request } from "../../messaging/protocol";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
 
 const NOW = new Date(2026, 10, 10, 12, 0, 0).getTime();
@@ -28,7 +29,11 @@ interface FakeOptions {
   lastExport?: number | null;
   importResult?: ImportResult | Error;
   history?: HistoryStatus;
+  /** What `packStatus` answers for the settings (default: every pack bundled). */
+  packStatus?: (settings: Settings) => PackStatus;
 }
+
+const BUNDLED: PackStatus = { pair: { bundled: true, packs: [] }, others: [] };
 
 const MB = 1024 * 1024;
 const HISTORY: HistoryStatus = { bytes: 18 * MB, cap: 50 * MB, pages: 1240 };
@@ -38,6 +43,8 @@ function fake(options: FakeOptions = {}) {
   let lastExport = options.lastExport ?? null;
   let history = options.history ?? HISTORY;
   const listeners = new Set<(s: Settings) => void>();
+  const packListeners = new Set<(states: PackStates) => void>();
+  const removed = new Set<string>();
   const sent: Request[] = [];
   const downloads: { name: string; text: string }[] = [];
   const deps: SettingsDeps = {
@@ -62,6 +69,18 @@ function fake(options: FakeOptions = {}) {
         case "clearHistory":
           history = { ...history, bytes: 0, pages: 0 };
           return null;
+        case "packStatus": {
+          const status = options.packStatus?.(settings) ?? BUNDLED;
+          return {
+            ...status,
+            others: status.others.filter((o) => !removed.has(o.pack)),
+          };
+        }
+        case "retryPacks":
+          return null;
+        case "removePack":
+          removed.add(request.pack);
+          return null;
         case "importJson": {
           const result = options.importResult ?? {
             terms: 3,
@@ -78,6 +97,10 @@ function fake(options: FakeOptions = {}) {
     watchSettings(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    watchPackState(listener) {
+      packListeners.add(listener);
+      return () => packListeners.delete(listener);
     },
     env: {
       name: "Chrome",
@@ -102,8 +125,34 @@ function fake(options: FakeOptions = {}) {
       settings = mergeSettings(patch, settings);
       for (const l of listeners) l(settings);
     },
+    /** The background writes `packState`. */
+    setPackStates(states: PackStates) {
+      for (const l of packListeners) l(states);
+    },
   };
 }
+
+const MB_ = 1024 * 1024;
+const ready = (total: number): PackState => ({
+  state: "ready",
+  received: total,
+  total,
+});
+/** The Spanish pair's packs (3.0 and 3.4 MB), downloaded, in these states. */
+const spanish = (
+  es: PackState,
+  esEn: PackState,
+  others: PackStatus["others"] = [],
+): PackStatus => ({
+  pair: {
+    bundled: false,
+    packs: [
+      { pack: "es", size: 3 * MB_, ...es },
+      { pack: "es-en", size: 3.4 * MB_, ...esEn },
+    ],
+  },
+  others,
+});
 
 beforeAll(async () => {
   await page.viewport(1200, 800);
@@ -255,6 +304,151 @@ describe("SettingsPage", () => {
     // Spanish → English is there already, and nothing translates into English.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(created).toEqual(["en>ja"]);
+  });
+
+  describe("Language data", () => {
+    const SPANISH = { learningLang: "es", nativeLang: "en" };
+    const dataRow = (screen: Awaited<ReturnType<typeof render>>) =>
+      section(screen, "Languages").getByText("Language data");
+
+    it("shows the chosen pair's size and its download's share, then Downloaded", async () => {
+      const f = await open({
+        settings: SPANISH,
+        packStatus: () =>
+          spanish(ready(3 * MB_), {
+            state: "downloading",
+            received: 0.4 * MB_,
+            total: 3.4 * MB_,
+          }),
+      });
+      const languages = section(f.screen, "Languages");
+      await expect.element(dataRow(f.screen)).toBeVisible();
+      await expect
+        .element(
+          languages.getByText(
+            "Words and dictionaries Lingo keeps on this device.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(languages.getByText("Spanish → English"))
+        .toBeVisible();
+      await expect.element(languages.getByText("6.4 MB")).toBeVisible();
+      await expect
+        .element(languages.getByText("Downloading · 53%"))
+        .toBeVisible();
+
+      f.setPackStates({ "es-en": ready(3.4 * MB_) });
+      await expect.element(languages.getByText("Downloaded")).toBeVisible();
+      expect(languages.getByText(/Downloading/).query()).toBeNull();
+    });
+
+    it("shows an update downloading while the older data is in use", async () => {
+      const f = await open({
+        settings: SPANISH,
+        packStatus: () =>
+          spanish(ready(3 * MB_), {
+            state: "downloading",
+            received: 1.7 * MB_,
+            total: 3.4 * MB_,
+            updating: true,
+          }),
+      });
+      await expect
+        .element(section(f.screen, "Languages").getByText("Downloading · 73%"))
+        .toBeVisible();
+    });
+
+    it("says the download failed, and Retry asks the background to try again", async () => {
+      const f = await open({
+        settings: SPANISH,
+        packStatus: () =>
+          spanish(ready(3 * MB_), {
+            state: "failed",
+            received: 0,
+            total: 3.4 * MB_,
+            error: "HTTP 404",
+          }),
+      });
+      const languages = section(f.screen, "Languages");
+      await expect
+        .element(languages.getByText("Couldn't download"))
+        .toBeVisible();
+      await languages.getByRole("button", { name: "Retry" }).click();
+      expect(f.sent).toContainEqual({ type: "retryPacks" });
+      f.setPackStates({
+        "es-en": { state: "downloading", received: 0, total: 3.4 * MB_ },
+      });
+      await expect
+        .element(languages.getByText("Downloading · 46%"))
+        .toBeVisible();
+    });
+
+    it("lists data the chosen pair does not use, by its pair, and Remove deletes its packs", async () => {
+      const f = await open({
+        packStatus: () => ({
+          ...BUNDLED,
+          others: [
+            { pack: "es", size: 3 * MB_ },
+            { pack: "es-en", size: 6.1 * MB_ },
+          ],
+        }),
+      });
+      const languages = section(f.screen, "Languages");
+      await expect.element(dataRow(f.screen)).toBeVisible();
+      await expect
+        .element(languages.getByText("Spanish → English"))
+        .toBeVisible();
+      await expect
+        .element(languages.getByText("Not used by your languages now · 9.1 MB"))
+        .toBeVisible();
+      // The chosen pair's data is bundled: it has no row.
+      expect(languages.getByText("English → Japanese").query()).toBeNull();
+
+      await languages
+        .getByRole("button", { name: "Remove Spanish → English data" })
+        .click();
+      await expect.element(dataRow(f.screen)).not.toBeInTheDocument();
+      expect(
+        f.sent.flatMap((r) => (r.type === "removePack" ? [r.pack] : [])),
+      ).toEqual(["es", "es-en"]);
+    });
+
+    it("lists other data under the chosen pair's", async () => {
+      const f = await open({
+        settings: SPANISH,
+        packStatus: () =>
+          spanish(ready(3 * MB_), ready(3.4 * MB_), [
+            { pack: "en-ja", size: 9.1 * MB_ },
+          ]),
+      });
+      const languages = section(f.screen, "Languages");
+      await expect.element(languages.getByText("Downloaded")).toBeVisible();
+      const chosen = languages.getByText("Spanish → English").element();
+      const other = languages.getByText("English → Japanese").element();
+      expect(
+        chosen.compareDocumentPosition(other) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("has no Language data row for a pair whose data is bundled, and asks again for another pair", async () => {
+      const f = await open({
+        packStatus: (s) =>
+          s.learningLang === "es"
+            ? spanish(ready(3 * MB_), ready(3.4 * MB_))
+            : BUNDLED,
+      });
+      expect(dataRow(f.screen).query()).toBeNull();
+      await userEvent.selectOptions(
+        f.screen.getByRole("combobox", { name: /Learning language/ }),
+        "Spanish (Español)",
+      );
+      await expect.element(dataRow(f.screen)).toBeVisible();
+      await expect
+        .element(section(f.screen, "Languages").getByText("Downloaded"))
+        .toBeVisible();
+    });
   });
 
   it("sets the new-word level with the slider", async () => {

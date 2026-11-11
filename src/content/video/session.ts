@@ -20,9 +20,12 @@ import {
 } from "../../core/subtitles/translation";
 import type { Cue } from "../../core/subtitles/types";
 import { speechLang } from "../../core/languages";
+import type { DataNote, PackStates } from "../../core/packs/state";
+import { PacksUnavailableError } from "../../core/packs/unavailable";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
-import type { TermBrief } from "../../messaging/protocol";
+import { followPackStatus, pairNote } from "../../messaging/pack-status";
+import type { AnalyzeResult, TermBrief } from "../../messaging/protocol";
 import {
   unsupportedPage,
   type PageRequest,
@@ -51,6 +54,7 @@ import {
   type TranslationProvider,
 } from "../translate/translator";
 import { createStore, type Store } from "../ui/store";
+import { createPackWait } from "../pack-wait";
 import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
 import type { PanelTab } from "../../ui/video/VideoPanel";
@@ -66,6 +70,11 @@ export interface VideoDeps {
   adapter: PlatformAdapter;
   /** Calls `listener` with the new settings after every change; returns an unsubscribe. */
   watchSettings(listener: (settings: Settings) => void): () => void;
+  /**
+   * Calls `listener` with the background's pack states now and after every change
+   * (`watchPackState`); returns an unsubscribe.
+   */
+  watchPackState(listener: (states: PackStates) => void): () => void;
   /** Default: the browser's built-in translator. */
   createTranslator?(from: string, to: string): TranslationProvider;
   /** Default: asks the built-in translator. */
@@ -155,6 +164,11 @@ export interface VideoState {
    * Words tab: `videoWords(cues, spans, summaries)`).
    */
   summaries: Record<string, TermBrief>;
+  /**
+   * The chosen pair's language data while some of it is not on the device: the line at
+   * the top of the right column. Null once it is all there.
+   */
+  dataNote: DataNote | null;
 }
 
 /** The UI's view of the video: its state and what its controls do. */
@@ -193,6 +207,8 @@ export interface VideoApp {
   setWordsFilter(filter: WordsFilter): void;
   /** A row of the Words tab was selected: its dictionary window opens at its first occurrence. */
   openWord(row: Pick<VideoWord, "first">): void;
+  /** The download line's Retry: the background tries the language data again. */
+  retryPacks(): void;
 }
 
 export interface VideoSession {
@@ -236,8 +252,14 @@ interface Watch {
 const isAbort = (error: unknown) =>
   error instanceof DOMException && error.name === "AbortError";
 
+/**
+ * Reports a failure in the console. Neither a stopped video nor language data that is
+ * not on the device yet is one: the video waits for its data, and the download line
+ * shows it.
+ */
 function warn(error: unknown) {
-  if (!isAbort(error)) console.warn("Lingo:", error);
+  if (!isAbort(error) && !(error instanceof PacksUnavailableError))
+    console.warn("Lingo:", error);
 }
 
 function fresh(
@@ -245,6 +267,7 @@ function fresh(
   videoId: string | null,
   fullscreen: boolean,
   enabled = true,
+  dataNote: DataNote | null = null,
 ): VideoState {
   return {
     settings,
@@ -267,6 +290,7 @@ function fresh(
     panelTab: "transcript",
     wordsFilter: "all",
     summaries: {},
+    dataNote,
   };
 }
 
@@ -277,7 +301,8 @@ const sameTerm = (span: Span, key: string, kind: TermKind) =>
  * Runs the video UI's logic on a video site: per video, reads the subtitles through the
  * adapter, classifies them in batches, follows the playing cue, records saved words of
  * the lines that play, and offers save-all when the video ends. Starts over on every
- * navigation to another video.
+ * navigation to another video. While the language data is not on the device, the cues
+ * show unclassified with the download line, and are classified once the data is there.
  */
 export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const { adapter } = deps;
@@ -291,6 +316,19 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   /** The pair the built-in translator translates the subtitles in (source "builtIn"). */
   let subtitlePair: TranslationPair | undefined;
   let warmed = false;
+  /** The cues wait for language data a request did not find on the device. */
+  let analysisWaits = false;
+  const packs = createPackWait(deps.watchPackState, () => {
+    analysisWaits = false;
+    // Classify again, which also asks the meanings that could not be read.
+    withWatch(analyzeAll);
+  });
+  const data = followPackStatus(deps, (status) => {
+    const dataNote = pairNote(status);
+    const shown = store.get().dataNote;
+    if (JSON.stringify(dataNote) !== JSON.stringify(shown))
+      store.set({ dataNote });
+  });
 
   const lang = () => settings.learningLang;
   const hostname = () => {
@@ -331,6 +369,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         id,
         store.get().fullscreen,
         settings.videoOn[platform] !== false,
+        store.get().dataNote,
       ),
     );
     if (!id) {
@@ -560,15 +599,26 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     }
   }
 
-  /** Classifies the cues at `indices` (one request). */
+  /**
+   * Classifies the cues at `indices` (one request). While language data is missing (or
+   * once the request finds it missing), they stay unclassified until it is there.
+   */
   async function analyze(w: Watch, indices: number[]) {
-    if (indices.length === 0) return;
+    if (indices.length === 0 || analysisWaits) return;
     const all = store.get().cues;
-    const result = await deps.send({
-      type: "analyze",
-      lang: lang(),
-      blocks: indices.map((i) => all[i]!.text),
-    });
+    let result: AnalyzeResult;
+    try {
+      result = await deps.send({
+        type: "analyze",
+        lang: lang(),
+        blocks: indices.map((i) => all[i]!.text),
+      });
+    } catch (error) {
+      if (!(error instanceof PacksUnavailableError)) throw error;
+      analysisWaits = true;
+      packs.add(error.packs);
+      return;
+    }
     if (!warmed) {
       // Load the dictionary now so the first lookup does not wait for it.
       warmed = true;
@@ -621,8 +671,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         store.set({ summaries });
       })
       .catch((error: unknown) => {
-        // Asked again with the next batch.
+        // Asked again with the next batch, or once the dictionary's data is there.
         for (const { key } of terms) w.asked.delete(key);
+        if (error instanceof PacksUnavailableError) packs.add(error.packs);
         warn(error);
       });
   }
@@ -1047,6 +1098,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (store.get().wordsFilter !== filter)
         store.set({ wordsFilter: filter });
     },
+    retryPacks() {
+      deps.send({ type: "retryPacks" }).catch(warn);
+    },
   };
 
   const summary = (): PageSummary => {
@@ -1066,6 +1120,11 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const unwatch = deps.watchSettings((next) => {
     const levelChanged = next.knownLevel !== settings.knownLevel;
     const wasOn = siteOn();
+    if (
+      next.learningLang !== settings.learningLang ||
+      next.nativeLang !== settings.nativeLang
+    )
+      data.refresh();
     settings = next;
     store.set({ settings });
     // Switched off for this site: give the page back; switched on: start.
@@ -1090,6 +1149,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     stop() {
       offNavigate();
       unwatch();
+      packs.stop();
+      data.stop();
       hover.cancel();
       close();
       adapter.hideSiteCaptions(false);

@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
+import { packsFor } from "../core/packs/pairs";
 import type { Settings } from "../core/settings";
-import { packsFor } from "./language-resources";
 import type { EnsureResult, PackStore } from "./pack-store";
 import { watchSettings } from "./settings-store";
 

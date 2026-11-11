@@ -88,6 +88,7 @@ export async function setup(html: string, options: SetupOptions = {}) {
         settingsListeners.add(listener);
         return () => settingsListeners.delete(listener);
       },
+      watchPackState: background.watchPackState,
       detectLanguage: async () => ({
         isReliable: true,
         languages: [{ language: "en", percentage: 99 }],
