@@ -2,7 +2,7 @@
 
 > Executed with superpowers:subagent-driven-development. TDD: the matcher, data scripts and classifier in Node; UI in Vitest Browser Mode; the built extension with Playwright E2E. Design: [language data](../specs/2026-11-11-language-data-scaling-design.md) §4.
 
-**Goal:** phrases keep Wiktionary's wording, with slots (`one's`, `someone`, …) and gaps (phrasal verbs). Automatic highlighting stays as strict as today. Saved phrases and selections match with slots and gaps. A selection is saved under the key of the pattern it matches.
+**Goal:** phrases keep Wiktionary's wording, with slots (`one's`, `someone`, …) and gaps (phrasal verbs). Automatic highlighting stays as strict as today. Saved phrases and selections match with slots and gaps. A selection shows the hover card of the pattern it matches and is saved under its key.
 
 ## Pattern model
 - A pattern is its key's words. A word is either a **slot** (from the language's rules) or a **literal**. A literal matches a token whose lowercased written form, or any of whose base forms, equals it: "spilled the beans" matches `spill the beans`, but "spill the bean" does not.
@@ -79,10 +79,15 @@ A match that has a gap becomes **one span per contiguous part**. Each part carri
    - New request `matchSelection { lang, text, start, end }` → `{ key?: string }`. Add it to `protocol.ts`, `handlers.ts` and the REPEATABLE map in `client.ts`. The handler tokenizes the block and runs select mode on the words inside `[start, end)`
    - Article `onSelection` asks for the key and keeps it in `store.phrase`. `savePhrase` saves under `key ?? the words' keys joined`
    - Handler test, article Browser Mode test: select "made up her mind", save it, and get the saved key `make up one's mind`
-5. **Phrase bar (after the mock review)**
-   - Build the bar as the mock's `PhraseMeaning` artboard shows it: "Save “{key}” as a phrase" with the phrase's short meaning (from `lookup`). With no pattern, show the literal translation with the "Machine translation" mark. Strings go in `locales/en.json`
-   - Browser Mode tests. E2E on the article fixture: select "made up her mind", check the bar, press + Learning, and check that a later "made up his mind" is highlighted Learning
-   - Compare the rendered bar with the mock before committing
+5. **Selection card (mock reviewed 2026-11-11)**
+   - A selection shows the same hover card as a hovered phrase (mock artboard `PhraseMeaning`, the "spill the beans" card), not the dark bar
+     - Status: "Selected · not saved"
+     - Head: the matched pattern's key, with its IPA, short meaning (from `lookup`) and sub line
+     - Buttons: + Learning / Known / Details
+   - With no pattern, the head is the selection, and its short line is the literal translation with the "Machine translation" mark
+   - The `inverse` theme token and the bar component go if nothing else uses them. Strings go in `locales/en.json`
+   - Browser Mode tests. E2E on the article fixture: select "made up her mind", check that the card shows `make up one's mind`, press + Learning, and check that a later "made up his mind" is highlighted Learning
+   - Compare the rendered card with the mock before committing
 
 ## Verification
 - `npm run verify`, `npm run build:firefox`
