@@ -38,13 +38,15 @@ Status: **adopted** (2026-11-11), built in milestones M9a–M9d of the [roadmap]
 | **Pair dictionary** `<L>-<N>` | words and phrases under the same keys (a phrase's key is its pattern, e.g. `make up one's mind`), each term tagged with the source it came from | one per pair; a user downloads one |
 | **English definitions** `<L>-en` | Wiktionary's English definitions of L's words and phrases (today's `en-defs`, which holds phrases only, and `es-en`) | one per learning language; the pair dictionary when N = en, the last fallback otherwise |
 
-A user with native language N ≠ en downloads `<L>`, `<L>-<N>` and `<L>-en`. `<L>-en` must cover words as well as phrases for that fallback; today's `en-defs` covers only phrases, which is enough for en→ja (EJDict has every vocabulary word), so the full English one is built with the first native language other than ja.
+A user with native language N ≠ en downloads `<L>`, `<L>-<N>` and `<L>-en`. `<L>-en` must cover words as well as phrases for that fallback: since M9d `en-defs` holds English Wiktionary's definitions of the vocabulary words and of every phrase pattern (`scripts/data/en-defs.mjs`; 34,548 words and 18,846 phrases, 13.2 MB in 7 shards).
+
+**Pair pack format** (M9d, `<L>-<N>/dict-<n>.json` and `index.json`): `{ term: [short, [pos, text, hint?][], source] }`, where `source` indexes `index.json`'s `sources` (e.g. `["eswiktionary", "enwiktionary-translations"]`) and `hint` is a translation table's English sense. `en-ja` keeps its EJDict format.
 
 ### 3. Native-language meanings: sources in order
 Each pair has a build recipe (`scripts/data/recipes/`) that merges these sources. **Per term, the first source that has the term supplies its short translation and senses**; later sources only fill terms the earlier ones lack (mixing senses across sources would duplicate them). So the source tag is one per term, not per sense.
 
-1. **A dedicated bilingual dictionary** with a usable license: EJDict (en→ja, public domain), ECDICT (en→zh, MIT — to be confirmed from its LICENSE file), JMdict (ja→many, CC BY-SA). None with a usable license was found for en→ko.
-2. **The native language's own Wiktionary edition**: its entries for L's words, defined in N (kaikki.org extracts 20 editions: zh, cs, nl, fr, de, el, id, it, ja, ko, ku, ms, pl, pt, ru, simple, es, th, tr, vi). Coverage not measured yet.
+1. **A dedicated bilingual dictionary** with a usable license: EJDict (en→ja, public domain), JMdict (ja→many, CC BY-SA). None with a usable license was found for en→ko. **ECDICT (en→zh) is not used** (user, 2026-11-11): its LICENSE file says MIT, but its README and wiki list TheFreeDictionary, Linguee, Babylon, Google Translate and the unlicensed 屌丝字典 among the sources of its Chinese translations, and its maintainer writes that per-entry origins can no longer be traced (ECDICT issue #134).
+2. **The native language's own Wiktionary edition**: its entries for L's words, defined in N (kaikki.org extracts 20 editions: zh, cs, nl, fr, de, el, id, it, ja, ko, ku, ms, pl, pt, ru, simple, es, th, tr, vi). Coverage measured in M9d (below).
 3. **English Wiktionary's translation tables**: per English sense, the words in N. Senses keep the English sense label as a hint ("[of low weight] 가볍다"). Only English headwords have them in English Wiktionary; for L ≠ en use L's own edition's tables instead.
 4. **The browser's translator, at display time**: translates the English definition from `<L>-en` (see 5). Not part of any pack.
 5. **The English definition as it is** (browsers without a translator).
@@ -65,7 +67,17 @@ No pivoting through English at build time (es "banco" → bank, bench → "銀�
 
 Missing are mostly function words (him, would, an, them, into) but also common words (upset, concern, involve, deserve, bother for ko). Some translations are poor (en-ja "add fuel to the fire" → 鬼に金棒). So source 3 alone serves the major European languages; Asian native languages need source 1 or 2, and idioms need source 4 almost everywhere.
 
-**Quality gate**: a pair is offered in Settings only when human-made sources (1–3) give a native meaning for at least **95% of L's 5,000 most frequent content words** (value to confirm). Function words (pronouns, determiners, prepositions, conjunctions, auxiliaries, by `<L>/pos.json`) are not counted: dictionaries and translation tables often lack them, and they sit within the known level. The browser's translator does not count, because its output is not reviewed and differs between devices. `npm run data:stats` reports each pair's coverage by source, including phrases, also as JSON, and fails when an offered pair is under the gate. The lock's `pairs` lists the pairs that pass; Settings offers only those.
+**Measured with the recipes** (M9d, 2026-11-11; kaikki extracts of the Spanish, Portuguese and Chinese editions; the top content words as the quality gate counts them, below):
+
+| Native | edition (2) | tables (3) | both, top 2,000 | both, top 5,000 | phrases (19,932) |
+|---|---|---|---|---|---|
+| es | 78.3% | 95.1% | 98.4% | **96.8%** | 24.7% |
+| pt | 60.8% | 93.6% | 96.7% | **95.1%** | 17.7% |
+| zh | 36.1% | 88.1% | 94.4% | **91.2%** | 22.8% |
+
+The Chinese edition lacks many common words (involve, available, ahead) and writes its meanings in Traditional characters, so zh would also need a conversion to Simplified. zh is left for later (user, 2026-11-11); es and pt pass.
+
+**Quality gate**: a pair is offered in Settings only when human-made sources (1–3) give a native meaning for at least **95% of L's 5,000 most frequent content words** (confirmed by the user, 2026-11-11; `scripts/data/gate.mjs`). The words are the frequency list's base forms (an inflected form counts as its base). Function words (a part of speech among pronoun, determiner, article, preposition, conjunction, particle, contraction, by `<L>/pos.json`, or an auxiliary such as can or must), contractions, single letters and names (words EJDict writes only with capitals: David, Paris, TV; `data/gate/en-capitalized.json`) are not counted: dictionaries and translation tables often lack them, and they sit within the known level. The browser's translator does not count, because its output is not reviewed and differs between devices. `npm run data:stats` reports each pair's coverage by source, including phrases, also as JSON (`--json`), and fails when an offered pair is under the gate. `npm run data:publish` writes the pairs that pass into the lock's `pairs` (learning language → native languages, the default first); Settings offers only those.
 
 ### 4. Phrases and selections
 - **Phrase patterns** (in `<L>`): a sequence of words and slots, a key, and flags.
@@ -95,7 +107,7 @@ Missing are mostly function words (him, would, an, them, into) but also common w
 - **Not chosen: build-time machine translation.** Batch-translating definitions with Chrome's translator on the developer's machine is outside what the API is meant for, and its terms and output rights are unclear. If Firefox users or quality need it later, an openly licensed model run locally (Opus-MT, Firefox Translations models; licenses to check) can produce a source between 3 and 4.
 
 ### 6. Licenses
-- Use only public-domain, MIT or CC BY-SA data; avoid GFDL-only and unlicensed data (e.g. the Gutenberg Korean–English dictionary is GFDL, Freelang lists are proprietary).
+- Use only public-domain, MIT or CC BY-SA data; avoid GFDL-only and unlicensed data (e.g. the Gutenberg Korean–English dictionary is GFDL, Freelang lists are proprietary), and data whose sources cannot be traced even under a usable license (ECDICT, §3).
 - Wiktionary-derived packs are CC BY-SA 4.0 (share-alike), so the data repository and the npm packages publish packs under CC BY-SA with attribution; About and `THIRD_PARTY_NOTICES.md` list each source per pack.
 - kaikki.org states no license of its own; its data inherits Wiktionary's.
 
@@ -113,13 +125,13 @@ The mock is canonical, so these are added to the mock before the spec's UI secti
 - The real hosts are checked with the check build in the user's Chrome once the first packages are published.
 
 ## To verify before or during implementation
-1. Coverage of source 2 for ko, zh, fr (downloads: ko 25.6 MB, zh 224 MB, fr 703 MB gzipped).
-2. ECDICT's license (LICENSE file in the repository).
+1. Coverage of source 2: measured for es, pt, zh (§3); ko and fr not measured.
+2. ECDICT's license: MIT, but its sources cannot be traced; not used (§3).
 3. Quality of the browser's translator on ~100 English definitions (en→ja, en→ko), in the user's Chrome.
 4. Translator latency next to subtitle translation.
 5. IndexedDB quota for the extension origin (`navigator.storage.estimate`) with downloaded packs; `unlimitedStorage` is not needed for packs, which can be fetched again.
 6. Fetching from jsDelivr and unpkg in the service worker of the user's Chrome (CORS checked with curl on 2026-11-11).
-7. The quality-gate value and the first native languages to add (candidates: zh, ko, es, pt, vi).
+7. The quality-gate value and the first native languages to add: 95% of the top 5,000 content words; es and pt first, zh later (user, 2026-11-11).
 
 ## Review notes (2026-11-11)
 Found while planning the implementation; each changed the first proposal as written above.

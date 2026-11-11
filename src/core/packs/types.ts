@@ -31,9 +31,9 @@ export type DictPack = Readonly<
   Record<string, readonly [short: string, senses: readonly string[]]>
 >;
 /**
- * en-defs/dict-<n>.json, merged: phrase → [short definition, [part of speech, text][]].
- * English definitions of phrases that no Japanese source has. es-en/dict-<n>.json has
- * the same shape: English meanings of Spanish words and phrases.
+ * en-defs/dict-<n>.json, merged: word or phrase → [short definition, [part of speech,
+ * text][]]: English Wiktionary's definitions, the fallback of every English dictionary.
+ * es-en/dict-<n>.json has the same shape: English meanings of Spanish words and phrases.
  */
 export type DefsPack = Readonly<
   Record<
@@ -44,11 +44,29 @@ export type DefsPack = Readonly<
     ]
   >
 >;
-/** en-ja/index.json (and en-defs/, es-en/index.json): the shards, in headword order. */
+/**
+ * en-<native>/dict-<n>.json, merged (en-es): term → [short meaning, senses, source],
+ * built by a recipe from human-made sources in order, the first one with the term
+ * supplying all of it. A sense from a translation table carries its English sense as a
+ * hint ("source of illumination"). `source` indexes the index's `sources`.
+ */
+export type PairPack = Readonly<
+  Record<
+    string,
+    readonly [
+      short: string,
+      senses: readonly (readonly [pos: string, text: string, hint?: string])[],
+      source: number,
+    ]
+  >
+>;
+/** en-ja/index.json (and the other dictionaries' index.json): the shards, in headword order. */
 export interface ShardIndex {
   readonly shards: readonly {
     readonly file: string;
     readonly first: string;
     readonly last: string;
   }[];
+  /** A pair pack's sources, by the index each entry gives. */
+  readonly sources?: readonly string[];
 }

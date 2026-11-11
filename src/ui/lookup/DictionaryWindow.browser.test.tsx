@@ -139,6 +139,45 @@ describe("DictionaryWindow", () => {
     expect(screen.container.textContent).not.toContain("Machine translation");
   });
 
+  test("shows a translation-table sense's English hint above its native words", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...figureOut}
+        nativeLang="es"
+        entry={{
+          head: "upset",
+          kind: "word",
+          short: "molestar",
+          senses: [
+            {
+              pos: "verb",
+              text: "molestar, inquietar",
+              hint: "to disturb emotionally",
+            },
+          ],
+        }}
+      />,
+    );
+    const hint = screen.getByText("to disturb emotionally", { exact: true });
+    const words = screen.getByText("molestar, inquietar", { exact: true });
+    await expect.element(hint).toHaveAttribute("lang", "en");
+    await expect.element(words).toHaveAttribute("lang", "es");
+    const h = hint.element().getBoundingClientRect();
+    const w = words.element().getBoundingClientRect();
+    const pos = screen.getByText("verb", { exact: true }).element();
+    expect(h.top).toBeGreaterThanOrEqual(
+      pos.getBoundingClientRect().bottom - 1,
+    );
+    expect(w.top).toBeGreaterThanOrEqual(h.bottom - 1);
+    // Mock TranslatedSenses: the hint in the muted 13px of an English line.
+    expect(getComputedStyle(hint.element()).fontSize).toBe("13px");
+    expect(getComputedStyle(words.element()).fontSize).toBe("15px");
+    expect(getComputedStyle(hint.element()).color).not.toBe(
+      getComputedStyle(words.element()).color,
+    );
+    expect(screen.container.textContent).not.toContain("Machine translation");
+  });
+
   test("shows translated senses with their English below, marked on the Meanings heading", async () => {
     const screen = await mountInShadowRoot(
       <DictionaryWindow

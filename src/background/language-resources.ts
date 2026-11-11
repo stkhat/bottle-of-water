@@ -2,6 +2,7 @@ import { createClassifier, type Classifier } from "../core/classify";
 import {
   createDefsDictionary,
   createEnJaDictionary,
+  createPairDictionary,
   type DictionaryProvider,
 } from "../core/dictionary";
 import {
@@ -100,6 +101,8 @@ const LANGUAGE_PACKS: {
  * - en-ja: EJDict (`en-ja`) with Wiktionary's English definitions of phrases (`en-defs`),
  *   parts of speech and IPA from `en`
  * - es-en: Wiktionary's English meanings (`es-en`), IPA from `es`
+ * - en-es, en-pt: the recipe's Spanish or Portuguese meanings (`en-es`, `en-pt`), then
+ *   English Wiktionary's definitions (`en-defs`), IPA from `en`
  */
 const DICTIONARIES: {
   readonly [P in keyof typeof DICTIONARY_PACKS]: Recipe<DictionaryProvider>;
@@ -122,6 +125,28 @@ const DICTIONARIES: {
       defs: esEn.defs,
       ipa: es.ipa,
     }),
+  ),
+  "en-es": recipe(
+    DICTIONARY_PACKS["en-es"],
+    ({ en, "en-es": enEs, "en-defs": enDefs }) =>
+      createPairDictionary({
+        from: "en",
+        to: "es",
+        dict: enEs.dict,
+        defs: enDefs.defs,
+        ipa: en.ipa,
+      }),
+  ),
+  "en-pt": recipe(
+    DICTIONARY_PACKS["en-pt"],
+    ({ en, "en-pt": enPt, "en-defs": enDefs }) =>
+      createPairDictionary({
+        from: "en",
+        to: "pt",
+        dict: enPt.dict,
+        defs: enDefs.defs,
+        ipa: en.ipa,
+      }),
   ),
 };
 

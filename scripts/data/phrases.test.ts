@@ -45,11 +45,15 @@ const vocab = [
   "leg",
   "spill",
   "all",
+  "very",
+  "well",
+  "back",
 ];
 // Inflected forms outside the vocabulary, with their base forms.
 const lemmas = { beans: ["bean"], ears: "ear", given: "give" };
 // Frequency ranks: the first words are in the top 100, "later" and "figure" in the top
-// 1000 but not the top 100; "scratch", "heart" and "bean" are outside the list.
+// 1000 but not the top 100 (as are "very", "well" and "back"); "scratch", "heart", "kick" and
+// "bean" are outside the list.
 const freq = [
   "the",
   "you",
@@ -65,6 +69,9 @@ const freq = [
   ...Array.from({ length: 100 }, (_, i) => `filler${i}`),
   "later",
   "figure",
+  "very",
+  "well",
+  "back",
 ];
 // EJDict multi-word headwords (and one single word).
 const dict = {
@@ -75,6 +82,7 @@ const dict = {
   "kick the bucket": ["死ぬ", ["死ぬ"]],
   "do away with": ["…を廃止する", ["…を廃止する"]],
   "x-ray machine": ["X線装置", ["X線装置"]],
+  "up to": ["…まで", ["…まで"]],
 } satisfies Record<string, [string, string[]]>;
 
 describe("importPhrases", () => {
@@ -95,6 +103,25 @@ describe("importPhrases", () => {
   });
   it("keeps phrasal verbs made of very common words", () => {
     expect(result.phrases.detect).toContain("give up");
+  });
+  it("does not detect two-word phrasal verbs of common words ending in a preposition, but keeps them for selections", () => {
+    expect(result.phrases.more).toContain("see to");
+    expect(result.phrases.detect).not.toContain("see to");
+    expect(result.phrases.gap).toContain("see to");
+  });
+  it("does not detect two-word idioms of common words that do not end in an adverb particle", () => {
+    expect(result.phrases.more).toContain("very well");
+    expect(result.phrases.detect).not.toContain("very well");
+  });
+  it("detects two-word idioms of common words ending in an adverb particle, phrasal verbs or not", () => {
+    expect(result.phrases.detect).toContain("later back");
+    expect(result.phrases.gap).not.toContain("later back");
+  });
+  it("detects two-word phrasal verbs ending in a preposition when a word is rarer", () => {
+    expect(result.phrases.detect).toContain("kick in");
+  });
+  it("detects two-word EJDict headwords of common words", () => {
+    expect(result.phrases.detect).toContain("up to");
   });
   it("leaves out idiomatic entries whose words are all in the top 100", () => {
     expect(all()).not.toContain("in it");
@@ -146,8 +173,11 @@ describe("importPhrases", () => {
       "from scratch",
       "give up",
       "in spite of",
+      "kick in",
+      "later back",
       "look forward to",
       "spill the beans",
+      "up to",
     ]);
     expect(result.phrases.more).toEqual([
       "be all ears",
@@ -156,10 +186,18 @@ describe("importPhrases", () => {
       "make one's way",
       "make up one's mind",
       "pull someone's leg",
+      "see to",
+      "very well",
     ]);
   });
   it("flags the phrasal verbs, which may have a gap, among both", () => {
-    expect(result.phrases.gap).toEqual(["be on", "figure out", "give up"]);
+    expect(result.phrases.gap).toEqual([
+      "be on",
+      "figure out",
+      "give up",
+      "kick in",
+      "see to",
+    ]);
   });
   it("leaves out entries whose only senses are form-of, alt-of or have no glosses", () => {
     expect(all()).not.toContain("thrown away");
@@ -179,67 +217,17 @@ describe("importPhrases", () => {
       "by heart": ["そらで", ["そらで", "暗記して"]],
     });
   });
-  it("gives English definitions to every pattern without EJDict or Japanese meanings", () => {
-    expect(Object.keys(result.defs).sort()).toEqual([
-      "be all ears",
-      "be on",
-      "figure out",
-      "from scratch",
-      "give up",
-      "have it in for",
-      "make up one's mind",
-      "pull someone's leg",
-      "spill the beans",
-    ]);
-    expect(result.defs["make up one's mind"]).toEqual([
-      "To decide",
-      [["verb", "To decide; to reach a conclusion."]],
-    ]);
-  });
-  it("merges senses of entries with the same headword, up to 4, skipping archaic ones", () => {
-    expect(result.defs["give up"]).toEqual([
-      "To surrender (someone or something)",
-      [
-        [
-          "verb",
-          "To surrender (someone or something); to inform on (someone).",
-        ],
-        ["verb", "To stop or quit (an activity, etc.)."],
-        ["adjective", "Become fully taken over by a certain quality."],
-        ["adjective", "Too tired to go on."],
-      ],
-    ]);
-  });
-  it("labels the part of speech and drops the final period from the short meaning", () => {
-    expect(result.defs["from scratch"]).toEqual([
-      "From the beginning",
-      [
-        [
-          "prepositional phrase",
-          "From the beginning; starting with no advantage or prior preparation.",
-        ],
-        ["prepositional phrase", "From basic materials or raw ingredients."],
-      ],
-    ]);
-  });
-  it("keeps every usable sense, not only the idiomatic ones", () => {
-    expect(result.defs["figure out"]?.[1]).toEqual([
-      ["verb", "To come to understand; to discover or find a solution."],
-      ["verb", "To calculate."],
-    ]);
-  });
-
   it("counts multi-word entries, unparsable lines and patterns", () => {
     expect(result.stats).toEqual({
-      entries: 24,
+      entries: 28,
       unparsable: 1,
-      detect: 8,
-      more: 6,
-      gap: 3,
-      fromEjdict: 4,
-      fromKaikki: 11,
+      detect: 11,
+      more: 8,
+      trivial: 2,
+      gap: 5,
+      fromEjdict: 5,
+      fromKaikki: 15,
       ja: 1,
-      defs: 9,
     });
   });
 });

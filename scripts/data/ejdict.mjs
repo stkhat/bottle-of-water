@@ -1,5 +1,5 @@
-// EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>}.json and
-// public/packs/en/vocab.json
+// EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>}.json,
+// public/packs/en/vocab.json and data/gate/en-capitalized.json (for the quality gate)
 // Usage: node scripts/data/ejdict.mjs   (downloads missing raw files into data/raw/ejdict/)
 import {
   existsSync,
@@ -12,6 +12,7 @@ import {
 import { join } from "node:path";
 import {
   fetchText,
+  GATE_DIR,
   isMain,
   PACKS_DIR,
   RAW_DIR,
@@ -84,6 +85,27 @@ export function parseEjdict(text) {
     dict[key] = [shortOf(senses), senses];
   }
   return dict;
+}
+
+/**
+ * Single-word headwords EJDict writes only with capitals (David, Paris, TV): names and
+ * abbreviations, lowercase and sorted. The quality gate does not count them
+ * (scripts/data/content-words.mjs).
+ */
+export function capitalizedOnly(text) {
+  const lower = new Set();
+  const capitalized = new Set();
+  for (const line of text.split(/\r?\n/)) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    for (const variant of line.slice(0, tab).split(",")) {
+      const headword = variant.trim().replace(/\.$/, "");
+      if (!headword || /\s/.test(headword)) continue;
+      const key = headword.toLowerCase();
+      (headword === key ? lower : capitalized).add(key);
+    }
+  }
+  return [...capitalized].filter((key) => !lower.has(key)).sort(byCodeUnit);
 }
 
 /** The words Lingo knows: single-word headwords, sorted by code unit. */
@@ -181,6 +203,7 @@ async function main() {
   ).join("\n");
   const dict = parseEjdict(text);
   const { shards } = writeDictPacks(dict);
+  writePack("en-capitalized.json", capitalizedOnly(text), GATE_DIR);
   console.log(
     `en-ja: ${Object.keys(dict).length} headwords in ${shards.length} shards; ` +
       `en/vocab.json: ${vocabularyOf(dict).length} single words`,

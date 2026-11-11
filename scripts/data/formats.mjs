@@ -15,6 +15,8 @@ export const PACK_FORMATS = {
   "en-defs": 1,
   es: 1,
   "es-en": 1,
+  "en-es": 1,
+  "en-pt": 1,
 };
 
 /** The npm scope the packs are published under. A placeholder until the scope exists. */
@@ -55,6 +57,20 @@ const SOURCES = {
     via: KAIKKI,
     url: "https://kaikki.org/dictionary/Spanish/",
     by: WIKTIONARY_AUTHORS,
+    license: "CC BY-SA 4.0",
+  },
+  wiktionaryEsEdition: {
+    title: "Spanish Wiktionary (Wikcionario), English entries",
+    via: KAIKKI,
+    url: "https://es.wiktionary.org/",
+    by: "the contributors to Wikcionario, listed in each page's history",
+    license: "CC BY-SA 4.0",
+  },
+  wiktionaryPtEdition: {
+    title: "Portuguese Wiktionary (Wikcionário), English entries",
+    via: KAIKKI,
+    url: "https://pt.wiktionary.org/",
+    by: "the contributors to Wikcionário, listed in each page's history",
     license: "CC BY-SA 4.0",
   },
   freqEs: {
@@ -103,8 +119,8 @@ export const PACKS = {
     ],
   }),
   "en-defs": pack("en-defs", false, {
-    title: "English phrase definitions",
-    description: "English definitions of English phrases",
+    title: "English definitions",
+    description: "English definitions of English words and phrases",
     sources: [{ ...SOURCES.wiktionaryEn, used: "the definitions" }],
   }),
   es: pack("es", true, {
@@ -119,12 +135,46 @@ export const PACKS = {
       { ...SOURCES.freqEs, used: "frequency ranks" },
     ],
   }),
+  "en-es": pack("en-es", true, {
+    title: "English–Spanish dictionary",
+    description: "Spanish meanings of English words and phrases",
+    sources: [
+      { ...SOURCES.wiktionaryEsEdition, used: "Spanish definitions" },
+      {
+        ...SOURCES.wiktionaryEn,
+        used: "Spanish translations (translation tables)",
+      },
+    ],
+  }),
+  "en-pt": pack("en-pt", true, {
+    title: "English–Portuguese dictionary",
+    description: "Portuguese meanings of English words and phrases",
+    sources: [
+      { ...SOURCES.wiktionaryPtEdition, used: "Portuguese definitions" },
+      {
+        ...SOURCES.wiktionaryEn,
+        used: "Portuguese translations (translation tables)",
+      },
+    ],
+  }),
   "es-en": pack("es-en", true, {
     title: "Spanish–English dictionary",
     description: "English meanings of Spanish words and phrases",
     sources: [{ ...SOURCES.wiktionaryEs, used: "the English meanings" }],
   }),
 };
+
+/**
+ * The language pairs that can be offered, each learning language's default native
+ * language first, with the pack holding its dictionary. npm run data:publish offers
+ * those that pass the quality gate (scripts/data/gate.mjs) in the lock's `pairs`.
+ */
+export const PAIRS = [
+  { learning: "en", native: "ja", dictionary: "en-ja" },
+  { learning: "en", native: "es", dictionary: "en-es" },
+  { learning: "en", native: "pt", dictionary: "en-pt" },
+  { learning: "es", native: "en", dictionary: "es-en" },
+];
 
 /**
  * The file a pack path as the extension reads it ("/packs/es/freq.json") comes from,

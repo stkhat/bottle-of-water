@@ -1,6 +1,8 @@
-// Prints the numbers recorded in docs/status.md ("Data").
-// Usage: node scripts/data/stats.mjs   (after npm run data:build and npm run data:es)
-import { readdirSync, statSync } from "node:fs";
+// Prints the numbers recorded in docs/status.md ("Data") and each language pair's
+// coverage for the quality gate; fails when a pair the lock offers is under the gate.
+// Usage: node scripts/data/stats.mjs [--json]   (after npm run data:build, data:es and data:native)
+//   --json: only the gate report, as JSON
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   DOWNLOAD_PACKS_DIR,
@@ -10,6 +12,8 @@ import {
   ROOT,
 } from "./common.mjs";
 import { readDictPacks } from "./ejdict.mjs";
+import { GATE, gateReport } from "./gate.mjs";
+import { LOCK_PATH } from "./publish.mjs";
 
 /** Every file under `root` (public/packs/ or data/packs/), as paths relative to it, sorted. */
 function packFiles(root, dir = root) {
@@ -67,7 +71,49 @@ function describePatterns(patterns) {
   return `${all} (${detect} detected, ${more} more; ${gap} with a gap)`;
 }
 
+const percent = (share) => `${(share * 100).toFixed(1)}%`;
+
+/** One line per pair: coverage of the top content words and phrases, by source. */
+export function describeGate(report) {
+  return report.flatMap(({ pair, tops, phrases, passes }) => [
+    `${pair}: ${passes ? "passes" : "under"} the gate (needs ${percent(GATE.share)} of the top ${GATE.top} content words)`,
+    ...[...Object.entries(tops), ["phrases", phrases]].map(
+      ([top, c]) =>
+        `  ${top === "phrases" ? "phrases" : `top ${top}`}: ${c.covered}/${c.terms} (${percent(c.share)})` +
+        (Object.keys(c.bySource).length > 0
+          ? `; ${Object.entries(c.bySource)
+              .map(([source, n]) => `${source} ${n}`)
+              .join(", ")}`
+          : ""),
+    ),
+  ]);
+}
+
+/** The pairs `offered` (the lock's `pairs`) that the report puts under the gate. */
+export function failingOffered(report, offered) {
+  return report
+    .filter(({ pair, passes }) => {
+      const [learning, native] = pair.split("-");
+      return !passes && (offered?.[learning] ?? []).includes(native);
+    })
+    .map(({ pair }) => pair);
+}
+
+function checkGate(report) {
+  const { pairs } = JSON.parse(readFileSync(LOCK_PATH, "utf8"));
+  const failing = failingOffered(report, pairs);
+  for (const pair of failing)
+    console.error(`${pair} is offered but under the quality gate`);
+  if (failing.length > 0) process.exitCode = 1;
+}
+
 function main() {
+  const report = gateReport();
+  if (process.argv.includes("--json")) {
+    console.log(JSON.stringify(report, null, 2));
+    checkGate(report);
+    return;
+  }
   const dict = readDictPacks();
   const freq = readPack("en/freq.json");
   const ipa = readPack("en/ipa.json");
@@ -132,6 +178,9 @@ function main() {
     total += subtotal;
   }
   console.log(`Total: ${(total / 1e6).toFixed(2)} MB`);
+  console.log("Quality gate:");
+  for (const line of describeGate(report)) console.log(`  ${line}`);
+  checkGate(report);
 }
 
 if (isMain(import.meta.url)) main();

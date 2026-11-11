@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createDefsDictionary, createEnJaDictionary } from "./dictionary";
+import {
+  createDefsDictionary,
+  createEnJaDictionary,
+  createPairDictionary,
+} from "./dictionary";
 
 const dictionary = createEnJaDictionary({
   dict: {
@@ -175,5 +179,60 @@ describe("createDefsDictionary", () => {
     expect(dictionary.short("zzyzx")).toBeUndefined();
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("__proto__")).toBeUndefined();
+  });
+});
+
+describe("createPairDictionary", () => {
+  const dictionary = createPairDictionary({
+    from: "en",
+    to: "es",
+    dict: {
+      light: [
+        "luz",
+        [
+          ["noun", "Luz."],
+          ["noun", "lámpara, farol", "source of illumination"],
+        ],
+        0,
+      ],
+    },
+    defs: {
+      light: ["Visible radiation", [["noun", "Visible radiation."]]],
+      "give up": ["To surrender", [["verb", "To surrender."]]],
+    },
+    ipa: { light: "/laɪt/" },
+  });
+
+  it("looks a term up in the pair pack, keeping translation-table hints", () => {
+    expect(dictionary.from).toBe("en");
+    expect(dictionary.to).toBe("es");
+    expect(dictionary.short("Light")).toBe("luz");
+    expect(dictionary.entry("light")).toEqual({
+      head: "light",
+      kind: "word",
+      ipa: "/laɪt/",
+      short: "luz",
+      senses: [
+        { pos: "noun", text: "Luz." },
+        {
+          pos: "noun",
+          text: "lámpara, farol",
+          hint: "source of illumination",
+        },
+      ],
+    });
+  });
+  it("falls back to the English definitions, marked as English", () => {
+    expect(dictionary.entry("give up")).toEqual({
+      head: "give up",
+      kind: "phrase",
+      short: "To surrender",
+      senses: [{ pos: "verb", text: "To surrender." }],
+      glossLang: "en",
+    });
+  });
+  it("has nothing for a term neither has", () => {
+    expect(dictionary.entry("zzyzx")).toBeUndefined();
+    expect(dictionary.short("zzyzx")).toBeUndefined();
   });
 });

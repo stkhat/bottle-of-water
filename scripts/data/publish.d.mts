@@ -16,6 +16,8 @@ export interface PackLock {
   v: 1;
   mirrors: string[];
   packs: Record<string, PackLockEntry>;
+  /** Learning language → the native languages offered, the default first. */
+  pairs: Record<string, string[]>;
 }
 export const MIRRORS: string[];
 export const LOCK_PATH: string;
@@ -29,7 +31,12 @@ export function nextVersion(
 ): string;
 export function buildLock(
   packs: Readonly<Record<string, PackInfo>>,
-  options?: { previous?: PackLock; download?: string[]; now?: Date },
+  options?: {
+    previous?: PackLock;
+    download?: string[];
+    now?: Date;
+    pairs?: Record<string, string[]>;
+  },
 ): PackLock;
 export function stringifyLock(lock: PackLock): string;
 export function writePackages(

@@ -14,6 +14,8 @@ export const LANGUAGE_PACK_PACKS = {
 export const DICTIONARY_PACKS = {
   "en-ja": ["en", "en-ja", "en-defs"],
   "es-en": ["es", "es-en"],
+  "en-es": ["en", "en-es", "en-defs"],
+  "en-pt": ["en", "en-pt", "en-defs"],
 } as const satisfies Readonly<Record<string, readonly PackName[]>>;
 
 const entry = <T extends object>(table: T, key: string) =>
