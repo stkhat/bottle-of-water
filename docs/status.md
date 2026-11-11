@@ -11,7 +11,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
 
-- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted in draft PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs). M9a phrase patterns on `feat/phrase-patterns` (draft PR #20, [plan](plans/2026-11-11-m9a-phrase-patterns.md)): data, matcher, classifier, saving selections under the pattern key, and the selection card (the phrase's hover card replaces the phrase bar, mock PhraseMeaning) are built
+- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md)) on `feat/definition-translation`
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
