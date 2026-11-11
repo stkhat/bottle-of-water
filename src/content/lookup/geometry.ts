@@ -6,6 +6,14 @@ export interface Box {
   bottom: number;
 }
 
+export function boxOf(element: Element): Box;
+export function boxOf(element: Element | null | undefined): Box | null;
+export function boxOf(element: Element | null | undefined): Box | null {
+  if (!element) return null;
+  const r = element.getBoundingClientRect();
+  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+}
+
 /** Fallback line height (× font size) for `line-height: normal`. */
 const NORMAL_LINE_HEIGHT = 1.2;
 

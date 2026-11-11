@@ -1,9 +1,11 @@
 import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { createPackWait, type PackWait } from "../../content/pack-wait";
+import { sendStatus } from "../../content/lookup/status";
+import { warn } from "../../content/lookup/warn";
 import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
 import { PacksUnavailableError } from "../../core/packs/unavailable";
+import { createPackWait, type PackWait } from "../../messaging/pack-wait";
 import { languagePair } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
@@ -514,15 +516,6 @@ function DetailsPanel(props: {
   );
 }
 
-/**
- * Reports a failure in the console; language data that is not on the device yet is
- * no failure (the list shows without meanings until it is, and Settings shows the
- * download).
- */
-const warn = (error: unknown) => {
-  if (!(error instanceof PacksUnavailableError)) console.warn("Lingo:", error);
-};
-
 /** The word list page (mock WordList): saved words, filters, and the selected word's details. */
 export function WordList({ deps }: { deps: WordListDeps }) {
   const [langs, setLangs] = useState<{ learning: string; native: string }>();
@@ -659,29 +652,32 @@ export function WordList({ deps }: { deps: WordListDeps }) {
   }
 
   async function changeStatus(to: WordStatus) {
-    if (!details || !langs || to === details.status) return;
+    if (!details || !langs) return;
     const { term } = details;
     try {
-      if (to === "new") {
-        await deps.send({ type: "removeTerm", id: term.id });
-      } else if (details.status === "new") {
-        const o = savedFrom(details.occurrences);
-        if (!o) return;
-        await deps.send({
-          type: "saveTerm",
-          lang: langs.learning,
-          key: term.key,
-          display: term.display,
-          kind: term.kind,
-          status: to,
-          source: { ...o.source, lang: langs.learning },
-          sentence: o.sentence,
-          ...(o.translation !== undefined && { translation: o.translation }),
-          pos: o.pos,
-        });
-      } else {
-        await deps.send({ type: "setStatus", id: term.id, status: to });
-      }
+      const sent = await sendStatus(
+        deps.send,
+        { termId: term.id, status: details.status },
+        to,
+        () => {
+          const o = savedFrom(details.occurrences);
+          return (
+            o && {
+              lang: langs.learning,
+              key: term.key,
+              display: term.display,
+              kind: term.kind,
+              source: { ...o.source, lang: langs.learning },
+              sentence: o.sentence,
+              ...(o.translation !== undefined && {
+                translation: o.translation,
+              }),
+              pos: o.pos,
+            }
+          );
+        },
+      );
+      if (!sent) return;
       setDetails((current) =>
         current?.term.id === term.id ? { ...current, status: to } : current,
       );

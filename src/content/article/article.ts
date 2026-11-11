@@ -1,27 +1,31 @@
-import type { AnalyzeResult, SourceInput } from "../../messaging/protocol";
-import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
-import { speechLang } from "../../core/languages";
-import type { PackStates } from "../../core/packs/state";
-import { PacksUnavailableError } from "../../core/packs/unavailable";
+import type { Category, Span, TermStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
+import { collapseSpaces, splitSentences } from "../../core/text/sentences";
 import { termId } from "../../core/term-id";
-import type { send } from "../../messaging/client";
 import {
   unsupportedPage,
   type PageRequest,
   type PageSummary,
 } from "../../messaging/page-protocol";
-import {
-  dictionaryLinks,
-  type DictionaryLink,
-} from "../../ui/lookup/externalDictionaries";
+import type { SourceInput } from "../../messaging/protocol";
+import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
-import { createPackWait } from "../pack-wait";
-import { createStore, type Store } from "../ui/store";
-import { describeTerm, translateSenses, type TermCard } from "./describe";
+import type { TermCard } from "../lookup/describe";
+import { wordBoxes, type Box } from "../lookup/geometry";
+import {
+  createLookup,
+  createMarkAll,
+  latest,
+  sameTerm,
+  type LookupDeps,
+  type Term,
+} from "../lookup/lookup";
+import { sendStatus } from "../lookup/status";
+import { warn } from "../lookup/warn";
+import { inOtherLanguage } from "../page-language";
+import { createStore, type Store } from "../store";
 import { watchEndOfArticle } from "./end-of-article";
-import { wordBoxes, type Box } from "./geometry";
-import { createHighlighter, type Highlighter } from "./highlighter";
+import { createHighlighter } from "./highlighter";
 import { watchInteractions } from "./interactions";
 import {
   createBlockIndex,
@@ -37,40 +41,20 @@ import {
   collectBlocks,
   createPageText,
   rangeOf,
-  type PageText,
   type TextBlock,
 } from "./page-text";
-import { collapseSpaces, splitSentences } from "../../core/text/sentences";
 import { sentenceAt } from "./sentence";
 import type { DetectLanguage } from "./should-run";
 import { articleSurface, type PageSurface } from "./surface";
-import { inOtherLanguage } from "../page-language";
-import { createTranslationQueue } from "../translate/queue";
-import {
-  createBuiltInTranslator,
-  type TranslationProvider,
-} from "../translate/translator";
 import { batches, watchVisibleBlocks } from "./visibility";
 
 /** The longest text sample the page language is detected on. */
 const DETECT_SAMPLE = 2000;
 
-/** What the article UI needs from the extension, passed in so it runs in tests. */
-export interface ArticleDeps {
-  /** `send()` from the messaging client. */
-  send: typeof send;
-  /** Calls `listener` with the new settings after every change; returns an unsubscribe. */
-  watchSettings(listener: (settings: Settings) => void): () => void;
-  /**
-   * Calls `listener` with the background's pack states now and after every change
-   * (`watchPackState`); returns an unsubscribe.
-   */
-  watchPackState(listener: (states: PackStates) => void): () => void;
+export interface ArticleDeps extends LookupDeps {
   detectLanguage: DetectLanguage;
   /** Mounts Lingo's UI for the page once it qualifies; returns an unmount. */
   mountUi(app: ArticleApp): (() => void) | Promise<() => void>;
-  /** Default: the browser's built-in translator. */
-  createTranslator?(from: string, to: string): TranslationProvider;
 }
 
 export interface ArticleOptions {
@@ -89,22 +73,26 @@ export interface ArticleOptions {
   surface?: PageSurface;
 }
 
-/** The surface the options name, else an article page. */
-const surfaceOf = (options: ArticleOptions): PageSurface =>
-  options.surface ??
-  articleSurface({
-    hostname: options.hostname ?? location.hostname,
-    htmlLang: options.htmlLang ?? document.documentElement.lang,
-  });
+/** The page's host, and the surface the options name, else an article page. */
+function pageOf(options: ArticleOptions) {
+  const hostname = options.hostname ?? location.hostname;
+  const surface =
+    options.surface ??
+    articleSurface({
+      hostname,
+      htmlLang: options.htmlLang ?? document.documentElement.lang,
+    });
+  return { hostname, surface };
+}
 
 /** The hover card over a word: where the word is and what it says. */
-export interface HoverState {
+interface HoverState {
   anchor: Box;
   card: TermCard;
 }
 
 /** The dictionary panel for the clicked word. */
-export interface PanelState {
+interface PanelState {
   card: TermCard;
   /** Sentences on this page with the term, in page order. */
   here: string[];
@@ -114,7 +102,7 @@ export interface PanelState {
 }
 
 /** The card over a selection of words, which saves them as a phrase. */
-export interface PhraseState {
+interface PhraseState {
   anchor: Box;
   /**
    * The dictionary pattern the words stand for ("make up one's mind" for "made up her
@@ -150,7 +138,7 @@ interface Selected {
 }
 
 /** What the UI shows. */
-export interface ArticleState {
+interface ArticleState {
   settings: Settings;
   hover: HoverState | null;
   panel: PanelState | null;
@@ -181,15 +169,11 @@ export interface ArticleApp {
 }
 
 export interface ArticleSession {
-  readonly pageText: PageText;
   /** Classifies every analyzed block again (after saved terms changed elsewhere). */
   reanalyze(): Promise<void>;
-  readonly highlighter: Highlighter;
   /** The spans of every analyzed block that is still on the page. */
   readonly spans: ReadonlyMap<TextBlock, readonly Span[]>;
   readonly app: ArticleApp;
-  /** The latest settings. */
-  settings(): Settings;
   /** Answers the popup about this page (see `page-protocol.ts`). */
   handlePageRequest(request: PageRequest): Promise<PageSummary>;
   /** Removes highlights, the UI and every observer and listener. */
@@ -201,9 +185,6 @@ const writtenOf = ({ block, span }: SpanRef) => {
   const { start, end } = span.part ?? span;
   return collapseSpaces(block.text.slice(start, end));
 };
-
-const sameTerm = (span: Span, key: string, kind: TermKind) =>
-  span.key === key && span.kind === kind;
 
 /**
  * Runs the article UI on the page when it qualifies (`shouldRunArticle`): mounts the
@@ -218,8 +199,7 @@ export async function startArticle(
   options: ArticleOptions = {},
 ): Promise<ArticleSession | undefined> {
   const root = options.root ?? document.body;
-  const hostname = options.hostname ?? location.hostname;
-  const surface = surfaceOf(options);
+  const { hostname, surface } = pageOf(options);
   let settings = options.settings ?? (await deps.send({ type: "getSettings" }));
 
   const runs = await surface.qualifies({
@@ -234,9 +214,6 @@ export async function startArticle(
   if (!runs) return undefined;
 
   const lang = settings.learningLang;
-  const translator = createTranslationQueue(
-    deps.createTranslator ?? createBuiltInTranslator,
-  );
   const highlighter = createHighlighter(settings.highlight);
   const spans: SpanMap = new Map();
   const live = new Set<TextBlock>();
@@ -244,7 +221,6 @@ export async function startArticle(
   /** The latest analysis or local change of each block; older results are dropped. */
   const versions = new Map<TextBlock, number>();
   let version = 0;
-  let warmed = false;
   /** The part that counts (the article's title and body), found again after page changes. */
   let main: MainContent = surface.mainContent(root, []);
   /** Analyzed blocks whose spans are highlighted (in scope). */
@@ -253,11 +229,17 @@ export async function startArticle(
   const savedKeys = new Set<string>();
   /** Blocks whose analysis waits for language data that is not on the device. */
   const waiting = new Set<TextBlock>();
-  const packs = createPackWait(deps.watchPackState, () => {
-    const blocks = [...waiting].filter((block) => live.has(block));
-    waiting.clear();
-    void reanalyze(blocks).catch(warn);
+  const lookup = createLookup(deps, {
+    settings: () => settings,
+    lang: () => lang,
+    url: surface.url,
+    packsReady() {
+      const blocks = [...waiting].filter((block) => live.has(block));
+      waiting.clear();
+      void reanalyze(blocks).catch(warn);
+    },
   });
+  const { run } = lookup;
 
   const store = createStore<ArticleState>({
     settings,
@@ -330,31 +312,16 @@ export async function startArticle(
   async function analyze(blocks: TextBlock[]) {
     const batch = await inLearningLanguage(blocks);
     if (batch.length === 0) return;
-    if (packs.waiting) {
+    const stamps = lookup.waiting
+      ? []
+      : batch.map((block) => {
+          versions.set(block, ++version);
+          return version;
+        });
+    const result = await lookup.analyze(batch.map((b) => b.text));
+    if (!result) {
       for (const block of batch) waiting.add(block);
       return;
-    }
-    const stamps = batch.map((block) => {
-      versions.set(block, ++version);
-      return version;
-    });
-    let result: AnalyzeResult;
-    try {
-      result = await deps.send({
-        type: "analyze",
-        lang,
-        blocks: batch.map((b) => b.text),
-      });
-    } catch (error) {
-      if (!(error instanceof PacksUnavailableError)) throw error;
-      for (const block of batch) waiting.add(block);
-      packs.add(error.packs);
-      return;
-    }
-    if (!warmed) {
-      // Load the dictionary now so the first hover or click does not wait for it.
-      warmed = true;
-      deps.send({ type: "warmDictionary", lang }).catch(warn);
     }
     const fresh: TextBlock[] = [];
     batch.forEach((block, i) => {
@@ -423,71 +390,17 @@ export async function startArticle(
     return [...keys];
   }
 
-  /** Saves the keys with the status as one batch and highlights them so. */
-  async function saveKeys(keys: string[], status: TermStatus) {
-    const result = await deps.send({
-      type: "saveAll",
-      lang,
-      keys,
-      status,
-      source: source(),
-    });
-    const saved = new Set(keys);
-    recategorize((s) =>
-      s.category === "new" && saved.has(s.key) ? status : undefined,
-    );
-    await refreshOpenCards();
-    return { ...result, keys: saved };
-  }
-
-  /**
-   * Saves every unsaved new word of the analyzed part of the page as Known, once the
-   * end of the article is in view and Settings say so (`unsavedAtEnd`). The last
-   * paragraph is analyzed first if it has not been yet (the end can show before the
-   * visible blocks are queued), and blocks waiting for analysis are waited for.
-   */
-  async function markUnsavedKnown() {
-    const last = main.last;
-    if (last && live.has(last) && !spans.has(last)) await analyze([last]);
-    await visible.idle();
-    const keys = unsavedOnPage();
-    if (keys.length > 0) await saveKeys(keys, "known");
-  }
-
-  /** The popup's last "Mark all as …" on this page view, until it is undone. */
-  let lastBatch:
-    | { batchId: string; keys: ReadonlySet<string>; status: TermStatus }
-    | undefined;
-  let done: PageSummary["done"] = null;
-
-  /** The popup's "Mark all as Learning / Known": every unsaved new word of the page. */
-  async function saveAll(status: TermStatus) {
-    const keys = unsavedOnPage();
-    if (keys.length === 0) return;
-    const { batchId, count, keys: saved } = await saveKeys(keys, status);
-    lastBatch = { batchId, keys: saved, status };
-    done = { count, target: status };
-  }
-
-  async function undoSaveAll() {
-    const batch = lastBatch;
-    if (!batch) return;
-    await deps.send({ type: "undoSaveAll", batchId: batch.batchId });
-    lastBatch = undefined;
-    done = null;
-    // Those words were new before; the ones changed since stay as they are.
-    recategorize((s) =>
-      s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
-    );
-    await refreshOpenCards();
-  }
-
-  const summary = (): PageSummary => ({
-    supported: true,
-    hostname,
-    scope: "page",
-    unsaved: unsavedOnPage().length,
-    done,
+  const marks = createMarkAll({
+    send: deps.send,
+    lang: () => lang,
+    source,
+    unsaved: unsavedOnPage,
+    async marked(keys, from, to) {
+      recategorize((s) =>
+        s.category === from && keys.has(s.key) ? to : undefined,
+      );
+      await refreshOpenCards();
+    },
   });
 
   /** Analyzes blocks again (all analyzed ones by default), in batches. */
@@ -511,32 +424,20 @@ export async function startArticle(
     }
   }
 
-  const blocksWith = (key: string, kind: TermKind) =>
+  const blocksWith = (term: Term) =>
     [...spans]
-      .filter(([, list]) => list.some((s) => sameTerm(s, key, kind)))
+      .filter(([, list]) => list.some((s) => sameTerm(s, term)))
       .map(([block]) => block);
 
-  // One change to saved terms at a time, in the order asked.
-  let queue: Promise<unknown> = Promise.resolve();
-  function run(task: () => Promise<unknown>) {
-    queue = queue.then(task).catch(warn);
-  }
-
-  const translation = () => ({
-    send: deps.send,
-    lang,
-    nativeLang: settings.nativeLang,
-    translator,
-  });
   const describe = (ref: SpanRef, shownIn: "hover" | "window" = "hover") =>
-    describeTerm(
+    lookup.describe(
       {
         key: ref.span.key,
         kind: ref.span.kind,
         surface: writtenOf(ref),
         category: ref.span.category,
       },
-      { ...translation(), sourceUrl: surface.url(), shownIn },
+      shownIn,
     );
 
   /** True when `ref` is one of the page's spans (not a selection's phrase). */
@@ -545,48 +446,39 @@ export async function startArticle(
 
   /** Saves, changes or removes the term `ref` points at. */
   async function changeStatus(ref: SpanRef, card: TermCard, to: WordStatus) {
-    const { key, kind } = card;
-    if (card.status === to) return;
-    if (to === "new") {
-      await deps.send({ type: "removeTerm", id: card.termId });
-      // Unsaved, each occurrence is new or known again by the page's level.
-      await reanalyze(blocksWith(key, kind));
-    } else {
-      if (card.status === "new") {
-        const { block, span } = ref;
-        const sentence = sentenceAt(block.text, span.start, span.end, lang);
-        await deps.send({
-          type: "saveTerm",
-          lang,
-          key,
-          display: writtenOf(ref),
-          kind,
-          status: to,
-          source: source(),
-          sentence,
-          pos: { textQuote: sentence },
-        });
-      } else {
-        await deps.send({ type: "setStatus", id: card.termId, status: to });
-      }
-      // A selected phrase may be anywhere on the page: classify again to find it.
-      if (card.status === "new" && !onPage(ref)) await reanalyze();
-      else recategorize((s) => (sameTerm(s, key, kind) ? to : undefined));
-    }
-    surface.onTermsChanged?.();
-    await refreshCards(key, kind);
+    const sent = await sendStatus(deps.send, card, to, () => {
+      const { block, span } = ref;
+      const sentence = sentenceAt(block.text, span.start, span.end, lang);
+      return {
+        lang,
+        key: card.key,
+        display: writtenOf(ref),
+        kind: card.kind,
+        source: source(),
+        sentence,
+        pos: { textQuote: sentence },
+      };
+    });
+    if (!sent) return;
+    // Unsaved, each occurrence is new or known again by the page's level.
+    if (to === "new") await reanalyze(blocksWith(card));
+    // A selected phrase may be anywhere on the page: classify again to find it.
+    else if (card.status === "new" && !onPage(ref)) await reanalyze();
+    else recategorize((s) => (sameTerm(s, card) ? to : undefined));
+    deps.onTermsChanged?.();
+    await refreshCards(card);
   }
 
   // Hover card.
   let hoverRef: SpanRef | undefined;
-  let hoverTicket = 0;
+  const hoverTicket = latest();
 
   async function showHover(ref: SpanRef) {
     // The selection card is the card for the words under the pointer.
     if (phrase) return;
-    const ticket = ++hoverTicket;
+    const isLatest = hoverTicket.next();
     const card = await describe(ref);
-    if (ticket !== hoverTicket) return;
+    if (!isLatest()) return;
     const [anchor] = wordBoxes(
       rangeOf(ref.block, ref.span.start, ref.span.end),
     );
@@ -596,23 +488,23 @@ export async function startArticle(
   }
 
   function hideHover() {
-    hoverTicket++;
+    hoverTicket.drop();
     hoverRef = undefined;
     if (store.get().hover) store.set({ hover: null });
   }
 
   // Dictionary panel.
   let panelRef: SpanRef | undefined;
-  let panelTicket = 0;
+  const panelTicket = latest();
   /** The span of each "On this page" sentence, for scrolling to it. */
   let panelRanges: Range[] = [];
 
-  function sentencesOnPage(key: string, kind: TermKind) {
+  function sentencesOnPage(term: Term) {
     const here: string[] = [];
     const ranges: Range[] = [];
     for (const block of pageText.blocks()) {
       for (const span of spans.get(block) ?? []) {
-        if (!sameTerm(span, key, kind)) continue;
+        if (!sameTerm(span, term)) continue;
         const sentence = sentenceAt(block.text, span.start, span.end, lang);
         if (here.includes(sentence)) continue;
         here.push(sentence);
@@ -625,66 +517,54 @@ export async function startArticle(
   const outlineOf = (ref: SpanRef) =>
     wordBoxes(rangeOf(ref.block, ref.span.start, ref.span.end));
 
-  function panelState(ref: SpanRef, card: TermCard): PanelState {
-    const { here, ranges } = sentencesOnPage(card.key, card.kind);
-    panelRanges = ranges;
-    return {
-      card,
-      here,
-      dictionaries: dictionaryLinks(card.head, settings.dictionaries, {
-        from: lang,
-        to: settings.nativeLang,
-      }),
-      outline: outlineOf(ref),
-    };
-  }
-
   async function openPanel(ref: SpanRef) {
-    const ticket = ++panelTicket;
+    const isLatest = panelTicket.next();
     const card = await describe(ref, "window");
-    if (ticket !== panelTicket) return;
+    if (!isLatest()) return;
     panelRef = ref;
     showPanel(ref, card);
-    surface.onPanelOpen?.();
+    deps.onPanelOpen?.();
   }
 
-  /**
-   * Shows the panel's card, then its English definitions translated as they come (the
-   * click that opened it lets the translator download its model the first time).
-   */
   function showPanel(ref: SpanRef, card: TermCard) {
-    store.set({ panel: panelState(ref, card) });
-    void translateSenses(card, translation())
-      .then((translated) => {
-        const panel = store.get().panel;
-        if (translated !== card && panel?.card === card)
-          store.set({ panel: { ...panel, card: translated } });
-      })
-      .catch(warn);
+    const { here, ranges } = sentencesOnPage(card);
+    panelRanges = ranges;
+    lookup.showPanel(store, {
+      card,
+      here,
+      dictionaries: lookup.dictionaries(card.head),
+      outline: outlineOf(ref),
+    });
   }
 
   function closePanel() {
-    panelTicket++;
+    panelTicket.drop();
     panelRef = undefined;
     panelRanges = [];
     store.set({ panel: null });
   }
 
   /** Looks the term up again where the hover card or the panel shows it. */
-  async function refreshCards(key: string, kind: TermKind) {
+  async function refreshCards(term: Term) {
     const { hover, panel } = store.get();
-    if (hover && hoverRef && sameTerm(hoverRef.span, key, kind)) {
+    if (hover && hoverRef && sameTerm(hoverRef.span, term)) {
       const ref = hoverRef;
       const card = await describe(ref);
       if (hoverRef === ref)
         store.set({ hover: { ...store.get().hover!, card } });
     }
-    if (panel && panelRef && sameTerm(panelRef.span, key, kind)) {
+    if (panel && panelRef && sameTerm(panelRef.span, term)) {
       const ref = panelRef;
-      const ticket = panelTicket;
+      const isCurrent = panelTicket.current();
       const card = await describe(ref, "window");
-      if (panelTicket === ticket) showPanel(ref, card);
+      if (isCurrent()) showPanel(ref, card);
     }
+  }
+
+  /** Looks up again whatever the hover card and the panel show. */
+  async function refreshOpenCards() {
+    const refs = [hoverRef, panelRef].filter((r) => r !== undefined);
+    for (const { span } of refs) await refreshCards(span);
   }
 
   // Selection card.
@@ -817,24 +697,9 @@ export async function startArticle(
       dropSelected();
       getSelection()?.removeAllRanges();
     }
-    surface.onTermsChanged?.();
+    deps.onTermsChanged?.();
     // The phrase may be anywhere on the page: classify again to find it.
     await reanalyze();
-  }
-
-  /** Looks up again whatever the hover card and the panel show. */
-  async function refreshOpenCards() {
-    const refs = [hoverRef, panelRef].filter((r) => r !== undefined);
-    for (const { span } of refs) await refreshCards(span.key, span.kind);
-  }
-
-  function speak() {
-    const head = store.get().panel?.card.head;
-    if (!head || typeof speechSynthesis === "undefined") return;
-    const utterance = new SpeechSynthesisUtterance(head);
-    utterance.lang = speechLang(lang);
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
   }
 
   function onScroll() {
@@ -864,7 +729,7 @@ export async function startArticle(
       const card = store.get().panel?.card;
       if (ref && card) run(() => changeStatus(ref, card, status));
     },
-    speak,
+    speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel,
     goToSentence(i) {
       panelRanges[i]?.startContainer.parentElement?.scrollIntoView({
@@ -890,7 +755,15 @@ export async function startArticle(
 
   const visible = watchVisibleBlocks(analyze);
   const end = watchEndOfArticle(() => {
-    if (settings.unsavedAtEnd === "known") run(markUnsavedKnown);
+    if (settings.unsavedAtEnd !== "known") return;
+    // The end can show before the visible blocks are queued: the last paragraph is
+    // analyzed first, and blocks waiting for analysis are waited for.
+    run(async () => {
+      const last = main.last;
+      if (last && live.has(last) && !spans.has(last)) await analyze([last]);
+      await visible.idle();
+      await marks.markKnown();
+    });
   });
 
   const pageText = createPageText(root, {
@@ -948,25 +821,26 @@ export async function startArticle(
     if (levelChanged) run(() => reanalyze());
   });
 
-  function handlePageRequest(request: PageRequest): Promise<PageSummary> {
-    if (request.type === "pageSaveAll") run(() => saveAll(request.status));
-    else if (request.type === "pageUndo") run(undoSaveAll);
-    // Answer after everything asked before has been done.
-    return queue.then(summary);
-  }
-
   return {
-    pageText,
-    highlighter,
     spans,
     app,
-    settings: () => settings,
     reanalyze: () =>
       new Promise<void>((done) => run(() => reanalyze().finally(done))),
-    handlePageRequest,
+    handlePageRequest: (request) =>
+      lookup.answer(request, {
+        saveAll: marks.saveAll,
+        undoSaveAll: marks.undoSaveAll,
+        summary: () => ({
+          supported: true,
+          hostname,
+          scope: "page",
+          unsaved: unsavedOnPage().length,
+          done: marks.done(),
+        }),
+      }),
     stop() {
       unwatch();
-      packs.stop();
+      lookup.stop();
       interactions.stop();
       end.disconnect();
       pageText.disconnect();
@@ -979,14 +853,6 @@ export async function startArticle(
       unmountUi();
     },
   };
-}
-
-/**
- * Reports a failure in the console; language data that is not on the device yet is
- * no failure (the page waits for it, and Settings and the popup show the download).
- */
-function warn(error: unknown) {
-  if (!(error instanceof PacksUnavailableError)) console.warn("Lingo:", error);
 }
 
 /** The article UI on a page, started and stopped as the site is switched on and off. */
@@ -1010,8 +876,7 @@ export function runArticle(
   deps: ArticleDeps,
   options: ArticleOptions = {},
 ): ArticleRunner {
-  const hostname = options.hostname ?? location.hostname;
-  const surface = surfaceOf(options);
+  const { hostname, surface } = pageOf(options);
   let session: ArticleSession | undefined;
   let allowed: boolean | undefined;
   let stopped = false;

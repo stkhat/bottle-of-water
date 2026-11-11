@@ -1,15 +1,12 @@
 import { render } from "preact";
-import { browser } from "wxt/browser";
 import { startContentErrorLog } from "../../check/start";
+import { ArticleUi } from "../../content/article/ArticleUi";
 import { runArticle } from "../../content/article/article";
+import { leaveWhenOrphaned } from "../../content/orphan";
+import { shadowRootMode } from "../../content/shadow-host";
 import { isVideoSite } from "../../content/video/platform";
-import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
-import { ArticleUi } from "../../content/ui/ArticleUi";
-import { shadowRootMode } from "../../content/ui/shadow-mode";
-import { send } from "../../messaging/client";
-import { watchPackState, watchSettings } from "../../messaging/storage";
+import { answerPageRequests, contentDeps } from "../../content/wiring";
 import { guardShadowRoot } from "../../ui/from-user";
-import { isPageRequest } from "../../messaging/page-protocol";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -22,14 +19,10 @@ export default defineContentScript({
     // `npm run build:check` only (src/check/error-log.ts).
     if (import.meta.env.MODE === "check") startContentErrorLog("article");
     const runner = runArticle({
-      send: sendWhileConnected(ctx, send),
-      watchSettings,
-      watchPackState,
-      detectLanguage: (text) => browser.i18n.detectLanguage(text),
+      ...contentDeps(ctx),
       async mountUi(app) {
         const ui = await createShadowRootUi(ctx, {
           name: "lingo-article",
-          // Closed in production: page scripts cannot reach the UI.
           mode: shadowRootMode(),
           position: "inline",
           anchor: "body",
@@ -47,20 +40,6 @@ export default defineContentScript({
     });
     ctx.onInvalidated(() => runner.stop());
     leaveWhenOrphaned(ctx);
-
-    // The popup asks about this page (page-protocol.ts); other messages are not ours.
-    const onMessage = (
-      message: unknown,
-      _sender: unknown,
-      sendResponse: (response: unknown) => void,
-    ) => {
-      if (!isPageRequest(message)) return;
-      void runner.handlePageRequest(message).then(sendResponse);
-      return true;
-    };
-    browser.runtime.onMessage.addListener(onMessage);
-    ctx.onInvalidated(() =>
-      browser.runtime.onMessage.removeListener(onMessage),
-    );
+    answerPageRequests(ctx, runner.handlePageRequest);
   },
 });

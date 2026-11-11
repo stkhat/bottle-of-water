@@ -9,7 +9,7 @@ import {
 } from "./should-run";
 
 /** What the page asks of the detector before it runs. */
-export interface QualifyInput {
+interface QualifyInput {
   settings: Settings;
   /** The page text to detect the language on (read only when needed). */
   sample: () => string;
@@ -41,10 +41,6 @@ export interface PageSurface {
   source(): Omit<SourceInput, "lang">;
   /** The URL "Seen elsewhere" leaves out (the source's own). */
   url(): string;
-  /** The dictionary panel opened (another of Lingo's windows may close). */
-  onPanelOpen?(): void;
-  /** A term was saved, changed or removed here (other parts of the page may follow). */
-  onTermsChanged?(): void;
 }
 
 /** Everything counts, and there is no end to reach. */

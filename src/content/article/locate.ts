@@ -100,8 +100,8 @@ function wordsOf(span: Span, text: string): Span[] {
   }));
 }
 
-export const MIN_PHRASE_WORDS = 2;
-export const MAX_PHRASE_WORDS = 8;
+const MIN_PHRASE_WORDS = 2;
+const MAX_PHRASE_WORDS = 8;
 
 const wordsIn = (text: string) => text.split(/\s+/).length;
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import type { Counts, SyncStatus } from "../../messaging/protocol";
-import { onHost } from "../../content/article/should-run";
+import { onHost } from "../../core/url";
 import type { DataNote, PackStates } from "../../core/packs/state";
 import type { Settings, SettingsPatch } from "../../core/settings";
 import { languageName, languagePair } from "../../i18n/languages";

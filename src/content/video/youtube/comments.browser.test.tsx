@@ -5,12 +5,12 @@ import { clickOn, dictionary, highlighted } from "../../../testing/article";
 import { testBackground } from "../../../testing/background";
 import { noTranslation } from "../../../testing/stubs";
 import type { DetectLanguage } from "../../article/should-run";
-import { isCommentText } from "./comments";
+import type { LookupHooks } from "../../lookup/lookup";
 import type { PlatformAdapter } from "../platform";
 import {
+  isCommentText,
   mountCommentsUi,
   startYouTubeComments,
-  type CommentsHooks,
 } from "./comments";
 
 beforeAll(async () => {
@@ -93,7 +93,7 @@ const detect: DetectLanguage = async (text) => ({
 });
 
 function start(
-  options: { settings?: Partial<Settings>; hooks?: CommentsHooks } = {},
+  options: { settings?: Partial<Settings>; hooks?: LookupHooks } = {},
 ) {
   const background = testBackground({
     highlight: { new: true, learning: true, known: false },
@@ -109,8 +109,9 @@ function start(
       detectLanguage: detect,
       mountUi: mountCommentsUi,
       createTranslator: () => noTranslation,
+      ...options.hooks,
     },
-    { adapter: fake.adapter, hostname: "www.youtube.com", ...options.hooks },
+    { adapter: fake.adapter, hostname: "www.youtube.com" },
   );
   cleanups.push(() => runner.stop());
   return { background, runner, navigate: fake.navigate };

@@ -1,7 +1,7 @@
 import "@fontsource-variable/inter";
 import { render } from "preact";
 import { startPageErrorLog } from "../../check/start";
-import { speechLang } from "../../core/languages";
+import { speak } from "../../content/lookup/speak";
 import { send } from "../../messaging/client";
 import { watchPackState, watchSettings } from "../../messaging/storage";
 import { download } from "../../ui/backup/download";
@@ -16,13 +16,7 @@ const deps: WordListDeps = {
   now: Date.now,
   download,
   watchPackState,
-  speak(text, lang) {
-    if (typeof speechSynthesis === "undefined") return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = speechLang(lang);
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
-  },
+  speak,
 };
 
 followTheme({ send, watchSettings });

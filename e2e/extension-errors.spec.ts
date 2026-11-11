@@ -153,7 +153,7 @@ for (const build of ["production", "check"] as const)
   test.describe(`${build} build`, () => {
     test.use({ build });
     // The production build closes the shadow roots of Lingo's UI on web pages
-    // (shadow-mode.ts): Playwright cannot reach into the UI there. On that build the
+    // (shadow-host.ts): Playwright cannot reach into the UI there. On that build the
     // flows load the pages and use them through the mouse and keyboard, and leave out
     // the steps that read or press Lingo's UI; the check build does every step.
     const reachesUi = build === "check";

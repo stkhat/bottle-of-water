@@ -1158,7 +1158,7 @@ describe("words in this video", () => {
     const row = videoWords(cues, spans, summaries).find(
       (r) => r.key === "tangy",
     )!;
-    app.openWord(row);
+    app.clickWord(row.first);
     await expect.poll(() => state().panel?.card.head).toBe("tangy");
     expect(state().panel).toMatchObject({
       ref: refOf(state, 0, "tangy"),

@@ -1,16 +1,15 @@
-import type { VideoHooks } from "../run";
+import type { LookupHooks } from "../../lookup/lookup";
+import { warn } from "../../lookup/warn";
 import type { VideoSession } from "../session";
-import type { CommentsHooks, CommentsRunner } from "./comments";
-
-const warn = (error: unknown) => console.warn("Lingo:", error);
+import type { CommentsRunner } from "./comments";
 
 /**
  * Runs YouTube's video and comments parts side by side: one dictionary at a time, and a
  * term saved in one part shows in the other.
  */
 export async function startYouTubeParts(
-  startComments: (hooks: CommentsHooks) => CommentsRunner,
-  startVideo: (hooks: VideoHooks) => Promise<VideoSession | undefined>,
+  startComments: (hooks: LookupHooks) => CommentsRunner,
+  startVideo: (hooks: LookupHooks) => Promise<VideoSession | undefined>,
 ): Promise<{ comments: CommentsRunner; video?: VideoSession }> {
   const parts: { video?: VideoSession } = {};
   const comments = startComments({

@@ -17,7 +17,7 @@ import type { WordStatus } from "../../ui/lookup/HoverCard";
 import type { TranslationPair, TranslationQueue } from "../translate/queue";
 
 /** A sense as the dictionary window shows it. */
-export interface CardSense extends Sense {
+interface CardSense extends Sense {
   /**
    * The browser translator's translation of `text` (its cleaned English definition)
    * into the native language; the window shows `text` under it.
@@ -60,7 +60,7 @@ export interface TermCard {
 }
 
 /** The status the hover card shows: a word known by its frequency shows as Known. */
-export const shownStatus = (card: TermCard): WordStatus =>
+const shownStatus = (card: TermCard): WordStatus =>
   card.knownByLevel ? "known" : card.status;
 
 /** What the hover card shows of a term. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shadowRootMode } from "./shadow-mode";
+import { shadowRootMode } from "./shadow-host";
 
 describe("shadowRootMode", () => {
   it("closes Lingo's shadow roots in production builds", () => {

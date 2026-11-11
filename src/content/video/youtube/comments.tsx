@@ -1,20 +1,17 @@
 import { render } from "preact";
-import { browser } from "wxt/browser";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { hostBlocked, type Settings } from "../../../core/settings";
-import { send } from "../../../messaging/client";
-import { watchPackState, watchSettings } from "../../../messaging/storage";
-import { guardShadowRoot } from "../../../ui/from-user";
 import {
   runArticle,
   type ArticleApp,
   type ArticleDeps,
   type ArticleRunner,
 } from "../../article/article";
+import { ArticleUi } from "../../article/ArticleUi";
 import { WHOLE_ROOT, type PageSurface } from "../../article/surface";
-import { sendWhileConnected } from "../../orphan";
-import { ArticleUi } from "../../ui/ArticleUi";
-import { shadowRootMode } from "../../ui/shadow-mode";
+import type { LookupHooks } from "../../lookup/lookup";
+import { createShadowHost } from "../../shadow-host";
+import { contentDeps } from "../../wiring";
 import type { PlatformAdapter } from "../platform";
 
 /** A comment's text on a YouTube watch page (its replies' too). */
@@ -36,14 +33,6 @@ export const commentsAllowedOn = (hostname: string, settings: Settings) =>
 export const isCommentText = (node: Text) =>
   node.parentElement?.closest(COMMENT_TEXT) != null;
 
-/** How the comments work with the video UI on the same page. */
-export interface CommentsHooks {
-  /** The comments' dictionary panel opened: the video's window closes. */
-  onPanelOpen?(): void;
-  /** A term was saved, changed or removed from the comments: the subtitles follow. */
-  onTermsChanged?(): void;
-}
-
 /** The comments of the current video, run like an article. */
 export interface CommentsRunner {
   /** Closes the comments' dictionary panel, if it is open. */
@@ -53,7 +42,7 @@ export interface CommentsRunner {
   stop(): void;
 }
 
-export interface CommentsOptions extends CommentsHooks {
+export interface CommentsOptions {
   adapter: PlatformAdapter;
   /** Default `location.hostname`. */
   hostname?: string;
@@ -64,10 +53,10 @@ export interface CommentsOptions extends CommentsHooks {
  * language is detected on its own, everything read counts (there is no end to reach),
  * and the video is the source of what is saved and recorded.
  */
-function commentsSurface(
-  options: CommentsOptions & { hostname: string },
-): PageSurface {
-  const { adapter, hostname } = options;
+function commentsSurface({
+  adapter,
+  hostname,
+}: Required<CommentsOptions>): PageSurface {
   return {
     allowed: (settings) => commentsAllowedOn(hostname, settings),
     qualifies: async () => true,
@@ -80,8 +69,6 @@ function commentsSurface(
       title: adapter.title(),
     }),
     url: () => adapter.url(),
-    onPanelOpen: options.onPanelOpen,
-    onTermsChanged: options.onTermsChanged,
   };
 }
 
@@ -117,7 +104,7 @@ export function startYouTubeComments(
 ): CommentsRunner {
   const { adapter } = options;
   const hostname = options.hostname ?? location.hostname;
-  const surface = commentsSurface({ ...options, hostname });
+  const surface = commentsSurface({ adapter, hostname });
   let runner: ArticleRunner | undefined;
   let cancelWait: (() => void) | undefined;
 
@@ -159,31 +146,15 @@ export function startYouTubeComments(
   };
 }
 
-/** Events that must not reach the site (its shortcuts, its handlers on the page). */
-const PRIVATE_EVENTS = [
-  "click",
-  "dblclick",
-  "mousedown",
-  "mouseup",
-  "pointerdown",
-  "pointerup",
-  "contextmenu",
-  "keydown",
-  "keyup",
-  "keypress",
-] as const;
-
 /**
  * Mounts the comments' hover card, selection card and dictionary panel in their own
  * shadow root in `<body>` (no `innerHTML`: YouTube enforces Trusted Types).
  */
 export function mountCommentsUi(app: ArticleApp): () => void {
-  const host = document.createElement("lingo-comments");
-  host.style.cssText = "position: static;";
-  for (const type of PRIVATE_EVENTS)
-    host.addEventListener(type, (event) => event.stopPropagation());
-  const root = host.attachShadow({ mode: shadowRootMode() });
-  guardShadowRoot(root);
+  const { host, root } = createShadowHost(
+    "lingo-comments",
+    "position: static;",
+  );
   render(<ArticleUi app={app} />, root);
   document.body.append(host);
   return () => {
@@ -196,17 +167,11 @@ export function mountCommentsUi(app: ArticleApp): () => void {
 export function runYouTubeComments(
   ctx: ContentScriptContext,
   adapter: PlatformAdapter,
-  hooks: CommentsHooks,
+  hooks: LookupHooks,
 ): CommentsRunner {
   const runner = startYouTubeComments(
-    {
-      send: sendWhileConnected(ctx, send),
-      watchSettings,
-      watchPackState,
-      detectLanguage: (text) => browser.i18n.detectLanguage(text),
-      mountUi: mountCommentsUi,
-    },
-    { adapter, ...hooks },
+    { ...contentDeps(ctx), mountUi: mountCommentsUi, ...hooks },
+    { adapter },
   );
   ctx.onInvalidated(() => runner.stop());
   return runner;
