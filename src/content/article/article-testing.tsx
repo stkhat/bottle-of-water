@@ -8,7 +8,7 @@ import type { Request } from "../../messaging/protocol";
 import { ArticleUi } from "../ui/ArticleUi";
 import { startArticle, type ArticleSession } from "./article";
 import { testBackground } from "./test-background";
-import type { TranslationProvider } from "./translate";
+import type { TranslationProvider } from "../translate/translator";
 
 const cleanups: (() => void | Promise<void>)[] = [];
 

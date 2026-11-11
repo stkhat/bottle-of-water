@@ -5,6 +5,7 @@ import { createLanguageResources } from "../../background/language-resources";
 import { openLingoDb } from "../../background/db";
 import { createHistoryStore } from "../../background/history-store";
 import { createTermStore } from "../../background/term-store";
+import { createTranslationCache } from "../../background/translation-cache";
 import { createBrowserEnv } from "../../core/browser-env";
 import { createPackLoader, type PackFiles } from "../../core/packs/load";
 import {
@@ -167,6 +168,7 @@ export function testBackground(initial: Partial<Settings> = {}) {
   const handle = createHandlers({
     store,
     history: createHistoryStore(db),
+    translations: createTranslationCache(db),
     settings: {
       get: async () => settings,
       set: async (patch: SettingsPatch) => {

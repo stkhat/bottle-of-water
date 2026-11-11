@@ -126,11 +126,16 @@ Development pair: learning language = English, native language = Japanese, sites
 - "On this site": on/off for this site
 - "Highlight": category toggles
 - Word counts: Learning / Known / Phrases
+- "This page" ("This video" on a video site): save every unsaved word at once
+  - Target: New words on the page/video that are **not saved yet** (the same words as "Unsaved New words at the end"; saved words keep their status, words within the frequency level are not New). The line beside the heading says how many ("46 words not saved yet", "Every word is saved")
+  - Actions: "Mark all as Learning", "Mark all as Known" (hidden when nothing is unsaved). Afterwards show the count ("46 words marked as Learning") and **Undo**
+  - The explanation is not shown by default; **only when the (i) button is pressed**
+  - Only in the popup: nothing appears on the page itself
 - Sync status: last saved time and usage (e.g. "Saved to Chrome sync · 2 min ago", "41 KB of 100 KB used")
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)
   - Before the first save: "Not saved yet". With sync off: "Sync is off", without the usage bar
-- "On this site" is hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
+- "On this site" and "This page" are hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
 
 ### Settings page (the extension's options page, opens in a new tab)
 - Three ways to open it: ① the gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from the gear in the menu next to L in the video player bar
@@ -187,7 +192,7 @@ Development pair: learning language = English, native language = Japanese, sites
 | `BrowserEnv` | Browser differences in one place: browser name, sync name and delay, how to open the settings page, feature detection results | Chrome (Firefox values only need to build) |
 | `PackSource` / `PackStore` (M9c) | Where a pack's files come from: bundled with the extension, or downloaded, verified against the lock file and kept in IndexedDB | `en`, `en-ja`, `en-defs` bundled; `es`, `es-en` and later packs downloaded from npm via jsDelivr / unpkg |
 | `Classifier` | Classify New / Learning / Known / ignored, match phrases, count unsaved words on a page | shared |
-| `LookupUI` | Hover card, dictionary window, phrase saving | shared by text and video UI |
+| `LookupUI` | Hover card, dictionary window, phrase saving, save all (popup "This page") | shared by text and video UI |
 
 - Where things run: a content script's IndexedDB belongs to the page's origin, so `TermStore`, `LanguagePack` and `DictionaryProvider` live in the **background** and content scripts / extension pages talk to it through typed messages. Pack data is read by the background in compact formats that reload quickly when the service worker restarts: bundled packs with `runtime.getURL` (not exposed as `web_accessible_resources`), downloaded packs from IndexedDB (M9c). Translating English definitions runs in the UI (content scripts, extension pages), since the Translator API does not exist in workers; the background keeps the results (`mtCache`, M9b)
 - The UI on web pages sits in shadow roots: closed in production builds so page scripts cannot read it (it shows sentences kept from other sites), open in the check build and in development so tests and the developer can reach it. It acts only on events the user caused (`isTrusted`), not on events a page script dispatches: each shadow root drops untrusted UI events as they enter it (`guardShadowRoot`, `src/ui/from-user.ts`), and the handlers that open the dictionary or change a word check again
@@ -353,7 +358,7 @@ No outright blocker. Decisions and requirements:
 ## Phases
 1. **Phase 1 (MVP)**
    - Foundation (en language pack incl. IPA, en→ja dictionary, TermStore and sync, classification)
-   - Hover card and dictionary window, saving phrases, save all (popup + end card)
+   - Hover card and dictionary window, saving phrases, save all (popup)
    - Article UI
    - Video UI for YouTube and Netflix (two columns + dictionary window, subtitle position and translation toggles, L button and arrow menu, site-first translation)
    - Toolbar popup, settings page, word list page

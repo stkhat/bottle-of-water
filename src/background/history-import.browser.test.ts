@@ -18,6 +18,7 @@ import {
   type TermStore,
 } from "./term-store";
 import { stubPackLoader } from "./test-packs";
+import { createTranslationCache } from "./translation-cache";
 
 const ARTICLE_A: HistorySource = {
   platform: "web",
@@ -52,6 +53,7 @@ beforeEach(() => {
   handle = createHandlers({
     store,
     history: createHistoryStore(db, { now: () => time }),
+    translations: createTranslationCache(db, { now: () => time }),
     settings: {
       get: async () => settings,
       set: async (patch) => (settings = mergeSettings(patch, settings)),

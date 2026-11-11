@@ -5,7 +5,6 @@ import {
   hasBuiltInAi,
   hasFileSystemAccess,
   hasHighlightUnderline,
-  hasTranslator,
 } from "./browser-env";
 
 const cssStub = (highlights: boolean, underline: boolean) => ({
@@ -48,12 +47,11 @@ describe("createBrowserEnv", () => {
 
   it("carries the detected features of the given global", () => {
     const env = createBrowserEnv("chrome", {
-      Translator: {},
+      LanguageModel: {},
       ...cssStub(true, true),
     });
     expect(env.features).toEqual({
-      translator: true,
-      builtInAi: false,
+      builtInAi: true,
       highlightUnderline: true,
       fileSystemAccess: false,
     });
@@ -61,11 +59,6 @@ describe("createBrowserEnv", () => {
 });
 
 describe("feature detection", () => {
-  it("detects the built-in translator", () => {
-    expect(hasTranslator({ Translator: {} })).toBe(true);
-    expect(hasTranslator({})).toBe(false);
-  });
-
   it("detects built-in AI", () => {
     expect(hasBuiltInAi({ LanguageModel: {} })).toBe(true);
     expect(hasBuiltInAi({})).toBe(false);
@@ -85,7 +78,6 @@ describe("feature detection", () => {
 
   it("finds nothing in a bare global", () => {
     expect(detectFeatures({})).toEqual({
-      translator: false,
       builtInAi: false,
       highlightUnderline: false,
       fileSystemAccess: false,

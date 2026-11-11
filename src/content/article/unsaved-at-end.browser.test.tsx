@@ -88,3 +88,52 @@ describe("unsaved new words at the end of the article", () => {
     expect(background.sent("saveAll")).toEqual([]);
   });
 });
+
+describe("the popup's Mark all as Learning / Known", () => {
+  it("saves every unsaved new word of the page, and undoes it", async () => {
+    const { background, session } = await setup(ARTICLE, {
+      settings: { highlight: SHOW_ALL },
+    });
+    toEnd();
+    await expect.poll(() => highlighted("lingo-new").sort()).toEqual(NEW_WORDS);
+    expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
+      supported: true,
+      hostname: "example.com",
+      scope: "page",
+      unsaved: 4,
+      done: null,
+    });
+
+    expect(
+      await session.handlePageRequest({
+        type: "pageSaveAll",
+        status: "learning",
+      }),
+    ).toEqual({
+      supported: true,
+      hostname: "example.com",
+      scope: "page",
+      unsaved: 0,
+      done: { count: 4, target: "learning" },
+    });
+    expect(background.sent("saveAll")).toEqual([
+      expect.objectContaining({
+        keys: ["knead", "loaf", "tangy", "yeast"],
+        status: "learning",
+      }),
+    ]);
+    expect(highlighted("lingo-new")).toEqual([]);
+    expect(highlighted("lingo-learning").sort()).toEqual(NEW_WORDS);
+
+    expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
+      supported: true,
+      hostname: "example.com",
+      scope: "page",
+      unsaved: 4,
+      done: null,
+    });
+    expect(background.sent("undoSaveAll")).toHaveLength(1);
+    expect(highlighted("lingo-new").sort()).toEqual(NEW_WORDS);
+    expect(highlighted("lingo-learning")).toEqual([]);
+  });
+});

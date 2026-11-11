@@ -12,7 +12,7 @@ import type {
   TermSummary,
 } from "../messaging/protocol";
 import type { OccurrenceRecord, SourceRecord, TermRecord } from "./db";
-import { createHandlers, type Handle } from "./handlers";
+import { createHandlers, type Handle, type HandlerDeps } from "./handlers";
 import type {
   HistoryItem,
   HistorySentence,
@@ -27,6 +27,7 @@ import type {
   TermStore,
 } from "./term-store";
 import { filesRead, stubPackLoader } from "./test-packs";
+import type { TranslationCache } from "./translation-cache";
 
 type FakeStore = { [K in keyof TermStore]: Mock<TermStore[K]> };
 
@@ -74,6 +75,36 @@ function fakeHistory(): FakeHistory {
   };
 }
 
+type FakeTranslations = {
+  [K in keyof TranslationCache]: Mock<TranslationCache[K]>;
+} & {
+  /** The cached translations, by `${pair}:${text}`. */
+  rows: Map<string, string>;
+};
+
+/** A TranslationCache over a Map that records its calls. */
+function fakeTranslations(): FakeTranslations {
+  const rows = new Map<string, string>();
+  return {
+    rows,
+    get: vi.fn(async (pair: string, texts: readonly string[]) =>
+      Object.fromEntries(
+        texts.flatMap((text): [string, string][] => {
+          const translated = rows.get(`${pair}:${text}`);
+          return translated === undefined ? [] : [[text, translated]];
+        }),
+      ),
+    ),
+    put: vi.fn(async (pair, items) => {
+      for (const { text, translated } of items)
+        rows.set(`${pair}:${text}`, translated);
+    }),
+    clearPair: vi.fn(async () => {
+      throw new Error("unexpected call to clearPair");
+    }),
+  };
+}
+
 const SYNC_STATUS: SyncStatus = {
   enabled: true,
   bytesUsed: 120,
@@ -103,7 +134,9 @@ const SOURCE: SourceInput = {
 
 let store: FakeStore;
 let history: FakeHistory;
+let translations: FakeTranslations;
 let sync: { status: Mock<() => Promise<SyncStatus>> };
+let deps: HandlerDeps;
 let handle: Handle;
 let openOptionsPage: Mock<() => Promise<void>>;
 let loadPack: ReturnType<typeof stubPackLoader>;
@@ -112,18 +145,21 @@ beforeEach(() => {
   fakeBrowser.reset();
   store = fakeStore();
   history = fakeHistory();
+  translations = fakeTranslations();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
   loadPack = stubPackLoader();
   openOptionsPage = vi.fn(async () => {});
-  handle = createHandlers({
+  deps = {
     store,
     history,
+    translations,
     settings: { get: getSettings, set: setSettings },
     resources: createLanguageResources(loadPack),
     sync,
     env: () => createBrowserEnv("chrome", {}),
     openOptionsPage,
-  });
+  };
+  handle = createHandlers(deps);
 });
 
 /** Sends a request and returns the value, failing the test on an error reply. */
@@ -763,6 +799,203 @@ describe("handlers: lookup", () => {
     expect(
       await handle({ type: "lookup", lang: "en", key: "loaf", kind: "word" }),
     ).toEqual({ ok: false, error: "No dictionary from en to fr" });
+  });
+});
+
+describe("handlers: machine translations of English definitions", () => {
+  // "figure out" has only an English definition (en-defs): see test-packs.ts.
+  const SHORT = "To come to understand";
+  const SENSES = [
+    "To come to understand; to discover.",
+    "To solve (a problem).",
+    "to find a solution by thinking.",
+  ];
+  const cache = (pair: string, entries: Record<string, string>) => {
+    for (const [text, translated] of Object.entries(entries))
+      translations.rows.set(`${pair}:${text}`, translated);
+  };
+  const lookUp = (key: string) =>
+    value({ type: "lookup", lang: "en", key, kind: "phrase" });
+
+  it("gives the cached translations of the short meaning and the first four senses, by cleaned English", async () => {
+    cache("en>ja", {
+      [SHORT]: "理解するようになる",
+      [SENSES[1]!]: "（問題を）解く。",
+      [SENSES[2]!]: "考えて解決策を見つける。",
+      "To calculate an amount.": "量を計算する。",
+    });
+    const result = await lookUp("figure out");
+    // Labels are dropped, pointers left out, the fifth sense not asked for.
+    expect(translations.get).toHaveBeenCalledExactlyOnceWith("en>ja", [
+      SHORT,
+      ...SENSES,
+    ]);
+    expect(result.translations).toEqual({
+      [SHORT]: "理解するようになる",
+      [SENSES[1]!]: "（問題を）解く。",
+      [SENSES[2]!]: "考えて解決策を見つける。",
+    });
+    // The entry itself stays in English.
+    expect(result.entry).toMatchObject({ short: SHORT, glossLang: "en" });
+  });
+
+  it("leaves translations out when none is cached", async () => {
+    expect(await lookUp("figure out")).not.toHaveProperty("translations");
+  });
+
+  it("does not read the cache for a meaning in the native language", async () => {
+    const result = await value({
+      type: "lookup",
+      lang: "en",
+      key: "loaf",
+      kind: "word",
+    });
+    expect(result).not.toHaveProperty("translations");
+    expect(translations.get).not.toHaveBeenCalled();
+  });
+
+  it("does not read the cache when the definitions are in the native language", async () => {
+    await setSettings({ nativeLang: "en" });
+    const definition = {
+      short: SHORT,
+      senses: [{ text: SENSES[0]! }],
+      glossLang: "en",
+    };
+    handle = createHandlers({
+      ...deps,
+      resources: {
+        ...deps.resources,
+        dictionary: async (from, to) => ({
+          from,
+          to,
+          short: () => SHORT,
+          entry: (term) => ({ head: term, kind: "phrase", ...definition }),
+        }),
+      },
+    });
+    cache("en>en", { [SHORT]: "unexpected" });
+    expect(await lookUp("figure out")).not.toHaveProperty("translations");
+    expect(translations.get).not.toHaveBeenCalled();
+  });
+
+  it("still answers when the cache cannot be read", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    translations.get.mockRejectedValue(new Error("cache gone"));
+    const result = await lookUp("figure out");
+    expect(result).toMatchObject({ entry: { short: SHORT }, status: "new" });
+    expect(result).not.toHaveProperty("translations");
+    expect(error).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
+  it("keeps translations sent with cacheTranslations under the learning and native language", async () => {
+    expect(
+      await value({
+        type: "cacheTranslations",
+        lang: "en",
+        items: [{ text: SHORT, translated: "理解するようになる" }],
+      }),
+    ).toBeNull();
+    expect(translations.put).toHaveBeenCalledExactlyOnceWith("en>ja", [
+      { text: SHORT, translated: "理解するようになる" },
+    ]);
+    expect((await lookUp("figure out")).translations).toEqual({
+      [SHORT]: "理解するようになる",
+    });
+  });
+
+  it("keeps at most 16 translations per request and skips empty or oversized ones", async () => {
+    const items = [
+      { text: "", translated: "空" },
+      { text: "To quit.", translated: "  " },
+      { text: "x".repeat(1001), translated: "長い" },
+      { text: "To quit.", translated: "y".repeat(4001) },
+      ...Array.from({ length: 20 }, (_, i) => ({
+        text: `Sense ${i}.`,
+        translated: `意味 ${i}。`,
+      })),
+    ];
+    await value({ type: "cacheTranslations", lang: "en", items });
+    const [, kept] = translations.put.mock.calls[0]!;
+    expect(kept).toHaveLength(16);
+    expect(kept[0]).toEqual({ text: "Sense 0.", translated: "意味 0。" });
+    expect(kept.at(-1)).toEqual({ text: "Sense 15.", translated: "意味 15。" });
+  });
+
+  it("keeps nothing for a language without a pack, or when nothing is left to keep", async () => {
+    for (const request of [
+      { lang: "fr", items: [{ text: SHORT, translated: "comprendre" }] },
+      { lang: "en", items: [] },
+      { lang: "en", items: [{ text: " ", translated: "空" }] },
+      { lang: "en", items: [{ text: 1, translated: null }] },
+      { lang: "en", items: "not a list" },
+    ])
+      expect(await handle({ type: "cacheTranslations", ...request })).toEqual({
+        ok: true,
+        value: null,
+      });
+    expect(translations.put).not.toHaveBeenCalled();
+  });
+
+  it("gives a cached translation of the short meaning in termSummaries, marked machine translated", async () => {
+    cache("en>ja", { [SHORT]: "理解するようになる" });
+    expect(
+      await value({
+        type: "termSummaries",
+        lang: "en",
+        terms: [
+          { key: "figure out", kind: "phrase" },
+          { key: "loaf", kind: "word" },
+        ],
+      }),
+    ).toEqual({
+      "figure out": {
+        short: "理解するようになる",
+        machineTranslated: true,
+        status: "new",
+      },
+      loaf: { short: "パンのひと塊", status: "new" },
+    });
+    expect(translations.get).toHaveBeenCalledExactlyOnceWith("en>ja", [SHORT]);
+    expect(translations.put).not.toHaveBeenCalled();
+  });
+
+  it("gives a cached translation of the short meaning in listTermsWithStats", async () => {
+    cache("en>ja", { [SHORT]: "理解するようになる" });
+    store.listTerms.mockResolvedValue([
+      {
+        id: "en:figure out",
+        lang: "en",
+        key: "figure out",
+        display: "figured out",
+        kind: "phrase",
+        status: "learning",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      LOAF,
+    ]);
+    store.occurrenceStats.mockResolvedValue(new Map());
+    const [figureOut, loaf] = await value({
+      type: "listTermsWithStats",
+      lang: "en",
+    });
+    expect(figureOut).toMatchObject({
+      short: "理解するようになる",
+      machineTranslated: true,
+    });
+    expect(figureOut).not.toHaveProperty("glossLang");
+    expect(loaf).toMatchObject({ short: "パンのひと塊" });
+    expect(loaf).not.toHaveProperty("machineTranslated");
+  });
+
+  it("does not read the cache for lists without English definitions", async () => {
+    await value({
+      type: "termSummaries",
+      lang: "en",
+      terms: [{ key: "loaf", kind: "word" }],
+    });
+    expect(translations.get).not.toHaveBeenCalled();
   });
 });
 

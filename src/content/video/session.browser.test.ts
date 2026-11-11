@@ -4,7 +4,7 @@ import videoUrl from "../../../e2e/fixtures/video.webm?url";
 import type { Cue } from "../../core/subtitles/types";
 import { termId } from "../../core/term-id";
 import { testBackground } from "../article/test-background";
-import type { TranslationProvider } from "../article/translate";
+import type { TranslationProvider } from "../translate/translator";
 import type { PlatformAdapter, VideoCaptions } from "./platform";
 import { startVideo, type VideoSession, type VideoState } from "./session";
 import { videoWords } from "./words";
@@ -1288,14 +1288,38 @@ describe("fullscreen", () => {
 });
 
 describe("the popup's requests", () => {
-  it("answers for the video", async () => {
+  it("answers for the video: unsaved words, mark all and undo", async () => {
     const { state, session } = await start();
     await ready(state);
     await classified(state);
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
       hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 4,
+      done: null,
     });
+    expect(
+      await session.handlePageRequest({
+        type: "pageSaveAll",
+        status: "learning",
+      }),
+    ).toEqual({
+      supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 0,
+      done: { count: 4, target: "learning" },
+    });
+    expect(state().summaries.loaf?.status).toBe("learning");
+    expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
+      supported: true,
+      hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 4,
+      done: null,
+    });
+    expect(state().summaries.loaf?.status).toBe("new");
   });
 
   it("is not supported without subtitles", async () => {
@@ -1304,6 +1328,101 @@ describe("the popup's requests", () => {
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: false,
       hostname: "www.youtube.com",
+      scope: "video",
+      unsaved: 0,
+      done: null,
     });
+  });
+});
+
+describe("translating English definitions", () => {
+  /** "figure out" has only an English definition (test-background.ts). */
+  const FIGURE: Cue[] = [
+    { startMs: 0, endMs: 1000, text: "You figure out the yeast." },
+    { startMs: 1000, endMs: 2000, text: "Knead the dough." },
+    { startMs: 2500, endMs: 3500, text: "It is a tangy\nloaf." },
+  ];
+
+  it("translates the playing subtitle line before a hover card's definition", async () => {
+    const started: string[] = [];
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const { state, app, video } = await start(
+      {
+        vid1: captionsOf(FIGURE, { source: "builtIn", lang: "ja", cues: [] }),
+      },
+      {
+        translatorAvailable: true,
+        translator: {
+          async translate(text) {
+            started.push(text);
+            await held;
+            return `ja(${text})`;
+          },
+        },
+      },
+    );
+    await ready(state);
+    await classified(state);
+    // The first line is being translated: the card's definition waits behind it,
+    // and the card shows the English when it stops waiting.
+    await expect.poll(() => started).toEqual(["You figure out the yeast."]);
+    app.enterWord(refOf(state, 0, "figure out"), BOX);
+    await expect
+      .poll(() => state().hover?.card.short, { timeout: 5000 })
+      .toBe("To come to understand");
+    expect(state().hover?.card.shortLang).toBe("en");
+
+    await seekTo(video, 1.2);
+    await expect.poll(() => state().current).toBe(1);
+    release();
+    await expect
+      .poll(() => started)
+      .toEqual([
+        "You figure out the yeast.",
+        "Knead the dough.",
+        "To come to understand",
+      ]);
+  });
+
+  it("opens the window at once, then shows its senses translated", async () => {
+    const { state, app } = await start(
+      { vid1: captionsOf(FIGURE) },
+      { translator: { translate: async (text) => `ja(${text})` } },
+    );
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "figure out"));
+    await expect
+      .poll(() => state().panel?.card)
+      .toMatchObject({
+        head: "figure out",
+        short: "ja(To come to understand)",
+        machineTranslated: "definition",
+        glossLang: "en",
+        senses: [
+          {
+            pos: "verb",
+            text: "To come to understand; to discover or find a solution.",
+            translated:
+              "ja(To come to understand; to discover or find a solution.)",
+          },
+        ],
+      });
+  });
+
+  it("does not hold the window back for a translator that does not answer", async () => {
+    const { state, app } = await start(
+      { vid1: captionsOf(FIGURE) },
+      { translator: { translate: () => new Promise(() => {}) } },
+    );
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "figure out"));
+    // Well within the hover card's wait for the translator (1.5 s).
+    await expect
+      .poll(() => state().panel?.card, { timeout: 1000 })
+      .toMatchObject({ short: "To come to understand", shortLang: "en" });
+    expect(state().panel?.card.senses[0]).not.toHaveProperty("translated");
   });
 });
