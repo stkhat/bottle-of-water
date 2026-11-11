@@ -3,7 +3,9 @@
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { version } = require("@playwright/test/package.json");
+const { version } = require("@playwright/test/package.json") as {
+  version: string;
+};
 const image = process.env.PLAYWRIGHT_IMAGE ?? "";
 
 if (!image.includes(`:v${version}-`)) {

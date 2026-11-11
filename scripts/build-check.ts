@@ -11,16 +11,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const BUILD_ID = "build-id.txt";
 
-export function buildId(date, commit) {
+export function buildId(date: Date, commit: string) {
   return `${date.toISOString()} ${commit}`;
 }
 
 /** Deletes what `to` has and `from` does not (keeping `to`'s build id until the end). */
-function prune(from, to, top) {
+function prune(from: string, to: string, top: boolean) {
   for (const entry of readdirSync(to, { withFileTypes: true })) {
     if (top && entry.name === BUILD_ID) continue;
     const source = join(from, entry.name);
@@ -34,7 +33,7 @@ function prune(from, to, top) {
  * Makes `to` a copy of `from`, then writes the build id. The id goes last so the
  * extension, which reloads when it changes, never loads a half-copied folder.
  */
-export function syncBuild(from, to, id) {
+export function syncBuild(from: string, to: string, id: string) {
   if (existsSync(to)) prune(from, to, true);
   cpSync(from, to, { recursive: true, force: true });
   writeFileSync(join(to, BUILD_ID), `${id}\n`);
@@ -50,10 +49,7 @@ function commit() {
   }
 }
 
-if (
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+if (import.meta.main) {
   const from = resolve(".output/chrome-mv3-check");
   const to = resolve(".output/lingo-check");
   const id = buildId(new Date(), commit());

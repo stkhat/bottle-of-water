@@ -16,8 +16,8 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PUBLISH_DIR, writePackages } from "../scripts/data/publish.mjs";
-import { PACKS } from "../scripts/data/formats.mjs";
+import { PUBLISH_DIR, writePackages } from "../scripts/data/publish.ts";
+import { PACKS } from "../scripts/data/formats.ts";
 
 const PORT = 4719;
 const here = path.dirname(fileURLToPath(import.meta.url));

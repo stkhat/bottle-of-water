@@ -6,7 +6,7 @@ import { browser } from "wxt/browser";
  * is complete. Production builds leave this module out (see the background entrypoint).
  */
 
-/** The file `scripts/build-check.mjs` writes into the build. */
+/** The file `scripts/build-check.ts` writes into the build. */
 const BUILD_ID_PATH = "/build-id.txt";
 /** The `storage.session` key holding the build id this worker started with. */
 const SESSION_KEY = "checkBuildId";

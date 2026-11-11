@@ -1,26 +1,35 @@
-// What each language pack is: the folder its files live in, the data format they have,
-// its npm package and the sources it is built from. npm run data:publish
-// (scripts/data/publish.mjs) writes the lock file and the npm package folders from this.
 import { join } from "node:path";
-import { DOWNLOAD_PACKS_DIR, PACKS_DIR } from "./common.mjs";
+import type { PackName } from "../../src/core/packs/load.ts";
+import { PACK_FORMATS } from "../../src/core/packs/formats.ts";
+import { DOWNLOAD_PACKS_DIR, PACKS_DIR } from "./common.ts";
 
-/**
- * The data format of each pack's files: the shape the extension's code reads. Bump a
- * pack's number when its reader changes so that files built for the old reader no
- * longer fit; the extension then refuses a stored version in the old format.
- */
-export const PACK_FORMATS = {
-  en: 1,
-  "en-ja": 1,
-  "en-defs": 1,
-  es: 1,
-  "es-en": 1,
-  "en-es": 1,
-  "en-pt": 1,
-};
+/** A placeholder until the scope exists. */
+const NPM_SCOPE = "@lingo-data";
 
-/** The npm scope the packs are published under. A placeholder until the scope exists. */
-export const NPM_SCOPE = "@lingo-data";
+interface PackSource {
+  title: string;
+  url: string;
+  /** How the data was taken from the source, if not directly. */
+  via?: string;
+  by: string;
+  license: string;
+  /** What the pack takes from the source. */
+  used: string;
+}
+
+export interface PackInfo {
+  dir: string;
+  /** In data/packs/: bundled or downloaded as the lock says. */
+  downloadable: boolean;
+  format: number;
+  package: string;
+  license: { spdx: string; name: string; url: string };
+  /** How the files differ from the sources (for the license notice). */
+  changes: string;
+  title: string;
+  description: string;
+  sources: PackSource[];
+}
 
 const CC_BY_SA = {
   spdx: "CC-BY-SA-4.0",
@@ -31,7 +40,7 @@ const WIKTIONARY_AUTHORS =
   "the contributors to Wiktionary, listed in each page's history";
 const KAIKKI = "extracted by wiktextract and published by kaikki.org";
 
-/** The sources, as THIRD_PARTY_NOTICES.md lists them. */
+/** As THIRD_PARTY_NOTICES.md lists them. */
 const SOURCES = {
   ejdict: {
     title: "EJDict-hand",
@@ -81,7 +90,11 @@ const SOURCES = {
   },
 };
 
-const pack = (name, downloadable, fields) => ({
+const pack = (
+  name: PackName,
+  downloadable: boolean,
+  fields: Pick<PackInfo, "title" | "description" | "sources">,
+): PackInfo => ({
   dir: join(downloadable ? DOWNLOAD_PACKS_DIR : PACKS_DIR, name),
   downloadable,
   format: PACK_FORMATS[name],
@@ -91,12 +104,8 @@ const pack = (name, downloadable, fields) => ({
   ...fields,
 });
 
-/**
- * Every pack. Packs in public/packs/ are always bundled; packs in data/packs/
- * (`downloadable`) are bundled or downloaded as their lock entry says. Each pack
- * holds Wiktionary-derived files, so each is CC BY-SA 4.0 as a whole.
- */
-export const PACKS = {
+/** Each pack holds Wiktionary-derived files, so each is CC BY-SA 4.0 as a whole. */
+export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   en: pack("en", false, {
     title: "English word data",
     description:
@@ -165,24 +174,12 @@ export const PACKS = {
 };
 
 /**
- * The language pairs that can be offered, each learning language's default native
- * language first, with the pack holding its dictionary. npm run data:publish offers
- * those that pass the quality gate (scripts/data/gate.mjs) in the lock's `pairs`.
+ * The file a pack path as the extension reads it ("/packs/es/freq.json") comes from.
+ * For tests that read the built packs in Node.
  */
-export const PAIRS = [
-  { learning: "en", native: "ja", dictionary: "en-ja" },
-  { learning: "en", native: "es", dictionary: "en-es" },
-  { learning: "en", native: "pt", dictionary: "en-pt" },
-  { learning: "es", native: "en", dictionary: "es-en" },
-];
-
-/**
- * The file a pack path as the extension reads it ("/packs/es/freq.json") comes from,
- * in public/packs/ or data/packs/. For tests that read the generated packs in Node.
- */
-export function packSourcePath(path) {
-  const [root, name, ...rest] = path.replace(/^\//, "").split("/");
-  const info = Object.hasOwn(PACKS, name) ? PACKS[name] : undefined;
+export function packSourcePath(path: string) {
+  const [root, name = "", ...rest] = path.replace(/^\//, "").split("/");
+  const info = Object.hasOwn(PACKS, name) ? PACKS[name as PackName] : undefined;
   if (root !== "packs" || !info || rest.length === 0)
     throw new Error(`Not a pack file: ${path}`);
   return join(info.dir, ...rest);

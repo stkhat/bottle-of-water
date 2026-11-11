@@ -6,7 +6,7 @@ import {
   readTranslationTables,
   termKeyOf,
   type SourceTerm,
-} from "./recipe.mjs";
+} from "./recipe.ts";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const termKey = termKeyOf({

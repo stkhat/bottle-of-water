@@ -1,11 +1,12 @@
 // The most frequent content words of a learning language: what the quality gate
 // measures a pair's dictionary on (docs/specs/architecture.md "Native meanings and the quality gate").
+import type { LemmaPack, PosPack } from "../../src/core/packs/types.ts";
 
 /**
  * Parts of speech that make a word a function word. Dictionaries and translation
  * tables often lack these words, and they sit within the known level anyway.
  */
-export const FUNCTION_POS = new Set([
+const FUNCTION_POS = new Set([
   "pronoun",
   "determiner",
   "article",
@@ -15,7 +16,7 @@ export const FUNCTION_POS = new Set([
   "contraction",
 ]);
 /** English auxiliaries and modals, whose parts of speech say only "verb". */
-export const AUXILIARY_WORDS = new Set([
+const AUXILIARY_WORDS = new Set([
   "be",
   "have",
   "do",
@@ -31,7 +32,7 @@ export const AUXILIARY_WORDS = new Set([
 ]);
 
 /** Whether `word`, with its parts of speech `pos`, is a function word. */
-export function isFunctionWord(word, pos) {
+export function isFunctionWord(word: string, pos: readonly string[]) {
   return AUXILIARY_WORDS.has(word) || pos.some((p) => FUNCTION_POS.has(p));
 }
 
@@ -55,21 +56,28 @@ export function contentWords({
   vocab,
   top,
   names = new Set(),
+}: {
+  freq: readonly string[];
+  pos: PosPack;
+  lemmas: LemmaPack;
+  vocab: ReadonlySet<string>;
+  top: number;
+  names?: ReadonlySet<string>;
 }) {
-  const seen = new Set();
-  const words = [];
-  const excluded = [];
+  const seen = new Set<string>();
+  const words: string[] = [];
+  const excluded: string[] = [];
   for (const form of freq) {
     if (words.length >= top) break;
     // An inflected form counts as its first base ("went" as "go"), even when it is a
     // dictionary word of its own.
-    const base = Object.hasOwn(lemmas, form) ? [lemmas[form]].flat()[0] : form;
+    const base = Object.hasOwn(lemmas, form) ? [lemmas[form]!].flat()[0] : form;
     if (!base || seen.has(base) || !vocab.has(base)) continue;
     seen.add(base);
     if (
       NOT_COUNTED.test(base) ||
       names.has(base) ||
-      isFunctionWord(base, Object.hasOwn(pos, base) ? pos[base] : [])
+      isFunctionWord(base, Object.hasOwn(pos, base) ? pos[base]! : [])
     )
       excluded.push(base);
     else words.push(base);

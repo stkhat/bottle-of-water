@@ -1,13 +1,15 @@
+// The data scripts (scripts/data/) import this file under plain Node: keep its imports
+// type-only.
 import type { IpaPack } from "../packs/types";
-import { own } from "../util";
 
 /**
- * One transcription of a pack value. Packs hold one (`scripts/data/common.mjs`
- * `singleIpa`), but a value with a phonemic and a phonetic form ("/pleɪ̯/ [pɫ̥eɪ̯ ~ pʰɫeɪ̯]")
- * or alternatives ("/a/ ~ /b/", "[a ~ b]") gives its first; a /… without its closing
- * slash is closed. undefined when there is no single one.
+ * One transcription of a Wiktionary IPA string: kaikki gives some as a phonemic and a
+ * phonetic form ("/pleɪ̯/ [pɫ̥eɪ̯ ~ pʰɫeɪ̯]") or as alternatives ("/a/ ~ /b/", "[a ~ b]").
+ * The first /…/ part, else the first alternative of a leading […] part; a /… without its
+ * closing slash is closed. undefined when there is no single one (such as "[bæθ~bɛəθ]",
+ * where an alternative may be part of a word). The data scripts store values this gives.
  */
-function single(value: string): string | undefined {
+export function singleIpa(value: string): string | undefined {
   const text = value.trim();
   const phonemic = /^\/[^/]+\//u.exec(text);
   if (phonemic) return phonemic[0];
@@ -39,8 +41,7 @@ export function dictionaryIpa(transcription: string): string {
 }
 
 function transcriptionOf(word: string, ipa: IpaPack): string | undefined {
-  const value = own(ipa, word);
-  return value === undefined ? undefined : single(value);
+  return Object.hasOwn(ipa, word) ? singleIpa(ipa[word]!) : undefined;
 }
 
 /**

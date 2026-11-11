@@ -5,7 +5,7 @@ import {
   buildFrequency,
   isListPage,
   parseFrequencyWikitext,
-} from "./frequency.mjs";
+} from "./frequency.ts";
 
 const fixture = readFileSync(
   join(import.meta.dirname, "fixtures", "frequency.wikitext"),

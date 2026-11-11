@@ -5,7 +5,7 @@ import {
   ipaCoverage,
   patternCounts,
   phraseMeanings,
-} from "./stats.mjs";
+} from "./stats.ts";
 
 describe("ipaCoverage", () => {
   const freq = ["you", "i", "the", "zzyzx"];

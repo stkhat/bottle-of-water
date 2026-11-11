@@ -2,7 +2,8 @@ import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { buildEnDefs, writeEnDefs } from "./en-defs.mjs";
+import { writeShards } from "./common.ts";
+import { buildEnDefs } from "./en-defs.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-phrases.jsonl");
 const packs = {
@@ -65,7 +66,7 @@ describe("buildEnDefs", () => {
   });
   it("writes the shards and their index", () => {
     const dir = mkdtempSync(join(tmpdir(), "en-defs-"));
-    writeEnDefs(result.defs, dir);
+    writeShards("en-defs", result.defs, dir);
     expect(readdirSync(join(dir, "en-defs")).sort()).toEqual([
       "dict-1.json",
       "index.json",

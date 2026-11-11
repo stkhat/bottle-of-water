@@ -4,7 +4,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DOWNLOAD_PACKS_DIR, PACKS_DIR, ROOT } from "./common.mjs";
+import { DOWNLOAD_PACKS_DIR, PACKS_DIR, ROOT } from "./common.ts";
 
 const LIMIT_BYTES = 4_000_000;
 

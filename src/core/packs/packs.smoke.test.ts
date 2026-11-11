@@ -2,7 +2,8 @@
 // (npm run data:build, npm run data:es), read through the real pack loader.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { packSourcePath } from "../../../scripts/data/formats.mjs";
+import { byCodeUnit } from "../../../scripts/data/common.ts";
+import { packSourcePath } from "../../../scripts/data/formats.ts";
 import {
   createDefsDictionary,
   createEnJaDictionary,
@@ -30,7 +31,6 @@ const {
 const { dict, phrases: jaPhrases } = await loadPack("en-ja");
 const { defs } = await loadPack("en-defs");
 const vocab = new Set(vocabList);
-const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 describe("generated dictionary shards", () => {
   const index = read("packs/en-ja/index.json") as ShardIndex;

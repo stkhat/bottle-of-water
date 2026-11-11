@@ -16,9 +16,16 @@ import {
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
-import { isMain, ROOT } from "./common.mjs";
-import { PACKS } from "./formats.mjs";
-import { gateReport, offeredPairs } from "./gate.mjs";
+import type {
+  PackLock,
+  PackLockEntry,
+  PackLockFile,
+} from "../../src/core/packs/lock.ts";
+import { byCodeUnit, ROOT } from "./common.ts";
+import { PACKS, type PackInfo } from "./formats.ts";
+import { gateReport, offeredPairs } from "./gate.ts";
+
+type Packs = Readonly<Record<string, PackInfo>>;
 
 /** Where the extension fetches a downloaded pack's files from, tried in order. */
 export const MIRRORS = [
@@ -29,7 +36,7 @@ export const LOCK_PATH = join(ROOT, "src", "core", "packs", "packs.lock.json");
 export const PUBLISH_DIR = join(ROOT, "data", "publish");
 
 /** Every file under `dir`: its path relative to `dir` (with "/"), size and SHA-256, sorted by path. */
-export function listPackFiles(dir) {
+export function listPackFiles(dir: string): PackLockFile[] {
   return readdirSync(dir, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => {
@@ -42,7 +49,7 @@ export function listPackFiles(dir) {
         sha256: createHash("sha256").update(bytes).digest("hex"),
       };
     })
-    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    .sort((a, b) => byCodeUnit(a.path, b.path));
 }
 
 /**
@@ -50,17 +57,17 @@ export function listPackFiles(dir) {
  * then month × 100 + day (Nov 11 → "2026.1111", Jan 5 → "2026.105"), so later dates
  * compare higher.
  */
-export function dateVersion(date) {
+export function dateVersion(date: Date) {
   return `${date.getUTCFullYear()}.${(date.getUTCMonth() + 1) * 100 + date.getUTCDate()}`;
 }
 
-const sameFiles = (a, b) =>
+const sameFiles = (a: readonly PackLockFile[], b: readonly PackLockFile[]) =>
   a.length === b.length &&
   a.every(
     (file, i) =>
-      file.path === b[i].path &&
-      file.size === b[i].size &&
-      file.sha256 === b[i].sha256,
+      file.path === b[i]!.path &&
+      file.size === b[i]!.size &&
+      file.sha256 === b[i]!.sha256,
   );
 
 /**
@@ -68,7 +75,11 @@ const sameFiles = (a, b) =>
  * `<dateVersion>.<n>`, where n is 0 for the day's first changed build and one more
  * than the previous version's for each later build that day.
  */
-export function nextVersion(files, previous, now = new Date()) {
+export function nextVersion(
+  files: readonly PackLockFile[],
+  previous: PackLockEntry | undefined,
+  now = new Date(),
+) {
   if (previous && sameFiles(files, previous.files)) return previous.version;
   const day = dateVersion(now);
   const [, previousDay, n] =
@@ -77,14 +88,14 @@ export function nextVersion(files, previous, now = new Date()) {
 }
 
 /** Fails on a folder next to the packs' folders that no pack in `packs` is. */
-function checkFolders(packs) {
+function checkFolders(packs: Packs) {
   const dirs = new Set(Object.values(packs).map((info) => info.dir));
   for (const root of new Set([...dirs].map((d) => dirname(d)))) {
     if (!existsSync(root)) continue;
     for (const entry of readdirSync(root, { withFileTypes: true }))
       if (entry.isDirectory() && !dirs.has(join(root, entry.name)))
         throw new Error(
-          `${relative(ROOT, join(root, entry.name))}: ${entry.name} is not a known pack (add it to scripts/data/formats.mjs)`,
+          `${relative(ROOT, join(root, entry.name))}: ${entry.name} is not a known pack (add it to scripts/data/formats.ts)`,
         );
   }
 }
@@ -97,12 +108,22 @@ function checkFolders(packs) {
  * the quality gate.
  */
 export function buildLock(
-  packs,
-  { previous, download = [], now = new Date(), pairs = {} } = {},
-) {
+  packs: Packs,
+  {
+    previous,
+    download = [],
+    now = new Date(),
+    pairs = {},
+  }: {
+    previous?: PackLock;
+    download?: readonly string[];
+    now?: Date;
+    pairs?: PackLock["pairs"];
+  } = {},
+): PackLock {
   for (const name of download) {
     if (!Object.hasOwn(packs, name)) throw new Error(`Unknown pack: ${name}`);
-    if (!packs[name].downloadable)
+    if (!packs[name]!.downloadable)
       throw new Error(
         `${name} is always bundled: only the packs in data/packs/ can be downloaded`,
       );
@@ -111,13 +132,17 @@ export function buildLock(
   const entries = Object.keys(packs)
     .sort()
     .map((name) => {
-      const info = packs[name];
+      const info = packs[name]!;
       const files = existsSync(info.dir) ? listPackFiles(info.dir) : [];
       if (files.length === 0)
         throw new Error(`${name} has no files in ${relative(ROOT, info.dir)}`);
       const entry = {
         package: info.package,
-        version: nextVersion(files, previous?.packs?.[name], now),
+        version: nextVersion(
+          files,
+          previous?.packs[name as keyof PackLock["packs"]],
+          now,
+        ),
         format: info.format,
         bundled: !download.includes(name),
         files,
@@ -132,22 +157,22 @@ export function buildLock(
   };
 }
 
-function sortKeys(value) {
+function sortKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeys);
   if (value === null || typeof value !== "object") return value;
   return Object.fromEntries(
     Object.keys(value)
       .sort()
-      .map((key) => [key, sortKeys(value[key])]),
+      .map((key) => [key, sortKeys((value as Record<string, unknown>)[key])]),
   );
 }
 
 /** The lock as written: keys sorted, two-space indents. */
-export function stringifyLock(lock) {
+function stringifyLock(lock: PackLock) {
   return `${JSON.stringify(sortKeys(lock), null, 2)}\n`;
 }
 
-function packageJson(info, entry) {
+function packageJson(info: PackInfo, entry: PackLockEntry) {
   return {
     name: info.package,
     version: entry.version,
@@ -158,7 +183,7 @@ function packageJson(info, entry) {
   };
 }
 
-function licenseText(info) {
+function licenseText(info: PackInfo) {
   return [
     `The data files in this package (${info.package}) are licensed under the`,
     `${info.license.name}:`,
@@ -175,7 +200,7 @@ function licenseText(info) {
   ].join("\n");
 }
 
-function readme(info) {
+function readme(info: PackInfo) {
   return [
     `# ${info.package}`,
     "",
@@ -198,12 +223,16 @@ function readme(info) {
 }
 
 /** Writes data/publish/<pack>/ for each downloadable pack (the folder is replaced). */
-export function writePackages(packs, lock, publishDir = PUBLISH_DIR) {
+export function writePackages(
+  packs: Packs,
+  lock: PackLock,
+  publishDir = PUBLISH_DIR,
+) {
   rmSync(publishDir, { recursive: true, force: true });
   const written = [];
   for (const [name, info] of Object.entries(packs)) {
     if (!info.downloadable) continue;
-    const entry = lock.packs[name];
+    const entry = lock.packs[name as keyof PackLock["packs"]];
     const out = join(publishDir, name);
     mkdirSync(out, { recursive: true });
     for (const file of entry.files)
@@ -227,9 +256,16 @@ export function publish({
   download = [],
   now = new Date(),
   pairs = {},
+}: {
+  packs?: Packs;
+  lockPath?: string;
+  publishDir?: string;
+  download?: readonly string[];
+  now?: Date;
+  pairs?: PackLock["pairs"];
 } = {}) {
   const previous = existsSync(lockPath)
-    ? JSON.parse(readFileSync(lockPath, "utf8"))
+    ? (JSON.parse(readFileSync(lockPath, "utf8")) as PackLock)
     : undefined;
   const lock = buildLock(packs, { previous, download, now, pairs });
   mkdirSync(dirname(lockPath), { recursive: true });
@@ -246,7 +282,7 @@ function main() {
   const pairs = offeredPairs(gateReport());
   const { lock, previous, packages } = publish({ download, pairs });
   for (const [name, entry] of Object.entries(lock.packs)) {
-    const was = previous?.packs?.[name]?.version;
+    const was = previous?.packs[name as keyof PackLock["packs"]]?.version;
     const change = was === entry.version ? "unchanged" : `was ${was ?? "new"}`;
     const size = entry.files.reduce((n, f) => n + f.size, 0);
     console.log(
@@ -266,4 +302,4 @@ function main() {
     );
 }
 
-if (isMain(import.meta.url)) main();
+if (import.meta.main) main();

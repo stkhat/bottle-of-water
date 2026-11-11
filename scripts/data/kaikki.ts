@@ -1,12 +1,22 @@
 // kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/{lemmas,ipa,pos}.json
-// Usage: node scripts/data/kaikki.mjs [path]   (default data/raw/kaikki-en.jsonl; run ejdict.mjs first)
-import { createReadStream } from "node:fs";
-import { join } from "node:path";
-import { createInterface } from "node:readline";
-import { isMain, RAW_DIR, readPack, singleIpa, writePack } from "./common.mjs";
-import { readDictPacks } from "./ejdict.mjs";
-
-export const KAIKKI_PATH = join(RAW_DIR, "kaikki-en.jsonl");
+// Usage: node scripts/data/kaikki.ts [path]   (default data/raw/kaikki-en.jsonl; run ejdict.ts first)
+import { singleIpa } from "../../src/core/lexicon/ipa.ts";
+import type {
+  DictPack,
+  IpaPack,
+  LemmaPack,
+  PosPack,
+} from "../../src/core/packs/types.ts";
+import {
+  eachEntry,
+  KAIKKI_PATH,
+  posLabel,
+  readDictPacks,
+  readPack,
+  writePack,
+  type KaikkiEntry,
+} from "./common.ts";
+import { PACKS } from "./formats.ts";
 
 const INFLECTION_TAGS = new Set([
   "plural",
@@ -31,39 +41,19 @@ const NO_FORMS_POS = new Set(["character", "symbol"]);
 const ROMAN_NUMERAL =
   /^(?=[mdclxvi])m*(c[md]|d?c{0,3})(x[cl]|l?x{0,3})(i[xv]|v?i{0,3})$/;
 const US_TAGS = new Set(["General-American", "US"]);
-const POS_LABELS = {
-  adj: "adjective",
-  adv: "adverb",
-  prep: "preposition",
-  pron: "pronoun",
-  conj: "conjunction",
-  intj: "interjection",
-  det: "determiner",
-  num: "numeral",
-  name: "proper noun",
-  abbrev: "abbreviation",
-  postp: "postposition",
-};
-
-/** kaikki part-of-speech code → readable label (adj → adjective, prep_phrase → prepositional phrase). */
-export function posLabel(pos) {
-  if (pos === "prep_phrase") return "prepositional phrase";
-  return POS_LABELS[pos] ?? pos.replaceAll("_", " ");
-}
-
-function newBucket() {
-  return {
-    pos: [],
-    phonemicIpa: undefined,
-    anyIpa: undefined,
-    bases: new Map(),
-  };
+interface Bucket {
+  pos: string[];
+  phonemicIpa?: string;
+  anyIpa?: string;
+  untaggedIpa?: string;
+  /** form → base */
+  bases: Map<string, string>;
 }
 
 // An entry that is only a misspelling (or obsolete, dialectal…) of another word
 // does not give its forms to its headword ("we'll": misspelling of well → better).
-function hasOwnForms(entry) {
-  if (NO_FORMS_POS.has(entry.pos)) return false;
+function hasOwnForms(entry: KaikkiEntry) {
+  if (entry.pos && NO_FORMS_POS.has(entry.pos)) return false;
   if (entry.pos === "num" && ROMAN_NUMERAL.test(entry.word.toLowerCase()))
     return false;
   const senses = entry.senses ?? [];
@@ -79,12 +69,12 @@ function hasOwnForms(entry) {
 
 // No accent tag: the pronunciation shared by all accents, US included. A stressed or
 // strong form counts too ("my", "would"); a weak form or a dialect note does not.
-function isSharedPronunciation(tags, note) {
+function isSharedPronunciation(tags: string[], note: string | undefined) {
   if (!tags.every((tag) => tag === "stressed")) return false;
   return !note || /strong form|General American/.test(note);
 }
 
-function addEntry(bucket, base, entry) {
+function addEntry(bucket: Bucket, base: string, entry: KaikkiEntry) {
   if (typeof entry.pos === "string") {
     const label = posLabel(entry.pos);
     if (!bucket.pos.includes(label)) bucket.pos.push(label);
@@ -119,7 +109,14 @@ function addEntry(bucket, base, entry) {
 // the base ("doの三人称…"). This drops does → doe, has → ha, news → new, this → Thi.
 const NOT_CONFIRMING_TAGS = new Set([...IGNORED_TAGS, "rare"]);
 
-function addConfirmations(confirmations, form, entry) {
+/** form → base → whether a verb entry confirms it */
+type Confirmations = Map<string, Map<string, { verb: boolean }>>;
+
+function addConfirmations(
+  confirmations: Confirmations,
+  form: string,
+  entry: KaikkiEntry,
+) {
   for (const sense of entry.senses ?? []) {
     const tags = sense.tags ?? [];
     if (!Array.isArray(sense.form_of)) continue;
@@ -130,8 +127,8 @@ function addConfirmations(confirmations, form, entry) {
       // "comparative degree of good and well"
       for (const base of word.toLowerCase().split(/\s*,\s*|\s+and\s+/)) {
         if (!base) continue;
-        if (!confirmations.has(form)) confirmations.set(form, new Map());
-        const byBase = confirmations.get(form);
+        let byBase = confirmations.get(form);
+        if (!byBase) confirmations.set(form, (byBase = new Map()));
         const confirmation = byBase.get(base) ?? { verb: false };
         confirmation.verb ||= entry.pos === "verb";
         byBase.set(base, confirmation);
@@ -140,11 +137,15 @@ function addConfirmations(confirmations, form, entry) {
   }
 }
 
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function isConfirmed(confirmation, form, base, dict) {
+function isConfirmed(
+  confirmation: { verb: boolean } | undefined,
+  form: string,
+  base: string,
+  dict: DictPack,
+) {
   if (!confirmation) return false;
   if (confirmation.verb) return true;
   const gloss = (dict[form]?.[1] ?? []).join(" / ");
@@ -154,43 +155,33 @@ function isConfirmed(confirmation, form, base, dict) {
 }
 
 /**
- * Streams the kaikki JSONL and collects, for each vocabulary word, its inflected forms,
- * US IPA and parts of speech. Entries spelt exactly like the vocabulary word win; entries
- * in another casing (Monday for "monday") are used only when there are none.
+ * Collects, for each vocabulary word, its inflected forms, US IPA and parts of speech.
+ * Entries spelt exactly like the vocabulary word win; entries in another casing (Monday
+ * for "monday") are used only when there are none.
  */
-export async function importKaikki(path, vocab, dict = {}) {
+export async function importKaikki(
+  path: string,
+  vocab: Iterable<string>,
+  dict: DictPack = {},
+) {
   const words = new Set(vocab);
-  const exact = new Map();
-  const folded = new Map();
-  const stats = { entries: 0, unparsable: 0 };
-  const confirmations = new Map(); // form → base → { verb }
-  const lines = createInterface({
-    input: createReadStream(path, { highWaterMark: 1 << 20 }),
-    crlfDelay: Infinity,
-  });
-  for await (const line of lines) {
-    if (!line.trim()) continue;
-    let entry;
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      stats.unparsable++;
-      continue;
-    }
-    stats.entries++;
-    if (entry.lang_code !== "en" || typeof entry.word !== "string") continue;
+  const exact = new Map<string, Bucket>();
+  const folded = new Map<string, Bucket>();
+  const confirmations: Confirmations = new Map();
+  const stats = await eachEntry(path, (entry) => {
+    if (entry.lang_code !== "en") return;
     const base = entry.word.toLowerCase();
-    if (!words.has(base)) continue;
+    if (!words.has(base)) return;
     if (entry.word === base) addConfirmations(confirmations, base, entry);
     const buckets = entry.word === base ? exact : folded;
     let bucket = buckets.get(base);
-    if (!bucket) buckets.set(base, (bucket = newBucket()));
+    if (!bucket) buckets.set(base, (bucket = { pos: [], bases: new Map() }));
     addEntry(bucket, base, entry);
-  }
+  });
 
-  const lemmaSets = new Map();
-  const ipa = {};
-  const pos = {};
+  const lemmaSets = new Map<string, Set<string>>();
+  const ipa: Record<string, string> = {};
+  const pos: Record<string, string[]> = {};
   for (const word of words) {
     const bucket = exact.get(word) ?? folded.get(word);
     if (!bucket) continue;
@@ -198,11 +189,12 @@ export async function importKaikki(path, vocab, dict = {}) {
     const usIpa = bucket.phonemicIpa ?? bucket.anyIpa ?? bucket.untaggedIpa;
     if (usIpa) ipa[word] = usIpa;
     for (const form of bucket.bases.keys()) {
-      if (!lemmaSets.has(form)) lemmaSets.set(form, new Set());
-      lemmaSets.get(form).add(word);
+      let bases = lemmaSets.get(form);
+      if (!bases) lemmaSets.set(form, (bases = new Set()));
+      bases.add(word);
     }
   }
-  const lemmas = {};
+  const lemmas: Record<string, string | string[]> = {};
   for (const [form, bases] of lemmaSets) {
     const sorted = [...bases]
       .filter((base) => base.length > 1)
@@ -213,14 +205,19 @@ export async function importKaikki(path, vocab, dict = {}) {
       )
       .sort();
     if (sorted.length > 0)
-      lemmas[form] = sorted.length === 1 ? sorted[0] : sorted;
+      lemmas[form] = sorted.length === 1 ? sorted[0]! : sorted;
   }
-  return { lemmas, ipa, pos, stats };
+  return {
+    lemmas: lemmas as LemmaPack,
+    ipa: ipa as IpaPack,
+    pos: pos as PosPack,
+    stats,
+  };
 }
 
 async function main() {
-  const dict = readDictPacks();
-  const vocab = readPack("en/vocab.json");
+  const dict = readDictPacks<DictPack[string]>(PACKS["en-ja"].dir);
+  const vocab = readPack<string[]>("en/vocab.json");
   const path = process.argv[2] ?? KAIKKI_PATH;
   const { lemmas, ipa, pos, stats } = await importKaikki(path, vocab, dict);
   writePack("en/lemmas.json", lemmas);
@@ -234,4 +231,4 @@ async function main() {
   if (stats.unparsable > 0) process.exitCode = 1;
 }
 
-if (isMain(import.meta.url)) await main();
+if (import.meta.main) await main();

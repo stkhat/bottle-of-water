@@ -1,3 +1,5 @@
+// The data scripts (scripts/data/) import this file under plain Node: keep its imports
+// type-only.
 import type { PhraseRules } from "./pattern";
 
 /**
