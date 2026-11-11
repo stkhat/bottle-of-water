@@ -8,7 +8,12 @@ import { termId } from "../../core/term-id";
 import { testBackground } from "../article/test-background";
 import type { TranslationProvider } from "../translate/translator";
 import type { PlatformAdapter, VideoCaptions } from "./platform";
-import { startVideo, type VideoSession, type VideoState } from "./session";
+import {
+  startVideo,
+  type VideoDeps,
+  type VideoSession,
+  type VideoState,
+} from "./session";
 import { videoWords } from "./words";
 
 const cleanups: (() => unknown)[] = [];
@@ -121,6 +126,7 @@ async function start(
     send?: (send: ReturnType<typeof testBackground>["send"]) => typeof send;
     /** Downloaded packs not on the device yet. */
     missingPacks?: PackName[];
+    hooks?: Pick<VideoDeps, "onPanelOpen" | "onTermsChanged">;
   } = {},
 ) {
   const video = await createVideo();
@@ -146,6 +152,7 @@ async function start(
     createTranslator: () =>
       options.translator ?? { translate: async () => undefined },
     translatorAvailable: async () => options.translatorAvailable ?? false,
+    ...options.hooks,
   });
   cleanups.push(() => session.stop());
   /** Changes the stored settings and tells the session, as storage.onChanged does. */
@@ -970,6 +977,22 @@ describe("words in the subtitles", () => {
     expect(bg.sent("removeTerm")).toHaveLength(1);
     await expect.poll(() => state().panel?.card.status).toBe("new");
     expect(unsavedOf(state)).toBe(4);
+  });
+
+  it("tells the page when its window opens and when a term changes", async () => {
+    const onPanelOpen = vi.fn();
+    const onTermsChanged = vi.fn();
+    const { state, app } = await start(undefined, {
+      hooks: { onPanelOpen, onTermsChanged },
+    });
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.status).toBe("new");
+    expect(onPanelOpen).toHaveBeenCalledOnce();
+    expect(onTermsChanged).not.toHaveBeenCalled();
+    app.setPanelStatus("learning");
+    await expect.poll(() => onTermsChanged.mock.calls.length).toBe(1);
   });
 
   it("does not record the line the word was saved from again", async () => {

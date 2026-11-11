@@ -386,6 +386,72 @@ test("+ Learning in the window highlights the word everywhere and survives a rel
   ).toHaveCSS("background-color", learningOnPage);
 });
 
+/** The words a CSS highlight of the page covers. */
+const highlightedWords = (page: Page, name: string) =>
+  page.evaluate(
+    (name) =>
+      [...(CSS.highlights.get(name) ?? [])].map((r) => (r as Range).toString()),
+    name,
+  );
+
+/** The middle of the first `word` in the comment section, in viewport coordinates. */
+async function commentWord(page: Page, word: string) {
+  return page.evaluate((word) => {
+    const root = document.querySelector("ytd-comments#comments")!;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const at = node.data.search(new RegExp(`\\b${word}\\b`));
+      if (at < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + word.length);
+      const r = range.getBoundingClientRect();
+      return { x: r.left + 3, y: r.top + r.height / 2 };
+    }
+    throw new Error(`${word} is not in the comments`);
+  }, word);
+}
+
+test("comments get highlights, the hover card and the panel; one dictionary at a time", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const comments = page.locator("ytd-comments#comments");
+  await comments.scrollIntoViewIfNeeded();
+  // Comment and reply text only, not the Japanese comment.
+  await expect
+    .poll(async () => (await highlightedWords(page, "lingo-new")).sort())
+    .toEqual(["anecdotes", "hilarious", "infectious", "profound", "wit"]);
+
+  const ui = page.locator("lingo-comments");
+  let at = await commentWord(page, "infectious");
+  await page.mouse.move(at.x, at.y);
+  await expect(
+    ui.getByRole("button", { name: en["hover.details"] }),
+  ).toBeVisible();
+
+  at = await commentWord(page, "infectious");
+  await page.mouse.click(at.x, at.y);
+  const panel = ui.getByRole("complementary");
+  await expect(
+    panel.getByRole("heading", { name: "infectious" }),
+  ).toBeVisible();
+  await panel
+    .getByRole("button", { name: en["dict.status.learning"], exact: true })
+    .click();
+  await expect
+    .poll(() => highlightedWords(page, "lingo-learning"))
+    .toEqual(["infectious"]);
+
+  // The video's window opens: the comments' panel closes.
+  await inVideo(page).getByText("creativity", { exact: true }).click();
+  await expect(dictionary(page)).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  expect(await violations(page)).toEqual([]);
+});
+
 test("the L button turns Lingo off for the video: YouTube's captions come back", async ({
   context,
   extensionId,

@@ -81,6 +81,10 @@ export interface VideoDeps {
   translatorAvailable?(from: string, to: string): Promise<boolean>;
   /** How long the pointer rests on a word before its card shows (ms). */
   hoverDelayMs?: number;
+  /** The dictionary window opened (another of Lingo's windows on the page may close). */
+  onPanelOpen?(): void;
+  /** A term was saved, changed or removed here (other parts of the page may follow). */
+  onTermsChanged?(): void;
 }
 
 /** Where a hovered word is shown. */
@@ -932,6 +936,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (ticket !== panelTicket || !card) return;
     if (!store.get().panel) opened++;
     showPanel(ref, card, opened);
+    deps.onPanelOpen?.();
   }
 
   /**
@@ -1020,6 +1025,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       recategorize(w, (s) => (sameTerm(s, key, kind) ? to : undefined));
       noteStatuses(w, [[key, to]]);
     }
+    deps.onTermsChanged?.();
     await refreshCards(key, kind);
   }
 

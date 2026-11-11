@@ -64,12 +64,23 @@ const newDraft = (element: Element): Draft => ({
 
 const LINE_CHARS = /[\t\n\r\f]/g;
 
-function visit(element: Element, draft: Draft, out: Draft[]) {
+/** Which text nodes are read; every one by default. */
+export type AcceptText = (node: Text) => boolean;
+
+const acceptAll: AcceptText = () => true;
+
+function visit(
+  element: Element,
+  draft: Draft,
+  out: Draft[],
+  accept: AcceptText,
+) {
   let visible: boolean | undefined;
   for (const child of element.childNodes) {
     if (child instanceof Text) {
+      if (child.data === "" || !accept(child)) continue;
       visible ??= getComputedStyle(element).visibility === "visible";
-      if (!visible || child.data === "") continue;
+      if (!visible) continue;
       if (draft.broken && draft.text !== "") draft.text += "\n";
       draft.broken = false;
       draft.pieces.push({ node: child, start: draft.text.length });
@@ -82,12 +93,12 @@ function visit(element: Element, draft: Draft, out: Draft[]) {
       const style = getComputedStyle(child);
       if (isSkipped(child, style)) continue;
       if (isInlineDisplay(style.display)) {
-        visit(child, draft, out);
+        visit(child, draft, out, accept);
       } else {
         draft.broken = true;
         const inner = newDraft(child);
         out.push(inner);
-        visit(child, inner, out);
+        visit(child, inner, out, accept);
       }
     }
   }
@@ -105,12 +116,15 @@ function isExcluded(element: Element): boolean {
  * order. Skips `script, style, noscript, textarea, input, select, code, pre,
  * [contenteditable], svg` and the like, hidden elements and text, Lingo's own hosts,
  * and blocks with only whitespace. Nothing is collected when `root` or an ancestor
- * is skipped or hidden.
+ * is skipped or hidden. Only text nodes `accept` takes are read (all by default).
  */
-export function collectBlocks(root: Element): TextBlock[] {
+export function collectBlocks(
+  root: Element,
+  accept: AcceptText = acceptAll,
+): TextBlock[] {
   if (isExcluded(root)) return [];
   const drafts = [newDraft(root)];
-  visit(root, drafts[0]!, drafts);
+  visit(root, drafts[0]!, drafts, accept);
   return drafts
     .filter((d) => d.text.trim() !== "")
     .map(({ element, text, pieces }) => ({ element, text, pieces }));
@@ -197,6 +211,8 @@ export interface PageTextOptions {
   onChange?: (change: BlockChange) => void;
   /** How long changes are gathered before the blocks are re-collected (ms). */
   debounceMs?: number;
+  /** Which text nodes are read (`collectBlocks`); every one by default. */
+  acceptText?: AcceptText;
 }
 
 /**
@@ -209,8 +225,9 @@ export function createPageText(
   root: Element,
   options: PageTextOptions = {},
 ): PageText {
-  const { onChange, debounceMs = 300 } = options;
-  let blocks = collectBlocks(root);
+  const { onChange, debounceMs = 300, acceptText = acceptAll } = options;
+  const collect = (el: Element) => collectBlocks(el, acceptText);
+  let blocks = collect(root);
   const dirty = new Set<Element>();
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -225,7 +242,7 @@ export function createPageText(
 
     const stale = (b: TextBlock) =>
       !b.element.isConnected || roots.some((r) => r.contains(b.element));
-    const fresh = roots.flatMap(collectBlocks);
+    const fresh = roots.flatMap(collect);
     const old = blocks.filter(stale);
     const kept = blocks.filter((b) => !stale(b));
 

@@ -582,6 +582,33 @@ for (const build of ["production", "check"] as const)
       await panel.getByRole("tab", { name: en["video.transcript"] }).click();
       await expect(videoCard(page, YT_LINE)).toBeVisible();
 
+      // The comments: a word's panel, saved as Known, closed.
+      await page.locator("ytd-comments#comments").scrollIntoViewIfNeeded();
+      const at = await page.evaluate(async () => {
+        const has = () =>
+          [...(CSS.highlights.get("lingo-new") ?? [])].some(
+            (r) => (r as Range).toString() === "profound",
+          );
+        while (!has()) await new Promise((r) => setTimeout(r, 50));
+        const range = [...CSS.highlights.get("lingo-new")!].find(
+          (r) => (r as Range).toString() === "profound",
+        ) as Range;
+        const box = range.getBoundingClientRect();
+        return { x: box.left + 3, y: box.top + box.height / 2 };
+      });
+      await page.mouse.click(at.x, at.y);
+      const comments = page
+        .locator("lingo-comments")
+        .getByRole("complementary");
+      await comments
+        .getByRole("button", { name: en["dict.status.known"], exact: true })
+        .click();
+      await expect(
+        comments.getByRole("button", { name: en["dict.status.remove"] }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(comments).toHaveCount(0);
+
       // L off and on.
       const l = lButton(page);
       await l.click();

@@ -4,8 +4,11 @@
   captured 2026-11-10 in Playwright Chromium at 1400x900, logged out, en-US.
   Kept: the element tree from ytd-app down to #movie_player (video, caption container,
   settings menu shell, controls), #below and #secondary. Removed: scripts, styles,
-  images, SVG paths, the progress bar, comments, recommendation contents and most
-  attributes. The <style> block is not YouTube's: it only lays out the two columns.
+  images, SVG paths, the progress bar, recommendation contents and most attributes.
+  The comment section (ytd-comments#comments) holds three hand-written comments in the
+  structure read on 2026-11-12 (docs/notes/youtube-comments.md), one of them in
+  Japanese. The <style> block is not YouTube's: it only lays out the two columns and
+  draws YouTube's custom elements as blocks.
   For E2E: serve it at https://www.youtube.com/watch* with context.route.
 -->
 <html lang="en">
@@ -27,6 +30,18 @@
       #primary {
         flex: 1;
         min-width: 0;
+      }
+      ytd-comments,
+      ytd-comments-header-renderer,
+      ytd-item-section-renderer,
+      ytd-comment-thread-renderer,
+      ytd-comment-view-model,
+      ytd-expander,
+      ytd-comment-replies-renderer {
+        display: block;
+      }
+      ytd-comment-thread-renderer {
+        margin: 16px 0;
       }
       #secondary {
         width: 385px;
@@ -463,6 +478,42 @@
                         </div>
                       </ytd-watch-metadata>
                     </div>
+                    <ytd-comments id="comments">
+                      <ytd-item-section-renderer id="sections">
+                      <ytd-comments-header-renderer><h2>3 Comments</h2></ytd-comments-header-renderer>
+                      <div id="contents">
+                      <ytd-comment-thread-renderer>
+                        <ytd-comment-view-model id="comment">
+                          <div id="body"><div id="main">
+                            <div id="header"><a href="#"><span>@viewer</span></a> <a href="#">2 weeks ago</a></div>
+                            <ytd-expander id="expander"><div id="content"><yt-attributed-string id="content-text"><span>Every teacher should watch this. His wit is infectious.</span></yt-attributed-string></div></ytd-expander>
+                            <div id="toolbar"><button>Reply</button></div>
+                          </div></div>
+                        </ytd-comment-view-model>
+                        <ytd-comment-replies-renderer><div id="expanded-threads"><yt-sub-thread><div>
+                      <ytd-comment-thread-renderer>
+                        <ytd-comment-view-model id="comment">
+                          <div id="body"><div id="main">
+                            <div id="header"><a href="#"><span>@reply</span></a> <a href="#">2 weeks ago</a></div>
+                            <ytd-expander id="expander"><div id="content"><yt-attributed-string id="content-text"><span>His anecdotes are hilarious and profound at the same time.</span></yt-attributed-string></div></ytd-expander>
+                            <div id="toolbar"><button>Reply</button></div>
+                          </div></div>
+                        </ytd-comment-view-model>
+                      </ytd-comment-thread-renderer>
+                        </div></yt-sub-thread></div></ytd-comment-replies-renderer>
+                      </ytd-comment-thread-renderer>
+                      <ytd-comment-thread-renderer>
+                        <ytd-comment-view-model id="comment">
+                          <div id="body"><div id="main">
+                            <div id="header"><a href="#"><span>@viewer_ja</span></a> <a href="#">2 weeks ago</a></div>
+                            <ytd-expander id="expander"><div id="content"><yt-attributed-string id="content-text"><span>何度見ても面白い講演です。</span></yt-attributed-string></div></ytd-expander>
+                            <div id="toolbar"><button>Reply</button></div>
+                          </div></div>
+                        </ytd-comment-view-model>
+                      </ytd-comment-thread-renderer>
+                      </div>
+                      </ytd-item-section-renderer>
+                    </ytd-comments>
                   </div>
                 </div>
               </div>

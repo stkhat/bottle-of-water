@@ -22,7 +22,12 @@ describe("DEFAULT_SETTINGS", () => {
       subtitleSize: 100,
       subtitleOpacity: 80,
       transcriptTranslation: true,
-      sites: { youtube: true, netflix: true, articles: true },
+      sites: {
+        youtube: true,
+        youtubeComments: true,
+        netflix: true,
+        articles: true,
+      },
       videoOn: { youtube: true, netflix: true },
       neverRunOn: [],
       disabledSites: [],
@@ -57,6 +62,7 @@ describe("mergeSettings", () => {
     });
     expect(merged.sites).toEqual({
       youtube: true,
+      youtubeComments: true,
       netflix: false,
       articles: true,
     });

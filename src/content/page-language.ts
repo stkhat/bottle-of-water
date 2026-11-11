@@ -19,3 +19,22 @@ export function matchesLearningLanguage(
   const page = primarySubtag(htmlLang);
   return page !== "" && page === primarySubtag(learningLang);
 }
+
+/** What `i18n.detectLanguage` answers. */
+export interface DetectedLanguage {
+  isReliable: boolean;
+  languages: { language: string; percentage: number }[];
+}
+
+/**
+ * True when the detector reliably names a language other than the learning one. An
+ * unsure answer, or one naming no particular language, counts as the learning language.
+ */
+export function inOtherLanguage(
+  detected: DetectedLanguage,
+  learningLang: string,
+): boolean {
+  const top = detected.languages[0]?.language;
+  if (!detected.isReliable || isGenericLang(top)) return false;
+  return !matchesLearningLanguage(top, learningLang);
+}

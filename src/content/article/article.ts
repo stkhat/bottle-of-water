@@ -33,7 +33,7 @@ import {
   type SpanMap,
   type SpanRef,
 } from "./locate";
-import { findMainContent, type MainContent } from "./main-content";
+import type { MainContent } from "./main-content";
 import {
   collectBlocks,
   createPageText,
@@ -43,11 +43,9 @@ import {
 } from "./page-text";
 import { collapseSpaces, splitSentences } from "../../core/text/sentences";
 import { sentenceAt } from "./sentence";
-import {
-  articlesAllowedOn,
-  shouldRunArticle,
-  type DetectLanguage,
-} from "./should-run";
+import type { DetectLanguage } from "./should-run";
+import { articleSurface, type PageSurface } from "./surface";
+import { inOtherLanguage } from "../page-language";
 import { createTranslationQueue } from "../translate/queue";
 import {
   createBuiltInTranslator,
@@ -85,7 +83,20 @@ export interface ArticleOptions {
   hostname?: string;
   /** The settings to start with (default: asked from the background). */
   settings?: Settings;
+  /**
+   * Where the UI runs and what it records (default: an article page, from `hostname`
+   * and `htmlLang`).
+   */
+  surface?: PageSurface;
 }
+
+/** The surface the options name, else an article page. */
+const surfaceOf = (options: ArticleOptions): PageSurface =>
+  options.surface ??
+  articleSurface({
+    hostname: options.hostname ?? location.hostname,
+    htmlLang: options.htmlLang ?? document.documentElement.lang,
+  });
 
 /** The hover card over a word: where the word is and what it says. */
 export interface HoverState {
@@ -172,6 +183,8 @@ export interface ArticleApp {
 
 export interface ArticleSession {
   readonly pageText: PageText;
+  /** Classifies every analyzed block again (after saved terms changed elsewhere). */
+  reanalyze(): Promise<void>;
   readonly highlighter: Highlighter;
   /** The spans of every analyzed block that is still on the page. */
   readonly spans: ReadonlyMap<TextBlock, readonly Span[]>;
@@ -185,7 +198,7 @@ export interface ArticleSession {
 }
 
 /** The term as written: the whole phrase for a part of a phrase with a gap. */
-const surfaceOf = ({ block, span }: SpanRef) => {
+const writtenOf = ({ block, span }: SpanRef) => {
   const { start, end } = span.part ?? span;
   return collapseSpaces(block.text.slice(start, end));
 };
@@ -207,14 +220,13 @@ export async function startArticle(
 ): Promise<ArticleSession | undefined> {
   const root = options.root ?? document.body;
   const hostname = options.hostname ?? location.hostname;
+  const surface = surfaceOf(options);
   let settings = options.settings ?? (await deps.send({ type: "getSettings" }));
 
-  const runs = await shouldRunArticle({
-    hostname,
-    htmlLang: options.htmlLang ?? document.documentElement.lang,
+  const runs = await surface.qualifies({
     settings,
     sample: () =>
-      collectBlocks(root)
+      collectBlocks(root, surface.acceptText)
         .map((b) => b.text)
         .join("\n")
         .slice(0, DETECT_SAMPLE),
@@ -234,8 +246,8 @@ export async function startArticle(
   const versions = new Map<TextBlock, number>();
   let version = 0;
   let warmed = false;
-  /** The page's title and body (`findMainContent`), found again after page changes. */
-  let main: MainContent = findMainContent(root, []);
+  /** The part that counts (the article's title and body), found again after page changes. */
+  let main: MainContent = surface.mainContent(root, []);
   /** Analyzed blocks whose spans are highlighted (in scope). */
   const shown = new Set<TextBlock>();
   /** Saved terms the analyses found on the page. */
@@ -255,12 +267,7 @@ export async function startArticle(
     phrase: null,
   });
 
-  const source = (): SourceInput => ({
-    platform: "web",
-    url: location.href,
-    title: document.title,
-    lang,
-  });
+  const source = (): SourceInput => ({ ...surface.source(), lang });
 
   /**
    * The block gets highlights and counts for the end-of-article save, the history and
@@ -294,11 +301,36 @@ export async function startArticle(
     recordHistory(entered);
   }
 
+  /** Whether each block is in the learning language, once detected (`perBlockLanguage`). */
+  const learning = new WeakMap<TextBlock, boolean>();
+
+  /** The blocks to analyze: those not in another language, when the surface checks. */
+  async function inLearningLanguage(batch: TextBlock[]) {
+    if (!surface.perBlockLanguage) return batch;
+    const keep = await Promise.all(
+      batch.map(async (block) => {
+        let ok = learning.get(block);
+        if (ok === undefined) {
+          ok = await deps
+            .detectLanguage(block.text)
+            .then((detected) => !inOtherLanguage(detected, lang))
+            .catch(() => true);
+          learning.set(block, ok);
+        }
+        return ok;
+      }),
+    );
+    return batch.filter((_, i) => keep[i]);
+  }
+
   /**
    * Classifies blocks and highlights them. While language data is missing (or once a
-   * request finds it missing), the blocks wait for it instead.
+   * request finds it missing), the blocks wait for it instead. Blocks in another
+   * language (`perBlockLanguage`) are left alone.
    */
-  async function analyze(batch: TextBlock[]) {
+  async function analyze(blocks: TextBlock[]) {
+    const batch = await inLearningLanguage(blocks);
+    if (batch.length === 0) return;
     if (packs.waiting) {
       for (const block of batch) waiting.add(block);
       return;
@@ -502,10 +534,10 @@ export async function startArticle(
       {
         key: ref.span.key,
         kind: ref.span.kind,
-        surface: surfaceOf(ref),
+        surface: writtenOf(ref),
         category: ref.span.category,
       },
-      { ...translation(), sourceUrl: location.href, shownIn },
+      { ...translation(), sourceUrl: surface.url(), shownIn },
     );
 
   /** True when `ref` is one of the page's spans (not a selection's phrase). */
@@ -528,7 +560,7 @@ export async function startArticle(
           type: "saveTerm",
           lang,
           key,
-          display: surfaceOf(ref),
+          display: writtenOf(ref),
           kind,
           status: to,
           source: source(),
@@ -542,6 +574,7 @@ export async function startArticle(
       if (card.status === "new" && !onPage(ref)) await reanalyze();
       else recategorize((s) => (sameTerm(s, key, kind) ? to : undefined));
     }
+    surface.onTermsChanged?.();
     await refreshCards(key, kind);
   }
 
@@ -613,6 +646,7 @@ export async function startArticle(
     if (ticket !== panelTicket) return;
     panelRef = ref;
     showPanel(ref, card);
+    surface.onPanelOpen?.();
   }
 
   /**
@@ -784,6 +818,7 @@ export async function startArticle(
       dropSelected();
       getSelection()?.removeAllRanges();
     }
+    surface.onTermsChanged?.();
     // The phrase may be anywhere on the page: classify again to find it.
     await reanalyze();
   }
@@ -860,6 +895,7 @@ export async function startArticle(
   });
 
   const pageText = createPageText(root, {
+    acceptText: surface.acceptText,
     onChange({ removed, added }) {
       for (const block of removed) {
         live.delete(block);
@@ -874,12 +910,12 @@ export async function startArticle(
       for (const block of added) live.add(block);
       index.add(added);
       visible.add(added);
-      main = findMainContent(root, pageText.blocks());
+      main = surface.mainContent(root, pageText.blocks());
       end.update(main.last);
       rescope();
     },
   });
-  main = findMainContent(root, pageText.blocks());
+  main = surface.mainContent(root, pageText.blocks());
   for (const block of pageText.blocks()) live.add(block);
   index.add(pageText.blocks());
   visible.add(pageText.blocks());
@@ -926,6 +962,8 @@ export async function startArticle(
     spans,
     app,
     settings: () => settings,
+    reanalyze: () =>
+      new Promise<void>((done) => run(() => reanalyze().finally(done))),
     handlePageRequest,
     stop() {
       unwatch();
@@ -956,6 +994,10 @@ function warn(error: unknown) {
 export interface ArticleRunner {
   /** Answers the popup about this page (see `page-protocol.ts`). */
   handlePageRequest(request: PageRequest): Promise<PageSummary>;
+  /** Closes the dictionary panel, if it is open. */
+  closePanel(): void;
+  /** Classifies the page again (after saved terms changed elsewhere on it). */
+  reanalyze(): Promise<void>;
   /** Stops the article UI and stops following the settings. */
   stop(): void;
 }
@@ -970,6 +1012,7 @@ export function runArticle(
   options: ArticleOptions = {},
 ): ArticleRunner {
   const hostname = options.hostname ?? location.hostname;
+  const surface = surfaceOf(options);
   let session: ArticleSession | undefined;
   let allowed: boolean | undefined;
   let stopped = false;
@@ -977,17 +1020,19 @@ export function runArticle(
   async function apply(settings: Settings) {
     if (stopped) return;
     const was = allowed;
-    allowed = articlesAllowedOn(hostname, settings);
+    allowed = surface.allowed(settings);
     if (!allowed) {
       session?.stop();
       session = undefined;
     } else if (!was && !session) {
-      session = await startArticle(deps, { ...options, settings }).catch(
-        (error: unknown) => {
-          warn(error);
-          return undefined;
-        },
-      );
+      session = await startArticle(deps, {
+        ...options,
+        surface,
+        settings,
+      }).catch((error: unknown) => {
+        warn(error);
+        return undefined;
+      });
       if (stopped) session?.stop();
     }
   }
@@ -1007,6 +1052,13 @@ export function runArticle(
       return session
         ? session.handlePageRequest(request)
         : unsupportedPage(hostname, "page");
+    },
+    closePanel() {
+      if (session?.app.store.get().panel) session.app.closePanel();
+    },
+    async reanalyze() {
+      await queue;
+      await session?.reanalyze();
     },
     stop() {
       stopped = true;
