@@ -11,38 +11,41 @@ function highlighted(page: Page, name: string) {
   );
 }
 
-/** Scrolls `text` (inside the article) to the middle of the viewport and returns its box. */
-function textBox(page: Page, text: string) {
-  return page.evaluate((text) => {
-    const walker = document.createTreeWalker(
-      document.querySelector("article")!,
-      NodeFilter.SHOW_TEXT,
-    );
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text;
-      const data = node.data.replace(/\s+/g, " ");
-      const i = data.indexOf(text);
-      if (i < 0) continue;
-      // Map the offset back to the raw text (runs of whitespace collapsed above).
-      let raw = 0;
-      for (let seen = 0; seen < i; raw++) {
-        if (/\s/.test(node.data[raw]!) && /\s/.test(node.data[raw + 1] ?? ""))
-          continue;
-        seen++;
+/** Scrolls `text` (inside `within`) to the middle of the viewport and returns its box. */
+function textBox(page: Page, text: string, within = "article") {
+  return page.evaluate(
+    ([text, within]) => {
+      const walker = document.createTreeWalker(
+        document.querySelector(within)!,
+        NodeFilter.SHOW_TEXT,
+      );
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        const data = node.data.replace(/\s+/g, " ");
+        const i = data.indexOf(text);
+        if (i < 0) continue;
+        // Map the offset back to the raw text (runs of whitespace collapsed above).
+        let raw = 0;
+        for (let seen = 0; seen < i; raw++) {
+          if (/\s/.test(node.data[raw]!) && /\s/.test(node.data[raw + 1] ?? ""))
+            continue;
+          seen++;
+        }
+        const range = document.createRange();
+        range.setStart(node, raw);
+        range.setEnd(node, raw + text.length);
+        node.parentElement!.scrollIntoView({ block: "center" });
+        const r = range.getBoundingClientRect();
+        return { left: r.left, right: r.right, y: r.top + r.height / 2 };
       }
-      const range = document.createRange();
-      range.setStart(node, raw);
-      range.setEnd(node, raw + text.length);
-      node.parentElement!.scrollIntoView({ block: "center" });
-      const r = range.getBoundingClientRect();
-      return { left: r.left, right: r.right, y: r.top + r.height / 2 };
-    }
-    throw new Error(`"${text}" not found`);
-  }, text);
+      throw new Error(`"${text}" not found`);
+    },
+    [text, within] as const,
+  );
 }
 
-async function hover(page: Page, text: string) {
-  const box = await textBox(page, text);
+async function hover(page: Page, text: string, within?: string) {
+  const box = await textBox(page, text, within);
   await page.mouse.move(box.left + 3, box.y);
 }
 
@@ -84,6 +87,35 @@ test("hovering a word shows its card with the Japanese translation", async ({
   await expect(page.getByText("tangy", { exact: true })).toBeVisible();
   await expect(page.getByText(/ぴりっと/)).toBeVisible();
   await expect(page.getByText(en["lookup.status.new"])).toBeVisible();
+});
+
+test("only the article gets highlights; words around it still show their card", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  // The aside is analyzed once it scrolls near the viewport: hover again until then.
+  await expect(async () => {
+    await page.mouse.move(0, 0);
+    await hover(page, "crackling", "aside");
+    await expect(
+      page.getByRole("button", { name: en["hover.details"] }),
+    ).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  const words = await highlighted(page, "lingo-new");
+  expect(words).toEqual(expect.arrayContaining(["knead", "tangy"]));
+  expect(words).not.toContain("crackling");
+  expect(words).not.toContain("sluggish");
+
+  // Settings → Articles → "Highlight only the article" off: the whole page.
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { articleMainOnly: false },
+  });
+  await expect
+    .poll(() => highlighted(page, "lingo-new"))
+    .toEqual(expect.arrayContaining(["knead", "crackling", "sluggish"]));
 });
 
 test("a dictionary phrase is highlighted as one new term with its meaning", async ({

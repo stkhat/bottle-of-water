@@ -106,10 +106,15 @@ Development pair: learning language = English, native language = Japanese, sites
 - When several words are selected, snap the range to word boundaries and show a bar with "Save "…" as a phrase" and "+ Learning / Known"
 - No card sits on the page (highlight toggles live in the toolbar popup). The dictionary panel sits 16px in from the viewport's top right (the mock's 84px makes room for its own page header)
 - The clicked word gets the mock's green outline (drawn by Lingo's UI over the page, since `::highlight()` cannot draw outlines)
-- **When the reader scrolls to the end of the article** (the last paragraph of the `article` with the most text, else `main`), nothing is shown; unsaved New words are handled as Settings say (below)
+- **Only the title and body** (Settings → Articles → "Highlight only the article", on by default): the main content gets highlights, the end-of-article save (below), the sentence history and "Seen elsewhere" encounters. Menus, sidebars, footers and links to other stories get none of these, but hovering or clicking a word there works as anywhere. Switched off, the whole page counts
+  - The body's container: paragraphs of prose (not list items, table cells, headings or captions; at least 25 characters outside links, less than half link text) score their parent fully, grandparent by 1/2 and great-grandparent by 1/3; the best-scored element, widened to its nearest `article`, `main` or `[role=main]`
+  - Left out inside it: `nav`, `aside`, `footer` and their ARIA roles; elements whose class or id names related stories, sharing, comments, newsletters, promos, ads, references, footnotes and the like (unless they hold the best-scored element, so a wrapper class does not drop the body); blocks with 60% or more of their text in links ("Read more: …", "See also" lists)
+  - The title: the container's first `h1`, else an `h1` whose text the page's `<title>` contains, even when it sits outside the container
+  - When nothing reads as prose, the whole page counts
+- **When the reader scrolls to the end of the article** (the last block of the main content above), nothing is shown; unsaved New words are handled as Settings say (below)
 
 ### Unsaved New words at the end (no UI on the page)
-- Target: New words on the page/video that are **not saved yet** (saved words keep their status; words within the frequency level are not New). On an article, the analyzed part of the page (what came near the viewport); on a video, every cue
+- Target: New words on the page/video that are **not saved yet** (saved words keep their status; words within the frequency level are not New). On an article, the analyzed part of the main content (what came near the viewport; the whole page when "Highlight only the article" is off); on a video, every cue
 - When: once per page view / video, when the video plays to its end (not during an ad) or the end of the article comes into view
 - Settings → Highlighting → "New words you didn't save": **Keep as New** (default; nothing happens, they show as New next time) or **Mark as Known** (they are saved as Known at once, silently, as `bulk` terms)
 
@@ -142,6 +147,7 @@ Development pair: learning language = English, native language = Japanese, sites
     - Usage and last saved time ("Last saved …", never "Last synced")
     - JSON Export / Import. The description shows **when the last export happened** ("Last export: …", "Never exported."). Export downloads `lingo-backup-YYYY-MM-DD.json`; Import reads a chosen file and says "Imported N words" (or why it failed)
     - "Your own cloud storage" shows Coming later
+  - **Articles**: "Highlight only the article" (on by default; see "Article UI")
   - **About**: version, data license notices
 
 ### Word list page (a page inside the extension; mock `Word list page`, approved 2026-11-10)

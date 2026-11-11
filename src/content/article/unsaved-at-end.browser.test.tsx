@@ -60,6 +60,24 @@ describe("unsaved new words at the end of the article", () => {
     expect(background.sent("saveAll")).toHaveLength(1);
   });
 
+  it("leave out words around the article (menus, sidebars, related links)", async () => {
+    const { background } = await setup(
+      `<nav><p>Trace the schedule.</p></nav>${ARTICLE}`,
+      { settings: { unsavedAtEnd: "known", highlight: SHOW_ALL } },
+    );
+    await expect
+      .poll(() => highlighted("lingo-new").sort())
+      .toEqual(["knead", "loaves"]);
+    toEnd();
+    await expect.poll(() => background.sent("saveAll").length).toBe(1);
+    expect(background.sent("saveAll")[0]!.keys).toEqual([
+      "knead",
+      "loaf",
+      "tangy",
+      "yeast",
+    ]);
+  });
+
   it("stay New by default", async () => {
     const { background } = await setup(ARTICLE, {
       settings: { highlight: SHOW_ALL },
