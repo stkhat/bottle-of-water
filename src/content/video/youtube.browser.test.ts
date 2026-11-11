@@ -20,7 +20,7 @@ import {
   TITLE,
   VIDEO_ID,
   type TestPage,
-} from "./youtube-test-page";
+} from "../../testing/youtube-page";
 
 const REQUEST = {
   learningLang: "en",

@@ -25,7 +25,7 @@ import {
   SHOW,
   testManifest,
   type TestPage,
-} from "./netflix-test-page";
+} from "../../testing/netflix-page";
 
 const posted: TracksMessage[] = [];
 function onMessage(event: MessageEvent) {

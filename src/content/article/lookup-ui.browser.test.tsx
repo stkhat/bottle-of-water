@@ -9,8 +9,8 @@ import {
   pointTo,
   rectOf,
   setup,
-} from "./article-testing";
-import { testBackground } from "./test-background";
+} from "../../testing/article";
+import { testBackground } from "../../testing/background";
 
 const ARTICLE = `
   <p>They knead the dough and bake loaves.</p>
@@ -502,13 +502,27 @@ describe("events a page script makes", () => {
     await learning.click();
     await expect.poll(() => background.sent("saveTerm").length).toBe(1);
   });
+
+  it("a page script's .click() on the dictionary's close button leaves it open", async () => {
+    const { root } = await setup(ARTICLE);
+    await clickOn(root, "tedious");
+    const close = dictionary().getByRole("button", {
+      name: "Close dictionary",
+    });
+    await expect.element(close).toBeVisible();
+    (close.element() as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(dictionary().query()).not.toBeNull();
+
+    await close.click();
+    await expect.element(dictionary()).not.toBeInTheDocument();
+  });
 });
 
 describe("the page", () => {
   it("has no Lingo card, and highlights follow settings changed elsewhere", async () => {
-    const { background, changeSettings } = await setup(ARTICLE);
-    changeSettings({
-      ...background.settings(),
+    const { background } = await setup(ARTICLE);
+    background.changeSettings({
       highlight: { new: true, learning: true, known: false },
     });
     await expect.poll(() => highlighted("lingo-new")).toContain("tedious");

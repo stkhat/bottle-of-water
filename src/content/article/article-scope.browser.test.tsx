@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
-import { cleanUp, highlighted, pointAt, setup } from "./article-testing";
+import { cleanUp, highlighted, pointAt, setup } from "../../testing/article";
 
 const PAGE = `
   <nav><p>Knead the tangy dough.</p></nav>
@@ -94,14 +94,14 @@ describe("only the title and body (Settings → Articles)", () => {
   });
 
   it("covers the whole page once switched off, without analyzing again", async () => {
-    const { background, changeSettings } = await setup(PAGE, {
+    const { background } = await setup(PAGE, {
       settings: { highlight: SHOW_ALL },
     });
     await expect.poll(newWords).toEqual(BODY_NEW);
     await expect.poll(() => historySentences(background)).toHaveLength(3);
     const analyzed = background.sent("analyze").length;
 
-    changeSettings({ ...background.settings(), articleMainOnly: false });
+    background.changeSettings({ articleMainOnly: false });
     await expect.poll(newWords).toEqual([...BODY_NEW, ...AROUND_NEW].sort());
     expect(background.sent("analyze")).toHaveLength(analyzed);
     await expect
@@ -113,7 +113,7 @@ describe("only the title and body (Settings → Articles)", () => {
         ]),
       );
 
-    changeSettings({ ...background.settings(), articleMainOnly: true });
+    background.changeSettings({ articleMainOnly: true });
     await expect.poll(newWords).toEqual(BODY_NEW);
   });
 

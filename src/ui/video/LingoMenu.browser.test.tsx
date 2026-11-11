@@ -2,7 +2,7 @@ import { render, type JSX } from "preact";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { useState } from "preact/hooks";
 import { userEvent } from "vitest/browser";
-import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
+import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
 import { LingoMenu, type LingoMenuProps } from "./LingoMenu";
 import { PlayerButtons } from "./PlayerButtons";
 

@@ -16,13 +16,40 @@ import {
   timedtextBody,
 } from "../tests/youtube-timedtext";
 import {
+  FIXTURE_METADATA,
   installFakeNetflixPlayer,
   type FakeNetflixOptions,
-} from "./fake-netflix-player";
-import { installFakeYouTubePlayer } from "./fake-youtube-player";
-import { routeTalkVideo } from "./routes";
+} from "../tests/fake-netflix-player";
+import { installFakeYouTubePlayer } from "../tests/fake-youtube-player";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+/** Serves the 140-second clip with byte ranges: the video can seek only then. */
+async function routeTalkVideo(context: BrowserContext, url: string) {
+  const video = readFileSync(path.join(here, "fixtures/talk.webm"));
+  await context.route(url, (route) => {
+    const range = /bytes=(\d+)-(\d*)/.exec(
+      route.request().headers()["range"] ?? "",
+    );
+    if (!range)
+      return route.fulfill({
+        contentType: "video/webm",
+        headers: { "accept-ranges": "bytes" },
+        body: video,
+      });
+    const start = Number(range[1]);
+    const end = range[2] ? Number(range[2]) : video.length - 1;
+    return route.fulfill({
+      status: 206,
+      contentType: "video/webm",
+      headers: {
+        "accept-ranges": "bytes",
+        "content-range": `bytes ${start}-${end}/${video.length}`,
+      },
+      body: video.subarray(start, end + 1),
+    });
+  });
+}
 
 export const YOUTUBE_WATCH = `https://www.youtube.com/watch?v=${FIXTURE_VIDEO_ID}`;
 export const NETFLIX_WATCH = `https://www.netflix.com/watch/${FIXTURE_MOVIE_ID}?trackId=14170286`;
@@ -72,19 +99,6 @@ export async function routeYouTube(context: BrowserContext) {
   });
 }
 
-const METADATA = {
-  title: "Lingo Test Show",
-  seasons: [
-    {
-      seq: 1,
-      episodes: [
-        { id: Number(FIXTURE_MOVIE_ID), seq: 1, title: "Pilot" },
-        { id: 80000002, seq: 2, title: "Second" },
-      ],
-    },
-  ],
-};
-
 /**
  * Serves netflix.com from the synthetic fixtures: the watch-page skeleton, the local
  * 140-second clip, the subtitle files on a CDN host (cross-origin, with CORS like
@@ -117,7 +131,7 @@ export async function routeNetflix(context: BrowserContext) {
   const options: FakeNetflixOptions = {
     movieId: FIXTURE_MOVIE_ID,
     manifest: fixtureManifest(),
-    metadata: METADATA,
+    metadata: FIXTURE_METADATA,
     // Built while the pointer moves, removed 3 s after it stops, as on netflix.com.
     controlBar: { idleMs: 3000, title: ["Lingo Test Show", "E1", "Pilot"] },
   };

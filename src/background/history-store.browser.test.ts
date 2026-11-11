@@ -1,5 +1,5 @@
 import { Dexie } from "dexie";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { normalizeUrl, sourceId } from "../core/url";
 import { openLingoDb, type LingoDb } from "./db";
 import {
@@ -8,23 +8,18 @@ import {
   type HistorySource,
   type HistoryStore,
 } from "./history-store";
+import { fakeClock } from "../testing/clock";
+import { freshDb } from "../testing/db";
+import { ARTICLE as BREAD, VIDEO } from "../testing/sources";
 
 const ARTICLE: HistorySource = {
-  platform: "web",
+  ...BREAD,
   url: "https://Example.com/bread?utm_source=x#top",
-  title: "Bread",
-  lang: "en",
 };
 const OTHER_ARTICLE: HistorySource = {
   platform: "web",
   url: "https://news.example.org/cake",
   title: "Cake",
-  lang: "en",
-};
-const VIDEO: HistorySource = {
-  platform: "youtube",
-  url: "https://youtu.be/dQw4w9WgXcQ?si=share",
-  title: "A video",
   lang: "en",
 };
 
@@ -55,21 +50,16 @@ const pageId = (source: HistorySource) =>
 
 let db: LingoDb;
 let history: HistoryStore;
-let time: number;
-const tick = (ms = 1000) => (time += ms);
+let clock: ReturnType<typeof fakeClock>;
 
 function storeWithCap(capBytes: number) {
-  return createHistoryStore(db, { now: () => time, capBytes });
+  return createHistoryStore(db, { now: clock.now, capBytes });
 }
 
 beforeEach(() => {
-  time = 1_000_000;
-  db = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
-  history = createHistoryStore(db, { now: () => time });
-});
-
-afterEach(async () => {
-  await db.delete();
+  clock = fakeClock();
+  db = freshDb();
+  history = createHistoryStore(db, { now: clock.now });
 });
 
 describe("upgrade from version 1", () => {
@@ -125,7 +115,7 @@ describe("upgrade from version 1", () => {
       expect(await upgraded.meta.get("lastSavedAt")).toMatchObject({
         value: 1,
       });
-      const store = createHistoryStore(upgraded, { now: () => time });
+      const store = createHistoryStore(upgraded, { now: clock.now });
       expect(await store.record(ARTICLE, [knead])).toBe(1);
       expect(await store.find("en:dough")).toHaveLength(1);
     } finally {
@@ -152,7 +142,7 @@ describe("record", () => {
 
   it("returns how many sentences it added and keeps each one once per page", async () => {
     expect(await history.record(ARTICLE, [knead, rest, knead])).toBe(2);
-    tick();
+    clock.tick();
     expect(await history.record(ARTICLE, [knead, rest])).toBe(0);
     expect(await db.historySentences.count()).toBe(2);
     // The same sentence on another page is kept for that page too.
@@ -162,7 +152,7 @@ describe("record", () => {
 
   it("updates the last visit and title and keeps the first visit", async () => {
     await history.record(ARTICLE, [knead]);
-    tick(5000);
+    clock.tick(5000);
     await history.record({ ...ARTICLE, title: "Bread, revised" }, [knead]);
     expect(await db.historyPages.get(pageId(ARTICLE))).toMatchObject({
       title: "Bread, revised",
@@ -222,11 +212,11 @@ describe("eviction", () => {
     history = storeWithCap(cap);
     for (const n of [1, 2, 3]) {
       await history.record(...page(n));
-      tick();
+      clock.tick();
     }
     // Page 1 is visited again, so page 2 is now the oldest.
     await history.record(...page(1));
-    tick();
+    clock.tick();
     await history.record(...page(4));
 
     const status = await history.status();
@@ -241,7 +231,7 @@ describe("eviction", () => {
   it("keeps the page just recorded when it alone is over the cap", async () => {
     history = storeWithCap(size(1) + 10);
     await history.record(...page(1));
-    tick();
+    clock.tick();
     const [source] = page(2);
     const big: HistoryItem = {
       text: "y".repeat(500),
@@ -260,9 +250,9 @@ describe("eviction", () => {
 describe("find", () => {
   it("returns the sentences with the term, newest first, joined with their page", async () => {
     await history.record(ARTICLE, [knead]);
-    tick();
+    clock.tick();
     await history.record(VIDEO, [rest]);
-    tick();
+    clock.tick();
     await history.record(OTHER_ARTICLE, [{ ...knead, keys: ["en:knead"] }]);
 
     expect(await history.find("en:dough")).toEqual([
@@ -295,7 +285,7 @@ describe("find", () => {
 
   it("leaves out the page with the excluded url, in any form", async () => {
     await history.record(ARTICLE, [knead]);
-    tick();
+    clock.tick();
     await history.record(VIDEO, [rest]);
     const found = await history.find("en:dough", {
       excludeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s",
@@ -311,7 +301,7 @@ describe("find", () => {
     }));
     for (const item of items) {
       await history.record(ARTICLE, [item]);
-      tick();
+      clock.tick();
     }
     const all = await history.find("en:dough");
     expect(all).toHaveLength(50);
@@ -331,9 +321,9 @@ describe("find", () => {
       keys: ["en:dough"],
     }));
     await history.record(OTHER_ARTICLE, many);
-    tick();
+    clock.tick();
     await history.record(VIDEO, [rest]);
-    tick();
+    clock.tick();
     // The newest sentences are on the excluded page: they must not use up the limit.
     await history.record(
       ARTICLE,

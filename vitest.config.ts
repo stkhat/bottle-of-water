@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import preact from "@preact/preset-vite";
-import { playwright } from "@vitest/browser-playwright";
+import { defineBrowserCommand, playwright } from "@vitest/browser-playwright";
 import type { Plugin } from "vite";
 import { netflixSubtitleBody } from "./tests/netflix-subtitles.ts";
 import { timedtextBody } from "./tests/youtube-timedtext.ts";
@@ -47,6 +47,15 @@ function netflixFixtures(): Plugin {
   };
 }
 
+/** Playwright's `emulateMedia` for the test page (src/testing/media.ts). */
+const emulateMedia = defineBrowserCommand<
+  [{ colorScheme: "light" | "dark" | null }]
+>(async (context, options) => {
+  if (context.provider.name !== "playwright")
+    throw new Error("emulateMedia needs Playwright");
+  await context.page.emulateMedia(options);
+});
+
 export default defineConfig({
   test: {
     projects: [
@@ -64,6 +73,7 @@ export default defineConfig({
             headless: true,
             provider: playwright(),
             instances: browsers.map((browser) => ({ browser })),
+            commands: { emulateMedia },
           },
         },
       },

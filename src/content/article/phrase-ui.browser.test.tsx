@@ -10,7 +10,7 @@ import {
   rectOf,
   selectText,
   setup,
-} from "./article-testing";
+} from "../../testing/article";
 
 const ARTICLE = `
   <div style="height: 120px"></div>

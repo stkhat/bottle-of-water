@@ -10,7 +10,11 @@ import {
   type PageCall,
   type TimedtextMessage,
 } from "./youtube-messages";
-import { createTestPage, VIDEO_ID, type TestPage } from "./youtube-test-page";
+import {
+  createTestPage,
+  VIDEO_ID,
+  type TestPage,
+} from "../../testing/youtube-page";
 
 const TRACK = `/api/timedtext?v=${VIDEO_ID}&lang=en&pot=TOKEN&fmt=json3`;
 

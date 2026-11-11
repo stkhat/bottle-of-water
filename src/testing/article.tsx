@@ -1,14 +1,16 @@
-// Test helpers for the article UI: a page fixture, the real background over a stub
-// pack (test-background.ts), the UI mounted in a shadow root, and pointer helpers.
+// The article UI on a fixture page, over the real background (background.ts), mounted
+// in a guarded shadow root as the content script does.
 import { render } from "preact";
 import { expect } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { Settings } from "../../core/settings";
-import type { Request } from "../../messaging/protocol";
-import { ArticleUi } from "../ui/ArticleUi";
-import { startArticle, type ArticleSession } from "./article";
-import { testBackground } from "./test-background";
-import type { TranslationProvider } from "../translate/translator";
+import type { Settings } from "../core/settings";
+import { guardShadowRoot } from "../ui/from-user";
+import type { Request } from "../messaging/protocol";
+import { ArticleUi } from "../content/ui/ArticleUi";
+import { startArticle, type ArticleSession } from "../content/article/article";
+import { testBackground } from "./background";
+import type { TranslationProvider } from "../content/translate/translator";
+import { detectEnglish, noTranslation } from "./stubs";
 
 const cleanups: (() => void | Promise<void>)[] = [];
 
@@ -71,10 +73,7 @@ export async function setup(html: string, options: SetupOptions = {}) {
   document.body.prepend(root);
   cleanups.push(() => root.remove());
 
-  const settingsListeners = new Set<(s: Settings) => void>();
-  const translator: TranslationProvider = options.translator ?? {
-    translate: async () => undefined,
-  };
+  const translator = options.translator ?? noTranslation;
 
   const session = (await startArticle(
     {
@@ -84,20 +83,16 @@ export async function setup(html: string, options: SetupOptions = {}) {
             return background.send(request as never);
           }) as typeof background.send)
         : background.send,
-      watchSettings(listener) {
-        settingsListeners.add(listener);
-        return () => settingsListeners.delete(listener);
-      },
+      watchSettings: background.watchSettings,
       watchPackState: background.watchPackState,
-      detectLanguage: async () => ({
-        isReliable: true,
-        languages: [{ language: "en", percentage: 99 }],
-      }),
+      detectLanguage: detectEnglish,
       mountUi(app) {
         const host = document.createElement("lingo-test-ui");
         document.body.append(host);
         const container = document.createElement("div");
-        host.attachShadow({ mode: "open" }).append(container);
+        const shadow = host.attachShadow({ mode: "open" });
+        guardShadowRoot(shadow);
+        shadow.append(container);
         render(<ArticleUi app={app} />, container);
         return () => {
           render(null, container);
@@ -117,15 +112,7 @@ export async function setup(html: string, options: SetupOptions = {}) {
     .poll(() => session.spans.size, { timeout: 5000 })
     .toBeGreaterThan(0);
 
-  return {
-    background,
-    session,
-    root,
-    /** Delivers settings to the page as `storage.onChanged` would. */
-    changeSettings(next: Settings) {
-      for (const listener of settingsListeners) listener(next);
-    },
-  };
+  return { background, session, root };
 }
 
 export function rectOf(root: Node, text: string, nth = 0): DOMRect {

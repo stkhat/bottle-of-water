@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
-import { cleanUpMounts, mountInShadowRoot } from "../lookup/testing";
+import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
 import { VideoPanel, type VideoPanelProps } from "./VideoPanel";
 import type { WordRow } from "./WordsList";
 

@@ -1,12 +1,12 @@
-// Test helper: an in-memory storage.sync with quotas, getBytesInUse and failure injection,
+// An in-memory storage.sync with quotas, getBytesInUse and failure injection,
 // which WXT's fakeBrowser does not have. Several simulated devices can share one.
-import { itemBytes } from "../../core/sync/layout";
+import { itemBytes } from "../core/sync/layout";
 import type {
   StorageChange,
   StorageChangedEvent,
   StorageChangedListener,
   SyncArea,
-} from "./browser-sync-backend";
+} from "../background/sync/browser-sync-backend";
 
 export interface FakeSyncArea extends SyncArea {
   onChanged: StorageChangedEvent;

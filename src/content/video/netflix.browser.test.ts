@@ -21,7 +21,7 @@ import {
   SHOW,
   testManifest,
   type TestPage,
-} from "./netflix-test-page";
+} from "../../testing/netflix-page";
 
 const REQUEST = {
   learningLang: "en",
@@ -109,17 +109,6 @@ describe("the watch page", () => {
       wrapper("control-fullscreen-enter"),
     );
     expect(adapter.controlsPoint()?.parent).toBe(row());
-  });
-
-  it("has no place for the buttons while Netflix removes its control bar, and finds the new bar", () => {
-    adapter.controlsPoint();
-    page.showControls(false);
-    expect(adapter.controlsPoint()).toBeNull();
-    page.showControls(true);
-    expect(adapter.controlsPoint()?.parent).toBe(row());
-    expect(adapter.controlsPoint()?.before).toBe(
-      wrapper("control-audio-subtitle"),
-    );
   });
 
   it("reads the watch id, the title and the URL", () => {

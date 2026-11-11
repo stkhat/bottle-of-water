@@ -7,6 +7,7 @@ import type { SyncStatus } from "../../core/sync/backend";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import type { PackStatus, Request } from "../../messaging/protocol";
 import { Popup, type PopupDeps } from "./Popup";
+import { listeners } from "../../testing/stubs";
 
 const NOW = Date.UTC(2026, 10, 10, 12, 0, 0);
 const MINUTE = 60_000;
@@ -59,8 +60,8 @@ function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let page = options.page;
   let counts = options.counts ?? { learning: 128, known: 2341, phrases: 37 };
-  const listeners = new Set<(s: Settings) => void>();
-  const packListeners = new Set<(states: PackStates) => void>();
+  const settingsWatchers = listeners<Settings>();
+  const packWatchers = listeners<PackStates>();
   const sent: Request[] = [];
   const asked: PageRequest[] = [];
   const deps: PopupDeps = {
@@ -71,7 +72,7 @@ function fake(options: FakeOptions = {}) {
           return settings;
         case "setSettings":
           settings = mergeSettings(request.patch, settings);
-          for (const l of listeners) l(settings);
+          settingsWatchers.emit(settings);
           return settings;
         case "counts":
           return counts;
@@ -104,14 +105,8 @@ function fake(options: FakeOptions = {}) {
       }
       return page;
     },
-    watchSettings(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    watchPackState(listener) {
-      packListeners.add(listener);
-      return () => packListeners.delete(listener);
-    },
+    watchSettings: settingsWatchers.watch,
+    watchPackState: packWatchers.watch,
     syncName: "Chrome sync",
     openOptions: vi.fn(),
     openWordList: vi.fn(),
@@ -129,13 +124,13 @@ function fake(options: FakeOptions = {}) {
     /** A change made elsewhere (another page, another device). */
     changeSettings(patch: Partial<Settings>) {
       settings = mergeSettings(patch, settings);
-      for (const l of listeners) l(settings);
+      settingsWatchers.emit(settings);
     },
     /** The background writes `packState`. */
     setPackStates(states: PackStates) {
-      for (const l of packListeners) l(states);
+      packWatchers.emit(states);
     },
-    packWatchers: () => packListeners.size,
+    packWatchers: packWatchers.count,
   };
 }
 

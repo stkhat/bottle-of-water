@@ -1,13 +1,12 @@
 // The sentence history brought into a newly saved term, with the real stores on IndexedDB.
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createBrowserEnv } from "../core/browser-env";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
   type Settings,
 } from "../core/settings";
-import type { RequestOf, RequestType, ResponseOf } from "../messaging/protocol";
-import { openLingoDb, type LingoDb } from "./db";
+import type { LingoDb } from "./db";
 import { createHandlers, type Handle } from "./handlers";
 import { createHistoryStore, type HistorySource } from "./history-store";
 import { createLanguageResources } from "./language-resources";
@@ -17,14 +16,16 @@ import {
   type SourceInput,
   type TermStore,
 } from "./term-store";
-import { bundledPacks, stubPackLoader } from "./test-packs";
+import { fakeClock } from "../testing/clock";
+import { freshDb } from "../testing/db";
+import { replyValue } from "../testing/handlers";
+import { bundledPacks, stubPackLoader } from "../testing/packs";
+import { ARTICLE } from "../testing/sources";
 import { createTranslationCache } from "./translation-cache";
 
 const ARTICLE_A: HistorySource = {
-  platform: "web",
+  ...ARTICLE,
   url: "https://example.com/bread?utm_source=feed",
-  title: "Bread",
-  lang: "en",
 };
 const VIDEO_B: HistorySource = {
   platform: "youtube",
@@ -42,18 +43,17 @@ const ARTICLE_C: SourceInput = {
 let db: LingoDb;
 let store: TermStore;
 let handle: Handle;
-let time: number;
-const tick = (ms = 1000) => (time += ms);
+let clock: ReturnType<typeof fakeClock>;
 
 beforeEach(() => {
-  time = 1_000_000;
-  db = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
-  store = createTermStore(db, { now: () => time });
+  clock = fakeClock();
+  db = freshDb();
+  store = createTermStore(db, { now: clock.now });
   let settings: Settings = mergeSettings({}, DEFAULT_SETTINGS);
   handle = createHandlers({
     store,
-    history: createHistoryStore(db, { now: () => time }),
-    translations: createTranslationCache(db, { now: () => time }),
+    history: createHistoryStore(db, { now: clock.now }),
+    translations: createTranslationCache(db, { now: clock.now }),
     settings: {
       get: async () => settings,
       set: async (patch) => (settings = mergeSettings(patch, settings)),
@@ -66,17 +66,7 @@ beforeEach(() => {
   });
 });
 
-afterEach(async () => {
-  await db.delete();
-});
-
-async function value<T extends RequestType>(
-  request: { type: T } & RequestOf<T>,
-): Promise<ResponseOf<T>> {
-  const reply = await handle(request);
-  if (!reply.ok) throw new Error(`error reply: ${reply.error}`);
-  return reply.value as ResponseOf<T>;
-}
+const value = replyValue(() => handle);
 
 const keep = (source: HistorySource, ...texts: string[]) =>
   value({
@@ -106,7 +96,7 @@ const brief = async () =>
 describe("saving a term brings its kept sentences in", () => {
   it("adds them as encountered occurrences with their sources and times", async () => {
     await keep(ARTICLE_A, "Add the yeast.", "The loaf.");
-    tick();
+    clock.tick();
     await value({
       type: "recordHistory",
       source: VIDEO_B,
@@ -118,7 +108,7 @@ describe("saving a term brings its kept sentences in", () => {
         },
       ],
     });
-    tick();
+    clock.tick();
 
     // Before saving, the history is "seen elsewhere".
     const before = await value({
@@ -170,16 +160,16 @@ describe("saving a term brings its kept sentences in", () => {
 
   it("does not duplicate a sentence the term was saved from", async () => {
     await keep(ARTICLE_C, "Fresh yeast.");
-    tick();
+    clock.tick();
     await saveYeast("Fresh yeast.");
     expect(await brief()).toEqual(["saved:Fresh yeast.@Cake:1001000"]);
   });
 
   it("imports once: saving the term again, or importing twice, adds nothing", async () => {
     await keep(ARTICLE_A, "Add the yeast.");
-    tick();
+    clock.tick();
     await saveYeast();
-    tick();
+    clock.tick();
     await saveYeast();
     expect(await brief()).toEqual([
       "saved:Fresh yeast.@Cake:1002000",
@@ -200,10 +190,10 @@ describe("saving a term brings its kept sentences in", () => {
 
   it("imports again after the term was removed and saved again", async () => {
     await keep(ARTICLE_A, "Add the yeast.");
-    tick();
+    clock.tick();
     const term = await saveYeast();
     await value({ type: "removeTerm", id: term.id });
-    tick();
+    clock.tick();
     await saveYeast();
     expect(await brief()).toEqual([
       "saved:Fresh yeast.@Cake:1002000",
@@ -213,9 +203,9 @@ describe("saving a term brings its kept sentences in", () => {
 
   it("keeps a source's newer title when an older sentence comes in", async () => {
     await keep(ARTICLE_A, "Add the yeast.");
-    tick();
+    clock.tick();
     await saveYeast();
-    tick();
+    clock.tick();
     await store.saveTerm({
       lang: "en",
       key: "loaf",
@@ -265,7 +255,7 @@ describe("saving a term brings its kept sentences in", () => {
     );
     for (const text of texts) {
       await keep(ARTICLE_A, text);
-      tick();
+      clock.tick();
     }
     await saveYeast();
     const occurrences = await store.occurrencesOf("en:yeast");

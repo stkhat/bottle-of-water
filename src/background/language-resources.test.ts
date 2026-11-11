@@ -3,7 +3,7 @@ import { learningLanguages, nativeLanguages } from "../core/languages";
 import type { PackName } from "../core/packs/load";
 import { PacksUnavailableError } from "../core/packs/unavailable";
 import { createLanguageResources } from "./language-resources";
-import { filesRead, stubPackLoader as stubLoader } from "./test-packs";
+import { filesRead, stubPackLoader as stubLoader } from "../testing/packs";
 
 describe("createLanguageResources", () => {
   it("builds the English pack from the bundled packs, with their vocabulary", async () => {

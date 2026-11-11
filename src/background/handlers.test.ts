@@ -6,14 +6,7 @@ import type { PackName } from "../core/packs/load";
 import { applyOverrides, readLock, type PackLock } from "../core/packs/lock";
 import type { PackState } from "../core/packs/state";
 import type { SyncStatus } from "../core/sync/backend";
-import type {
-  Reply,
-  Request,
-  RequestOf,
-  RequestType,
-  ResponseOf,
-  TermSummary,
-} from "../messaging/protocol";
+import type { Reply, Request, TermSummary } from "../messaging/protocol";
 import type { OccurrenceRecord, SourceRecord, TermRecord } from "./db";
 import { createHandlers, type Handle, type HandlerDeps } from "./handlers";
 import type {
@@ -25,12 +18,10 @@ import type {
 import { createLanguageResources } from "./language-resources";
 import type { DownloadedPack, PackStore } from "./pack-store";
 import { getSettings, setSettings } from "./settings-store";
-import type {
-  OccurrenceWithSource,
-  SourceInput,
-  TermStore,
-} from "./term-store";
-import { filesRead, stubPackLoader } from "./test-packs";
+import type { OccurrenceWithSource, TermStore } from "./term-store";
+import { replyValue } from "../testing/handlers";
+import { filesRead, stubPackLoader } from "../testing/packs";
+import { ARTICLE } from "../testing/sources";
 import type { TranslationCache } from "./translation-cache";
 
 type FakeStore = { [K in keyof TermStore]: Mock<TermStore[K]> };
@@ -161,12 +152,7 @@ const LOAF: TermRecord = {
   updatedAt: 1_000,
 };
 
-const SOURCE: SourceInput = {
-  platform: "web",
-  url: "https://example.com/bread",
-  title: "Bread",
-  lang: "en",
-};
+const SOURCE = ARTICLE;
 
 let store: FakeStore;
 let history: FakeHistory;
@@ -201,16 +187,7 @@ beforeEach(() => {
   handle = createHandlers(deps);
 });
 
-/** Sends a request and returns the value, failing the test on an error reply. */
-async function value<T extends RequestType>(
-  request: { type: T } & RequestOf<T>,
-): Promise<ResponseOf<T>> {
-  const reply = await handle(request);
-  if (!reply.ok) throw new Error(`error reply: ${reply.error}`);
-  // Replies cross runtime.sendMessage, which keeps only what JSON keeps.
-  expect(JSON.parse(JSON.stringify(reply))).toEqual(reply);
-  return reply.value as ResponseOf<T>;
-}
+const value = replyValue(() => handle);
 
 describe("handlers: routing", () => {
   it("answers getSettings and setSettings from the settings store", async () => {
@@ -1015,7 +992,7 @@ describe("handlers: lookup", () => {
 });
 
 describe("handlers: machine translations of English definitions", () => {
-  // "figure out" has only an English definition (en-defs): see test-packs.ts.
+  // "figure out" has only an English definition (en-defs): see src/testing/packs.ts.
   const SHORT = "To come to understand";
   const SENSES = [
     "To come to understand; to discover.",
@@ -1527,6 +1504,7 @@ describe("handlers: lookup from the sentence history", () => {
   });
 });
 
+// The import itself: history-import.browser.test.ts.
 describe("handlers: saving brings the kept sentences in", () => {
   const input = {
     lang: "en",
@@ -1538,66 +1516,6 @@ describe("handlers: saving brings the kept sentences in", () => {
     sentence: "A loaf.",
     pos: { textQuote: "A loaf." },
   } as const;
-
-  it("imports a newly saved term's kept sentences as its occurrences", async () => {
-    const order: string[] = [];
-    store.saveTerm.mockImplementation(async () => {
-      order.push("save");
-      return LOAF;
-    });
-    history.find.mockImplementation(async () => {
-      order.push("find");
-      return KEPT;
-    });
-    store.importOccurrences.mockImplementation(async () => {
-      order.push("import");
-      return 2;
-    });
-    expect(await value({ type: "saveTerm", ...input })).toEqual(LOAF);
-    expect(order).toEqual(["save", "find", "import"]);
-    expect(history.find).toHaveBeenCalledWith("en:loaf", { limit: 50 });
-    expect(store.importOccurrences).toHaveBeenCalledWith("en:loaf", [
-      {
-        source: {
-          platform: "youtube",
-          url: "https://www.youtube.com/watch?v=abc",
-          title: "Baking video",
-          lang: "en",
-        },
-        sentence: "Shape the loaf.",
-        translation: "パンを成形する。",
-        pos: { timeMs: 12_500 },
-        seenAt: 9_000,
-      },
-      {
-        source: {
-          platform: "web",
-          url: "https://example.org/cake",
-          title: "Cake",
-          lang: "en",
-        },
-        sentence: "A warm loaf.",
-        pos: { textQuote: "A warm loaf." },
-        seenAt: 8_000,
-      },
-    ]);
-  });
-
-  it("imports nothing when nothing is kept", async () => {
-    store.saveTerm.mockResolvedValue(LOAF);
-    await value({ type: "saveTerm", ...input });
-    expect(history.find).toHaveBeenCalledTimes(1);
-    expect(store.importOccurrences).not.toHaveBeenCalled();
-  });
-
-  it("does not import again for a term that was already saved", async () => {
-    store.termIndex.mockResolvedValue(new Map([["loaf", "known"]]));
-    store.saveTerm.mockResolvedValue(LOAF);
-    history.find.mockResolvedValue(KEPT);
-    await value({ type: "saveTerm", ...input });
-    expect(history.find).not.toHaveBeenCalled();
-    expect(store.importOccurrences).not.toHaveBeenCalled();
-  });
 
   it.each([
     ["finding the kept sentences", "find"],
