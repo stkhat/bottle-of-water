@@ -87,10 +87,11 @@ for (const word of vocab) DICT[word] ??= [`${word}の訳`, [`${word}の訳`]];
 /**
  * Dictionary phrases: "figure out" has an English definition, the others Japanese.
  * "figure out" is a phrasal verb: saved, it matches with a gap ("figure it out").
+ * "make up one's mind" has a slot: matched only when saved or selected.
  */
 const PHRASES = {
   detect: ["figure out", "from scratch", "give up"],
-  more: [],
+  more: ["make up one's mind"],
   gap: ["figure out"],
 };
 const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
@@ -111,6 +112,7 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
       crackles: "crackle",
       starches: "starch",
       gave: "give",
+      made: "make",
     },
     freq: [
       ...COMMON,

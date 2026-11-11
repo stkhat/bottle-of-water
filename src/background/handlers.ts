@@ -1,6 +1,7 @@
 import type { BrowserEnv } from "../core/browser-env";
 import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
 import { learningLanguages } from "../core/languages";
+import type { MatchWord } from "../core/phrases/matcher";
 import {
   hostBlocked,
   type Settings,
@@ -108,6 +109,25 @@ function imported(h: HistorySentence): ImportedOccurrence {
   };
 }
 
+/**
+ * The words whose text overlaps `start` to `end` (exclusive), as word indices `from`
+ * (inclusive) to `to` (exclusive); `from` is not below `to` when there is none.
+ */
+function wordsTouched(
+  words: readonly MatchWord[],
+  start: number,
+  end: number,
+): { from: number; to: number } {
+  let from = words.length;
+  let to = 0;
+  words.forEach(({ token }, i) => {
+    if (token.end <= start || token.start >= end) return;
+    from = Math.min(from, i);
+    to = i + 1;
+  });
+  return { from, to };
+}
+
 function hostnameOf(url: string) {
   try {
     return new URL(url).hostname;
@@ -159,6 +179,19 @@ export function createHandlers({
         all.filter((s) => terms.has(s.key)).map((s) => s.key),
       );
       return { spans, unsaved: unsavedKeys(all), saved: [...saved] };
+    },
+
+    async matchSelection({ lang, text, start, end }) {
+      const pack = await resources.pack(lang);
+      const input = pack.matcher.prepare(pack.tokenize(text));
+      const { from, to } = wordsTouched(input.words, start, end);
+      const match = pack.matcher.matchSelection(input, from, to);
+      if (!match) return {};
+      return {
+        key: match.key,
+        start: input.words[match.words[0]!]!.token.start,
+        end: input.words[match.words.at(-1)!]!.token.end,
+      };
     },
 
     async warmDictionary({ lang }) {

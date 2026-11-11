@@ -374,6 +374,71 @@ describe("handlers: analyze", () => {
   });
 });
 
+describe("handlers: matchSelection", () => {
+  const TEXT = "She made up her mind. Then she gave up.";
+  /** The request for a selection of `words` (the first time they are in TEXT). */
+  const selecting = (words: string, lang = "en") => {
+    const start = TEXT.indexOf(words);
+    return {
+      type: "matchSelection" as const,
+      lang,
+      text: TEXT,
+      start,
+      end: start + words.length,
+    };
+  };
+
+  /** Where `words` are in TEXT (the first time). */
+  const at = (words: string) => ({
+    start: TEXT.indexOf(words),
+    end: TEXT.indexOf(words) + words.length,
+  });
+
+  it("gives the pattern the selected words stand for, slots filled", async () => {
+    expect(await value(selecting("made up her mind"))).toEqual({
+      key: "make up one's mind",
+      ...at("made up her mind"),
+    });
+  });
+
+  it("lets the sentence complete a selection that is part of a longer pattern", async () => {
+    expect(await value(selecting("made up"))).toEqual({
+      key: "make up one's mind",
+      ...at("made up her mind"),
+    });
+  });
+
+  it("takes every word the selection touches", async () => {
+    const { start, end } = selecting("made up her mind");
+    expect(
+      await value({
+        ...selecting("made up her mind"),
+        start: start + 2,
+        end: end - 1,
+      }),
+    ).toEqual({ key: "make up one's mind", ...at("made up her mind") });
+  });
+
+  it("gives no key when the selection matches no pattern", async () => {
+    expect(await value(selecting("mind. Then she"))).toEqual({});
+    expect(await value(selecting("She made"))).toEqual({});
+  });
+
+  it("does not load the dictionary", async () => {
+    await value(selecting("made up her mind"));
+    expect(
+      filesRead(loadPack).filter((p) => !p.startsWith("/packs/en/")),
+    ).toEqual([]);
+  });
+
+  it("answers an error for a language without a pack", async () => {
+    expect(await handle(selecting("made up", "fr"))).toEqual({
+      ok: false,
+      error: "No language pack for fr",
+    });
+  });
+});
+
 const OCCURRENCE_BASE: Omit<OccurrenceRecord, "sourceId" | "sentence" | "pos"> =
   {
     termId: "en:loaf",

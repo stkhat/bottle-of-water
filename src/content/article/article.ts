@@ -94,6 +94,32 @@ export interface PhraseState {
   anchor: Box;
   /** The selected words as written. */
   text: string;
+  /**
+   * The dictionary pattern the words stand for ("make up one's mind" for "made up her
+   * mind"), once the background has answered; missing when no pattern matches.
+   */
+  key?: string;
+}
+
+/**
+ * The pattern selected words stand for, and where its words are in the block: from
+ * its first word to its last, gap included. The sentence may complete the selection
+ * ("made up" → "made up her mind").
+ */
+interface PatternMatch {
+  key: string;
+  start: number;
+  end: number;
+}
+
+/** The words the phrase bar offers, and the pattern they stand for. */
+interface Selected {
+  /** The latest snap of the words (they are read again after snapping). */
+  snapped: Snapped;
+  /** The background's answer: undefined when no pattern matches. */
+  match: Promise<PatternMatch | undefined>;
+  /** `match` once it has come. */
+  answer?: PatternMatch;
 }
 
 /** What the UI shows. */
@@ -487,7 +513,7 @@ export async function startArticle(
   }
 
   // Phrase bar.
-  let phrase: Snapped | undefined;
+  let phrase: Selected | undefined;
 
   const snappedRange = (s: Snapped) => rangeOf(s.block, s.start, s.end);
   /** The same words: the selection is read again after it is snapped. */
@@ -497,13 +523,50 @@ export async function startArticle(
     a.start === b.start &&
     a.end === b.end;
 
+  /** The pattern snapped words stand for; undefined when none matches or on failure. */
+  function patternOf({
+    block,
+    start,
+    end,
+  }: Snapped): Promise<PatternMatch | undefined> {
+    return deps
+      .send({ type: "matchSelection", lang, text: block.text, start, end })
+      .then(
+        (match) =>
+          match.key !== undefined &&
+          match.start !== undefined &&
+          match.end !== undefined
+            ? { key: match.key, start: match.start, end: match.end }
+            : undefined,
+        (error: unknown) => {
+          warn(error);
+          return undefined;
+        },
+      );
+  }
+
   function onSelection(range: Range | undefined) {
     const snapped = range && snapSelection(range, index, spans);
-    phrase = snapped;
     if (!snapped) {
+      phrase = undefined;
       if (store.get().phrase) store.set({ phrase: null });
       return;
     }
+    if (phrase && sameSnap(phrase.snapped, snapped)) {
+      // The same words, read again: their pattern has been asked for.
+      phrase.snapped = snapped;
+    } else {
+      const selected: Selected = { snapped, match: patternOf(snapped) };
+      phrase = selected;
+      void selected.match.then((match) => {
+        selected.answer = match;
+        const bar = store.get().phrase;
+        // Dropped when other words are selected by now.
+        if (phrase === selected && bar && match)
+          store.set({ phrase: { ...bar, key: match.key } });
+      });
+    }
+    const { answer } = phrase;
     const whole = snappedRange(snapped);
     if (
       range.compareBoundaryPoints(Range.START_TO_START, whole) !== 0 ||
@@ -522,17 +585,30 @@ export async function startArticle(
         text: collapseSpaces(
           snapped.block.text.slice(snapped.start, snapped.end),
         ),
+        ...(answer && { key: answer.key }),
       },
     });
   }
 
-  async function savePhrase(snapped: Snapped, status: TermStatus) {
-    const { block, start, end } = snapped;
+  /**
+   * Saves the words under the pattern they stand for, as the pattern's words are
+   * written ("made up her mind" for a selection of "made up"); else the selected words
+   * under their own keys. A press before the background has answered waits for the
+   * answer, so the words are saved alike whenever the bar is pressed.
+   */
+  async function savePhrase(
+    snapped: Snapped,
+    pattern: Promise<PatternMatch | undefined>,
+    status: TermStatus,
+  ) {
+    const { block } = snapped;
+    const match = await pattern;
+    const { start, end } = match ?? snapped;
     const sentence = sentenceAt(block.text, start, end, lang);
     await deps.send({
       type: "saveTerm",
       lang,
-      key: selectionKey(snapped),
+      key: match?.key ?? selectionKey(snapped),
       display: collapseSpaces(block.text.slice(start, end)),
       kind: "phrase",
       status,
@@ -540,7 +616,7 @@ export async function startArticle(
       sentence,
       pos: { textQuote: sentence },
     });
-    if (sameSnap(phrase, snapped)) {
+    if (phrase && sameSnap(phrase.snapped, snapped)) {
       phrase = undefined;
       getSelection()?.removeAllRanges();
       store.set({ phrase: null });
@@ -568,7 +644,7 @@ export async function startArticle(
     const { panel, phrase: bar } = store.get();
     if (panel && panelRef)
       store.set({ panel: { ...panel, outline: outlineOf(panelRef) } });
-    const anchor = phrase && wordBoxes(snappedRange(phrase))[0];
+    const anchor = phrase && wordBoxes(snappedRange(phrase.snapped))[0];
     if (bar && anchor) store.set({ phrase: { ...bar, anchor } });
   }
 
@@ -601,8 +677,9 @@ export async function startArticle(
       });
     },
     savePhrase(status) {
-      const snapped = phrase;
-      if (snapped) run(() => savePhrase(snapped, status));
+      if (!phrase) return;
+      const { snapped, match } = phrase;
+      run(() => savePhrase(snapped, match, status));
     },
   };
 

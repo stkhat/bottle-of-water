@@ -170,3 +170,100 @@ describe("phrase bar", () => {
     await expect.poll(() => bar().query()).toBeNull();
   });
 });
+
+describe("phrase bar: the pattern a selection stands for", () => {
+  const MIND = `
+    <div style="height: 120px"></div>
+    <p>She made up her mind.</p>
+    <p>Later he made up his mind too.</p>`;
+  const FIRST = "She made up her mind.";
+  const quiet = (ms = 300) => new Promise((r) => setTimeout(r, ms));
+
+  it("saves the selected words under the pattern they stand for", async () => {
+    const { root, background, session } = await setup(MIND);
+    selectText(root, "made", 0, "mind", 4);
+    await expect
+      .poll(() => session.app.store.get().phrase?.key)
+      .toBe("make up one's mind");
+    expect(background.sent("matchSelection")).toEqual([
+      {
+        type: "matchSelection",
+        lang: "en",
+        text: FIRST,
+        start: FIRST.indexOf("made"),
+        end: FIRST.indexOf("."),
+      },
+    ]);
+
+    await (await barButton("made up her mind", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      kind: "phrase",
+      status: "learning",
+      sentence: FIRST,
+    });
+    // Saved with a slot, it is found with other words in the slot.
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["made up her mind", "made up his mind"]);
+  });
+
+  it("saves the whole pattern's words when the sentence completes the selection", async () => {
+    const { root, background } = await setup(MIND);
+    selectText(root, "made", 0, "up", 2);
+    await (await barButton("made up", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      sentence: FIRST,
+      pos: { textQuote: FIRST },
+    });
+  });
+
+  it("waits for the pattern when the bar is pressed before it is known", async () => {
+    const { root, background } = await setup(MIND, {
+      beforeRequest: async (request) => {
+        if (request.type === "matchSelection") await quiet(400);
+      },
+    });
+    selectText(root, "made", 0, "mind", 4);
+    await (await barButton("made up her mind", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+    });
+  });
+
+  it("keeps the words' keys when no pattern matches", async () => {
+    const { root, background, session } = await setup(MIND);
+    selectText(root, "Later he", 0, "Later he", 8);
+    await (await barButton("Later he", "Known")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("matchSelection")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "later he",
+      display: "Later he",
+    });
+    await expect.poll(() => session.app.store.get().phrase).toBeNull();
+  });
+
+  it("drops the answer for a selection that has changed", async () => {
+    const { root, session } = await setup(MIND, {
+      // The first selection's answer comes after the second selection's.
+      beforeRequest: async (request) => {
+        if (request.type === "matchSelection" && request.text === FIRST)
+          await quiet(400);
+      },
+    });
+    selectText(root, "made", 0, "mind", 4);
+    await barButton("made up her mind", "+ Learning");
+    selectText(root, "Later he", 0, "Later he", 8);
+    await barButton("Later he", "+ Learning");
+    await quiet(600);
+    expect(session.app.store.get().phrase).toMatchObject({ text: "Later he" });
+    expect(session.app.store.get().phrase?.key).toBeUndefined();
+  });
+});

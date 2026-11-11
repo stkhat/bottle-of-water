@@ -9,7 +9,13 @@ import {
 export const TEST_PACKS: PackFiles = {
   en: {
     // "rose" is a word of its own and a form of "rise".
-    lemmas: { loaves: "loaf", ferments: "ferment", gave: "give", rose: "rise" },
+    lemmas: {
+      loaves: "loaf",
+      ferments: "ferment",
+      gave: "give",
+      made: "make",
+      rose: "rise",
+    },
     // "yeast" is ranked 2,500: known at the default level (3,000), new at 2,000.
     freq: [
       "the",
@@ -25,10 +31,11 @@ export const TEST_PACKS: PackFiles = {
     ],
     // Meanings: "figure out" in the English definitions, the others in the Japanese
     // translations of phrases. "figure out" is a phrasal verb: saved, it matches with a
-    // gap ("figure it out").
+    // gap ("figure it out"). "make up one's mind" has a slot: matched only when saved or
+    // selected.
     phrases: {
       detect: ["figure out", "from scratch", "give up"],
-      more: [],
+      more: ["make up one's mind"],
       gap: ["figure out"],
     },
   },

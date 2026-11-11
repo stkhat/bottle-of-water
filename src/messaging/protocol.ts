@@ -29,6 +29,18 @@ export type Request =
   | { type: "getBrowserEnv" }
   /** Classifies blocks of text (paragraphs, subtitle lines) of one language. */
   | { type: "analyze"; lang: string; blocks: string[] }
+  /**
+   * The dictionary pattern a selection of words stands for (select mode: slots and
+   * gaps). `text` is the selection's block; `start` and `end` are the selection's
+   * offsets in it, `end` exclusive: every word they touch is selected.
+   */
+  | {
+      type: "matchSelection";
+      lang: string;
+      text: string;
+      start: number;
+      end: number;
+    }
   /** Loads the dictionary from `lang` to the native language ahead of the first lookup. */
   | { type: "warmDictionary"; lang: string }
   /**
@@ -168,6 +180,12 @@ export interface ResponseMap {
    */
   getBrowserEnv: BrowserEnv;
   analyze: AnalyzeResult;
+  /**
+   * The pattern's key ("make up one's mind") and where its words are in `text`: from
+   * its first word's start to its last word's end, gap included (the match may reach
+   * past the selection). Empty when no pattern matches.
+   */
+  matchSelection: { key?: string; start?: number; end?: number };
   warmDictionary: null;
   lookup: LookupResult;
   saveTerm: TermRecord;
