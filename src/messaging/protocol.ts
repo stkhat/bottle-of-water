@@ -76,8 +76,12 @@ export type Request =
   | { type: "lastExport" }
   /** Saved terms of a language (no tombstones), for the word list. */
   | { type: "listTerms"; lang: string }
-  /** The word list's rows: saved terms with their short meaning and occurrence stats. */
-  | { type: "listTermsWithStats"; lang: string }
+  /**
+   * The word list's rows: saved terms with their short meaning and occurrence stats.
+   * `meanings: false` leaves the meanings out without reading the dictionary, for
+   * while the language's dictionary is not on the device.
+   */
+  | { type: "listTermsWithStats"; lang: string; meanings?: boolean }
   /** Short meaning and saved status of terms (a video's word list), by key. */
   | {
       type: "termSummaries";

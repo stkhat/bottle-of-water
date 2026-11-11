@@ -1,7 +1,9 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type { TermStatus } from "../../core/classify";
+import type { PackStates } from "../../core/packs/state";
+import { PacksUnavailableError } from "../../core/packs/unavailable";
 import { mergeSettings, type Settings } from "../../core/settings";
 import type {
   OccurrenceView,
@@ -96,14 +98,21 @@ interface FakeOptions {
   terms?: TermSummary[];
   settings?: Partial<Settings>;
   importError?: Error;
+  /** Packs not on the device: the dictionary's ("en-ja") fails meanings and lookups. */
+  missing?: string[];
 }
 
 /** A background behind the word list: terms, lookups, status changes, backups. */
 function fake(options: FakeOptions = {}) {
   let terms = [...(options.terms ?? TERMS)];
+  const missing = new Set(options.missing ?? []);
   const sent: Request[] = [];
   const downloads: { name: string; text: string }[] = [];
   const spoken: string[] = [];
+  const packListeners = new Set<(states: PackStates) => void>();
+  const unavailable = () => {
+    if (missing.size > 0) throw new PacksUnavailableError([...missing]);
+  };
   const deps: WordListDeps = {
     send: (async (request: Request) => {
       sent.push(request);
@@ -111,8 +120,16 @@ function fake(options: FakeOptions = {}) {
         case "getSettings":
           return mergeSettings(options.settings ?? {});
         case "listTermsWithStats":
+          if (request.meanings === false)
+            return terms.map((t) => {
+              const row = { ...t };
+              delete row.short;
+              return row;
+            });
+          unavailable();
           return terms;
         case "lookup": {
+          unavailable();
           const saved = terms.find((t) => t.key === request.key);
           return {
             // The pack's IPA, also for a phrase no dictionary has.
@@ -162,8 +179,24 @@ function fake(options: FakeOptions = {}) {
     now: () => NOW,
     download: (name, text) => downloads.push({ name, text }),
     speak: (text) => spoken.push(text),
+    watchPackState(listener) {
+      packListeners.add(listener);
+      listener({});
+      return () => packListeners.delete(listener);
+    },
   };
-  return { deps, sent, downloads, spoken };
+  /** The packs are on the device now: the background says so in `packState`. */
+  const packsReady = () => {
+    const states: PackStates = Object.fromEntries(
+      [...missing].map((pack) => [
+        pack,
+        { state: "ready", received: 10, total: 10 },
+      ]),
+    );
+    missing.clear();
+    for (const listener of [...packListeners]) listener(states);
+  };
+  return { deps, sent, downloads, spoken, packsReady, packListeners };
 }
 
 /** An element's text, or "" while it is not there. */
@@ -485,6 +518,41 @@ describe("WordList", () => {
     await expect
       .poll(() => sent.filter((r) => r.type === "listTermsWithStats").length)
       .toBe(before + 1);
+  });
+
+  it("lists the words without meanings while the dictionary is not on the device, quietly, and with them once it is", async () => {
+    const warn = vi.spyOn(console, "warn");
+    try {
+      const { details, row, sent, packsReady, packListeners } = await open({
+        missing: ["en-ja"],
+      });
+      await expect
+        .poll(() => textOf(row("figure out")))
+        .toMatch(/^figure outPhraseLearning3Today$/);
+      expect(sent.filter((r) => r.type === "listTermsWithStats")).toEqual([
+        { type: "listTermsWithStats", lang: "en" },
+        { type: "listTermsWithStats", lang: "en", meanings: false },
+      ]);
+      // The first word's lookup waits too: no details yet.
+      await expect
+        .poll(() => sent.filter((r) => r.type === "lookup").length)
+        .toBe(1);
+      expect(details.query()).toBeNull();
+      expect(packListeners.size).toBe(1);
+
+      packsReady();
+      await expect
+        .poll(() => textOf(row("figure out")))
+        .toMatch(/^figure outPhrase見つけ出す、理解するLearning3Today$/);
+      await expect
+        .element(details.getByRole("heading", { level: 2 }))
+        .toHaveTextContent("tedious");
+      await expect.element(details.getByText("short of tedious")).toBeVisible();
+      expect(packListeners.size).toBe(0);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("renders only the rows in view when there are more than 500", async () => {

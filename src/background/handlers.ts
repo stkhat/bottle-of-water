@@ -401,18 +401,20 @@ export function createHandlers({
     importJson: ({ json }) => store.importJson(json),
     lastExport: async () => (await store.getMeta("lastExportAt")) ?? null,
     listTerms: ({ lang }) => store.listTerms(lang),
-    async listTermsWithStats({ lang }) {
+    async listTermsWithStats({ lang, meanings: withMeanings = true }) {
       const { nativeLang } = await settings.get();
       const [terms, stats, dictionary] = await allOf([
         store.listTerms(lang),
         store.occurrenceStats(lang),
-        resources.dictionary(lang, nativeLang),
+        withMeanings ? resources.dictionary(lang, nativeLang) : undefined,
       ]);
-      const meanings = await shortMeanings(
-        lang,
-        nativeLang,
-        terms.map((term) => dictionary.entry(term.key)),
-      );
+      const meanings = dictionary
+        ? await shortMeanings(
+            lang,
+            nativeLang,
+            terms.map((term) => dictionary.entry(term.key)),
+          )
+        : [];
       return terms.map((term, i) => {
         const seen = stats.get(term.id);
         return {

@@ -1,6 +1,9 @@
 import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { createPackWait, type PackWait } from "../../content/pack-wait";
 import type { DictionaryEntry } from "../../core/dictionary";
+import type { PackStates } from "../../core/packs/state";
+import { PacksUnavailableError } from "../../core/packs/unavailable";
 import { languagePair } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
@@ -27,6 +30,8 @@ import {
 export interface WordListDeps extends BackupDeps {
   /** Says `text` aloud in the language `lang`. */
   speak(text: string, lang: string): void;
+  /** The background's pack states now and after every change (`watchPackState`). */
+  watchPackState(listener: (states: PackStates) => void): () => void;
 }
 
 type Style = CSSProperties;
@@ -513,7 +518,14 @@ function DetailsPanel(props: {
   );
 }
 
-const warn = (error: unknown) => console.warn("Lingo:", error);
+/**
+ * Reports a failure in the console; language data that is not on the device yet is
+ * no failure (the list shows without meanings until it is, and Settings shows the
+ * download).
+ */
+const warn = (error: unknown) => {
+  if (!(error instanceof PacksUnavailableError)) console.warn("Lingo:", error);
+};
 
 /** The word list page (mock WordList): saved words, filters, and the selected word's details. */
 export function WordList({ deps }: { deps: WordListDeps }) {
@@ -528,12 +540,55 @@ export function WordList({ deps }: { deps: WordListDeps }) {
   const [note, setNote] = useState<BackupNote>(null);
   /** The selection the last lookup was for, so a late answer is dropped. */
   const looking = useRef<string | null>(null);
+  /** The selected term whose lookup waits for language data. */
+  const lookupWaiting = useRef<TermSummary | null>(null);
+  /** Runs once the language data waited for can be used (set on every render). */
+  const onPacksReady = useRef(() => {});
+  /** Waits for language data a request did not find on the device. */
+  const packs = useRef<PackWait>(undefined);
+  packs.current ??= createPackWait(deps.watchPackState, () =>
+    onPacksReady.current(),
+  );
   const now = deps.now();
 
+  /**
+   * Reads the rows again. While the language's dictionary is not on the device they
+   * come without meanings, and are read again once it is.
+   */
   async function reload(lang = langs?.learning) {
     if (!lang) return;
-    setTerms(await deps.send({ type: "listTermsWithStats", lang }));
+    const wait = packs.current!;
+    if (!wait.waiting) {
+      try {
+        const list = await deps.send({ type: "listTermsWithStats", lang });
+        setTerms(list);
+        return list;
+      } catch (error) {
+        if (!(error instanceof PacksUnavailableError)) throw error;
+        wait.add(error.packs);
+      }
+    }
+    const list = await deps.send({
+      type: "listTermsWithStats",
+      lang,
+      meanings: false,
+    });
+    setTerms(list);
+    return list;
   }
+
+  onPacksReady.current = () => {
+    const waiting = lookupWaiting.current;
+    lookupWaiting.current = null;
+    reload()
+      .then((list) => {
+        if (waiting && looking.current === waiting.id)
+          select(list?.find((term) => term.id === waiting.id) ?? waiting);
+      })
+      .catch(warn);
+  };
+
+  useEffect(() => () => packs.current?.stop(), []);
 
   useEffect(() => {
     deps.send({ type: "getSettings" }).then((settings) => {
@@ -594,7 +649,18 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           ...(result.ipa !== undefined && { ipa: result.ipa }),
           occurrences: [...result.here, ...result.elsewhere],
         });
-      }, warn);
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof PacksUnavailableError &&
+          looking.current === term.id
+        ) {
+          // Looked up again once the data is on the device.
+          lookupWaiting.current = term;
+          packs.current!.add(error.packs);
+        }
+        warn(error);
+      });
   }
 
   async function changeStatus(to: WordStatus) {

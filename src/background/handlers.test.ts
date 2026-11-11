@@ -452,6 +452,45 @@ describe("handlers: language data", () => {
     });
   });
 
+  it("lists the word list's rows without meanings, and without the dictionary, when asked", async () => {
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    const comer: TermRecord = {
+      id: "es:comer",
+      lang: "es",
+      key: "comer",
+      display: "comiendo",
+      kind: "word",
+      status: "learning",
+      createdAt: 500,
+      updatedAt: 500,
+    };
+    store.listTerms.mockResolvedValue([comer]);
+    store.occurrenceStats.mockResolvedValue(
+      new Map([["es:comer", { count: 2, lastSeen: 900 }]]),
+    );
+    const handle = withMissing("es-en");
+    expect(
+      await handle({ type: "listTermsWithStats", lang: "es" }),
+    ).toMatchObject({ ok: false, code: "packsUnavailable", packs: ["es-en"] });
+    expect(
+      await handle({ type: "listTermsWithStats", lang: "es", meanings: false }),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          id: "es:comer",
+          key: "comer",
+          display: "comiendo",
+          kind: "word",
+          status: "learning",
+          seen: 2,
+          lastSeen: 900,
+          createdAt: 500,
+        },
+      ],
+    });
+  });
+
   it("gives no data row for a pair whose packs are all bundled, and lists the other downloaded packs", async () => {
     packs.store.downloaded.mockResolvedValue([
       { pack: "es", version: "2026.1111.0", size: 120 },
