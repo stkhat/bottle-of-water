@@ -1,10 +1,9 @@
 import type { ArticleApp } from "../article/article";
-import { shownStatus } from "../article/describe";
+import { shownStatus, type TermCard } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
-import { PhraseBar } from "../../ui/lookup/PhraseBar";
 import { color } from "../../ui/lookup/styles";
 import { ThemeScope } from "../../ui/ThemeScope";
 import { Floating } from "./Floating";
@@ -36,6 +35,18 @@ function Outline({ box }: { box: Box }) {
   );
 }
 
+/** What the hover card shows of a term. */
+const cardProps = (card: TermCard) => ({
+  kind: card.kind,
+  status: shownStatus(card),
+  head: card.head,
+  ipa: card.ipa,
+  short: card.short,
+  machineTranslated: card.machineTranslated,
+  glossLang: card.glossLang,
+  sub: card.sub,
+});
+
 /** Everything Lingo shows on an article page, inside its shadow root. */
 export function ArticleUi({ app }: { app: ArticleApp }) {
   const { settings, hover, panel, phrase } = useStore(app.store);
@@ -56,6 +67,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
               ipa: panel.card.ipa,
               sub: panel.card.sub,
               short: panel.card.short,
+              machineTranslated: panel.card.machineTranslated,
               senses: panel.card.senses,
               glossLang: panel.card.glossLang,
             }}
@@ -85,13 +97,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
         >
           <HoverCard
             variant="article"
-            kind={hover.card.kind}
-            status={shownStatus(hover.card)}
-            head={hover.card.head}
-            ipa={hover.card.ipa}
-            short={hover.card.short}
-            glossLang={hover.card.glossLang}
-            sub={hover.card.sub}
+            {...cardProps(hover.card)}
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}
             onKnown={() => app.setHoverStatus("known")}
@@ -100,12 +106,16 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
         </Floating>
       )}
       {phrase && (
-        // Pressing the bar's buttons must not clear the page's selection.
+        // Pressing the card's buttons must not clear the page's selection.
         <Floating anchor={phrase.anchor} onMouseDown={keepSelection}>
-          <PhraseBar
-            text={phrase.text}
+          <HoverCard
+            variant="article"
+            selection
+            {...cardProps(phrase.card)}
+            nativeLang={settings.nativeLang}
             onLearning={() => app.savePhrase("learning")}
             onKnown={() => app.savePhrase("known")}
+            onDetails={app.openPhraseDetails}
           />
         </Floating>
       )}

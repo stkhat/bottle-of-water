@@ -168,7 +168,7 @@ async function useArticle(page: Page) {
     }
   });
   await page
-    .getByRole("button", { name: en["phrase.learning"], exact: true })
+    .getByRole("button", { name: en["hover.addLearning"], exact: true })
     .click();
   await expect
     .poll(() => highlighted(page, "lingo-learning"))

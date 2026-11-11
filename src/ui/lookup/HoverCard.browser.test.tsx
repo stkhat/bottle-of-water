@@ -56,6 +56,49 @@ describe("HoverCard", () => {
     await expect.element(screen.getByText("New · not saved")).toBeVisible();
   });
 
+  test("labels an unsaved selection as selected", async () => {
+    const screen = await mountInShadowRoot(
+      <HoverCard {...figureOut} variant="article" status="new" selection />,
+    );
+    await expect
+      .element(screen.getByText("Selected · not saved"))
+      .toBeVisible();
+    expect(screen.container.textContent).not.toContain("New · not saved");
+    // A selection of a saved phrase shows its status.
+    await screen.rerender(
+      <HoverCard {...figureOut} variant="article" selection />,
+    );
+    await expect
+      .element(screen.getByText("Learning", { exact: true }))
+      .toBeVisible();
+  });
+
+  test("marks a machine translation after the translation", async () => {
+    const screen = await mountInShadowRoot(
+      <HoverCard
+        {...figureOut}
+        variant="article"
+        short="1時間待つ"
+        machineTranslated
+      />,
+    );
+    const short = screen.getByText("1時間待つ");
+    const mark = screen.getByText("Machine translation", { exact: true });
+    await expect.element(short).toHaveAttribute("lang", "ja");
+    await expect.element(mark).toBeVisible();
+    expect(mark.element().hasAttribute("lang")).toBe(false);
+    // On the translation's line, after it.
+    const a = short.element().getBoundingClientRect();
+    const b = mark.element().getBoundingClientRect();
+    expect(b.left).toBeGreaterThan(a.right);
+    expect(
+      Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2),
+    ).toBeLessThan(2);
+    expect(getComputedStyle(mark.element()).fontSize).toBe("11px");
+    await screen.rerender(<HoverCard {...figureOut} short="1時間待つ" />);
+    expect(screen.container.textContent).not.toContain("Machine translation");
+  });
+
   test("leaves out IPA, translation and notes when missing", async () => {
     const screen = await mountInShadowRoot(
       <HoverCard

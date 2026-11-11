@@ -23,41 +23,55 @@ beforeAll(async () => {
 });
 afterEach(cleanUp);
 
-const bar = () => page.getByText(/^Save “.*” as a phrase$/);
-/** The bar's box: the root around its label. */
-const barBox = () => bar().element().parentElement!.getBoundingClientRect();
-/** A button of the bar, once the bar offers `phrase`. */
-async function barButton(phrase: string, name: string) {
-  await expect
-    .element(page.getByText(`Save “${phrase}” as a phrase`))
-    .toBeVisible();
-  return page
-    .elementLocator(bar().element().parentElement!)
-    .getByRole("button", { name });
+/** The selection card's status: there is one only while the card shows. */
+const selectedStatus = () => page.getByText("Selected · not saved");
+/** The card's "Details" button: hover cards stay away while the selection card shows. */
+const details = () => page.getByRole("button", { name: "Details" });
+/** The card's root: the box around the row of buttons. */
+const cardRoot = () => details().element().parentElement!.parentElement!;
+const card = () => page.elementLocator(cardRoot());
+/** A button of the selection card, once the card is for `head`. */
+async function cardButton(head: string, name: string) {
+  await expect.element(selectedStatus()).toBeVisible();
+  await expect.element(card().getByText(head, { exact: true })).toBeVisible();
+  return card().getByRole("button", { name, exact: true });
 }
+const quiet = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-describe("phrase bar", () => {
-  it("snaps a selection to whole words and shows the bar above it", async () => {
+describe("selection card", () => {
+  it("snaps a selection to whole words and shows the phrase's card above it", async () => {
     const { root } = await setup(ARTICLE);
     await dragSelect(root, "rise", 2, "fall", 2);
-    await expect
-      .element(page.getByText("Save “rise and fall” as a phrase"))
-      .toBeVisible();
+    await expect.element(selectedStatus()).toBeVisible();
     expect(getSelection()!.toString()).toBe("rise and fall");
+    await expect
+      .element(card().getByText("Phrase", { exact: true }))
+      .toBeVisible();
+    await expect
+      .element(card().getByText("rise and fall", { exact: true }))
+      .toBeVisible();
+    await expect.element(card().getByText("rise — 上昇")).toBeVisible();
+    for (const name of ["+ Learning", "Known", "Details"])
+      await expect
+        .element(card().getByRole("button", { name, exact: true }))
+        .toBeVisible();
     // The click that ends the drag opens no panel.
     expect(dictionary().query()).toBeNull();
 
+    // Where a hovered phrase's card sits: 10px above its line, 10px left of it.
     const words = rectOf(root, "rise and fall");
     const lineTop = words.top + words.height / 2 - (19 * 1.75) / 2;
-    expect(barBox().bottom).toBeCloseTo(lineTop - 10, 0);
-    expect(barBox().left).toBeCloseTo(words.left - 12, 0);
+    const box = cardRoot().getBoundingClientRect();
+    expect(box.bottom).toBeCloseTo(lineTop - 10, 0);
+    expect(box.left).toBeCloseTo(words.left - 12, 0);
+    expect(box.width).toBe(290);
   });
 
   it("saves the selected words as a phrase and highlights it", async () => {
     const { root, background } = await setup(ARTICLE);
     selectText(root, "rise", 0, "fall", 4);
-    await (await barButton("rise and fall", "+ Learning")).click();
-    await expect.poll(() => bar().query()).toBeNull();
+    await (await cardButton("rise and fall", "+ Learning")).click();
+    await expect.poll(() => selectedStatus().query()).toBeNull();
     expect(getSelection()!.isCollapsed).toBe(true);
     const sentence = "So you can trace each rise and fall back to its cause.";
     expect(background.sent("saveTerm")).toEqual([
@@ -87,22 +101,21 @@ describe("phrase bar", () => {
     const { root, background } = await setup(ARTICLE, {
       // A slow save: the selection is read again before it is done.
       beforeRequest: async (request) => {
-        if (request.type === "saveTerm")
-          await new Promise((resolve) => setTimeout(resolve, 300));
+        if (request.type === "saveTerm") await quiet();
       },
     });
     selectText(root, "rise", 0, "fall", 4);
-    await (await barButton("rise and fall", "+ Learning")).click();
+    await (await cardButton("rise and fall", "+ Learning")).click();
     document.dispatchEvent(new Event("selectionchange"));
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
-    await expect.poll(() => bar().query()).toBeNull();
+    await expect.poll(() => selectedStatus().query()).toBeNull();
     expect(getSelection()!.isCollapsed).toBe(true);
   });
 
   it("keys a phrase by its words' base forms", async () => {
     const { root, background } = await setup(ARTICLE);
     selectText(root, "bake", 0, "loaves", 6);
-    await (await barButton("bake loaves", "Known")).click();
+    await (await cardButton("bake loaves", "Known")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
       key: "bake loaf",
@@ -112,12 +125,36 @@ describe("phrase bar", () => {
     });
   });
 
+  it("shows the literal translation with the Machine translation mark", async () => {
+    const { root } = await setup(ARTICLE, {
+      translator: { translate: async (text) => `訳: ${text}` },
+    });
+    selectText(root, "rise", 0, "fall", 4);
+    await cardButton("rise and fall", "+ Learning");
+    await expect
+      .element(card().getByText("訳: rise and fall"))
+      .toHaveAttribute("lang", "ja");
+    await expect
+      .element(card().getByText("Machine translation", { exact: true }))
+      .toBeVisible();
+  });
+
+  it("leaves out the translation and the mark without a translator", async () => {
+    const { root } = await setup(ARTICLE);
+    selectText(root, "rise", 0, "fall", 4);
+    await cardButton("rise and fall", "+ Learning");
+    expect(cardRoot().textContent).not.toContain("Machine translation");
+    // Head, then straight to the notes.
+    const head = card().getByText("rise and fall", { exact: true }).element();
+    expect(head.nextElementSibling!.hasAttribute("data-divider")).toBe(true);
+  });
+
   it("shows a saved phrase's card with its translation and main word", async () => {
     const { root } = await setup(ARTICLE, {
       translator: { translate: async (text) => `訳: ${text}` },
     });
     selectText(root, "rise", 0, "fall", 4);
-    await (await barButton("rise and fall", "+ Learning")).click();
+    await (await cardButton("rise and fall", "+ Learning")).click();
     await expect
       .poll(() => highlighted("lingo-learning"))
       .toEqual(["rise and fall"]);
@@ -126,11 +163,55 @@ describe("phrase bar", () => {
     await expect
       .element(page.getByText("Phrase", { exact: true }))
       .toBeVisible();
+    await expect
+      .element(page.getByText("Learning", { exact: true }))
+      .toBeVisible();
     await expect.element(page.getByText("訳: rise and fall")).toBeVisible();
     await expect.element(page.getByText("rise — 上昇")).toBeVisible();
   });
 
-  it("shows no bar for one word, more than eight, or words across punctuation", async () => {
+  it("keeps hover cards away while it shows", async () => {
+    const { root } = await setup(ARTICLE);
+    selectText(root, "rise", 0, "fall", 4);
+    await cardButton("rise and fall", "+ Learning");
+    await pointAt(root, "knead");
+    await quiet(500);
+    expect(details().elements()).toHaveLength(1);
+    expect(page.getByText("Word", { exact: true }).query()).toBeNull();
+  });
+
+  it("opens the dictionary panel for the phrase from Details", async () => {
+    const { root, background } = await setup(ARTICLE);
+    selectText(root, "rise", 0, "fall", 4);
+    await (await cardButton("rise and fall", "Details")).click();
+    const panel = dictionary();
+    await expect
+      .element(panel.getByRole("heading", { name: "rise and fall" }))
+      .toBeVisible();
+    await expect
+      .element(panel.getByRole("button", { name: "Not saved" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(selectedStatus().query()).toBeNull();
+    expect(getSelection()!.isCollapsed).toBe(true);
+
+    await panel.getByRole("button", { name: "Learning", exact: true }).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "rise and fall",
+      display: "rise and fall",
+      kind: "phrase",
+      status: "learning",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["rise and fall"]);
+    await expect
+      .element(panel.getByRole("button", { name: "Learning", exact: true }))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect.element(panel.getByText("On this page · 1")).toBeVisible();
+  });
+
+  it("shows no card for one word, more than eight, or words across punctuation", async () => {
     const { root } = await setup(ARTICLE);
     const select = (from: string, to: string) => {
       const range = rangeOfText(root, from);
@@ -141,50 +222,46 @@ describe("phrase bar", () => {
       getSelection()!.removeAllRanges();
       getSelection()!.addRange(range);
     };
-    const quiet = () => new Promise((r) => setTimeout(r, 300));
 
     select("dough", "dough");
     await quiet();
-    expect(bar().query()).toBeNull();
+    expect(selectedStatus().query()).toBeNull();
     select("one", "nine");
     await quiet();
-    expect(bar().query()).toBeNull();
+    expect(selectedStatus().query()).toBeNull();
     select("loaves", "So");
     await quiet();
-    expect(bar().query()).toBeNull();
+    expect(selectedStatus().query()).toBeNull();
     select("one", "eight");
-    await expect
-      .element(
-        page.getByText(
-          "Save “one two three four five six seven eight” as a phrase",
-        ),
-      )
-      .toBeVisible();
+    await cardButton("one two three four five six seven eight", "Known");
   });
 
   it("goes away when the selection does", async () => {
     const { root } = await setup(ARTICLE);
     await dragSelect(root, "rise", 0, "fall", 4);
-    await expect.element(bar()).toBeVisible();
+    await expect.element(selectedStatus()).toBeVisible();
     getSelection()!.removeAllRanges();
-    await expect.poll(() => bar().query()).toBeNull();
+    await expect.poll(() => selectedStatus().query()).toBeNull();
   });
 });
 
-describe("phrase bar: the pattern a selection stands for", () => {
+describe("selection card: the pattern a selection stands for", () => {
   const MIND = `
     <div style="height: 120px"></div>
     <p>She made up her mind.</p>
     <p>Later he made up his mind too.</p>`;
   const FIRST = "She made up her mind.";
-  const quiet = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-  it("saves the selected words under the pattern they stand for", async () => {
+  it("shows the pattern's card: its key, meaning and main word", async () => {
     const { root, background, session } = await setup(MIND);
     selectText(root, "made", 0, "mind", 4);
+    await cardButton("make up one's mind", "+ Learning");
+    expect(session.app.store.get().phrase?.card.key).toBe("make up one's mind");
     await expect
-      .poll(() => session.app.store.get().phrase?.key)
-      .toBe("make up one's mind");
+      .element(card().getByText("決心する、決める"))
+      .toHaveAttribute("lang", "ja");
+    await expect.element(card().getByText("make — 作る")).toBeVisible();
+    expect(cardRoot().textContent).not.toContain("Machine translation");
     expect(background.sent("matchSelection")).toEqual([
       {
         type: "matchSelection",
@@ -194,8 +271,12 @@ describe("phrase bar: the pattern a selection stands for", () => {
         end: FIRST.indexOf("."),
       },
     ]);
+  });
 
-    await (await barButton("made up her mind", "+ Learning")).click();
+  it("saves the selected words under the pattern they stand for", async () => {
+    const { root, background } = await setup(MIND);
+    selectText(root, "made", 0, "mind", 4);
+    await (await cardButton("make up one's mind", "+ Learning")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
       key: "make up one's mind",
@@ -213,7 +294,7 @@ describe("phrase bar: the pattern a selection stands for", () => {
   it("saves the whole pattern's words when the sentence completes the selection", async () => {
     const { root, background } = await setup(MIND);
     selectText(root, "made", 0, "up", 2);
-    await (await barButton("made up", "+ Learning")).click();
+    await (await cardButton("make up one's mind", "+ Learning")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
       key: "make up one's mind",
@@ -223,14 +304,18 @@ describe("phrase bar: the pattern a selection stands for", () => {
     });
   });
 
-  it("waits for the pattern when the bar is pressed before it is known", async () => {
-    const { root, background } = await setup(MIND, {
+  it("waits for the pattern when the phrase is saved before it is known", async () => {
+    let asked = false;
+    const { root, background, session } = await setup(MIND, {
       beforeRequest: async (request) => {
-        if (request.type === "matchSelection") await quiet(400);
+        if (request.type !== "matchSelection") return;
+        asked = true;
+        await quiet(400);
       },
     });
     selectText(root, "made", 0, "mind", 4);
-    await (await barButton("made up her mind", "+ Learning")).click();
+    await expect.poll(() => asked).toBe(true);
+    session.app.savePhrase("learning");
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
       key: "make up one's mind",
@@ -240,7 +325,7 @@ describe("phrase bar: the pattern a selection stands for", () => {
   it("keeps the words' keys when no pattern matches", async () => {
     const { root, background, session } = await setup(MIND);
     selectText(root, "Later he", 0, "Later he", 8);
-    await (await barButton("Later he", "Known")).click();
+    await (await cardButton("Later he", "Known")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
     expect(background.sent("matchSelection")).toHaveLength(1);
     expect(background.sent("saveTerm")[0]).toMatchObject({
@@ -259,11 +344,40 @@ describe("phrase bar: the pattern a selection stands for", () => {
       },
     });
     selectText(root, "made", 0, "mind", 4);
-    await barButton("made up her mind", "+ Learning");
+    await quiet(150);
     selectText(root, "Later he", 0, "Later he", 8);
-    await barButton("Later he", "+ Learning");
+    await cardButton("Later he", "+ Learning");
     await quiet(600);
-    expect(session.app.store.get().phrase).toMatchObject({ text: "Later he" });
-    expect(session.app.store.get().phrase?.key).toBeUndefined();
+    expect(session.app.store.get().phrase?.card).toMatchObject({
+      key: "later he",
+      head: "Later he",
+    });
+  });
+
+  it("opens the pattern in the panel from Details and saves it from there", async () => {
+    const { root, background } = await setup(MIND);
+    selectText(root, "made", 0, "mind", 4);
+    await (await cardButton("make up one's mind", "Details")).click();
+    const panel = dictionary();
+    await expect
+      .element(panel.getByRole("heading", { name: "make up one's mind" }))
+      .toBeVisible();
+    await expect
+      .element(panel.getByRole("button", { name: "Not saved" }))
+      .toHaveAttribute("aria-pressed", "true");
+
+    await panel.getByRole("button", { name: "Learning", exact: true }).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      kind: "phrase",
+      status: "learning",
+      sentence: FIRST,
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["made up her mind", "made up his mind"]);
+    await expect.element(panel.getByText("On this page · 2")).toBeVisible();
   });
 });

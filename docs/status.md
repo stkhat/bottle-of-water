@@ -11,14 +11,14 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
 
-- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted in draft PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs). M9a phrase patterns on `feat/phrase-patterns` (draft PR #20, [plan](plans/2026-11-11-m9a-phrase-patterns.md)): data, matcher, classifier and saving selections under the pattern key are built; the phrase bar's new look waits for the mock review (artboards PhraseMeaning, TranslatedSenses, LanguageData)
+- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted in draft PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs). M9a phrase patterns on `feat/phrase-patterns` (draft PR #20, [plan](plans/2026-11-11-m9a-phrase-patterns.md)): data, matcher, classifier, saving selections under the pattern key, and the selection card (the phrase's hover card replaces the phrase bar, mock PhraseMeaning) are built
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
 | Dev environment, CI/CD, CLAUDE.md check | `.github/`, `scripts/`, `e2e/`, `tests/` | [dev-environment](plans/2026-11-09-dev-environment.md) |
 | Language data (EJDict, Wiktionary/kaikki, frequency) | `scripts/data/`, `public/packs/` | [m2](plans/2026-11-09-m2-data-import.md) |
 | Settings, BrowserEnv, tokenizer, packs, dictionary, classifier, TermStore (IndexedDB), sync, messaging | `src/core/`, `src/background/`, `src/messaging/` | [m3](plans/2026-11-09-m3-foundation.md) |
-| Hover card, dictionary window/panel, phrase bar | `src/ui/lookup/` | [m4](plans/2026-11-09-m4-lookup-ui.md) |
+| Hover card (also over a selection), dictionary window/panel | `src/ui/lookup/` | [m4](plans/2026-11-09-m4-lookup-ui.md) |
 | Article UI | `src/content/article/` | [m5](plans/2026-11-09-m5-article-ui.md) |
 | Video UI (YouTube, Netflix) | `src/content/video/`, `src/ui/video/`, `src/core/subtitles/` | [m6](plans/2026-11-09-m6-video-ui.md) |
 | Popup, settings page, word list page | `src/entrypoints/{popup,options,wordlist}/` | [m7](plans/2026-11-10-m7-popup-settings-wordlist.md) |
