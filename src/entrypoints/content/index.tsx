@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { browser } from "wxt/browser";
 import { watchSettings } from "../../background/settings-store";
+import { startContentErrorLog } from "../../check/start";
 import { runArticle } from "../../content/article/article";
 import { isVideoSite } from "../../content/article/should-run";
 import { leaveWhenOrphaned, sendWhileConnected } from "../../content/orphan";
@@ -19,6 +20,8 @@ export default defineContentScript({
   async main(ctx) {
     // The video UI runs there and answers the popup.
     if (isVideoSite(location.hostname)) return;
+    // `npm run build:check` only (src/check/error-log.ts).
+    if (import.meta.env.MODE === "check") startContentErrorLog("article");
     const runner = runArticle({
       send: sendWhileConnected(ctx, send),
       watchSettings,

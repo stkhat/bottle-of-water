@@ -47,11 +47,28 @@ Production builds bundle every pack, so the download path is tested against a lo
 1. Once: `chrome://extensions` → Developer mode → Load unpacked → `.output/lingo-check`.
 2. After that, run `npm run build:check`; the extension reloads itself (no click on reload).
 3. Reload the pages you check on after the copy: until then they keep the old content scripts.
-4. **Every check in your own Chrome ends with Lingo's Errors page** (`chrome://extensions/?errors=<id>`, the "Errors" button on Lingo's card). Any entry is a finding: fix it, or name its cause, before the check counts as passed, then remove the entries ("Clear all") so the next check starts empty. Entries left by tabs that were open during a reload count too: they are the old content scripts' teardown. Claude cannot open `chrome://` pages or click in Chrome, so it asks you to open the page and reads it with a read-only screen capture.
+4. **Every check in your own Chrome ends with reading the check build's error log** on a web page Lingo runs on (a YouTube watch page, an article), with Claude in Chrome's `javascript_tool`:
+   ```js
+   await new Promise((done) => {
+     const id = String(Math.random()), replies = [];
+     addEventListener("message", (e) => {
+       if (e.data?.type === "lingo:check-errors" && e.data.reply && e.data.id === id) replies.push(e.data);
+     });
+     postMessage({ type: "lingo:check-errors", action: "read", id }, "*");
+     setTimeout(() => done(replies.length ? replies : "No answer: Lingo's check build does not run on this page"), 1000);
+   })
+   ```
+   Each reply holds `entries` (`level`, `message`, `stack`, `context`, `url`, `time`) and `connected` (false: the extension was reloaded under that content script, which then answers only with what it could not send). Any entry is a finding: fix it, or name its cause, before the check counts as passed. Then run the snippet again with `action: "clear"` so the next check starts empty. Entries left by tabs that were open during a reload count too: they are the old content scripts' teardown, sent once that tab is reloaded. No one has to open `chrome://extensions` (Claude in Chrome cannot open `chrome://` or `chrome-extension://` pages).
 
 How: in mode `check` only, the service worker reads `build-id.txt` every 2 s while it runs and calls `runtime.reload()` when it changes. It also checks once each time the worker starts, against the id stored in `storage.session` by the previous start, so a build copied in while the worker slept is picked up when it wakes. Other builds leave this code out (`npm run test:manifest` checks it).
 
+The error log (`src/check/`, mode `check` only): every Lingo context (the service worker, the content scripts, the popup, options and word list pages) records what Chrome's Errors page would show: `console.error` and `console.warn` calls (still printed), uncaught errors and unhandled rejections (in content scripts only those from Lingo's scripts, not the site's). The service worker keeps the newest 200 entries in `storage.local` (`checkErrorLog`); the other contexts send theirs to it, and keep what they cannot send (a content script cut off by a reload) in the tab's `sessionStorage`, up to 50, which the next script in that tab sends. The content scripts answer the page's `lingo:check-errors` messages (`read`, `clear`). `e2e/extension-errors.spec.ts` reads and clears it like the snippet; `npm run test:manifest` checks that production builds have none of it.
+
 Limits:
+- The log misses what happens before Lingo's code runs, such as a manifest or service worker that fails to load: the extension then does not run at all, which the check itself shows (no Lingo on the page, no answer to the snippet). Click "Errors" on Lingo's card in `chrome://extensions` for those.
+- The page-world scripts (`*-main.content.ts`) record nothing: their errors are mixed with the site's.
+- Any page can read and clear the log of a check build. Only load it in your own browser profile for checks.
+- In check builds, Chrome's console attributes console errors and warnings to the log's wrapper; the entries' `stack` has the caller.
 - The worker sleeps after about 30 s without events, and then nothing polls. The reload happens on its next start: open a YouTube or Netflix page, or the popup.
 - Open pages keep the old content scripts until they are reloaded.
 - The folder loaded before this change has no self-reload: click reload on it once.

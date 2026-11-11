@@ -12,6 +12,7 @@ import { createPackStore } from "../background/pack-store";
 import { createPackSource } from "../background/packs";
 import { getSettings, setSettings } from "../background/settings-store";
 import { watchBuild } from "../background/self-reload";
+import { isCheckLogMessage, startWorkerErrorLog } from "../check/start";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import { createTermStore } from "../background/term-store";
 import { createTranslationCache } from "../background/translation-cache";
@@ -28,6 +29,10 @@ import { PACK_STATE_KEY } from "../core/packs/state";
  * was stopped.
  */
 export default defineBackground(() => {
+  // `npm run build:check` only: the error log a check reads (src/check/error-log.ts).
+  // The mode is a constant at build time, so other builds leave it out.
+  if (import.meta.env.MODE === "check") startWorkerErrorLog();
+
   const db = openLingoDb();
   const store = createTermStore(db);
   const history = createHistoryStore(db);
@@ -70,6 +75,7 @@ export default defineBackground(() => {
   // Answering through sendResponse (and returning true) works in every browser;
   // returning a Promise does not in all Chromium versions.
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (import.meta.env.MODE === "check" && isCheckLogMessage(message)) return;
     void handle(message, sender).then(sendResponse);
     return true;
   });

@@ -14,6 +14,7 @@ import {
   type BrowserCdp,
   type ErrorCollector,
 } from "./error-collector";
+import { checkErrorLog } from "./check-error-log";
 import type { FakeNetflixControl } from "./fake-netflix-player";
 import {
   test as base,
@@ -295,6 +296,47 @@ for (const build of ["production", "check"] as const)
               "extension page /popup.html: Uncaught Error: lingo-test: thrown on the page",
             ]),
           );
+        errors.reports.length = 0;
+      });
+
+    if (checkBuildOnly)
+      test("the check build keeps its own error log, read and cleared from a web page", async ({
+        context,
+        extensionId,
+        errors,
+      }) => {
+        const worker = context.serviceWorkers()[0]!;
+        await worker.evaluate(() => console.warn("lingo-test: a warning"));
+        const popup = await context.newPage();
+        await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+        await popup.evaluate(() => console.error("lingo-test: a page error"));
+        await showNewWords(context, extensionId);
+        const article = await openArticle(context);
+        // The page's own errors are not Lingo's.
+        await article.evaluate(() =>
+          setTimeout(() => {
+            throw new Error("lingo-test: the site's own");
+          }),
+        );
+        const messages = async () =>
+          (await checkErrorLog(article, "read")).flatMap((reply) =>
+            reply.entries.map((e) => `${e.context}: ${e.message}`),
+          );
+        await expect
+          .poll(messages)
+          .toEqual(
+            expect.arrayContaining([
+              "service worker: lingo-test: a warning",
+              "extension page /popup.html: lingo-test: a page error",
+            ]),
+          );
+        expect((await messages()).join("\n")).not.toContain("the site's own");
+        const [cleared] = await checkErrorLog(article, "clear");
+        expect(cleared).toMatchObject({
+          context: "content script article",
+          connected: true,
+        });
+        expect(await messages()).toEqual([]);
         errors.reports.length = 0;
       });
 

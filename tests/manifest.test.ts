@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 type Manifest = {
@@ -116,10 +117,17 @@ describe("firefox-mv3 manifest specifics", () => {
   });
 });
 
-// The self-reload for `npm run build:check` (src/background/self-reload.ts) is dev only.
+// The self-reload (src/background/self-reload.ts) and the error log (src/check/) of
+// `npm run build:check` are dev only.
 describe("check build", () => {
   const backgroundOf = (dir: string) =>
     readFileSync(`.output/${dir}/background.js`, "utf8");
+  /** Every script of the build, joined. */
+  const scriptsOf = (dir: string) =>
+    readdirSync(`.output/${dir}`, { recursive: true, withFileTypes: true })
+      .filter((file) => file.isFile() && file.name.endsWith(".js"))
+      .map((file) => readFileSync(join(file.parentPath, file.name), "utf8"))
+      .join("\n");
 
   test.each(["chrome-mv3", "firefox-mv3"])(
     "%s (production) has no self-reload and no build id",
@@ -128,6 +136,34 @@ describe("check build", () => {
       expect(existsSync(`.output/${dir}/build-id.txt`)).toBe(false);
     },
   );
+
+  test.each(["chrome-mv3", "firefox-mv3"])(
+    "%s (production) has no error log",
+    (dir) => {
+      const scripts = scriptsOf(dir);
+      expect(scripts).not.toContain("lingo:check-errors");
+      expect(scripts).not.toContain("checkErrorLog");
+    },
+  );
+
+  test("the check build records errors in the worker, every content script and the pages", () => {
+    const dir = ".output/lingo-check";
+    const has = (file: string) =>
+      readFileSync(`${dir}/${file}`, "utf8").includes("lingo:check-errors");
+    for (const file of [
+      "background.js",
+      "content-scripts/content.js",
+      "content-scripts/youtube.js",
+      "content-scripts/netflix.js",
+    ])
+      expect(has(file), file).toBe(true);
+    // The pages share their chunks: one of the popup's scripts has it.
+    const popup = readFileSync(`${dir}/popup.html`, "utf8");
+    const scripts = [...popup.matchAll(/(?:src|href)="\/([^"]+\.js)"/g)].map(
+      (m) => m[1]!,
+    );
+    expect(scripts.some(has)).toBe(true);
+  });
 
   test("npm run build:check writes the build id into .output/lingo-check", () => {
     const path = ".output/lingo-check/build-id.txt";
