@@ -37,7 +37,7 @@ const ROWS: WordRow[] = [
   },
 ];
 
-const base: WordsListProps = {
+const base: WordsListProps<WordRow> = {
   rows: ROWS,
   learningLang: "en",
   onOpen: () => {},
@@ -178,7 +178,9 @@ describe("WordsList", () => {
       <WordsList {...base} onOpen={onOpen} />,
     );
     await rowNamed(screen, "figure out").click();
-    expect(onOpen).toHaveBeenCalledWith("word\nfigure out");
+    expect(onOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ head: "figure out" }),
+    );
   });
 
   test("a click a page script makes opens nothing", async () => {

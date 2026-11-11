@@ -1,9 +1,9 @@
 import { t } from "../../i18n/t";
-import { color, root } from "../lookup/styles";
+import { ChevronUpIcon } from "../icons";
+import { color, root } from "../styles";
 import { keepMenuOpen } from "./LingoMenu";
 
 export interface PlayerButtonsProps {
-  /** Lingo is on for this video. */
   enabled: boolean;
   menuOpen: boolean;
   /** The L button. */
@@ -96,19 +96,7 @@ export function PlayerButtons(props: PlayerButtonsProps) {
           background: props.menuOpen ? "rgba(255,255,255,0.22)" : "transparent",
         }}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M6 15l6-6 6 6"></path>
-        </svg>
+        <ChevronUpIcon />
       </button>
     </span>
   );

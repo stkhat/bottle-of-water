@@ -1,11 +1,10 @@
-import type { Span, TermKind } from "../../core/classify";
+import type { Span, TermKind, WordStatus } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
 import { visibleSpans } from "../../ui/video/terms";
-import type { WordCategory, WordsFilter } from "../../ui/video/WordsList";
 
-/** The Words tab's filter chips (defined with their UI). */
-export type { WordsFilter };
+/** The Words tab's filter chips: every row, or one status. */
+export type WordsFilter = "all" | WordStatus;
 
 /** A word or phrase of the video, in the Words tab. */
 export interface VideoWord {
@@ -13,7 +12,7 @@ export interface VideoWord {
   kind: TermKind;
   /** A word's key; a phrase as written where it first appears. */
   head: string;
-  category: WordCategory;
+  category: WordStatus;
   /** How many times the transcript shows it. */
   count: number;
   /** Its first occurrence: the cue and the index of its span in that cue's spans. */

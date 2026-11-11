@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-import { keepOpen } from "../../ui/lookup/keep-open";
+import { keepOpen } from "../../ui/keep-open";
 import type { Box } from "./geometry";
 
 /** Above everything the page can stack. */

@@ -1,29 +1,30 @@
 import { useEffect, useState } from "preact/hooks";
 import type { Counts, SyncStatus } from "../../messaging/protocol";
 import { onHost } from "../../core/url";
-import type { DataNote, PackStates } from "../../core/packs/state";
+import type { DataNote } from "../../core/packs/state";
 import type { Settings, SettingsPatch } from "../../core/settings";
 import { languageName, languagePair } from "../../i18n/languages";
 import { t } from "../../i18n/t";
-import type { send } from "../../messaging/client";
-import { followPackStatus, pairNote } from "../../messaging/pack-status";
+import {
+  followPackStatus,
+  pairNote,
+  type PackStatusDeps,
+} from "../../messaging/pack-status";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
-import { kilobytes, relativeTime } from "../../ui/format/format";
+import { BrandHeader } from "../../ui/BrandHeader";
+import { fmt, kilobytes, relativeTime } from "../../ui/format/format";
+import { CheckIcon, GearIcon, WordListIcon } from "../../ui/icons";
 import { HighlightChips } from "../../ui/lookup/HighlightChips";
-import { SaveAll } from "../../ui/lookup/SaveAll";
-import { Switch } from "../../ui/lookup/Switch";
-import { badge, color, FONT } from "../../ui/lookup/styles";
-import { GearIcon, WordListIcon } from "../../ui/icons";
+import { Meter } from "../../ui/Meter";
 import { LanguageDataNote } from "../../ui/packs/LanguageDataNote";
+import { color, FONT } from "../../ui/styles";
+import { Switch } from "../../ui/Switch";
+import { SaveAll } from "./SaveAll";
 
 /** What the popup works with; `main.tsx` passes the browser's, tests pass fakes. */
-export interface PopupDeps {
-  send: typeof send;
+export interface PopupDeps extends PackStatusDeps {
   /** Asks the active tab's content script; undefined when nothing there answers. */
   askPage(request: PageRequest): Promise<PageSummary | undefined>;
-  watchSettings(listener: (settings: Settings) => void): () => void;
-  /** The background's pack states now and after every change (`watchPackState`). */
-  watchPackState(listener: (states: PackStates) => void): () => void;
   /** `BrowserEnv.syncName`, e.g. "Chrome sync". */
   syncName: string;
   openOptions(): void;
@@ -32,28 +33,6 @@ export interface PopupDeps {
   /** How often the tab, the counts and the sync status are asked again while open. */
   refreshMs: number;
 }
-
-/** The page summary: still asking, nothing answered, or the answer. */
-type PageState = "asking" | "none" | PageSummary;
-
-const CHECK = (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color.green}
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-    style={{ flex: "none" }}
-  >
-    <path d="M5 12l5 5 9-10"></path>
-  </svg>
-);
-
-const fmt = (n: number) => n.toLocaleString("en-US");
 
 function CountTile(props: { value: number; label: string; green?: boolean }) {
   return (
@@ -102,7 +81,7 @@ function SyncLine(props: {
           fontSize: "13px",
         }}
       >
-        {status.lastSavedAt !== undefined && CHECK}
+        {status.lastSavedAt !== undefined && <CheckIcon />}
         <span>
           {status.lastSavedAt !== undefined
             ? t("popup.sync.saved", {
@@ -112,19 +91,7 @@ function SyncLine(props: {
             : t("sync.notSaved")}
         </span>
       </div>
-      <div
-        aria-hidden="true"
-        style={{ height: "6px", borderRadius: "3px", background: color.line }}
-      >
-        <div
-          style={{
-            width: `${share}%`,
-            height: "100%",
-            borderRadius: "3px",
-            background: color.greenBright,
-          }}
-        ></div>
-      </div>
+      <Meter share={share} />
       <span style={{ fontSize: "12px", color: color.muted }}>
         {t("popup.sync.space", { used, quota })}
       </span>
@@ -154,7 +121,8 @@ const headerButton = {
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
   const [counts, setCounts] = useState<Counts>();
-  const [page, setPage] = useState<PageState>("asking");
+  /** The active tab's summary; none while asking, or when nothing there answers. */
+  const [summary, setSummary] = useState<PageSummary>();
   const [sync, setSync] = useState<SyncStatus>();
   const [data, setData] = useState<DataNote | null>(null);
   const [now, setNow] = useState(deps.now);
@@ -166,10 +134,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
   }
 
   function askPage(request: PageRequest) {
-    return deps.askPage(request).then(
-      (summary) => setPage(summary ?? "none"),
-      () => setPage("none"),
-    );
+    return deps.askPage(request).then(setSummary, () => setSummary(undefined));
   }
 
   useEffect(() => {
@@ -180,12 +145,8 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       deps.send({ type: "syncStatus" }).then(setSync, warn);
       if (lang) refreshCounts(lang);
     };
-    /** The language pair the language data was asked for. */
-    let pair: string | undefined;
-    const pairOf = (s: Settings) => `${s.learningLang}>${s.nativeLang}`;
     deps.send({ type: "getSettings" }).then((s) => {
       lang = s.learningLang;
-      pair ??= pairOf(s);
       setSettings(s);
       refreshCounts(lang);
     }, warn);
@@ -194,9 +155,6 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     const unwatch = deps.watchSettings((s) => {
       lang = s.learningLang;
       setSettings(s);
-      // Another pair has other data.
-      if (pairOf(s) !== pair) packs.refresh();
-      pair = pairOf(s);
     });
     const timer = setInterval(refresh, deps.refreshMs);
     return () => {
@@ -210,7 +168,6 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     deps.send({ type: "setSettings", patch: change }).then(setSettings, warn);
   }
 
-  const summary = typeof page === "object" ? page : undefined;
   const siteOn =
     settings && summary
       ? !settings.disabledSites.some((e) => onHost(summary.hostname, e))
@@ -255,13 +212,15 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           borderBottom: `1px solid ${color.line}`,
         }}
       >
-        <span style={badge(28, 8, 14)}>L</span>
-        <span style={{ fontWeight: 700, fontSize: "15px" }}>
-          {t("app.name")}
-        </span>
-        <span style={{ fontSize: "13px", color: color.muted }}>
-          {settings && languagePair(settings.learningLang, settings.nativeLang)}
-        </span>
+        <BrandHeader
+          size="popup"
+          title={t("app.name")}
+          pair={
+            settings
+              ? languagePair(settings.learningLang, settings.nativeLang)
+              : ""
+          }
+        />
         <span style={{ flex: 1 }}></span>
         <button
           type="button"

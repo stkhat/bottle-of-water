@@ -3,7 +3,8 @@ import { errorText } from "../../core/util";
 import type { ImportResult } from "../../messaging/protocol";
 import { t } from "../../i18n/t";
 import type { send } from "../../messaging/client";
-import { backupFileName } from "../format/format";
+import { backupFileName, fmt } from "../format/format";
+import { color } from "../styles";
 
 /** What Export and Import work with; pages pass the browser's, tests pass fakes. */
 export interface BackupDeps {
@@ -16,7 +17,23 @@ export interface BackupDeps {
 /** The result of the last export or import, as a short line; null while there is none. */
 export type BackupNote = { ok: boolean; text: string } | null;
 
-const fmt = (n: number) => n.toLocaleString("en-US");
+export function BackupStatus(props: { note: BackupNote; lineHeight?: number }) {
+  const { note } = props;
+  return (
+    note && (
+      <span
+        role="status"
+        style={{
+          fontSize: "13px",
+          lineHeight: props.lineHeight,
+          color: note.ok ? color.greenDark : color.danger,
+        }}
+      >
+        {note.text}
+      </span>
+    )
+  );
+}
 
 /**
  * Export (downloads `lingo-backup-YYYY-MM-DD.json`) and Import (a file input →

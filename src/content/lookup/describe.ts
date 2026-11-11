@@ -1,4 +1,4 @@
-import type { Category, TermKind } from "../../core/classify";
+import type { Category, TermKind, WordStatus } from "../../core/classify";
 import {
   cleanDefinition,
   MAX_TRANSLATED_SENSES,
@@ -13,7 +13,6 @@ import {
   type OccurrenceView,
 } from "../../messaging/protocol";
 import type { DictionaryEntryView } from "../../ui/lookup/DictionaryWindow";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
 import type { TranslationPair, TranslationQueue } from "../translate/queue";
 
 /** A sense as the dictionary window shows it. */

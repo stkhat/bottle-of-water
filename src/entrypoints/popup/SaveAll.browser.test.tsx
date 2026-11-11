@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { palettes } from "../theme";
-import { ThemeScope } from "../ThemeScope";
+import { palettes } from "../../ui/theme";
+import { ThemeScope } from "../../ui/ThemeScope";
 import { SaveAll, type SaveAllProps } from "./SaveAll";
 import {
   addPageStyle,

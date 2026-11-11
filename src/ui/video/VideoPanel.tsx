@@ -1,10 +1,10 @@
-import type { CSSProperties } from "preact";
 import { useRef } from "preact/hooks";
 import type { DataNote } from "../../core/packs/state";
 import { languageName } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
-import { badge, color, root } from "../lookup/styles";
 import { LanguageDataNote } from "../packs/LanguageDataNote";
+import { segment, segmentGroup } from "../Segmented";
+import { badge, color, root } from "../styles";
 import {
   Transcript,
   TranscriptControls,
@@ -18,33 +18,27 @@ import {
   type WordsFilter,
 } from "./WordsList";
 
-/** The tabs of the right column. */
 export type PanelTab = "transcript" | "words";
 
-export interface VideoPanelProps
+export interface VideoPanelProps<R extends WordRow>
   extends TranscriptProps, TranscriptControlsProps {
   tab: PanelTab;
   onTab: (tab: PanelTab) => void;
   /** The Words tab's rows the filter shows. */
-  words: readonly WordRow[];
+  words: readonly R[];
   wordsFilter: WordsFilter;
   /** How many rows each filter chip shows. */
   wordsCounts: Record<WordsFilter, number>;
   onWordsFilter: (filter: WordsFilter) => void;
-  /** A row was clicked: its id. */
-  onOpenWord: (id: string) => void;
-  /** The height of the whole panel, in px. */
+  onOpenWord: (row: R) => void;
   height: number;
   /**
    * The chosen pair's language data while some of it is not on the device: a line at
    * the top of the column (mock LanguageData). None by default.
    */
   dataNote?: DataNote | null;
-  /** The line's Retry. */
   onRetryData?: () => void;
 }
-
-type Style = CSSProperties;
 
 const TABS: readonly { id: PanelTab; label: MessageKey }[] = [
   { id: "transcript", label: "video.transcript" },
@@ -54,32 +48,8 @@ const TABS: readonly { id: PanelTab; label: MessageKey }[] = [
 const tabId = (tab: PanelTab) => `lingo-tab-${tab}`;
 const panelId = (tab: PanelTab) => `lingo-tabpanel-${tab}`;
 
-const TAB: Style = {
-  height: "32px",
-  minWidth: 0,
-  padding: 0,
-  margin: 0,
-  borderRadius: "8px",
-  border: 0,
-  font: "inherit",
-  fontSize: "13px",
-  cursor: "pointer",
-};
-const TAB_ON: Style = {
-  ...TAB,
-  background: color.raised,
-  color: color.ink,
-  fontWeight: 600,
-  boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
-};
-const TAB_OFF: Style = {
-  ...TAB,
-  background: "transparent",
-  color: color.ink3,
-};
-
 /** The right column beside the video: the Transcript and Words tabs. */
-export function VideoPanel(props: VideoPanelProps) {
+export function VideoPanel<R extends WordRow>(props: VideoPanelProps<R>) {
   return (
     <aside
       aria-label={t("app.name")}
@@ -137,7 +107,7 @@ export function VideoPanel(props: VideoPanelProps) {
 }
 
 /** A tab's controls under the tabs, and its list. */
-function TabBody(props: VideoPanelProps) {
+function TabBody<R extends WordRow>(props: VideoPanelProps<R>) {
   return (
     <>
       <div
@@ -188,10 +158,7 @@ function Tabs(props: { tab: PanelTab; onTab: (tab: PanelTab) => void }) {
         flex: 1,
         display: "grid",
         gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))`,
-        gap: "2px",
-        padding: "3px",
-        borderRadius: "10px",
-        background: color.surfaceGray,
+        ...segmentGroup,
       }}
     >
       {TABS.map(({ id, label }, i) => {
@@ -220,7 +187,12 @@ function Tabs(props: { tab: PanelTab; onTab: (tab: PanelTab) => void }) {
               event.preventDefault();
               move(i, by);
             }}
-            style={selected ? TAB_ON : TAB_OFF}
+            style={{
+              ...segment(selected),
+              height: "32px",
+              minWidth: 0,
+              padding: 0,
+            }}
           >
             {t(label)}
           </button>

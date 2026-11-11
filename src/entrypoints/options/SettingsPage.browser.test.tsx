@@ -11,7 +11,7 @@ import type {
 import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
-import { listeners } from "../../testing/stubs";
+import { listeners, settingsListeners } from "../../testing/stubs";
 
 const NOW = new Date(2026, 10, 10, 12, 0, 0).getTime();
 const MINUTE = 60_000;
@@ -46,7 +46,7 @@ function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let lastExport = options.lastExport ?? null;
   let history = options.history ?? HISTORY;
-  const settingsWatchers = listeners<Settings>();
+  const settingsWatchers = settingsListeners(settings);
   const packWatchers = listeners<PackStates>();
   const removed = new Set<string>();
   const sent: Request[] = [];
@@ -731,7 +731,7 @@ describe("SettingsPage", () => {
       await expect.element(history.getByText("1 MB of 50 MB")).toBeVisible();
       const fill = history
         .element()
-        .querySelector<HTMLElement>('[aria-hidden="true"] > div')!;
+        .querySelector<HTMLElement>('[aria-hidden="true"] > span')!;
       expect(fill.style.width).toBe("1%");
     });
 

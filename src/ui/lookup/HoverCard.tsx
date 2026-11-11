@@ -1,15 +1,14 @@
 import type { CSSProperties } from "preact";
+import type { TermKind, WordStatus } from "../../core/classify";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
+import { IPA_FONT, color, root, statusButton } from "../styles";
 import { MachineTranslationMark } from "./MachineTranslationMark";
-import { IPA_FONT, color, root, statusButton } from "./styles";
-
-export type WordStatus = "learning" | "known" | "new";
 
 export interface HoverCardProps {
   /** Over a video (mock Main) or an article (mock Article); they differ slightly. */
   variant: "video" | "article";
-  kind: "word" | "phrase";
+  kind: TermKind;
   status: WordStatus;
   /** The card of selected words (articles): unsaved, it reads "Selected · not saved". */
   selection?: boolean;

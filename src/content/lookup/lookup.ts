@@ -20,8 +20,10 @@ import { warn } from "./warn";
 /** What the article and video UIs need from the extension, passed in so they run in tests. */
 export interface LookupDeps {
   send: typeof send;
-  /** Calls `listener` with the new settings after every change; returns an unsubscribe. */
-  watchSettings(listener: (settings: Settings) => void): () => void;
+  /** Calls `listener` with the new settings (and the ones before) after every change; returns an unsubscribe. */
+  watchSettings(
+    listener: (settings: Settings, previous: Settings) => void,
+  ): () => void;
   /** Calls `listener` with the pack states now and after every change; returns an unsubscribe. */
   watchPackState(listener: (states: PackStates) => void): () => void;
   /** Default: the browser's built-in translator. */

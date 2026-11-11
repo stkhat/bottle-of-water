@@ -1,5 +1,5 @@
 import { t } from "../../i18n/t";
-import { color } from "./styles";
+import { color } from "../styles";
 
 /**
  * The "Machine translation" pill after a translation the browser's translator made

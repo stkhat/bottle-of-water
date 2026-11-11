@@ -2,8 +2,9 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useMemo } from "preact/hooks";
 import { fromUser } from "../../ui/from-user";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
-import { keptOpen } from "../../ui/lookup/keep-open";
-import { elsewhereItems, formatTime } from "../../ui/lookup/elsewhere";
+import { keptOpen } from "../../ui/keep-open";
+import { formatTime } from "../../ui/format/format";
+import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { LingoMenu } from "../../ui/video/LingoMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
@@ -252,9 +253,6 @@ export function TranscriptUi(props: {
     [cues, spans, summaries],
   );
   if (!showing(state) || state.fullscreen) return null;
-  const idOf = (row: { key: string; kind: string }) =>
-    `${row.kind}\n${row.key}`;
-  const open = panel && idOf(panel.card);
   const fromTranscript = state.hover?.from === "transcript";
   return (
     <VideoPanel
@@ -283,27 +281,26 @@ export function TranscriptUi(props: {
         // The card would stay where the word was.
         if (fromTranscript) app.dismissHover();
       }}
-      words={filterRows(words, state.wordsFilter).map((row) => {
-        const brief = Object.hasOwn(summaries, row.key)
-          ? summaries[row.key]
+      words={filterRows(words, state.wordsFilter).map((word) => {
+        const brief = Object.hasOwn(summaries, word.key)
+          ? summaries[word.key]
           : undefined;
         return {
-          id: idOf(row),
-          head: row.head,
-          category: row.category,
-          count: row.count,
+          id: `${word.kind}\n${word.key}`,
+          head: word.head,
+          category: word.category,
+          count: word.count,
           short: brief?.short,
           shortLang: brief?.glossLang ?? settings.nativeLang,
-          selected: idOf(row) === open,
+          selected:
+            panel?.card.kind === word.kind && panel.card.key === word.key,
+          first: word.first,
         };
       })}
       wordsFilter={state.wordsFilter}
       wordsCounts={filterCounts(words)}
       onWordsFilter={app.setWordsFilter}
-      onOpenWord={(id) => {
-        const row = words.find((each) => idOf(each) === id);
-        if (row) app.clickWord(row.first);
-      }}
+      onOpenWord={(row) => app.clickWord(row.first)}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}

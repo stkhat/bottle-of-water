@@ -1,28 +1,25 @@
 import type { CSSProperties } from "preact";
+import type { WordStatus } from "../../core/classify";
 import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
-import { color } from "../lookup/styles";
+import { keepOpen } from "../keep-open";
+import { color } from "../styles";
 import { termStyle } from "./terms";
-import { keepOpen } from "../lookup/keep-open";
 
 type Style = CSSProperties;
 
-/** A word's status in the Words tab. */
-export type WordCategory = "new" | "learning" | "known";
-/** The filter chips: every row, or one category. */
-export type WordsFilter = "all" | WordCategory;
+/** The filter chips: every row, or one status. */
+export type WordsFilter = "all" | WordStatus;
 
-/** A row of the Words tab. */
 export interface WordRow {
-  /** Tells the row to `onOpen`. */
+  /** Unique in the list. */
   id: string;
   head: string;
-  category: WordCategory;
+  category: WordStatus;
   /** How many times the video shows it. */
   count: number;
   /** The dictionary's short meaning, when it has one. */
   short?: string;
-  /** The language of `short`. */
   shortLang: string;
   /** Its dictionary window is open. */
   selected: boolean;
@@ -98,11 +95,11 @@ export function WordsFilterChips(props: WordsFilterChipsProps) {
   );
 }
 
-export interface WordsListProps {
+export interface WordsListProps<R extends WordRow> {
   /** The rows the filter shows, in order. */
-  rows: readonly WordRow[];
+  rows: readonly R[];
   learningLang: string;
-  onOpen: (id: string) => void;
+  onOpen: (row: R) => void;
 }
 
 /** Every category highlighted: the list is about the words, not the page's highlights. */
@@ -137,7 +134,7 @@ const ROW_ON: Style = {
 const HOVER = `[data-word-row][aria-pressed="false"]:hover{background:${color.soft} !important}`;
 
 /** The words of the video: head with its highlight, count and short meaning. */
-export function WordsList(props: WordsListProps) {
+export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
   return (
     <div
       style={{
@@ -169,7 +166,7 @@ export function WordsList(props: WordsListProps) {
   );
 }
 
-function Row(props: WordsListProps & { row: WordRow }) {
+function Row<R extends WordRow>(props: WordsListProps<R> & { row: R }) {
   const { row } = props;
   return (
     <button
@@ -177,7 +174,7 @@ function Row(props: WordsListProps & { row: WordRow }) {
       data-word-row
       aria-pressed={row.selected}
       onPointerDown={keepOpen}
-      onClick={onlyFromUser(() => props.onOpen(row.id))}
+      onClick={onlyFromUser(() => props.onOpen(row))}
       style={row.selected ? ROW_ON : ROW_OFF}
     >
       <span

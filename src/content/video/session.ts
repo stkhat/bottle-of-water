@@ -1,4 +1,4 @@
-import type { Category, Span } from "../../core/classify";
+import type { Category, Span, WordStatus } from "../../core/classify";
 import type { DataNote } from "../../core/packs/state";
 import {
   hostBlocked,
@@ -13,7 +13,6 @@ import {
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
 import type { TermCard } from "../lookup/describe";
 import {
   createLookup,
@@ -477,11 +476,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const unwatch = deps.watchSettings((next) => {
     const levelChanged = next.knownLevel !== settings.knownLevel;
     const wasOn = siteOn();
-    if (
-      next.learningLang !== settings.learningLang ||
-      next.nativeLang !== settings.nativeLang
-    )
-      data.refresh();
     settings = next;
     store.set({ settings });
     // Switched off for this site: give the page back; switched on: start.

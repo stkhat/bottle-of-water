@@ -26,7 +26,7 @@ import {
 } from "../core/settings";
 import type { send } from "../messaging/client";
 import type { Request } from "../messaging/protocol";
-import { listeners } from "./stubs";
+import { settingsListeners } from "./stubs";
 
 /** Ranked within 29: known at any level. The rare words come after rank 3,400: new. */
 const COMMON = [
@@ -185,7 +185,7 @@ export function testBackground(
   options: TestBackgroundOptions = {},
 ) {
   let settings = mergeSettings(initial, DEFAULT_SETTINGS);
-  const settingsWatchers = listeners<Settings>();
+  const settingsWatchers = settingsListeners(settings);
   const missing = new Set<string>(options.missingPacks);
   // A build that downloads the missing packs; the others are bundled.
   const lock = applyOverrides(

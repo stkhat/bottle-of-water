@@ -2,10 +2,9 @@ import type { CSSProperties } from "preact";
 import type { Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import { t } from "../../i18n/t";
-import { onlyFromUser } from "../from-user";
-import { keepOpen } from "../lookup/keep-open";
-import { color, root } from "../lookup/styles";
+import { color, root } from "../styles";
 import { renderTerms, termStyle } from "./terms";
+import { TermSpan } from "./TermSpan";
 
 export interface SubtitleOverlayProps {
   /**
@@ -13,14 +12,12 @@ export interface SubtitleOverlayProps {
    * video in fullscreen (mock Fullscreen: larger dark boxes).
    */
   variant: "inVideo" | "belowVideo" | "fullscreen";
-  /** The playing cue's text. */
   text: string;
   /** The cue's spans; null until it is classified. */
   spans: readonly Span[] | null;
   highlight: Settings["highlight"];
   /** The translation shown at this time ("" when there is none). */
   translation: string;
-  /** The subtitle translation switch. */
   showTranslation: boolean;
   /** Text size in percent of the variant's own (`Settings.subtitleSize`). */
   size: number;
@@ -178,19 +175,15 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
     const style = termStyle(span.category, props.highlight, look.colors);
     const selected = props.selected === index;
     return (
-      <span
+      <TermSpan
         key={`${span.start}`}
-        data-span={index}
-        onPointerEnter={onlyFromUser((e) =>
-          props.onWordEnter(index, e.currentTarget as HTMLElement),
-        )}
-        onPointerLeave={() => props.onWordLeave()}
-        onPointerDown={keepOpen}
-        onClick={onlyFromUser(() => props.onWordClick(index))}
+        index={index}
+        onEnter={(element) => props.onWordEnter(index, element)}
+        onLeave={props.onWordLeave}
+        onClick={() => props.onWordClick(index)}
         style={{
           // As in the mock: a phrase is not broken across lines.
           display: "inline-block",
-          cursor: "pointer",
           ...((style || selected) && TERM),
           ...style,
           ...(selected && {
@@ -200,7 +193,7 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
         }}
       >
         {text}
-      </span>
+      </TermSpan>
     );
   });
 

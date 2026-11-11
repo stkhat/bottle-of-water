@@ -1,7 +1,8 @@
 import { useState } from "preact/hooks";
 import { t } from "../../i18n/t";
-import { onlyFromUser } from "../from-user";
-import { color, root, sectionHeading, statusButton } from "./styles";
+import { onlyFromUser } from "../../ui/from-user";
+import { CheckIcon, InfoIcon } from "../../ui/icons";
+import { color, root, sectionHeading, statusButton } from "../../ui/styles";
 
 export interface SaveAllProps {
   /** What is being saved: "This page" on an article, "This video" on a video site. */
@@ -76,20 +77,7 @@ export function SaveAll(props: SaveAllProps) {
                 : { background: "transparent", color: color.muted }),
             }}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M12 11v5"></path>
-              <path d="M12 7.5v.5"></path>
-            </svg>
+            <InfoIcon />
           </button>
         </span>
         <span style={{ fontSize: "13px", color: color.ink3 }}>
@@ -147,19 +135,7 @@ export function SaveAll(props: SaveAllProps) {
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={color.green}
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12l5 5 9-10"></path>
-            </svg>
+            <CheckIcon />
             {doneLine(props.done)}
           </span>
           <button

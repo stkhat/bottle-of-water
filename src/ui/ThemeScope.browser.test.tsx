@@ -1,6 +1,6 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it } from "vitest";
-import { color, root } from "./lookup/styles";
+import { color, root } from "./styles";
 import { colorScheme } from "../testing/media";
 import { palettes, type Theme } from "./theme";
 import { ThemeScope } from "./ThemeScope";

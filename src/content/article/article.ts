@@ -1,4 +1,4 @@
-import type { Category, Span } from "../../core/classify";
+import type { Category, Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import {
   unsupportedPage,
@@ -6,7 +6,6 @@ import {
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
-import type { WordStatus } from "../../ui/lookup/HoverCard";
 import type { TermCard } from "../lookup/describe";
 import {
   createLookup,

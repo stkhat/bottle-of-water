@@ -16,7 +16,7 @@ import {
   type ArticleSession,
 } from "./article";
 import { highlighted } from "../../testing/article";
-import { detectEnglish, listeners } from "../../testing/stubs";
+import { detectEnglish, settingsListeners } from "../../testing/stubs";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => cleanups.splice(0).forEach((c) => c()));
@@ -44,7 +44,7 @@ const CATEGORIES: Record<string, Category> = {
  */
 function fakeDeps(settings: Settings, missingPacks: readonly string[] = []) {
   const requests: Request[] = [];
-  const settingsWatchers = listeners<Settings>();
+  const settingsWatchers = settingsListeners(settings);
   const packListeners = new Set<(states: PackStates) => void>();
   const missing = new Set(missingPacks);
   let packStates: PackStates = {};

@@ -1,10 +1,9 @@
 import type { CSSProperties, JSX } from "preact";
+import type { TermKind, WordStatus } from "../../core/classify";
 import { t } from "../../i18n/t";
-import type { WordStatus } from "./HoverCard";
-import { keepOpen } from "./keep-open";
-import { MachineTranslationMark } from "./MachineTranslationMark";
+import { CloseIcon, GripIcon } from "../icons";
+import { keepOpen } from "../keep-open";
 import {
-  IPA_FONT,
   SERIF_FONT,
   badge,
   color,
@@ -12,13 +11,16 @@ import {
   root,
   sectionHeading,
   termMark,
-} from "./styles";
+} from "../styles";
+import { useDrag } from "../useDrag";
+import { ElsewhereRow, type ElsewhereItem } from "./ElsewhereRow";
+import { EntryHeader } from "./EntryHeader";
+import { MachineTranslationMark } from "./MachineTranslationMark";
 import { StatusButtons } from "./StatusButtons";
-import { useDrag } from "./useDrag";
 
 export interface DictionaryEntryView {
   head: string;
-  kind: "word" | "phrase";
+  kind: TermKind;
   ipa?: string;
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
@@ -33,8 +35,8 @@ export interface DictionaryEntryView {
   /**
    * `translated`: the browser translator's translation of the sense, shown with `text`
    * below it; any translated sense marks the Meanings heading "Machine translation".
+   * `hint`: a translation table's English sense, shown above its native words.
    */
-  /** `hint`: a translation table's English sense, shown above its native words. */
   senses: { pos?: string; text: string; hint?: string; translated?: string }[];
   /**
    * Language of the senses' `text` when it is not the native language (an English
@@ -44,25 +46,12 @@ export interface DictionaryEntryView {
 }
 
 /** Another occurrence in the same video (with its time; clicking seeks) or page. */
-export interface HereItem {
+interface HereItem {
   time?: string;
   text: string;
   /** The term's place in `text` (each part of a phrase with a gap), drawn highlighted. */
-  marks?: {
-    start: number;
-    end: number;
-    category: "new" | "learning" | "known";
-  }[];
+  marks?: { start: number; end: number; category: WordStatus }[];
   onClick?: () => void;
-}
-
-/** An occurrence in another source. */
-export interface ElsewhereItem {
-  title: string;
-  meta: string;
-  text: string;
-  href?: string;
-  video: boolean;
 }
 
 interface CommonProps {
@@ -114,21 +103,6 @@ const BOX: Style = {
   borderRadius: "14px",
 };
 
-const CLOSE_ICON = (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.8"
-    stroke-linecap="round"
-    aria-hidden="true"
-  >
-    <path d="M6 6l12 12M18 6L6 18"></path>
-  </svg>
-);
-
 export function DictionaryWindow(props: DictionaryWindowProps) {
   const isWindow = props.variant === "window";
   const start =
@@ -154,7 +128,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
       onClick={props.onClose}
       style={icon}
     >
-      {CLOSE_ICON}
+      <CloseIcon size={18} stroke={1.8} />
     </button>
   );
   const content = <Content {...props} icon={icon} />;
@@ -203,20 +177,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
               touchAction: "none",
             }}
           >
-            <svg
-              width="14"
-              height="18"
-              viewBox="0 0 14 18"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <circle cx="4" cy="4" r="1.5"></circle>
-              <circle cx="10" cy="4" r="1.5"></circle>
-              <circle cx="4" cy="9" r="1.5"></circle>
-              <circle cx="10" cy="9" r="1.5"></circle>
-              <circle cx="4" cy="14" r="1.5"></circle>
-              <circle cx="10" cy="14" r="1.5"></circle>
-            </svg>
+            <GripIcon />
           </button>
           <span style={badge(22, 6, 11)}>L</span>
           <span style={{ flex: 1, fontSize: "13px", fontWeight: 600 }}>
@@ -278,102 +239,20 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
   const glossLang = entry.glossLang ?? props.nativeLang;
   const translated = entry.senses.some((sense) => sense.translated);
   const meanings = <h3 style={sectionHeading}>{t("dict.meanings")}</h3>;
-  const short = entry.short && (
-    <p
-      lang={entry.shortLang ?? props.nativeLang}
-      style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
-    >
-      {entry.short}
-    </p>
-  );
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            flexWrap: "wrap",
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "26px",
-              fontWeight: 650,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {entry.head}
-          </h2>
-          <span
-            style={{
-              fontSize: "12px",
-              fontWeight: 600,
-              color: color.greenDark,
-              background: color.greenPale,
-              borderRadius: "999px",
-              padding: "3px 9px",
-            }}
-          >
-            {t(entry.kind === "word" ? "kind.word" : "kind.phrase")}
-          </span>
-          <button
-            type="button"
-            aria-label={t("dict.speak")}
-            onClick={props.onSpeak}
-            style={props.icon}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
-              <path d="M16 9a4 4 0 0 1 0 6"></path>
-              <path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"></path>
-            </svg>
-          </button>
-        </div>
-        {entry.ipa && (
-          <span
-            style={{
-              fontFamily: IPA_FONT,
-              fontSize: "16px",
-              color: color.ink3,
-            }}
-          >
-            {entry.ipa}
-          </span>
-        )}
-        {entry.sub && (
-          <span style={{ fontSize: "13px", color: color.muted }}>
-            {entry.sub}
-          </span>
-        )}
-        {short && entry.machineTranslated ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "8px",
-            }}
-          >
-            {short}
-            <MachineTranslationMark />
-          </div>
-        ) : (
-          short
-        )}
-      </div>
+      <EntryHeader
+        head={entry.head}
+        kind={entry.kind}
+        ipa={entry.ipa}
+        sub={entry.sub}
+        short={entry.short}
+        shortLang={entry.shortLang ?? props.nativeLang}
+        machineTranslated={entry.machineTranslated}
+        onSpeak={props.onSpeak}
+        speakStyle={props.icon}
+      />
 
       <StatusButtons
         status={status}
@@ -640,87 +519,4 @@ function marked(item: HereItem) {
   }
   if (at < item.text.length) out.push(item.text.slice(at));
   return out;
-}
-
-/** An occurrence in another source: its icon, title, meta and sentence; a link when it has one. */
-export function ElsewhereRow(props: {
-  item: ElsewhereItem;
-  /** The sentence's language. */
-  lang: string;
-}) {
-  const { item } = props;
-  const style: Style = {
-    display: "flex",
-    gap: "10px",
-    padding: "10px",
-    borderRadius: "8px",
-    background: color.surface,
-    color: "inherit",
-    textDecoration: "none",
-  };
-  const children = (
-    <>
-      <span style={{ flex: "none", color: color.muted, paddingTop: "1px" }}>
-        {item.video ? (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-            role="img"
-            aria-label={t("dict.source.video")}
-          >
-            <rect x="3" y="6" width="13" height="12" rx="2"></rect>
-            <path d="M16 10l5-3v10l-5-3z"></path>
-          </svg>
-        ) : (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-            role="img"
-            aria-label={t("dict.source.page")}
-          >
-            <path d="M6 3h9l4 4v14H6z"></path>
-            <path d="M9 12h7M9 16h7M9 8h3"></path>
-          </svg>
-        )}
-      </span>
-      <span
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "2px",
-          minWidth: 0,
-        }}
-      >
-        <span style={{ fontSize: "13px", fontWeight: 600, lineHeight: 1.4 }}>
-          {item.title}
-        </span>
-        <span style={{ fontSize: "12px", color: color.muted }}>
-          {item.meta}
-        </span>
-        <span
-          lang={props.lang}
-          style={{ fontSize: "13px", lineHeight: 1.5, color: color.ink3 }}
-        >
-          {item.text}
-        </span>
-      </span>
-    </>
-  );
-  return item.href ? (
-    <a href={item.href} target="_blank" rel="noopener" style={style}>
-      {children}
-    </a>
-  ) : (
-    <div style={style}>{children}</div>
-  );
 }

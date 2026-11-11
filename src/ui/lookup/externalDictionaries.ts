@@ -1,7 +1,7 @@
 import type { Settings } from "../../core/settings";
 import { t } from "../../i18n/t";
 
-export type DictionaryId = keyof Settings["dictionaries"];
+type DictionaryId = keyof Settings["dictionaries"];
 
 export interface DictionaryLink {
   id: DictionaryId;
