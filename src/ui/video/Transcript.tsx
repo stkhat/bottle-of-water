@@ -4,7 +4,9 @@ import type { Span } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import type { Cue } from "../../core/subtitles/types";
 import { t } from "../../i18n/t";
+import { fromUser, onlyFromUser } from "../from-user";
 import { formatTime } from "../lookup/elsewhere";
+import { keepOpen } from "../lookup/keep-open";
 import {
   HighlightChips,
   type HighlightCategory,
@@ -31,8 +33,17 @@ export interface TranscriptProps {
   highlight: Settings["highlight"];
   /** The card to emphasize and keep in view; -1 for none. */
   current: number;
-  /** A card was clicked. */
+  /** A card was clicked (not on a word). */
   onSeek: (index: number) => void;
+  /** The pointer entered a word: its card, its index in the card's spans and its element. */
+  onWordEnter: (cue: number, span: number, element: HTMLElement) => void;
+  onWordLeave: () => void;
+  /** A word was clicked: its dictionary window opens. */
+  onWordClick: (cue: number, span: number) => void;
+  /** The list scrolled (a word's card would no longer be by its word). */
+  onListScroll?: () => void;
+  /** A word's card shows: the playing card does not pull the list along meanwhile. */
+  holdScroll?: boolean;
   learningLang: string;
   nativeLang: string;
   /** How long auto-scrolling waits after the user scrolls the list (ms). */
@@ -117,7 +128,8 @@ export function Transcript(props: TranscriptProps) {
 
   useLayoutEffect(() => {
     const el = list.current;
-    if (!el || props.current < 0 || Date.now() < pausedUntil.current) return;
+    if (!el || props.current < 0 || props.holdScroll) return;
+    if (Date.now() < pausedUntil.current) return;
     const card = el.querySelector<HTMLElement>(`[data-cue="${props.current}"]`);
     if (!card) return;
     // Within the list only: scrollIntoView would scroll the page too.
@@ -132,6 +144,7 @@ export function Transcript(props: TranscriptProps) {
       onWheel={userScrolled}
       onTouchStart={userScrolled}
       onKeyDown={userScrolled}
+      onScroll={() => props.onListScroll?.()}
       style={{
         position: "relative",
         flex: 1,
@@ -165,12 +178,26 @@ function Card(
   const words = renderTerms(
     cue.text,
     props.spans[index] ?? null,
-    (span, _i, text) => {
+    (span, i, text) => {
       const style = termStyle(span.category, props.highlight, "ui");
       return (
         <span
           key={`${span.start}`}
-          style={style && { ...style, padding: "0 2px", borderRadius: "4px" }}
+          data-span={i}
+          onPointerEnter={onlyFromUser((e) =>
+            props.onWordEnter(index, i, e.currentTarget as HTMLElement),
+          )}
+          onPointerLeave={() => props.onWordLeave()}
+          onPointerDown={keepOpen}
+          onClick={(e) => {
+            // The word opens; the card's seek is for the rest of the card.
+            e.stopPropagation();
+            if (fromUser(e)) props.onWordClick(index, i);
+          }}
+          style={{
+            cursor: "pointer",
+            ...(style && { ...style, padding: "0 2px", borderRadius: "4px" }),
+          }}
         >
           {text}
         </span>

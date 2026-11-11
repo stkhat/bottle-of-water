@@ -314,6 +314,36 @@ describe("DictionaryWindow", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  test("In this video marks the term in each line with its category's highlight", async () => {
+    const items = [
+      {
+        time: "0:56",
+        text: "Once you figure it out, it's easy.",
+        // A phrase with a gap: each part is marked.
+        marks: [
+          { start: 9, end: 15, category: "learning" as const },
+          { start: 19, end: 22, category: "learning" as const },
+        ],
+        onClick: () => {},
+      },
+    ];
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow {...figureOut} here={{ source: "video", items }} />,
+    );
+    const row = screen.getByRole("button", { name: /0:56/ });
+    await expect.element(row).toBeVisible();
+    expect(row.element().textContent).toBe(
+      "0:56Once you figure it out, it's easy.",
+    );
+    const marks = [...row.element().querySelectorAll("[data-mark]")];
+    expect(marks.map((m) => m.textContent)).toEqual(["figure", "out"]);
+    for (const mark of marks) {
+      const style = getComputedStyle(mark);
+      expect(style.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(style.boxShadow).toContain("inset");
+    }
+  });
+
   test("On this page lists the sentences", async () => {
     const screen = await mountInShadowRoot(<DictionaryWindow {...panel} />);
     await expect

@@ -11,6 +11,8 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
 
+- Dictionary window and transcript (2026-11-11, branch `claude/dictionary-popup-video-ui-d462d4`): a press outside the dictionary window closes it (video and article; × stays), "In this video" marks the term in each line, and transcript words show the hover card and open the dictionary on a click
+
 - **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted in draft PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs). M9a phrase patterns on `feat/phrase-patterns` (draft PR #20, [plan](plans/2026-11-11-m9a-phrase-patterns.md)): data, matcher, classifier, saving selections under the pattern key, and the selection card (the phrase's hover card replaces the phrase bar, mock PhraseMeaning) are built
 ## What phase 1 contains
 | Area | Where | Plan |

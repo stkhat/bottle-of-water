@@ -66,18 +66,30 @@ export interface VideoDeps {
   hoverDelayMs?: number;
 }
 
+/** Where a hovered word is shown. */
+export type WordPlace = "subtitle" | "transcript";
+
 /** A term in the subtitles: the cue and the index of its span in that cue's spans. */
 export interface WordRef {
   cue: number;
   span: number;
 }
 
-/** The hover card over a word in the subtitle. */
+/** The hover card over a word in the subtitle or the transcript. */
 export interface VideoHover {
   ref: WordRef;
+  /** Where the word is: a card over a transcript word goes when the list scrolls. */
+  from: WordPlace;
   /** The word's box in the viewport. */
   anchor: Box;
   card: TermCard;
+}
+
+/** Where the term is in a line of "In this video" (each part of a phrase with a gap). */
+export interface LineMark {
+  start: number;
+  end: number;
+  category: Exclude<Span["category"], "ignored">;
 }
 
 /** A line of the video with the term, for the window's "In this video". */
@@ -85,6 +97,7 @@ export interface VideoLine {
   cue: number;
   timeMs: number;
   text: string;
+  marks: LineMark[];
 }
 
 /** The dictionary window for the clicked word. */
@@ -156,15 +169,17 @@ export interface VideoApp {
   setEnabled(on: boolean): void;
   /** A transcript card was clicked. */
   seekToCue(index: number): void;
-  /** The pointer entered a word of the subtitle (its box in the viewport). */
-  enterWord(ref: WordRef, anchor: Box): void;
+  /** The pointer entered a word of the subtitle or the transcript (its box in the viewport). */
+  enterWord(ref: WordRef, anchor: Box, from?: WordPlace): void;
   /** The pointer left the word. */
   leaveWord(): void;
   /** The pointer entered the hover card: keep it. */
   keepHover(): void;
   /** The pointer left the hover card: hide it soon. */
   releaseHover(): void;
-  /** A word of the subtitle was clicked: its dictionary window opens. */
+  /** Hides the hover card now. */
+  dismissHover(): void;
+  /** A word of the subtitle or the transcript was clicked: its dictionary window opens. */
   clickWord(ref: WordRef): void;
   /** The hover card's "+ Learning" / "Known". */
   setHoverStatus(status: TermStatus): void;
@@ -747,12 +762,22 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const { cues, spans } = store.get();
     const lines: VideoLine[] = [];
     spans.forEach((list, cue) => {
-      if (!list?.some((s) => sameTerm(s, key, kind))) return;
-      lines.push({
-        cue,
-        timeMs: cues[cue]!.startMs,
-        text: flat(cues[cue]!.text),
-      });
+      const raw = cues[cue]!.text;
+      // Offsets in the flattened text (a line break may become nothing).
+      const at = (i: number) => flat(raw.slice(0, i)).length;
+      const marks = (list ?? []).flatMap((span) =>
+        sameTerm(span, key, kind) && span.category !== "ignored"
+          ? [
+              {
+                start: at(span.start),
+                end: at(span.end),
+                category: span.category,
+              },
+            ]
+          : [],
+      );
+      if (marks.length === 0) return;
+      lines.push({ cue, timeMs: cues[cue]!.startMs, text: flat(raw), marks });
     });
     return lines;
   }
@@ -774,14 +799,15 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const hover = createHoverIntent<string>(
     {
       show(id) {
-        const [cue, span] = id.split(":").map(Number) as [number, number];
-        const ref = { cue, span };
+        // The same word in the subtitle and the transcript are two targets.
+        const [from, cue, span] = id.split(":") as [WordPlace, string, string];
+        const ref = { cue: Number(cue), span: Number(span) };
         const anchor = pendingAnchor;
         const ticket = ++hoverTicket;
         void describe(ref)
           .then((card) => {
             if (ticket !== hoverTicket || !card || !anchor) return;
-            store.set({ hover: { ref, anchor, card } });
+            store.set({ hover: { ref, from, anchor, card } });
           })
           .catch(warn);
       },
@@ -924,9 +950,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       const cue = store.get().cues[index];
       if (cue) adapter.seek(cue.startMs).catch(warn);
     },
-    enterWord(ref, anchor) {
+    enterWord(ref, anchor, from = "subtitle") {
       pendingAnchor = anchor;
-      hover.enter(`${ref.cue}:${ref.span}`);
+      hover.enter(`${from}:${ref.cue}:${ref.span}`);
     },
     leaveWord: () => hover.leave(),
     keepHover() {
@@ -937,6 +963,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       onCard = false;
       hover.release();
     },
+    dismissHover: () => hover.cancel(),
     clickWord(ref) {
       hover.cancel();
       void openPanel(ref).catch(warn);

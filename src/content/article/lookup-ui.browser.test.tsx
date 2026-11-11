@@ -375,6 +375,35 @@ describe("dictionary panel", () => {
     await expect.poll(() => dictionary().query()).toBeNull();
   });
 
+  it("a press elsewhere on the page closes it; a press on another word switches to it", async () => {
+    const { root } = await setup(ARTICLE);
+    await clickOn(root, "tedious");
+    await expect
+      .element(dictionary().getByRole("heading", { name: "tedious" }))
+      .toBeVisible();
+    // Pressing in the panel keeps it.
+    await dictionary().getByRole("heading", { name: "tedious" }).click();
+    await clickOn(root, "knead");
+    await expect
+      .element(dictionary().getByRole("heading", { name: "knead" }))
+      .toBeVisible();
+
+    // A press a page script makes is not the user's.
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(dictionary().query()).not.toBeNull();
+
+    // Past the end of the first line: no word there.
+    const line = rectOf(root, "loaves.");
+    await userEvent.pointer({
+      coords: { x: line.right + 40, y: line.top + line.height / 2 },
+      keys: "[MouseLeft]",
+    });
+    await expect.poll(() => dictionary().query()).toBeNull();
+  });
+
   it("ignores clicks on links", async () => {
     const { root } = await setup(
       `<p>Read <a href="#nowhere" onclick="return false">tedious notes</a> here.</p>`,

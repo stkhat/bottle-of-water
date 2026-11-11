@@ -66,7 +66,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Phrase meanings: EJDict → Wiktionary's Japanese translations → Wiktionary's English definition (marked `lang="en"`). From M9b an English definition is translated on the device by the browser's translator when it shows (the definition, not the phrase: "To reveal a secret." rather than "spill the beans"), marked "Machine translation"; without a translator the English definition shows as it is. A selection that matches no pattern gets a literal translation from the browser's translator, marked the same way; if that is unavailable too, or does not answer within 1.5 s (its model may still be downloading), the translation line is left out
 
 ### Shared: dictionary window (opens when a word is clicked)
-- **A popup window floating over the page.** It can be dragged by its handle and closed with ×. It is not a fixed column
+- **A popup window floating over the page.** It can be dragged by its handle and closed with ×, Escape, or a press anywhere outside it (a press on another word switches the window to that word instead; a press on the hover card keeps it). It is not a fixed column
   - Video: a window over the right part of the video, its right edge just past the transcript's left edge (at the video's right edge without a transcript), so it covers almost none of the transcript; when subtitles are inside the video, placed so it does not cover them
   - Article: a panel floating on the right side of the screen
 - Contents
@@ -74,7 +74,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - Status buttons: Learning / Known / Remove ("Not saved" when unsaved)
   - Meanings by part of speech. From M9b, English definitions are translated on the device (up to four) and marked "Machine translation"; from M9d, senses from Wiktionary's translation tables show the English sense as a hint before the native words
   - External dictionary links: Cambridge / Wiktionary / Reverso / WordReference (each can be turned on/off in settings; **users cannot add their own dictionary URLs**)
-  - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there). On a page the list has every sentence with the term, the clicked one included, as in the mock; clicking one scrolls to it
+  - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there). In a video's list the term is marked in each line with its category's highlight (as in the transcript, shown even when that category's highlight is switched off; each part of a phrase with a gap). On a page the list has every sentence with the term, the clicked one included, as in the mock; clicking one scrolls to it
   - "Seen elsewhere": occurrences in other sources. For unsaved words, explain that saving starts recording
 - **No "Ask AI" button (links to ChatGPT / Claude) in phase 1**
 
@@ -92,6 +92,7 @@ Development pair: learning language = English, native language = Japanese, sites
     - "Open all settings" (settings page)
 - Transcript
   - Each card shows the original with the translation below it. The playing card is emphasized and auto-scrolled; clicking a card seeks there
+  - Words in a card work as in the subtitle: hovering one shows its hover card, clicking it opens the dictionary window (no seek). The card goes when the list scrolls, and while it shows the playing card does not scroll the list
   - Each card is a **sentence**: subtitle cues that do not end a sentence (. ? ! … ♪, maybe before a closing quote) are joined with the next cue when it starts less than 1.5 s later, up to 3 cues and about 25 words. Sound labels ("[MUSIC]") stay alone; a cue starting with a speaker's dash ("- …") starts a card, and a cue with two speakers' lines ends one. The subtitle in the video still shows one cue at a time
   - Auto-generated (ASR) tracks come as rolling fragments with word timings, often without punctuation. With YouTube's auto-translation, the cards follow its sentences: YouTube translates whole sentences and spreads them over the fragments, so each sentence end in the translation (。！？, or . ! ? before a space; not inside brackets) marks the nearest likely boundary in the original (a sentence end, a speaker change ">>", a comma, a pause, or an English sentence starter such as "so" or "I"), and each card gets exactly the translated sentences between its ends. Without it, a sentence ends at . ? !, sound labels and ">>", plus pauses of 0.8 s in tracks without punctuation, up to 20 words (40 in punctuated tracks). In the video an ASR card shows as lines of at most 60 characters (30 for languages written without spaces), split where the halves balance best, preferring pauses and punctuation; the card's whole translation stays under each line
   - Header: "Highlight" category toggles and the transcript translation switch
