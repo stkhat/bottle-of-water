@@ -17,7 +17,7 @@ const pack = createEnglishPack({
   freq: en.freq,
   ipa: en.ipa,
   vocab: new Set(en.vocab),
-  phrases: new Set(en.phrases.detect),
+  patterns: en.phrases,
 });
 const classifier = createClassifier(pack);
 
@@ -61,6 +61,32 @@ describe("dictionary phrases over the generated packs", () => {
     });
     const phrases = spans.filter((s) => s.kind === "phrase");
     expect(phrases.map((s) => s.key)).toEqual(["give up", "from scratch"]);
+  });
+});
+
+describe("phrase patterns over the generated packs", () => {
+  const phrases = (text: string, terms: TermIndex = new Map()) =>
+    classifier
+      .classify(pack.tokenize(text), { terms, knownLevel: 3000 })
+      .filter((s) => s.kind === "phrase")
+      .map((s) => [text.slice(s.start, s.end), s.key, s.part?.index]);
+
+  it("detects a phrase with a word as written", () => {
+    expect(phrases("He spilled the beans.")).toEqual([
+      ["spilled the beans", "spill the beans", undefined],
+    ]);
+  });
+
+  it("matches saved phrases with slots and gaps", () => {
+    const terms: TermIndex = new Map([
+      ["make up one's mind", "learning"],
+      ["figure out", "known"],
+    ]);
+    expect(phrases("She made up her mind and figured it out.", terms)).toEqual([
+      ["made up her mind", "make up one's mind", undefined],
+      ["figured", "figure out", 0],
+      ["out", "figure out", 1],
+    ]);
   });
 });
 
@@ -144,7 +170,7 @@ describe("classifier over the generated Spanish pack", () => {
     freq: es.freq,
     ipa: es.ipa,
     vocab: new Set(es.vocab),
-    phrases: new Set(es.phrases.detect),
+    patterns: es.phrases,
   });
   const esClassifier = createClassifier(esPack);
   const classify = (text: string) =>

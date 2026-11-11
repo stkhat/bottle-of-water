@@ -24,11 +24,12 @@ export const TEST_PACKS: PackFiles = {
       ...["rise", "rose", "scratch", "the", "up", "yeast"],
     ],
     // Meanings: "figure out" in the English definitions, the others in the Japanese
-    // translations of phrases.
+    // translations of phrases. "figure out" is a phrasal verb: saved, it matches with a
+    // gap ("figure it out").
     phrases: {
       detect: ["figure out", "from scratch", "give up"],
       more: [],
-      gap: [],
+      gap: ["figure out"],
     },
   },
   "en-ja": {

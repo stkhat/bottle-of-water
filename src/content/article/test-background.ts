@@ -84,11 +84,14 @@ const DICT: Record<string, readonly [string, readonly string[]]> = {
 const vocab = [...new Set([...COMMON, ...DOUGH, ...RARE])].sort();
 for (const word of vocab) DICT[word] ??= [`${word}の訳`, [`${word}の訳`]];
 
-/** Dictionary phrases: "figure out" has an English definition, the others Japanese. */
+/**
+ * Dictionary phrases: "figure out" has an English definition, the others Japanese.
+ * "figure out" is a phrasal verb: saved, it matches with a gap ("figure it out").
+ */
 const PHRASES = {
   detect: ["figure out", "from scratch", "give up"],
   more: [],
-  gap: [],
+  gap: ["figure out"],
 };
 const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
   "from scratch": ["最初から", ["最初から", "ゼロから"]],

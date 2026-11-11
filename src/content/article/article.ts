@@ -22,6 +22,7 @@ import { createHighlighter, type Highlighter } from "./highlighter";
 import { watchInteractions } from "./interactions";
 import {
   createBlockIndex,
+  selectionKey,
   snapSelection,
   spanAtPoint,
   type Snapped,
@@ -138,8 +139,11 @@ export interface ArticleSession {
   stop(): void;
 }
 
-const surfaceOf = ({ block, span }: SpanRef) =>
-  collapseSpaces(block.text.slice(span.start, span.end));
+/** The term as written: the whole phrase for a part of a phrase with a gap. */
+const surfaceOf = ({ block, span }: SpanRef) => {
+  const { start, end } = span.part ?? span;
+  return collapseSpaces(block.text.slice(start, end));
+};
 
 const sameTerm = (span: Span, key: string, kind: TermKind) =>
   span.key === key && span.kind === kind;
@@ -528,7 +532,7 @@ export async function startArticle(
     await deps.send({
       type: "saveTerm",
       lang,
-      key: snapped.spans.map((s) => s.key).join(" "),
+      key: selectionKey(snapped),
       display: collapseSpaces(block.text.slice(start, end)),
       kind: "phrase",
       status,

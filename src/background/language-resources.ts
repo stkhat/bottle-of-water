@@ -61,15 +61,15 @@ function languagePack(lang: string, files: LanguagePackFiles): LanguagePack {
     freq: files.freq,
     ipa: files.ipa,
     vocab: new Set(files.vocab),
-    phrases: new Set(files.phrases.detect),
+    patterns: files.phrases,
   };
   return createLanguagePack(lang, data);
 }
 
 /**
  * The learning languages. Each pack (and so `analyze`) needs only its language's pack,
- * whose vocabulary is its dictionary's single-word headwords and whose phrases are
- * detected in text.
+ * whose vocabulary is its dictionary's single-word headwords and whose phrase patterns
+ * are detected in text, or matched when saved or selected.
  */
 const LANGUAGE_PACKS: Readonly<Record<string, Recipe<LanguagePack>>> = {
   en: recipe(["en"], ({ en }) => languagePack("en", en)),

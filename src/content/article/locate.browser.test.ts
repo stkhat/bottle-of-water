@@ -3,6 +3,7 @@ import type { Span } from "../../core/classify";
 import { tokenize } from "../../core/text/tokenize";
 import {
   createBlockIndex,
+  selectionKey,
   snapSelection,
   spanAtPoint,
   type SpanMap,
@@ -217,6 +218,64 @@ describe("snapSelection", () => {
     expect(b.text.slice(snapped!.start, snapped!.end)).toBe(
       "rise and fall back",
     );
+  });
+
+  it("widens to every part of a saved phrase with a gap, counting each part's words", () => {
+    const { blocks, spans, index } = page("<p>a b c d e figure it out now</p>");
+    const b = blocks[0]!;
+    const at = (word: string) => b.text.indexOf(word);
+    const whole = { start: at("figure"), end: at("out") + "out".length };
+    const part = (word: string, i: number): Span => ({
+      start: at(word),
+      end: at(word) + word.length,
+      key: "figure out",
+      kind: "phrase",
+      category: "learning",
+      part: { index: i, count: 2, ...whole },
+    });
+    spans.set(
+      b,
+      spans.get(b)!.map((s) => {
+        const word = b.text.slice(s.start, s.end);
+        return word === "figure"
+          ? part(word, 0)
+          : word === "out"
+            ? part(word, 1)
+            : s;
+      }),
+    );
+
+    const snapped = snapSelection(select(b, "it", "now"), index, spans);
+    expect(b.text.slice(snapped!.start, snapped!.end)).toBe(
+      "figure it out now",
+    );
+    expect(snapped!.spans.map((s) => s.key)).toEqual([
+      "figure out",
+      "it",
+      "figure out",
+      "now",
+    ]);
+    expect(selectionKey(snapped!)).toBe("figure it out now");
+
+    const start = at("figure");
+    const fromFigure = snapSelection(
+      partial(b, start + 2, at("it") + 1),
+      index,
+      spans,
+    );
+    expect(b.text.slice(fromFigure!.start, fromFigure!.end)).toBe(
+      "figure it out",
+    );
+    // "a" … "out" is 8 words; "a" … "now" is 9.
+    expect(snapSelection(select(b, "a", "out"), index, spans)).toBeDefined();
+    expect(snapSelection(select(b, "a", "now"), index, spans)).toBeUndefined();
+  });
+
+  it("keys a selection by its words' keys", () => {
+    const { blocks, spans, index } = page(html);
+    const b = blocks[0]!;
+    const snapped = snapSelection(select(b, "rise", "fall"), index, spans);
+    expect(selectionKey(snapped!)).toBe("rise and fall");
   });
 
   it("rejects selections across blocks or across punctuation", () => {

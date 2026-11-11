@@ -183,7 +183,7 @@ describe("generated Spanish pack and es-en dictionary", () => {
     freq: es.freq,
     ipa: es.ipa,
     vocab: new Set(es.vocab),
-    phrases: new Set(es.phrases.detect),
+    patterns: es.phrases,
   });
   const dictionary = createDefsDictionary({
     from: "es",

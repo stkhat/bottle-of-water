@@ -36,6 +36,10 @@ const pack = createEnglishPack({
     better: ["good", "well"],
     lives: ["life", "live"],
     gave: "give",
+    made: "make",
+    spilled: "spill",
+    // Only "bean" is in the vocabulary: `spill the beans` matches "beans" as written.
+    beans: "bean",
   },
   freq,
   ipa: {},
@@ -43,9 +47,22 @@ const pack = createEnglishPack({
     ...freq,
     ...["better", "yeast", "a", "i"],
     ...["give", "from", "scratch", "it", "we", "start"],
+    ...["make", "mind", "spill", "bean"],
   ]),
-  // Dictionary phrases, detected without being saved.
-  phrases: new Set(["figure out", "from scratch", "give up", "give up on"]),
+  patterns: {
+    // Dictionary phrases, detected without being saved.
+    detect: [
+      "figure out",
+      "from scratch",
+      "give up",
+      "give up on",
+      "spill the beans",
+    ],
+    // Matched only when saved.
+    more: ["make up one's mind"],
+    // Phrasal verbs: saved, they match with words between their parts.
+    gap: ["figure out"],
+  },
 });
 const classifier = createClassifier(pack);
 
@@ -142,7 +159,7 @@ describe("classify words", () => {
       freq: ["don't"],
       ipa: {},
       vocab: new Set(["don't"]),
-      phrases: new Set(),
+      patterns: { detect: [], more: [], gap: [] },
     });
     const spans = createClassifier(pack2).classify(pack2.tokenize("Don’t"), {
       terms: terms(),
@@ -220,6 +237,102 @@ describe("classify phrases", () => {
   });
 });
 
+describe("classify phrases with slots and gaps", () => {
+  it("matches a saved phrase with a slot as one span", () => {
+    expect(
+      classify("She made up his mind.", { "make up one's mind": "learning" }),
+    ).toContainEqual({
+      start: 4,
+      end: 20,
+      key: "make up one's mind",
+      kind: "phrase",
+      category: "learning",
+      text: "made up his mind",
+    });
+  });
+
+  it("does not detect a pattern that is matched only when saved", () => {
+    expect(brief(classify("made up his mind"))).toEqual([
+      "made:make:new",
+      "up:up:known",
+      "his:his:ignored",
+      "mind:mind:new",
+    ]);
+  });
+
+  it("splits a saved phrase with a gap into parts, and the gap keeps its words", () => {
+    const whole = { start: 0, end: 13 };
+    expect(classify("figure it out", { "figure out": "learning" })).toEqual([
+      {
+        start: 0,
+        end: 6,
+        key: "figure out",
+        kind: "phrase",
+        category: "learning",
+        part: { index: 0, count: 2, ...whole },
+        text: "figure",
+      },
+      {
+        start: 7,
+        end: 9,
+        key: "it",
+        kind: "word",
+        category: "new",
+        text: "it",
+      },
+      {
+        start: 10,
+        end: 13,
+        key: "figure out",
+        kind: "phrase",
+        category: "learning",
+        part: { index: 1, count: 2, ...whole },
+        text: "out",
+      },
+    ]);
+  });
+
+  it("classifies the words in a gap as words, saved ones included", () => {
+    expect(
+      brief(
+        classify("We figured the dough out, then gave up", {
+          "figure out": "known",
+          dough: "learning",
+        }),
+      ),
+    ).toEqual([
+      "We:we:new",
+      "figured:figure out:known",
+      "the:the:known",
+      "dough:dough:learning",
+      "out:figure out:known",
+      "then:then:ignored",
+      "gave up:give up:new",
+    ]);
+  });
+
+  it("gives a saved phrase with a gap of no words one span", () => {
+    expect(classify("figured out", { "figure out": "learning" })).toEqual([
+      {
+        start: 0,
+        end: 11,
+        key: "figure out",
+        kind: "phrase",
+        category: "learning",
+        text: "figured out",
+      },
+    ]);
+  });
+
+  it("matches a saved phrase with a gap only when the pack flags it as one", () => {
+    expect(brief(classify("gave it up", { "give up": "learning" }))).toEqual([
+      "gave:give:new",
+      "it:it:new",
+      "up:up:known",
+    ]);
+  });
+});
+
 describe("classify dictionary phrases", () => {
   it("detects an unsaved dictionary phrase as new", () => {
     expect(classify("We start from scratch")).toContainEqual({
@@ -255,6 +368,18 @@ describe("classify dictionary phrases", () => {
     ]);
   });
 
+  it("matches a dictionary phrase's words as written or as base forms", () => {
+    expect(brief(classify("He spilled the beans"))).toEqual([
+      "He:he:ignored",
+      "spilled the beans:spill the beans:new",
+    ]);
+    expect(brief(classify("spill the bean"))).toEqual([
+      "spill:spill:new",
+      "the:the:known",
+      "bean:bean:new",
+    ]);
+  });
+
   it("gives the words inside a detected phrase no spans, even saved known ones", () => {
     expect(brief(classify("from scratch", { scratch: "known" }))).toEqual([
       "from scratch:from scratch:new",
@@ -282,7 +407,7 @@ describe("classify dictionary phrases", () => {
     ).toEqual(["gave up:give up:known"]);
   });
 
-  it("does not match a dictionary phrase with a word between its words", () => {
+  it("does not match a dictionary phrase with a word between its words, even a phrasal verb", () => {
     expect(brief(classify("figure it out"))).toEqual([
       "figure:figure:new",
       "it:it:new",

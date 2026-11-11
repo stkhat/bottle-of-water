@@ -261,6 +261,18 @@ describe("gaps", () => {
     expect(find("We figure, it out.", "select")).toBeUndefined();
   });
 
+  it("does not skip a conjunction or a subject, which start another clause", () => {
+    expect(find("I figure and we find out.", "select")?.key).not.toBe(
+      "figure out",
+    );
+    expect(find("I figure we'll find out.", "select")?.key).not.toBe(
+      "figure out",
+    );
+    expect(find("I figure they find out.", "select")?.key).not.toBe(
+      "figure out",
+    );
+  });
+
   it("matches a gap pattern without a gap", () => {
     expect(find("We figured out.", "select")?.key).toBe("figure out");
   });

@@ -52,4 +52,13 @@ export const ENGLISH_RULES: PhraseRules = {
     ].map((word) => `${word}'s`),
   ),
   maxGap: 3,
+  gapStop: new Set([
+    ...["and", "or", "but", "so", "because", "if", "then", "than", "as"],
+    ...["that", "which", "who", "whom", "whose", "when", "where", "while"],
+    ...["since", "until", "though", "although", "unless", "whether"],
+    ...["i", "we", "he", "she", "they"],
+    ...["i'm", "i'll", "i've", "i'd", "we're", "we'll", "we've", "we'd"],
+    ...["he's", "he'll", "he'd", "she's", "she'll", "she'd"],
+    ...["they're", "they'll", "they've", "they'd", "it's", "it'll"],
+  ]),
 };

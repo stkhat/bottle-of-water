@@ -14,6 +14,11 @@ export interface PhraseRules {
   readonly notPossessive?: ReadonlySet<string>;
   /** Words a gap pattern may have after its first word ("figure it out"). */
   readonly maxGap: number;
+  /**
+   * Words that end a gap: a conjunction or a subject starts another clause, so "lock
+   * file and kept in" is not `lock in` and "figure we'll find out" is not `figure out`.
+   */
+  readonly gapStop?: ReadonlySet<string>;
 }
 
 /**

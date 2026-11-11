@@ -779,6 +779,13 @@ describe("handlers: recordHistory", () => {
     expect(store.termIndex).toHaveBeenLastCalledWith("en");
   });
 
+  it("indexes a saved phrase with a gap once", async () => {
+    store.termIndex.mockResolvedValue(new Map([["figure out", "learning"]]));
+    expect(await recordedKeys(["They figure it out."])).toEqual([
+      ["en:figure", "en:out", "en:figure out"],
+    ]);
+  });
+
   it("gives each key once per sentence", async () => {
     expect(await recordedKeys(["Yeast, yeast and more yeast."])).toEqual([
       ["en:yeast"],

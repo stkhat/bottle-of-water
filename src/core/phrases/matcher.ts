@@ -95,6 +95,8 @@ export interface PhraseMatcher {
   ): PhraseMatch | undefined;
 }
 
+const NO_SLOTS: readonly string[] = [];
+
 /** Follows a gap pattern's first word in a trie: its next word may come after a gap. */
 const GAP = "\u0000";
 
@@ -110,6 +112,8 @@ interface Trie {
   readonly ends: ReadonlyMap<string, readonly string[]>;
   /** Whether the rules' slot words are slots; otherwise every word is literal. */
   readonly slots: boolean;
+  /** The first words of the patterns with a gap. */
+  readonly gapStarts: ReadonlySet<string>;
 }
 
 /** Patterns of two words or more. */
@@ -120,10 +124,13 @@ function buildTrie(
 ): Trie {
   const nodes = new Set<string>();
   const ends = new Map<string, string[]>();
+  const gapStarts = new Set<string>();
   for (const key of keys) {
+    if (!key.includes(" ")) continue;
     const { words } = parsePattern(key, rules);
-    if (words.length < 2) continue;
-    let node = words[0]!.text + (hasGap(key) ? GAP : "");
+    const gap = hasGap(key);
+    if (gap) gapStarts.add(words[0]!.text);
+    let node = words[0]!.text + (gap ? GAP : "");
     nodes.add(node);
     for (const word of words.slice(1)) {
       node += ` ${word.text}`;
@@ -133,7 +140,7 @@ function buildTrie(
     if (keysHere) keysHere.push(key);
     else ends.set(node, [key]);
   }
-  return { nodes, ends, slots: rules.slots.size > 0 };
+  return { nodes, ends, slots: rules.slots.size > 0, gapStarts };
 }
 
 const range = (match: PhraseMatch) => match.words.at(-1)! - match.words[0]!;
@@ -180,30 +187,42 @@ export function createPhraseMatcher({
   let select: Trie | undefined;
   const saved = new WeakMap<SavedKeys, Trie>();
 
-  const slotsFilledBy = (form: string) =>
-    [...rules.slots]
-      .filter(
-        ([slot, fillers]) =>
-          form === slot ||
-          fillers.has(form) ||
-          (slot === rules.possessiveSlot &&
-            form.endsWith("'s") &&
-            !rules.notPossessive?.has(form)),
-      )
-      .map(([slot]) => slot);
+  // Prepared for every word of every block: the slots each slot word and filler fills,
+  // in the rules' order, looked up once.
+  const slotNames = [...rules.slots.keys()];
+  const fillerSlots = new Map<string, string[]>();
+  for (const [slot, fillers] of rules.slots)
+    for (const word of [slot, ...fillers]) {
+      const slots = fillerSlots.get(word);
+      if (!slots) fillerSlots.set(word, [slot]);
+      else if (!slots.includes(slot)) slots.push(slot);
+    }
+
+  const slotsFilledBy = (form: string): readonly string[] => {
+    const slots = fillerSlots.get(form) ?? NO_SLOTS;
+    const possessive = rules.possessiveSlot;
+    if (
+      possessive === undefined ||
+      slots.includes(possessive) ||
+      !form.endsWith("'s") ||
+      rules.notPossessive?.has(form)
+    )
+      return slots;
+    return slotNames.filter(
+      (slot) => slot === possessive || slots.includes(slot),
+    );
+  };
+
+  const isSlot = (form: string) => rules.slots.has(form);
 
   /**
-   * Calls `visit` with each trie word the word can stand for: its forms, and with
-   * slots, the slots it fills instead of the slot words as literals.
+   * The trie words a word can stand for: its forms, and with slots, the slots it fills
+   * instead of the slot words as literals.
    */
-  function eachStep(
-    trie: Trie,
-    word: MatchWord,
-    visit: (step: string) => void,
-  ) {
-    for (const form of word.forms)
-      if (!trie.slots || !rules.slots.has(form)) visit(form);
-    if (trie.slots) for (const slot of word.slots) visit(slot);
+  function stepsOf(trie: Trie, word: MatchWord): readonly string[] {
+    if (!trie.slots || (word.slots.length === 0 && !word.forms.some(isSlot)))
+      return word.forms;
+    return [...word.forms.filter((form) => !isSlot(form)), ...word.slots];
   }
 
   /** Collects the patterns ending at `node` and below it, matching from word `j`. */
@@ -219,11 +238,11 @@ export function createPhraseMatcher({
     if (keys) for (const key of keys) out.push({ key, words: path });
     // Also stops after the last word, which is never joined.
     if (!input.joined[j - 1]) return;
-    eachStep(trie, input.words[j]!, (step) => {
+    for (const step of stepsOf(trie, input.words[j]!)) {
       const child = `${node} ${step}`;
       if (trie.nodes.has(child))
         walk(trie, input, child, j + 1, [...path, j], out);
-    });
+    }
   }
 
   function trieFor(mode: MatchMode, keys?: SavedKeys): Trie | undefined {
@@ -252,17 +271,17 @@ export function createPhraseMatcher({
     const trie = trieFor(mode, keys);
     const word = input.words[i];
     const out: PhraseMatch[] = [];
-    if (!trie || !word) return out;
-    eachStep(trie, word, (first) => {
+    if (!trie || !word || trie.nodes.size === 0) return out;
+    for (const first of stepsOf(trie, word)) {
       if (trie.nodes.has(first)) walk(trie, input, first, i + 1, [i], out);
-      const gap = first + GAP;
-      if (!trie.nodes.has(gap)) return;
+      if (!trie.gapStarts.has(first)) continue;
       // Skip 0 to maxGap words after the first word, each joined by whitespace only.
       for (let skip = 0; skip <= rules.maxGap; skip++) {
         if (skip > 0 && !input.joined[i + skip - 1]) break;
-        walk(trie, input, gap, i + 1 + skip, [i], out);
+        if (skip > 0 && rules.gapStop?.has(input.words[i + skip]!.form)) break;
+        walk(trie, input, first + GAP, i + 1 + skip, [i], out);
       }
-    });
+    }
     return out;
   }
 
@@ -288,7 +307,13 @@ export function createPhraseMatcher({
             token,
             form,
             bases,
-            forms: [...new Set([form, ...bases])],
+            // Most words are their only base form, or unknown.
+            forms:
+              bases.length === 0
+                ? [form]
+                : bases.length === 1 && bases[0] === form
+                  ? bases
+                  : [...new Set([form, ...bases])],
             slots: slotsFilledBy(form),
           });
           spaceOnly = true;

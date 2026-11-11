@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEnglishPack, createLanguagePack } from "./language-pack";
+import { ENGLISH_RULES } from "./phrases/en";
+import { SPANISH_RULES } from "./phrases/es";
 
 const pack = createEnglishPack({
   lemmas: { loaves: "loaf", figured: "figure", better: ["good", "well"] },
@@ -15,7 +17,11 @@ const pack = createEnglishPack({
     "out",
     "loaf",
   ]),
-  phrases: new Set(["figure out"]),
+  patterns: {
+    detect: ["figure out"],
+    more: ["make up one's mind"],
+    gap: ["figure out"],
+  },
 });
 
 describe("createEnglishPack", () => {
@@ -23,8 +29,22 @@ describe("createEnglishPack", () => {
     expect(pack.lang).toBe("en");
   });
 
-  it("has the dictionary phrases", () => {
-    expect(pack.phrases.has("figure out")).toBe(true);
+  it("has the dictionary's phrase patterns, and the ones to detect as a set", () => {
+    expect(pack.patterns.more).toEqual(["make up one's mind"]);
+    expect([...pack.phrases]).toEqual(["figure out"]);
+  });
+
+  it("has the English phrase rules", () => {
+    expect(pack.rules).toBe(ENGLISH_RULES);
+  });
+
+  it("has one phrase matcher, over its patterns and base forms", () => {
+    expect(pack.matcher).toBe(pack.matcher);
+    const input = pack.matcher.prepare(pack.tokenize("you figured it out"));
+    expect(
+      pack.matcher.longestAt(input, 1, "saved", new Set(["figure out"])),
+    ).toEqual({ key: "figure out", words: [1, 3] });
+    expect(pack.matcher.longestAt(input, 1, "detect")).toBeUndefined();
   });
 
   it("gives the base forms of a word", () => {
@@ -60,7 +80,7 @@ describe("createLanguagePack", () => {
     freq: ["de", "para", "comer"],
     ipa: { a: "/a/", comer: "/koˈmeɾ/", escondidas: "/eskonˈdidas/" },
     vocab: new Set(["a", "casa", "casar", "comer", "de", "escondidas"]),
-    phrases: new Set(["a escondidas"]),
+    patterns: { detect: ["a escondidas"], more: [], gap: [] },
   });
 
   it("is the pack of the language it is given", () => {
@@ -95,7 +115,19 @@ describe("createLanguagePack", () => {
     expect(es.ipa("a escondidas")).toBe("/a eskonˈdidas/");
   });
 
-  it("has the dictionary phrases", () => {
+  it("has the dictionary phrases and the language's phrase rules", () => {
     expect([...es.phrases]).toEqual(["a escondidas"]);
+    expect(es.rules).toBe(SPANISH_RULES);
+  });
+
+  it("has no slots or gaps for a language without phrase rules", () => {
+    const xx = createLanguagePack("xx", {
+      lemmas: {},
+      freq: [],
+      ipa: {},
+      vocab: new Set(),
+      patterns: { detect: [], more: [], gap: [] },
+    });
+    expect(xx.rules).toEqual({ slots: new Map(), maxGap: 0 });
   });
 });
