@@ -11,6 +11,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Small fixes (2026-11-11, branch `claude/minor-fixes-e54cb2`): green "L" toolbar icon (the manifest had none, so Chrome drew a gray letter), one gear icon for "open settings", and a theme setting (System / Light / Dark, default System) that covers every Lingo UI; dark palette in the spec's "Shared: theme"
 
+- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted in draft PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs). M9a phrase patterns on `feat/phrase-patterns` (draft PR #20, [plan](plans/2026-11-11-m9a-phrase-patterns.md)): data, matcher, classifier and saving selections under the pattern key are built; the phrase bar's new look waits for the mock review (artboards PhraseMeaning, TranslatedSenses, LanguageData)
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
@@ -44,6 +45,12 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - Production builds use closed shadow roots, so E2E drives the page UI on the check build only
 - YouTube ASR: in stretches where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts); a card can then hold a long run-on (up to ~70 words), shown as several lines. Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma
 
+## Known issues and open points (M9)
+- Phrase gaps: a saved phrasal verb may match words that do not belong together (up to three words between its parts; a conjunction or a subject ends the gap, but there is no part-of-speech check)
+- A phrase saved before M9a whose key happens to contain a slot word ("someone else") now also matches the slot's fillers ("him else")
+- Phrases dropped only by the rank thresholds ("see you later", "in it") are in neither `detect` nor `more`, so a selection cannot match them
+- Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
+
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
 - Trader / non-trader declaration, 2-Step Verification on the developer account
@@ -67,6 +74,7 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - IPA: 26,758 words; coverage over the frequency list: 16,719 of 19,089 base forms (87.6%)
 - Parts of speech: 39,436 words
 - Phrases (M8a, 2026-11-10): 16,384 phrases (5,240 from EJDict, 11,385 from kaikki, some in both); meanings from EJDict 5,240, Wiktionary Japanese translations 725, English definitions 10,419. `en/phrases.json` 0.27 MB, `en-ja/phrases.json` 0.05 MB, `en-defs/dict-1.json` 1.90 MB; all pack files 12.67 MB. Classifying ~1,400 words takes ~0.4 ms. Chrome zip 3.9 MB (phase 1: ~3 MB)
+- Phrase patterns (M9a, 2026-11-11): English 19,932 patterns — 18,327 detect (all 16,384 earlier phrases kept; +1,943 with inflected words such as "spill the beans"), 1,605 more (1,432 with a slot: one's 899, someone's 272, someone 168, oneself 94, something 37; 173 starting with be/have/do), 4,725 gap (phrasal verbs). Meanings: EJDict 5,737, Wiktionary Japanese translations 901, English definitions 13,294, none 0. Spanish 2,467 detect, 3 more. `en/phrases.json` 0.41 MB, `en-defs` 2.00 + 0.41 MB; all pack files 19.87 MB. Classifying a 27,000-word corpus takes ~13 ms (unchanged), ~15 ms with 375 saved phrases (+20%)
 - Spanish (M8b, 2026-11-10; kaikki Spanish dump, Wiktionary "Frequency lists/Spanish/Mixed 730K", first 150,000 list entries): vocabulary 33,812 words (proper-noun-only entries left out), lemma entries 53,007, IPA 29,595 words (93.9% of the top 20,000 bases; Castilian pronunciation), es-en dictionary 35,438 terms, 1,626 phrases. `es/` 3.0 MB, `es-en/` 3.4 MB in 2 shards; all pack files 19.1 MB; Chrome zip 5.5 MB. Building the es pack and classifier ~29 ms in Node (en ~44 ms)
 - Sizes (phase 1): `en/` 3.8 MB (lemmas 1.25, ipa 0.79, freq 0.21, pos 1.04, vocab 0.48), `en-ja/` 6.7 MB in 4 shards; total 10.45 MB, about 3 MB zipped. Every file stays under 4 MB (`scripts/data/pack-sizes.test.ts`; AMO rejects text files over 5 MB)
 - Performance: first `analyze` after a service-worker start ~80–125 ms (loads `en`), later calls 5–25 ms; the dictionary loads right after the first `analyze` (`warmDictionary`)
