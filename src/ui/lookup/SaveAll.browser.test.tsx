@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { palettes } from "../theme";
+import { ThemeScope } from "../ThemeScope";
 import { SaveAll, type SaveAllProps } from "./SaveAll";
 import { addPageStyle, cleanUpMounts, mountInShadowRoot } from "./testing";
 
@@ -115,4 +117,37 @@ describe("SaveAll", () => {
     expect(getComputedStyle(line).color).toBe("rgb(58, 64, 86)");
     expect(getComputedStyle(line).fontSize).toBe("13px");
   });
+
+  const rgb = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`;
+  };
+  const colorsOf = (el: Element) => {
+    const style = getComputedStyle(el);
+    return { text: style.color, background: style.backgroundColor };
+  };
+
+  test.each(["light", "dark"] as const)(
+    "the buttons follow the %s theme",
+    async (theme) => {
+      const palette = palettes[theme];
+      const screen = await mountInShadowRoot(
+        <ThemeScope theme={theme}>
+          <SaveAll {...popup} />
+        </ThemeScope>,
+      );
+      const learning = screen.getByRole("button", {
+        name: "Mark all as Learning",
+      });
+      const known = screen.getByRole("button", { name: "Mark all as Known" });
+      expect(colorsOf(learning.element())).toEqual({
+        text: rgb(palette.greenDark),
+        background: rgb(palette.card),
+      });
+      expect(colorsOf(known.element())).toEqual({
+        text: rgb(palette.onInk),
+        background: rgb(palette.ink),
+      });
+    },
+  );
 });

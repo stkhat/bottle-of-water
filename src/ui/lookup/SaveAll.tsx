@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
-import { color, root, sectionHeading } from "./styles";
+import { color, root, sectionHeading, statusButton } from "./styles";
 
 export interface SaveAllProps {
   /** What is being saved: "This page" on an article, "This video" on a video site. */
@@ -110,9 +110,7 @@ export function SaveAll(props: SaveAllProps) {
             style={{
               height: "40px",
               borderRadius: "8px",
-              border: `1px solid ${color.greenLine}`,
-              background: color.white,
-              color: color.greenDark,
+              ...statusButton.learning(false),
               font: "inherit",
               fontSize: "13px",
               fontWeight: 600,
@@ -127,9 +125,7 @@ export function SaveAll(props: SaveAllProps) {
             style={{
               height: "40px",
               borderRadius: "8px",
-              border: `1px solid ${color.ink}`,
-              background: color.ink,
-              color: color.white,
+              ...statusButton.known(true),
               font: "inherit",
               fontSize: "13px",
               fontWeight: 600,
