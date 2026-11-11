@@ -25,7 +25,6 @@ export function netflixSubtitleBody(url: URL): string | undefined {
   return file ? readFileSync(path.join(FIXTURES, file), "utf8") : undefined;
 }
 
-/** The synthetic manifest's text. */
 export function fixtureManifest(): string {
   return readFileSync(path.join(FIXTURES, "manifest.json"), "utf8");
 }

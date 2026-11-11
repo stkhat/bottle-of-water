@@ -2,9 +2,6 @@
 
 Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left, in no fixed order; the user picks the next one.
 
-## Refactor (in progress)
-[2026-11-12-refactor.md](2026-11-12-refactor.md): one phase per session and PR.
-
 ## Phase 3 ([design](../specs/design.md) "Phases")
 - "Ask AI" links (ChatGPT / Claude with the word and sentence)
 - LLM explanations: Chrome's Prompt API first, the user's own API key as fallback; cached per word + sentence

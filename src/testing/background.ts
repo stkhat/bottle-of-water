@@ -280,7 +280,6 @@ export function testBackground(
       settings = mergeSettings(patch, settings);
       settingsWatchers.emit(settings);
     },
-    /** How many times the options page was opened. */
     optionsOpened: () => optionsOpened,
     /**
      * `watchPackState`: the states a moment later (as storage.local is read, and
@@ -306,9 +305,7 @@ export function testBackground(
         if (packUsable(state)) missing.delete(pack);
       for (const listener of [...packListeners]) listener(states);
     },
-    /** How many listeners watch the pack states. */
     packWatchers: () => packListeners.size,
-    /** How many times `retryPacks` was asked. */
     retries: () => retries,
     async close() {
       db.close();

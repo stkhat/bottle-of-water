@@ -18,6 +18,7 @@ import {
 } from "./fixtures";
 import {
   highlighted,
+  ON_TIME,
   openArticle,
   pointOn,
   saveTerm,
@@ -30,8 +31,6 @@ import {
   routeYouTube,
 } from "./sites";
 
-/** A transcript card's time, top left: the words in a card open the dictionary instead. */
-const ON_TIME = { x: 16, y: 12 };
 const dictionary = (page: Page) =>
   page.getByRole("complementary", { name: en["dict.title"] });
 

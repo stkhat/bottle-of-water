@@ -3,7 +3,7 @@ import type { WordStatus } from "../../core/classify";
 import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
 import { keepOpen } from "../keep-open";
-import { color } from "../styles";
+import { color, toggleChip } from "../styles";
 import { termStyle } from "./terms";
 
 type Style = CSSProperties;
@@ -38,32 +38,6 @@ const FILTERS: readonly { id: WordsFilter; label: MessageKey }[] = [
   { id: "known", label: "status.known" },
 ];
 
-const CHIP: Style = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "6px",
-  height: "32px",
-  padding: "0 10px",
-  margin: 0,
-  borderRadius: "999px",
-  font: "inherit",
-  fontSize: "13px",
-  cursor: "pointer",
-};
-const CHIP_ON: Style = {
-  ...CHIP,
-  background: color.card,
-  color: color.ink,
-  border: `1px solid ${color.chipLine}`,
-  fontWeight: 600,
-};
-const CHIP_OFF: Style = {
-  ...CHIP,
-  background: "transparent",
-  color: color.ink3,
-  border: `1px dashed ${color.track}`,
-};
-
 /** "All 9 · New 3 · …": one chip pressed at a time. */
 export function WordsFilterChips(props: WordsFilterChipsProps) {
   return (
@@ -80,7 +54,7 @@ export function WordsFilterChips(props: WordsFilterChipsProps) {
             type="button"
             aria-pressed={pressed}
             onClick={() => props.onFilter(id)}
-            style={pressed ? CHIP_ON : CHIP_OFF}
+            style={toggleChip(pressed, color.ink3)}
           >
             {t(label)}{" "}
             <span

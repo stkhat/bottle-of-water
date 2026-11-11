@@ -1,8 +1,8 @@
 import type { TranslationProvider } from "./translator";
 
 /**
- * Who waits for a translation, the most urgent first (architecture.md: "Definitions translated at display time"): the
- * playing subtitle line, the dictionary window, the hover card.
+ * Who waits for a translation, the most urgent first: the playing subtitle line, the
+ * dictionary window, the hover card (architecture.md: "Definitions translated at display time").
  */
 export type TranslationPriority = "subtitle" | "window" | "hover";
 

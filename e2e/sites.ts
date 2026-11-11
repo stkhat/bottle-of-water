@@ -57,8 +57,7 @@ export const NETFLIX_WATCH = `https://www.netflix.com/watch/${FIXTURE_MOVIE_ID}?
 /**
  * Serves youtube.com from fixtures: the watch-page skeleton (with Trusted Types
  * enforced, as on the real site), a local 140-second video (the recorded captions end
- * at 2:15), the recorded /api/timedtext answers, and a fake player API. Nothing
- * reaches the real site.
+ * at 2:15), the recorded /api/timedtext answers, and a fake player API.
  */
 export async function routeYouTube(context: BrowserContext) {
   await context.route("https://www.youtube.com/**", (route) =>
@@ -102,8 +101,7 @@ export async function routeYouTube(context: BrowserContext) {
 /**
  * Serves netflix.com from the synthetic fixtures: the watch-page skeleton, the local
  * 140-second clip, the subtitle files on a CDN host (cross-origin, with CORS like
- * Netflix's), and a fake player that parses the synthetic manifest. Nothing reaches
- * the real site.
+ * Netflix's), and a fake player that parses the synthetic manifest.
  */
 export async function routeNetflix(context: BrowserContext) {
   await context.route("https://www.netflix.com/**", (route) =>

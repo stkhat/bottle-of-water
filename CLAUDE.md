@@ -5,7 +5,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 
 ## Read first
 1. **Status and next steps**: [docs/status.md](docs/status.md); roadmap: [docs/plans/roadmap.md](docs/plans/roadmap.md)
-2. **Spec**: [design](docs/specs/design.md) (decisions, phases), [UI](docs/specs/ui.md) (follows the mock), [architecture](docs/specs/architecture.md). Read the part your task touches
+2. **Spec**: [design](docs/specs/design.md) (decisions, phases), [UI](docs/specs/ui.md) (follows the mock), [architecture](docs/specs/architecture.md) (parts, code layout, data, sync). Read the part your task touches
 3. **Testing policy**: [docs/testing.md](docs/testing.md)
 4. **Tooling, CI/CD, release**: [docs/development.md](docs/development.md)
 5. **UI mock (Claude Design)**: https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS
@@ -15,7 +15,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 
 ## Commands
 - `npm run dev`: dev build with reload
-- `npm run check`: typecheck, lint, format, CLAUDE.md line limit (150)
+- `npm run check`: typecheck, lint, format, dead code (knip), CLAUDE.md line limit (150)
 - `npm test`: unit tests; `npm run test:browser`: real-browser tests (`VITEST_BROWSERS=chromium` locally)
 - `npm run build`: production build; `npm run test:e2e:build`: build + Playwright E2E
 - `npm run verify`: everything above, terse (~1.5 min). While iterating, run only the touched test files; run `verify` before every push (it must pass). GitHub CI adds Firefox only

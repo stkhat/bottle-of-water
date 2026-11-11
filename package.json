@@ -20,7 +20,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:claude-md",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:claude-md && npm run check:dead",
     "test": "vitest run --project unit",
     "test:browser": "vitest run --project browser",
     "test:manifest": "vitest run --project manifest",
@@ -43,7 +43,7 @@
     "data:stats": "node scripts/data/stats.ts",
     "data:publish": "node scripts/data/publish.ts",
     "prepare": "simple-git-hooks",
-    "check:dead": "knip --no-exit-code"
+    "check:dead": "knip"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

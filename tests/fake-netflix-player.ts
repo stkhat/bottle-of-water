@@ -37,7 +37,7 @@ export const FIXTURE_METADATA = {
 };
 
 /** What the fake records, on `window.lingoFakeNetflix.log`. */
-export interface FakeNetflixLog {
+interface FakeNetflixLog {
   seek: number[];
 }
 

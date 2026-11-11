@@ -1,6 +1,5 @@
 import type { Cue } from "./types";
 
-/** Anything with a start and an end (a cue, a subtitle line). */
 type Timed = Pick<Cue, "startMs" | "endMs">;
 
 /**
@@ -35,7 +34,6 @@ export function cueIndexAt(cues: readonly Timed[], ms: number): number {
   return ms < (cues[found] as Timed).endMs ? found : -1;
 }
 
-/** The cue playing at `ms`, if any. See {@link cueIndexAt}. */
 export function cueAt(cues: readonly Cue[], ms: number): Cue | undefined {
   const index = cueIndexAt(cues, ms);
   return index < 0 ? undefined : cues[index];
@@ -71,7 +69,6 @@ export interface SentenceCards {
 export interface SentenceOptions {
   /** A silence this long or longer ends a sentence (ms). */
   maxGapMs?: number;
-  /** The most cues in one card. */
   maxCues?: number;
   /** The most words in one card, roughly (a single cue may have more). */
   maxWords?: number;

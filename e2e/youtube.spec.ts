@@ -8,7 +8,7 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt } from "../src/core/subtitles/cues";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
 import { test, expect } from "./fixtures";
-import { showNewWords } from "./page";
+import { ON_TIME, showNewWords } from "./page";
 import { routeYouTube, YOUTUBE_WATCH } from "./sites";
 
 const subtitles = path.join(
@@ -35,10 +35,9 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
   const transcript = page.getByRole("complementary", {
     name: en["app.name"],
   });
-  // A card's time, top left: the words in a card open the dictionary instead.
   await transcript
     .getByRole("button", { name: LINE })
-    .click({ position: { x: 16, y: 12 } });
+    .click({ position: ON_TIME });
 
   const subtitle = page.locator("lingo-video-player").getByRole("region", {
     name: en["video.subtitle"],
