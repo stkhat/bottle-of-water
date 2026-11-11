@@ -287,11 +287,11 @@ describe("the Transcript tab", () => {
       <VideoPanel {...props} holdScroll />,
     );
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
-    screen.rerender(<VideoPanel {...props} holdScroll current={30} />);
+    await screen.rerender(<VideoPanel {...props} holdScroll current={30} />);
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(list.scrollTop).toBe(0);
     // Once the card goes, the next card brings the list along.
-    screen.rerender(<VideoPanel {...props} current={31} />);
+    await screen.rerender(<VideoPanel {...props} current={31} />);
     await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
   });
 
@@ -311,7 +311,7 @@ describe("the Transcript tab", () => {
     const screen = await mountInShadowRoot(<VideoPanel {...props} />);
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
     const pageScroll = scrollY;
-    screen.rerender(<VideoPanel {...props} current={30} />);
+    await screen.rerender(<VideoPanel {...props} current={30} />);
     await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
     const card = cards(screen)[30]!.getBoundingClientRect();
     const box = list.getBoundingClientRect();
@@ -342,12 +342,12 @@ describe("the Transcript tab", () => {
     const screen = await mountInShadowRoot(<VideoPanel {...props} />);
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
     list.dispatchEvent(new WheelEvent("wheel", { deltaY: 100 }));
-    screen.rerender(<VideoPanel {...props} current={30} />);
+    await screen.rerender(<VideoPanel {...props} current={30} />);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(list.scrollTop).toBe(0);
     // After the pause, the next card brings it back.
     await new Promise((resolve) => setTimeout(resolve, 300));
-    screen.rerender(<VideoPanel {...props} current={31} />);
+    await screen.rerender(<VideoPanel {...props} current={31} />);
     await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
   });
 });
@@ -410,7 +410,7 @@ describe("the tabs", () => {
     (transcript.element() as HTMLElement).focus();
     await userEvent.keyboard("{ArrowRight}");
     expect(onTab).toHaveBeenLastCalledWith("words");
-    screen.rerender(<VideoPanel {...base} tab="words" onTab={onTab} />);
+    await screen.rerender(<VideoPanel {...base} tab="words" onTab={onTab} />);
     expect(screen.container.getRootNode()).toBeInstanceOf(ShadowRoot);
     expect((screen.container.getRootNode() as ShadowRoot).activeElement).toBe(
       words.element(),
@@ -420,7 +420,9 @@ describe("the tabs", () => {
 
     await userEvent.keyboard("{ArrowLeft}");
     expect(onTab).toHaveBeenLastCalledWith("transcript");
-    screen.rerender(<VideoPanel {...base} tab="transcript" onTab={onTab} />);
+    await screen.rerender(
+      <VideoPanel {...base} tab="transcript" onTab={onTab} />,
+    );
     expect((screen.container.getRootNode() as ShadowRoot).activeElement).toBe(
       transcript.element(),
     );

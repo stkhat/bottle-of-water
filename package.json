@@ -41,7 +41,9 @@
     "data:freq": "node scripts/data/frequency.mjs",
     "data:es": "node scripts/data/es-frequency.mjs && node scripts/data/es-kaikki.mjs",
     "data:stats": "node scripts/data/stats.mjs",
-    "data:publish": "node scripts/data/publish.mjs"
+    "data:publish": "node scripts/data/publish.mjs",
+    "prepare": "simple-git-hooks",
+    "check:dead": "knip --no-exit-code"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -59,13 +61,40 @@
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.14.0",
+    "knip": "^6.45.1",
+    "lint-staged": "^17.6.0",
     "playwright": "^1.65.0",
     "prettier": "^3.9.10",
+    "simple-git-hooks": "^2.14.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0",
     "vitest-browser-preact": "^2.0.0",
     "web-ext": "^10.8.0",
     "wxt": "^0.21.5"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged",
+    "pre-push": "npm run check"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "prettier --write --ignore-unknown",
+      "eslint --fix --no-warn-ignored"
+    ],
+    "!(*.{ts,tsx,js,mjs,cjs})": "prettier --write --ignore-unknown"
+  },
+  "knip": {
+    "wxt": {
+      "entry": [
+        "src/entrypoints/**/*.{ts,tsx,html}",
+        "!src/entrypoints/**/*.test.{ts,tsx}"
+      ]
+    },
+    "entry": [
+      "scripts/format-hook.mjs",
+      "scripts/icons/make-icons.mjs",
+      "vitest.unit.config.ts"
+    ]
   }
 }

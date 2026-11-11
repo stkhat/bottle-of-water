@@ -74,7 +74,7 @@ function fakeApp(state: VideoState) {
     ["setFullscreen", vi.fn((on: boolean) => store.set({ fullscreen: on }))],
   ]);
   const app = new Proxy({ store } as unknown as VideoApp, {
-    get(target, name: string) {
+    get(_target, name: string) {
       if (name === "store") return store;
       let fn = calls.get(name);
       if (!fn) calls.set(name, (fn = vi.fn()));

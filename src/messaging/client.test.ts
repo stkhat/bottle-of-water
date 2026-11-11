@@ -1,3 +1,6 @@
+// sendMessage's typings include a callback overload that returns void, so a mock that
+// returns a promise trips no-misused-promises.
+/* eslint-disable @typescript-eslint/no-misused-promises */
 import {
   afterEach,
   beforeEach,

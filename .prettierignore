@@ -8,8 +8,10 @@ reports
 data/raw
 .stryker-tmp
 package-lock.json
-docs
 .claude
+# Prettier pads every table column and adds blank lines, growing the docs ~17%
+# (context sessions read). The docs keep their compact style by hand.
+docs
 CLAUDE.md
 .vitest
 e2e/pages

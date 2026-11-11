@@ -778,7 +778,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
       ? Math.min(100, Math.max(1, (history.bytes / history.cap) * 100))
       : 0;
   const clearHistory = () =>
-    deps.send({ type: "clearHistory" }).then(refreshHistory, warn);
+    void deps.send({ type: "clearHistory" }).then(refreshHistory, warn);
   const syncLine = !sync
     ? ""
     : !sync.enabled

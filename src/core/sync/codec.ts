@@ -48,7 +48,7 @@ const escapeKey = (key: string) =>
   key.replace(/[\\\t\n\r]/g, (c) => ESCAPES[c]!);
 
 function unescapeKey(key: string): string {
-  return key.replace(/\\(.)/g, (whole, c: string) => {
+  return key.replace(/\\(.)/g, (_whole, c: string) => {
     const char = UNESCAPES[c];
     if (char === undefined) throw damaged();
     return char;

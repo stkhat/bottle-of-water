@@ -2,6 +2,11 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "resolveJsonModule": true
