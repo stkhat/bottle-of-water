@@ -34,8 +34,10 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
     expect(manifest().manifest_version).toBe(3);
   });
 
-  test("requests only the storage permission", () => {
-    expect(manifest().permissions).toEqual(["storage"]);
+  // alarms (retrying language data downloads) adds no install warning, unlike host
+  // permissions: the mirrors send CORS headers, so downloads need none.
+  test("requests only the storage and alarms permissions", () => {
+    expect(manifest().permissions).toEqual(["storage", "alarms"]);
   });
 
   test("has the green toolbar icon in every size", () => {

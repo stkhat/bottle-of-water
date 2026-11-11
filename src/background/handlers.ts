@@ -2,7 +2,9 @@ import type { BrowserEnv } from "../core/browser-env";
 import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
 import { cleanDefinition, definitionTexts } from "../core/definitions";
 import type { DictionaryEntry } from "../core/dictionary";
-import { learningLanguages } from "../core/languages";
+import { learningLanguages, nativeLanguages } from "../core/languages";
+import type { PackLock } from "../core/packs/lock";
+import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
 import type { MatchWord } from "../core/phrases/matcher";
 import {
   hostBlocked,
@@ -23,7 +25,8 @@ import {
 } from "../messaging/protocol";
 import { historyKeys } from "./history-keys";
 import type { HistorySentence, HistoryStore } from "./history-store";
-import type { LanguageResources } from "./language-resources";
+import { packsFor, type LanguageResources } from "./language-resources";
+import type { PackStore } from "./pack-store";
 import {
   MAX_OCCURRENCES,
   termId,
@@ -49,6 +52,17 @@ export interface HandlerDeps {
     set(patch: SettingsPatch): Promise<Settings>;
   };
   resources: LanguageResources;
+  /** Downloaded language packs. */
+  packs: {
+    /** The lock this build uses: which packs are bundled, and their sizes. */
+    lock: PackLock;
+    store: Pick<PackStore, "states" | "downloaded" | "remove">;
+    /**
+     * Starts bringing the chosen pair's packs to their lock version (and schedules
+     * retries when that fails); does not wait for it.
+     */
+    retry(): void;
+  };
   sync: Pick<SyncBackend, "status">;
   env(): BrowserEnv;
   /** `runtime.openOptionsPage`. */
@@ -168,6 +182,24 @@ function isTranslationItem(item: unknown): item is TranslationItem {
   );
 }
 
+/** Bytes of a pack's files in the lock. */
+const lockSize = (lock: PackLock, pack: keyof PackLock["packs"]) =>
+  lock.packs[pack].files.reduce((sum, file) => sum + file.size, 0);
+
+/**
+ * The offered language pairs whose packs include `pack`, as translation pairs
+ * ("es>en"): removing the pack clears their machine translations.
+ */
+function pairsUsing(pack: string): string[] {
+  return learningLanguages().flatMap((learning) =>
+    nativeLanguages(learning)
+      .filter((native) =>
+        (packsFor(learning, native) as string[]).includes(pack),
+      )
+      .map((native) => translationPair(learning, native)),
+  );
+}
+
 function hostnameOf(url: string) {
   try {
     return new URL(url).hostname;
@@ -192,6 +224,7 @@ export function createHandlers({
   translations,
   settings,
   resources,
+  packs,
   sync,
   env,
   openOptionsPage,
@@ -250,7 +283,7 @@ export function createHandlers({
     },
 
     async analyze({ lang, blocks }) {
-      const [pack, classifier, terms, { knownLevel }] = await Promise.all([
+      const [pack, classifier, terms, { knownLevel }] = await allOf([
         resources.pack(lang),
         resources.classifier(lang),
         store.termIndex(lang),
@@ -288,7 +321,7 @@ export function createHandlers({
     async lookup({ lang, key, sourceUrl }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
-      const [dictionary, pack, terms, occurrences] = await Promise.all([
+      const [dictionary, pack, terms, occurrences] = await allOf([
         resources.dictionary(lang, nativeLang),
         resources.pack(lang),
         store.termIndex(lang),
@@ -369,7 +402,7 @@ export function createHandlers({
     listTerms: ({ lang }) => store.listTerms(lang),
     async listTermsWithStats({ lang }) {
       const { nativeLang } = await settings.get();
-      const [terms, stats, dictionary] = await Promise.all([
+      const [terms, stats, dictionary] = await allOf([
         store.listTerms(lang),
         store.occurrenceStats(lang),
         resources.dictionary(lang, nativeLang),
@@ -397,7 +430,7 @@ export function createHandlers({
 
     async termSummaries({ lang, terms }) {
       const { nativeLang } = await settings.get();
-      const [index, dictionary] = await Promise.all([
+      const [index, dictionary] = await allOf([
         store.termIndex(lang),
         resources.dictionary(lang, nativeLang),
       ]);
@@ -439,7 +472,7 @@ export function createHandlers({
         !learningLanguages().includes(source.lang)
       )
         return { kept: 0 };
-      const [pack, classifier, terms] = await Promise.all([
+      const [pack, classifier, terms] = await allOf([
         resources.pack(source.lang),
         resources.classifier(source.lang),
         store.termIndex(source.lang),
@@ -454,6 +487,50 @@ export function createHandlers({
     historyStatus: () => history.status(),
     clearHistory: async () => {
       await history.clear();
+      return null;
+    },
+
+    async packStatus() {
+      const { learningLang, nativeLang } = await settings.get();
+      const needed = packsFor(learningLang, nativeLang);
+      const downloaded = needed.filter(
+        (pack) => !packs.lock.packs[pack].bundled,
+      );
+      const [states, stored] = await Promise.all([
+        packs.store.states(downloaded),
+        packs.store.downloaded(),
+      ]);
+      return {
+        pair: {
+          bundled: downloaded.length === 0,
+          packs: downloaded.map((pack) => ({
+            pack,
+            size: lockSize(packs.lock, pack),
+            ...states[pack]!,
+          })),
+        },
+        others: stored
+          .filter(({ pack }) => !(needed as string[]).includes(pack))
+          .map(({ pack, size }) => ({ pack, size })),
+      };
+    },
+
+    async retryPacks() {
+      packs.retry();
+      return null;
+    },
+
+    async removePack({ pack }) {
+      if (typeof pack !== "string") throw new Error("No pack to remove");
+      const { learningLang, nativeLang } = await settings.get();
+      if ((packsFor(learningLang, nativeLang) as string[]).includes(pack))
+        throw new Error(`${pack} is used by the chosen languages`);
+      const stored = await packs.store.downloaded();
+      if (!stored.some((d) => d.pack === pack)) return null;
+      await packs.store.remove(pack);
+      await Promise.all(
+        pairsUsing(pack).map((pair) => translations.clearPair(pair)),
+      );
       return null;
     },
   };
@@ -471,6 +548,13 @@ export function createHandlers({
       ) => Promise<unknown>;
       return { ok: true, value: await handler(request, sender) };
     } catch (error) {
+      if (error instanceof PacksUnavailableError)
+        return {
+          ok: false,
+          error: error.message,
+          code: "packsUnavailable",
+          packs: error.packs,
+        };
       return { ok: false, error: errorText(error) };
     }
   };

@@ -184,4 +184,33 @@ describe("createPackLoader", () => {
     await expect(loadPack("en-ja")).rejects.toThrow("offline");
     expect(await loadPack("en-ja")).toEqual({ dict: DICT, phrases: PHRASES });
   });
+
+  it("reads a pack again after forget (its version switched), and keeps the others", async () => {
+    const fetchJson = stubFetch();
+    const loadPack = createPackLoader(fetchJson);
+    const before = await loadPack("es-en");
+    const es = await loadPack("es");
+    loadPack.forget("es-en");
+    const after = await loadPack("es-en");
+    expect(after).toEqual(before);
+    expect(after).not.toBe(before);
+    expect(await loadPack("es")).toBe(es);
+    expect(fetchJson).toHaveBeenCalledTimes(3 + 5 + 3);
+  });
+
+  it("keeps the new load when a load forgotten mid-way then fails", async () => {
+    let fail!: (error: Error) => void;
+    const fetchJson = stubFetch();
+    fetchJson.mockImplementationOnce(
+      () => new Promise((_, reject) => (fail = reject)),
+    );
+    const loadPack = createPackLoader(fetchJson);
+    const old = loadPack("es-en");
+    await vi.waitFor(() => expect(fail).toBeDefined());
+    loadPack.forget("es-en");
+    const fresh = await loadPack("es-en");
+    fail(new Error("offline"));
+    await expect(old).rejects.toThrow("offline");
+    expect(await loadPack("es-en")).toBe(fresh);
+  });
 });

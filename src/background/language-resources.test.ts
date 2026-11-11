@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { learningLanguages, nativeLanguages } from "../core/languages";
 import type { PackName } from "../core/packs/load";
-import { createLanguageResources } from "./language-resources";
+import { readLock } from "../core/packs/lock";
+import { PacksUnavailableError } from "../core/packs/unavailable";
+import { createLanguageResources, packsFor } from "./language-resources";
 import { filesRead, stubPackLoader as stubLoader } from "./test-packs";
+
+describe("packsFor", () => {
+  it("lists the language's pack, then the dictionary's other packs", () => {
+    expect(packsFor("en", "ja")).toEqual(["en", "en-ja", "en-defs"]);
+    expect(packsFor("es", "en")).toEqual(["es", "es-en"]);
+  });
+
+  it("lists what has a recipe of a pair Lingo does not offer", () => {
+    expect(packsFor("en", "fr")).toEqual(["en"]);
+    expect(packsFor("fr", "ja")).toEqual([]);
+    expect(packsFor("constructor", "toString")).toEqual([]);
+  });
+
+  it("names packs of the lock for every pair the settings offer", () => {
+    const { packs } = readLock();
+    for (const learning of learningLanguages())
+      for (const native of nativeLanguages(learning)) {
+        const needed = packsFor(learning, native);
+        expect(needed.length).toBeGreaterThan(1);
+        for (const pack of needed) expect(Object.keys(packs)).toContain(pack);
+      }
+  });
+});
 
 describe("createLanguageResources", () => {
   it("builds the English pack from the bundled packs, with their vocabulary", async () => {
@@ -126,6 +151,42 @@ describe("createLanguageResources", () => {
     expect((await resources.dictionary("en", "ja")).short("loaf")).toBe(
       "パンのひと塊",
     );
+  });
+
+  it("names every missing pack a resource needs", async () => {
+    const missing = new Set<PackName>(["es", "es-en"]);
+    const resources = createLanguageResources(stubLoader(new Set(), missing));
+    const dictionary = resources.dictionary("es", "en");
+    await expect(dictionary).rejects.toThrow(PacksUnavailableError);
+    await expect(dictionary).rejects.toMatchObject({ packs: ["es", "es-en"] });
+    await expect(resources.classifier("es")).rejects.toMatchObject({
+      packs: ["es"],
+    });
+    missing.delete("es");
+    expect((await resources.pack("es")).lang).toBe("es");
+    await expect(resources.dictionary("es", "en")).rejects.toMatchObject({
+      packs: ["es-en"],
+    });
+    missing.clear();
+    expect((await resources.dictionary("es", "en")).short("comer")).toBe(
+      "to eat",
+    );
+  });
+
+  it("builds again what used a pack it was told to forget, and keeps the rest", async () => {
+    const resources = createLanguageResources(stubLoader());
+    const pack = await resources.pack("es");
+    const classifier = await resources.classifier("es");
+    const dictionary = await resources.dictionary("es", "en");
+    const english = await resources.pack("en");
+    resources.forget("es-en");
+    expect(await resources.dictionary("es", "en")).not.toBe(dictionary);
+    expect(await resources.pack("es")).toBe(pack);
+    expect(await resources.classifier("es")).toBe(classifier);
+    resources.forget("es");
+    expect(await resources.pack("es")).not.toBe(pack);
+    expect(await resources.classifier("es")).not.toBe(classifier);
+    expect(await resources.pack("en")).toBe(english);
   });
 
   it("builds the Spanish pack from the es pack alone", async () => {

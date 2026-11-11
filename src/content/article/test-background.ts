@@ -2,6 +2,7 @@
 // dictionary) over a small stub pack, answering in-process instead of through messaging.
 import { createHandlers } from "../../background/handlers";
 import { createLanguageResources } from "../../background/language-resources";
+import { bundledPacks } from "../../background/test-packs";
 import { openLingoDb } from "../../background/db";
 import { createHistoryStore } from "../../background/history-store";
 import { createTermStore } from "../../background/term-store";
@@ -182,6 +183,7 @@ export function testBackground(initial: Partial<Settings> = {}) {
         return FILES[path];
       }),
     ),
+    packs: bundledPacks(),
     sync: {
       status: async () => ({
         enabled: false,

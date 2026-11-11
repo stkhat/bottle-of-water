@@ -11,6 +11,7 @@ import { browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { send } from "./client";
 import type { Counts } from "../background/term-store";
+import { PacksUnavailableError } from "../core/packs/unavailable";
 import type { AnalyzeResult, Reply } from "./protocol";
 
 beforeEach(() => fakeBrowser.reset());
@@ -43,6 +44,44 @@ describe("send", () => {
     await expect(
       send({ type: "setStatus", id: "en:dough", status: "known" }),
     ).rejects.toThrow(new Error("No saved term en:dough"));
+  });
+
+  it("throws a packsUnavailable reply as PacksUnavailableError with its packs", async () => {
+    answer(() => ({
+      ok: false,
+      error: "Language data not available: es, es-en",
+      code: "packsUnavailable",
+      packs: ["es", "es-en"],
+    }));
+    const lookup = send({
+      type: "lookup",
+      lang: "es",
+      key: "comer",
+      kind: "word",
+    });
+    await expect(lookup).rejects.toThrow(PacksUnavailableError);
+    await expect(lookup).rejects.toMatchObject({
+      packs: ["es", "es-en"],
+      message: "Language data not available: es, es-en",
+    });
+  });
+
+  it("asks again for the state of the language data, a retry and a removal when the service worker stopped", async () => {
+    answer(() => ({ ok: true, value: null }));
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    let calls = 0;
+    vi.spyOn(browser.runtime, "sendMessage").mockImplementation(((
+      message: unknown,
+    ) => {
+      calls++;
+      return calls % 2 === 1
+        ? Promise.reject(new Error(CLOSED))
+        : real(message);
+    }) as typeof browser.runtime.sendMessage);
+    await send({ type: "packStatus" });
+    await send({ type: "retryPacks" });
+    await send({ type: "removePack", pack: "es" });
+    expect(calls).toBe(6);
   });
 
   it("fails when nothing answers", async () => {

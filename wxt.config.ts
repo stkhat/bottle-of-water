@@ -50,7 +50,9 @@ export default defineConfig({
     name: "Lingo",
     version: pkg.version,
     description: "Learn languages on the videos and articles you already read.",
-    permissions: ["storage"],
+    // alarms: retries of language data downloads (src/background/pack-downloads.ts);
+    // it shows no warning at install in Chrome or Firefox.
+    permissions: ["storage", "alarms"],
     ...(browser === "firefox" && {
       browser_specific_settings: { gecko: { id: "lingo@stkhat" } },
     }),

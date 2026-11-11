@@ -1,4 +1,5 @@
 import { browser } from "wxt/browser";
+import { PacksUnavailableError } from "../core/packs/unavailable";
 import type { Reply, RequestOf, RequestType, ResponseOf } from "./protocol";
 
 const isReply = (value: unknown): value is Reply =>
@@ -56,6 +57,11 @@ const REPEATABLE: Record<RequestType, boolean> = {
   clearHistory: true,
   // Translations are kept by their text: a second request writes the same rows.
   cacheTranslations: true,
+  packStatus: true,
+  // A download in progress is joined, not started twice.
+  retryPacks: true,
+  // Removing a pack that is gone does nothing.
+  removePack: true,
 };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,7 +88,9 @@ async function sendMessage(request: { type: RequestType }): Promise<unknown> {
 
 /**
  * Sends a request to the background and resolves with its typed response. An error
- * reply is rethrown as an `Error` with the background's message.
+ * reply is rethrown as an `Error` with the background's message: a
+ * `PacksUnavailableError` naming the packs when the request needs language data that
+ * is not on the device yet (pages wait for `packState` to say they are ready).
  */
 export async function send<T extends RequestType>(
   request: { type: T } & RequestOf<T>,
@@ -90,6 +98,14 @@ export async function send<T extends RequestType>(
   const reply: unknown = await sendMessage(request);
   if (!isReply(reply))
     throw new Error(`No reply from the background to ${request.type}`);
-  if (!reply.ok) throw new Error(reply.error);
+  if (!reply.ok) {
+    if (reply.code === "packsUnavailable")
+      throw new PacksUnavailableError(
+        Array.isArray(reply.packs)
+          ? reply.packs.filter((pack) => typeof pack === "string")
+          : [],
+      );
+    throw new Error(reply.error);
+  }
   return reply.value as ResponseOf<T>;
 }

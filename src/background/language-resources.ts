@@ -10,6 +10,7 @@ import {
   type LanguagePackData,
 } from "../core/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
+import { allOf } from "../core/packs/unavailable";
 import type {
   FreqPack,
   IpaPack,
@@ -18,31 +19,46 @@ import type {
   VocabPack,
 } from "../core/packs/types";
 
-/** The language pack, classifier and dictionary of each language, built on first use. */
+/**
+ * The language pack, classifier and dictionary of each language, built on first use.
+ * A resource whose packs are not on the device rejects with `PacksUnavailableError`.
+ */
 export interface LanguageResources {
   pack(lang: string): Promise<LanguagePack>;
   classifier(lang: string): Promise<Classifier>;
   dictionary(from: string, to: string): Promise<DictionaryProvider>;
+  /** Drops every resource built from `pack` (its version switched or it was removed). */
+  forget(pack: string): void;
 }
 
-/** How a resource is built: it loads its bundled packs, then makes the resource of them. */
-type Recipe<T> = (loadPack: LoadPack) => Promise<T>;
+/** How a resource is built: it loads its packs, then makes the resource of them. */
+interface Recipe<T> {
+  readonly packs: readonly PackName[];
+  build(loadPack: LoadPack): Promise<T>;
+}
 
 type Loaded<P extends PackName> = { [K in P]: PackFiles[K] };
 
-/** A recipe that loads `packs` (and nothing else) and makes the resource of them. */
+/**
+ * A recipe that loads `packs` (and nothing else) and makes the resource of them. When
+ * packs are not on the device, it fails with one `PacksUnavailableError` naming all of
+ * them; any other failure comes through as it is.
+ */
 function recipe<P extends PackName, T>(
   packs: readonly P[],
   make: (files: Loaded<P>) => T,
 ): Recipe<T> {
-  return async (loadPack) => {
-    const files = {} as Loaded<P>;
-    await Promise.all(
-      packs.map(async (name) => {
-        files[name] = await loadPack(name);
-      }),
-    );
-    return make(files);
+  return {
+    packs,
+    async build(loadPack) {
+      const files = {} as Loaded<P>;
+      await allOf(
+        packs.map(async (name) => {
+          files[name] = await loadPack(name);
+        }),
+      );
+      return make(files);
+    },
   };
 }
 
@@ -104,44 +120,86 @@ const DICTIONARIES: Readonly<Record<string, Recipe<DictionaryProvider>>> = {
   ),
 };
 
+const languageRecipe = (lang: string) =>
+  Object.hasOwn(LANGUAGE_PACKS, lang) ? LANGUAGE_PACKS[lang] : undefined;
+
+const dictionaryRecipe = (from: string, to: string) => {
+  const pair = `${from}-${to}`;
+  return Object.hasOwn(DICTIONARIES, pair) ? DICTIONARIES[pair] : undefined;
+};
+
 /**
- * Resources built from the bundled packs, each once per context (the background's
- * service worker): nothing is loaded until a resource is first asked for, overlapping
- * calls share one build, and a failed build is forgotten so the next call tries again.
- * Languages and dictionaries without a recipe above are rejected.
+ * The packs a language pair needs: the learning language's pack, then the other packs
+ * of its dictionary into the native language. What has no recipe is left out (an
+ * unknown language or pair needs nothing).
+ */
+export function packsFor(learning: string, native: string): PackName[] {
+  return [
+    ...new Set([
+      ...(languageRecipe(learning)?.packs ?? []),
+      ...(dictionaryRecipe(learning, native)?.packs ?? []),
+    ]),
+  ];
+}
+
+/**
+ * Resources built from the packs, each once per context (the background's service
+ * worker) until a pack it was built from is forgotten: nothing is loaded until a
+ * resource is first asked for, overlapping calls share one build, and a failed build
+ * is forgotten so the next call tries again. Languages and dictionaries without a
+ * recipe above are rejected.
  */
 export function createLanguageResources(loadPack: LoadPack): LanguageResources {
-  const builds = new Map<string, Promise<unknown>>();
+  const builds = new Map<
+    string,
+    { promise: Promise<unknown>; packs: readonly string[] }
+  >();
 
-  function once<T>(key: string, build: () => Promise<T>): Promise<T> {
-    let promise = builds.get(key) as Promise<T> | undefined;
-    if (!promise) {
-      promise = build();
-      builds.set(key, promise);
-      promise.catch(() => builds.delete(key));
-    }
+  function once<T>(
+    key: string,
+    packs: readonly string[],
+    build: () => Promise<T>,
+  ): Promise<T> {
+    const built = builds.get(key);
+    if (built) return built.promise as Promise<T>;
+    const promise = build();
+    builds.set(key, { promise, packs });
+    // Only this build: a newer one may have replaced it after a `forget`.
+    promise.catch(() => {
+      if (builds.get(key)?.promise === promise) builds.delete(key);
+    });
     return promise;
   }
 
   function pack(lang: string): Promise<LanguagePack> {
-    if (!Object.hasOwn(LANGUAGE_PACKS, lang))
+    const recipe = languageRecipe(lang);
+    if (!recipe)
       return Promise.reject(new Error(`No language pack for ${lang}`));
-    return once(`pack:${lang}`, () => LANGUAGE_PACKS[lang]!(loadPack));
+    return once(`pack:${lang}`, recipe.packs, () => recipe.build(loadPack));
   }
 
   return {
     pack,
 
-    classifier: (lang) =>
-      once(`classifier:${lang}`, async () =>
+    classifier(lang) {
+      const packs = languageRecipe(lang)?.packs ?? [];
+      return once(`classifier:${lang}`, packs, async () =>
         createClassifier(await pack(lang)),
-      ),
+      );
+    },
 
     dictionary(from, to) {
-      const pair = `${from}-${to}`;
-      if (!Object.hasOwn(DICTIONARIES, pair))
+      const recipe = dictionaryRecipe(from, to);
+      if (!recipe)
         return Promise.reject(new Error(`No dictionary from ${from} to ${to}`));
-      return once(`dictionary:${pair}`, () => DICTIONARIES[pair]!(loadPack));
+      return once(`dictionary:${from}-${to}`, recipe.packs, () =>
+        recipe.build(loadPack),
+      );
+    },
+
+    forget(name) {
+      for (const [key, { packs }] of builds)
+        if (packs.includes(name)) builds.delete(key);
     },
   };
 }

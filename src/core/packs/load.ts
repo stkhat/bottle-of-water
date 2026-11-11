@@ -36,10 +36,22 @@ export interface PackFiles {
 }
 export type PackName = keyof PackFiles;
 
-/** Reads a JSON file bundled with the extension, by its path from the root ("/packs/…"). */
+/**
+ * Reads a pack's JSON file by its path from the extension's root ("/packs/<pack>/…"):
+ * bundled with the extension, or downloaded (`createPackSource`).
+ */
 export type FetchJson = (path: string) => Promise<unknown>;
 
 export type LoadPack = <P extends PackName>(name: P) => Promise<PackFiles[P]>;
+
+/** A `LoadPack` that keeps what it loaded, until told to forget a pack. */
+export interface PackLoader extends LoadPack {
+  /**
+   * Drops the pack's load (its version switched or it was removed): the next call
+   * reads its files again. A name that is not a pack is ignored.
+   */
+  forget(name: string): void;
+}
 
 const LOADERS: {
   [P in PackName]: (fetchJson: FetchJson) => Promise<PackFiles[P]>;
@@ -71,20 +83,29 @@ const LOADERS: {
 
 /**
  * A pack loader that fetches each pack once and keeps it for the lifetime of the
- * context (the background's service worker). Overlapping calls share one load; a
- * failed load is forgotten so the next call tries again.
+ * context (the background's service worker), or until `forget`. Overlapping calls
+ * share one load; a failed load is forgotten so the next call tries again.
  */
-export function createPackLoader(fetchJson: FetchJson): LoadPack {
-  const loads = new Map<PackName, Promise<unknown>>();
-  return <P extends PackName>(name: P) => {
+export function createPackLoader(fetchJson: FetchJson): PackLoader {
+  const loads = new Map<string, Promise<unknown>>();
+  const loadPack = <P extends PackName>(name: P) => {
     let load = loads.get(name);
     if (!load) {
-      load = LOADERS[name](fetchJson);
-      load.catch(() => loads.delete(name));
-      loads.set(name, load);
+      const started = LOADERS[name](fetchJson);
+      // Only this load: a newer one may have replaced it after a `forget`.
+      started.catch(() => {
+        if (loads.get(name) === started) loads.delete(name);
+      });
+      loads.set(name, started);
+      load = started;
     }
     return load as Promise<PackFiles[P]>;
   };
+  return Object.assign(loadPack, {
+    forget(name: string) {
+      loads.delete(name);
+    },
+  });
 }
 
 async function loadFiles<P extends PackName>(
