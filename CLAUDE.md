@@ -34,6 +34,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 - **Before committing a UI change, render it and compare it with the mock** (layout, copy, colors, defaults)
 - Commit and push only when the user asks or an approved plan says so. Work on a branch per phase and open a **draft** PR; mark it ready for review only just before merging, which is when GitHub runs CI (Actions minutes are limited)
 - No Claude attribution in commit messages or PR bodies
+- A check in the user's Chrome is done only after Lingo's Errors page on chrome://extensions has been read and is empty or explained ([development.md](docs/development.md) "Checking in your own Chrome")
 
 ## Working style
 - UI requests often arrive as comments on the mock. After handling one, fix both the mock and the spec, and reply in the comment thread
