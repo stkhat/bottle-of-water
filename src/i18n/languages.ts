@@ -5,6 +5,7 @@ const OPTIONS: Readonly<Record<string, MessageKey>> = {
   en: "language.en",
   ja: "language.ja",
   es: "language.es",
+  pt: "language.pt",
 };
 
 /** Language names as sentences use them ("Japanese"). */
@@ -12,6 +13,7 @@ const NAMES: Readonly<Record<string, MessageKey>> = {
   en: "languageName.en",
   ja: "languageName.ja",
   es: "languageName.es",
+  pt: "languageName.pt",
 };
 
 const named = (table: Readonly<Record<string, MessageKey>>, code: string) =>

@@ -13,4 +13,6 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
   "en-defs": 1,
   es: 1,
   "es-en": 1,
+  "en-es": 1,
+  "en-pt": 1,
 };

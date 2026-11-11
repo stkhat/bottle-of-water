@@ -95,6 +95,21 @@ export const TEST_PACKS: PackFiles = {
       comer: ["to eat", [["verb", "to eat"]]],
     },
   },
+  // "loaf" from the Spanish Wiktionary, "crust" from a translation table (with its
+  // English sense as the hint); anything else falls back to en-defs.
+  "en-es": {
+    dict: {
+      crust: [
+        "corteza",
+        [["noun", "corteza, costra", "outer layer of bread"]],
+        1,
+      ],
+      loaf: ["hogaza", [["noun", "Pieza de pan."]], 0],
+    },
+  },
+  "en-pt": {
+    dict: { loaf: ["pão", [["noun", "pão"]], 0] },
+  },
 };
 
 const { crust, ferment, loaf, the, yeast } = TEST_PACKS["en-ja"].dict;
@@ -138,6 +153,16 @@ export const TEST_FILES: Readonly<Record<string, unknown>> = {
   },
   "/packs/es-en/dict-1.json": esDefs1,
   "/packs/es-en/dict-2.json": { comer },
+  "/packs/en-es/index.json": {
+    shards: [{ file: "dict-1.json", first: "crust", last: "loaf" }],
+    sources: ["eswiktionary", "enwiktionary-translations"],
+  },
+  "/packs/en-es/dict-1.json": TEST_PACKS["en-es"].dict,
+  "/packs/en-pt/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["ptwiktionary", "enwiktionary-translations"],
+  },
+  "/packs/en-pt/dict-1.json": TEST_PACKS["en-pt"].dict,
 };
 
 /**

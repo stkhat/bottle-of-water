@@ -365,6 +365,33 @@ test("a Spanish article is highlighted and looked up in English when learning Sp
   expect(await highlighted(page, "lingo-new")).not.toContain("comiendo");
 });
 
+test("with Spanish as your language, English words have Spanish meanings", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await sendToBackground(context, extensionId, {
+    type: "setSettings",
+    patch: { nativeLang: "es" },
+  });
+  const page = await openArticle(context, "/article2-en.html");
+  // "tangy" comes from a translation table: its English sense is the hint.
+  await hover(page, "tangy");
+  await expect(page.getByText("acidulado", { exact: true })).toHaveAttribute(
+    "lang",
+    "es",
+  );
+  await click(page, "tangy");
+  const panel = dictionary(page);
+  await expect(panel.getByRole("heading", { name: "tangy" })).toBeVisible();
+  await expect(
+    panel.getByText("having a sharp, pungent flavor", { exact: true }),
+  ).toHaveAttribute("lang", "en");
+  await expect(
+    panel.getByText("acidulado, acídulo", { exact: true }),
+  ).toHaveAttribute("lang", "es");
+});
+
 test("the popup can ask the page what Mark all would do, and do it", async ({
   context,
   extensionId,

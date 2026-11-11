@@ -1,6 +1,7 @@
 // The pack lock file (packs.lock.json, written by `npm run data:publish`): each pack's
 // npm package, version, data format, whether it is bundled, and its files with their
-// size and SHA-256, plus the mirrors a downloaded pack's files are fetched from.
+// size and SHA-256, plus the mirrors a downloaded pack's files are fetched from and the
+// language pairs offered.
 //
 // Test builds can override it with environment variables at build time, never in
 // production mode (`wxt build`, `wxt zip`). WXT has Vite expose variables starting with
@@ -36,6 +37,11 @@ export interface PackLock {
   /** URL templates with {package}, {version} and {file}, tried in order. */
   readonly mirrors: readonly string[];
   readonly packs: Readonly<Record<PackName, PackLockEntry>>;
+  /**
+   * The language pairs offered (those passing the quality gate): learning language →
+   * native languages, the default first.
+   */
+  readonly pairs: Readonly<Record<string, readonly string[]>>;
 }
 
 /** The environment variables that override the lock in builds other than production. */

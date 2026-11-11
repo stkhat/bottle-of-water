@@ -1,6 +1,12 @@
 import { ipaFor } from "./packs/ipa";
 import { lookup, type Entry, type Sense } from "./packs/lookup";
-import type { DefsPack, DictPack, IpaPack, PosPack } from "./packs/types";
+import type {
+  DefsPack,
+  DictPack,
+  IpaPack,
+  PairPack,
+  PosPack,
+} from "./packs/types";
 
 export type { Sense };
 
@@ -118,6 +124,46 @@ export function createDefsDictionary({
   ipa,
 }: DefsDictionaryData): DictionaryProvider {
   return dictionaryOver(from, to, ipa, (head) => definitionOf(head, defs));
+}
+
+export interface PairDictionaryData {
+  from: string;
+  to: string;
+  /** <from>-<to>/dict-<n>.json, merged: meanings in `to` from the pair's recipe */
+  dict: PairPack;
+  /** <from>-defs/dict-<n>.json, merged: English definitions of words and phrases */
+  defs: DefsPack;
+  /** <from>/ipa.json */
+  ipa: IpaPack;
+}
+
+/**
+ * A dictionary built by a recipe (English → Spanish): a term is looked up in the pair
+ * pack, whose senses from translation tables carry their English sense as a hint, then
+ * in the English definitions (marked with `glossLang: "en"`, translated at display time).
+ */
+export function createPairDictionary({
+  from,
+  to,
+  dict,
+  defs,
+  ipa,
+}: PairDictionaryData): DictionaryProvider {
+  return dictionaryOver(from, to, ipa, (head) => {
+    if (Object.hasOwn(dict, head)) {
+      const [short, senses] = dict[head]!;
+      return {
+        short,
+        senses: senses.map(([pos, text, hint]) => ({
+          pos,
+          text,
+          ...(hint !== undefined && { hint }),
+        })),
+      };
+    }
+    const definition = definitionOf(head, defs);
+    return definition && { ...definition, glossLang: "en" };
+  });
 }
 
 /** A DefsPack entry as an `Entry`. */

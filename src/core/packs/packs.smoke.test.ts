@@ -3,7 +3,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../../scripts/data/formats.mjs";
-import { createDefsDictionary, createEnJaDictionary } from "../dictionary";
+import {
+  createDefsDictionary,
+  createEnJaDictionary,
+  createPairDictionary,
+} from "../dictionary";
 import { createLanguagePack } from "../language-pack";
 import { buildFreqIndex, rankOf } from "./frequency";
 import { ipaFor } from "./ipa";
@@ -231,5 +235,52 @@ describe("generated Spanish pack and es-en dictionary", () => {
       "la pelota está en el tejado de alguien",
     );
     expect(es.phrases.gap).toEqual([]);
+  });
+});
+
+const { dict: enEs } = await loadPack("en-es");
+
+describe("generated en-es dictionary", () => {
+  const dictionary = createPairDictionary({
+    from: "en",
+    to: "es",
+    dict: enEs,
+    defs,
+    ipa,
+  });
+  const index = read("packs/en-es/index.json") as ShardIndex;
+
+  it("names its sources, the Spanish Wiktionary first", () => {
+    expect(index.sources).toEqual([
+      "eswiktionary",
+      "enwiktionary-translations",
+    ]);
+  });
+
+  it("has Spanish meanings from the Spanish Wiktionary", () => {
+    expect(dictionary.entry("light")).toMatchObject({
+      head: "light",
+      short: "Luz",
+      ipa: expect.any(String),
+    });
+    expect(dictionary.entry("light")).not.toHaveProperty("glossLang");
+  });
+
+  it("keeps the English sense as the hint of translation-table senses", () => {
+    const fromTables = Object.entries(enEs).filter(
+      ([, [, , source]]) =>
+        index.sources?.[source] === "enwiktionary-translations",
+    );
+    expect(fromTables.length).toBeGreaterThan(10000);
+    for (const [, [, senses]] of fromTables.slice(0, 100))
+      for (const [, , hint] of senses) expect(hint).toBeTruthy();
+  });
+
+  it("falls back to English definitions for a term without a Spanish meaning", () => {
+    const englishOnly = Object.keys(defs).find(
+      (term) => !Object.hasOwn(enEs, term),
+    );
+    expect(englishOnly).toBeDefined();
+    expect(dictionary.entry(englishOnly!)?.glossLang).toBe("en");
   });
 });
