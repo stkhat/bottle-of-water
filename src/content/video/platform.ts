@@ -70,7 +70,6 @@ export interface PlatformAdapter {
   controlBarTop?(): number | null;
   /** An ad plays instead of the video. */
   adShowing(): boolean;
-  /** The current video's subtitle tracks. */
   tracks(): Promise<Track[]>;
   /**
    * The current video's original subtitles in the learning language and its translation
@@ -81,7 +80,6 @@ export interface PlatformAdapter {
   seek(ms: number): Promise<void>;
   /** Calls `listener` after the site moved to another page or video; returns an unsubscribe. */
   onNavigate(listener: () => void): () => void;
-  /** Hides or shows the site's own captions. */
   hideSiteCaptions(hidden: boolean): void;
   dispose(): void;
 }

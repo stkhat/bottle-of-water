@@ -13,7 +13,7 @@ import { ThemeScope } from "../../ui/ThemeScope";
 import { hoverView, windowView } from "../lookup/describe";
 import { boxOf, type Box } from "../lookup/geometry";
 import { dictionaryFrame, menuPlacement } from "./placement";
-import type { VideoApp, VideoState } from "./session";
+import type { VideoApp, VideoState } from "./state";
 import { filterCounts, filterRows, videoWords } from "./words";
 import { Floating } from "../lookup/Floating";
 import { useStore, type Store } from "../store";

@@ -9,12 +9,8 @@ import { testBackground } from "../../testing/background";
 import { noTranslation } from "../../testing/stubs";
 import type { TranslationProvider } from "../translate/translator";
 import type { PlatformAdapter, VideoCaptions } from "./platform";
-import {
-  startVideo,
-  type VideoDeps,
-  type VideoSession,
-  type VideoState,
-} from "./session";
+import { startVideo, type VideoDeps } from "./session";
+import type { VideoSession, VideoState } from "./state";
 import { videoWords } from "./words";
 
 const cleanups: (() => unknown)[] = [];

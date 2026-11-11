@@ -4,8 +4,8 @@ import type { TermBrief } from "../../messaging/protocol";
 import { visibleSpans } from "../../ui/video/terms";
 import type { WordCategory, WordsFilter } from "../../ui/video/WordsList";
 
-/** A row's category and the Words tab's filter chips (defined with their UI). */
-export type { WordCategory, WordsFilter };
+/** The Words tab's filter chips (defined with their UI). */
+export type { WordsFilter };
 
 /** A word or phrase of the video, in the Words tab. */
 export interface VideoWord {

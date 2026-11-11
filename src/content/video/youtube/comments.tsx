@@ -3,11 +3,11 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { hostBlocked, type Settings } from "../../../core/settings";
 import {
   runArticle,
-  type ArticleApp,
   type ArticleDeps,
   type ArticleRunner,
 } from "../../article/article";
 import { ArticleUi } from "../../article/ArticleUi";
+import type { ArticleApp } from "../../article/state";
 import { WHOLE_ROOT, type PageSurface } from "../../article/surface";
 import type { LookupHooks } from "../../lookup/lookup";
 import { createShadowHost } from "../../shadow-host";
