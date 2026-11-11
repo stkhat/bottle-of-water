@@ -203,7 +203,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - Detect the end of an article with an IntersectionObserver on the last element of the body
 
 ### Data sources
-Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files, which are committed: bundled packs into `public/packs/<pack>/` (copied into the build and read by the background with `runtime.getURL`), downloaded packs into `data/packs/<pack>/` (M9c). Notices go in About and `THIRD_PARTY_NOTICES.md`.
+Import scripts in `scripts/data/` download raw files into `data/raw/` (git-ignored) and write small processed files, which are committed: packs that are always bundled into `public/packs/<pack>/` (`en`, `en-ja`, `en-defs`; copied into the build and read by the background with `runtime.getURL`), packs that can be downloaded into `data/packs/<pack>/` (`es`, `es-en`; a build hook copies them into the build's `packs/` while their lock entry says bundled). `npm run data:publish` writes the lock file and the npm package folders (M9c). Notices go in About and `THIRD_PARTY_NOTICES.md`.
 
 Language data that scales with more languages (adopted 2026-11-11; [design](2026-11-11-language-data-scaling-design.md)):
 - **Units**: a learning-language pack `<L>` (shared by every native language), a pair dictionary `<L>-<N>`, and English definitions `<L>-en` (the last fallback)

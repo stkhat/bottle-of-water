@@ -16,7 +16,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 | Area | Where | Plan |
 |---|---|---|
 | Dev environment, CI/CD, CLAUDE.md check | `.github/`, `scripts/`, `e2e/`, `tests/` | [dev-environment](plans/2026-11-09-dev-environment.md) |
-| Language data (EJDict, Wiktionary/kaikki, frequency) | `scripts/data/`, `public/packs/` | [m2](plans/2026-11-09-m2-data-import.md) |
+| Language data (EJDict, Wiktionary/kaikki, frequency) | `scripts/data/`, `public/packs/`, `data/packs/` | [m2](plans/2026-11-09-m2-data-import.md) |
 | Settings, BrowserEnv, tokenizer, packs, dictionary, classifier, TermStore (IndexedDB), sync, messaging | `src/core/`, `src/background/`, `src/messaging/` | [m3](plans/2026-11-09-m3-foundation.md) |
 | Hover card (also over a selection), dictionary window/panel | `src/ui/lookup/` | [m4](plans/2026-11-09-m4-lookup-ui.md) |
 | Article UI | `src/content/article/` | [m5](plans/2026-11-09-m5-article-ui.md) |

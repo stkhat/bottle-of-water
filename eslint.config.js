@@ -16,6 +16,8 @@ export default tseslint.config(
       "e2e/pages",
       "data/raw",
       "public/packs",
+      "data/packs",
+      "data/publish",
       ".stryker-tmp",
       ".vitest",
     ],

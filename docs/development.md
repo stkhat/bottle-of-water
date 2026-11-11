@@ -53,6 +53,14 @@ npm run build:firefox
 npx web-ext lint -s .output/firefox-mv3
 ```
 
+## Language data
+- The scripts in `scripts/data/` build the packs from raw files in `data/raw/` (git-ignored): `npm run data:build` (English: `public/packs/`, always bundled) and `npm run data:es` (Spanish: `data/packs/`, can be downloaded). `npm run data:stats` prints the numbers recorded in `docs/status.md`.
+- `scripts/data/formats.mjs` lists every pack: its folder, data `format` (bump it when the code that reads the pack changes), npm package (scope `@lingo-data`, a placeholder) and sources.
+- After the pack files change, run `npm run data:publish`. It writes `src/core/packs/packs.lock.json` (committed; a unit test fails while it is out of date) and an npm package folder per `data/packs/` pack in `data/publish/<pack>/` (git-ignored). A pack keeps its version while its files are unchanged; otherwise it becomes `<year>.<month × 100 + day>.<n>` for the UTC build date (2026-11-11 → `2026.1111.0`), with n counting up for each later change that day. These are plain semver versions (no prerelease suffix) that order by date.
+- `npm run data:publish -- --download es,es-en` marks those packs as downloaded (`bundled: false`): the build leaves them out and the extension fetches them from the mirrors. Without `--download` every pack is bundled. Only `data/packs/` packs can be downloaded.
+- Test builds (any mode but production) can override the lock: `WXT_PACKS_DOWNLOAD=es,es-en` downloads those packs, `WXT_PACK_MIRRORS=<template>,…` replaces the mirrors (`src/core/packs/lock.ts`). Production builds ignore both.
+- Publishing to npm is manual and pending: the scope and the public data repository do not exist yet, so every pack stays bundled. Then: `npm publish` in each `data/publish/<pack>/`, run `data:publish -- --download …`, release.
+
 ## CI/CD
 - Tests run locally first: `npm run verify` before every push. GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.
 - `ci.yml` (pull requests that are not drafts, and manual runs; not on pushes to main): one Linux job in Playwright's image (`mcr.microsoft.com/playwright`, browsers preinstalled) that runs check, unit, browser tests on Chromium and Firefox, all builds, manifest, E2E (reports uploaded on failure), the zips and `web-ext lint` (artifact `lingo-zips`). The image tag must match `@playwright/test` (`scripts/check-playwright-image.mjs` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.

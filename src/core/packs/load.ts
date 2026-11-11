@@ -10,7 +10,10 @@ import type {
   VocabPack,
 } from "./types";
 
-/** The bundled packs in public/packs/<name>/ and what each one holds once loaded. */
+/**
+ * The packs (built into public/packs/<name>/ or data/packs/<name>/, served at
+ * /packs/<name>/) and what each one holds once loaded.
+ */
 export interface PackFiles {
   en: {
     lemmas: LemmaPack;

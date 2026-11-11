@@ -1,11 +1,18 @@
 // kaikki.org Spanish Wiktionary extract (CC BY-SA) and the Spanish frequency list →
-// public/packs/es/{freq,vocab,lemmas,ipa,phrases}.json (phrases: { detect, more, gap })
-// and public/packs/es-en/{index,dict-<n>}.json
+// data/packs/es/{freq,vocab,lemmas,ipa,phrases}.json (phrases: { detect, more, gap })
+// and data/packs/es-en/{index,dict-<n>}.json (packs that can be downloaded; then run
+// npm run data:publish)
 // Usage: node scripts/data/es-kaikki.mjs [path]   (default data/raw/kaikki-es.jsonl; run es-frequency.mjs first)
 import { createReadStream, existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { isMain, PACKS_DIR, RAW_DIR, singleIpa, writePack } from "./common.mjs";
+import {
+  DOWNLOAD_PACKS_DIR,
+  isMain,
+  RAW_DIR,
+  singleIpa,
+  writePack,
+} from "./common.mjs";
 import { shardDict } from "./ejdict.mjs";
 import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.mjs";
 import { buildFrequency } from "./frequency.mjs";
@@ -221,12 +228,12 @@ export async function buildEsPacks(
 }
 
 /**
- * Writes the Spanish packs under `dir` (public/packs/ by default): es/ and the es-en
+ * Writes the Spanish packs under `dir` (data/packs/ by default): es/ and the es-en
  * dictionary shards with their index, removing old shards. Returns the paths written,
  * relative to `dir`.
  */
 export function writeEsPacks({ freq, vocab, lemmas, ipa, phrases, defs }, dir) {
-  const root = dir ?? PACKS_DIR;
+  const root = dir ?? DOWNLOAD_PACKS_DIR;
   const dictDir = join(root, "es-en");
   if (existsSync(dictDir))
     for (const name of readdirSync(dictDir))

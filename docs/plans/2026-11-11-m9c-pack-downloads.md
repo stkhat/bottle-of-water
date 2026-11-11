@@ -24,7 +24,7 @@
     "packs": {
       "es": {
         "package": "@lingo-data/es",
-        "version": "2026.11.11",
+        "version": "2026.1111.0",
         "format": 1,
         "bundled": true,
         "files": [{ "path": "freq.json", "size": 380150, "sha256": "…" }]
@@ -34,7 +34,7 @@
   ```
   - The npm scope is a placeholder until the user creates one; it is a constant in the publish script.
   - `format` is the data format the code reads. The publish script takes it from `scripts/data/formats.mjs`, and the runtime refuses a stored version whose format differs.
-  - `version` stays the same while a pack's files are unchanged. When they change it becomes the build date (`YYYY.M.D`), with `-1`, `-2` … added if that version already exists.
+  - `version` stays the same while a pack's files are unchanged. When they change it becomes `<year>.<month × 100 + day>.<n>` for the UTC build date (2026-11-11 → `2026.1111.0`, 2027-01-05 → `2027.105.0`), with n = 0 for the day's first changed build and one more for each later one that day (from the lock's current version). Plain semver without prerelease suffixes, so versions order by date and npm treats them as normal releases.
 - **npm package folders** `data/publish/<pack>/` (git-ignored), written by the same script: `package.json` (name, version, CC-BY-SA-4.0, files), `LICENSE`, `README.md` (sources and attribution) and the pack files. `npm publish` is run by hand later.
 - **Build**: a WXT hook (`build:publicAssets`) copies the `data/packs/<pack>` folders whose lock entry says `bundled` into the output's `packs/`. Test builds can override the lock's `bundled` flags and mirrors with environment variables, never in production mode:
   - `WXT_PACKS_DOWNLOAD=es,es-en` downloads those packs;

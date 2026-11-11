@@ -1,0 +1,164 @@
+{
+  "mirrors": [
+    "https://cdn.jsdelivr.net/npm/{package}@{version}/{file}",
+    "https://unpkg.com/{package}@{version}/{file}"
+  ],
+  "packs": {
+    "en": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "freq.json",
+          "sha256": "77f6f0723f8c938680448d81b0bf6c5b0de02457b2cd5634f277b67a0e9ca97d",
+          "size": 212364
+        },
+        {
+          "path": "ipa.json",
+          "sha256": "29c983c0e1f160fbae83c50db3ed50964549e7192087c00d5b0da7aa0c3adf8d",
+          "size": 790984
+        },
+        {
+          "path": "lemmas.json",
+          "sha256": "f4c9559cc8258e4e35fca3e611dad98a7431282913bd6fd595cc5162ecbfe7ef",
+          "size": 1254245
+        },
+        {
+          "path": "phrases.json",
+          "sha256": "bd77bfc13dbd207d972683011565c2444e9f4a12a2bb3e0abdff618c120ade43",
+          "size": 413319
+        },
+        {
+          "path": "pos.json",
+          "sha256": "5a3c5524ab3dcefdf7f6506668da0e7eb8b47ff74b4c963ba5a1920044540fcb",
+          "size": 1037360
+        },
+        {
+          "path": "vocab.json",
+          "sha256": "b4eb8878d874821bb46dfe7dd247d1252d6829b60868f5f833ca64ada1a59cc6",
+          "size": 477631
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/en",
+      "version": "2026.1111.0"
+    },
+    "en-defs": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "dict-1.json",
+          "sha256": "64b24f78437b8807024280b78c679c2cfbca4edbd88de99c83e95d70380d0247",
+          "size": 1999636
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "7cbebbd937d73c7d11caf978dd3ca49fa5232ed860f77c237848e171af8dddd7",
+          "size": 406204
+        },
+        {
+          "path": "index.json",
+          "sha256": "883a7fc4e0d1f47b6dce89987120b395568e11c797e9a61510b30dd5c3ea3940",
+          "size": 151
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/en-defs",
+      "version": "2026.1111.0"
+    },
+    "en-ja": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "dict-1.json",
+          "sha256": "9d02d527584c9e9920055219203291046dd37bb526c4e1fbe3c46c47ef95305f",
+          "size": 1999779
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "a8a2dd99d3c96516f776cbcdaebdcba7b9790d57ccd7b7bf436374d1af75ca31",
+          "size": 1999877
+        },
+        {
+          "path": "dict-3.json",
+          "sha256": "bb5b6a587fe875ffb9a6c8a2b3ca15edb08fe02b9e9d04e01cff53bf5940bacd",
+          "size": 1999778
+        },
+        {
+          "path": "dict-4.json",
+          "sha256": "c8f7a17a103cb4cc513b264c002b90a457f8711a85fd594eb650ed62659a6fb2",
+          "size": 675689
+        },
+        {
+          "path": "index.json",
+          "sha256": "fe53cd93274ff34ccc96c6a5140e9c764e0b503ef37217c4c351b2b1319cd04b",
+          "size": 245
+        },
+        {
+          "path": "phrases.json",
+          "sha256": "e3264d59ffebc82d533b0bcca76b014ad764df5f85e7c965d0a84e59d22a4af3",
+          "size": 63107
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/en-ja",
+      "version": "2026.1111.0"
+    },
+    "es": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "freq.json",
+          "sha256": "47f10d1d16f509788046670d820b588171cbbb07934fe0b2931c74ba003c42d9",
+          "size": 380154
+        },
+        {
+          "path": "ipa.json",
+          "sha256": "58bb9f5ac9b46c1f1d53e11bc03f0ece44355dae05af7ca59300f56313344b08",
+          "size": 857355
+        },
+        {
+          "path": "lemmas.json",
+          "sha256": "d4f5721d8e772c621577df7dde981fe107246418d4ed052993cd2516547bc85b",
+          "size": 1307365
+        },
+        {
+          "path": "phrases.json",
+          "sha256": "594fdeffc1742c41adcc3344fece5a48a5c3a18b85855fb63237cb203b948816",
+          "size": 50456
+        },
+        {
+          "path": "vocab.json",
+          "sha256": "b6727532c31b8c153b0bdcb7dfe25f4cbc0196268083e13c07e01679fc0ff4d3",
+          "size": 431431
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/es",
+      "version": "2026.1111.0"
+    },
+    "es-en": {
+      "bundled": true,
+      "files": [
+        {
+          "path": "dict-1.json",
+          "sha256": "8b1ffb896ee3cf7667c27c8dc93a3dc9ed61fd8ed70ac69215e9ff2e9f57411f",
+          "size": 1999982
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "5f6ddd677e2a75e2e15ddf7d5223d293fbf7e37e95c2e75771c8fb5aa3b13206",
+          "size": 1512249
+        },
+        {
+          "path": "index.json",
+          "sha256": "d5d04b479379e6b9ad9c8f5111c07272f034437350bb8da8e5a09ad2327c803a",
+          "size": 122
+        }
+      ],
+      "format": 1,
+      "package": "@lingo-data/es-en",
+      "version": "2026.1111.0"
+    }
+  },
+  "v": 1
+}
