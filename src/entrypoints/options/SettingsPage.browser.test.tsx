@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type { ImportResult } from "../../background/term-store";
@@ -111,6 +111,7 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup();
   scrollTo(0, 0);
+  vi.unstubAllGlobals();
 });
 
 async function open(options: FakeOptions = {}) {
@@ -223,6 +224,37 @@ describe("SettingsPage", () => {
       { learningLang: "es", nativeLang: "en" },
       { learningLang: "en", nativeLang: "ja" },
     ]);
+  });
+
+  it("starts the translator's model download when a language is chosen", async () => {
+    const created: string[] = [];
+    vi.stubGlobal("Translator", {
+      availability: async (pair: {
+        sourceLanguage: string;
+        targetLanguage: string;
+      }) => (pair.sourceLanguage === "es" ? "available" : "downloadable"),
+      create: async (pair: {
+        sourceLanguage: string;
+        targetLanguage: string;
+      }) => {
+        created.push(`${pair.sourceLanguage}>${pair.targetLanguage}`);
+        return { translate: async (text: string) => text, destroy() {} };
+      },
+    });
+    const f = await open({
+      settings: { learningLang: "es", nativeLang: "en" },
+    });
+    const learning = f.screen.getByRole("combobox", {
+      name: /Learning language/,
+    });
+    expect(created).toEqual([]);
+    await userEvent.selectOptions(learning, "English");
+    // English → Japanese: the definitions' model is the subtitles' one.
+    await expect.poll(() => created).toEqual(["en>ja"]);
+    await userEvent.selectOptions(learning, "Spanish (Español)");
+    // Spanish → English is there already, and nothing translates into English.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(created).toEqual(["en>ja"]);
   });
 
   it("sets the new-word level with the slider", async () => {

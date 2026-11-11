@@ -15,16 +15,19 @@ export interface HoverCardProps {
   selection?: boolean;
   head: string;
   ipa?: string;
-  /** Short translation, in the native language (or `glossLang`). */
+  /** Short translation, in the native language (or `shortLang`). */
   short?: string;
-  /** `short` came from the browser's translator: marked "Machine translation". */
+  /**
+   * `short` came from the browser's translator (a literal translation or a translated
+   * definition): marked "Machine translation".
+   */
   machineTranslated?: boolean;
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
-  /** The native language: the `lang` of `short` unless `glossLang` says otherwise. */
+  /** The native language: the `lang` of `short` unless `shortLang` says otherwise. */
   nativeLang: string;
   /** Language of `short` when it is not the native language (an English definition). */
-  glossLang?: string;
+  shortLang?: string;
   onLearning: () => void;
   onKnown: () => void;
   /**
@@ -135,7 +138,7 @@ export function HoverCard(props: HoverCardProps) {
             marginTop: "2px",
           }}
         >
-          <span lang={props.glossLang ?? props.nativeLang}>{props.short}</span>
+          <span lang={props.shortLang ?? props.nativeLang}>{props.short}</span>
           {props.machineTranslated && <MachineTranslationMark />}
         </div>
       )}

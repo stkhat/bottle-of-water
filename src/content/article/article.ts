@@ -15,7 +15,7 @@ import {
 } from "../../ui/lookup/externalDictionaries";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
 import { createStore, type Store } from "../ui/store";
-import { describeTerm, type TermCard } from "./describe";
+import { describeTerm, translateSenses, type TermCard } from "./describe";
 import { watchEndOfArticle } from "./end-of-article";
 import { wordBoxes, type Box } from "./geometry";
 import { createHighlighter, type Highlighter } from "./highlighter";
@@ -44,7 +44,11 @@ import {
   shouldRunArticle,
   type DetectLanguage,
 } from "./should-run";
-import { createBuiltInTranslator, type TranslationProvider } from "./translate";
+import { createTranslationQueue } from "../translate/queue";
+import {
+  createBuiltInTranslator,
+  type TranslationProvider,
+} from "../translate/translator";
 import { batches, watchVisibleBlocks } from "./visibility";
 
 /** The longest text sample the page language is detected on. */
@@ -208,9 +212,8 @@ export async function startArticle(
   if (!runs) return undefined;
 
   const lang = settings.learningLang;
-  const translator = (deps.createTranslator ?? createBuiltInTranslator)(
-    lang,
-    settings.nativeLang,
+  const translator = createTranslationQueue(
+    deps.createTranslator ?? createBuiltInTranslator,
   );
   const highlighter = createHighlighter(settings.highlight);
   const spans: SpanMap = new Map();
@@ -419,7 +422,13 @@ export async function startArticle(
       .catch((error: unknown) => console.warn("Lingo:", error));
   }
 
-  const describe = (ref: SpanRef) =>
+  const translation = () => ({
+    send: deps.send,
+    lang,
+    nativeLang: settings.nativeLang,
+    translator,
+  });
+  const describe = (ref: SpanRef, shownIn: "hover" | "window" = "hover") =>
     describeTerm(
       {
         key: ref.span.key,
@@ -427,7 +436,7 @@ export async function startArticle(
         surface: surfaceOf(ref),
         category: ref.span.category,
       },
-      { send: deps.send, lang, sourceUrl: location.href, translator },
+      { ...translation(), sourceUrl: location.href, shownIn },
     );
 
   /** True when `ref` is one of the page's spans (not a selection's phrase). */
@@ -531,10 +540,25 @@ export async function startArticle(
 
   async function openPanel(ref: SpanRef) {
     const ticket = ++panelTicket;
-    const card = await describe(ref);
+    const card = await describe(ref, "window");
     if (ticket !== panelTicket) return;
     panelRef = ref;
+    showPanel(ref, card);
+  }
+
+  /**
+   * Shows the panel's card, then its English definitions translated as they come (the
+   * click that opened it lets the translator download its model the first time).
+   */
+  function showPanel(ref: SpanRef, card: TermCard) {
     store.set({ panel: panelState(ref, card) });
+    void translateSenses(card, translation())
+      .then((translated) => {
+        const panel = store.get().panel;
+        if (translated !== card && panel?.card === card)
+          store.set({ panel: { ...panel, card: translated } });
+      })
+      .catch(warn);
   }
 
   function closePanel() {
@@ -556,8 +580,8 @@ export async function startArticle(
     if (panel && panelRef && sameTerm(panelRef.span, key, kind)) {
       const ref = panelRef;
       const ticket = panelTicket;
-      const card = await describe(ref);
-      if (panelTicket === ticket) store.set({ panel: panelState(ref, card) });
+      const card = await describe(ref, "window");
+      if (panelTicket === ticket) showPanel(ref, card);
     }
   }
 

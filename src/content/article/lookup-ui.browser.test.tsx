@@ -524,22 +524,93 @@ describe("dictionary phrases", () => {
       .toHaveAttribute("lang", "ja");
   });
 
-  it("shows a phrase's English definition as English, without translating it", async () => {
+  it("translates a phrase's English definition: the card's meaning, then the panel's senses with their English", async () => {
     const translated: string[] = [];
-    const { root } = await setup(PHRASES, {
-      settings: withNew,
-      translator: {
-        translate: async (text) => {
-          translated.push(text);
-          return `訳: ${text}`;
+    const background = testBackground(withNew);
+    try {
+      const { root } = await setup(PHRASES, {
+        background,
+        translator: {
+          translate: async (text) => {
+            translated.push(text);
+            return `訳: ${text}`;
+          },
         },
-      },
-    });
+      });
+      await pointAt(root, "figure");
+      await expect.element(hoverCard()).toBeVisible();
+      await expect
+        .element(page.getByText("訳: To come to understand", { exact: true }))
+        .toHaveAttribute("lang", "ja");
+      await expect
+        .element(page.getByText("Machine translation", { exact: true }))
+        .toBeVisible();
+
+      await clickOn(root, "figure");
+      const panel = dictionary();
+      await expect
+        .element(panel.getByRole("heading", { name: "figure out" }))
+        .toBeVisible();
+      await expect
+        .element(
+          panel.getByText(
+            "訳: To come to understand; to discover or find a solution.",
+          ),
+        )
+        .toHaveAttribute("lang", "ja");
+      await expect
+        .element(
+          panel.getByText(
+            "To come to understand; to discover or find a solution.",
+            { exact: true },
+          ),
+        )
+        .toHaveAttribute("lang", "en");
+      // Once, on the Meanings heading: the short line has no mark of its own.
+      await expect
+        .element(panel.getByText("Machine translation", { exact: true }))
+        .toBeVisible();
+      await expect
+        .element(panel.getByText("訳: To come to understand", { exact: true }))
+        .toHaveAttribute("lang", "ja");
+      expect(translated).toEqual([
+        "To come to understand",
+        "To come to understand; to discover or find a solution.",
+      ]);
+
+      // Another page: the translations come from the cache, without the translator.
+      await cleanUp();
+      const again = await setup(PHRASES, {
+        background,
+        translator: { translate: () => new Promise(() => {}) },
+      });
+      await clickOn(again.root, "figure");
+      await expect
+        .element(
+          dictionary().getByText(
+            "訳: To come to understand; to discover or find a solution.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(
+          dictionary().getByText("訳: To come to understand", { exact: true }),
+        )
+        .toBeVisible();
+    } finally {
+      await cleanUp();
+      await background.close();
+    }
+  });
+
+  it("shows a phrase's English definition as English without a translator", async () => {
+    const { root } = await setup(PHRASES, { settings: withNew });
     await pointAt(root, "figure");
     await expect.element(hoverCard()).toBeVisible();
     await expect
       .element(page.getByText("To come to understand", { exact: true }))
       .toHaveAttribute("lang", "en");
+    expect(page.getByText("Machine translation").query()).toBeNull();
 
     await clickOn(root, "figure");
     const panel = dictionary();
@@ -556,6 +627,6 @@ describe("dictionary phrases", () => {
         ),
       )
       .toHaveAttribute("lang", "en");
-    expect(translated).toEqual([]);
+    expect(panel.getByText("Machine translation").query()).toBeNull();
   });
 });
