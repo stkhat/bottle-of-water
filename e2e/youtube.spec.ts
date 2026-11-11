@@ -48,6 +48,8 @@ const dictionary = (page: Page) =>
   page.getByRole("complementary", { name: en["dict.window"] });
 const lButton = (page: Page) =>
   page.getByRole("button", { name: en["video.toggle"] });
+/** A transcript card's time, top left: the words in a card open the dictionary instead. */
+const ON_TIME = { x: 16, y: 12 };
 const card = (page: Page, text: string) =>
   transcript(page).getByRole("button", { name: text });
 const currentTime = (page: Page) =>
@@ -71,7 +73,7 @@ async function openAtLine(context: BrowserContext, extensionId: string) {
   await routeYouTube(context);
   const page = await context.newPage();
   await page.goto(WATCH);
-  await card(page, LINE).click();
+  await card(page, LINE).click({ position: ON_TIME });
   await expect(inVideo(page)).toContainText(LINE);
   return page;
 }
@@ -139,9 +141,48 @@ test("the menu moves the subtitle below the video and hides its translation", as
       subtitleTranslation: false,
     });
   await page.reload();
-  await card(page, LINE).click();
+  await card(page, LINE).click({ position: ON_TIME });
   await expect(belowVideo(page)).toContainText(LINE);
   await expect(belowVideo(page).getByText(LINE_JA)).toHaveCount(0);
+});
+
+test("the menu's sliders change the subtitle's text size and background, and are saved", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const line = inVideo(page).locator("p").first();
+  await expect(line).toHaveCSS("font-size", "24px");
+  await expect(line).toHaveCSS("background-color", "rgba(8, 10, 16, 0.8)");
+
+  await page.getByRole("button", { name: en["video.menu"] }).click();
+  const menu = page.getByRole("dialog", { name: en["video.menu"] });
+  const size = menu.getByRole("slider", { name: en["video.menu.size"] });
+  const background = menu.getByRole("slider", {
+    name: en["video.menu.opacity"],
+  });
+  await size.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(line).toHaveCSS("font-size", "28.8px");
+  await background.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(line).toHaveCSS("background-color", "rgba(8, 10, 16, 0.75)");
+
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "getSettings",
+      })) as { value: { subtitleSize: number; subtitleOpacity: number } };
+      return reply.value;
+    })
+    .toMatchObject({ subtitleSize: 120, subtitleOpacity: 75 });
+  await page.reload();
+  await card(page, LINE).click({ position: ON_TIME });
+  await expect(inVideo(page).locator("p").first()).toHaveCSS(
+    "font-size",
+    "28.8px",
+  );
 });
 
 test("the transcript's switch hides its translations; a card seeks to its line", async ({
@@ -158,7 +199,7 @@ test("the transcript's switch hides its translations; a card seeks to its line",
   // The subtitle keeps its translation.
   await expect(inVideo(page).getByText(LINE_JA)).toBeVisible();
 
-  await first.click();
+  await first.click({ position: ON_TIME });
   await expect(inVideo(page)).toContainText(flat(EN[0]!.text));
   expect(await currentTime(page)).toBeCloseTo(EN[0]!.startMs / 1000, 1);
   await expect(first).toHaveAttribute("aria-current", "true");
@@ -201,6 +242,40 @@ test("hovering a word shows its card; clicking it opens the dictionary window", 
   await expect
     .poll(() => currentTime(page))
     .toBeCloseTo(LINE_CUE.startMs / 1000, 1);
+});
+
+test("a transcript word shows its card and opens the window; a press elsewhere closes it", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const time = await currentTime(page);
+  const word = card(page, LINE).getByText("creativity", { exact: true });
+  await word.hover();
+  await expect(page.getByText(en["hover.hint"])).toBeVisible();
+
+  await word.click();
+  const window = dictionary(page);
+  await expect(
+    window.getByRole("heading", { name: "creativity" }),
+  ).toBeVisible();
+  // A word's click opens it: no seek.
+  expect(await currentTime(page)).toBe(time);
+  // "In this video" marks the word in its line.
+  await expect(
+    window.locator("[data-mark]", { hasText: "creativity" }).first(),
+  ).toBeVisible();
+
+  // A press in the window keeps it; one on another word switches it.
+  await window.getByRole("heading", { name: "creativity" }).click();
+  await inVideo(page).getByText("extraordinary", { exact: true }).click();
+  await expect(
+    window.getByRole("heading", { name: "extraordinary" }),
+  ).toBeVisible();
+
+  // A press on the page closes it.
+  await page.mouse.click(5, 5);
+  await expect(window).toHaveCount(0);
 });
 
 test("the Words tab lists the video's words; a row opens its dictionary window", async ({
@@ -302,7 +377,7 @@ test("+ Learning in the window highlights the word everywhere and survives a rel
   ).toBeVisible();
 
   await page.reload();
-  await card(page, LINE).click();
+  await card(page, LINE).click({ position: ON_TIME });
   await expect(
     inVideo(page).getByText("creativity", { exact: true }),
   ).toHaveCSS("background-color", learningOnVideo);
@@ -375,7 +450,7 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   await window.getByRole("button", { name: en["dict.close"] }).click();
   await expect(window).toHaveCount(0);
 
-  // The menu: no subtitle position, the translation switch and the settings link.
+  // The menu: no subtitle position; the gear, the translation switch and the sliders.
   await page.getByRole("button", { name: en["video.menu"] }).click();
   const menu = page.getByRole("dialog", { name: en["video.menu"] });
   await expect(menu.getByText(en["video.menu.on"])).toBeVisible();
@@ -386,6 +461,9 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   await expect(menu.getByText(en["video.menu.showTranslation"])).toBeVisible();
   await expect(
     menu.getByRole("button", { name: en["video.menu.openSettings"] }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole("slider", { name: en["video.menu.size"] }),
   ).toBeVisible();
   const translation = menu.getByRole("switch", {
     name: en["video.menu.translationSwitch"],

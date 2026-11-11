@@ -26,6 +26,10 @@ export interface Settings {
   };
   subtitlePosition: "inVideo" | "belowVideo";
   subtitleTranslation: boolean;
+  /** The subtitle and its translation's text size, in percent (the L menu's Size). */
+  subtitleSize: number;
+  /** How dark the box behind the subtitle over the video is, in percent (the L menu's Background). */
+  subtitleOpacity: number;
   transcriptTranslation: boolean;
   sites: { youtube: boolean; netflix: boolean; articles: boolean };
   /** The player's L button per platform: the next video there starts this way. */
@@ -54,6 +58,14 @@ export const KNOWN_LEVEL_MIN = 1000;
 export const KNOWN_LEVEL_MAX = 20000;
 export const KNOWN_LEVEL_STEP = 500;
 
+export const SUBTITLE_SIZE_MIN = 50;
+export const SUBTITLE_SIZE_MAX = 200;
+export const SUBTITLE_SIZE_STEP = 10;
+
+export const SUBTITLE_OPACITY_MIN = 0;
+export const SUBTITLE_OPACITY_MAX = 100;
+export const SUBTITLE_OPACITY_STEP = 5;
+
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   learningLang: "en",
   nativeLang: "ja",
@@ -70,6 +82,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   },
   subtitlePosition: "inVideo",
   subtitleTranslation: true,
+  subtitleSize: 100,
+  subtitleOpacity: 80,
   transcriptTranslation: true,
   sites: { youtube: true, netflix: true, articles: true },
   videoOn: { youtube: true, netflix: true },
@@ -114,16 +128,38 @@ function flags<T extends Record<string, boolean>>(value: unknown, base: T): T {
   return out as T;
 }
 
-function knownLevel(value: unknown, base: number): number {
+/** A slider's value: a finite number rounded to `step` and kept within `min`–`max`. */
+function stepped(
+  value: unknown,
+  base: number,
+  [min, max, step]: readonly [number, number, number],
+): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return base;
-  const stepped = Math.round(value / KNOWN_LEVEL_STEP) * KNOWN_LEVEL_STEP;
-  return Math.min(KNOWN_LEVEL_MAX, Math.max(KNOWN_LEVEL_MIN, stepped));
+  const rounded = Math.round(value / step) * step;
+  return Math.min(max, Math.max(min, rounded));
 }
+
+const KNOWN_LEVEL = [
+  KNOWN_LEVEL_MIN,
+  KNOWN_LEVEL_MAX,
+  KNOWN_LEVEL_STEP,
+] as const;
+const SUBTITLE_SIZE = [
+  SUBTITLE_SIZE_MIN,
+  SUBTITLE_SIZE_MAX,
+  SUBTITLE_SIZE_STEP,
+] as const;
+const SUBTITLE_OPACITY = [
+  SUBTITLE_OPACITY_MIN,
+  SUBTITLE_OPACITY_MAX,
+  SUBTITLE_OPACITY_STEP,
+] as const;
 
 /**
  * Settings from stored or partial input: missing or ill-typed values come from
  * `base` (the defaults unless given), nested groups merge key by key, unknown keys
- * are dropped and `knownLevel` is clamped to its slider's range and step.
+ * are dropped and slider values (`knownLevel`, subtitle size and opacity) are clamped
+ * to their slider's range and step.
  */
 export function mergeSettings(
   input: unknown,
@@ -134,7 +170,7 @@ export function mergeSettings(
     learningLang: nonEmptyString(v.learningLang, base.learningLang),
     nativeLang: nonEmptyString(v.nativeLang, base.nativeLang),
     uiLocale: nonEmptyString(v.uiLocale, base.uiLocale),
-    knownLevel: knownLevel(v.knownLevel, base.knownLevel),
+    knownLevel: stepped(v.knownLevel, base.knownLevel, KNOWN_LEVEL),
     highlight: flags(v.highlight, base.highlight),
     unsavedAtEnd: UNSAVED_AT_END.includes(
       v.unsavedAtEnd as Settings["unsavedAtEnd"],
@@ -149,6 +185,12 @@ export function mergeSettings(
       ? (v.subtitlePosition as Settings["subtitlePosition"])
       : base.subtitlePosition,
     subtitleTranslation: bool(v.subtitleTranslation, base.subtitleTranslation),
+    subtitleSize: stepped(v.subtitleSize, base.subtitleSize, SUBTITLE_SIZE),
+    subtitleOpacity: stepped(
+      v.subtitleOpacity,
+      base.subtitleOpacity,
+      SUBTITLE_OPACITY,
+    ),
     transcriptTranslation: bool(
       v.transcriptTranslation,
       base.transcriptTranslation,

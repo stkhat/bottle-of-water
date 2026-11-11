@@ -10,8 +10,13 @@ const base: LingoMenuProps = {
   enabled: true,
   position: "inVideo",
   showTranslation: true,
+  size: 100,
+  opacity: 80,
   onPosition: () => {},
   onToggleTranslation: () => {},
+  onPreview: () => {},
+  onSize: () => {},
+  onOpacity: () => {},
   onOpenSettings: () => {},
   onClose: () => {},
 };
@@ -76,7 +81,10 @@ describe("LingoMenu", () => {
       )
       .toBeVisible();
     await expect
-      .element(screen.getByRole("button", { name: "Open all settings" }))
+      .element(screen.getByRole("slider", { name: "Text size" }))
+      .toBeVisible();
+    await expect
+      .element(screen.getByRole("button", { name: "Open settings" }))
       .toBeVisible();
     screen.rerender(<LingoMenu {...base} showPositions />);
     await expect
@@ -99,13 +107,77 @@ describe("LingoMenu", () => {
     await expect.element(sw).toHaveAttribute("aria-checked", "false");
   });
 
-  test("opens all settings", async () => {
+  test("opens the settings from the gear in its header, with no settings button below", async () => {
     const onOpenSettings = vi.fn();
     const screen = await mountInShadowRoot(
       <LingoMenu {...base} onOpenSettings={onOpenSettings} />,
     );
-    await screen.getByRole("button", { name: "Open all settings" }).click();
+    const gear = screen.getByRole("button", { name: "Open settings" });
+    // The gear is the last thing in the header row, after the state.
+    expect(gear.element().previousElementSibling?.textContent).toBe(
+      "On for this video",
+    );
+    expect(screen.container.textContent).not.toContain("Open all settings");
+    await gear.click();
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  test("the subtitle position row is the last row, label and choice side by side", async () => {
+    const screen = await mountInShadowRoot(<LingoMenu {...base} />);
+    const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
+    const group = screen.getByRole("group", { name: "Subtitle position" });
+    const row = group.element().parentElement!;
+    expect(menu.lastElementChild).toBe(row);
+    expect(row.firstElementChild!.textContent).toBe("Subtitles");
+    const label = row.firstElementChild!.getBoundingClientRect();
+    const choice = group.element().getBoundingClientRect();
+    expect(label.right).toBeLessThanOrEqual(choice.left);
+    expect(
+      Math.abs(label.top + label.height / 2 - (choice.top + choice.height / 2)),
+    ).toBeLessThan(2);
+    // Neither choice wraps onto a second line.
+    for (const name of ["In video", "Below video"]) {
+      const button = screen.getByRole("button", { name }).element();
+      expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth);
+      expect(button.getBoundingClientRect().height).toBe(32);
+    }
+  });
+
+  test("the text size and background sliders preview while dragged and save when let go", async () => {
+    const onPreview = vi.fn();
+    const onSize = vi.fn();
+    const onOpacity = vi.fn();
+    const screen = await mountInShadowRoot(
+      <LingoMenu
+        {...base}
+        size={120}
+        opacity={40}
+        onPreview={onPreview}
+        onSize={onSize}
+        onOpacity={onOpacity}
+      />,
+    );
+    const size = screen.getByRole("slider", { name: "Text size" });
+    const opacity = screen.getByRole("slider", { name: "Background" });
+    await expect.element(size).toHaveValue("120");
+    await expect.element(size).toHaveAttribute("aria-valuetext", "120%");
+    await expect.element(size).toHaveAttribute("min", "50");
+    await expect.element(size).toHaveAttribute("max", "200");
+    await expect.element(opacity).toHaveValue("40");
+    await expect.element(opacity).toHaveAttribute("max", "100");
+
+    const input = size.element() as HTMLInputElement;
+    input.value = "150";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(onPreview).toHaveBeenLastCalledWith({ size: 150 });
+    expect(onSize).not.toHaveBeenCalled();
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(onSize).toHaveBeenCalledWith(150);
+
+    (opacity.element() as HTMLInputElement).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(onPreview).toHaveBeenLastCalledWith({ opacity: 45 });
+    expect(onOpacity).toHaveBeenCalledWith(45);
   });
 
   test("closes with Escape and on a click outside it", async () => {

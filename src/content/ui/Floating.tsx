@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { keepOpen } from "../../ui/lookup/keep-open";
 import type { Box } from "../article/geometry";
 
 const TOP_LAYER = 2147483647;
@@ -48,6 +49,8 @@ export function Floating(props: FloatingProps) {
       onPointerEnter={props.onPointerEnter}
       onPointerLeave={props.onPointerLeave}
       onMouseDown={props.onMouseDown}
+      // A press on a card keeps the dictionary window open.
+      onPointerDown={keepOpen}
       style={{
         position: "fixed",
         zIndex: TOP_LAYER,

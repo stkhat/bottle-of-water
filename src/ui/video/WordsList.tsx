@@ -3,6 +3,7 @@ import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
 import { color } from "../lookup/styles";
 import { termStyle } from "./terms";
+import { keepOpen } from "../lookup/keep-open";
 
 type Style = CSSProperties;
 
@@ -175,6 +176,7 @@ function Row(props: WordsListProps & { row: WordRow }) {
       type="button"
       data-word-row
       aria-pressed={row.selected}
+      onPointerDown={keepOpen}
       onClick={onlyFromUser(() => props.onOpen(row.id))}
       style={row.selected ? ROW_ON : ROW_OFF}
     >

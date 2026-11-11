@@ -125,6 +125,8 @@ async function openArticle(context: BrowserContext, url = "/article-en.html") {
   return page;
 }
 
+/** A transcript card's time, top left: the words in a card open the dictionary instead. */
+const ON_TIME = { x: 16, y: 12 };
 const dictionary = (page: Page) =>
   page.getByRole("complementary", { name: en["dict.title"] });
 
@@ -307,7 +309,7 @@ for (const build of ["production", "check"] as const)
       const video = await context.newPage();
       await video.goto(YOUTUBE_WATCH);
       if (reachesUi) {
-        await videoCard(video, YT_LINE).click();
+        await videoCard(video, YT_LINE).click({ position: ON_TIME });
         await expect(inVideo(video)).toContainText(YT_LINE);
       } else await expect(video.locator("lingo-video-player")).toHaveCount(1);
 
@@ -479,7 +481,7 @@ for (const build of ["production", "check"] as const)
 
     /** The YouTube flow through Lingo's UI (check build). */
     async function useYouTube(page: Page) {
-      await videoCard(page, YT_LINE).click();
+      await videoCard(page, YT_LINE).click({ position: ON_TIME });
       await expect(inVideo(page)).toContainText(YT_LINE);
 
       // Hover and click a word; save it.
@@ -521,7 +523,7 @@ for (const build of ["production", "check"] as const)
       });
       await ownSwitch.click();
       await ownSwitch.click();
-      await videoCard(page, YT_LINE).click();
+      await videoCard(page, YT_LINE).click({ position: ON_TIME });
 
       // The Words tab: a filter, a row's dictionary window, back to the transcript.
       const panel = transcript(page);
@@ -601,14 +603,14 @@ for (const build of ["production", "check"] as const)
         { movieId: "80000002", manifest: JSON.stringify(manifest) },
       );
       if (reachesUi) {
-        await videoCard(page, NF_LINE).click();
+        await videoCard(page, NF_LINE).click({ position: ON_TIME });
         await expect(inVideo(page)).toContainText(NF_LINE);
       } else await expect(page.locator("lingo-video-player")).toHaveCount(1);
     });
 
     /** The Netflix flow through Lingo's UI (check build). */
     async function useNetflix(page: Page) {
-      await videoCard(page, NF_LINE).click();
+      await videoCard(page, NF_LINE).click({ position: ON_TIME });
       await expect(inVideo(page)).toContainText(NF_LINE);
 
       const controlBar = page.locator("[data-uia='controls-standard']");
@@ -844,7 +846,7 @@ for (const build of ["production", "check"] as const)
         const article = await openArticle(context);
         const video = await context.newPage();
         await video.goto(YOUTUBE_WATCH);
-        await videoCard(video, YT_LINE).click();
+        await videoCard(video, YT_LINE).click({ position: ON_TIME });
         await expect(inVideo(video)).toContainText(YT_LINE);
         const options = await context.newPage();
         await options.goto(`chrome-extension://${extensionId}/options.html`);

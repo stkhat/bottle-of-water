@@ -20,3 +20,24 @@ export function GearIcon(props: { size: number }) {
     </svg>
   );
 }
+
+/** The word list: three bulleted lines drawn in the current text color. */
+export function WordListIcon(props: { size: number }) {
+  return (
+    <svg
+      width={props.size}
+      height={props.size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      aria-hidden="true"
+    >
+      <path d="M9 6.5h11M9 12h11M9 17.5h11"></path>
+      <circle cx="4.75" cy="6.5" r="1" fill="currentColor"></circle>
+      <circle cx="4.75" cy="12" r="1" fill="currentColor"></circle>
+      <circle cx="4.75" cy="17.5" r="1" fill="currentColor"></circle>
+    </svg>
+  );
+}

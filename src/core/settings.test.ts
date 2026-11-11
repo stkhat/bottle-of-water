@@ -19,6 +19,8 @@ describe("DEFAULT_SETTINGS", () => {
       },
       subtitlePosition: "inVideo",
       subtitleTranslation: true,
+      subtitleSize: 100,
+      subtitleOpacity: 80,
       transcriptTranslation: true,
       sites: { youtube: true, netflix: true, articles: true },
       videoOn: { youtube: true, netflix: true },
@@ -80,6 +82,22 @@ describe("mergeSettings", () => {
     expect(mergeSettings({ knownLevel: 3240 }).knownLevel).toBe(3000);
     expect(mergeSettings({ knownLevel: 3260 }).knownLevel).toBe(3500);
     expect(mergeSettings({ knownLevel: Number.NaN }).knownLevel).toBe(3000);
+  });
+
+  it("clamps the subtitle size to 50–200% in steps of 10", () => {
+    expect(mergeSettings({ subtitleSize: 10 }).subtitleSize).toBe(50);
+    expect(mergeSettings({ subtitleSize: 900 }).subtitleSize).toBe(200);
+    expect(mergeSettings({ subtitleSize: 134 }).subtitleSize).toBe(130);
+    expect(mergeSettings({ subtitleSize: "150" }).subtitleSize).toBe(100);
+  });
+
+  it("clamps the subtitle opacity to 0–100% in steps of 5", () => {
+    expect(mergeSettings({ subtitleOpacity: -20 }).subtitleOpacity).toBe(0);
+    expect(mergeSettings({ subtitleOpacity: 140 }).subtitleOpacity).toBe(100);
+    expect(mergeSettings({ subtitleOpacity: 42 }).subtitleOpacity).toBe(40);
+    expect(mergeSettings({ subtitleOpacity: Number.NaN }).subtitleOpacity).toBe(
+      80,
+    );
   });
 
   it("drops unknown keys", () => {
