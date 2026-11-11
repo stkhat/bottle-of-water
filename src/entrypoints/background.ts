@@ -9,6 +9,7 @@ import { getSettings, setSettings } from "../background/settings-store";
 import { watchBuild } from "../background/self-reload";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import { createTermStore } from "../background/term-store";
+import { createTranslationCache } from "../background/translation-cache";
 import { createBrowserEnv } from "../core/browser-env";
 
 /**
@@ -24,6 +25,7 @@ export default defineBackground(() => {
   const handle = createHandlers({
     store,
     history,
+    translations: createTranslationCache(db),
     settings: { get: getSettings, set: setSettings },
     resources: createLanguageResources(loadPack),
     sync,

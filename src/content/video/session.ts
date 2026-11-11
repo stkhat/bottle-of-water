@@ -34,14 +34,22 @@ import {
 } from "../../ui/lookup/externalDictionaries";
 import type { HighlightCategory } from "../../ui/lookup/HighlightChips";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
-import { describeTerm, type TermCard } from "../article/describe";
+import {
+  describeTerm,
+  translateSenses,
+  type TermCard,
+} from "../article/describe";
 import type { Box } from "../article/geometry";
 import { hostBlocked } from "../article/should-run";
+import {
+  createTranslationQueue,
+  type TranslationPair,
+} from "../translate/queue";
 import {
   builtInTranslatorAvailable,
   createBuiltInTranslator,
   type TranslationProvider,
-} from "../article/translate";
+} from "../translate/translator";
 import { createStore, type Store } from "../ui/store";
 import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
@@ -276,7 +284,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   let settings = await deps.send({ type: "getSettings" });
   const store = createStore<VideoState>(fresh(settings, null, false));
   let watch: Watch | undefined;
-  let translator: TranslationProvider | undefined;
+  /** The subtitles, the hover card and the window translate through it, in that order. */
+  const translator = createTranslationQueue(
+    deps.createTranslator ?? createBuiltInTranslator,
+  );
+  /** The pair the built-in translator translates the subtitles in (source "builtIn"). */
+  let subtitlePair: TranslationPair | undefined;
   let warmed = false;
 
   const lang = () => settings.learningLang;
@@ -409,10 +422,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
           : cues.map(() => "")),
     });
     if (translation.source === "builtIn")
-      translator = (deps.createTranslator ?? createBuiltInTranslator)(
-        lang(),
-        settings.nativeLang,
-      );
+      subtitlePair = { from: lang(), to: settings.nativeLang };
     if (store.get().enabled) adapter.hideSiteCaptions(true);
     startTracking(w).catch(warn);
     await analyzeAll(w);
@@ -521,8 +531,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (!pending) {
       const cue = store.get().cues[index];
       pending =
-        cue && translator
-          ? translator.translate(flat(cue.text))
+        cue && subtitlePair
+          ? translator.translate(flat(cue.text), "subtitle", subtitlePair)
           : Promise.resolve(undefined);
       w.pendingTranslations.set(index, pending);
       void pending.then((text) => {
@@ -740,12 +750,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   }
 
   // Words: the hover card and the dictionary window.
-  let translatorForTerms: TranslationProvider | undefined;
-  const termTranslator = () =>
-    (translatorForTerms ??= (deps.createTranslator ?? createBuiltInTranslator)(
-      lang(),
-      settings.nativeLang,
-    ));
+  const translation = () => ({
+    send: deps.send,
+    lang: lang(),
+    nativeLang: settings.nativeLang,
+    translator,
+  });
 
   /**
    * The span `ref` points at, with its term as written (the whole phrase for a part of
@@ -760,7 +770,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     return { cue, span, surface: flat(cue.text.slice(start, end)) };
   }
 
-  async function describe(ref: WordRef): Promise<TermCard | undefined> {
+  async function describe(
+    ref: WordRef,
+    shownIn: "hover" | "window" = "hover",
+  ): Promise<TermCard | undefined> {
     const found = spanOf(ref);
     if (!found) return undefined;
     return describeTerm(
@@ -770,12 +783,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         surface: found.surface,
         category: found.span.category,
       },
-      {
-        send: deps.send,
-        lang: lang(),
-        sourceUrl: adapter.url(),
-        translator: termTranslator(),
-      },
+      { ...translation(), sourceUrl: adapter.url(), shownIn },
     );
   }
 
@@ -838,10 +846,25 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   let opened = 0;
   async function openPanel(ref: WordRef) {
     const ticket = ++panelTicket;
-    const card = await describe(ref);
+    const card = await describe(ref, "window");
     if (ticket !== panelTicket || !card) return;
     if (!store.get().panel) opened++;
-    store.set({ panel: panelState(ref, card, opened) });
+    showPanel(ref, card, opened);
+  }
+
+  /**
+   * Shows the window's card, then its English definitions translated as they come (the
+   * click that opened it lets the translator download its model the first time).
+   */
+  function showPanel(ref: WordRef, card: TermCard, times: number) {
+    store.set({ panel: panelState(ref, card, times) });
+    void translateSenses(card, translation())
+      .then((translated) => {
+        const panel = store.get().panel;
+        if (translated !== card && panel?.card === card)
+          store.set({ panel: { ...panel, card: translated } });
+      })
+      .catch(warn);
   }
 
   /** Looks the term up again where the hover card or the window shows it. */
@@ -855,9 +878,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     }
     if (panel && panel.card.key === key && panel.card.kind === kind) {
       const ticket = panelTicket;
-      const card = await describe(panel.ref);
+      const card = await describe(panel.ref, "window");
       if (card && ticket === panelTicket && store.get().panel)
-        store.set({ panel: panelState(panel.ref, card, panel.opened) });
+        showPanel(panel.ref, card, panel.opened);
     }
   }
 

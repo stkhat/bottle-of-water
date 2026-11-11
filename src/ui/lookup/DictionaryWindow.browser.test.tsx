@@ -122,6 +122,7 @@ describe("DictionaryWindow", () => {
         entry={{
           ...figureOut.entry,
           short: "To come to understand",
+          shortLang: "en",
           senses: [
             { pos: "verb", text: "To come to understand; to discover." },
           ],
@@ -135,6 +136,76 @@ describe("DictionaryWindow", () => {
     await expect
       .element(screen.getByText("To come to understand; to discover."))
       .toHaveAttribute("lang", "en");
+    expect(screen.container.textContent).not.toContain("Machine translation");
+  });
+
+  test("shows translated senses with their English below, marked on the Meanings heading", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...figureOut}
+        entry={{
+          head: "spill the beans",
+          kind: "phrase",
+          short: "秘密を漏らす",
+          senses: [
+            {
+              pos: "verb",
+              text: "To reveal secret information, especially unintentionally.",
+              translated: "秘密を（うっかり）漏らす",
+            },
+            { pos: "verb", text: "To confess.", translated: "白状する" },
+            { pos: "verb", text: "Misspelling of spill the bean." },
+          ],
+          glossLang: "en",
+        }}
+      />,
+    );
+    // The translated short line has no mark of its own: the Meanings heading has it.
+    const short = screen.getByText("秘密を漏らす", { exact: true });
+    await expect.element(short).toHaveAttribute("lang", "ja");
+    const mark = screen.getByText("Machine translation", { exact: true });
+    await expect.element(mark).toBeVisible();
+    const heading = screen.getByRole("heading", { name: "Meanings" });
+    const h = heading.element().getBoundingClientRect();
+    const m = mark.element().getBoundingClientRect();
+    expect(
+      Math.abs((h.top + h.bottom) / 2 - (m.top + m.bottom) / 2),
+    ).toBeLessThan(2);
+    // On the right of the heading's row, as far right as the senses go.
+    const sense = screen
+      .getByText("白状する", { exact: true })
+      .element()
+      .parentElement!.getBoundingClientRect();
+    expect(m.left).toBeGreaterThan(h.right);
+    expect(Math.abs(m.right - sense.right)).toBeLessThan(1);
+
+    // Each translation in the native language, its English below in smaller, muted text.
+    for (const [translation, english] of [
+      [
+        "秘密を（うっかり）漏らす",
+        "To reveal secret information, especially unintentionally.",
+      ],
+      ["白状する", "To confess."],
+    ] as const) {
+      const native = screen.getByText(translation, { exact: true });
+      const source = screen.getByText(english, { exact: true });
+      await expect.element(native).toHaveAttribute("lang", "ja");
+      await expect.element(source).toHaveAttribute("lang", "en");
+      const n = native.element().getBoundingClientRect();
+      const e = source.element().getBoundingClientRect();
+      expect(e.top).toBeGreaterThanOrEqual(n.bottom - 1);
+      expect(getComputedStyle(native.element()).fontSize).toBe("15px");
+      expect(getComputedStyle(source.element()).fontSize).toBe("13px");
+      expect(getComputedStyle(source.element()).color).not.toBe(
+        getComputedStyle(native.element()).color,
+      );
+    }
+    // A sense left untranslated (a pointer) shows its English as before.
+    const pointer = screen.getByText("Misspelling of spill the bean.", {
+      exact: true,
+    });
+    await expect.element(pointer).toHaveAttribute("lang", "en");
+    expect(getComputedStyle(pointer.element()).fontSize).toBe("15px");
   });
 
   test("marks the sentences as the learning language", async () => {

@@ -39,7 +39,7 @@ describe("HoverCard", () => {
 
   test("marks an English definition as English", async () => {
     const screen = await mountInShadowRoot(
-      <HoverCard {...figureOut} short="To come to understand" glossLang="en" />,
+      <HoverCard {...figureOut} short="To come to understand" shortLang="en" />,
     );
     await expect
       .element(screen.getByText("To come to understand"))

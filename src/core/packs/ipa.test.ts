@@ -35,6 +35,29 @@ describe("ipaFor", () => {
     expect(ipaFor("dog's", pack)).toBeUndefined();
   });
 
+  it("builds an -s form without an entry from the base form it is given", () => {
+    const pack = {
+      spill: "/spɪl/",
+      the: "/ðə/",
+      bean: "/bin/",
+      berry: "/ˈbɛri/",
+      watch: "/wɑtʃ/",
+      cat: "/kæt/",
+    };
+    const bases = (word: string) =>
+      ({
+        beans: ["bean"],
+        berries: ["berry"],
+        watches: ["watch"],
+        cats: ["cat"],
+      })[word] ?? [];
+    expect(ipaFor("spill the beans", pack, bases)).toBe("/spɪl ðə binz/");
+    expect(ipaFor("berries", pack, bases)).toBe("/ˈbɛriz/");
+    expect(ipaFor("watches", pack, bases)).toBe("/wɑtʃɪz/");
+    expect(ipaFor("cats", pack, bases)).toBe("/kæts/");
+    expect(ipaFor("beans", pack)).toBeUndefined();
+  });
+
   it("gives undefined when any word has no IPA", () => {
     expect(ipaFor("figure it out", ipa)).toBeUndefined();
     expect(ipaFor("zzyzx", ipa)).toBeUndefined();

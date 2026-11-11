@@ -16,6 +16,7 @@ import type {
   SaveTermInput,
   SourceInput,
 } from "../background/term-store";
+import type { TranslationItem } from "../background/translation-cache";
 import type { BrowserEnv } from "../core/browser-env";
 import type { Span, TermKind, TermStatus } from "../core/classify";
 import type { DictionaryEntry } from "../core/dictionary";
@@ -95,7 +96,22 @@ export type Request =
       sentences: HistorySentenceInput[];
     }
   | { type: "historyStatus" }
-  | { type: "clearHistory" };
+  | { type: "clearHistory" }
+  /**
+   * Keeps machine translations the UI made of cleaned English definitions
+   * (`cleanDefinition`) of terms in `lang`, into the native language from the settings.
+   * At most `MAX_CACHED_TRANSLATIONS` items are kept per request; empty or oversized
+   * ones are skipped.
+   */
+  | { type: "cacheTranslations"; lang: string; items: TranslationItem[] };
+
+/** `cacheTranslations` keeps at most this many items of a request. */
+export const MAX_CACHED_TRANSLATIONS = 16;
+/**
+ * The longest English text `cacheTranslations` keeps, in UTF-16 code units; its
+ * translation may be up to four times as long.
+ */
+export const MAX_TRANSLATION_TEXT = 1000;
 
 export type RequestType = Request["type"];
 export type RequestOf<T extends RequestType> = Extract<Request, { type: T }>;
@@ -141,6 +157,12 @@ export interface LookupResult {
    * sentences from the sentence history (other sources only).
    */
   elsewhere: OccurrenceView[];
+  /**
+   * Cached machine translations of the entry's short meaning and first senses, keyed by
+   * their cleaned English (`cleanDefinition`). Only for an entry whose glosses are not
+   * in the native language (`glossLang`); missing when none is cached.
+   */
+  translations?: Readonly<Record<string, string>>;
 }
 
 /** One row of the word list. */
@@ -155,6 +177,8 @@ export interface TermSummary {
   short?: string;
   /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
   glossLang?: string;
+  /** `short` is a cached machine translation of the English definition (no `glossLang`). */
+  machineTranslated?: true;
   /** How many occurrences are recorded. */
   seen: number;
   /** The newest occurrence's time, else when the term was saved (epoch ms). */
@@ -168,6 +192,8 @@ export interface TermBrief {
   short?: string;
   /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
   glossLang?: string;
+  /** `short` is a cached machine translation of the English definition (no `glossLang`). */
+  machineTranslated?: true;
   status: TermStatus | "new";
 }
 
@@ -211,6 +237,7 @@ export interface ResponseMap {
   recordHistory: { kept: number };
   historyStatus: HistoryStatus;
   clearHistory: null;
+  cacheTranslations: null;
 }
 
 export type ResponseOf<T extends RequestType> = ResponseMap[T];
