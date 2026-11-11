@@ -1,6 +1,6 @@
 # Status
 
-Updated whenever a milestone moves. Last update: 2026-11-11.
+Updated whenever a milestone moves. Last update: 2026-11-12.
 
 ## Where we are
 - **Phase 1 (MVP) is built** (M0–M7 of the [roadmap](plans/2026-11-09-roadmap.md)), merged to `main` through PR #2 (`feat/phase-1`). The dev environment came in through PR #3 (`chore/dev-env`)
@@ -15,6 +15,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 - **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md), [measurements](notes/definition-translation.md)) merged through PR #21: the hover card translates the short meaning, the dictionary window up to four senses with the English below, cached on the device (`mtCache`, 20,000 rows)
 - **M9c downloaded language packs** on `feat/pack-downloads` ([plan](plans/2026-11-11-m9c-pack-downloads.md)): a lock file (`src/core/packs/packs.lock.json`, written by `npm run data:publish` with the npm package folders) says per pack whether it is bundled or downloaded; downloads come from npm mirrors, are checked against the lock's SHA-256, kept in IndexedDB and switched in one transaction, with retries (1, 5, 30 min, then 6 h) and Retry. Pages wait quietly while their data is missing and analyze again once it is there; the popup and the video column show "Downloading Spanish data · n%" or "Couldn't download Spanish data" with Retry, Settings → Languages a "Language data" row. **Hosting comes later** (user, 2026-11-11): the npm scope and public data repository do not exist yet, so production builds keep every pack bundled. The download path runs in E2E against a local mirror (`npm run build:check-download`, `e2e/pack-downloads.spec.ts`: the page waits, downloads, is highlighted; a corrupted file fails and Retry recovers)
 - **M9d new native languages** on `feat/native-languages` ([plan](plans/2026-11-11-m9d-native-languages.md)): learners of English can choose Spanish or Portuguese as their language. Each pair dictionary (`data/packs/en-es/`, `en-pt/`) is built by a recipe (`npm run data:native -- es pt`) from the native Wiktionary edition, then English Wiktionary's translation tables, one source per term; a translation-table sense shows its English sense above the native words (mock `TranslatedSenses`). `en-defs` now holds English definitions of words as well as phrases, the fallback of every English pair. The quality gate (95% of the top 5,000 English content words, confirmed by the user) is reported by `npm run data:stats`; `npm run data:publish` writes the passing pairs into the lock, which Settings reads. **ECDICT is not used** (its Chinese sources cannot be traced) and **zh is left for later** (91.2%, under the gate; user, 2026-11-11). The new packs are bundled until hosting starts
+- **YouTube comments** (2026-11-12, branch `feat/youtube-comments`; spec "YouTube comments", mock `YouTube — comments`, [notes](notes/youtube-comments.md)): the comments and replies under a video work like an article (highlights, hover card, dictionary panel at the top right, phrase selection, saving, history and occurrences with the video as the source). Each comment's language is detected on its own; Settings → Sites → "YouTube comments" (on by default). One dictionary at a time, and a term saved in the comments updates the subtitles and transcript (and the other way round). Built on the article engine through a `PageSurface` (`src/content/article/surface.ts`, `src/content/video/youtube-comments.tsx`)
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
@@ -47,6 +48,11 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - The 50 MB history figure is Lingo's own estimate; IndexedDB's indexes take more space on disk
 - Production builds use closed shadow roots, so E2E drives the page UI on the check build only
 - YouTube ASR: in stretches where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts); a card can then hold a long run-on (up to ~70 words), shown as several lines. Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma
+
+## Known issues and open points (YouTube comments)
+- Short comments ("lol", "wow") are often not decided by the language detector and count as the learning language; one in another language that the detector cannot decide on is analyzed (words not in the vocabulary get nothing)
+- A comment cut off by "Read more" is analyzed whole; its hidden part gets highlights once expanded
+- Shorts' comment panel is not covered
 
 ## Known issues and open points (M9)
 - Phrase gaps: a saved phrasal verb may match words that do not belong together (up to three words between its parts; a conjunction or a subject ends the gap, but there is no part-of-speech check)

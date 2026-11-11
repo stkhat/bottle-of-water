@@ -122,6 +122,26 @@ describe("collectBlocks", () => {
   });
 });
 
+describe("collectBlocks with acceptText", () => {
+  const onlyBodies = (node: Text) =>
+    node.parentElement?.closest(".body") != null;
+
+  it("reads only the text nodes the filter accepts", () => {
+    const root = fixture(
+      "<div><span>@author</span> <a href='#'>2 days ago</a></div><div><span class='body'>Great <b>talk</b></span> <button>Reply</button></div>",
+    );
+    expect(texts(collectBlocks(root, onlyBodies))).toEqual(["Great talk"]);
+  });
+
+  it("maps the accepted text back to its nodes", () => {
+    const root = fixture(
+      "<div><span>@a</span><span class='body'>Nice one</span></div>",
+    );
+    const [block] = collectBlocks(root, onlyBodies);
+    expect(rangeOf(block!, 0, 4).toString()).toBe("Nice");
+  });
+});
+
 describe("offsets and ranges", () => {
   it("maps every word of a block to a Range with the same text and back", () => {
     const root = fixture(
@@ -199,6 +219,21 @@ describe("createPageText", () => {
     expect(texts(changes[0]!.removed)).toEqual(["Two"]);
     expect(texts(changes[0]!.added)).toEqual(["New", "More"]);
     expect(texts(text.blocks())).toEqual(["One", "New", "More"]);
+    text.disconnect();
+  });
+
+  it("applies acceptText to the blocks collected after changes", async () => {
+    const root = fixture("<div id='list'></div>");
+    const changes: BlockChange[] = [];
+    const text = createPageText(root, {
+      onChange: (change) => changes.push(change),
+      acceptText: (node) => node.parentElement?.closest(".body") != null,
+    });
+    const item = document.createElement("div");
+    item.innerHTML = "<span>@author</span><p class='body'>Loaded later</p>";
+    root.querySelector("#list")!.append(item);
+    await expect.poll(() => changes.length).toBe(1);
+    expect(texts(text.blocks())).toEqual(["Loaded later"]);
     text.disconnect();
   });
 

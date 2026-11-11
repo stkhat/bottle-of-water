@@ -184,6 +184,22 @@ describe("createHighlighter", () => {
     expect(learning.textDecorationThickness).toBe("2px");
   });
 
+  it("darkens the text under a background, so dark pages stay readable", () => {
+    highlighter();
+    const sheet = document.adoptedStyleSheets.at(-1)!;
+    const rule = (name: string) =>
+      [...sheet.cssRules].find(
+        (r) => (r as CSSStyleRule).selectorText === `::highlight(${name})`,
+      ) as CSSStyleRule;
+    // The mock's ink on the light chips; Known has no background and keeps the page's.
+    expect(rule("lingo-new").style.color).toBe("rgb(20, 24, 43)");
+    expect(rule("lingo-learning").style.color).toBe("rgb(20, 24, 43)");
+    expect(rule("lingo-known").style.color).toBe("");
+    expect(highlightCss(false)).toMatch(
+      /::highlight\(lingo-known\)\s*\{[^}]*color: #14182B/,
+    );
+  });
+
   it("removes its stylesheet and highlights on destroy", () => {
     const [block] = fixture(TEXT);
     const before = document.adoptedStyleSheets.length;

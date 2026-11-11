@@ -22,6 +22,12 @@ const FALLBACK_BACKGROUND: Readonly<Record<HighlightCategory, string>> = {
 };
 
 /**
+ * The text color under a highlight's background (the mock's ink): the backgrounds are
+ * light, so white text on a dark page (YouTube's dark theme) would vanish on them.
+ */
+const INK_ON_BACKGROUND = "#14182B";
+
+/**
  * Where the underline sits below the baseline, the same for every category: flush
  * with the bottom of the text, where a background ends (a highlight's background
  * covers only the text's height, not the whole line box as in the mock).
@@ -40,7 +46,7 @@ export function supportsHighlightUnderline(): boolean {
  * The page's highlight styles: only `::highlight(lingo-*)` rules. The mock draws a
  * 2px inset bar at the bottom of each word, which `::highlight()` cannot (no
  * box-shadow), so a 2px underline stands in for it. Without underlines, every
- * category gets a background color instead.
+ * category gets a background color instead. Text on a background is drawn dark.
  */
 export function highlightCss(underline: boolean): string {
   return CATEGORIES.map((category) => {
@@ -48,11 +54,15 @@ export function highlightCss(underline: boolean): string {
     const declarations = underline
       ? [
           look.background && `background-color: ${look.background}`,
+          look.background && `color: ${INK_ON_BACKGROUND}`,
           `text-decoration: underline 2px ${look.underline}`,
           "text-decoration-skip-ink: none",
           `text-underline-offset: ${UNDERLINE_OFFSET}`,
         ]
-      : [`background-color: ${FALLBACK_BACKGROUND[category]}`];
+      : [
+          `background-color: ${FALLBACK_BACKGROUND[category]}`,
+          `color: ${INK_ON_BACKGROUND}`,
+        ];
     const body = declarations.filter(Boolean).join("; ");
     return `::highlight(${HIGHLIGHT_NAMES[category]}) { ${body}; }`;
   }).join("\n");

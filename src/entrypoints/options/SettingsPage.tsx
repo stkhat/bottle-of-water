@@ -311,6 +311,11 @@ const SITES = [
     desc: "settings.sites.youtubeDesc",
   },
   {
+    id: "youtubeComments",
+    label: "settings.sites.youtubeComments",
+    desc: "settings.sites.youtubeCommentsDesc",
+  },
+  {
     id: "netflix",
     label: "platform.netflix",
     desc: "settings.sites.netflixDesc",
