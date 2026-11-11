@@ -13,6 +13,11 @@ export interface Settings {
    * article: kept as New, or saved as Known.
    */
   unsavedAtEnd: "keep" | "known";
+  /**
+   * On articles, only the title and body get highlights, the end-of-article save and
+   * the history; menus, sidebars and links to other stories still answer hovers.
+   */
+  articleMainOnly: boolean;
   dictionaries: {
     cambridge: boolean;
     wiktionary: boolean;
@@ -54,6 +59,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   knownLevel: 3000,
   highlight: { new: false, learning: true, known: false },
   unsavedAtEnd: "keep",
+  articleMainOnly: true,
   dictionaries: {
     cambridge: true,
     wiktionary: true,
@@ -130,6 +136,7 @@ export function mergeSettings(
     )
       ? (v.unsavedAtEnd as Settings["unsavedAtEnd"])
       : base.unsavedAtEnd,
+    articleMainOnly: bool(v.articleMainOnly, base.articleMainOnly),
     dictionaries: flags(v.dictionaries, base.dictionaries),
     subtitlePosition: SUBTITLE_POSITIONS.includes(
       v.subtitlePosition as Settings["subtitlePosition"],

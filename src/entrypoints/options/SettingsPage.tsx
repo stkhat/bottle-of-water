@@ -44,6 +44,7 @@ const SECTIONS = [
   { id: "sites", label: "settings.section.sites" },
   { id: "history", label: "settings.section.history" },
   { id: "sync", label: "settings.section.sync" },
+  { id: "articles", label: "settings.section.articles" },
   { id: "about", label: "settings.section.about" },
 ] as const satisfies readonly { id: string; label: MessageKey }[];
 
@@ -1099,6 +1100,20 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
                 ? t("settings.cloud.desc", { syncName: env.syncName })
                 : t("settings.cloud.descNoFolder", { syncName: env.syncName })
             }
+          />
+        </Section>
+
+        <Section
+          id="articles"
+          label="settings.section.articles"
+          lead={t("settings.articles.lead")}
+        >
+          <SwitchRow
+            first
+            title={t("settings.articles.mainOnly")}
+            desc={t("settings.articles.mainOnlyDesc")}
+            checked={s.articleMainOnly}
+            onToggle={() => set("articleMainOnly", !s.articleMainOnly)}
           />
         </Section>
 
