@@ -44,15 +44,10 @@ function transcriptionOf(word: string, ipa: IpaPack): string | undefined {
 }
 
 /**
- * A possessive ("one's", "Anna's") without an entry of its own: its base word's IPA with
- * the ending English adds: /ɪz/ after a sibilant, /s/ after another voiceless sound, /z/
- * otherwise ("one's" → /wʌnz/).
+ * A transcription with the -s ending English adds for possessives, plurals and the third
+ * person: /ɪz/ after a sibilant, /s/ after another voiceless sound, /z/ otherwise.
  */
-function possessiveOf(word: string, ipa: IpaPack): string | undefined {
-  const base = /^(.+)['’]s$/u.exec(word)?.[1];
-  const transcription =
-    base === undefined ? undefined : transcriptionOf(base, ipa);
-  if (transcription === undefined) return undefined;
+function withS(transcription: string): string {
   const open = transcription[0]!;
   const inner = transcription.slice(1, -1);
   const ending = /(?:s|z|ʃ|ʒ)$/u.test(inner)
@@ -63,17 +58,54 @@ function possessiveOf(word: string, ipa: IpaPack): string | undefined {
   return `${open}${inner}${ending}${transcription.at(-1)!}`;
 }
 
+/** A possessive ("one's", "Anna's") without an entry of its own, from its base word ("one's" → /wʌnz/). */
+function possessiveOf(word: string, ipa: IpaPack): string | undefined {
+  const base = /^(.+)['’]s$/u.exec(word)?.[1];
+  const transcription =
+    base === undefined ? undefined : transcriptionOf(base, ipa);
+  return transcription === undefined ? undefined : withS(transcription);
+}
+
+/**
+ * An -s form ("beans", "berries", "watches") without an entry of its own, from the base
+ * form `bases` gives for it ("beans" → bean → /binz/).
+ */
+function sFormOf(
+  word: string,
+  ipa: IpaPack,
+  bases: (word: string) => readonly string[],
+): string | undefined {
+  if (!word.endsWith("s")) return undefined;
+  for (const base of bases(word)) {
+    const isSForm =
+      word === `${base}s` ||
+      word === `${base}es` ||
+      (base.endsWith("y") && word === `${base.slice(0, -1)}ies`);
+    const transcription = isSForm ? transcriptionOf(base, ipa) : undefined;
+    if (transcription !== undefined) return withS(transcription);
+  }
+  return undefined;
+}
+
 /**
  * IPA of a word (US IPA for English), or of a phrase as its words' IPA inside one pair of
  * slashes, in dictionary style (`dictionaryIpa`). A possessive without an entry of its own
- * is built from its base word ("make up one's mind").
+ * is built from its base word ("make up one's mind"), and so is an -s form when `bases`
+ * gives its base forms ("spill the beans").
  * undefined when any word has none.
  */
-export function ipaFor(term: string, ipa: IpaPack): string | undefined {
+export function ipaFor(
+  term: string,
+  ipa: IpaPack,
+  bases?: (word: string) => readonly string[],
+): string | undefined {
   const words = term.toLowerCase().split(/\s+/).filter(Boolean);
   const parts: string[] = [];
   for (const word of words) {
-    const transcription = transcriptionOf(word, ipa) ?? possessiveOf(word, ipa);
+    const transcription =
+      transcriptionOf(word, ipa) ??
+      possessiveOf(word, ipa) ??
+      (bases ? sFormOf(word, ipa, bases) : undefined);
     if (transcription === undefined) return undefined;
     parts.push(dictionaryIpa(transcription));
   }

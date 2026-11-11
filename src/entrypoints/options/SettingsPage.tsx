@@ -12,6 +12,7 @@ import {
 import { learningLanguages, nativeLanguages } from "../../core/languages";
 import type { SyncStatus } from "../../core/sync/backend";
 import { siteFromInput } from "../../core/url";
+import { downloadTranslationModels } from "../../content/translate/translator";
 import { languageName, languageOption } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import type { send } from "../../messaging/client";
@@ -528,17 +529,26 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     patch({ [key]: value } as SettingsPatch, { ...s, [key]: value });
   }
 
-  /** A new learning language comes with a native language it has a dictionary into. */
+  /**
+   * A new learning language comes with a native language it has a dictionary into.
+   * Choosing either starts the translator's model download for the pair, which needs
+   * this user activation (the change).
+   */
   function setLanguage(
     key: "learningLang" | "nativeLang" | "uiLocale",
     value: string,
   ) {
-    if (key !== "learningLang") return set(key, value);
-    const change = {
-      learningLang: value,
-      nativeLang: nativeLanguages(value)[0] ?? s.nativeLang,
-    };
-    patch(change, { ...s, ...change });
+    if (key === "uiLocale") return set(key, value);
+    const change =
+      key === "learningLang"
+        ? {
+            learningLang: value,
+            nativeLang: nativeLanguages(value)[0] ?? s.nativeLang,
+          }
+        : { nativeLang: value };
+    const next = { ...s, ...change };
+    void downloadTranslationModels(next.learningLang, next.nativeLang);
+    patch(change, next);
   }
 
   const languageSelect = (

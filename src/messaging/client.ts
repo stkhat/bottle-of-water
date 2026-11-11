@@ -54,6 +54,8 @@ const REPEATABLE: Record<RequestType, boolean> = {
   recordHistory: true,
   historyStatus: true,
   clearHistory: true,
+  // Translations are kept by their text: a second request writes the same rows.
+  cacheTranslations: true,
 };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

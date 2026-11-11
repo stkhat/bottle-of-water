@@ -23,11 +23,20 @@ export interface DictionaryEntryView {
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
   short?: string;
-  /** `short` came from the browser's translator: marked "Machine translation". */
-  machineTranslated?: boolean;
-  senses: { pos?: string; text: string }[];
+  /** Language of `short` when it is not the native language (an English definition). */
+  shortLang?: string;
   /**
-   * Language of `short` and `senses` when it is not the native language (an English
+   * `short` is the browser translator's literal translation: marked "Machine
+   * translation" next to it.
+   */
+  machineTranslated?: boolean;
+  /**
+   * `translated`: the browser translator's translation of the sense, shown with `text`
+   * below it; any translated sense marks the Meanings heading "Machine translation".
+   */
+  senses: { pos?: string; text: string; translated?: string }[];
+  /**
+   * Language of the senses' `text` when it is not the native language (an English
    * definition).
    */
   glossLang?: string;
@@ -266,9 +275,11 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
 function Content(props: DictionaryWindowProps & { icon: Style }) {
   const { entry, status } = props;
   const glossLang = entry.glossLang ?? props.nativeLang;
+  const translated = entry.senses.some((sense) => sense.translated);
+  const meanings = <h3 style={sectionHeading}>{t("dict.meanings")}</h3>;
   const short = entry.short && (
     <p
-      lang={glossLang}
+      lang={entry.shortLang ?? props.nativeLang}
       style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
     >
       {entry.short}
@@ -374,8 +385,29 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
       />
 
       {entry.senses.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <h3 style={sectionHeading}>{t("dict.meanings")}</h3>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            // Mock TranslatedSenses: a translated sense takes two lines.
+            gap: translated ? "12px" : "10px",
+          }}
+        >
+          {translated ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+              }}
+            >
+              {meanings}
+              <MachineTranslationMark />
+            </div>
+          ) : (
+            meanings
+          )}
           {entry.senses.map((sense, i) => (
             <div
               key={i}
@@ -393,12 +425,33 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
                   {sense.pos}
                 </span>
               )}
-              <span
-                lang={glossLang}
-                style={{ fontSize: "15px", lineHeight: 1.55 }}
-              >
-                {sense.text}
-              </span>
+              {sense.translated ? (
+                <>
+                  <span
+                    lang={props.nativeLang}
+                    style={{ fontSize: "15px", lineHeight: 1.55 }}
+                  >
+                    {sense.translated}
+                  </span>
+                  <span
+                    lang={glossLang}
+                    style={{
+                      fontSize: "13px",
+                      lineHeight: 1.5,
+                      color: color.muted,
+                    }}
+                  >
+                    {sense.text}
+                  </span>
+                </>
+              ) : (
+                <span
+                  lang={glossLang}
+                  style={{ fontSize: "15px", lineHeight: 1.55 }}
+                >
+                  {sense.text}
+                </span>
+              )}
             </div>
           ))}
         </div>

@@ -13,7 +13,7 @@ Updated whenever a milestone moves. Last update: 2026-11-11.
 
 - Dictionary window and transcript (2026-11-11, branch `claude/dictionary-popup-video-ui-d462d4`): a press outside the dictionary window closes it (video and article; × stays), "In this video" marks the term in each line, and transcript words show the hover card and open the dictionary on a click
 
-- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted in draft PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs). M9a phrase patterns on `feat/phrase-patterns` (draft PR #20, [plan](plans/2026-11-11-m9a-phrase-patterns.md)): data, matcher, classifier, saving selections under the pattern key, and the selection card (the phrase's hover card replaces the phrase bar, mock PhraseMeaning) are built
+- **M9, language data that scales** (2026-11-11, [design](specs/2026-11-11-language-data-scaling-design.md)): adopted through PR #18 with review fixes (npm hosting via jsDelivr / unpkg, IndexedDB for downloaded packs; mock reviewed). **M9a phrase patterns merged** through PR #20 ([plan](plans/2026-11-11-m9a-phrase-patterns.md)): slots and gaps, saved phrases matched with both, a selection shows its phrase's hover card and is saved under the pattern key. Checked on Wikipedia in the user's Chrome. M9b (English definitions translated at display time, [plan](plans/2026-11-11-m9b-definition-translation.md), [measurements](notes/definition-translation.md)) on `feat/definition-translation`: the hover card translates the short meaning, the dictionary window up to four senses with the English below, cached on the device (`mtCache`, 20,000 rows)
 ## What phase 1 contains
 | Area | Where | Plan |
 |---|---|---|
@@ -52,6 +52,8 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 - A phrase saved before M9a whose key happens to contain a slot word ("someone else") now also matches the slot's fillers ("him else")
 - Phrases dropped only by the rank thresholds ("see you later", "in it") are in neither `detect` nor `more`, so a selection cannot match them
 - Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
+- Machine-translated definitions: about 70 of 100 read well in Chrome's en→ja; fragments ("prudish, straight-laced") and jargon translate badly, so the window keeps the English under each translated sense. "Synonym of" and other pointer senses stay English
+- The first definition translation needs Chrome's model (en→N). Its download needs a click (dictionary window, or choosing a language in Settings); until then hover cards show English. A pair still downloading waits outside the page's translation queue
 
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
@@ -61,7 +63,8 @@ Checking in your own Chrome: `npm run build:check` refreshes `.output/lingo-chec
 
 ## Decisions (2026-11-11)
 - Articles: only the title and body get highlights, the end-of-article "Mark as Known", the sentence history and "Seen elsewhere" encounters; words in menus, sidebars and related-story links still show the hover card and the dictionary. Settings → Articles → "Highlight only the article" (on by default) switches it; off, the whole page counts as before. Main content is found by `findMainContent` (`src/content/article/main-content.ts`)
-- No page card on articles and no end cards: the toolbar popup keeps the highlight toggles, and the popup's "This page" save-all is gone. Settings → Highlighting → "New words you didn't save" (Keep as New, default / Mark as Known) decides what happens to unsaved New words when a video ends or the end of an article comes into view
+- No page card on articles and no end cards: the toolbar popup keeps the highlight toggles. Settings → Highlighting → "New words you didn't save" (Keep as New, default / Mark as Known) decides what happens to unsaved New words when a video ends or the end of an article comes into view
+- The popup's "This page" section is back: "Mark all as Learning" / "Mark all as Known" save every unsaved New word of the tab at once, with Undo (popup only, no end cards)
 - IPA is shown in dictionary style (no syllable dots or tie bars, r instead of ɹ) in Noto Sans or the system UI font
 
 ## Decisions (2026-11-09 / 10)

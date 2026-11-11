@@ -2,11 +2,13 @@
  * Browser differences in one place (spec: "Absorbing browser differences").
  * Names come from the build target; features are detected on a global object, which
  * tests pass as a stub. Never branch on the user agent.
+ *
+ * The built-in translator is not among the features: it does not exist in the
+ * background's service worker, where this is detected, so the UI detects it where it
+ * translates (`createBuiltInTranslator`).
  */
 
 export interface BrowserFeatures {
-  /** Built-in translator (Translator API). */
-  translator: boolean;
   /** Built-in AI (Prompt API). */
   builtInAi: boolean;
   /** CSS Custom Highlight API with underlines (refined in M5). */
@@ -45,10 +47,6 @@ const FIREFOX: Names = {
 
 type Global = object;
 
-export function hasTranslator(g: Global): boolean {
-  return "Translator" in g;
-}
-
 export function hasBuiltInAi(g: Global): boolean {
   return "LanguageModel" in g;
 }
@@ -66,7 +64,6 @@ export function hasHighlightUnderline(g: Global): boolean {
 
 export function detectFeatures(g: Global = globalThis): BrowserFeatures {
   return {
-    translator: hasTranslator(g),
     builtInAi: hasBuiltInAi(g),
     highlightUnderline: hasHighlightUnderline(g),
     fileSystemAccess: hasFileSystemAccess(g),

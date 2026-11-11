@@ -365,7 +365,7 @@ test("a Spanish article is highlighted and looked up in English when learning Sp
   expect(await highlighted(page, "lingo-new")).not.toContain("comiendo");
 });
 
-test("the popup can ask the page about itself", async ({
+test("the popup can ask the page what Mark all would do, and do it", async ({
   context,
   extensionId,
 }) => {
@@ -393,9 +393,32 @@ test("the popup can ask the page about itself", async ({
       return replies.filter((r) => r !== undefined);
     }, message);
 
-  expect(await ask({ type: "pageSummary" })).toEqual([
-    { supported: true, hostname: "localhost" },
+  const [summary] = (await ask({ type: "pageSummary" })) as {
+    supported: boolean;
+    hostname: string;
+    scope: string;
+    unsaved: number;
+    done: null;
+  }[];
+  expect(summary).toMatchObject({
+    supported: true,
+    hostname: "localhost",
+    scope: "page",
+    done: null,
+  });
+  expect(summary!.unsaved).toBeGreaterThan(0);
+
+  expect(await ask({ type: "pageSaveAll", status: "known" })).toEqual([
+    {
+      supported: true,
+      hostname: "localhost",
+      scope: "page",
+      unsaved: 0,
+      done: { count: summary!.unsaved, target: "known" },
+    },
   ]);
+  expect(await highlighted(page, "lingo-new")).toEqual([]);
+  expect(await ask({ type: "pageUndo" })).toEqual([summary]);
   await page.close();
 });
 

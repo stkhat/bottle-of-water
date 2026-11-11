@@ -1,5 +1,5 @@
 import type { ArticleApp } from "../article/article";
-import { shownStatus, type TermCard } from "../article/describe";
+import { hoverView, windowView } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
@@ -35,18 +35,6 @@ function Outline({ box }: { box: Box }) {
   );
 }
 
-/** What the hover card shows of a term. */
-const cardProps = (card: TermCard) => ({
-  kind: card.kind,
-  status: shownStatus(card),
-  head: card.head,
-  ipa: card.ipa,
-  short: card.short,
-  machineTranslated: card.machineTranslated,
-  glossLang: card.glossLang,
-  sub: card.sub,
-});
-
 /** Everything Lingo shows on an article page, inside its shadow root. */
 export function ArticleUi({ app }: { app: ArticleApp }) {
   const { settings, hover, panel, phrase } = useStore(app.store);
@@ -61,16 +49,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           <DictionaryWindow
             variant="panel"
             frame={{ top: CARD_INSET, right: CARD_INSET, bottom: CARD_INSET }}
-            entry={{
-              head: panel.card.head,
-              kind: panel.card.kind,
-              ipa: panel.card.ipa,
-              sub: panel.card.sub,
-              short: panel.card.short,
-              machineTranslated: panel.card.machineTranslated,
-              senses: panel.card.senses,
-              glossLang: panel.card.glossLang,
-            }}
+            entry={windowView(panel.card)}
             nativeLang={settings.nativeLang}
             learningLang={settings.learningLang}
             status={panel.card.status}
@@ -97,7 +76,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
         >
           <HoverCard
             variant="article"
-            {...cardProps(hover.card)}
+            {...hoverView(hover.card)}
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}
             onKnown={() => app.setHoverStatus("known")}
@@ -111,7 +90,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           <HoverCard
             variant="article"
             selection
-            {...cardProps(phrase.card)}
+            {...hoverView(phrase.card)}
             nativeLang={settings.nativeLang}
             onLearning={() => app.savePhrase("learning")}
             onKnown={() => app.savePhrase("known")}

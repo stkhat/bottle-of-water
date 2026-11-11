@@ -10,7 +10,7 @@ import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
 import { VideoPanel } from "../../ui/video/VideoPanel";
 import { ThemeScope } from "../../ui/ThemeScope";
-import { shownStatus } from "../article/describe";
+import { hoverView, windowView } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { dictionaryFrame, menuPlacement } from "../video/placement";
 import type { VideoApp, VideoState } from "../video/session";
@@ -368,16 +368,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
           variant="window"
           frame={frame}
           fullscreen={fullscreen}
-          entry={{
-            head: panel.card.head,
-            kind: panel.card.kind,
-            ipa: panel.card.ipa,
-            sub: panel.card.sub,
-            short: panel.card.short,
-            machineTranslated: panel.card.machineTranslated,
-            senses: panel.card.senses,
-            glossLang: panel.card.glossLang,
-          }}
+          entry={windowView(panel.card)}
           nativeLang={settings.nativeLang}
           learningLang={settings.learningLang}
           status={panel.card.status}
@@ -406,14 +397,7 @@ export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
         >
           <HoverCard
             variant="video"
-            kind={hover.card.kind}
-            status={shownStatus(hover.card)}
-            head={hover.card.head}
-            ipa={hover.card.ipa}
-            short={hover.card.short}
-            machineTranslated={hover.card.machineTranslated}
-            glossLang={hover.card.glossLang}
-            sub={hover.card.sub}
+            {...hoverView(hover.card)}
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}
             onKnown={() => app.setHoverStatus("known")}

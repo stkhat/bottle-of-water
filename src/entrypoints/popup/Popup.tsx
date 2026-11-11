@@ -9,6 +9,7 @@ import type { send } from "../../messaging/client";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import { kilobytes, relativeTime } from "../../ui/format/format";
 import { HighlightChips } from "../../ui/lookup/HighlightChips";
+import { SaveAll } from "../../ui/lookup/SaveAll";
 import { Switch } from "../../ui/lookup/Switch";
 import { badge, color, FONT } from "../../ui/lookup/styles";
 import { GearIcon } from "../../ui/icons";
@@ -141,7 +142,7 @@ const footerButton = {
   cursor: "pointer",
 } as const;
 
-/** The toolbar popup (mock Toolbar): this site, highlights, counts, sync. */
+/** The toolbar popup (mock Toolbar): this site, highlights, counts, this page, sync. */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
   const [counts, setCounts] = useState<Counts>();
@@ -205,6 +206,12 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       : settings.disabledSites.filter((e) => !onHost(hostname, e));
     setSettings({ ...settings, disabledSites });
     patch({ disabledSites });
+  }
+
+  function pageAction(request: PageRequest) {
+    void askPage(request).then(() => {
+      if (settings) refreshCounts(settings.learningLang);
+    });
   }
 
   return (
@@ -337,6 +344,21 @@ export function Popup({ deps }: { deps: PopupDeps }) {
               label={t("popup.count.phrases")}
             />
           </div>
+        )}
+
+        {summary?.supported && siteOn && (
+          <SaveAll
+            scope={summary.scope}
+            unsavedCount={summary.unsaved}
+            done={summary.done}
+            onAddLearning={() =>
+              pageAction({ type: "pageSaveAll", status: "learning" })
+            }
+            onMarkKnown={() =>
+              pageAction({ type: "pageSaveAll", status: "known" })
+            }
+            onUndo={() => pageAction({ type: "pageUndo" })}
+          />
         )}
 
         {sync && (

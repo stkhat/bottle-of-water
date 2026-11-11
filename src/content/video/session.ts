@@ -34,14 +34,22 @@ import {
 } from "../../ui/lookup/externalDictionaries";
 import type { HighlightCategory } from "../../ui/lookup/HighlightChips";
 import type { WordStatus } from "../../ui/lookup/HoverCard";
-import { describeTerm, type TermCard } from "../article/describe";
+import {
+  describeTerm,
+  translateSenses,
+  type TermCard,
+} from "../article/describe";
 import type { Box } from "../article/geometry";
 import { hostBlocked } from "../article/should-run";
+import {
+  createTranslationQueue,
+  type TranslationPair,
+} from "../translate/queue";
 import {
   builtInTranslatorAvailable,
   createBuiltInTranslator,
   type TranslationProvider,
-} from "../article/translate";
+} from "../translate/translator";
 import { createStore, type Store } from "../ui/store";
 import { createHoverIntent } from "./hover-intent";
 import type { PlatformAdapter } from "./platform";
@@ -231,6 +239,13 @@ interface Watch {
   asked: Set<string>;
   /** Saved status by key as this video last saw it (newer than a summary on its way). */
   statuses: Map<string, TermBrief["status"]>;
+  /** The popup's last "Mark all as …" on this video, until it is undone. */
+  lastBatch?: {
+    batchId: string;
+    keys: ReadonlySet<string>;
+    status: TermStatus;
+    count: number;
+  };
 }
 
 const isAbort = (error: unknown) =>
@@ -284,7 +299,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   let settings = await deps.send({ type: "getSettings" });
   const store = createStore<VideoState>(fresh(settings, null, false));
   let watch: Watch | undefined;
-  let translator: TranslationProvider | undefined;
+  /** The subtitles, the hover card and the window translate through it, in that order. */
+  const translator = createTranslationQueue(
+    deps.createTranslator ?? createBuiltInTranslator,
+  );
+  /** The pair the built-in translator translates the subtitles in (source "builtIn"). */
+  let subtitlePair: TranslationPair | undefined;
   let warmed = false;
 
   const lang = () => settings.learningLang;
@@ -417,10 +437,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
           : cues.map(() => "")),
     });
     if (translation.source === "builtIn")
-      translator = (deps.createTranslator ?? createBuiltInTranslator)(
-        lang(),
-        settings.nativeLang,
-      );
+      subtitlePair = { from: lang(), to: settings.nativeLang };
     if (store.get().enabled) adapter.hideSiteCaptions(true);
     startTracking(w).catch(warn);
     await analyzeAll(w);
@@ -529,8 +546,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (!pending) {
       const cue = store.get().cues[index];
       pending =
-        cue && translator
-          ? translator.translate(flat(cue.text))
+        cue && subtitlePair
+          ? translator.translate(flat(cue.text), "subtitle", subtitlePair)
           : Promise.resolve(undefined);
       w.pendingTranslations.set(index, pending);
       void pending.then((text) => {
@@ -692,38 +709,68 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     store.set({ spans });
   }
 
-  /** Saves every unsaved new word of the video as Known (Settings `unsavedAtEnd`). */
-  async function markUnsavedKnown(w: Watch) {
-    if (watch !== w) return;
+  /** Saves every unsaved new word of the video with the status, as one batch. */
+  async function saveUnsaved(w: Watch, status: TermStatus) {
+    if (watch !== w) return undefined;
     const keys = unsavedKeys();
-    if (keys.length === 0) return;
-    await deps.send({
+    if (keys.length === 0) return undefined;
+    const result = await deps.send({
       type: "saveAll",
       lang: lang(),
       keys,
-      status: "known",
+      status,
       source: source(),
     });
-    if (watch !== w) return;
+    if (watch !== w) return undefined;
     const saved = new Set(keys);
     for (const key of keys) w.saved.add(key);
     recategorize(w, (s) =>
-      s.category === "new" && saved.has(s.key) ? "known" : undefined,
+      s.category === "new" && saved.has(s.key) ? status : undefined,
     );
     noteStatuses(
       w,
-      keys.map((key) => [key, "known"]),
+      keys.map((key) => [key, status]),
+    );
+    await refreshOpenCards();
+    return { ...result, keys: saved };
+  }
+
+  /** Saves every unsaved new word of the video as Known (Settings `unsavedAtEnd`). */
+  async function markUnsavedKnown(w: Watch) {
+    await saveUnsaved(w, "known");
+  }
+
+  /** The popup's "Mark all as Learning / Known". */
+  async function saveAll(w: Watch, status: TermStatus) {
+    const result = await saveUnsaved(w, status);
+    if (result) w.lastBatch = { ...result, status };
+  }
+
+  async function undoSaveAll(w: Watch) {
+    const batch = w.lastBatch;
+    if (!batch) return;
+    await deps.send({ type: "undoSaveAll", batchId: batch.batchId });
+    w.lastBatch = undefined;
+    if (watch !== w) return;
+    for (const key of batch.keys) w.saved.delete(key);
+    // Those words were new before; the ones changed since stay as they are.
+    recategorize(w, (s) =>
+      s.category === batch.status && batch.keys.has(s.key) ? "new" : undefined,
+    );
+    noteStatuses(
+      w,
+      [...batch.keys].map((key) => [key, "new"]),
     );
     await refreshOpenCards();
   }
 
   // Words: the hover card and the dictionary window.
-  let translatorForTerms: TranslationProvider | undefined;
-  const termTranslator = () =>
-    (translatorForTerms ??= (deps.createTranslator ?? createBuiltInTranslator)(
-      lang(),
-      settings.nativeLang,
-    ));
+  const translation = () => ({
+    send: deps.send,
+    lang: lang(),
+    nativeLang: settings.nativeLang,
+    translator,
+  });
 
   /**
    * The span `ref` points at, with its term as written (the whole phrase for a part of
@@ -738,7 +785,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     return { cue, span, surface: flat(cue.text.slice(start, end)) };
   }
 
-  async function describe(ref: WordRef): Promise<TermCard | undefined> {
+  async function describe(
+    ref: WordRef,
+    shownIn: "hover" | "window" = "hover",
+  ): Promise<TermCard | undefined> {
     const found = spanOf(ref);
     if (!found) return undefined;
     return describeTerm(
@@ -748,12 +798,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         surface: found.surface,
         category: found.span.category,
       },
-      {
-        send: deps.send,
-        lang: lang(),
-        sourceUrl: adapter.url(),
-        translator: termTranslator(),
-      },
+      { ...translation(), sourceUrl: adapter.url(), shownIn },
     );
   }
 
@@ -827,10 +872,25 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   let opened = 0;
   async function openPanel(ref: WordRef) {
     const ticket = ++panelTicket;
-    const card = await describe(ref);
+    const card = await describe(ref, "window");
     if (ticket !== panelTicket || !card) return;
     if (!store.get().panel) opened++;
-    store.set({ panel: panelState(ref, card, opened) });
+    showPanel(ref, card, opened);
+  }
+
+  /**
+   * Shows the window's card, then its English definitions translated as they come (the
+   * click that opened it lets the translator download its model the first time).
+   */
+  function showPanel(ref: WordRef, card: TermCard, times: number) {
+    store.set({ panel: panelState(ref, card, times) });
+    void translateSenses(card, translation())
+      .then((translated) => {
+        const panel = store.get().panel;
+        if (translated !== card && panel?.card === card)
+          store.set({ panel: { ...panel, card: translated } });
+      })
+      .catch(warn);
   }
 
   /** Looks the term up again where the hover card or the window shows it. */
@@ -844,9 +904,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     }
     if (panel && panel.card.key === key && panel.card.kind === kind) {
       const ticket = panelTicket;
-      const card = await describe(panel.ref);
+      const card = await describe(panel.ref, "window");
       if (card && ticket === panelTicket && store.get().panel)
-        store.set({ panel: panelState(panel.ref, card, panel.opened) });
+        showPanel(panel.ref, card, panel.opened);
     }
   }
 
@@ -1018,8 +1078,15 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   const summary = (): PageSummary => {
     const state = store.get();
-    if (state.status !== "ready") return unsupportedPage(hostname());
-    return { supported: true, hostname: hostname() };
+    if (state.status !== "ready") return unsupportedPage(hostname(), "video");
+    const batch = watch?.lastBatch;
+    return {
+      supported: true,
+      hostname: hostname(),
+      scope: "video",
+      unsaved: unsavedKeys().length,
+      done: batch ? { count: batch.count, target: batch.status } : null,
+    };
   };
 
   const offNavigate = adapter.onNavigate(open);
@@ -1036,7 +1103,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   return {
     app,
-    handlePageRequest() {
+    handlePageRequest(request) {
+      if (request.type === "pageSaveAll")
+        withWatch((w) => saveAll(w, request.status));
+      else if (request.type === "pageUndo") withWatch(undoSaveAll);
       // Answer after everything asked before has been done.
       return queue.then(summary);
     },

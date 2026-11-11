@@ -83,6 +83,22 @@ export interface HistorySentenceRecord {
   seenAt: number;
 }
 
+/**
+ * A machine translation of a cleaned English definition (`cleanDefinition`), made by
+ * the browser's translator in the UI. Device only: never synced or exported.
+ */
+export interface MtCacheRecord {
+  /** `${pair}:${text}` */
+  key: string;
+  /** `${learning language}>${native language}` (`translationPair`). */
+  pair: string;
+  /** The cleaned English definition. */
+  text: string;
+  translated: string;
+  /** When the translation was last written or read (epoch ms). */
+  usedAt: number;
+}
+
 /** `historyBytes`: the counted size of all of the sentence history. */
 export type MetaKey = "lastExportAt" | "lastSavedAt" | "historyBytes";
 
@@ -98,6 +114,7 @@ export type LingoDb = Dexie & {
   meta: EntityTable<MetaRecord, "key">;
   historyPages: EntityTable<HistoryPageRecord, "id">;
   historySentences: EntityTable<HistorySentenceRecord, "id">;
+  mtCache: EntityTable<MtCacheRecord, "key">;
 };
 
 /** The extension's IndexedDB database. Tests pass a unique name per test. */
@@ -113,6 +130,9 @@ export function openLingoDb(name = "lingo"): LingoDb {
   db.version(2).stores({
     historyPages: "id, lastSeen, host",
     historySentences: "++id, pageId, &[pageId+text], *keys",
+  });
+  db.version(3).stores({
+    mtCache: "key, usedAt, pair",
   });
   return db;
 }
