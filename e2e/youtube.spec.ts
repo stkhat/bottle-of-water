@@ -146,6 +146,45 @@ test("the menu moves the subtitle below the video and hides its translation", as
   await expect(belowVideo(page).getByText(LINE_JA)).toHaveCount(0);
 });
 
+test("the menu's sliders change the subtitle's text size and background, and are saved", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openAtLine(context, extensionId);
+  const line = inVideo(page).locator("p").first();
+  await expect(line).toHaveCSS("font-size", "24px");
+  await expect(line).toHaveCSS("background-color", "rgba(8, 10, 16, 0.8)");
+
+  await page.getByRole("button", { name: en["video.menu"] }).click();
+  const menu = page.getByRole("dialog", { name: en["video.menu"] });
+  const size = menu.getByRole("slider", { name: en["video.menu.size"] });
+  const background = menu.getByRole("slider", {
+    name: en["video.menu.opacity"],
+  });
+  await size.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(line).toHaveCSS("font-size", "28.8px");
+  await background.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(line).toHaveCSS("background-color", "rgba(8, 10, 16, 0.75)");
+
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "getSettings",
+      })) as { value: { subtitleSize: number; subtitleOpacity: number } };
+      return reply.value;
+    })
+    .toMatchObject({ subtitleSize: 120, subtitleOpacity: 75 });
+  await page.reload();
+  await card(page, LINE).click();
+  await expect(inVideo(page).locator("p").first()).toHaveCSS(
+    "font-size",
+    "28.8px",
+  );
+});
+
 test("the transcript's switch hides its translations; a card seeks to its line", async ({
   context,
   extensionId,
@@ -411,7 +450,7 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   await window.getByRole("button", { name: en["dict.close"] }).click();
   await expect(window).toHaveCount(0);
 
-  // The menu: no subtitle position, the translation switch and the settings link.
+  // The menu: no subtitle position; the gear, the translation switch and the sliders.
   await page.getByRole("button", { name: en["video.menu"] }).click();
   const menu = page.getByRole("dialog", { name: en["video.menu"] });
   await expect(menu.getByText(en["video.menu.on"])).toBeVisible();
@@ -422,6 +461,9 @@ test("in fullscreen the subtitle, hover card, dictionary window and menu stay; l
   await expect(menu.getByText(en["video.menu.showTranslation"])).toBeVisible();
   await expect(
     menu.getByRole("button", { name: en["video.menu.openSettings"] }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole("slider", { name: en["video.menu.size"] }),
   ).toBeVisible();
   const translation = menu.getByRole("switch", {
     name: en["video.menu.translationSwitch"],

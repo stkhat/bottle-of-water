@@ -85,11 +85,13 @@ Development pair: learning language = English, native language = Japanese, sites
 - **Prefer translations provided by the site** (order in "Choosing a translation"). Where a translation came from is not shown
 - **Two buttons in the player bar**, grouped in **one green outline** so they are not confused with YouTube's own gear
   - **L button**: one click turns Lingo on/off (when off: dotted outline + strikethrough). The state is remembered per platform (YouTube, Netflix): the next video there starts the same way
-  - **Up arrow (^) button**: opens the Lingo menu (no gear icon)
-    - Current state (On / Off for this video)
-    - Subtitle position (In video / Below video)
+  - **Up arrow (^) button**: opens the Lingo menu (the ^ button itself has no gear icon). From the top:
+    - Header: L, Lingo, current state (On / Off for this video), and a gear at the right that opens the settings page ("Open settings")
     - Show/hide the subtitle translation
-    - "Open all settings" (settings page)
+    - "Text size": a slider for the subtitle's and its translation's text size, 50–200% in steps of 10 (default 100%), in every subtitle position and in fullscreen
+    - "Background": a slider for how dark the box behind the subtitle and translation over the video is, 0–100% in steps of 5 (default 80%; the translation's box is 0.9 of that). The light box below the video keeps its look
+    - "Subtitles" with the subtitle position (In video / Below video) beside it on one row, the last row
+    - The sliders show their value on the subtitle while dragged and are saved when let go
 - Transcript
   - Each card shows the original with the translation below it. The playing card is emphasized and auto-scrolled; clicking a card seeks there
   - Words in a card work as in the subtitle: hovering one shows its hover card, clicking it opens the dictionary window (no seek). The card goes when the list scrolls, and while it shows the playing card does not scroll the list
@@ -121,7 +123,7 @@ Development pair: learning language = English, native language = Japanese, sites
 
 ### Toolbar popup (click the extension icon)
 - Toolbar icon: the green rounded square with a white "L" (`#0B8A6C`, as in the mock), 16/32/48/128 px, drawn from `scripts/icons/icon.svg`
-- Header: Lingo, language pair (English → Japanese), gear for settings (the same gear as "Open all settings" in the player menu)
+- Header: Lingo, language pair (English → Japanese), then at the right a word list button (a list icon, "Word list") and a gear for settings (the same gear as in the player menu)
 - "On this site": on/off for this site
 - "Highlight": category toggles
 - Word counts: Learning / Known / Phrases
@@ -134,11 +136,10 @@ Development pair: learning language = English, native language = Japanese, sites
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)
   - Before the first save: "Not saved yet". With sync off: "Sync is off", without the usage bar
-- Footer: "Word list", "Settings"
 - "On this site" and "This page" are hidden on pages where no content script answers (browser pages, the store). The host comes from the content script, so the popup needs no `tabs` permission
 
 ### Settings page (the extension's options page, opens in a new tab)
-- Three ways to open it: ① "Settings" / gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from "Open all settings" in the menu next to L in the video player bar
+- Three ways to open it: ① the gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from the gear in the menu next to L in the video player bar
 - Sections
   - **Languages**: learning language, native language, interface language (English only for now). The choices list only the pairs the lock file offers (those passing the quality gate). From M9c a "Language data" row lists, nested under it, the chosen pair's data (size; Downloaded / Downloading n% / Failed with Retry) and the data of pairs no longer chosen (size, Remove). Pairs bundled with Lingo have no data row (layout from the mock)
   - **Appearance**: Theme — System (default) / Light / Dark, a three-option segmented choice (see "Shared: theme")
@@ -157,7 +158,7 @@ Development pair: learning language = English, native language = Japanese, sites
   - **About**: version, data license notices
 
 ### Word list page (a page inside the extension; mock `Word list page`, approved 2026-11-10)
-- Opens in a new tab from "Word list" in the toolbar popup
+- Opens in a new tab from the word list button in the toolbar popup's header
 - Header: Lingo, "Word list", language pair, **Export / Import** (the same JSON as in Settings)
 - Filters: search (words and meanings), status (All / Learning / Known), kind (All / Words / Phrases), sort (Recently seen / A–Z / Most seen)
 - List columns: Word (with a Phrase tag), Meaning, Status, Seen (number of occurrences), Last seen
@@ -173,7 +174,7 @@ Development pair: learning language = English, native language = Japanese, sites
 ### Phase 2 screens (mock, approved 2026-11-10)
 - **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
   - Listed: New (unsaved), Learning and saved Known words and phrases; words known only by the frequency level and ignored tokens are left out. Short meanings come from the dictionary and from definitions already translated on the device (M9b); a list never starts a new translation. The tab and filter are per video (Transcript and All by default). The Transcript tab keeps the Highlight chips and the Translation switch under the tabs. The column's accessible name is "Lingo"
-- **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows only the translation switch and "Open all settings"
+- **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript column is not shown. The subtitle position choice does not apply (always in the video), so the ^ menu shows the gear, the translation switch and the two sliders, without the Subtitles row
   - The site's captions stay hidden in fullscreen. The subtitle uses a larger look (34 px line, 24 px translation, 120 px above the bottom edge, or higher above Netflix's control bar). The dictionary window opens at the top right (32 px in, 360 × 420, darker shadow) and is placed again when fullscreen starts or ends. Everything Lingo draws on the page moves into the fullscreen element while fullscreen lasts (its parent when that is a `<video>`)
 - **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
   - The dictionary window shows "Seen elsewhere · N" for unsaved words too, from the local sentence history. When the word is saved, those occurrences become part of its history
@@ -251,7 +252,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
   - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
-- Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), what to do with unsaved New words at the end, per-site on/off and the exclusion list, and the L button's on/off per video platform
+- Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), subtitle text size and background, what to do with unsaved New words at the end, per-site on/off and the exclusion list, and the L button's on/off per video platform
 
 ### Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
 - `BrowserSyncBackend` is one implementation of a `SyncBackend` part (`push / pull / status / start / stop`). The user's own cloud storage, added later, is another implementation of the same part

@@ -22,6 +22,13 @@ export interface SubtitleOverlayProps {
   translation: string;
   /** The subtitle translation switch. */
   showTranslation: boolean;
+  /** Text size in percent of the variant's own (`Settings.subtitleSize`). */
+  size: number;
+  /**
+   * How dark the boxes over the video are, in percent (`Settings.subtitleOpacity`).
+   * The light box below the video keeps its look.
+   */
+  opacity: number;
   learningLang: string;
   nativeLang: string;
   /** The index (in `spans`) of the term whose dictionary window is open. */
@@ -139,6 +146,22 @@ const LOOK = {
   }
 >;
 
+/** The translation's box is a little lighter than the line's (mock: 0.72 against 0.8). */
+const TRANSLATION_SHADE = 0.9;
+
+/** The dark box over the video at `alpha` (0–1). */
+const backdrop = (alpha: number) =>
+  `rgba(8,10,16,${Math.round(alpha * 1000) / 1000})`;
+
+/** A variant's style with its text scaled and, over the video, its box shaded. */
+function adjust(style: Style, scale: number, alpha: number | undefined): Style {
+  return {
+    ...style,
+    fontSize: `${Number.parseFloat(String(style.fontSize)) * scale}px`,
+    ...(alpha !== undefined && { background: backdrop(alpha) }),
+  };
+}
+
 /** Mock `.w`: a highlighted term's box. */
 const TERM: Style = {
   padding: "0 3px",
@@ -149,6 +172,8 @@ const TERM: Style = {
 /** The playing subtitle with hoverable, clickable terms (mock Main). The caller positions it. */
 export function SubtitleOverlay(props: SubtitleOverlayProps) {
   const look = LOOK[props.variant];
+  const scale = props.size / 100;
+  const alpha = look.colors === "onVideo" ? props.opacity / 100 : undefined;
   const words = renderTerms(props.text, props.spans, (span, index, text) => {
     const style = termStyle(span.category, props.highlight, look.colors);
     const selected = props.selected === index;
@@ -185,11 +210,18 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
       aria-label={t("video.subtitle")}
       style={root(look.box as Style)}
     >
-      <p lang={props.learningLang} style={look.line as Style}>
+      <p lang={props.learningLang} style={adjust(look.line, scale, alpha)}>
         {words}
       </p>
       {props.showTranslation && props.translation !== "" && (
-        <p lang={props.nativeLang} style={look.translation as Style}>
+        <p
+          lang={props.nativeLang}
+          style={adjust(
+            look.translation,
+            scale,
+            alpha === undefined ? undefined : alpha * TRANSLATION_SHADE,
+          )}
+        >
           {props.translation}
         </p>
       )}

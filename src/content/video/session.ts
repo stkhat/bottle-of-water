@@ -200,7 +200,12 @@ export interface VideoApp {
   toggleHighlight(category: HighlightCategory): void;
   /** The menu's and the transcript's switches. */
   changeSettings(patch: SettingsPatch): void;
-  /** "Open all settings". */
+  /**
+   * A menu slider being dragged: the UI shows `patch` without saving it. The next
+   * `changeSettings` (the slider let go) or settings change replaces it.
+   */
+  previewSettings(patch: SettingsPatch): void;
+  /** The menu's gear. */
   openSettings(): void;
   setMenuOpen(open: boolean): void;
   setFullscreen(on: boolean): void;
@@ -1055,6 +1060,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       });
     },
     changeSettings,
+    previewSettings(patch) {
+      store.set({ settings: mergeSettings(patch, settings) });
+    },
     openSettings() {
       deps.send({ type: "openOptions" }).catch(warn);
     },

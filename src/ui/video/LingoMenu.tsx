@@ -1,5 +1,13 @@
-import { useLayoutEffect, useRef } from "preact/hooks";
-import type { Settings } from "../../core/settings";
+import { useId, useLayoutEffect, useRef } from "preact/hooks";
+import {
+  SUBTITLE_OPACITY_MAX,
+  SUBTITLE_OPACITY_MIN,
+  SUBTITLE_OPACITY_STEP,
+  SUBTITLE_SIZE_MAX,
+  SUBTITLE_SIZE_MIN,
+  SUBTITLE_SIZE_STEP,
+  type Settings,
+} from "../../core/settings";
 import { t } from "../../i18n/t";
 import { fromUser } from "../from-user";
 import { badge, color, root } from "../lookup/styles";
@@ -14,8 +22,17 @@ export interface LingoMenuProps {
   showPositions?: boolean;
   /** The subtitle translation switch. */
   showTranslation: boolean;
+  /** `Settings.subtitleSize`, or the value being dragged. */
+  size: number;
+  /** `Settings.subtitleOpacity`, or the value being dragged. */
+  opacity: number;
   onPosition: (position: Settings["subtitlePosition"]) => void;
   onToggleTranslation: () => void;
+  /** While a slider is dragged: show the value, do not save it yet. */
+  onPreview: (look: { size?: number; opacity?: number }) => void;
+  /** A slider was let go: save the value. */
+  onSize: (size: number) => void;
+  onOpacity: (opacity: number) => void;
   onOpenSettings: () => void;
   /** Escape, or a press outside the menu and its buttons. */
   onClose: () => void;
@@ -25,6 +42,43 @@ const POSITIONS = [
   ["inVideo", "video.menu.inVideo"],
   ["belowVideo", "video.menu.belowVideo"],
 ] as const;
+
+/** A labelled slider row: label on the left, the range on the right. */
+function MenuSlider(props: {
+  label: string;
+  value: number;
+  range: readonly [min: number, max: number, step: number];
+  onInput: (value: number) => void;
+  onChange: (value: number) => void;
+}) {
+  const id = useId();
+  const [min, max, step] = props.range;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <label for={id} style={{ flex: "none", width: "84px", fontSize: "14px" }}>
+        {props.label}
+      </label>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={props.value}
+        aria-valuetext={`${props.value}%`}
+        onInput={(e) => props.onInput(Number(e.currentTarget.value))}
+        onChange={(e) => props.onChange(Number(e.currentTarget.value))}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          margin: 0,
+          accentColor: color.green,
+          cursor: "pointer",
+        }}
+      />
+    </div>
+  );
+}
 
 /** Elements marked `data-lingo-menu` (the menu and its buttons) are inside. */
 const isMenuElement = (n: EventTarget) =>
@@ -108,11 +162,64 @@ export function LingoMenu(props: LingoMenuProps) {
         <span style={{ fontSize: "12px", color: color.muted }}>
           {t(props.enabled ? "video.menu.on" : "video.menu.off")}
         </span>
+        <button
+          type="button"
+          aria-label={t("video.menu.openSettings")}
+          title={t("video.menu.openSettings")}
+          onClick={props.onOpenSettings}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "none",
+            width: "32px",
+            height: "32px",
+            // The 32px button sits in the 24px row without making it taller.
+            margin: "-4px -6px -4px 0",
+            padding: 0,
+            borderRadius: "8px",
+            border: 0,
+            background: "none",
+            color: color.ink3,
+            cursor: "pointer",
+          }}
+        >
+          <GearIcon size={18} />
+        </button>
       </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <span style={{ flex: 1, fontSize: "14px" }}>
+          {t("video.menu.showTranslation")}
+        </span>
+        <Switch
+          checked={props.showTranslation}
+          label={t("video.menu.translationSwitch")}
+          onToggle={props.onToggleTranslation}
+        />
+      </div>
+      <MenuSlider
+        label={t("video.menu.size")}
+        value={props.size}
+        range={[SUBTITLE_SIZE_MIN, SUBTITLE_SIZE_MAX, SUBTITLE_SIZE_STEP]}
+        onInput={(size) => props.onPreview({ size })}
+        onChange={props.onSize}
+      />
+      <MenuSlider
+        label={t("video.menu.opacity")}
+        value={props.opacity}
+        range={[
+          SUBTITLE_OPACITY_MIN,
+          SUBTITLE_OPACITY_MAX,
+          SUBTITLE_OPACITY_STEP,
+        ]}
+        onInput={(opacity) => props.onPreview({ opacity })}
+        onChange={props.onOpacity}
+      />
       {props.showPositions !== false && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span
             style={{
+              flex: "none",
               fontSize: "12px",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
@@ -126,6 +233,8 @@ export function LingoMenu(props: LingoMenuProps) {
             role="group"
             aria-label={t("video.menu.position")}
             style={{
+              flex: 1,
+              minWidth: 0,
               display: "grid",
               gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
               gap: "2px",
@@ -144,12 +253,13 @@ export function LingoMenu(props: LingoMenuProps) {
                   onClick={() => props.onPosition(value)}
                   style={{
                     height: "32px",
-                    padding: "0 12px",
+                    padding: "0 6px",
                     margin: 0,
                     borderRadius: "8px",
                     border: 0,
                     font: "inherit",
                     fontSize: "13px",
+                    whiteSpace: "nowrap",
                     cursor: "pointer",
                     ...(pressed
                       ? {
@@ -168,40 +278,6 @@ export function LingoMenu(props: LingoMenuProps) {
           </div>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <span style={{ flex: 1, fontSize: "14px" }}>
-          {t("video.menu.showTranslation")}
-        </span>
-        <Switch
-          checked={props.showTranslation}
-          label={t("video.menu.translationSwitch")}
-          onToggle={props.onToggleTranslation}
-        />
-      </div>
-      <button
-        type="button"
-        onClick={props.onOpenSettings}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "6px",
-          // The mock's link is 40px plus its border.
-          height: "42px",
-          margin: 0,
-          borderRadius: "8px",
-          border: `1px solid ${color.lineStrong}`,
-          background: color.card,
-          color: color.ink,
-          font: "inherit",
-          fontSize: "14px",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-      >
-        <GearIcon size={16} />
-        {t("video.menu.openSettings")}
-      </button>
     </div>
   );
 }

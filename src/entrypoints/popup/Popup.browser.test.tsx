@@ -277,13 +277,21 @@ describe("Popup", () => {
     });
   });
 
-  it("opens the word list and the settings", async () => {
+  it("opens the word list and the settings from the header icons", async () => {
     const f = fake({ page: ARTICLE });
     const screen = await render(<Popup deps={f.deps} />);
-    await screen.getByRole("button", { name: "Word list" }).click();
+    const wordList = screen.getByRole("button", { name: "Word list" });
+    const gear = screen.getByRole("button", { name: "Open settings" });
+    await expect.element(wordList).toBeVisible();
+    // The word list sits just left of the gear.
+    expect(wordList.element().nextElementSibling).toBe(gear.element());
+    expect(
+      screen.getByRole("button", { name: "Settings", exact: true }).query(),
+    ).toBeNull();
+
+    await wordList.click();
     expect(f.deps.openWordList).toHaveBeenCalledOnce();
-    await screen.getByRole("button", { name: "Settings", exact: true }).click();
-    await screen.getByRole("button", { name: "Open settings" }).click();
-    expect(f.deps.openOptions).toHaveBeenCalledTimes(2);
+    await gear.click();
+    expect(f.deps.openOptions).toHaveBeenCalledOnce();
   });
 });
