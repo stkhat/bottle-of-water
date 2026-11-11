@@ -202,7 +202,7 @@ describe("mountVideoUi", () => {
     expect(
       status().getBoundingClientRect().top -
         tabs.getBoundingClientRect().bottom,
-    ).toBe(12);
+    ).toBeCloseTo(12, 1); // Firefox lays out to a fraction of a pixel (12.00003)
 
     store.set({ dataNote: { state: "failed" } });
     await expect
