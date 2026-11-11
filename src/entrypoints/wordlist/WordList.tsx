@@ -46,8 +46,8 @@ interface Details {
 
 const CSS = `
 body{margin:0;background:${color.surface}}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:#FFFFFF;color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}
-.sel{height:40px;padding:0 12px;border:1px solid ${color.lineStrong};border-radius:8px;background:#FFFFFF;color:${color.ink};font:inherit;font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:${color.card};color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.sel{height:40px;padding:0 12px;border:1px solid ${color.lineStrong};border-radius:8px;background:${color.card};color:${color.ink};font:inherit;font-size:14px}
 .th{font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:${color.muted};font-weight:600;text-align:left;padding:0 12px 10px}
 .rowb:hover{background:${color.surface} !important}
 .ib:hover{background:${color.surfaceGray} !important}
@@ -95,7 +95,7 @@ const segment = (active: boolean): Style => ({
   cursor: "pointer",
   ...(active
     ? {
-        background: color.white,
+        background: color.raised,
         color: color.ink,
         fontWeight: 600,
         boxShadow: "0 1px 3px rgba(20,24,43,0.18)",
@@ -119,7 +119,7 @@ function Segmented<T extends string>(props: {
         gap: "2px",
         padding: "3px",
         borderRadius: "10px",
-        background: "#E8EAEE",
+        background: color.tab,
       }}
     >
       {props.tabs.map(([value, label]) => (
@@ -149,7 +149,7 @@ function StatusBadge(props: { status: TermSummary["status"] }) {
         borderRadius: "999px",
         fontSize: "12px",
         fontWeight: 600,
-        background: learning ? "#D3F1E5" : color.surfaceGray,
+        background: learning ? color.hlLearning : color.surfaceGray,
         color: learning ? color.greenDark : color.ink2,
       }}
     >
@@ -407,7 +407,7 @@ function DetailsPanel(props: {
       style={{
         width: "400px",
         flex: "none",
-        background: color.white,
+        background: color.card,
         border: `1px solid ${color.line}`,
         borderRadius: "14px",
         display: "flex",
@@ -496,7 +496,7 @@ function DetailsPanel(props: {
         <StatusButtons
           status={details.status}
           onStatus={props.onStatus}
-          removeBorder="#8C92A3"
+          removeBorder={color.chipLine}
           saveDisabled={!savedFrom(occurrences)}
         />
 
@@ -669,7 +669,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             role="status"
             style={{
               fontSize: "13px",
-              color: note.ok ? color.greenDark : "#B42318",
+              color: note.ok ? color.greenDark : color.danger,
             }}
           >
             {note.text}
@@ -702,7 +702,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             boxSizing: "border-box",
             border: `1px solid ${color.lineStrong}`,
             borderRadius: "8px",
-            background: color.white,
+            background: color.card,
             color: color.muted,
           }}
         >
@@ -773,7 +773,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           style={{
             flex: 1,
             minWidth: 0,
-            background: color.white,
+            background: color.card,
             border: `1px solid ${color.line}`,
             borderRadius: "14px",
             padding: "16px 8px 8px",

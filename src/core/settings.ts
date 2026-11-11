@@ -32,6 +32,8 @@ export interface Settings {
   syncEnabled: boolean;
   /** Phase 2; stored now so the shape stays stable. */
   sentenceHistory: boolean;
+  /** Light or dark UI; `system` follows the browser's appearance. */
+  theme: "system" | "light" | "dark";
 }
 
 /** A partial update: top-level keys, and nested groups key by key. */
@@ -69,6 +71,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   disabledSites: [],
   syncEnabled: true,
   sentenceHistory: true,
+  theme: "system",
 });
 
 const UNSAVED_AT_END: readonly Settings["unsavedAtEnd"][] = ["keep", "known"];
@@ -77,6 +80,8 @@ const SUBTITLE_POSITIONS: readonly Settings["subtitlePosition"][] = [
   "inVideo",
   "belowVideo",
 ];
+
+export const THEMES: readonly Settings["theme"][] = ["system", "light", "dark"];
 
 type Dict = Record<string, unknown>;
 
@@ -147,6 +152,9 @@ export function mergeSettings(
     disabledSites: strings(v.disabledSites, base.disabledSites),
     syncEnabled: bool(v.syncEnabled, base.syncEnabled),
     sentenceHistory: bool(v.sentenceHistory, base.sentenceHistory),
+    theme: THEMES.includes(v.theme as Settings["theme"])
+      ? (v.theme as Settings["theme"])
+      : base.theme,
   };
 }
 

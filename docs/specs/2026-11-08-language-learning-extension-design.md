@@ -25,7 +25,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - "New" is decided by **a frequency level (the top N words count as known) + saving a whole page at once**
 - Every saved word **always has a source**, and you can see **whether a saved word appeared elsewhere**
 - The UI is **English only** for now, built so it can be switched later
-- Colors: **white background + dark navy text + green accent**, the same across video, article, popup and settings (Grammarly-like, but not identical)
+- Colors: **white background + dark navy text + green accent**, the same across video, article, popup and settings (Grammarly-like, but not identical). A dark theme follows the browser by default (see "Shared: theme")
 
 ## UI spec (follows the mock)
 
@@ -34,6 +34,29 @@ Development pair: learning language = English, native language = Japanese, sites
 - Each category can be turned on/off; **by default only Learning is on**
 - When subtitles are drawn over the video, the same category colors are brightened so they read on dark backgrounds
 - Inflected forms are matched to the base form (ferments → ferment, loaves → loaf)
+
+### Shared: theme
+- Settings → Appearance → Theme: **System** (default; follows the browser's light or dark mode through `prefers-color-scheme`) / Light / Dark
+- Applies to everything Lingo draws: toolbar popup, settings page, word list, and the on-page UI (hover card, dictionary window and panel, phrase bar, video panel and transcript, the ^ menu, the below-video subtitle box)
+- Not themed: subtitles drawn over the video and the L / ^ player buttons (already for a dark video), and the highlights painted into a website's own text (the page keeps its own colors)
+- The light palette is the mock. The dark palette (`src/ui/theme.ts`; the UI reads every color as a CSS variable with the light value as fallback):
+
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| surface | #F6F7F9 | #12151F | page background, transcript cards |
+| card | #FFFFFF | #1A1E2A | popup, cards, windows, panels |
+| raised | #FFFFFF | #3A4053 | the selected option of a segmented control |
+| surfaceGray / soft | #F1F2F5 / #EEF0F3 | #232838 / #262B3B | groups, chips, hover, row lines |
+| line / lineStrong | #E3E5EA / #D5D8E0 | #2E3344 / #3D4357 | borders |
+| ink / ink2 / ink3 | #14182B / #2A2F45 / #3A4056 | #E8EAF0 / #CDD1DC / #B4B9C7 | text |
+| muted / faint | #5A6075 / #4E5468 | #9AA0B0 / #B0B5C3 | secondary text, translations |
+| green (fills) | #0B8A6C | #0B8A6C | badge, buttons, switches |
+| greenText / greenDark | #0B7F65 / #075C49 | #3CC9A3 / #6FE3C3 | green text |
+| greenPale / greenLine | #E6F6F0 / #8FD3BC | #133A30 / #2A7A63 | Learning tiles, now-playing card |
+| Learning highlight | #D3F1E5 + #0F9F7E | rgba(15,159,126,0.32) + #3CC9A3 | Lingo's own panels |
+| New highlight | #EAF0FD + #2F6FE4 | rgba(47,111,228,0.32) + #7FA6F5 | Lingo's own panels |
+| inverse (phrase bar) | #14182B | #2A3042 | the bar over a selection |
+| danger | #B42318 | #F97066 | errors |
 
 ### Shared: hover card
 - Kind (Word / Phrase) and current status. Shown for every word in the vocabulary, also those known by their frequency (within the known level, not saved): they show as **Known**, with "Known" pressed; pressing it saves them as Known, "+ Learning" as Learning
@@ -92,7 +115,8 @@ Development pair: learning language = English, native language = Japanese, sites
 - Settings → Highlighting → "New words you didn't save": **Keep as New** (default; nothing happens, they show as New next time) or **Mark as Known** (they are saved as Known at once, silently, as `bulk` terms)
 
 ### Toolbar popup (click the extension icon)
-- Header: Lingo, language pair (English → Japanese), gear for settings
+- Toolbar icon: the green rounded square with a white "L" (`#0B8A6C`, as in the mock), 16/32/48/128 px, drawn from `scripts/icons/icon.svg`
+- Header: Lingo, language pair (English → Japanese), gear for settings (the same gear as "Open all settings" in the player menu)
 - "On this site": on/off for this site
 - "Highlight": category toggles
 - Word counts: Learning / Known / Phrases
@@ -107,6 +131,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Three ways to open it: ① "Settings" / gear in the toolbar popup, ② right-click the extension icon → "Options", ③ chrome://extensions → Lingo "Details" → "Extension options" (Firefox: about:addons → Lingo → "Options"; the wording follows the browser). Also from "Open all settings" in the menu next to L in the video player bar
 - Sections
   - **Languages**: learning language, native language, interface language (English only for now). The choices list only the pairs the lock file offers (those passing the quality gate). From M9c the section also shows the chosen pair's language data: its size and Downloaded / Downloading n% / Failed with Retry, and Remove for packs of pairs no longer chosen (layout from the mock)
+  - **Appearance**: Theme — System (default) / Light / Dark, a three-option segmented choice (see "Shared: theme")
   - **New-word level**: slider "Treat the N most common words as known" (1,000–20,000, default 3,000)
   - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice
   - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")

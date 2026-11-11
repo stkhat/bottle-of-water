@@ -126,7 +126,16 @@ function mount(state: VideoState = readyState()) {
 
 const host = (name: string) => document.querySelector(name) as HTMLElement;
 const inside = (name: string) => host(name)?.shadowRoot ?? null;
-const text = (name: string) => inside(name)?.textContent ?? "";
+/** The part's visible text: the theme's `<style>` is not text. */
+function text(name: string): string {
+  const root = inside(name);
+  if (!root) return "";
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let out = "";
+  for (let node = walker.nextNode(); node; node = walker.nextNode())
+    if (node.parentElement?.tagName !== "STYLE") out += node.textContent;
+  return out;
+}
 
 const TANGY: TermCard = {
   key: "tangy",

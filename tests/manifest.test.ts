@@ -13,6 +13,7 @@ type Manifest = {
   }[];
   browser_specific_settings?: { gecko?: { id?: string } };
   background?: { service_worker?: string; scripts?: string[] };
+  icons?: Record<string, string>;
 };
 
 function readManifest(dir: string): Manifest {
@@ -35,6 +36,18 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
 
   test("requests only the storage permission", () => {
     expect(manifest().permissions).toEqual(["storage"]);
+  });
+
+  test("has the green toolbar icon in every size", () => {
+    const icons = manifest().icons;
+    expect(icons).toEqual({
+      16: "icon/16.png",
+      32: "icon/32.png",
+      48: "icon/48.png",
+      128: "icon/128.png",
+    });
+    for (const file of Object.values(icons ?? {}))
+      expect(existsSync(`.output/${dir}/${file}`)).toBe(true);
   });
 
   test("requests no host permissions", () => {

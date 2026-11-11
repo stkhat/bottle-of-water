@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useMemo } from "preact/hooks";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems, formatTime } from "../../ui/lookup/elsewhere";
@@ -6,6 +7,7 @@ import { LingoMenu } from "../../ui/video/LingoMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
 import { VideoPanel } from "../../ui/video/VideoPanel";
+import { ThemeScope } from "../../ui/ThemeScope";
 import { shownStatus } from "../article/describe";
 import type { Box } from "../article/geometry";
 import { dictionaryFrame, menuPlacement } from "../video/placement";
@@ -126,6 +128,15 @@ function Subtitle(props: {
  * Inside the player: the subtitle over the video and the Lingo menu. In fullscreen the
  * subtitle is always over the video, larger (mock Fullscreen).
  */
+/** One video part's content under the theme setting. */
+export function VideoThemed(props: {
+  app: VideoApp;
+  children: ComponentChildren;
+}) {
+  const { settings } = useStore(props.app.store);
+  return <ThemeScope theme={settings.theme}>{props.children}</ThemeScope>;
+}
+
 export function InPlayerUi(props: {
   app: VideoApp;
   geometry: VideoGeometry;

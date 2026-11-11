@@ -122,9 +122,9 @@ const LOOK = {
       margin: 0,
       fontSize: "18px",
       lineHeight: 1.6,
-      color: "#4E5468",
+      color: color.faint,
     },
-    colors: "page",
+    colors: "ui",
     outline: color.green,
   },
 } as const satisfies Record<
@@ -133,7 +133,7 @@ const LOOK = {
     box: Style;
     line: Style;
     translation: Style;
-    colors: "page" | "onVideo";
+    colors: "ui" | "onVideo";
     outline: string;
   }
 >;

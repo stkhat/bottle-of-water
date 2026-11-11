@@ -6,6 +6,7 @@ import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { PhraseBar } from "../../ui/lookup/PhraseBar";
 import { color } from "../../ui/lookup/styles";
+import { ThemeScope } from "../../ui/ThemeScope";
 import { Floating } from "./Floating";
 import { useStore } from "./store";
 
@@ -40,7 +41,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
   const { settings, hover, panel, phrase } = useStore(app.store);
 
   return (
-    <>
+    <ThemeScope theme={settings.theme}>
       {panel && (
         <>
           {panel.outline.map((box, i) => (
@@ -108,7 +109,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           />
         </Floating>
       )}
-    </>
+    </ThemeScope>
   );
 }
 

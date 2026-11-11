@@ -166,7 +166,7 @@ function Card(
     cue.text,
     props.spans[index] ?? null,
     (span, _i, text) => {
-      const style = termStyle(span.category, props.highlight, "page");
+      const style = termStyle(span.category, props.highlight, "ui");
       return (
         <span
           key={`${span.start}`}
@@ -223,7 +223,7 @@ function Card(
           style={{
             fontSize: "13px",
             lineHeight: 1.5,
-            color: now ? color.ink3 : "#4E5468",
+            color: now ? color.ink3 : color.faint,
           }}
         >
           {translation}
