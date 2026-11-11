@@ -180,7 +180,11 @@ export function createYouTubeAdapter(
       // Put YouTube's own caption choice back as it was.
       await bridge
         .call({ type: "restoreCaptions", previous })
-        .catch((error: unknown) => console.warn("Lingo:", error));
+        .catch((error: unknown) => {
+          // Aborted when Lingo leaves the page: nothing to put back.
+          if (!(error instanceof DOMException && error.name === "AbortError"))
+            console.warn("Lingo:", error);
+        });
     }
   }
 

@@ -39,6 +39,15 @@ export function watchSettings(
     const { newValue, oldValue } = changes[SETTINGS_KEY]!;
     listener(mergeSettings(newValue), mergeSettings(oldValue));
   };
-  browser.storage.onChanged.addListener(onChanged);
-  return () => browser.storage.onChanged.removeListener(onChanged);
+  // Kept: a content script cut off by an extension reload has no `browser.storage`
+  // any more when it stops watching.
+  const event = browser.storage.onChanged;
+  event.addListener(onChanged);
+  return () => {
+    try {
+      event.removeListener(onChanged);
+    } catch {
+      // Gone with the extension: nothing is listening any more.
+    }
+  };
 }

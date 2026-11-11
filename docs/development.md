@@ -37,6 +37,8 @@
 
 1. Once: `chrome://extensions` → Developer mode → Load unpacked → `.output/lingo-check`.
 2. After that, run `npm run build:check`; the extension reloads itself (no click on reload).
+3. Reload the pages you check on after the copy: until then they keep the old content scripts.
+4. **Every check in your own Chrome ends with Lingo's Errors page** (`chrome://extensions/?errors=<id>`, the "Errors" button on Lingo's card). Any entry is a finding: fix it, or name its cause, before the check counts as passed, then remove the entries ("Clear all") so the next check starts empty. Entries left by tabs that were open during a reload count too: they are the old content scripts' teardown. Claude cannot open `chrome://` pages or click in Chrome, so it asks you to open the page and reads it with a read-only screen capture.
 
 How: in mode `check` only, the service worker reads `build-id.txt` every 2 s while it runs and calls `runtime.reload()` when it changes. It also checks once each time the worker starts, against the id stored in `storage.session` by the previous start, so a build copied in while the worker slept is picked up when it wakes. Other builds leave this code out (`npm run test:manifest` checks it).
 

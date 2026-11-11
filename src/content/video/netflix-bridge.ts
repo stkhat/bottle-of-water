@@ -75,8 +75,9 @@ export function createNetflixBridge(
     dispose() {
       win.removeEventListener("message", onMessage);
       listeners.clear();
+      // An abort: Lingo is leaving the page, nobody waits for the answer.
       for (const waiter of pending.values())
-        waiter.reject(new Error("Disposed"));
+        waiter.reject(new DOMException("Disposed", "AbortError"));
       pending.clear();
     },
   };
