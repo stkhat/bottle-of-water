@@ -7,7 +7,7 @@ Status: **adopted** (2026-11-11), built in milestones M9a–M9d of the [roadmap]
 - Learning-language data (`en/`, `es/`: lemmas, frequency, IPA, phrases) is 3–4 MB per language. Dictionaries (`en-ja/`, `es-en/`, `en-defs/`) are 2–7 MB per **pair**, so they grow with learning × native languages. Ten learning languages with three native languages each would be roughly 185 MB of files (~50 MB zipped), while each user needs about 9 MB.
 - Every dictionary fix needs a store release and review. (This stays: see "Integrity".)
 - The two pairs we have each rest on luck: en→ja on EJDict (a public-domain English–Japanese dictionary), es→en on English Wiktionary describing every language's words in English. Other native languages have neither.
-- Selecting several words should show the meaning of the phrase or idiom they form. Today only contiguous phrases without "one's / someone" match, a selection shows no meaning at all (the phrase bar only saves it), and a saved phrase that is in no dictionary is machine-translated literally ("spill the beans" comes out as 豆をこぼす, "to spill beans").
+- Selecting several words should show the meaning of the phrase or idiom they form. Today only contiguous phrases without "one's / someone" match, a selection shows no meaning at all (the bar over it only saves it), and a saved phrase that is in no dictionary is machine-translated literally ("spill the beans" comes out as 豆をこぼす, "to spill beans").
 
 ## How other tools do it (researched 2026-11-11)
 | Approach | Examples | Fit for Lingo |
@@ -80,7 +80,7 @@ Missing are mostly function words (him, would, an, them, into) but also common w
   - **Detect** (highlighting): strict, as today — contiguous patterns flagged `detect`, no slots, the existing filters (be/have/do starts, very common words only). Saved phrases also match with slots and gaps, since the user chose them.
   - **Select** (the user selected words): every pattern, with slots and gaps. The pattern covering the most selected words wins; if the selection is part of a longer pattern that the sentence completes, the sentence decides.
 - **A phrase with a gap is not one range**: its span has parts (`turn` and `off` in "turn the lights off"), and the words in the gap keep their own spans, so "lights" is still highlighted and hovered as a word.
-- **Meaning of a selection**: on articles, the phrase bar shows the phrase the selection matched and its short meaning (layout from the mock). The pattern's key is looked up in the pair dictionary with the source order of 3. A selection that matches no pattern gets a literal machine translation, marked as such. Video subtitles have no multi-word selection; that stays so unless the mock adds it.
+- **Meaning of a selection**: on articles, a selection shows the same card as a hovered phrase (status "Selected · not saved") for the phrase the selection matched, with its short meaning. The pattern's key is looked up in the pair dictionary with the source order of 3. A selection that matches no pattern gets a literal machine translation, marked as such. Video subtitles have no multi-word selection; that stays so unless the mock adds it.
 - **Saving**: a selection that matches a pattern is saved under the pattern's key ("made up her mind" is saved as `make up one's mind` and highlights "made up his mind" later). Phrases saved before this change keep their keys. The sync codec stores keys as strings, so it needs no change.
 
 ### 5. The browser's translator for definitions
@@ -101,10 +101,10 @@ Missing are mostly function words (him, would, an, them, into) but also common w
 
 ### 7. UI (mock first)
 The mock is canonical, so these are added to the mock before the spec's UI section changes:
-- Article phrase bar: the matched phrase and its short meaning; a literal translation carries the "Machine translation" mark.
+- A selection on an article shows the hover card of the phrase it matched, with its short meaning; a literal translation carries the "Machine translation" mark.
 - "Machine translation" mark in the hover card and the dictionary window.
 - Senses from translation tables: the English sense hint with the native words.
-- Settings → Languages: the language data of the chosen pair (size; Downloaded / Downloading n% / Failed with Retry; Remove for packs of pairs no longer chosen). Learning and native choices list only pairs that pass the quality gate.
+- Settings → Languages: a "Language data" row with the data of the chosen pair (size; Downloaded / Downloading n% / Failed with Retry) and of pairs no longer chosen (size, Remove) nested under it. Learning and native choices list only pairs that pass the quality gate.
 - The state of a page while its language's data downloads or failed.
 
 ## Testing
@@ -136,7 +136,7 @@ Found while planning the implementation; each changed the first proposal as writ
 | Source tags per sense contradicted "the first source supplies the term" | One tag per term |
 | Keys with an inflected word ("spill the beans") could never match base forms | Pattern words match the written form or a base form |
 | A phrase with a gap is not one contiguous span | Spans with parts; gap words keep their own spans |
-| A selection shows no meaning today; videos have no multi-word selection | Phrase bar shows the matched phrase and meaning (mock); video selection out of scope |
+| A selection shows no meaning today; videos have no multi-word selection | A selection shows the matched phrase's hover card with its meaning (mock); video selection out of scope |
 | No translation queue exists; the translator flag is detected in the service worker, where `Translator` never exists | One queue per page; detection in the UI |
 | `mtCache` had no limit | 20,000 rows, least recently used out, cleared with the pair's packs |
 | The gate's top 5,000 counted function words | Content words only |
