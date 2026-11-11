@@ -1,15 +1,13 @@
-import type { ArticleApp } from "../article/article";
-import { hoverView, windowView } from "../article/describe";
-import type { Box } from "../article/geometry";
+import type { ArticleApp } from "./article";
+import { hoverView, windowView } from "../lookup/describe";
+import type { Box } from "../lookup/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
 import { color } from "../../ui/lookup/styles";
 import { ThemeScope } from "../../ui/ThemeScope";
-import { Floating } from "./Floating";
-import { useStore } from "./store";
-
-const TOP_LAYER = 2147483647;
+import { Floating, TOP_LAYER } from "../lookup/Floating";
+import { useStore } from "../store";
 
 /** Mock Article: the dictionary panel sits 16px in from the top right. */
 const CARD_INSET = 16;

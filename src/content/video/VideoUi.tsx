@@ -10,13 +10,13 @@ import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
 import { VideoPanel } from "../../ui/video/VideoPanel";
 import { ThemeScope } from "../../ui/ThemeScope";
-import { hoverView, windowView } from "../article/describe";
-import type { Box } from "../article/geometry";
-import { dictionaryFrame, menuPlacement } from "../video/placement";
-import type { VideoApp, VideoState } from "../video/session";
-import { filterCounts, filterRows, videoWords } from "../video/words";
-import { Floating } from "./Floating";
-import { useStore, type Store } from "./store";
+import { hoverView, windowView } from "../lookup/describe";
+import { boxOf, type Box } from "../lookup/geometry";
+import { dictionaryFrame, menuPlacement } from "./placement";
+import type { VideoApp, VideoState } from "./session";
+import { filterCounts, filterRows, videoWords } from "./words";
+import { Floating } from "../lookup/Floating";
+import { useStore, type Store } from "../store";
 
 /** Where the parts of the page are, read when needed. */
 export interface VideoGeometry {
@@ -54,11 +54,6 @@ const MIN_TRANSCRIPT_HEIGHT = 320;
 /** Lingo shows its subtitles and transcript for this video. */
 const showing = (state: VideoState) =>
   state.enabled && state.status === "ready";
-
-const boxOf = (element: Element): Box => {
-  const r = element.getBoundingClientRect();
-  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-};
 
 /**
  * The playing line: its part of the card's text, and the card's spans in it (cut to the
@@ -130,10 +125,6 @@ function Subtitle(props: {
   );
 }
 
-/**
- * Inside the player: the subtitle over the video and the Lingo menu. In fullscreen the
- * subtitle is always over the video, larger (mock Fullscreen).
- */
 /** One video part's content under the theme setting. */
 export function VideoThemed(props: {
   app: VideoApp;
@@ -143,6 +134,10 @@ export function VideoThemed(props: {
   return <ThemeScope theme={settings.theme}>{props.children}</ThemeScope>;
 }
 
+/**
+ * Inside the player: the subtitle over the video and the Lingo menu. In fullscreen the
+ * subtitle is always over the video, larger (mock Fullscreen).
+ */
 export function InPlayerUi(props: {
   app: VideoApp;
   geometry: VideoGeometry;
@@ -307,7 +302,7 @@ export function TranscriptUi(props: {
       onWordsFilter={app.setWordsFilter}
       onOpenWord={(id) => {
         const row = words.find((each) => idOf(each) === id);
-        if (row) app.openWord(row);
+        if (row) app.clickWord(row.first);
       }}
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
@@ -357,8 +352,8 @@ function useClosedByPressAway(app: VideoApp, open: boolean) {
 }
 
 /**
- * Over the page: the hover card, the dictionary window and the end card (in fullscreen
- * too: the host is then inside the fullscreen element).
+ * Over the page: the hover card and the dictionary window (in fullscreen too: the host
+ * is then inside the fullscreen element).
  */
 export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
   const { app, geometry } = props;

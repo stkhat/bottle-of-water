@@ -1,9 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { keepOpen } from "../../ui/lookup/keep-open";
-import type { Box } from "../article/geometry";
+import type { Box } from "./geometry";
 
-const TOP_LAYER = 2147483647;
+/** Above everything the page can stack. */
+export const TOP_LAYER = 2147483647;
 
 /** Gap between a word and the card or bar above it (mock `.pop`). */
 const GAP = 10;

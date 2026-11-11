@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import { DEFAULT_SETTINGS } from "../../../core/settings";
-import { createStore } from "../../ui/store";
+import { createStore } from "../../store";
 import { mountVideoUi } from "../mount";
 import { createNetflixAdapter } from "./adapter";
 import { installNetflixHooks } from "./page";

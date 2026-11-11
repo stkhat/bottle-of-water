@@ -1,9 +1,6 @@
 import { hostBlocked, type Settings } from "../../core/settings";
-import { onHost } from "../../core/url";
 import { isGenericLang, matchesLearningLanguage } from "../page-language";
 import { isVideoSite } from "../video/platform";
-
-export { hostBlocked, onHost };
 
 /** `i18n.detectLanguage`, passed in so the decision stays testable. */
 export type DetectLanguage = (text: string) => Promise<{
@@ -12,7 +9,7 @@ export type DetectLanguage = (text: string) => Promise<{
 }>;
 
 /** The shortest text sample the language is detected on. */
-export const MIN_DETECT_SAMPLE = 200;
+const MIN_DETECT_SAMPLE = 200;
 
 /**
  * Whether the article UI may run on a host, before the page language is known: not on

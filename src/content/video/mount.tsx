@@ -1,8 +1,7 @@
 import { render, type JSX } from "preact";
-import { guardShadowRoot } from "../../ui/from-user";
-import type { Box } from "../article/geometry";
-import { shadowRootMode } from "../ui/shadow-mode";
-import { createStore } from "../ui/store";
+import { boxOf } from "../lookup/geometry";
+import { createShadowHost } from "../shadow-host";
+import { createStore } from "../store";
 import {
   BelowVideoUi,
   CONTROL_BAR_GAP,
@@ -14,7 +13,7 @@ import {
   VideoThemed,
   type VideoGeometry,
   type VideoLayout,
-} from "../ui/VideoUi";
+} from "./VideoUi";
 import type { InsertionPoint, PlatformAdapter } from "./platform";
 import type { VideoApp } from "./session";
 
@@ -22,20 +21,6 @@ export interface MountOptions {
   adapter: PlatformAdapter;
   app: VideoApp;
 }
-
-/** Events that must not reach the site's player (play/pause on click, shortcuts). */
-const PRIVATE_EVENTS = [
-  "click",
-  "dblclick",
-  "mousedown",
-  "mouseup",
-  "pointerdown",
-  "pointerup",
-  "contextmenu",
-  "keydown",
-  "keyup",
-  "keypress",
-] as const;
 
 interface Part {
   host: HTMLElement;
@@ -75,18 +60,13 @@ function fullscreenHost(): Element | null {
 /** The most a part is moved back into the same parent in one second. */
 const MAX_MOVES_PER_SECOND = 10;
 
-const boxOf = (element: Element | null | undefined): Box | null => {
-  if (!element) return null;
-  const r = element.getBoundingClientRect();
-  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-};
-
 /**
  * Mounts the video UI on the site's page, each part in its own shadow root: the
  * subtitle and the menu inside the player, the subtitle box under it, the transcript in
  * the side column, the L and ^ buttons in the player bar, and the hover card and the
- * dictionary window over the page (inside the fullscreen element while there is one). The site re-renders its page (YouTube is a single-page app): a
- * MutationObserver puts the parts back. Returns an unmount.
+ * dictionary window over the page (inside the fullscreen element while there is one).
+ * The site re-renders its page (YouTube is a single-page app): a MutationObserver puts
+ * the parts back. Returns an unmount.
  */
 export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   const layout = createStore<VideoLayout>({
@@ -102,13 +82,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     point: () => InsertionPoint | null,
     ui: JSX.Element,
   ): HTMLElement {
-    const host = document.createElement(name);
-    host.style.cssText = style;
-    for (const type of PRIVATE_EVENTS)
-      host.addEventListener(type, (event) => event.stopPropagation());
-    // Kept here: a closed root (production) is not reachable as `host.shadowRoot`.
-    const root = host.attachShadow({ mode: shadowRootMode() });
-    guardShadowRoot(root);
+    const { host, root } = createShadowHost(name, style);
     render(<VideoThemed app={app}>{ui}</VideoThemed>, root);
     roots.push(root);
     parts.push({ host, point, moves: { second: 0, count: 0, parent: null } });

@@ -67,7 +67,7 @@ test.describe("the production build", () => {
         })),
     );
 
-  // Closed shadow roots (src/content/ui/shadow-mode.ts): a page script finds Lingo's
+  // Closed shadow roots (src/content/shadow-host.ts): a page script finds Lingo's
   // hosts but cannot reach the UI inside them, which still works.
   test("a page script cannot reach the article UI or the video UI", async ({
     context,

@@ -1,4 +1,5 @@
 import { fromUser } from "../../ui/from-user";
+import { createHoverIntent } from "../lookup/hover-intent";
 import type { SpanRef } from "./locate";
 
 export interface InteractionCallbacks {
@@ -15,15 +16,6 @@ export interface InteractionCallbacks {
   pressAway(): void;
   /** The page or an element in it scrolled, or the window was resized. */
   scroll(): void;
-}
-
-export interface InteractionOptions {
-  /** How long the pointer rests on a word before its card shows (ms). */
-  hoverDelayMs?: number;
-  /** How long the card stays after the pointer leaves the word and the card (ms). */
-  hideDelayMs?: number;
-  /** How long the selection must stay unchanged before it is read (ms). */
-  selectionDelayMs?: number;
 }
 
 export interface Interactions {
@@ -47,31 +39,26 @@ function inLingoUi(event: Event): boolean {
     .some((n) => n instanceof Element && n.localName.startsWith("lingo-"));
 }
 
+/** How long the selection must stay unchanged before it is read (ms). */
+const SELECTION_DELAY_MS = 100;
+
 const same = (a: SpanRef | undefined, b: SpanRef | undefined) =>
   a === b ||
   (!!a && !!b && a.block === b.block && a.span.start === b.span.start);
 
 /**
  * Turns pointer, selection, keyboard and scroll events on the page into hover, click,
- * selection, Escape and scroll callbacks; pointer, click and key events a page script
- * dispatched (not `isTrusted`) are ignored. The pointer is read once per animation frame. A word's card
- * shows after the pointer rests on it for `hoverDelayMs` (250 ms) and goes
- * `hideDelayMs` (200 ms) after the pointer leaves both the word and the card.
+ * selection, Escape and scroll callbacks; events a page script dispatched (not
+ * `isTrusted`) are ignored. The pointer is read once per animation frame; cards show
+ * and hide as `createHoverIntent` says.
  */
-export function watchInteractions(
-  cb: InteractionCallbacks,
-  {
-    hoverDelayMs = 250,
-    hideDelayMs = 200,
-    selectionDelayMs = 100,
-  }: InteractionOptions = {},
-): Interactions {
+export function watchInteractions(cb: InteractionCallbacks): Interactions {
+  const hover = createHoverIntent<SpanRef>(
+    { show: cb.showHover, hide: cb.hideHover },
+    same,
+  );
   /** The word under the pointer. */
   let candidate: SpanRef | undefined;
-  /** The word whose card is up (or on its way). */
-  let shown: SpanRef | undefined;
-  let showTimer: ReturnType<typeof setTimeout> | undefined;
-  let hideTimer: ReturnType<typeof setTimeout> | undefined;
   let frame: number | undefined;
   let lastMove: PointerEvent | undefined;
   /** A button is down on the page: the selection is still being made. */
@@ -79,21 +66,8 @@ export function watchInteractions(
   let selectionTimer: ReturnType<typeof setTimeout> | undefined;
 
   function hideNow() {
-    clearTimeout(showTimer);
-    clearTimeout(hideTimer);
     candidate = undefined;
-    if (shown) {
-      shown = undefined;
-      cb.hideHover();
-    }
-  }
-
-  function scheduleHide() {
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => {
-      shown = undefined;
-      cb.hideHover();
-    }, hideDelayMs);
+    hover.cancel();
   }
 
   function track(event: PointerEvent) {
@@ -102,18 +76,8 @@ export function watchInteractions(
       event.buttons === 0 ? cb.spanAt(event.clientX, event.clientY) : undefined;
     if (same(ref, candidate)) return;
     candidate = ref;
-    clearTimeout(showTimer);
-    if (same(ref, shown)) {
-      clearTimeout(hideTimer);
-      return;
-    }
-    if (shown) scheduleHide();
-    if (!ref) return;
-    showTimer = setTimeout(() => {
-      clearTimeout(hideTimer);
-      shown = ref;
-      cb.showHover(ref);
-    }, hoverDelayMs);
+    if (ref) hover.enter(ref);
+    else hover.leave();
   }
 
   function onPointerMove(event: PointerEvent) {
@@ -151,7 +115,7 @@ export function watchInteractions(
   }
 
   function onSelectionChange() {
-    if (!pressed) readSelection(selectionDelayMs);
+    if (!pressed) readSelection(SELECTION_DELAY_MS);
   }
 
   /** A click at the event's point would open a word (see `onClick`). */
@@ -198,18 +162,16 @@ export function watchInteractions(
 
   return {
     keepHover() {
-      clearTimeout(hideTimer);
-      clearTimeout(showTimer);
       candidate = undefined;
+      hover.keep();
     },
     releaseHover() {
       candidate = undefined;
-      if (shown) scheduleHide();
+      hover.release();
     },
     dismissHover: hideNow,
     stop() {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
+      hover.cancel();
       clearTimeout(selectionTimer);
       if (frame !== undefined) cancelAnimationFrame(frame);
       if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);

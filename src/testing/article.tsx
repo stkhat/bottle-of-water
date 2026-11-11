@@ -1,13 +1,13 @@
 // The article UI on a fixture page, over the real background (background.ts), mounted
-// in a guarded shadow root as the content script does.
+// in a guarded shadow root as the content scripts do.
 import { render } from "preact";
 import { expect } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Settings } from "../core/settings";
-import { guardShadowRoot } from "../ui/from-user";
 import type { Request } from "../messaging/protocol";
-import { ArticleUi } from "../content/ui/ArticleUi";
+import { ArticleUi } from "../content/article/ArticleUi";
 import { startArticle, type ArticleSession } from "../content/article/article";
+import { createShadowHost } from "../content/shadow-host";
 import { testBackground } from "./background";
 import type { TranslationProvider } from "../content/translate/translator";
 import { detectEnglish, noTranslation } from "./stubs";
@@ -87,15 +87,11 @@ export async function setup(html: string, options: SetupOptions = {}) {
       watchPackState: background.watchPackState,
       detectLanguage: detectEnglish,
       mountUi(app) {
-        const host = document.createElement("lingo-test-ui");
+        const { host, root } = createShadowHost("lingo-test-ui", "");
         document.body.append(host);
-        const container = document.createElement("div");
-        const shadow = host.attachShadow({ mode: "open" });
-        guardShadowRoot(shadow);
-        shadow.append(container);
-        render(<ArticleUi app={app} />, container);
+        render(<ArticleUi app={app} />, root);
         return () => {
-          render(null, container);
+          render(null, root);
           host.remove();
         };
       },

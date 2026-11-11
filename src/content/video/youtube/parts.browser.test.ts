@@ -56,8 +56,13 @@ async function start() {
   const { comments, video } = await startYouTubeParts(
     (hooks) =>
       startYouTubeComments(
-        { ...deps, detectLanguage: detectEnglish, mountUi: mountCommentsUi },
-        { adapter, hostname: "www.youtube.com", ...hooks },
+        {
+          ...deps,
+          detectLanguage: detectEnglish,
+          mountUi: mountCommentsUi,
+          ...hooks,
+        },
+        { adapter, hostname: "www.youtube.com" },
       ),
     (hooks) =>
       startVideo({

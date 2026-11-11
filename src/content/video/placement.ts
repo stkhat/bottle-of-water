@@ -1,4 +1,4 @@
-import type { Box } from "../article/geometry";
+import type { Box } from "../lookup/geometry";
 import type { Settings } from "../../core/settings";
 
 /** The dictionary window's width (mock Main). */

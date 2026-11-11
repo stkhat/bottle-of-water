@@ -13,7 +13,7 @@ import {
 import { browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { send } from "./client";
-import type { Counts } from "../messaging/protocol";
+import type { Counts } from "./protocol";
 import { PacksUnavailableError } from "../core/packs/unavailable";
 import type { AnalyzeResult, Reply } from "./protocol";
 

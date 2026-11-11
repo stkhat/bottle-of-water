@@ -4,7 +4,7 @@
  */
 
 /** One text node of a block and where its text starts in the block's text. */
-export interface TextPiece {
+interface TextPiece {
   readonly node: Text;
   readonly start: number;
 }

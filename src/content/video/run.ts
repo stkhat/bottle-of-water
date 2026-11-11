@@ -1,15 +1,12 @@
-import { browser } from "wxt/browser";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
-import { send } from "../../messaging/client";
-import { watchPackState, watchSettings } from "../../messaging/storage";
-import { isPageRequest, unsupportedPage } from "../../messaging/page-protocol";
-import { leaveWhenOrphaned, sendWhileConnected } from "../orphan";
+import { unsupportedPage } from "../../messaging/page-protocol";
+import type { LookupHooks } from "../lookup/lookup";
+import { warn } from "../lookup/warn";
+import { leaveWhenOrphaned } from "../orphan";
+import { answerPageRequests, contentDeps } from "../wiring";
 import { mountVideoUi } from "./mount";
 import type { PlatformAdapter } from "./platform";
-import { startVideo, type VideoDeps, type VideoSession } from "./session";
-
-/** How the video session works with the other parts of the page (YouTube's comments). */
-export type VideoHooks = Pick<VideoDeps, "onPanelOpen" | "onTermsChanged">;
+import { startVideo, type VideoSession } from "./session";
 
 /**
  * The content script of a video site: runs the video session through the site's
@@ -19,38 +16,24 @@ export type VideoHooks = Pick<VideoDeps, "onPanelOpen" | "onTermsChanged">;
 export async function runVideoSite(
   ctx: ContentScriptContext,
   adapter: PlatformAdapter,
-  hooks: VideoHooks = {},
+  hooks: LookupHooks = {},
 ): Promise<VideoSession | undefined> {
   leaveWhenOrphaned(ctx);
   const started = startVideo({
-    send: sendWhileConnected(ctx, send),
+    ...contentDeps(ctx),
     adapter,
-    watchSettings,
-    watchPackState,
     ...hooks,
   }).catch((error: unknown) => {
-    console.warn("Lingo:", error);
+    warn(error);
     return undefined;
   });
 
-  // The popup asks about this video (page-protocol.ts); other messages are not ours.
-  const onMessage = (
-    message: unknown,
-    _sender: unknown,
-    sendResponse: (response: unknown) => void,
-  ) => {
-    if (!isPageRequest(message)) return;
-    void started
-      .then((session) =>
-        session
-          ? session.handlePageRequest(message)
-          : unsupportedPage(location.hostname, "video"),
-      )
-      .then(sendResponse);
-    return true;
-  };
-  browser.runtime.onMessage.addListener(onMessage);
-  ctx.onInvalidated(() => browser.runtime.onMessage.removeListener(onMessage));
+  answerPageRequests(ctx, async (request) => {
+    const session = await started;
+    return session
+      ? session.handlePageRequest(request)
+      : unsupportedPage(location.hostname, "video");
+  });
 
   const session = await started;
   if (!session) {
