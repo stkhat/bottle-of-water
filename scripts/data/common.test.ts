@@ -1,5 +1,28 @@
+import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { stringifyPack } from "./common.mjs";
+import { stringifyPack } from "./common.ts";
+
+describe("the data scripts", () => {
+  it("load under plain Node, with the src/ files they import", () => {
+    const imports = readdirSync(import.meta.dirname, { recursive: true })
+      .map(String)
+      .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
+      .map(
+        (file) =>
+          `await import(${JSON.stringify(pathToFileURL(join(import.meta.dirname, file)).href)});`,
+      );
+    const node = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", imports.join("\n")],
+      { encoding: "utf8" },
+    );
+    expect(node.stderr).toBe("");
+    expect(node.status).toBe(0);
+  });
+});
 
 describe("stringifyPack", () => {
   it("sorts object keys by code unit, one entry per line", () => {

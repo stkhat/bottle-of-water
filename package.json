@@ -12,7 +12,7 @@
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
-    "build:check": "wxt build --mode check && node scripts/build-check.mjs",
+    "build:check": "wxt build --mode check && node scripts/build-check.ts",
     "build:check-download": "wxt build --mode check-download",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
@@ -33,15 +33,15 @@
     "check:claude-md": "node scripts/check-claude-md.mjs",
     "test:mutation": "stryker run",
     "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq && npm run data:phrases && npm run data:en-defs",
-    "data:ejdict": "node scripts/data/ejdict.mjs",
-    "data:kaikki": "node scripts/data/kaikki.mjs",
-    "data:phrases": "node scripts/data/phrases.mjs",
-    "data:en-defs": "node scripts/data/en-defs.mjs",
-    "data:native": "node scripts/data/recipes/native.mjs",
-    "data:freq": "node scripts/data/frequency.mjs",
-    "data:es": "node scripts/data/es-frequency.mjs && node scripts/data/es-kaikki.mjs",
-    "data:stats": "node scripts/data/stats.mjs",
-    "data:publish": "node scripts/data/publish.mjs",
+    "data:ejdict": "node scripts/data/ejdict.ts",
+    "data:kaikki": "node scripts/data/kaikki.ts",
+    "data:phrases": "node scripts/data/phrases.ts",
+    "data:en-defs": "node scripts/data/en-defs.ts",
+    "data:native": "node scripts/data/recipes/native.ts",
+    "data:freq": "node scripts/data/frequency.ts",
+    "data:es": "node scripts/data/es-frequency.ts && node scripts/data/es-kaikki.ts",
+    "data:stats": "node scripts/data/stats.ts",
+    "data:publish": "node scripts/data/publish.ts",
     "prepare": "simple-git-hooks",
     "check:dead": "knip --no-exit-code"
   },
@@ -93,7 +93,7 @@
     },
     "entry": [
       "scripts/format-hook.mjs",
-      "scripts/icons/make-icons.mjs",
+      "scripts/icons/make-icons.ts",
       "vitest.unit.config.ts"
     ]
   }

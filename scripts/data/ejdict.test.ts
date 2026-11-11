@@ -1,14 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { stringifyPack } from "./common.mjs";
+import { byCodeUnit, shardDict, stringifyPack } from "./common.ts";
 import {
   capitalizedOnly,
   cleanShort,
   parseEjdict,
-  shardDict,
   vocabularyOf,
-} from "./ejdict.mjs";
+} from "./ejdict.ts";
 
 const fixture = readFileSync(
   join(import.meta.dirname, "fixtures", "ejdict.txt"),
@@ -92,7 +91,7 @@ describe("vocabularyOf", () => {
 
 describe("shardDict", () => {
   const dict = parseEjdict(fixture);
-  const keys = Object.keys(dict).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const keys = Object.keys(dict).sort(byCodeUnit);
   const bytes = (value: Record<string, unknown>) =>
     Buffer.byteLength(stringifyPack(value));
   // Room for about two entries per shard.

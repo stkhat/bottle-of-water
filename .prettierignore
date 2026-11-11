@@ -23,5 +23,5 @@ data/gate
 src/core/subtitles/fixtures
 e2e/fixtures
 
-# Written by npm run data:publish (scripts/data/publish.mjs stringifyLock)
+# Written by npm run data:publish (scripts/data/publish.ts stringifyLock)
 src/core/packs/packs.lock.json

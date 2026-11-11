@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverage, GATE, offeredPairs, pairCoverage } from "./gate.mjs";
+import { coverage, GATE, offeredPairs, pairCoverage } from "./gate.ts";
 
 describe("coverage", () => {
   it("counts the terms with a meaning, by source", () => {

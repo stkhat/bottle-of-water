@@ -1,6 +1,9 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { importKaikki, posLabel, type KaikkiResult } from "./kaikki.mjs";
+import { posLabel } from "./common.ts";
+import { importKaikki } from "./kaikki.ts";
+
+type KaikkiResult = Awaited<ReturnType<typeof importKaikki>>;
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki.jsonl");
 const vocab = [

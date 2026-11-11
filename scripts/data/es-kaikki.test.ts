@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildEsPacks, writeEsPacks, type EsPacks } from "./es-kaikki.mjs";
+import { buildEsPacks, writeEsPacks, type EsPacks } from "./es-kaikki.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-es.jsonl");
 // Frequency-list forms in rank order. "casar" and "hablar" are reached only through

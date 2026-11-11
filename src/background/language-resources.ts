@@ -10,7 +10,7 @@ import {
   type LanguagePack,
 } from "../core/lexicon/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
-import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/pairs";
+import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/formats";
 import { allOf } from "../core/packs/unavailable";
 import { own, promiseCache } from "../core/util";
 

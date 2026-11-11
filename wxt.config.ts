@@ -3,7 +3,7 @@ import { join, relative, sep } from "node:path";
 import { defineConfig } from "wxt";
 import preact from "@preact/preset-vite";
 import pkg from "./package.json" with { type: "json" };
-import { PACKS } from "./scripts/data/formats.mjs";
+import { PACKS } from "./scripts/data/formats.ts";
 import { applyOverrides, type PackLock } from "./src/core/packs/lock";
 import lockFile from "./src/core/packs/packs.lock.json" with { type: "json" };
 
@@ -16,7 +16,7 @@ function buildLock(mode: string): PackLock {
   if (mode === "production") return committed;
   const lock = applyOverrides(committed, process.env, mode);
   for (const [name, entry] of Object.entries(lock.packs))
-    if (!entry.bundled && !PACKS[name]?.downloadable)
+    if (!entry.bundled && !PACKS[name as keyof typeof PACKS]?.downloadable)
       throw new Error(`${name} is in public/packs/ and is always bundled`);
   return lock;
 }

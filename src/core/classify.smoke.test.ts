@@ -1,7 +1,7 @@
 // Smoke test of the classifier over the generated pack files (public/packs/, data/packs/).
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { packSourcePath } from "../../scripts/data/formats.mjs";
+import { packSourcePath } from "../../scripts/data/formats.ts";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { createPackLoader } from "./packs/load";

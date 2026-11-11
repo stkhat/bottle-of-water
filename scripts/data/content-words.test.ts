@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentWords, isFunctionWord } from "./content-words.mjs";
+import { contentWords, isFunctionWord } from "./content-words.ts";
 
 describe("isFunctionWord", () => {
   it("is true for a word with a function part of speech", () => {

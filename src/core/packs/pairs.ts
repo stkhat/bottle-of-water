@@ -1,20 +1,7 @@
 import { learningLanguages, nativeLanguages } from "../languages";
 import { own } from "../util";
+import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "./formats";
 import type { PackName } from "./load";
-
-/** The learning languages with a language pack, which is named after the language. */
-export const LANGUAGE_PACKS = [
-  "en",
-  "es",
-] as const satisfies readonly PackName[];
-
-/** The packs each dictionary ("<from>-<to>") is built from. */
-export const DICTIONARY_PACKS = {
-  "en-ja": ["en", "en-ja", "en-defs"],
-  "es-en": ["es", "es-en"],
-  "en-es": ["en", "en-es", "en-defs"],
-  "en-pt": ["en", "en-pt", "en-defs"],
-} as const satisfies Readonly<Record<string, readonly PackName[]>>;
 
 /**
  * The packs a language pair needs: the learning language's pack, then the other packs

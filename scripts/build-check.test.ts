@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildId, syncBuild } from "./build-check.mjs";
+import { buildId, syncBuild } from "./build-check.ts";
 
 let dir: string;
 const put = (path: string, content: string) => {

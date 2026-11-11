@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { importPhrases, patternKey, type PhrasesResult } from "./phrases.mjs";
+import { importPhrases, patternKey, type PhrasesResult } from "./phrases.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-phrases.jsonl");
 const vocab = [

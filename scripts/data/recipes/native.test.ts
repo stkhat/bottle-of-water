@@ -2,8 +2,9 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildPairDictionary, TABLES_TAG, writePairPack } from "./native.mjs";
-import { termKeyOf } from "./recipe.mjs";
+import { writeShards } from "../common.ts";
+import { buildPairDictionary, TABLES_TAG } from "./native.ts";
+import { termKeyOf } from "./recipe.ts";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const termKey = termKeyOf({
@@ -37,17 +38,12 @@ describe("buildPairDictionary", () => {
   });
 });
 
-describe("writePairPack", () => {
+describe("writeShards", () => {
   it("writes the shards and an index naming the sources", () => {
     const dir = mkdtempSync(join(tmpdir(), "pair-pack-"));
-    writePairPack(
-      "en-es",
-      {
-        dict: { luz: ["luz", [["noun", "luz"]], 0] },
-        sources: ["eswiktionary"],
-      },
-      dir,
-    );
+    writeShards("en-es", { luz: ["luz", [["noun", "luz"]], 0] }, dir, {
+      sources: ["eswiktionary"],
+    });
     expect(
       JSON.parse(readFileSync(join(dir, "en-es", "index.json"), "utf8")),
     ).toEqual({

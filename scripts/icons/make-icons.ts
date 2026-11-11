@@ -1,5 +1,5 @@
 // Renders scripts/icons/icon.svg into the toolbar icons WXT picks up from
-// public/icon/<size>.png. Run after editing the SVG: node scripts/icons/make-icons.mjs
+// public/icon/<size>.png. Run after editing the SVG: node scripts/icons/make-icons.ts
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
