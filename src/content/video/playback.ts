@@ -6,9 +6,9 @@ import type { VideoState } from "./state";
 /** How often the site's video element is looked for until there is one (ms). */
 const FIND_VIDEO_MS = 250;
 /**
- * A looping video (YouTube Shorts) never fires `ended`: the browser seeks back to the
- * start instead. A seek from this close to the end to this close to the start is that
- * loop (seconds).
+ * A looping video (YouTube Shorts) never fires `ended`: it starts over instead (Chrome
+ * seeks back, Firefox loops without a seek event). A jump from this close to the end to
+ * this close to the start is that loop (seconds).
  */
 const LOOP_EDGE_S = 1;
 
@@ -56,22 +56,19 @@ export async function followPlayback(
   /** Where the video was at the last tick, before a seek moves it. */
   let lastTime = element.currentTime;
   const onTick = () => {
-    lastTime = element.currentTime;
-    tick(element);
-  };
-  const onSeeking = () => {
-    if (
+    const time = element.currentTime;
+    const looped =
       element.loop &&
       Number.isFinite(element.duration) &&
       lastTime >= element.duration - LOOP_EDGE_S &&
-      element.currentTime < LOOP_EDGE_S
-    )
-      ended();
+      time < LOOP_EDGE_S;
+    lastTime = time;
+    tick(element);
+    if (looped) ended();
   };
   const events = ["timeupdate", "seeked", "play", "pause", "loadeddata"];
   for (const type of events) element.addEventListener(type, onTick);
   element.addEventListener("ended", ended);
-  element.addEventListener("seeking", onSeeking);
   let frame: number | undefined;
   const loop = () => {
     onTick();
@@ -82,7 +79,6 @@ export async function followPlayback(
   signal.addEventListener("abort", () => {
     for (const type of events) element.removeEventListener(type, onTick);
     element.removeEventListener("ended", ended);
-    element.removeEventListener("seeking", onSeeking);
     if (frame !== undefined) element.cancelVideoFrameCallback(frame);
   });
   onTick();
