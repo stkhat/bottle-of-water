@@ -102,7 +102,7 @@ const base: VideoPanelProps<WordRow> = {
 afterEach(cleanUpMounts);
 
 const cards = (screen: { container: HTMLElement }) => [
-  ...screen.container.querySelectorAll<HTMLButtonElement>("[data-cue]"),
+  ...screen.container.querySelectorAll<HTMLElement>("[data-cue]"),
 ];
 
 describe("the Transcript tab", () => {
@@ -219,6 +219,19 @@ describe("the Transcript tab", () => {
     );
     await screen.getByRole("button", { name: /^1:09/ }).click();
     expect(onSeek).toHaveBeenCalledWith(3);
+  });
+
+  test("Enter or Space on a focused card seeks to it", async () => {
+    const onSeek = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} onSeek={onSeek} />,
+    );
+    cards(screen)[3]!.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onSeek).toHaveBeenLastCalledWith(3);
+    cards(screen)[1]!.focus();
+    await userEvent.keyboard(" ");
+    expect(onSeek).toHaveBeenLastCalledWith(1);
   });
 
   test("a word tells when the pointer enters and leaves it; clicking it opens it, not a seek", async () => {

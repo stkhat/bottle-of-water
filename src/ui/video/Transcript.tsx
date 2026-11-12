@@ -197,14 +197,22 @@ function Card(
       );
     },
   );
+  // A div acting as a button, not a <button>: Firefox selects no text inside a button.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       data-cue={index}
       aria-current={now ? "true" : undefined}
       onClick={() => {
         // A drag over the text selects words: no seek.
         if (!selection.selected()) props.onSeek(index);
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        props.onSeek(index);
       }}
       style={now ? CARD_NOW : CARD}
     >
@@ -254,6 +262,6 @@ function Card(
           {translation}
         </span>
       )}
-    </button>
+    </div>
   );
 }
