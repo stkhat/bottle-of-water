@@ -12,7 +12,7 @@ import en from "../../../core/subtitles/fixtures/youtube/en.json3?raw";
 import enTlangJa from "../../../core/subtitles/fixtures/youtube/en-tlang-ja.json3?raw";
 import ja from "../../../core/subtitles/fixtures/youtube/ja.json3?raw";
 import { parseYouTubeJson3 } from "../../../core/subtitles/youtube-json3";
-import { createYouTubeAdapter } from "./adapter";
+import { createYouTubeAdapter, type YouTubeAdapterOptions } from "./adapter";
 import { CHANNEL, type TimedtextMessage } from "./messages";
 import { installYouTubeHooks } from "./page";
 import {
@@ -21,6 +21,7 @@ import {
   VIDEO_ID,
   type TestPage,
 } from "../../../testing/youtube-page";
+import { holdBackPageCalls, type HeldCalls } from "../../../testing/page-calls";
 import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
@@ -39,21 +40,42 @@ let page: TestPage;
 let adapter: PlatformAdapter;
 let href: string;
 
-function start(options: Parameters<typeof createTestPage>[0] = {}) {
+function start(
+  options: Parameters<typeof createTestPage>[0] = {},
+  adapterOptions: YouTubeAdapterOptions = {},
+) {
   page = createTestPage(options);
   adapter = createYouTubeAdapter({
     href: () => href,
     playerRequestWaitMs: 100,
     captureTimeoutMs: 1000,
     pollMs: 20,
+    ...adapterOptions,
   });
 }
+
+/** Keeps the next `count` fetchTimedtext calls from the page script (see holdBackPageCalls). */
+function dropFetchCalls(count: number): HeldCalls {
+  const held = holdBackPageCalls({
+    toPage: CHANNEL.toPage,
+    type: "fetchTimedtext",
+    count,
+    reinstall() {
+      uninstall();
+      uninstall = installYouTubeHooks();
+    },
+  });
+  cleanups.push(held.remove);
+  return held;
+}
+const cleanups: (() => void)[] = [];
 
 beforeEach(() => {
   href = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
   performance.clearResourceTimings();
 });
 afterEach(() => {
+  for (const cleanup of cleanups.splice(0)) cleanup();
   adapter.dispose();
   page.remove();
 });
@@ -341,6 +363,36 @@ describe("loading captions", () => {
     });
     // The response for notYetLoaded has no tracks.
     expect(await loading).toBeUndefined();
+  });
+
+  it("fetches a track again when the page does not answer in time", async () => {
+    start({ captionsOn: true }, { fetchTimeoutMs: 200 });
+    await page.video.play();
+    await expect.poll(() => page.player.fake.requests.length).toBe(1);
+    const dropped = dropFetchCalls(1);
+
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(dropped.held()).toBe(1);
+    // The same track was asked for again.
+    expect(dropped.calls).toHaveLength(2);
+    expect(dropped.calls[1]?.url).toBe(dropped.calls[0]?.url);
+    expect(captions?.translation).toEqual({
+      source: "siteTrack",
+      lang: "ja",
+      cues: parseYouTubeJson3(ja),
+    });
+  });
+
+  it("fails after the second unanswered fetch", async () => {
+    start({ captionsOn: true }, { fetchTimeoutMs: 200 });
+    await page.video.play();
+    await expect.poll(() => page.player.fake.requests.length).toBe(1);
+    const dropped = dropFetchCalls(2);
+
+    await expect(adapter.loadCaptions(REQUEST)).rejects.toThrow(
+      "No answer from the page to fetchTimedtext",
+    );
+    expect(dropped.held()).toBe(2);
   });
 
   it("stops waiting when aborted", async () => {

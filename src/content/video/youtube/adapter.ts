@@ -6,7 +6,11 @@ import {
   type YouTubeTrack,
 } from "../../../core/subtitles/youtube-json3";
 import { firstTranslation, siteCaptionsHider, sleep } from "../adapter-kit";
-import { createPageBridge } from "../page-channel";
+import {
+  createPageBridge,
+  NETWORK_CALL_TIMEOUT_MS,
+  retryNetworkCall,
+} from "../page-channel";
 import { createRecent } from "../recent";
 import type {
   CaptionRequest,
@@ -29,6 +33,8 @@ export interface YouTubeAdapterOptions {
   playerRequestWaitMs?: number;
   /** How long to wait for the player's request after asking for a track. */
   captureTimeoutMs?: number;
+  /** How long to wait for one fetch of a track through the page script. */
+  fetchTimeoutMs?: number;
   pollMs?: number;
 }
 
@@ -56,6 +62,7 @@ export function createYouTubeAdapter(
   const pollMs = options.pollMs ?? 250;
   const playerRequestWaitMs = options.playerRequestWaitMs ?? 1500;
   const captureTimeoutMs = options.captureTimeoutMs ?? 10_000;
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? NETWORK_CALL_TIMEOUT_MS;
   const bridge = createPageBridge<PageCall, PageCallResults, TimedtextMessage>({
     channel: CHANNEL,
     isEvent: isTimedtextMessage,
@@ -88,8 +95,15 @@ export function createYouTubeAdapter(
   /** Sends a call to the page script, for the player this page shows. */
   const call = <T extends PageCall["type"]>(
     message: Extract<PageCall, { type: T }>,
+    timeoutMs?: number,
   ): Promise<PageCallResults[T]> =>
-    bridge.call<T>({ ...message, shorts: onShorts() });
+    bridge.call<T>({ ...message, shorts: onShorts() }, timeoutMs);
+
+  /** Fetches a track's body through the page script, trying once more if that fails. */
+  const fetchTimedtext = (url: string): Promise<string> =>
+    retryNetworkCall(() =>
+      call({ type: "fetchTimedtext", url }, fetchTimeoutMs),
+    );
 
   /** The player response once it is the current video's (it lags behind SPA navigation). */
   async function captionInfo(
@@ -149,10 +163,7 @@ export function createYouTubeAdapter(
       (capture.tlang ?? undefined) === track.tlang;
     const body = same
       ? capture.body
-      : await call({
-          type: "fetchTimedtext",
-          url: trackUrl(capture.url, track),
-        });
+      : await fetchTimedtext(trackUrl(capture.url, track));
     return parseYouTubeJson3(body);
   }
 

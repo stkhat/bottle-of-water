@@ -2,7 +2,11 @@ import { parseTtml } from "../../../core/subtitles/ttml";
 import type { Cue } from "../../../core/subtitles/types";
 import { parseWebVtt } from "../../../core/subtitles/webvtt";
 import { firstTranslation, siteCaptionsHider } from "../adapter-kit";
-import { createPageBridge } from "../page-channel";
+import {
+  createPageBridge,
+  NETWORK_CALL_TIMEOUT_MS,
+  retryNetworkCall,
+} from "../page-channel";
 import { createRecent } from "../recent";
 import type {
   CaptionRequest,
@@ -41,6 +45,8 @@ export interface NetflixAdapterOptions {
   idleMs?: number;
   /** Default: the content script's `fetch`. */
   fetch?: typeof fetch;
+  /** How long to wait for one download through the page script. */
+  fetchTimeoutMs?: number;
 }
 
 /** The transcript panel's width (px). */
@@ -75,6 +81,7 @@ export function createNetflixAdapter(
   const tracksTimeoutMs = options.tracksTimeoutMs ?? 15_000;
   const pollMs = options.pollMs ?? 500;
   const idleMs = options.idleMs ?? 3000;
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? NETWORK_CALL_TIMEOUT_MS;
   const fetchText =
     options.fetch ?? ((url: string, init?: RequestInit) => fetch(url, init));
 
@@ -128,7 +135,10 @@ export function createNetflixAdapter(
       response = await fetchText(url, { signal });
     } catch (error) {
       if (signal?.aborted) throw error;
-      return bridge.call({ type: "fetchText", url });
+      return retryNetworkCall(
+        () => bridge.call({ type: "fetchText", url }, fetchTimeoutMs),
+        signal,
+      );
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.text();

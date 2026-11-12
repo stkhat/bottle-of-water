@@ -22,6 +22,8 @@ import {
   testManifest,
   type TestPage,
 } from "../../../testing/netflix-page";
+import { holdBackPageCalls, type HeldCalls } from "../../../testing/page-calls";
+import { CHANNEL } from "./messages";
 import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
@@ -58,7 +60,24 @@ beforeEach(() => {
   href = `https://www.netflix.com/watch/${MOVIE_ID}?trackId=14170286`;
   performance.clearResourceTimings();
 });
+/** Keeps the next `count` fetchText calls from the page script (see holdBackPageCalls). */
+function dropFetchCalls(count: number): HeldCalls {
+  const held = holdBackPageCalls({
+    toPage: CHANNEL.toPage,
+    type: "fetchText",
+    count,
+    reinstall() {
+      uninstall();
+      uninstall = installNetflixHooks();
+    },
+  });
+  cleanups.push(held.remove);
+  return held;
+}
+const cleanups: (() => void)[] = [];
+
 afterEach(() => {
+  for (const cleanup of cleanups.splice(0)) cleanup();
   adapter.dispose();
   page.remove();
 });
@@ -283,6 +302,36 @@ describe("loading subtitles", () => {
     const captions = await adapter.loadCaptions(REQUEST);
     expect(captions?.cues).toEqual(parseTtml(enImsc));
     expect(captions?.translation.source).toBe("siteTrack");
+  });
+
+  it("asks the page for the same file again when it does not answer in time", async () => {
+    // The second CDN has no IMSC file: only a second try of the first one reads it.
+    const manifest = testManifest().replace(
+      /(SYNTHETIC-en-imsc[\s\S]*?)SYNTHETIC-en-imsc/,
+      "$1SYNTHETIC-gone",
+    );
+    const blocked = () => Promise.reject(new TypeError("Failed to fetch"));
+    // Before the page: the page script, put back after it, then sees the manifest.
+    const dropped = dropFetchCalls(1);
+    start({ manifest }, { fetch: blocked, fetchTimeoutMs: 200 });
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.cues).toEqual(parseTtml(enImsc));
+    expect(dropped.held()).toBe(1);
+    expect(
+      dropped.calls.map((c) => new URL(String(c.url)).searchParams.get("t")),
+    ).toEqual(["SYNTHETIC-en-imsc", "SYNTHETIC-en-imsc", "SYNTHETIC-ja-imsc"]);
+  });
+
+  it("goes on to the next CDN after the second unanswered request", async () => {
+    const blocked = () => Promise.reject(new TypeError("Failed to fetch"));
+    // Before the page: the page script, put back after it, then sees the manifest.
+    const dropped = dropFetchCalls(2);
+    start({}, { fetch: blocked, fetchTimeoutMs: 200 });
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.cues).toEqual(parseTtml(enImsc));
+    expect(dropped.held()).toBe(2);
+    // Twice to the first CDN, then the second; then the Japanese track.
+    expect(dropped.calls).toHaveLength(4);
   });
 
   it("tries the next CDN and then the next format when a download fails", async () => {

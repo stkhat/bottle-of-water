@@ -51,9 +51,13 @@ export interface PageBridge<
   Results extends Record<Call["type"], unknown>,
   Event,
 > {
-  /** Asks the page script; rejects when it does not answer in time (not installed). */
+  /**
+   * Asks the page script; rejects when it does not answer in time (not installed).
+   * `timeoutMs` overrides the bridge's wait for calls that go over the network.
+   */
   call<T extends Call["type"]>(
     call: Extract<Call, { type: T }>,
+    timeoutMs?: number,
   ): Promise<Results[T]>;
   /** Calls `listener` with every event the page script posts. */
   onEvent(listener: (event: Event) => void): () => void;
@@ -92,13 +96,13 @@ export function createPageBridge<
   window.addEventListener("message", onMessage);
 
   return {
-    call(call) {
+    call(call, wait = timeoutMs) {
       const id = crypto.randomUUID();
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id);
           reject(new Error(`No answer from the page to ${call.type}`));
-        }, timeoutMs);
+        }, wait);
         pending.set(id, {
           resolve(value) {
             clearTimeout(timer);
@@ -126,6 +130,33 @@ export function createPageBridge<
       pending.clear();
     },
   };
+}
+
+/**
+ * A page call that goes over the network (a subtitle fetch) waits longer than the
+ * bridge's default, which only tells a missing page script apart.
+ */
+export const NETWORK_CALL_TIMEOUT_MS = 20_000;
+const NETWORK_CALL_ATTEMPTS = 2;
+
+/**
+ * Runs a page call that goes over the network, once more if it fails or gets no answer
+ * in time; not when it was aborted (Lingo leaving the page, or `signal`).
+ */
+export async function retryNetworkCall<T>(
+  call: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      const aborted =
+        error instanceof DOMException && error.name === "AbortError";
+      if (aborted || signal?.aborted || attempt >= NETWORK_CALL_ATTEMPTS)
+        throw error;
+    }
+  }
 }
 
 const installed = new Map<string, () => void>();
