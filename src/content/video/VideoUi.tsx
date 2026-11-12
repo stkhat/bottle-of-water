@@ -13,7 +13,12 @@ import { VideoPanel } from "../../ui/video/VideoPanel";
 import { ThemeScope } from "../../ui/ThemeScope";
 import { hoverView, windowView } from "../lookup/describe";
 import { boxOf, type Box } from "../lookup/geometry";
-import { dictionaryFrame, menuPlacement } from "./placement";
+import {
+  dictionaryFrame,
+  menuBelowPlacement,
+  menuPlacement,
+  verticalDictionaryFrame,
+} from "./placement";
 import type { VideoApp, VideoState } from "./state";
 import { filterCounts, filterRows, videoWords } from "./words";
 import { Floating, TOP_LAYER } from "../lookup/Floating";
@@ -26,6 +31,8 @@ export interface VideoGeometry {
   buttons(): Box | null;
   /** Lingo's transcript, while it shows. */
   transcript(): Box | null;
+  /** What the dictionary window goes to the right of beside a vertical video. */
+  beside(): Box | null;
 }
 
 /** Sizes the UI follows. */
@@ -37,6 +44,8 @@ export interface VideoLayout {
    * while the site's control bar shows (Netflix).
    */
   subtitleBottom: number;
+  /** A vertical short video (spec "YouTube Shorts"): subtitle only, in the video. */
+  vertical: boolean;
 }
 
 /** Mock Main: the in-video subtitle sits 64px above the player's bottom. */
@@ -47,6 +56,10 @@ const FULLSCREEN_SUBTITLE_BOTTOM = 120;
 const FULLSCREEN_SUBTITLE_INSET = "clamp(24px, 14%, 200px)";
 /** Mock Main: 120px in from each side of the 880px video, less on small players. */
 const SUBTITLE_INSET = "clamp(12px, calc((100% - 640px) / 2), 120px)";
+/** Mock `YouTube Shorts — subtitles`: 132px above the video's bottom, over its title. */
+const VERTICAL_SUBTITLE_BOTTOM = 132;
+/** Mock `YouTube Shorts — subtitles`: 12px in from each side of the narrow video. */
+const VERTICAL_SUBTITLE_INSET = "12px";
 /** The gap kept between the in-video subtitle and the site's control bar (px). */
 export const CONTROL_BAR_GAP = 12;
 
@@ -90,7 +103,7 @@ function playingLine(state: VideoState) {
 function Subtitle(props: {
   app: VideoApp;
   state: VideoState;
-  variant: "inVideo" | "belowVideo" | "fullscreen";
+  variant: "inVideo" | "belowVideo" | "fullscreen" | "vertical";
 }) {
   const { app, state } = props;
   const line = playingLine(state);
@@ -145,13 +158,22 @@ export function InPlayerUi(props: {
 }) {
   const { app } = props;
   const state = useStore(app.store);
-  const { subtitleBottom } = useStore(props.layout);
+  const { subtitleBottom, vertical } = useStore(props.layout);
   const { settings, fullscreen } = state;
   const inVideo =
     showing(state) &&
-    (fullscreen || settings.subtitlePosition === "inVideo") &&
+    (fullscreen || vertical || settings.subtitlePosition === "inVideo") &&
     state.line >= 0;
-  const inset = fullscreen ? FULLSCREEN_SUBTITLE_INSET : SUBTITLE_INSET;
+  const inset = fullscreen
+    ? FULLSCREEN_SUBTITLE_INSET
+    : vertical
+      ? VERTICAL_SUBTITLE_INSET
+      : SUBTITLE_INSET;
+  const bottom = fullscreen
+    ? Math.max(FULLSCREEN_SUBTITLE_BOTTOM, subtitleBottom)
+    : vertical
+      ? VERTICAL_SUBTITLE_BOTTOM
+      : subtitleBottom;
   return (
     <>
       {inVideo && (
@@ -161,14 +183,16 @@ export function InPlayerUi(props: {
             left: inset,
             right: inset,
             // Netflix's control bar can lift it higher.
-            bottom: `${fullscreen ? Math.max(FULLSCREEN_SUBTITLE_BOTTOM, subtitleBottom) : subtitleBottom}px`,
+            bottom: `${bottom}px`,
             transition: "bottom 0.2s ease-out",
           }}
         >
           <Subtitle
             app={app}
             state={state}
-            variant={fullscreen ? "fullscreen" : "inVideo"}
+            variant={
+              fullscreen ? "fullscreen" : vertical ? "vertical" : "inVideo"
+            }
           />
         </div>
       )}
@@ -189,7 +213,7 @@ export function MenuUi(props: {
   const { app, geometry } = props;
   const state = useStore(app.store);
   // The site's control bar showing or hiding (the buttons go with it) moves the subtitle.
-  useStore(props.layout);
+  const { vertical } = useStore(props.layout);
   const { settings, fullscreen } = state;
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -205,24 +229,30 @@ export function MenuUi(props: {
   const player = geometry.player();
   const buttons = geometry.buttons();
   if (!state.menuOpen || !player || !buttons) return null;
-  const menu = menuPlacement(player, buttons, {
+  const viewport = {
     width: document.documentElement.clientWidth,
     height: document.documentElement.clientHeight,
-  });
+  };
+  // Over a vertical video the buttons are at its top: the menu opens under them.
+  const at = vertical
+    ? menuBelowPlacement(player, buttons, viewport)
+    : menuPlacement(player, buttons, viewport);
   return (
     <div
       style={{
         position: "fixed",
         zIndex: TOP_LAYER,
-        right: `${menu.right}px`,
-        bottom: `${menu.bottom}px`,
+        right: `${at.right}px`,
+        ...("top" in at
+          ? { top: `${at.top}px` }
+          : { bottom: `${at.bottom}px` }),
         pointerEvents: "auto",
       }}
     >
       <LingoMenu
         enabled={state.enabled}
         position={settings.subtitlePosition}
-        showPositions={!fullscreen}
+        showPositions={!fullscreen && !vertical}
         showTranslation={settings.subtitleTranslation}
         size={settings.subtitleSize}
         opacity={settings.subtitleOpacity}
@@ -381,18 +411,24 @@ function useClosedByPressAway(app: VideoApp, open: boolean) {
  * Over the page: the hover card and the dictionary window (in fullscreen too: the host
  * is then inside the fullscreen element).
  */
-export function PageUi(props: { app: VideoApp; geometry: VideoGeometry }) {
+export function PageUi(props: {
+  app: VideoApp;
+  geometry: VideoGeometry;
+  layout: Store<VideoLayout>;
+}) {
   const { app, geometry } = props;
   const state = useStore(app.store);
+  const { vertical } = useStore(props.layout);
   const { hover, panel, settings, fullscreen } = state;
   const position = fullscreen ? "fullscreen" : settings.subtitlePosition;
   // Placed when the window opens or the screen changes; it stays where the user drags it.
   const frame = useMemo(() => {
     const player = geometry.player();
     const viewport = { width: innerWidth, height: innerHeight };
-    return player
-      ? dictionaryFrame(player, position, viewport, geometry.transcript())
-      : { left: viewport.width - 376, top: 64, height: 400 };
+    if (!player) return { left: viewport.width - 376, top: 64, height: 400 };
+    return vertical && !fullscreen
+      ? verticalDictionaryFrame(player, geometry.beside(), viewport)
+      : dictionaryFrame(player, position, viewport, geometry.transcript());
   }, [panel?.opened, fullscreen]);
   useClosedByPressAway(app, !!panel);
   if (!showing(state)) return null;

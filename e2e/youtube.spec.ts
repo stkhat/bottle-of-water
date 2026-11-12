@@ -8,8 +8,8 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt } from "../src/core/subtitles/cues";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
 import { test, expect } from "./fixtures";
-import { ON_TIME, showNewWords } from "./page";
-import { routeYouTube, YOUTUBE_WATCH } from "./sites";
+import { highlighted, ON_TIME, showNewWords } from "./page";
+import { routeYouTube, YOUTUBE_SHORT, YOUTUBE_WATCH } from "./sites";
 
 const subtitles = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -50,6 +50,49 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
     /rgb\(141, 180, 255\)/,
   );
   await expect(page.locator("#ytp-caption-window-container")).toBeHidden();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { lingoViolations: string[] }).lingoViolations,
+    ),
+  ).toEqual([]);
+});
+
+test("a Short shows the subtitle over it and highlights its comments panel", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await routeYouTube(context);
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_SHORT);
+  // The L and ^ group sits in the Short's own buttons, before its captions button.
+  await expect(
+    page.locator(
+      "#right-controls > lingo-player-buttons + #closed-captioning-button-container",
+    ),
+  ).toHaveCount(1);
+  await page.evaluate(
+    (seconds) => {
+      const video = document.querySelector<HTMLVideoElement>(
+        "#shorts-player video",
+      )!;
+      video.currentTime = seconds;
+    },
+    (LINE_CUE.startMs + 200) / 1000,
+  );
+  const subtitle = page.locator("lingo-video-player").getByRole("region", {
+    name: en["video.subtitle"],
+  });
+  await expect(subtitle).toContainText(LINE);
+  await expect(subtitle.locator("[lang=en]").first()).toHaveCSS(
+    "font-size",
+    "20px",
+  );
+  await expect(page.locator("lingo-transcript")).toHaveCount(0);
+  await expect
+    .poll(() => highlighted(page, "lingo-new"), { timeout: 10_000 })
+    .toContain("profound");
   expect(
     await page.evaluate(
       () =>

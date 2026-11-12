@@ -9,9 +9,10 @@ import { TermSpan } from "./TermSpan";
 export interface SubtitleOverlayProps {
   /**
    * Over the video (mock Main: dark boxes), in a large light box under it, or over the
-   * video in fullscreen (mock Fullscreen: larger dark boxes).
+   * video in fullscreen (mock Fullscreen: larger dark boxes), or over a vertical video
+   * (mock `YouTube Shorts — subtitles`: smaller dark boxes).
    */
-  variant: "inVideo" | "belowVideo" | "fullscreen";
+  variant: "inVideo" | "belowVideo" | "fullscreen" | "vertical";
   text: string;
   /** The cue's spans; null until it is classified. */
   spans: readonly Span[] | null;
@@ -67,6 +68,39 @@ const LOOK = {
       background: "rgba(8,10,16,0.72)",
       color: "#E9EBF0",
       fontSize: "17px",
+      lineHeight: 1.5,
+    },
+    colors: "onVideo",
+    outline: "#6FE3C3",
+  },
+  vertical: {
+    box: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "6px",
+      textAlign: "center",
+      pointerEvents: "none",
+    },
+    line: {
+      pointerEvents: "auto",
+      margin: 0,
+      padding: "4px 12px",
+      borderRadius: "8px",
+      background: "rgba(8,10,16,0.8)",
+      color: color.white,
+      fontSize: "20px",
+      lineHeight: 1.5,
+      fontWeight: 500,
+    },
+    translation: {
+      pointerEvents: "auto",
+      margin: 0,
+      padding: "3px 10px",
+      borderRadius: "8px",
+      background: "rgba(8,10,16,0.72)",
+      color: "#E9EBF0",
+      fontSize: "15px",
       lineHeight: 1.5,
     },
     colors: "onVideo",

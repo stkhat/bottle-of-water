@@ -1,9 +1,9 @@
 # Status
 
-Last update: 2026-11-12. Merged work is in git history; data sizes are in [notes/data-sizes.md](notes/data-sizes.md).
+Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes/data-sizes.md](notes/data-sizes.md).
 
 ## Where we are
-- Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
+- Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, YouTube Shorts (subtitles and comments), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
 - Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
@@ -14,6 +14,7 @@ Last update: 2026-11-12. Merged work is in git history; data sizes are in [notes
 - Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
 - Netflix: the in-video subtitle is centered on the whole video, so its right end can run under the transcript side panel
 - YouTube: real-site layout in theater mode and the narrow single-column layout not checked
+- YouTube Shorts: ASR lines are split for the watch page's width (up to 60 characters), so a long one wraps into two or three lines over the narrow video; the dictionary window covers the comments panel while that is open
 - YouTube: after using L or ^ the focus stays on Lingo's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked
 - YouTube ASR: where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts) and a card can hold a long run-on (up to ~70 words), shown as several lines. Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma
 - Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
@@ -22,7 +23,6 @@ Last update: 2026-11-12. Merged work is in git history; data sizes are in [notes
 ### YouTube comments
 - Short comments ("lol", "wow") are often not decided by the language detector and count as the learning language
 - A comment cut off by "Read more" is analyzed whole; its hidden part gets highlights once expanded
-- Shorts' comment panel is not covered
 
 ### Articles
 - A word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)

@@ -93,7 +93,11 @@ const detect: DetectLanguage = async (text) => ({
 });
 
 function start(
-  options: { settings?: Partial<Settings>; hooks?: LookupHooks } = {},
+  options: {
+    settings?: Partial<Settings>;
+    hooks?: LookupHooks;
+    href?: string;
+  } = {},
 ) {
   const background = testBackground({
     highlight: { new: true, learning: true, known: false },
@@ -111,7 +115,11 @@ function start(
       createTranslator: () => noTranslation,
       ...options.hooks,
     },
-    { adapter: fake.adapter, hostname: "www.youtube.com" },
+    {
+      adapter: fake.adapter,
+      hostname: "www.youtube.com",
+      href: () => options.href ?? "https://www.youtube.com/watch?v=abc",
+    },
   );
   cleanups.push(() => runner.stop());
   return { background, runner, navigate: fake.navigate };
@@ -236,6 +244,49 @@ describe("YouTube comments", () => {
     // The video's window opened: the panel goes.
     runner.closePanel();
     await expect.element(dictionary()).not.toBeInTheDocument();
+  });
+});
+
+/** A Short's comments panel beside the video (docs/notes/youtube-shorts.md), open. */
+function addShortsPanel(html = COMMENTS): HTMLElement {
+  const shorts = document.createElement("ytd-shorts");
+  shorts.style.cssText =
+    "display: flex; justify-content: flex-end; font: 16px/1.6 system-ui, sans-serif";
+  shorts.innerHTML = `<div id="anchored-panel"><ytd-engagement-panel-section-list-renderer target-id="engagement-panel-comments-section" style="display: block; width: 480px; height: 600px; margin-top: 40px"><ytd-comments style="display: block">${html}</ytd-comments></ytd-engagement-panel-section-list-renderer></div>`;
+  for (const el of shorts.querySelectorAll(
+    "ytd-comment-thread-renderer, ytd-comment-view-model, ytd-expander, ytd-comment-replies-renderer, ytd-comments-header-renderer",
+  ))
+    (el as HTMLElement).style.display = "block";
+  document.body.prepend(shorts);
+  cleanups.push(() => shorts.remove());
+  return shorts.querySelector("ytd-engagement-panel-section-list-renderer")!;
+}
+
+describe("Shorts' comments", () => {
+  const SHORT = "https://www.youtube.com/shorts/abc";
+
+  it("highlights the comments in the Short's panel, not the watch page left in the DOM", async () => {
+    const watch = addComments(
+      `<div id="contents">${comment("@w", "A thorough explanation.")}</div>`,
+    );
+    watch.style.display = "none";
+    addShortsPanel();
+    start({ href: SHORT });
+    await expect
+      .poll(newWords, { timeout: 5000 })
+      .toEqual(["knead", "tedious"]);
+  });
+
+  it("opens the dictionary panel just left of the comments panel", async () => {
+    const panel = addShortsPanel();
+    start({ href: SHORT });
+    await expect.poll(newWords, { timeout: 5000 }).toContain("tedious");
+    await clickOn(panel, "tedious");
+    await expect.element(dictionary()).toBeVisible();
+    const box = dictionary().element().getBoundingClientRect();
+    const comments = panel.getBoundingClientRect();
+    expect(Math.round(box.right)).toBe(Math.round(comments.left - 16));
+    expect(Math.round(box.top)).toBe(Math.round(comments.top));
   });
 });
 

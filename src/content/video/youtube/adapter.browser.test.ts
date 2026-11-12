@@ -151,6 +151,59 @@ describe("the watch page", () => {
   });
 });
 
+describe("a Short", () => {
+  beforeEach(() => {
+    href = `https://www.youtube.com/shorts/${VIDEO_ID}`;
+    start({ shorts: true });
+  });
+
+  it("reads the video id, the Short's title and the watch URL", () => {
+    expect(adapter.videoId()).toBe(VIDEO_ID);
+    expect(adapter.title()).toBe(TITLE);
+    expect(adapter.url()).toBe(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
+    expect(adapter.vertical?.()).toBe(true);
+    href = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
+    expect(adapter.vertical?.()).toBe(false);
+  });
+
+  it("finds the Short's player, its buttons and the buttons beside it, and no columns", () => {
+    expect(adapter.playerElement()).toBe(page.player);
+    expect(adapter.video()).toBe(page.video);
+    const controls = adapter.controlsPoint();
+    expect(controls?.parent.id).toBe("right-controls");
+    expect(controls?.before?.id).toBe("closed-captioning-button-container");
+    expect(adapter.belowVideoElement()).toBeNull();
+    expect(adapter.sideColumn()).toBeNull();
+    expect(adapter.besidePlayer?.()).toBe(page.actionBar);
+  });
+
+  it("goes by the URL while the watch page's player stays in the DOM", () => {
+    const watch = document.createElement("div");
+    watch.id = "movie_player";
+    document.body.prepend(watch);
+    try {
+      expect(adapter.playerElement()).toBe(page.player);
+    } finally {
+      watch.remove();
+    }
+  });
+
+  it("calls the Short's player", async () => {
+    await adapter.seek(2000);
+    expect(page.player.fake.seekTo).toEqual([2]);
+    expect((await adapter.tracks()).map((t) => t.id)).toContain(".en");
+  });
+
+  it("loads the captions through the Short's player", async () => {
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.track.lang).toBe("en");
+    expect(captions?.cues).toEqual(parseYouTubeJson3(en));
+    expect(page.player.fake.setOption[0]?.[2]).toMatchObject({
+      languageCode: "en",
+    });
+  });
+});
+
 describe("loading captions", () => {
   it("reuses the player's own request and fetches the Japanese track with its token", async () => {
     start({ captionsOn: true });

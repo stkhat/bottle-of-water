@@ -73,6 +73,37 @@ export function dictionaryFrame(
   return { left: Math.round(left), top: Math.round(top), height };
 }
 
+/** Mock `YouTube Shorts — subtitles`: the window 18px right of the Short's buttons, 560px tall. */
+const VERTICAL = { gap: 18, height: 560 };
+
+/**
+ * Where the dictionary window opens beside a vertical video (spec "YouTube Shorts"):
+ * right of the site's buttons beside the video (of the video without them), level with
+ * the video's top. In a narrow window it moves left over the video rather than off screen.
+ */
+export function verticalDictionaryFrame(
+  player: Box,
+  beside: Box | null,
+  viewport: { width: number; height: number },
+): { left: number; top: number; height: number } {
+  const after = Math.max(player.right, beside?.right ?? player.right);
+  const left = clamp(
+    after + VERTICAL.gap,
+    EDGE,
+    viewport.width - WINDOW_WIDTH - EDGE,
+  );
+  const top = Math.max(TOP_MIN, player.top);
+  const height = Math.max(
+    0,
+    Math.min(VERTICAL.height, viewport.height - EDGE - top),
+  );
+  return {
+    left: Math.round(left),
+    top: Math.round(top),
+    height: Math.round(height),
+  };
+}
+
 /**
  * Where the Lingo menu opens in the viewport (its fixed `right` and `bottom`): just
  * above the L and ^ buttons, as in mock Main, and inside the player.
@@ -89,5 +120,21 @@ export function menuPlacement(
         Math.max(EDGE, player.right - buttons.right - 38),
     ),
     bottom: Math.round(viewport.height - buttons.top + 13),
+  };
+}
+
+/**
+ * Where the Lingo menu opens over a vertical video (its fixed `right` and `top`): under
+ * the L and ^ buttons at the video's top, 16px in from the video's right edge (mock
+ * `YouTube Shorts — subtitles`).
+ */
+export function menuBelowPlacement(
+  player: Box,
+  buttons: Box,
+  viewport: { width: number },
+): { right: number; top: number } {
+  return {
+    right: Math.round(Math.max(EDGE, viewport.width - player.right + 16)),
+    top: Math.round(buttons.bottom + 12),
   };
 }

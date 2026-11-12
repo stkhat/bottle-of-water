@@ -456,6 +456,26 @@ describe("the end of the video", () => {
     expect(unsavedOf(state)).toBe(4);
   });
 
+  it("counts a looping video's first loop as its end, not a seek back by the user", async () => {
+    const { state, video, bg } = await start(undefined, {
+      settings: { unsavedAtEnd: "known" },
+    });
+    await ready(state);
+    await classified(state);
+    video.loop = true;
+    // The user seeks back from the middle: not the end.
+    await seekTo(video, 2);
+    await seekTo(video, 0);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(bg.sent("saveAll")).toEqual([]);
+    // The video plays to its end and starts over.
+    await playToEnd(video);
+    await expect
+      .poll(() => bg.sent("saveAll").length, { timeout: 5000 })
+      .toBe(1);
+    expect(video.ended).toBe(false);
+  });
+
   it("ignores the end of an ad", async () => {
     const { state, video, site, bg } = await start(undefined, {
       settings: { unsavedAtEnd: "known" },

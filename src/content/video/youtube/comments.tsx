@@ -6,19 +6,68 @@ import {
   type ArticleDeps,
   type ArticleRunner,
 } from "../../article/article";
-import { ArticleUi } from "../../article/ArticleUi";
+import { ArticleUi, type PanelFrame } from "../../article/ArticleUi";
 import type { ArticleApp } from "../../article/state";
 import { WHOLE_ROOT, type PageSurface } from "../../article/surface";
 import type { LookupHooks } from "../../lookup/lookup";
 import { createShadowHost } from "../../shadow-host";
 import { contentDeps } from "../../wiring";
 import type { PlatformAdapter } from "../platform";
+import { isShortsUrl } from "./adapter";
 
 /** A comment's text on a YouTube watch page (its replies' too). */
 const COMMENT_TEXT = "#content-text";
 
 /** The comment section under the video (not the hidden engagement-panel copy). */
 const COMMENTS_ROOT = "ytd-comments#comments";
+
+/**
+ * A Short's comments panel beside the video (docs/notes/youtube-shorts.md). Inside
+ * `ytd-shorts`: the watch page, which can stay in the DOM, has a hidden panel of its own.
+ */
+const SHORTS_COMMENTS_PANEL =
+  'ytd-shorts ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-comments-section"]';
+const SHORTS_COMMENTS_ROOT = `${SHORTS_COMMENTS_PANEL} ytd-comments`;
+
+/** Mock `YouTube Shorts — comments`: the dictionary panel's width and its gap to the comments. */
+const PANEL_WIDTH = 340;
+const PANEL_GAP = 16;
+/** Closest the panel comes to the viewport's left edge. */
+const EDGE = 8;
+
+/**
+ * Where the dictionary panel goes beside a Short's comments panel (`comments`, its
+ * viewport box): just left of it, as tall as it, so the comments stay readable.
+ */
+export function shortsPanelFrame(
+  comments: { left: number; top: number; bottom: number },
+  viewport: { width: number; height: number },
+): PanelFrame {
+  return {
+    top: Math.round(comments.top),
+    right: Math.round(
+      Math.min(
+        viewport.width - comments.left + PANEL_GAP,
+        viewport.width - PANEL_WIDTH - EDGE,
+      ),
+    ),
+    bottom: Math.round(Math.max(0, viewport.height - comments.bottom)),
+  };
+}
+
+/**
+ * The panel's frame while a Short's comments panel shows, else null (top right). A
+ * Short's page left hidden in the DOM has no size.
+ */
+function shortsFrame(): PanelFrame | null {
+  const panel = document.querySelector(SHORTS_COMMENTS_PANEL);
+  const box = panel?.getBoundingClientRect();
+  if (!box || box.width === 0) return null;
+  return shortsPanelFrame(box, {
+    width: document.documentElement.clientWidth,
+    height: innerHeight,
+  });
+}
 
 /**
  * Whether Lingo runs in YouTube's comments: YouTube and its comments are switched on
@@ -46,6 +95,8 @@ export interface CommentsOptions {
   adapter: PlatformAdapter;
   /** Default `location.hostname`. */
   hostname?: string;
+  /** Default `location.href`. */
+  href?: () => string;
 }
 
 /**
@@ -56,7 +107,7 @@ export interface CommentsOptions {
 function commentsSurface({
   adapter,
   hostname,
-}: Required<CommentsOptions>): PageSurface {
+}: Pick<Required<CommentsOptions>, "adapter" | "hostname">): PageSurface {
   return {
     allowed: (settings) => commentsAllowedOn(hostname, settings),
     qualifies: async () => true,
@@ -73,14 +124,17 @@ function commentsSurface({
 }
 
 /** Calls `found` with the comment section once it is on the page; returns a cancel. */
-function whenCommentsAppear(found: (root: Element) => void): () => void {
-  const now = document.querySelector(COMMENTS_ROOT);
+function whenCommentsAppear(
+  selector: string,
+  found: (root: Element) => void,
+): () => void {
+  const now = document.querySelector(selector);
   if (now) {
     found(now);
     return () => {};
   }
   const observer = new MutationObserver(() => {
-    const root = document.querySelector(COMMENTS_ROOT);
+    const root = document.querySelector(selector);
     if (!root) return;
     observer.disconnect();
     found(root);
@@ -104,6 +158,7 @@ export function startYouTubeComments(
 ): CommentsRunner {
   const { adapter } = options;
   const hostname = options.hostname ?? location.hostname;
+  const href = options.href ?? (() => location.href);
   const surface = commentsSurface({ adapter, hostname });
   let runner: ArticleRunner | undefined;
   let cancelWait: (() => void) | undefined;
@@ -118,7 +173,9 @@ export function startYouTubeComments(
   function open() {
     stopCurrent();
     if (!adapter.videoId()) return;
-    cancelWait = whenCommentsAppear((root) => {
+    // A Short's comments open in a panel beside it (the panel is kept from Short to Short).
+    const selector = isShortsUrl(href()) ? SHORTS_COMMENTS_ROOT : COMMENTS_ROOT;
+    cancelWait = whenCommentsAppear(selector, (root) => {
       cancelWait = undefined;
       runner = runArticle(deps, { root, hostname, surface });
     });
@@ -148,14 +205,15 @@ export function startYouTubeComments(
 
 /**
  * Mounts the comments' hover card, selection card and dictionary panel in their own
- * shadow root in `<body>` (no `innerHTML`: YouTube enforces Trusted Types).
+ * shadow root in `<body>` (no `innerHTML`: YouTube enforces Trusted Types). On a Short
+ * the dictionary panel goes beside the comments panel instead of at the top right.
  */
 export function mountCommentsUi(app: ArticleApp): () => void {
   const { host, root } = createShadowHost(
     "lingo-comments",
     "position: static;",
   );
-  render(<ArticleUi app={app} />, root);
+  render(<ArticleUi app={app} panelFrame={shortsFrame} />, root);
   document.body.append(host);
   return () => {
     render(null, root);

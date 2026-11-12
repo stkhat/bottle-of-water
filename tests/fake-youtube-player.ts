@@ -1,4 +1,4 @@
-// A stand-in for YouTube's player API on `#movie_player`, for the browser tests (called
+// A stand-in for YouTube's player API on `#movie_player` (or Shorts' `#shorts-player`), for the browser tests (called
 // directly) and the E2E tests (passed to `addInitScript`, so it must not use imports or
 // anything outside the function). It behaves like the parts of the real player Lingo
 // uses (see docs/notes/youtube-captions.md): `setOption("captions", "track", …)` makes
@@ -11,6 +11,8 @@ export interface FakePlayerOptions {
   playerResponse: unknown;
   /** The player requests the first caption track itself once the video plays. */
   captionsOn?: boolean;
+  /** The player element's id. Default: `shorts-player` on a Short's URL, else `movie_player`. */
+  playerId?: string;
 }
 
 /** What the fake records, on `player.fake`. */
@@ -36,8 +38,12 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
   }
 
   const setup = () => {
-    const player = document.getElementById("movie_player") as
-      (HTMLElement & Record<string, unknown>) | null;
+    const player = document.getElementById(
+      options.playerId ??
+        (location.pathname.startsWith("/shorts/")
+          ? "shorts-player"
+          : "movie_player"),
+    ) as (HTMLElement & Record<string, unknown>) | null;
     if (!player) return;
     const video = player.querySelector("video");
     let videoId = options.videoId;

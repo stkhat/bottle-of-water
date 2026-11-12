@@ -5,6 +5,12 @@ import type { VideoState } from "./state";
 
 /** How often the site's video element is looked for until there is one (ms). */
 const FIND_VIDEO_MS = 250;
+/**
+ * A looping video (YouTube Shorts) never fires `ended`: the browser seeks back to the
+ * start instead. A seek from this close to the end to this close to the start is that
+ * loop (seconds).
+ */
+const LOOP_EDGE_S = 1;
 
 /**
  * What plays at `ms`: the line, its card, the transcript's card and the translation the
@@ -31,7 +37,7 @@ export function playingAt(
 
 /**
  * Calls `tick` on every frame and playback event of the site's video, once there is
- * one, and `ended` when it ends; until `signal` aborts.
+ * one, and `ended` when it ends (or, looping, starts over); until `signal` aborts.
  */
 export async function followPlayback(
   adapter: PlatformAdapter,
@@ -47,10 +53,25 @@ export async function followPlayback(
   }
   if (signal.aborted) return;
   const element = video;
-  const onTick = () => tick(element);
+  /** Where the video was at the last tick, before a seek moves it. */
+  let lastTime = element.currentTime;
+  const onTick = () => {
+    lastTime = element.currentTime;
+    tick(element);
+  };
+  const onSeeking = () => {
+    if (
+      element.loop &&
+      Number.isFinite(element.duration) &&
+      lastTime >= element.duration - LOOP_EDGE_S &&
+      element.currentTime < LOOP_EDGE_S
+    )
+      ended();
+  };
   const events = ["timeupdate", "seeked", "play", "pause", "loadeddata"];
   for (const type of events) element.addEventListener(type, onTick);
   element.addEventListener("ended", ended);
+  element.addEventListener("seeking", onSeeking);
   let frame: number | undefined;
   const loop = () => {
     onTick();
@@ -61,6 +82,7 @@ export async function followPlayback(
   signal.addEventListener("abort", () => {
     for (const type of events) element.removeEventListener(type, onTick);
     element.removeEventListener("ended", ended);
+    element.removeEventListener("seeking", onSeeking);
     if (frame !== undefined) element.cancelVideoFrameCallback(frame);
   });
   onTick();
