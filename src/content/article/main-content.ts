@@ -77,6 +77,17 @@ const HINT_SHARE = 0.5;
 /** Score shares of a prose block's parent, grandparent and great-grandparent. */
 const ANCESTOR_SHARES = [1, 1 / 2, 1 / 3];
 
+/**
+ * An element scoring at least this share of the best score is a strong candidate:
+ * another section of the same body (a live page's post, a chapter).
+ */
+const REPEAT_SHARE = 0.5;
+/**
+ * With at least this many strong candidates beside the best-scored element, the body
+ * is their common container; a single one (a long teaser or rail block) is not enough.
+ */
+const MIN_REPEATS = 2;
+
 const linkText = (block: TextBlock) =>
   block.pieces.reduce(
     (n, p) =>
@@ -132,7 +143,9 @@ function measure(block: TextBlock): Measured {
  * - The body's container: prose blocks (paragraph-like: not list items, table cells,
  *   headings or captions) score their parent (fully), grandparent
  *   (1/2) and great-grandparent (1/3) by their text outside links; the best-scored
- *   element, widened to its nearest `article`, `main` or `[role=main]`.
+ *   element, widened to the nearest ancestor holding two other elements that score
+ *   at least half as well (the posts of a live page, chapters), then to its nearest
+ *   `article`, `main` or `[role=main]`.
  * - Left out of it: `nav`, `aside`, `footer` and their roles; elements whose class or
  *   id names related stories, sharing, comments, ads, references and the like (unless
  *   they hold the best-scored element); blocks mostly made of links.
@@ -204,6 +217,7 @@ export function findMainContent(
       top = score;
       best = element;
     }
+  best = widenToRepeats(best, top, scores, root);
   const semantic = best.closest("article, main, [role=main]");
   const container = semantic && root.contains(semantic) ? semantic : best;
 
@@ -228,6 +242,36 @@ export function findMainContent(
     contains: (block) => included.has(block),
     last: blocks.findLast((b) => included.has(b)),
   };
+}
+
+/**
+ * When the body is split into sections that each score well on their own (a live
+ * page's posts, chapters), the best-scored element is only the biggest of them. Then
+ * the nearest ancestor of `best` within `root` that holds `MIN_REPEATS` strong
+ * candidates (elements beside `best` scoring `REPEAT_SHARE` of `top`); else `best`.
+ */
+function widenToRepeats(
+  best: Element,
+  top: number,
+  scores: ReadonlyMap<Element, number>,
+  root: Element,
+): Element {
+  const strong: Element[] = [];
+  for (const [element, score] of scores)
+    if (
+      score >= top * REPEAT_SHARE &&
+      !element.contains(best) &&
+      !best.contains(element)
+    )
+      strong.push(element);
+  if (strong.length < MIN_REPEATS) return best;
+  for (
+    let el = best.parentElement;
+    el && root.contains(el);
+    el = el.parentElement
+  )
+    if (strong.filter((s) => el.contains(s)).length >= MIN_REPEATS) return el;
+  return best;
 }
 
 /** The first `h1` among the blocks whose text the page title contains. */

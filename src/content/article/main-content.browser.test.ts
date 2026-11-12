@@ -11,6 +11,9 @@ const BODY = [
   "It can feel tedious at first, but the extra hours take care of themselves.",
 ];
 const paragraphs = BODY.map((p) => `<p>${p}</p>`).join("");
+/** Prose about half as long as `BODY`. */
+const LONG_SIDE =
+  "Bakeries across the country report queues out of the door since Monday morning.";
 const REFS = Array.from(
   { length: 8 },
   (_, i) =>
@@ -120,6 +123,52 @@ describe("findMainContent", () => {
       <nav><p>Main menu entries that are long enough to be prose, really.</p></nav>
       <main><h1>Bread</h1><div class="body">${paragraphs}</div><p>Short.</p></main>`);
     expect(texts).toEqual(["Bread", ...BODY, "Short."]);
+  });
+
+  it("keeps every post of a live page, not only the longest one", () => {
+    const posts = [
+      ["Ovens sold out", BODY[0]!, BODY[1]!, BODY[2]!],
+      ["Flour prices rise", BODY[1]!, BODY[2]!],
+      ["Bakers react", BODY[2]!, BODY[0]!],
+      ["What we know", BODY[0]!],
+    ];
+    const { texts, last } = main(`
+      <main>
+        <h1>Bread week: live</h1>
+        <div class="summary"><ul><li><p>${LONG_SIDE}</p></li></ul></div>
+        <ol>${posts
+          .map(
+            ([heading, ...ps]) =>
+              `<li><article><h3>${heading}</h3>${ps.map((p) => `<p>${p}</p>`).join("")}</article></li>`,
+          )
+          .join("")}</ol>
+        <aside><p>A sidebar paragraph that is long enough to count as prose.</p></aside>
+      </main>
+      <footer><p>Footer text that is long enough to be a paragraph of prose.</p></footer>`);
+    expect(texts).toEqual(["Bread week: live", LONG_SIDE, ...posts.flat()]);
+    expect(last).toBe(BODY[0]);
+  });
+
+  it("keeps every chapter of a body split into sections", () => {
+    const chapters = [BODY, BODY.slice(1), BODY.slice(0, 2)];
+    const { texts } = main(`
+      <div class="story">${chapters
+        .map(
+          (ps, i) =>
+            `<section><h2>Part ${i + 1}</h2><div class="text">${ps.map((p) => `<p>${p}</p>`).join("")}</div></section>`,
+        )
+        .join("")}</div>
+      <div class="more"><p>${LONG_SIDE}</p></div>`);
+    expect(texts).toEqual(
+      chapters.flatMap((ps, i) => [`Part ${i + 1}`, ...ps]),
+    );
+  });
+
+  it("does not widen the body for a single long block beside it", () => {
+    const { texts } = main(`
+      <div class="content">${paragraphs}</div>
+      <div class="rail"><p>${LONG_SIDE}</p></div>`);
+    expect(texts).toEqual(BODY);
   });
 
   it("counts everything as main when nothing reads as prose", () => {
