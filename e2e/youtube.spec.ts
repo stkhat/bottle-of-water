@@ -95,6 +95,31 @@ test("words selected in the transcript are saved as a phrase from their card", a
   await expect(phrase).toHaveCount(1);
 });
 
+test("the video pauses while the dictionary window is open and plays again once it closes", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await routeYouTube(context);
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_WATCH);
+  const card = page
+    .getByRole("complementary", { name: en["app.name"] })
+    .getByRole("button", { name: LINE });
+  await card.click({ position: ON_TIME });
+  const video = page.locator("#movie_player video");
+  const paused = () => video.evaluate((v: HTMLVideoElement) => v.paused);
+  await video.evaluate((v: HTMLVideoElement) => v.play());
+  await expect.poll(paused).toBe(false);
+
+  await card.getByText("creativity", { exact: true }).click();
+  const window = page.getByRole("complementary", { name: en["dict.window"] });
+  await expect(window).toBeVisible();
+  await expect.poll(paused).toBe(true);
+  await window.getByRole("button", { name: en["dict.close"] }).click();
+  await expect.poll(paused).toBe(false);
+});
+
 test("a Short shows the subtitle over it and highlights its comments panel", async ({
   context,
   extensionId,

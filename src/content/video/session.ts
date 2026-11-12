@@ -27,6 +27,7 @@ import type { TranslationPair } from "../translate/queue";
 import { builtInTranslatorAvailable } from "../translate/translator";
 import { captionCards, type TimedTranslation } from "./captions";
 import { createCards } from "./cards";
+import { holdPlayback } from "./hold";
 import { followPlayback, playingAt } from "./playback";
 import type { PlatformAdapter } from "./platform";
 import { createRecorder } from "./recorder";
@@ -153,6 +154,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     },
   });
 
+  const hold = holdPlayback({ store, adapter });
+
   /** Our subtitles replace the site's while there are some and Lingo is on (fullscreen too). */
   function syncSiteCaptions() {
     const { status, enabled } = store.get();
@@ -176,6 +179,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         store.get().dataNote,
       ),
     );
+    hold.reset();
     if (!id) {
       adapter.hideSiteCaptions(false);
       return;
@@ -551,6 +555,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       data.stop();
       cards.dismissHover();
       selection.clear();
+      hold.stop();
       watch?.controller.abort();
       watch = undefined;
       adapter.hideSiteCaptions(false);

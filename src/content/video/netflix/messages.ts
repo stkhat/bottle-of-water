@@ -25,7 +25,9 @@ export type PageCall =
   /** Downloads a subtitle URL from a seen manifest and answers its text. */
   | { type: "fetchText"; url: string }
   /** Seeks through Netflix's player (setting `currentTime` breaks its playback). */
-  | { type: "seek"; ms: number };
+  | { type: "seek"; ms: number }
+  | { type: "pause" }
+  | { type: "play" };
 
 export interface PageCallResults {
   getTracks: NetflixTextTrack[] | null;
@@ -33,6 +35,8 @@ export interface PageCallResults {
   title: string | null;
   fetchText: string;
   seek: null;
+  pause: null;
+  play: null;
 }
 
 export function isCall(call: Record<string, unknown>): boolean {
@@ -41,6 +45,8 @@ export function isCall(call: Record<string, unknown>): boolean {
     case "title":
       return isString(call.movieId);
     case "currentMovieId":
+    case "pause":
+    case "play":
       return true;
     case "fetchText":
       return isString(call.url);

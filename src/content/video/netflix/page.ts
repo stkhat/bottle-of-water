@@ -75,6 +75,15 @@ function install() {
         player.seek(Math.max(0, Math.round(call.ms)));
         return null;
       }
+      case "pause":
+      case "play": {
+        const player = netflixPlayer();
+        if (!player?.pause || !player.play)
+          throw new Error("No Netflix player");
+        if (call.type === "pause") player.pause();
+        else player.play();
+        return null;
+      }
     }
   }
 

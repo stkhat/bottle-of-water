@@ -157,6 +157,12 @@ describe("the watch page", () => {
     expect(page.fake.log.seek).toEqual([12_500]);
   });
 
+  it("pauses and plays through Netflix's player", async () => {
+    await adapter.pause();
+    await adapter.play();
+    expect(page.fake.log.playback).toEqual(["pause", "play"]);
+  });
+
   it("tells when the URL changes to another title", async () => {
     let calls = 0;
     const off = adapter.onNavigate(() => calls++);

@@ -67,7 +67,12 @@ function fakeSite(
   let id: string | undefined = "vid1";
   let ad = false;
   const listeners = new Set<() => void>();
-  const log = { hidden: [] as boolean[], seeks: [] as number[], loads: 0 };
+  const log = {
+    hidden: [] as boolean[],
+    seeks: [] as number[],
+    playback: [] as ("pause" | "play")[],
+    loads: 0,
+  };
   const adapter: PlatformAdapter = {
     platform: "youtube",
     videoId: () => id,
@@ -87,6 +92,14 @@ function fakeSite(
     async seek(ms) {
       log.seeks.push(ms);
       video.currentTime = ms / 1000;
+    },
+    async pause() {
+      log.playback.push("pause");
+      video.pause();
+    },
+    async play() {
+      log.playback.push("play");
+      await video.play();
     },
     onNavigate(listener) {
       listeners.add(listener);
@@ -1187,6 +1200,100 @@ describe("selecting words", () => {
     expect(state().hover).toBeNull();
     app.clearSelection();
     expect(state()).toMatchObject({ phrase: null, selecting: false });
+  });
+});
+
+describe("pausing while Lingo is in use", () => {
+  /** Plays from the start, slowly, so the first line lasts while a card opens. */
+  async function playSlowly(video: HTMLVideoElement) {
+    await seekTo(video, 0);
+    video.playbackRate = 0.25;
+    await video.play();
+  }
+  const resumeDelay = () => new Promise((resolve) => setTimeout(resolve, 300));
+
+  it("pauses the playing video while a word's hover card shows and plays it after it hides", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    await playSlowly(video);
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    await expect.poll(() => video.paused).toBe(true);
+    app.leaveWord();
+    await expect.poll(() => state().hover).toBeNull();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+    expect(video.paused).toBe(false);
+  });
+
+  it("stays paused from the hover card to the dictionary window, and plays once it closes", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    await playSlowly(video);
+    const ref = refOf(state, 0, "tangy");
+    app.enterWord(ref, BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.clickWord(ref);
+    await expect.poll(() => state().panel).not.toBeNull();
+    await resumeDelay();
+    expect(site.log.playback).toEqual(["pause"]);
+    expect(video.paused).toBe(true);
+    app.closePanel();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+  });
+
+  it("pauses while words are selected and plays once the selection is dropped", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    await playSlowly(video);
+    app.selectStart("subtitle");
+    await expect.poll(() => video.paused).toBe(true);
+    app.clearSelection();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+  });
+
+  it("leaves playback to the user once they pressed play, and a paused video paused", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    const ref = refOf(state, 0, "tangy");
+    app.clickWord(ref);
+    await expect.poll(() => state().panel).not.toBeNull();
+    app.closePanel();
+    await resumeDelay();
+    expect(site.log.playback).toEqual([]);
+
+    await playSlowly(video);
+    app.clickWord(ref);
+    await expect.poll(() => video.paused).toBe(true);
+    await video.play();
+    video.pause();
+    app.closePanel();
+    await resumeDelay();
+    expect(site.log.playback).toEqual(["pause"]);
+    expect(video.paused).toBe(true);
+  });
+
+  it("does not pause an ad, nor play the next video", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    const ref = refOf(state, 0, "tangy");
+    await playSlowly(video);
+    site.setAd(true);
+    app.clickWord(ref);
+    await expect.poll(() => state().panel).not.toBeNull();
+    expect(video.paused).toBe(false);
+    app.closePanel();
+    site.setAd(false);
+
+    app.clickWord(ref);
+    await expect.poll(() => video.paused).toBe(true);
+    site.navigate("vid2");
+    await resumeDelay();
+    expect(site.log.playback).toEqual(["pause"]);
   });
 });
 

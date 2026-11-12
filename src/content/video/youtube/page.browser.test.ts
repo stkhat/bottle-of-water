@@ -230,6 +230,12 @@ describe("answering the content script", () => {
     expect(page.player.fake.seekTo).toEqual([1.5]);
   });
 
+  it("pauses and plays the player", async () => {
+    await call({ type: "pause" });
+    await call({ type: "play" });
+    expect(page.player.fake.playback).toEqual(["pause", "play"]);
+  });
+
   it("calls Shorts' player when the call is for a Short, with the watch page's still there", async () => {
     const short = createTestPage({ shorts: true });
     try {

@@ -32,4 +32,4 @@ Reference only; Lingo follows its own mock. Checked in LR's web player (a YouTub
 | Text-to-speech | Web Speech API `speechSynthesis` |
 | External dictionaries | URL templates (fixed four) |
 
-**Not adopted**: Aria (conversation AI), PhrasePump, FSI/DLI, video catalog, auto-pause and playback-speed controls
+**Not adopted**: Aria (conversation AI), PhrasePump, FSI/DLI, video catalog, playback-speed controls, and its auto-pause at the end of each line (Lingo pauses only while one of its cards or a selection is open: [ui](../specs/ui.md) "Video UI")

@@ -54,3 +54,28 @@ test("the subtitle shows the playing line with its Japanese line; Netflix's own 
       .evaluate((el) => getComputedStyle(el).display),
   ).toBe("none");
 });
+
+test("the video pauses while the dictionary window is open and plays again once it closes", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await routeNetflix(context);
+  const page = await context.newPage();
+  await page.goto(NETFLIX_WATCH);
+  const card = page
+    .getByRole("complementary", { name: en["app.name"] })
+    .getByRole("button", { name: LINE });
+  await card.click({ position: ON_TIME });
+  const video = page.locator(".watch-video video");
+  const paused = () => video.evaluate((v: HTMLVideoElement) => v.paused);
+  await video.evaluate((v: HTMLVideoElement) => v.play());
+  await expect.poll(paused).toBe(false);
+
+  await card.getByText("EXTRAORDINARY", { exact: true }).click();
+  const window = page.getByRole("complementary", { name: en["dict.window"] });
+  await expect(window).toBeVisible();
+  await expect.poll(paused).toBe(true);
+  await window.getByRole("button", { name: en["dict.close"] }).click();
+  await expect.poll(paused).toBe(false);
+});

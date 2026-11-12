@@ -21,6 +21,8 @@ interface PlayerApi {
   getOption?(module: string, key: string): unknown;
   setOption?(module: string, key: string, value: unknown): void;
   seekTo?(seconds: number, allowSeekAhead?: boolean): void;
+  pauseVideo?(): void;
+  playVideo?(): void;
 }
 
 const TIMEDTEXT_PATH = "/api/timedtext";
@@ -187,6 +189,12 @@ function install() {
       }
       case "seek":
         api?.seekTo?.(call.seconds, true);
+        return null;
+      case "pause":
+        api?.pauseVideo?.();
+        return null;
+      case "play":
+        api?.playVideo?.();
         return null;
     }
   }

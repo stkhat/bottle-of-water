@@ -87,6 +87,8 @@ export function titleText(element: Element): string {
 /** One playback session's player (Netflix's `videoPlayer` session object). */
 interface NetflixSessionPlayer {
   seek(ms: number): void;
+  pause?(): void;
+  play?(): void;
   getMovieId?(): unknown;
 }
 

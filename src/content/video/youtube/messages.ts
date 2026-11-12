@@ -40,6 +40,8 @@ export type PageCall = PlayerChoice &
     /** Fetches a same-origin /api/timedtext URL from the page and answers its body. */
     | { type: "fetchTimedtext"; url: string }
     | { type: "seek"; seconds: number }
+    | { type: "pause" }
+    | { type: "play" }
   );
 
 export interface PageCallResults {
@@ -49,6 +51,8 @@ export interface PageCallResults {
   restoreCaptions: null;
   fetchTimedtext: string;
   seek: null;
+  pause: null;
+  play: null;
 }
 
 export function isCall(call: Record<string, unknown>): boolean {
@@ -58,6 +62,8 @@ export function isCall(call: Record<string, unknown>): boolean {
     case "getPlayerResponse":
     case "videoId":
     case "restoreCaptions":
+    case "pause":
+    case "play":
       return true;
     case "loadTrack":
       return isString(call.languageCode) && typeof call.asr === "boolean";
