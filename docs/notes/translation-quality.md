@@ -1,116 +1,177 @@
-# Translation quality on real content (measured 2026-11-13)
+# Translation quality on real content (2026-11-13)
 
-How good are the meanings, phrases and translations Lingo shows on real YouTube videos, Netflix episodes and news articles, and what should change. Learning language English, native language Japanese, default settings (known level 3000, nothing saved).
+How good are the meanings, phrases and translations Lingo shows on real videos and articles, which fixes work, and how they are layered so they carry over to other language pairs. Learning language English, native language Japanese, default settings (known level 3000, nothing saved).
+
+Two rounds:
+- **Round 1** measured the current build and proposed fixes.
+- **Round 2** measured on new, three times larger content. It prototyped the fixes offline, outside the repository, and tested them blind against the current build. Ideas that did not hold up were dropped.
 
 ## Method
-- **Corpus** (about 48,500 word tokens), collected in the user's Chrome with the check build:
-  - YouTube, 10 videos: TED talk (Tim Urban, manual en + ja), BBC World Service explainer, Late Show interview (Steve Carell), Kurzgesagt, Joshua Weissman cooking (24 min), teen school vlog (ASR only), SNL sketch, Obama on the WTF podcast (ASR, 67 min), Crash Course World History, MKBHD headphone review (manual en + ja). Captions came from the player's own timedtext request, re-fetched for `en`, `ja` and `tlang=ja` (see [youtube-captions.md](youtube-captions.md)). Two videos have a human Japanese track; the other eight get YouTube's auto-translation, which is what Lingo shows there.
-  - Netflix, Friends, 5 episodes picked at random (seeded): S1E5, S2E10, S2E22, S4E21, S9E21. Cards (English + aligned Japanese track) were read from the check build's open-shadow transcript, i.e. exactly what Lingo shows. Three episodes have ALL-CAPS closed captions.
-  - Articles, 10: BBC (teen therapy-speak, UK economy, new frog species), AP (prostate screening, college football penalty, Hera asteroid probe), Guardian (Chinese battery-swapping e-trucks, Manchester United, Judy Collins interview), NPR (home sales). Title + body paragraphs, boilerplate removed.
-  - Copyrighted text stays out of the repo; this note quotes only short fragments.
-- **Pipeline**: the corpus was run offline through Lingo's own code (`createLanguagePack` + `createClassifier` + `createEnJaDictionary`, `captionCards` for video cards), giving every span's key, category, hover meaning (`entry.short`) and source. Spot checks in the real UI (article highlights on NPR; hover cards on Friends: *both*, *psyched*, *back*) matched the offline output. The check build's error log was empty at the end.
-- **Judging**: Claude judged stratified samples against the sentence: 480 word hovers (per site 100 New + 60 Known), 185 cards/paragraphs for phrase recall and precision, all 471 detected phrase keys, 272 machine-translated definitions and 100 subtitle lines. The on-device translator (Chrome Translator API, en→ja) and the on-device language model (Prompt API) were run in the user's Chrome 157. One judge, no second rater: treat counts as ±5 points.
+- **Round 1 corpus** (48,500 word tokens):
+  - 10 YouTube videos: TED, BBC explainer, late-night interview, Kurzgesagt, cooking, teen vlog (ASR), SNL, a 67-minute podcast (ASR), Crash Course, tech review.
+  - 5 random Friends episodes.
+  - 10 news articles from BBC, AP, Guardian and NPR.
+- **Round 2 corpus** (103,500 tokens, different content):
+  - 30 YouTube videos in 14 genres. 14 are ASR-only and 4 have a human Japanese track. They include US, UK and Australian speakers, vlogs, gaming, podcasts, stand-up and sports.
+  - 30 articles from 10 outlets: BBC, Guardian, AP, NPR, Al Jazeera, The Conversation, Sky, CBS, PBS and CNN.
+  - Netflix was not collected (see the end of this note).
+- **Collection**: everything was collected in the user's Chrome with the check build. Captions are the player's own tracks (`en`, `ja`, `tlang=ja`); Netflix cards come from Lingo's transcript. Copyrighted text stays out of the repo.
+- **Pipeline**: Lingo's own code ran offline over the corpus (`createLanguagePack`, `createClassifier`, `createEnJaDictionary`, `captionCards`). Spot checks of highlights and hover cards in the real UI matched it. The check build's error log was empty after every session.
+- **Judging**: Claude judged every sample against its sentence.
+  - Round 1: 480 hovers, 185 cards/paragraphs, 471 phrase keys, 272 machine-translated definitions, 100 subtitle lines.
+  - Round 2: two blind A/B rounds of about 780 hovers and 330 units each, current build against prototype. The second A/B used a fresh sample, so the rules were not tested on the items they were tuned on.
+  - The samples over-represent hovers the prototype changes; rates below are re-weighted to the corpus.
+  - One judge per item: read differences under ±4 points as noise.
+- **Chrome's built-in AI** (Translator API, Prompt API / Gemini Nano) ran in the user's Chrome 157.
 
-## Results at a glance
-| | YouTube | Netflix | Articles |
-|---|---|---|---|
-| Word hover: good / acceptable | 59% / 21% | 57% / 21% | 46% / 20% |
-| Word hover: wrong or misleading | 21% | 22% | **34%** |
-| Right sense present in the dictionary window, when the hover is not good | 42 of 66 | 37 of 69 | 56 of 86 |
-| Tokens with no hover at all (besides "I", "a") | 2.4% | 3.4% | 5.3% |
-| Phrase spans per 1,000 tokens | 18 | 17 | 18 |
-| Detected phrases judged useful (sample) | 9 of 15 | 7 of 12 | 16 of 31 |
-| Expressions a learner needs that were missed (sample) | 76 (19 high-value) | 44 (15) | 65 (14) |
-| Phrase meanings that come from an English definition + MT | 55% | 47% | 68% |
-| Cards without a Japanese line (spoken lines) | 1.5% | **28%** | – |
+## Results: current build
+| | Round 1 YouTube | Round 1 Netflix | Round 1 articles | Round 2 YouTube | Round 2 articles |
+|---|---|---|---|---|---|
+| Hover meaning good | 59% | 57% | 46% | 56–58% | 48–50% |
+| Hover meaning wrong or misleading | 21% | 22% | 34% | 17–21% | 23–25% |
+| Tokens with no hover (besides "I", "a") | 2.4% | 3.4% | 5.3% | 2.7% | 6.0% |
+| Phrase highlights per 1,000 tokens | 18 | 17 | 18 | 17 | 15 |
+| Cards with no Japanese line | 1.5% | 28% | – | – | – |
 
-## 1. Is the meaning shown right for the context?
-About a quarter of hovers (123 of 480) show a wrong or misleading meaning, a fifth more are only "acceptable". Causes of the 221 not-good hovers (20 "other", mostly bare pointers, and 3 slang are not in the table):
+Round 1 details that still hold:
+- **Phrases**:
+  - Recall is very low: 185 expressions a learner needed were missed in 185 sampled units, 48 of them high value.
+  - Detected phrases often show the wrong sense: break up → 壊れる, talk about → a usage note, number one → 本人自身.
+  - Wrong matches come from a noun followed by a particle (trucks in, punch in the gut).
+- **Machine translation**:
+  - YouTube's own auto-translation (4.2/5) beats Chrome's Translator (3.3/5) on subtitle lines. The source order (site track → tlang → built-in) is right.
+  - Of 272 phrases shown through an English definition, the definition fits the sentence in 55%.
+  - Idioms translated alone come out literally half the time (under the weather → 天気の下で).
+- **Netflix**: 28% of spoken cards show no Japanese because condensed Japanese cues are aligned to one card only (`alignByOverlap`).
 
-| cause | count | examples (shown → right here) |
+## Root causes
+1. **The hover is one string chosen at build time**: EJDict's first sense (`short`). The sentence is never used, so first-sense, part-of-speech and inflected-form errors follow:
+   - just → 正しい, fine → 罰金, decline (noun) → …を断る
+   - decided → 明白な, has → haveの三人称…
+   - of / so / have give 100–300-character dumps
+2. **A word's key is its surface form when that is a headword**, so EJDict's derived adjective or pointer entry wins over the verb.
+3. **EJDict merges case variants and lists names as common words**:
+   - Japan → 黒い漆, China → 磁器, Mark → 跡, Twain → 二つ.
+   - Casing can't help in ALL-CAPS captions or lower-case ASR.
+4. **The phrase build drops entries whose words are all common** (`isPhraseSense` rank thresholds, `isCommonPair`):
+   - 174 of the 185 missed expressions were not in the data at all: you know, sort of, in turn, take shape, instead of, all right.
+   - Nobody can even select them.
+5. **Phrase meanings come from the first translation-table word**, or from the first English definition, regardless of sense.
+6. **The vocabulary is EJDict's headwords only**: app, website, um, wanna, gaslighting get no hover.
+7. **Site translations are aligned one cue to one card.**
+
+## What was tested in round 2
+| Idea | Result | Decision |
 |---|---|---|
-| First sense isn't the one used | 78 | fine "will be fine" → 罰金; battery → 砲兵中隊; fleet → 艦隊; hike "rate hike" → ハイキングする; breakthrough → 敵陣突破; miss "what did I miss" → 未婚婦人; just → 正しい (277 hovers in the corpus); please → 喜ばせる |
-| Dictionary gap (no right sense) | 31 | gaslighting → ガス灯; trolled → 輪唱する; plunge (stocks) → 突っ込む; floss → まゆのけば; ew → enlisted woman; bye → 二の次の事 |
-| Wrong part of speech | 30 | decline (noun) → …を断る; strain (noun) → 引っ張る; trapped → わな; my "oh my" → 私の |
-| Inflected form is its own headword | 16 | decided → 明白な; used → 使い古しの; wearing → 疲労させる; supposed → 想像上の; greater → 郊外を含んでいる; psyched → 心理的にまいらせる; plus bare pointers (was → beの…過去形) |
-| Proper noun given a common meaning | 17 | Amazon → ギリシア神話の女武者; Freeman → 自由民; Twain → 二つ; China → 磁器; OXFORD (dateline) → 短靴; AP → antipersonnel; Mark, Bobby → 跡, 巡査 |
-| Part of an undetected phrase | 18 | kind "kind of" → 親切な; right "right now" → 右の; maintenance "high-maintenance" |
-| Long dumps | 8 | of, so, have, can, should: 100–300 characters (4.6% of all word hovers are over 50 characters) |
+| Prototype v1 (all fixes below, first version) | Good hovers +12–14 pts, but wrong/misleading unchanged (21→21%, 25→24%): it fixed readability, not wrong senses. Phrases: more useful, more noise, units a tie. | Refined |
+| **Prototype v2** (A1–A3, D with the fixes below, phrase data v2, context check) | **YouTube**: good 58→70%, wrong/misleading 17→11%. **Articles**: good 50→66%, wrong/misleading 23→15%. Changed hovers preferred 275 vs 52. Phrases: articles useful 37→40, low-value 19→4, wrong-match 16→8. YouTube useful 14→33, wrong-match 7→14. Units preferred 55 vs 37. | **Recommended** |
+| Pick the sense by matching glosses against the card's Japanese line | ~7 fixed, ~7 broken of 282 | Dropped |
+| Gemini Nano picks the sense freely | Changed 71% of hovers; 72% fit vs 70% today | Dropped |
+| Gemini Nano as a yes/no verifier of the shown meaning | Says "no" to 80% of hovers: catches 97% of bad ones, but also flags 3 of 4 good ones | Dropped (automatic use) |
+| Normalise definitions before MT (drop "To ", trim ために, dedupe) | Preferred 32 vs 43 the other way; mean 3.23 vs 3.36 | Dropped |
+| Sentence-case ALL-CAPS lines before MT | 59 of 60 translations identical (the translator ignores case) | Dropped |
+| Previous line as MT context | Improved 0 of 29, worse 4 | Dropped |
 
-Mechanisms behind these (code):
-- The hover is always `entry.short`, EJDict's first sense, chosen at build time; the sentence is never used.
-- A word's key is `bases[0]`, which is the surface form when it is itself an EJDict headword, so *decided*, *used*, *left*, *found* show the derived adjective/noun entry or a "…の過去" pointer instead of the verb.
-- Names are only ignored when EJDict lacks them; captions in ALL CAPS and lower-case ASR make capitalisation useless as a signal.
+The on-device model is not reliable enough to decide anything on its own. It belongs to the user-initiated "Ask AI" of phase 3, not to automatic hovers.
 
-## 2. Phrase detection
-- **Precision**: of 58 detected phrases in the samples, 32 useful, 18 low value, 8 wrong matches. Wrong matches come from noun + particle: *trucks in* China → "truck in", *punch in* the gut → "punch in" (clock in), *staff up*, *add oil*, *over medium*, *lay for*, *says the words* → "say the word". Low value: proper names and transparent compounds from EJDict (American Revolution, New York → ニューヨーク州, high school, home office, slave trade) and literal uses (talk about ×40 in the corpus).
-- **Recall is low**: 185 missed expressions in 185 sampled units, 48 of them high value. The misses are mostly conversational chunks, which carry the meaning in talks, podcasts and sitcoms: *you know* (×9 in the YouTube sample), *I mean*, *kind of*, *sort of*, *pretty much*, *good for you*, *my goodness*, *for God's sake*, *think less of*, *put our heads together*, *sleep with*; separated phrasal verbs (*break them up*); and news collocations (*in turn*, *took shape*, *go unnoticed*, *a punch in the gut*, *caters to*). 174 of the 185 are not in the phrase data at all: the build drops kaikki entries made only of common words (section 6, B), so they cannot even be matched by selecting them.
-- **Phrase meanings are often the wrong sense**:
-  - Wiktionary-ja gives the first translation-table word: break up → 壊れる (Friends: 別れる), shut up → 封鎖する, hang up → 掛ける, go over → 眇める, write down → 値引きする, check out → 試験する, go out → 出る.
-  - EJDict / en-defs first senses: number one → 本人自身, at home → 家庭への気軽な招待, die hard → 頑固な保守主義者, talk about → "Used to draw attention to the speaker's characterization…", end up → "To bring to a conclusion", what's going on → "An informal greeting", knock on → a rugby foul, get it in → "to have sex".
-  - Of 272 phrases shown through an English definition, the definition fits the sentence in 55%; 26% are the wrong sense and 19% are wrong matches.
+## Recommended fixes, by layer
+Every rule is general: it is driven by grammar, the sources' own structure and statistics, never by lists of specific words or phrases. The layers decide what another language pair has to provide:
+- **CORE**: the language-independent mechanism, shared by every pair.
+- **LEARNING**: a part per learning language, inside `LanguagePack`.
+- **NATIVE**: a part per gloss or native language, on the dictionary side.
+- **PAIR**: quirks of one dictionary source.
 
-## 3. Coverage: words with no meaning
-All non-ignored tokens have an entry (EJDict covers the whole vocabulary). The tokens with no hover (2.4–5.3%) are:
-- **Names** (the largest group): Ross, Rachel, Joey, Stephen, Wang, Napoleon… Leaving them without a hover is right; the problem is the names that *do* get a hover (section 1).
-- **Interjections and fillers**: um (94), ooh, hmm, mm, ew (gets a wrong one), uh.
-- **Informal spellings**: cuz, wanna, kinda, ya, anymore.
-- **Modern and technical words** not in EJDict: app(s), website, emails, meetup, YouTube, Google, AI, USB, TikTok, chemo, cisplatin, testicular, intramuscular, umami, procrastinator(s).
-- **Splits**: hyphen prefixes (non-, multi-), "Realtor.com", roman numerals (XVI, II), drop caps ("E" + "very" on the Guardian).
-All of these come from one root cause, a vocabulary made of EJDict headwords only (section 6, E). Names should stay unhighlighted but could show "(name)".
+### CORE (shared by every pair)
+| Rule | What it does | Evidence |
+|---|---|---|
+| A1 Base form before derived headword | Follows pointer entries ("Xの過去", "=X", "Plural of X") to their target. Uses the base's entry when the tag says the token is an inflected verb (decided/VBD → decide). Keeps the surface entry when the tag says adjective (established, limited) or the token is an auxiliary (has been → keeps the grammar pointer). | v1 regressions on auxiliaries and participles fixed in v2 |
+| A2 Part-of-speech-aware sense | With a trusted tag, leaves sense 1 only on positive evidence: sense 1 is labelled with another POS and the entry has a sense of the tagged POS (fine/JJ → りっぱな, just/RB → 単に, like/IN → …に似た). | Preferred 75 vs 17 in v1 |
+| A3 Short line by rule | Shows the chosen sense, cut at the first sense separator, capped at 25 characters (ja) or 40 (en). v2 keeps the first two senses when they fit. | Lines over 25 chars: 4,332 → 0. Mean 19 → 10 chars |
+| B1 Import every multi-word entry | Every idiom, phrasal verb, phrase, prepositional phrase, interjection and multi-word noun, at any word rank, stays matchable on selection. Multi-word nouns need a corpus hit or a translation table (drops 48k unattested compounds). | 19,932 → 76,460 patterns. 87 of 185 round-1 misses now in the data (was 17) |
+| B2 Idiomaticity score decides highlighting | How far the phrase's definition is from its words' definitions, plus the source's idiomatic/figurative tags. Translated senses weigh more; labelled (slang, sports…) senses weigh less. The threshold rises with the phrase's corpus frequency and low PMI. The corpus is all kaikki usage examples, 21M tokens, with each entry's own headword cut out. Replaces `isCommonPair`. | Noise pairs (come to, live in…) 14/18 → 1/18. Detected missed expressions 0 → 42 |
+| B2b Transparent compounds | A noun phrase whose definition names every content word is not highlighted (digital signature, Olympic flame). | Low-value highlights 34 → 19 |
+| B4 Named entities | Proper-noun or Title Case entries (New York, American Revolution) are not highlighted; they stay available for lookup. | |
+| Context check on phrase matches | Drops a match whose own POS conflicts with its context: adverb "kind of" before a noun ("what kind of music"), interjection "you know" with an object. Drops a verb-only phrasal verb whose first word is tagged as a non-verb (trucks in, punch in the gut). | 12 of 28 wrong matches removed, 2 of 126 useful lost |
+| C2 Rank English definitions by the source's labels | Demotes usage notes, register (vulgar, dated, slang) and domain senses for multi-word terms, and resolves "Synonym of / Clipping of X". | 11 of 70 wrong-sense phrases now fit; 14,875 pointers resolved |
+| D Names by document casing | A word capitalised mid-sentence in mixed-case text and never lower-case there is a name for the whole document, if the names lexicon has it. Never a name: function words, interjections, sentence starts without evidence, words after a determiner. Shows "(name)" only when the dictionary would give a common-noun meaning; a proper-noun meaning is kept (France → フランス). | v1 lost France/June; fixed in v2 |
+| E Vocabulary from the learning language's Wiktionary | A headword joins the vocabulary when it appears in lower case at least 5 times in other entries' examples. Meanings for words the pair dictionary lacks are English definitions translated at display time, as phrases already are. | +12,493 words. Round-1 unknown tokens 1,366 → 830 (um, cuz, wanna, app, website, chemo) |
+| G Many-to-many alignment of site translations | Shows a translation cue on every card it overlaps substantially, as `alignAsrSentences` already does for ASR. Not prototyped. | Netflix: 28% of cards empty today |
 
-## 4. Machine translation
-- **Definitions** (272 phrases, Chrome Translator): good 111, awkward 129, wrong 24, empty 8 ("Synonym of X" cleaned to nothing). Only 51 are both the right sense and a good translation; 101 of the 111 unhelpful ones fail because of the definition, not the MT. MT-side issues: "To X" becomes a purpose clause (…ために, 17 cases), synonym lists come back duplicated (集まる、集まる), 35 are over 30 characters.
-- **Subtitle lines** (adequacy 1–5): YouTube auto-translation (tlang) 4.2 (TED 4.0, tech 4.4) vs Chrome Translator 3.3 (TED 3.0, tech 3.2, Friends 3.5). Keep the current order (site track → tlang → built-in). Chrome MT fails on fragments of a sentence, names and titles ("Wait But Why" → なぜですか), slang ("What'd I miss" → 何が恋しかったの), ALL-CAPS input (3.15 vs 3.75 on mixed case), ♪ lines (garbage quotes), and stays in です/ます in casual dialogue. Adding the previous line as context helped 0 of 29 lines and made 4 worse.
-- **Phrase selected by the user, translated literally**: 15 of 30 common idioms come out literally wrong (under the weather → 天気の下で, hang in there → そこにぶら下がってください, hook up → フックアップします).
-- **Site translations**: on Netflix, 28% of spoken cards have no Japanese line and about 12% show a neighbour card's line: Japanese subtitles are condensed and re-cut, and `alignByOverlap` gives each Japanese cue to one card only. YouTube tlang lines spill into the next card on ~20% of lines (12 of 59).
+### LEARNING part (per learning language, in `LanguagePack`)
+- **Tagger**: `tagger(sentence) → {label, inflected, proper, confidence}[]` plus a confidence threshold. English: an averaged perceptron trained on UD English-EWT.
+  - 93.9% accuracy in-domain, 125 KB gzipped, 3.5 ms per 1,000 tokens, no dependencies.
+  - The model is CC BY-SA, the same licence as the shipped Wiktionary packs.
+  - Alternatives measured: compromise 84.7%, wink-pos-tagger 89.2%, en-pos 90.6%.
+  - Tags are used only when the tagger is confident (88% of tokens).
+- **Closed classes**: particles (empty for languages without phrasal verbs, which turns that part of the context check off), determiners, auxiliaries, slot words.
+- **Casing convention** for D, and a **names lexicon** from the edition's proper-noun entries (~50 KB gzipped for English).
+- **Phrase POS** per pattern from the edition, kept as a field of `phrases.json`.
+- **Example corpus and frequency** for B2/E: built from the edition's own usage examples.
+  - English has 21M tokens. Spanish has 0.46M, so its frequency signals are weaker.
+- **Word pattern**: `patternKey` currently accepts only unaccented English letters and drops "buenos días". It must take the pattern from the language config.
 
-## 5. Context-aware sense choice: what was tried
-- **Matching glosses against the card's Japanese line** (human track or tlang): of 282 hovers with a Japanese line, it would fix about 7 and break about 7. Not worth it.
-- **On-device language model** (Chrome Prompt API, Gemini Nano, available in Chrome 157 pages and extensions): for each sampled word with 2+ senses, the model got the sentence and the first 4 senses and returned a number. Median 0.47 s per word.
-  It changed the sense on 266 of 374 words (71%). Where the first sense was wrong or misleading (93), its pick was right for 35 and close for 17; where the first sense was good or acceptable (173), it broke 44 and made 59 only close. Overall about 72% of hovers would fit (right or close) against 70% today: no net gain. Its mistakes: rare usage labels for function words (an → ampere), the wrong entity for names (Shania Twain → Mark Twain), and senses that match the topic rather than the sentence (oil in a recipe → petroleum).
-  Conclusion: a small model asked to pick freely is not reliable enough to replace the first sense; it is useful only inside a narrower question (section 6, A4).
+### NATIVE part (per gloss language, dictionary side)
+- `GlossReader`:
+  - `pointer(sense)`: "Xの過去", "=X" in Japanese; "Plural of X", "Synonym of X" in English.
+  - `inferPos(sense)`: from Japanese gloss endings and 《》 notes. Labels 84% of EJDict senses (today's `inferPos` labels far fewer).
+  - `shortLine(sense, cap)`: separators ; ／ ・, 25-char cap for Japanese.
+- Better: compute per-POS short lines at build time (`shortByPos`), so the extension ships no Japanese heuristics.
+- Compositionality on native glosses (B2/B2b): kanji/katakana overlap with the words' own glosses. A katakana loanword gloss marks a transparent compound.
 
-## 6. Root causes and general fixes
-Each fix below is a rule or a data source that applies to every word, phrase and page (and to other language pairs through the same parts), not a list of hand-fixed entries. Hand-curated overrides (a reviewed meaning for the top N words, an allowlist of chunks) were considered and left out: they fix the sampled cases but not the long tail, and every new language pair would need its own.
+### PAIR data (one dictionary source)
+- **EJDict**:
+  - Strip the 〈C〉/〈U〉 and {形} markers and usage-comment senses.
+  - Keep capitalised headwords apart (Japan → 日本, China → 中国; `data/gate/en-capitalized.json` is the start).
+  - Read POS markers.
+- **Wiktionary ja translation tables** (C1): keep up to 4 senses with their English hint, in the existing `《hint》word,word` style, instead of the first word only.
+  - break up → 別れる first, 壊れる second; write down → 書き留める.
+  - 901 → 7,597 phrases with Japanese.
 
-### A. Choose the sense from the sentence (words and phrases alike)
-Root cause: the hover is one string fixed at build time (`short`, the first sense), and a word's key is its surface form when that is a headword. Causes "first sense", "wrong part of speech", "inflected headword", "too long" and most wrong phrase meanings (about 60% of all bad hovers).
-1. **Base form before derived headword.** When a token has more than one base (`lemmas`), look up the base whose part of speech fits the sentence; a surface entry that is only a pointer ("…の過去", "=yes") is followed to its target. Generic over the lemma and POS data; fixes decided, used, wearing, left, was/had pointers.
-2. **Part-of-speech tagging in the language pack.** A small tagger per language (a `LanguagePack` part, so it stays browser-neutral) tags each sentence once. Senses already carry a POS (EJDict via `pos.json`/`inferPos`, Wiktionary senses natively), so the hover shows the first sense *of the tagged POS*. The same tag also gates phrase matching (B3).
-3. **Short line per part of speech, built by rule.** Store the first sense of each POS (cut at the first sense separator, capped length) instead of one `short`; the hover picks by tag. Removes the 100–300-character dumps without touching any entry by hand.
-4. **On-device model where the browser has one** (feature-detected; Chrome's Prompt API today, nothing in Firefox): rank the senses of the hovered term against the sentence, falling back to 1–3. Tested in section 5: asked freely, Gemini Nano fixes and breaks about as many as it improves, so use it only for a narrower question — among the senses of the tagged part of speech, and only to override when it is confident (for example, when asking "does sense 1 fit? yes/no" first returns no).
+### What a Spanish → English instance needs
+- **LEARNING**:
+  - A tagger trained on UD Spanish (AnCora/GSD, CC BY(-SA)).
+  - Determiners; empty particles.
+  - Names from kaikki-es.
+  - An accent-aware word pattern.
+- **NATIVE**: the English `GlossReader`. Senses already carry POS, so no inference is needed.
+- **PAIR**: no quirks.
+- **CORE**: reused unchanged.
+- Running B1/B2 on Spanish with config only gives 5,070 patterns (repo: 2,470).
+  - It highlights a pesar de, es decir, por supuesto and llevar a cabo, and keeps de la and a la out.
+  - It misses sobre todo and ya que, and highlights "lo que": the Spanish example corpus is 46 times smaller.
 
-### B. Phrase data and detection
-Root cause of low recall: the build drops kaikki entries whose words are all common (`isPhraseSense` with `IDIOM_COMMON_RANK` = 100 and `PHRASE_COMMON_RANK` = 1000). Of the 185 missed expressions, 174 are not in the phrase data at all, including *you know*, *sort of*, *pretty much*, *in turn*, *take shape*, *instead of*, *all right*, *in a way*, *think less of*, *good for you*; they cannot even be matched by selecting them. The noise problem PR #28 fought (come to, live in) is real, but the cure was applied to the data instead of to the highlighting.
-1. **Import every multi-word entry** (idioms, phrasal verbs, phrases, prepositional phrases, interjections, multi-word nouns), regardless of word rank. All of them stay matchable when the user selects or saves them.
-2. **Decide what to auto-highlight by a computed idiomaticity score**, not by word rank: source tags (idiomatic, phrasal verb, interjection, "set phrase"), and a compositionality test done at build time — does the phrase's gloss share its content with its words' own glosses? (*live in* = 住む ≈ live = 住む → literal; *break up* = 別れる vs break/up → idiomatic; *sort of* = ある程度 vs sort = 種類 → idiomatic). Optionally weight by how frequent the phrase is in a subtitle n-gram list. This replaces `isCommonPair` and lets the same rule work for Spanish and future packs.
-3. **Grammar check on matches** using the tagger from A2: a phrasal-verb pattern needs its first word tagged as a verb; a pattern whose particle starts the following noun phrase is not a phrasal verb. Drops *trucks in*, *punch in* (the gut), *staff up*, *add oil*, *over medium*, *link in* — the 19% wrong matches among MT-defined phrases.
-4. **Named entities are not highlighted as phrases** (American Revolution, New York, Catholic Church): entries that are proper nouns in the source, or capitalised throughout, stay available for lookup but not for auto-highlighting.
+## Costs and decisions for you
+- **Highlight density**: phrases per 1,000 tokens go 16.8 → 27.9. "you know", "I mean" and "kind of" become visible. Reversing PR #28's rule for common pairs is intended here: B2 now decides by meaning, not word rank.
+- **Bundle size**: packs grow 24.3 → 43.5 MB (6.8 → 11.4 MB gzipped), mostly English definitions.
+  - Moving definitions of selection-only phrases (8.9 MB) to a downloadable pack is the simplest cut, once pack hosting exists.
+- **Tagger model licence**: CC BY-SA (like the Wiktionary packs).
+- **Threshold**: B2's threshold (0.55) is a product choice between recall and noise; the measured sweep is in the prototype notes.
 
-### C. Phrase meanings
-1. Show several senses with their English hints for translation-table sources (as `createPairDictionary` already does for es/pt) instead of the first word, and let A2/A4 pick among them.
-2. Rank English-definition senses by their labels from the source: demote usage notes ("Used to…"), vulgar, archaic, sports and other domain-labelled senses; resolve "Synonym of X" to X's entry. Generic over all en-defs entries.
+## Still open
+- **Wrong sense within the right part of speech** (battery → 砲兵中隊, fleet → 艦隊, hike → ハイキングする, miss → 未婚婦人): no general offline rule found. They need sense frequencies the sources don't give, or "Ask AI".
+- **Literal vs idiomatic readings** that POS can't separate: come to, in time ("point in time"), not even, got it.
+- **Useful vs transparent compounds** that look alike in the data: law enforcement vs public health.
+- **Expressions that are not Wiktionary entries** (a lot of, depend on, think less of): 98 of the 185 round-1 misses. They need a collocation source.
+- **Names that are also words in caseless text** (CHANDLER, PHOEBE in ALL-CAPS captions).
+- **Tagger accuracy on ASR and captions** (measured only in-domain); its errors flip a few senses (calmer → 静けさ).
 
-### D. Names
-Root cause: EJDict includes many names and place names as common words, and casing is unreliable (ALL-CAPS captions, lower-case ASR).
-- Add a proper-noun lexicon as a pack part (kaikki's proper-noun entries: given names, surnames, places, organisations).
-- Per document, learn casing: a word seen capitalised mid-sentence in mixed-case text of the same page or video is a name there; in ALL-CAPS text rely on the lexicon. A run of capitalised words that is not a dictionary phrase is one name.
-- A token judged a name shows "(name)" (or nothing) instead of a common-noun meaning.
+## Suggested order
+1. A1, A3, D and the EJDict capitalised split (small, deterministic, measured).
+2. The tagger part, then A2 and the phrase context check.
+3. The phrase data rebuild (B1, B2, B4, C1, C2) with its size decision.
+4. E (vocabulary).
+5. G (alignment).
+6. Keep the on-device model for "Ask AI".
 
-### E. Coverage
-Root cause: the vocabulary is EJDict's headwords only. Use every English kaikki headword with a definition as the vocabulary (meanings for words EJDict lacks come from the English definition translated at display time, exactly like phrases today). This covers modern and technical words (app, website, meetup, troll, gaslighting, chemo), interjections (um, ew, ooh, hmm) and informal spellings (wanna, cuz, kinda), which kaikki lists with their POS. Split handling (hyphen prefixes, `example.com`, drop caps) is a tokenizer rule.
+## Netflix
+- Round 2's Netflix part (Suits, The Office and three other shows, 3 random episodes each) is not done yet: the collection stopped at the profile picker.
+- Round 1's five Friends episodes are the Netflix evidence so far.
+- What Netflix adds: three of them have ALL-CAPS closed captions, sitcom interjections are poorly glossed (ew → enlisted woman, bye → 二の次の事), and 28% of cards have no Japanese line.
 
-### F. Machine translation
-1. **Normalise every input by rule**: sentence-case ALL-CAPS lines, split "- A. - B." speaker turns, strip ♪ and [sound] labels, drop a definition's leading "To " and labels. **Post-process by rule**: trim purpose endings (ために／するには) produced from infinitives, remove repeated items, cap the hover length.
-2. **Translate sentences, not cards**: when the built-in translator is the source, translate the whole sentence the card belongs to and show the part for the card (as YouTube's tlang already does), instead of fragments. Do not add the previous line as context (tested: no gain).
-3. **Label literal translations** of user-selected phrases as literal, or show the sentence translation with the phrase marked, since half of idioms come out word for word.
-
-### G. Site translation alignment
-Root cause: `alignByOverlap` gives each translation cue to exactly one card, so a condensed Japanese line that spans two English cards leaves the second empty (Netflix: 28% of spoken cards). Align many-to-many: a cue is shown on every card it overlaps substantially (later ones dimmed), or cards are joined to the translation's segmentation, as `alignAsrSentences` already does for YouTube ASR. Cards with no overlapping cue at all can fall back to the built-in translator, marked.
-
-### Suggested order
-A1 and B3/D (small, deterministic) → B1–B2 (data rebuild; biggest gain in recall) → A2–A3 and C (tagger + per-POS short lines) → E, F, G → A4 (Chrome-only enhancement, natural fit for phase 3's "Ask AI").
-
-### Measuring
-Keep this evaluation repeatable: the offline run over a fixed corpus (the scripts in this session were throwaway) could become `npm run eval:quality` over freely licensed text plus the existing caption fixtures, reporting hover coverage, phrase counts and the gate numbers, so each fix above is checked against the same baseline.
+## Measuring
+- The offline runner, the blind A/B packets and the judging rubric worked well and could become `npm run eval:quality`.
+- It would run over freely licensed text plus the caption fixtures and report:
+  - hover coverage
+  - highlights per 1,000 tokens
+  - the 95% gate
+- Each fix above can then be checked against the same baseline.
