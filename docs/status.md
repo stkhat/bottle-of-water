@@ -48,7 +48,7 @@ Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes
 - Machine-translated definitions: about 70 of 100 read well in Chrome's en→ja; fragments and jargon translate badly, so the window keeps the English under each sense. The first translation needs Chrome's model, whose download needs a click; until then hover cards show English
 - Native editions' glosses are of mixed kinds (a word, a list, or a whole definition); translation-table senses can be rare words. Phrases are covered far less than words (es 24.7%, pt 17.7%)
 - The gate's word list still counts some names EJDict writes in lowercase (billy, phoebe) and forms the lemma data lacks (gotten, ladies, nights)
-- Chinese is not offered: 91.2% of the gate (under 95%), and the zh edition writes Traditional characters
+- Chinese is not offered: 91.2% of the gate (under 95%), and the zh edition writes Traditional characters. With OMW it reaches 96.1% (Simplified), pending a license decision; fr, de, ru and vi would also pass ([notes](notes/translation-data-expansion.md), [matrix](notes/language-matrix.html))
 
 ### Hosting and Firefox
 - Pack hosting is pending: npm scope, public data repository, `npm publish`, then `npm run data:publish -- --download es,es-en` and a release. The real CDN download is checked only after that
