@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo } from "preact/hooks";
+import { useEffect, useMemo, useReducer } from "preact/hooks";
 import { fromUser } from "../../ui/from-user";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { keptOpen } from "../../ui/keep-open";
@@ -16,7 +16,7 @@ import { boxOf, type Box } from "../lookup/geometry";
 import { dictionaryFrame, menuPlacement } from "./placement";
 import type { VideoApp, VideoState } from "./state";
 import { filterCounts, filterRows, videoWords } from "./words";
-import { Floating } from "../lookup/Floating";
+import { Floating, TOP_LAYER } from "../lookup/Floating";
 import { useStore, type Store } from "../store";
 
 /** Where the parts of the page are, read when needed. */
@@ -136,15 +136,14 @@ export function VideoThemed(props: {
 }
 
 /**
- * Inside the player: the subtitle over the video and the Lingo menu. In fullscreen the
- * subtitle is always over the video, larger (mock Fullscreen).
+ * Inside the player: the subtitle over the video. In fullscreen the subtitle is always
+ * over the video, larger (mock Fullscreen).
  */
 export function InPlayerUi(props: {
   app: VideoApp;
-  geometry: VideoGeometry;
   layout: Store<VideoLayout>;
 }) {
-  const { app, geometry } = props;
+  const { app } = props;
   const state = useStore(app.store);
   const { subtitleBottom } = useStore(props.layout);
   const { settings, fullscreen } = state;
@@ -153,10 +152,6 @@ export function InPlayerUi(props: {
     (fullscreen || settings.subtitlePosition === "inVideo") &&
     state.line >= 0;
   const inset = fullscreen ? FULLSCREEN_SUBTITLE_INSET : SUBTITLE_INSET;
-  const player = geometry.player();
-  const buttons = geometry.buttons();
-  const menu =
-    state.menuOpen && player && buttons ? menuPlacement(player, buttons) : null;
   return (
     <>
       {inVideo && (
@@ -177,49 +172,83 @@ export function InPlayerUi(props: {
           />
         </div>
       )}
-      {menu && (
-        <div
-          style={{
-            position: "absolute",
-            right: `${menu.right}px`,
-            bottom: `${menu.bottom}px`,
-            pointerEvents: "auto",
-          }}
-        >
-          <LingoMenu
-            enabled={state.enabled}
-            position={settings.subtitlePosition}
-            showPositions={!fullscreen}
-            showTranslation={settings.subtitleTranslation}
-            size={settings.subtitleSize}
-            opacity={settings.subtitleOpacity}
-            onPosition={(subtitlePosition) =>
-              app.changeSettings({ subtitlePosition })
-            }
-            onPreview={({ size, opacity }) =>
-              app.previewSettings({
-                ...(size !== undefined && { subtitleSize: size }),
-                ...(opacity !== undefined && { subtitleOpacity: opacity }),
-              })
-            }
-            onSize={(subtitleSize) => app.changeSettings({ subtitleSize })}
-            onOpacity={(subtitleOpacity) =>
-              app.changeSettings({ subtitleOpacity })
-            }
-            onToggleTranslation={() =>
-              app.changeSettings({
-                subtitleTranslation: !settings.subtitleTranslation,
-              })
-            }
-            onOpenSettings={() => {
-              app.setMenuOpen(false);
-              app.openSettings();
-            }}
-            onClose={() => app.setMenuOpen(false)}
-          />
-        </div>
-      )}
     </>
+  );
+}
+
+/**
+ * The Lingo menu, above the L and ^ buttons. Over the page, in the top layer like the
+ * dictionary window: inside the player, the site's own layers (Netflix's transcript
+ * panel over the player) would cover it. Placed again while the page scrolls or resizes.
+ */
+export function MenuUi(props: {
+  app: VideoApp;
+  geometry: VideoGeometry;
+  layout: Store<VideoLayout>;
+}) {
+  const { app, geometry } = props;
+  const state = useStore(app.store);
+  // The site's control bar showing or hiding (the buttons go with it) moves the subtitle.
+  useStore(props.layout);
+  const { settings, fullscreen } = state;
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (!state.menuOpen) return;
+    const options = { capture: true, passive: true };
+    addEventListener("scroll", rerender, options);
+    addEventListener("resize", rerender, options);
+    return () => {
+      removeEventListener("scroll", rerender, options);
+      removeEventListener("resize", rerender, options);
+    };
+  }, [state.menuOpen]);
+  const player = geometry.player();
+  const buttons = geometry.buttons();
+  if (!state.menuOpen || !player || !buttons) return null;
+  const menu = menuPlacement(player, buttons, {
+    width: document.documentElement.clientWidth,
+    height: document.documentElement.clientHeight,
+  });
+  return (
+    <div
+      style={{
+        position: "fixed",
+        zIndex: TOP_LAYER,
+        right: `${menu.right}px`,
+        bottom: `${menu.bottom}px`,
+        pointerEvents: "auto",
+      }}
+    >
+      <LingoMenu
+        enabled={state.enabled}
+        position={settings.subtitlePosition}
+        showPositions={!fullscreen}
+        showTranslation={settings.subtitleTranslation}
+        size={settings.subtitleSize}
+        opacity={settings.subtitleOpacity}
+        onPosition={(subtitlePosition) =>
+          app.changeSettings({ subtitlePosition })
+        }
+        onPreview={({ size, opacity }) =>
+          app.previewSettings({
+            ...(size !== undefined && { subtitleSize: size }),
+            ...(opacity !== undefined && { subtitleOpacity: opacity }),
+          })
+        }
+        onSize={(subtitleSize) => app.changeSettings({ subtitleSize })}
+        onOpacity={(subtitleOpacity) => app.changeSettings({ subtitleOpacity })}
+        onToggleTranslation={() =>
+          app.changeSettings({
+            subtitleTranslation: !settings.subtitleTranslation,
+          })
+        }
+        onOpenSettings={() => {
+          app.setMenuOpen(false);
+          app.openSettings();
+        }}
+        onClose={() => app.setMenuOpen(false)}
+      />
+    </div>
   );
 }
 

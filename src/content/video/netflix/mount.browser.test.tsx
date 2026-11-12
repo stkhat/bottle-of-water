@@ -112,6 +112,34 @@ describe("the L and ^ buttons on Netflix", () => {
     expect(document.querySelector("lingo-netflix-controls")).toBeNull();
   });
 
+  it("open the menu above the transcript panel", async () => {
+    start();
+    await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
+    menuButton().focus();
+    await userEvent.keyboard("{Enter}");
+    const menu = () =>
+      [...document.querySelectorAll("*")]
+        .map((element) => element.shadowRoot?.querySelector("[role=dialog]"))
+        .find(Boolean) ?? null;
+    await expect.poll(menu).not.toBeNull();
+    const box = menu()!.getBoundingClientRect();
+    const panel = document
+      .querySelector("lingo-netflix-side")!
+      .getBoundingClientRect();
+    // The menu reaches into the panel: the case this is about.
+    expect(box.right).toBeGreaterThan(panel.left);
+    const host = menu()!.getRootNode() as ShadowRoot;
+    for (const [x, y] of [
+      [box.left + 4, box.top + 4],
+      [box.right - 4, box.top + 4],
+      [box.left + 4, box.bottom - 4],
+      [box.right - 4, box.bottom - 4],
+    ] as const) {
+      const top = host.elementFromPoint(x, y);
+      expect(top !== null && menu()!.contains(top)).toBe(true);
+    }
+  });
+
   it("come with a bar that shows up only when the pointer moves", async () => {
     start({ controlsIdleMs: 300 });
     page.showControls(false);

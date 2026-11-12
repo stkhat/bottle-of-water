@@ -74,15 +74,20 @@ export function dictionaryFrame(
 }
 
 /**
- * Where the Lingo menu opens inside the player (its `right` and `bottom`): just above
- * the L and ^ buttons, as in mock Main.
+ * Where the Lingo menu opens in the viewport (its fixed `right` and `bottom`): just
+ * above the L and ^ buttons, as in mock Main, and inside the player.
  */
 export function menuPlacement(
   player: Box,
   buttons: Box,
+  viewport: { width: number; height: number },
 ): { right: number; bottom: number } {
   return {
-    right: Math.round(Math.max(EDGE, player.right - buttons.right - 38)),
-    bottom: Math.round(player.bottom - buttons.top + 13),
+    right: Math.round(
+      viewport.width -
+        player.right +
+        Math.max(EDGE, player.right - buttons.right - 38),
+    ),
+    bottom: Math.round(viewport.height - buttons.top + 13),
   };
 }

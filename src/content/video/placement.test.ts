@@ -106,11 +106,15 @@ describe("menuPlacement", () => {
       right: 904 - 138,
       bottom: 607 - 5,
     };
-    expect(menuPlacement(PLAYER, buttons)).toEqual({ right: 100, bottom: 60 });
+    // 100px left of the video's right edge, 60px above its bottom.
+    expect(menuPlacement(PLAYER, buttons, VIEWPORT)).toEqual({
+      right: 1440 - 904 + 100,
+      bottom: 900 - 607 + 60,
+    });
   });
 
   it("stays inside the player", () => {
     const buttons = { left: 860, top: 560, right: 900, bottom: 600 };
-    expect(menuPlacement(PLAYER, buttons).right).toBe(8);
+    expect(menuPlacement(PLAYER, buttons, VIEWPORT).right).toBe(1440 - 904 + 8);
   });
 });
