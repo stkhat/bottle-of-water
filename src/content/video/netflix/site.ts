@@ -57,8 +57,6 @@ export const KEEP_TITLES = 6;
 
 /** Lingo's parts over the player keep clear of the control bar at the bottom (px). */
 export const CONTROL_BAR_HEIGHT = 120;
-/** Netflix's back arrow and flag sit at the top of the player (px). */
-export const TOP_BAR_HEIGHT = 72;
 
 /** The first element matching one of `selectors`. */
 export function query<E extends Element = HTMLElement>(

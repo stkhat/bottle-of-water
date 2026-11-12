@@ -141,24 +141,47 @@ describe("the watch page", () => {
     expect(adapter.videoId()).toBeUndefined();
   });
 
-  it("puts the subtitle box at the bottom of the player and the transcript in a panel at the right", () => {
+  it("puts the subtitle box at the bottom of the player; no side column", () => {
     const below = adapter.belowVideoElement();
     expect(below?.parentElement).toBe(page.player);
     expect(getComputedStyle(below!).position).toBe("absolute");
-    const side = adapter.sideColumn();
-    expect(side?.before).toBeNull();
-    const panel = side!.parent as HTMLElement;
-    expect(panel.parentElement).toBe(document.body);
-    expect(getComputedStyle(panel).position).toBe("fixed");
-    expect(panel.getBoundingClientRect().right).toBeCloseTo(
-      document.documentElement.clientWidth - 16,
-      0,
-    );
-    // The transcript is as tall as its panel, not as the whole player.
-    expect(adapter.transcriptFrame?.()).toBe(panel);
-    // The same elements every time.
-    expect(adapter.sideColumn()?.parent).toBe(panel);
+    // The transcript goes in the sidebar beside the player (spec "Video UI").
+    expect(adapter.sideColumn()).toBeNull();
+    expect(adapter.fillsWindow?.()).toBe(true);
+    // The same element every time.
     expect(adapter.belowVideoElement()).toBe(below);
+  });
+
+  it("narrows the player for the sidebar and gives its width back, telling the page with a resize", async () => {
+    let resizes = 0;
+    const onResize = () => resizes++;
+    addEventListener("resize", onResize);
+    const width = () => page.player.getBoundingClientRect().width;
+    const whole = width();
+    adapter.narrowPlayer?.(392);
+    expect(width()).toBe(whole - 392);
+    expect(page.player.getBoundingClientRect().left).toBe(0);
+    expect(resizes).toBe(1);
+    // Asked again (each time the page changes): nothing more to do.
+    adapter.narrowPlayer?.(392);
+    expect(resizes).toBe(1);
+    adapter.narrowPlayer?.(0);
+    expect(width()).toBe(whole);
+    expect(resizes).toBe(2);
+    adapter.narrowPlayer?.(392);
+    adapter.dispose();
+    expect(width()).toBe(whole);
+    removeEventListener("resize", onResize);
+  });
+
+  it("narrows a player view Netflix rendered again", () => {
+    adapter.narrowPlayer?.(392);
+    const again = page.player.cloneNode(true) as HTMLElement;
+    again.style.cssText = "position: absolute; inset: 0;";
+    page.player.replaceWith(again);
+    adapter.narrowPlayer?.(392);
+    expect(again.getBoundingClientRect().width).toBe(innerWidth - 392);
+    again.replaceWith(page.player);
   });
 
   it("hides Netflix's subtitles and shows them again", () => {
@@ -197,10 +220,8 @@ describe("the watch page", () => {
 
   it("leaves no element behind when disposed", () => {
     adapter.belowVideoElement();
-    adapter.sideColumn();
     adapter.hideSiteCaptions(true);
     adapter.dispose();
-    expect(document.querySelector("lingo-netflix-side")).toBeNull();
     expect(page.player.querySelector("lingo-netflix-below")).toBeNull();
     expect(getComputedStyle(page.captions).display).toBe("block");
   });

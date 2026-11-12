@@ -155,16 +155,21 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       },
     });
 
-    // The full screen button, as on youtube.com: the whole app (ytd-app) goes
-    // fullscreen, and the watch page lays the player over the screen.
+    // The full screen button, as on youtube.com: the whole page (<html>) goes
+    // fullscreen, and the watch page moves the player into its full-bleed row over
+    // the screen (docs/notes/youtube-captions.md).
     const fullscreenButton = player.querySelector(".ytp-fullscreen-button");
     fullscreenButton?.addEventListener("click", () => {
       if (document.fullscreenElement) void document.exitFullscreen();
-      else void (player.closest("ytd-app") ?? player).requestFullscreen();
+      else void document.documentElement.requestFullscreen();
     });
+    const playerBox = document.getElementById("player-container");
+    const home = playerBox?.parentElement;
     document.addEventListener("fullscreenchange", () => {
       const on = document.fullscreenElement !== null;
       player.closest("ytd-watch-flexy")?.toggleAttribute("fullscreen", on);
+      const row = document.getElementById("player-full-bleed-container");
+      if (playerBox && home && row) (on ? row : home).append(playerBox);
       fullscreenButton?.setAttribute(
         "aria-label",
         on ? "Exit full screen (f)" : "Full screen (f)",

@@ -75,6 +75,12 @@ Videos: `GLNVMi_4Khw` (gaming commentary, 2018, ASR without punctuation), `1w5R5
 - Titles are localized by the viewer's language (`videoDetails.title` and the `<h1>` showed a Japanese title when the UI was Japanese).
 - Skeleton for E2E routing: `e2e/fixtures/youtube-watch.html` (scripts stripped, trimmed).
 
+## Fullscreen and the transcript sidebar (seen on youtube.com, 2026-11-13)
+- YouTube's fullscreen button calls `requestFullscreen()` on `<html>`: the whole page is the fullscreen element, so Lingo's parts stay in `body`. `ytd-watch-flexy` moves the player into `#full-bleed-container` (a flex row) > `#player-full-bleed-container` (`flex: 1 1 0%`) > `#player-container` (absolute, inset 0) > … > `#movie_player`. The row's other child, `#panels-full-bleed-container`, is hidden (`display: none`).
+- `width` on `#player-full-bleed-container` has no effect (it is a growing flex item); `margin-right: 392px` narrows it, and with it the player, its title bar and its control bar.
+- The `<video>`'s size is set inline by the player (`width`, `height`, `left`, `top`) and is not updated when only its container changes: after a dispatched window `resize` it fitted the narrower player (a 4:3 talk: 986 × 740 at top 32 in a 986 × 804 player). Undoing it needs another `resize`. Leaving fullscreen puts the player back in `#player` and sizes the video again by itself.
+- Theater mode uses the same full-bleed container, so Lingo narrows it only while the page is in fullscreen.
+
 ## Risks
 - PO token rules change often; if the "reuse the player's URL" trick stops working, fall back to asking the player for each track in turn (`setOption`) and capturing every response, or to the built-in translator.
 - Automated tests cannot get real captions from youtube.com; only recorded fixtures.

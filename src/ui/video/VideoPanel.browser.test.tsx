@@ -460,6 +460,35 @@ describe("the tabs", () => {
     expect(a).toBe(b);
   });
 
+  test("× at the right of the tabs closes the column", async () => {
+    const onClose = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} onClose={onClose} />,
+    );
+    const close = screen.getByRole("button", { name: "Close transcript" });
+    await expect.element(close).toHaveAttribute("title", "Close transcript");
+    const list = screen.getByRole("tablist", { name: "Lingo panel" }).element();
+    expect(list.nextElementSibling).toBe(close.element());
+    const box = close.element().getBoundingClientRect();
+    expect([box.width, box.height]).toEqual([36, 36]);
+    // Mock Main: its right edge 10px in from the column's.
+    const aside = screen.container.querySelector("aside")!;
+    expect(aside.getBoundingClientRect().right - box.right).toBeCloseTo(11, 0);
+    expect(getComputedStyle(close.element()).color).toBe("rgb(58, 64, 86)");
+    await userEvent.click(close);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("no × without onClose", async () => {
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
+    await expect
+      .element(screen.getByRole("tablist", { name: "Lingo panel" }))
+      .toBeVisible();
+    expect(
+      screen.container.querySelector("[aria-label='Close transcript']"),
+    ).toBeNull();
+  });
+
   test("each tab controls its panel", async () => {
     const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     const transcript = screen.getByRole("tab", { name: "Transcript" });

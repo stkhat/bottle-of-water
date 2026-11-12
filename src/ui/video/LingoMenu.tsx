@@ -12,7 +12,7 @@ import { t } from "../../i18n/t";
 import { fromUser } from "../from-user";
 import { GearIcon } from "../icons";
 import { Segmented } from "../Segmented";
-import { badge, color, root, sectionHeading } from "../styles";
+import { badge, color, root } from "../styles";
 import { Switch } from "../Switch";
 
 export interface LingoMenuProps {
@@ -21,12 +21,18 @@ export interface LingoMenuProps {
   /** The subtitle position group; not in fullscreen (mock Fullscreen). Default: shown. */
   showPositions?: boolean;
   showTranslation: boolean;
+  /**
+   * `Settings.transcriptShown`: the "Show transcript in sidebar" switch. Undefined where
+   * there is no transcript (a Short): no switch.
+   */
+  transcriptShown?: boolean;
   /** `Settings.subtitleSize`, or the value being dragged. */
   size: number;
   /** `Settings.subtitleOpacity`, or the value being dragged. */
   opacity: number;
   onPosition: (position: Settings["subtitlePosition"]) => void;
   onToggleTranslation: () => void;
+  onToggleTranscript?: () => void;
   /** While a slider is dragged: show the value, do not save it yet. */
   onPreview: (look: { size?: number; opacity?: number }) => void;
   /** A slider was let go: save the value. */
@@ -41,6 +47,24 @@ const POSITIONS = [
   ["inVideo", "video.menu.inVideo"],
   ["belowVideo", "video.menu.belowVideo"],
 ] as const;
+
+/** A row with its label and a switch at the right. */
+function MenuSwitch(props: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <span style={{ flex: 1, fontSize: "14px" }}>{props.label}</span>
+      <Switch
+        checked={props.checked}
+        label={props.label}
+        onToggle={props.onToggle}
+      />
+    </div>
+  );
+}
 
 function MenuSlider(props: {
   label: string;
@@ -185,16 +209,13 @@ export function LingoMenu(props: LingoMenuProps) {
           <GearIcon size={18} />
         </button>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <span style={{ flex: 1, fontSize: "14px" }}>
-          {t("video.menu.showTranslation")}
-        </span>
-        <Switch
-          checked={props.showTranslation}
-          label={t("subtitle.translation")}
-          onToggle={props.onToggleTranslation}
+      {props.transcriptShown !== undefined && (
+        <MenuSwitch
+          label={t("video.menu.transcript")}
+          checked={props.transcriptShown}
+          onToggle={() => props.onToggleTranscript?.()}
         />
-      </div>
+      )}
       <MenuSlider
         label={t("video.menu.size")}
         value={props.size}
@@ -213,21 +234,44 @@ export function LingoMenu(props: LingoMenuProps) {
         onInput={(opacity) => props.onPreview({ opacity })}
         onChange={props.onOpacity}
       />
+      <MenuSwitch
+        label={t("video.menu.dualSubtitles")}
+        checked={props.showTranslation}
+        onToggle={props.onToggleTranslation}
+      />
       {props.showPositions !== false && (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ ...sectionHeading, flex: "none" }}>
-            {t("video.menu.subtitles")}
-          </span>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+            gap: "8px",
+          }}
+        >
+          <span style={{ fontSize: "14px" }}>{t("subtitle.position")}</span>
           <Segmented
             label={t("subtitle.position")}
             options={POSITIONS.map(([id, label]) => ({ id, label: t(label) }))}
             value={props.position}
             onPick={props.onPosition}
-            style={{ flex: 1, minWidth: 0 }}
-            button={() => ({
-              height: "32px",
+            // Mock Main: an outlined box, the chosen option filled with the accent.
+            style={{
+              padding: "2px",
+              borderRadius: "8px",
+              border: `1px solid ${color.lineStrong}`,
+              background: color.card,
+            }}
+            button={(selected) => ({
+              height: "30px",
               padding: "0 6px",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: 400,
               whiteSpace: "nowrap",
+              boxShadow: "none",
+              ...(selected
+                ? { background: color.green, color: color.white }
+                : { background: "transparent", color: color.ink }),
             })}
           />
         </div>

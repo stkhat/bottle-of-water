@@ -443,7 +443,7 @@ for (const build of ["production", "check"] as const)
         .getByRole("button", { name: en["video.menu.belowVideo"] })
         .click();
       const translation = menu.getByRole("switch", {
-        name: en["subtitle.translation"],
+        name: en["video.menu.dualSubtitles"],
       });
       await translation.click();
       await translation.click();
@@ -511,10 +511,20 @@ for (const build of ["production", "check"] as const)
       await l.click();
       await expect(inVideo(page)).toContainText(YT_LINE);
 
-      // Fullscreen (YouTube's button makes ytd-app fullscreen): a word's card and
-      // window, the menu, and back.
+      // Fullscreen (YouTube's button makes <html> fullscreen): the transcript in the
+      // sidebar, a word's card and window, the menu, and back.
       await page.getByRole("button", { name: "Full screen (f)" }).click();
-      await expect(transcript(page)).toHaveCount(0);
+      await expect(transcript(page)).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              innerWidth -
+              document.getElementById("movie_player")!.getBoundingClientRect()
+                .right,
+          ),
+        )
+        .toBe(392);
       await word.hover();
       await expect(page.getByText(en["hover.hint"])).toBeVisible();
       await word.click();
@@ -614,7 +624,8 @@ for (const build of ["production", "check"] as const)
       await page
         .getByRole("button", { name: "Full screen", exact: true })
         .click();
-      await expect(transcript(page)).toHaveCount(0);
+      // The transcript stays in the sidebar beside the player.
+      await expect(transcript(page)).toBeVisible();
       await word.hover();
       await expect(page.getByText(en["hover.hint"])).toBeVisible();
       await word.click();
@@ -627,6 +638,19 @@ for (const build of ["production", "check"] as const)
         page.getByRole("button", { name: en["action.openSettings"] }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
+      // × closes the sidebar; the menu's switch brings it back.
+      await transcript(page)
+        .getByRole("button", { name: en["video.closeTranscript"] })
+        .click();
+      await expect(transcript(page)).toHaveCount(0);
+      await moveOverVideo();
+      await menuButton.click();
+      await page
+        .getByRole("switch", { name: en["video.menu.transcript"] })
+        .click();
+      await expect(transcript(page)).toBeVisible();
+      await page.keyboard.press("Escape");
+      await moveOverVideo();
       await page.getByRole("button", { name: "Exit full screen" }).click();
       await expect(videoCard(page, NF_LINE)).toBeVisible();
     }

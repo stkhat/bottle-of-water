@@ -59,13 +59,32 @@
         height: 100%;
       }
       /*
-        Fullscreen: ytd-app is the fullscreen element; the player covers the screen.
-        Clipped: the trimmed control bar overflows it, and must not scroll it.
+        Fullscreen: <html> is the fullscreen element and the player moves into the
+        full-bleed row over the screen (docs/notes/youtube-captions.md). Clipped: the
+        trimmed control bar overflows it, and must not scroll it.
       */
-      ytd-watch-flexy[fullscreen] #movie_player {
+      #full-bleed-container,
+      #panels-full-bleed-container {
+        display: none;
+      }
+      ytd-watch-flexy[fullscreen] #full-bleed-container {
+        display: flex;
         position: fixed;
         inset: 0;
         z-index: 1;
+        background: #000;
+      }
+      #player-full-bleed-container {
+        position: relative;
+        flex: 1 1 0%;
+      }
+      ytd-watch-flexy[fullscreen] #player-container {
+        position: absolute;
+        inset: 0;
+      }
+      ytd-watch-flexy[fullscreen] #movie_player {
+        width: 100%;
+        height: 100%;
         aspect-ratio: auto;
         overflow: clip;
       }
@@ -118,6 +137,16 @@
             default-two-column-layout
             role="main"
           >
+            <div id="full-bleed-container" class="style-scope ytd-watch-flexy">
+              <div
+                id="player-full-bleed-container"
+                class="style-scope ytd-watch-flexy"
+              ></div>
+              <div
+                id="panels-full-bleed-container"
+                class="style-scope ytd-watch-flexy"
+              ></div>
+            </div>
             <div id="columns" class="style-scope ytd-watch-flexy">
               <div id="primary" class="style-scope ytd-watch-flexy">
                 <div id="primary-inner" class="style-scope ytd-watch-flexy">

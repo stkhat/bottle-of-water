@@ -6,6 +6,7 @@ Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes
 - Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, YouTube Shorts (subtitles and comments), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
 - Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
 - Video subtitles and the transcript: selecting 2–8 words saves a phrase as on articles, and the video pauses while a card, the dictionary window or a selection is open; checked on YouTube and Netflix on 2026-11-13
+- Transcript sidebar: where the player fills the window or the screen (Netflix, YouTube in fullscreen) the player is narrowed and the transcript sits beside it; × and the menu's "Show transcript in sidebar" close and reopen the column everywhere. Checked on Netflix in the window and on the YouTube watch page on 2026-11-13
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
 
@@ -13,7 +14,8 @@ Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes
 
 ### Video
 - Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
-- Netflix: the in-video subtitle is centered on the whole video, so its right end can run under the transcript side panel
+- Transcript sidebar in real fullscreen not checked in the user's Chrome: Chrome refuses fullscreen to Claude in Chrome's clicks ("not granted"); the narrowing itself was seen working on YouTube in fullscreen during the investigation, and browser tests cover real fullscreen on the fixture pages
+- Netflix: the ^ menu goes away with Netflix's control bar when the pointer stops (it shows again with the bar)
 - YouTube: real-site layout in theater mode and the narrow single-column layout not checked
 - YouTube Shorts: ASR lines are split for the watch page's width (up to 60 characters), so a long one wraps into two or three lines over the narrow video; the dictionary window covers the comments panel while that is open
 - YouTube: after using L or ^ the focus stays on Lingo's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked

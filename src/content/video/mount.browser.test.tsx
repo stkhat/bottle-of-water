@@ -155,6 +155,20 @@ const TANGY: TermCard = {
   elsewhere: [],
 };
 
+/** The button in `part` whose accessible name or text is `name`. */
+async function button(part: string, name: string) {
+  const find = () =>
+    [
+      ...(inside(part)?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+    ].find(
+      (b) =>
+        b.getAttribute("aria-label") === name ||
+        b.textContent?.trim().startsWith(name),
+    ) ?? null;
+  await expect.poll(find).not.toBeNull();
+  return find()!;
+}
+
 /** Enters fullscreen on `element` from the user's click, as the site's button does. */
 async function enterFullscreen(element: Element) {
   const button = document.createElement("button");
@@ -599,30 +613,165 @@ describe("mountVideoUi", () => {
       .toBe(420);
   });
 
-  it("makes the transcript as tall as the site's transcript frame, and clickable in it", async () => {
-    // As on Netflix: a panel over the page that lets clicks through to the video.
-    const frame = document.createElement("div");
-    frame.style.cssText =
-      "position: fixed; top: 20px; right: 16px; width: 300px; height: 340px; pointer-events: none;";
-    document.body.append(frame);
-    const fake = fakeApp(readyState());
-    unmount = mountVideoUi({
-      adapter: {
-        ...adapter,
-        sideColumn: () => ({ parent: frame, before: null }),
-        transcriptFrame: () => frame,
-      },
-      app: fake.app,
+  describe("closing the column", () => {
+    /** An app whose settings changes reach its store, as the session's do. */
+    function mountSaving(state = readyState()) {
+      const fake = mount(state);
+      fake.spy("changeSettings").mockImplementation((patch: object) =>
+        fake.store.set({
+          settings: mergeSettings(patch, fake.store.get().settings),
+        }),
+      );
+      return fake;
+    }
+
+    it("× closes the Transcript and Words column; the menu's switch brings it back", async () => {
+      // The menu at the 640px player's right stays on screen.
+      page.player.style.width = "400px";
+      const { store, spy } = mountSaving();
+      await expect
+        .poll(() => text("lingo-transcript"))
+        .toContain("Knead the dough.");
+      const close = await button("lingo-transcript", "Close transcript");
+      await userEvent.click(close);
+      expect(spy("changeSettings")).toHaveBeenCalledWith({
+        transcriptShown: false,
+      });
+      await expect.poll(() => text("lingo-transcript")).toBe("");
+      // YouTube's own column (recommended videos) is all that is left there.
+      expect(host("lingo-transcript").getBoundingClientRect().height).toBe(0);
+      store.set({ menuOpen: true });
+      const sw = await button("lingo-video", "Show transcript in sidebar");
+      expect(sw.getAttribute("aria-checked")).toBe("false");
+      await userEvent.click(sw);
+      expect(store.get().settings.transcriptShown).toBe(true);
+      await expect
+        .poll(() => text("lingo-transcript"))
+        .toContain("Knead the dough.");
     });
-    const aside = () => inside("lingo-transcript")?.querySelector("aside");
-    await expect.poll(() => aside()?.getBoundingClientRect().height).toBe(340);
-    frame.style.height = "400px";
-    await expect.poll(() => aside()?.getBoundingClientRect().height).toBe(400);
-    const box = aside()!.getBoundingClientRect();
-    expect(document.elementFromPoint(box.left + 20, box.top + 100)).toBe(
-      host("lingo-transcript"),
-    );
-    frame.remove();
+  });
+
+  describe("the transcript sidebar in fullscreen", () => {
+    const sidebar = () =>
+      document.querySelector<HTMLElement>("lingo-video-sidebar");
+    const aside = () =>
+      inside("lingo-transcript")?.querySelector<HTMLElement>("aside") ?? null;
+    let back: () => void;
+
+    /** YouTube in fullscreen: the player in the full-bleed row, the page in fullscreen. */
+    async function fullscreen() {
+      back = page.fullBleed();
+      await enterFullscreen(document.documentElement);
+    }
+    afterEach(async () => {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      back?.();
+      await browserPage.viewport(414, 896);
+    });
+
+    it("shows the transcript in a sidebar beside the narrowed player, and puts it back in the column after", async () => {
+      await browserPage.viewport(1200, 800);
+      mount();
+      await expect
+        .poll(() => host("lingo-transcript").parentElement?.id)
+        .toBe("secondary-inner");
+      await fullscreen();
+      await expect
+        .poll(() => host("lingo-transcript").parentElement)
+        .toBe(sidebar());
+      // 360px wide, 16px in from the top, right and bottom edges; the player beside it.
+      const box = sidebar()!.getBoundingClientRect();
+      expect([
+        box.top,
+        innerWidth - box.right,
+        innerHeight - box.bottom,
+      ]).toEqual([16, 16, 16]);
+      expect(box.width).toBe(360);
+      await expect
+        .poll(() => page.player.getBoundingClientRect().right)
+        .toBe(innerWidth - 392);
+      await expect
+        .poll(() => aside()?.getBoundingClientRect().height)
+        .toBe(768);
+      expect(text("lingo-transcript")).toContain("Knead the dough.");
+      // The subtitle stays in the narrowed player.
+      const region = inside("lingo-video-player")!
+        .querySelector("[role=region]")!
+        .getBoundingClientRect();
+      expect(region.right).toBeLessThan(box.left);
+
+      await document.exitFullscreen();
+      back();
+      await expect
+        .poll(() => host("lingo-transcript").parentElement?.id)
+        .toBe("secondary-inner");
+      expect(sidebar()).toBeNull();
+    });
+
+    it("opens the dictionary window just left of the sidebar; with the column closed, at the top right", async () => {
+      await browserPage.viewport(1200, 800);
+      const { store } = mount();
+      await fullscreen();
+      await expect.poll(sidebar).not.toBeNull();
+      store.set({
+        panel: {
+          ref: { cue: 0, span: 1 },
+          card: TANGY,
+          here: [],
+          dictionaries: [],
+          opened: 1,
+        },
+      });
+      const win = () =>
+        inside("lingo-video")
+          ?.querySelector("aside[aria-label='Dictionary window']")
+          ?.getBoundingClientRect() ?? null;
+      await expect.poll(win).not.toBeNull();
+      expect(win()!.right).toBe(sidebar()!.getBoundingClientRect().left);
+      expect(win()!.top).toBe(72);
+      expect(win()!.height).toBe(420);
+
+      store.set({
+        settings: mergeSettings(
+          { transcriptShown: false },
+          store.get().settings,
+        ),
+      });
+      await expect.poll(sidebar).toBeNull();
+      await expect
+        .poll(() => page.player.getBoundingClientRect().width)
+        .toBe(innerWidth);
+      await expect.poll(() => win()?.top).toBe(32);
+      expect(win()!.right).toBe(innerWidth - 32);
+    });
+
+    it("no sidebar while Lingo is off, or for a video without subtitles", async () => {
+      const { store } = mount();
+      await fullscreen();
+      await expect.poll(sidebar).not.toBeNull();
+      store.set({ enabled: false });
+      await expect.poll(sidebar).toBeNull();
+      await expect
+        .poll(() => page.player.getBoundingClientRect().width)
+        .toBe(innerWidth);
+      store.set({ enabled: true, status: "unavailable" });
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(sidebar()).toBeNull();
+      store.set({ status: "ready" });
+      await expect.poll(sidebar).not.toBeNull();
+    });
+
+    it("gives the player its width back when unmounted", async () => {
+      mount();
+      await fullscreen();
+      await expect
+        .poll(() => page.player.getBoundingClientRect().width)
+        .toBe(innerWidth - 392);
+      unmount!();
+      unmount = undefined;
+      expect(page.player.getBoundingClientRect().width).toBe(innerWidth);
+      expect(sidebar()).toBeNull();
+    });
   });
 
   it("opens the dictionary window beside the video, not over the subtitle", async () => {
@@ -961,20 +1110,6 @@ describe("mountVideoUi", () => {
         new MouseEvent("click", { bubbles: true, composed: true }),
       );
     }
-    /** The button in `part` whose accessible name or text is `name`. */
-    async function button(part: string, name: string) {
-      const find = () =>
-        [
-          ...(inside(part)?.querySelectorAll<HTMLButtonElement>("button") ??
-            []),
-        ].find(
-          (b) =>
-            b.getAttribute("aria-label") === name ||
-            b.textContent?.trim().startsWith(name),
-        ) ?? null;
-      await expect.poll(find).not.toBeNull();
-      return find()!;
-    }
 
     it("do not reach the L button; the user's click does", async () => {
       const { spy } = mount();
@@ -987,10 +1122,7 @@ describe("mountVideoUi", () => {
 
     it("do not reach the menu's switch or gear; the user's clicks do", async () => {
       const { spy } = mount(readyState({ menuOpen: true }));
-      const toggle = await button(
-        "lingo-video",
-        "Show translation under the subtitle",
-      );
+      const toggle = await button("lingo-video", "Show dual subtitles");
       const settings = await button("lingo-video", "Open settings");
       syntheticClick(toggle);
       syntheticClick(settings);

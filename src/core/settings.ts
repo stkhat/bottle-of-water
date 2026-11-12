@@ -33,6 +33,12 @@ export interface Settings {
   /** How dark the box behind the subtitle over the video is, in percent (the L menu's Background). */
   subtitleOpacity: number;
   transcriptTranslation: boolean;
+  /**
+   * The column beside the video (Transcript and Words) shows: on a watch page, or as a
+   * sidebar beside a video that fills the window or the screen. The column's × and the
+   * L menu's switch (menu only, not on the settings page).
+   */
+  transcriptShown: boolean;
   /** Where Lingo runs; `youtubeComments` also needs `youtube`. */
   sites: {
     youtube: boolean;
@@ -92,6 +98,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   subtitleSize: 100,
   subtitleOpacity: 80,
   transcriptTranslation: true,
+  transcriptShown: true,
   sites: {
     youtube: true,
     youtubeComments: true,
@@ -200,6 +207,7 @@ export function mergeSettings(
       v.transcriptTranslation,
       base.transcriptTranslation,
     ),
+    transcriptShown: bool(v.transcriptShown, base.transcriptShown),
     sites: flags(v.sites, base.sites),
     videoOn: flags(v.videoOn, base.videoOn),
     neverRunOn: strings(v.neverRunOn, base.neverRunOn),

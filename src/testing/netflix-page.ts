@@ -94,7 +94,8 @@ export function createTestPage(
     "div",
     {
       class: "watch-video--player-view",
-      style: "position: relative; width: 640px; height: 360px;",
+      // As on netflix.com: the player view fills .watch-video, which fills the window.
+      style: "position: absolute; inset: 0;",
     },
     el(
       "div",
@@ -105,7 +106,11 @@ export function createTestPage(
   );
   const root = el(
     "div",
-    { class: "watch-video", "data-uia": "watch-video" },
+    {
+      class: "watch-video",
+      "data-uia": "watch-video",
+      style: "position: fixed; inset: 0; overflow: hidden;",
+    },
     el("style", {}, text(BAR_CSS)),
     playerView,
   );

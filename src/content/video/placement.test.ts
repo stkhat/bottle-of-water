@@ -13,6 +13,22 @@ const TRANSCRIPT = { left: 1088, top: 56, right: 1440, bottom: 900 };
 const VIEWPORT = { width: 1440, height: 900 };
 
 describe("dictionaryFrame", () => {
+  it("beside the transcript sidebar: its right edge at the sidebar, 72px from the top, 420px tall (mock FullWindow)", () => {
+    // The 1440×900 window: the player 1048px wide, the sidebar 16px in from the edges.
+    const player = { left: 0, top: 0, right: 1048, bottom: 900 };
+    const sidebar = { left: 1064, top: 16, right: 1424, bottom: 884 };
+    expect(dictionaryFrame(player, "sidebar", VIEWPORT, sidebar)).toEqual({
+      left: 704,
+      top: 72,
+      height: 420,
+    });
+    // A short window: it stops 8px above the bottom.
+    expect(
+      dictionaryFrame(player, "sidebar", { width: 1440, height: 400 }, sidebar)
+        .height,
+    ).toBe(320);
+  });
+
   it("in the video: over the right part of the video, 12px into the transcript, above the subtitle (mock Main)", () => {
     expect(dictionaryFrame(PLAYER, "inVideo", VIEWPORT, TRANSCRIPT)).toEqual({
       left: 740,
