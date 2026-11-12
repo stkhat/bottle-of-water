@@ -388,6 +388,12 @@ export function createNetflixAdapter(
     async seek(ms) {
       await bridge.call({ type: "seek", ms });
     },
+    async pause() {
+      await bridge.call({ type: "pause" });
+    },
+    async play() {
+      await bridge.call({ type: "play" });
+    },
     onNavigate(listener) {
       let last = href();
       const check = () => {

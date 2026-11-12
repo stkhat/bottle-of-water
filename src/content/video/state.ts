@@ -22,12 +22,35 @@ export type WordPlace = "subtitle" | "transcript";
 export interface WordRef {
   cue: number;
   span: number;
+  /**
+   * Selected words' phrase instead of one of the cue's spans (`span` is then -1): where
+   * it is in the cue's text and its key.
+   */
+  selected?: { start: number; end: number; key: string };
+}
+
+/** Words selected in a cue: offsets in its text, and where they were selected. */
+export interface SelectedWords {
+  cue: number;
+  start: number;
+  end: number;
+  place: WordPlace;
 }
 
 /** The hover card over a word in the subtitle or the transcript. */
 interface VideoHover {
   ref: WordRef;
   /** Where the word is: a card over a transcript word goes when the list scrolls. */
+  from: WordPlace;
+  anchor: Box;
+  card: TermCard;
+}
+
+/** The card over selected words, which saves them as a phrase (as on articles). */
+interface VideoPhrase {
+  /** The phrase: the dictionary pattern the words stand for, else the words. */
+  ref: WordRef;
+  /** Where the words were selected. */
   from: WordPlace;
   anchor: Box;
   card: TermCard;
@@ -92,6 +115,13 @@ export interface VideoState {
   subtitleTranslation: string;
   hover: VideoHover | null;
   panel: VideoPanel | null;
+  /** The card over words selected in the subtitle or the transcript. */
+  phrase: VideoPhrase | null;
+  /**
+   * Words are selected in the subtitle or the transcript: from the first selection of a
+   * press until the selection goes (the phrase card shows meanwhile, once looked up).
+   */
+  selecting: boolean;
   /** The Lingo menu above the ^ button. */
   menuOpen: boolean;
   /** The player is in fullscreen: no transcript, the subtitle always in the video. */
@@ -130,6 +160,24 @@ export interface VideoApp {
   clickWord(ref: WordRef): void;
   /** The hover card's "+ Learning" / "Known". */
   setHoverStatus(status: TermStatus): void;
+  /** A press on the subtitle's or a transcript card's text began selecting words. */
+  selectStart(from: WordPlace): void;
+  /**
+   * The press that selected ended: the selected words, undefined when none (`boxOf`
+   * measures a part of the cue's text). Returns the whole words of the cue (2–8) they
+   * snap to, which are selected instead; undefined when they do not snap, and the
+   * selection's card then goes.
+   */
+  selectWords(
+    words: SelectedWords | undefined,
+    boxOf: (start: number, end: number) => Box | undefined,
+  ): { start: number; end: number } | undefined;
+  /** The selection card's "+ Learning" / "Known": saves the phrase. */
+  saveSelection(status: TermStatus): void;
+  /** The selection card's "Details": the dictionary window for the phrase. */
+  openSelectionDetails(): void;
+  /** Escape or a press elsewhere: the selection and its card go. */
+  clearSelection(): void;
   /** The window's Learning / Known / Remove. */
   setPanelStatus(status: WordStatus): void;
   speak(): void;
@@ -187,6 +235,8 @@ export function freshState(
     subtitleTranslation: "",
     hover: null,
     panel: null,
+    phrase: null,
+    selecting: false,
     menuOpen: false,
     fullscreen,
     panelTab: "transcript",

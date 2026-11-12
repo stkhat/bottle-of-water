@@ -11,6 +11,8 @@ import { color } from "../styles";
 import { Switch } from "../Switch";
 import { renderTerms, termStyle } from "./terms";
 import { TermSpan } from "./TermSpan";
+import type { SelectedOffsets } from "../selection-in-root";
+import { useTextSelection, type SelectedText } from "./text-selection";
 
 export interface TranscriptControlsProps {
   showTranslation: boolean;
@@ -36,6 +38,13 @@ export interface TranscriptProps {
   onWordLeave: () => void;
   /** A word was clicked: its dictionary window opens. */
   onWordClick: (cue: number, span: number) => void;
+  /** A press on a card's original began selecting words in it. */
+  onSelectStart?: (cue: number) => void;
+  /** Words were selected in a card's original (see `TextSelectionProps.onSelect`). */
+  onSelect?: (
+    cue: number,
+    selected: SelectedText | undefined,
+  ) => SelectedOffsets | undefined;
   /** The list scrolled (a word's card would no longer be by its word). */
   onListScroll?: () => void;
   /** A word's card shows: the playing card does not pull the list along meanwhile. */
@@ -159,6 +168,11 @@ function Card(
   const { index, cue, now } = props;
   const time = formatTime(cue.startMs);
   const translation = props.translations[index] ?? "";
+  const selection = useTextSelection<HTMLSpanElement>({
+    onSelectStart: () => props.onSelectStart?.(index),
+    onSelect:
+      props.onSelect && ((selected) => props.onSelect?.(index, selected)),
+  });
   const words = renderTerms(
     cue.text,
     props.spans[index] ?? null,
@@ -170,7 +184,9 @@ function Card(
           index={i}
           onEnter={(element) => props.onWordEnter(index, i, element)}
           onLeave={props.onWordLeave}
-          onClick={() => props.onWordClick(index, i)}
+          onClick={() => {
+            if (!selection.selected()) props.onWordClick(index, i);
+          }}
           stopClick
           style={{
             ...(style && { ...style, padding: "0 2px", borderRadius: "4px" }),
@@ -181,12 +197,23 @@ function Card(
       );
     },
   );
+  // A div acting as a button, not a <button>: Firefox selects no text inside a button.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       data-cue={index}
       aria-current={now ? "true" : undefined}
-      onClick={() => props.onSeek(index)}
+      onClick={() => {
+        // A drag over the text selects words: no seek.
+        if (!selection.selected()) props.onSeek(index);
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        props.onSeek(index);
+      }}
       style={now ? CARD_NOW : CARD}
     >
       {now ? (
@@ -216,8 +243,10 @@ function Card(
         </span>
       )}
       <span
+        ref={selection.ref}
         lang={props.learningLang}
-        style={{ fontSize: "14px", lineHeight: 1.5 }}
+        onPointerDown={selection.onPointerDown}
+        style={{ fontSize: "14px", lineHeight: 1.5, userSelect: "text" }}
       >
         {words}
       </span>
@@ -233,6 +262,6 @@ function Card(
           {translation}
         </span>
       )}
-    </button>
+    </div>
   );
 }

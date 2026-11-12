@@ -86,6 +86,9 @@ export interface PlatformAdapter {
    */
   loadCaptions(request: CaptionRequest): Promise<VideoCaptions | undefined>;
   seek(ms: number): Promise<void>;
+  /** Pauses and plays the video through the site's player (spec: "Pausing while Lingo is in use"). */
+  pause(): Promise<void>;
+  play(): Promise<void>;
   /** Calls `listener` after the site moved to another page or video; returns an unsubscribe. */
   onNavigate(listener: () => void): () => void;
   hideSiteCaptions(hidden: boolean): void;

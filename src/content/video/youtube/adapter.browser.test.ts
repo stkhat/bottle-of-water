@@ -148,6 +148,12 @@ describe("the watch page", () => {
     expect(page.player.fake.seekTo).toEqual([1.5]);
   });
 
+  it("pauses and plays through the player", async () => {
+    await adapter.pause();
+    await adapter.play();
+    expect(page.player.fake.playback).toEqual(["pause", "play"]);
+  });
+
   it("hides YouTube's captions and shows them again", () => {
     const display = () => getComputedStyle(page.captions).display;
     expect(display()).toBe("block");

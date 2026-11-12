@@ -58,6 +58,68 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
   ).toEqual([]);
 });
 
+test("words selected in the transcript are saved as a phrase from their card", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await routeYouTube(context);
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_WATCH);
+  const transcript = page.getByRole("complementary", {
+    name: en["app.name"],
+  });
+  const card = transcript.getByRole("button", { name: LINE });
+  await card.click({ position: ON_TIME });
+  // Playing, the card scrolls into the middle of the list (the drag waits for it to
+  // stop); paused, the list does not follow the playing line during the drag.
+  await expect(card).toHaveAttribute("aria-current", "true");
+  await page.evaluate(() =>
+    document.querySelector<HTMLVideoElement>("#movie_player video")!.pause(),
+  );
+  const phrase = card.locator("[data-span]", {
+    hasText: /^extraordinary evidence$/,
+  });
+  await expect(phrase).toHaveCount(0);
+  await card
+    .getByText("extraordinary", { exact: true })
+    .dragTo(card.getByText("evidence", { exact: true }));
+
+  const selection = page.locator("lingo-video");
+  await expect(selection).toContainText(en["lookup.status.selected"]);
+  await selection
+    .getByRole("button", { name: en["hover.addLearning"] })
+    .click();
+  await expect(selection).not.toContainText(en["lookup.status.selected"]);
+  // Classified again: the phrase is one term.
+  await expect(phrase).toHaveCount(1);
+});
+
+test("the video pauses while the dictionary window is open and plays again once it closes", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await routeYouTube(context);
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_WATCH);
+  const card = page
+    .getByRole("complementary", { name: en["app.name"] })
+    .getByRole("button", { name: LINE });
+  await card.click({ position: ON_TIME });
+  const video = page.locator("#movie_player video");
+  const paused = () => video.evaluate((v: HTMLVideoElement) => v.paused);
+  await video.evaluate((v: HTMLVideoElement) => v.play());
+  await expect.poll(paused).toBe(false);
+
+  await card.getByText("creativity", { exact: true }).click();
+  const window = page.getByRole("complementary", { name: en["dict.window"] });
+  await expect(window).toBeVisible();
+  await expect.poll(paused).toBe(true);
+  await window.getByRole("button", { name: en["dict.close"] }).click();
+  await expect.poll(paused).toBe(false);
+});
+
 test("a Short shows the subtitle over it and highlights its comments panel", async ({
   context,
   extensionId,

@@ -135,6 +135,12 @@ describe("answering the content script", () => {
     expect(page.fake.log.seek).toEqual([1500]);
   });
 
+  it("pauses and plays through the player's API", async () => {
+    expect((await call({ type: "pause" })).ok).toBe(true);
+    expect((await call({ type: "play" })).ok).toBe(true);
+    expect(page.fake.log.playback).toEqual(["pause", "play"]);
+  });
+
   it("fails to seek without the player API", async () => {
     delete (window as unknown as Record<string, unknown>).netflix;
     expect(await call({ type: "seek", ms: 1500 })).toEqual(

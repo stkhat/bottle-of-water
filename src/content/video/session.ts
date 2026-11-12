@@ -12,7 +12,7 @@ import {
   unsupportedPage,
   type PageSummary,
 } from "../../messaging/page-protocol";
-import type { SourceInput } from "../../messaging/protocol";
+import type { SaveTermInput, SourceInput } from "../../messaging/protocol";
 import type { TermCard } from "../lookup/describe";
 import {
   createLookup,
@@ -27,9 +27,11 @@ import type { TranslationPair } from "../translate/queue";
 import { builtInTranslatorAvailable } from "../translate/translator";
 import { captionCards, type TimedTranslation } from "./captions";
 import { createCards } from "./cards";
+import { holdPlayback } from "./hold";
 import { followPlayback, playingAt } from "./playback";
 import type { PlatformAdapter } from "./platform";
 import { createRecorder } from "./recorder";
+import { createSelection } from "./selection";
 import {
   freshState,
   type VideoApp,
@@ -113,6 +115,47 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     onPanelOpen: deps.onPanelOpen,
   });
 
+  /** What saving a term from the cue sends besides its key, status and kind. */
+  function termInput(
+    index: number,
+    display: string,
+  ): Omit<SaveTermInput, "status" | "key" | "kind"> | undefined {
+    const { cues, translations, current, subtitleTranslation } = store.get();
+    const cue = cues[index];
+    if (!cue) return undefined;
+    const translation =
+      translations[index] || (current === index ? subtitleTranslation : "");
+    return {
+      lang: lang(),
+      display,
+      source: source(),
+      sentence: flat(cue.text),
+      ...(translation ? { translation } : {}),
+      pos: { timeMs: cue.startMs },
+    };
+  }
+
+  const selection = createSelection({
+    send: deps.send,
+    store,
+    lookup,
+    lang,
+    flat,
+    termInput,
+    dismissHover: () => cards.dismissHover(),
+    async saved(key, cue, status) {
+      const w = watch;
+      if (!w) return;
+      w.recorder.savedFrom(key, cue);
+      w.summaries.note([[key, status]]);
+      deps.onTermsChanged?.();
+      // The phrase may be in any cue: classify again to highlight it.
+      await analyzeAll(w);
+    },
+  });
+
+  const hold = holdPlayback({ store, adapter });
+
   /** Our subtitles replace the site's while there are some and Lingo is on (fullscreen too). */
   function syncSiteCaptions() {
     const { status, enabled } = store.get();
@@ -125,6 +168,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     watch?.controller.abort();
     watch = undefined;
     cards.dismissHover();
+    selection.clear();
     // The L button starts where it was left on this platform.
     store.set(
       freshState(
@@ -135,6 +179,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         store.get().dataNote,
       ),
     );
+    hold.reset();
     if (!id) {
       adapter.hideSiteCaptions(false);
       return;
@@ -237,7 +282,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       now.card !== state.card ||
       now.subtitleTranslation !== state.subtitleTranslation
     ) {
-      if (now.line !== state.line) cards.lineChanged();
+      if (now.line !== state.line) {
+        cards.lineChanged();
+        selection.lineChanged();
+      }
       store.set(now);
     }
     if (now.current >= 0 && w.recorder.play(now.current))
@@ -344,21 +392,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const { key } = card;
     const sent = await sendStatus(deps.send, card, to, () => {
       const found = cards.spanOf(ref);
-      if (!found) return undefined;
-      const { translations, current, subtitleTranslation } = store.get();
-      const translation =
-        translations[ref.cue] ||
-        (current === ref.cue ? subtitleTranslation : "");
-      return {
-        lang: lang(),
-        key,
-        display: found.surface,
-        kind: card.kind,
-        source: source(),
-        sentence: flat(found.cue.text),
-        ...(translation ? { translation } : {}),
-        pos: { timeMs: found.cue.startMs },
-      };
+      const input = found && termInput(ref.cue, found.surface);
+      return input && { ...input, key, kind: card.kind };
     });
     if (!sent) return;
     if (to === "new") {
@@ -371,8 +406,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     } else {
       if (card.status === "new") w.recorder.savedFrom(key, ref.cue);
       if (watch !== w) return;
-      recategorize((s) => (sameTerm(s, card) ? to : undefined));
       w.summaries.note([[key, to]]);
+      // Selected words' phrase may be in any cue: classify again to find it.
+      if (card.status === "new" && ref.selected) await analyzeAll(w);
+      else recategorize((s) => (sameTerm(s, card) ? to : undefined));
     }
     deps.onTermsChanged?.();
     await cards.refresh(card);
@@ -395,6 +432,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     setEnabled(on) {
       if (store.get().enabled === on) return;
       cards.dismissHover();
+      selection.clear();
       store.set({ enabled: on, ...(!on && { panel: null }) });
       if (settings.videoOn[platform] !== on)
         changeSettings({ videoOn: { [platform]: on } });
@@ -418,6 +456,17 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (shown)
         withWatch((w) => changeStatus(w, shown.ref, shown.card, status));
     },
+    selectStart: selection.start,
+    selectWords: selection.select,
+    saveSelection(status) {
+      const task = selection.saveTask(status);
+      if (task) run(task);
+    },
+    openSelectionDetails() {
+      const ref = selection.takeForDetails();
+      if (ref) cards.clickWord(ref);
+    },
+    clearSelection: selection.clear,
     setPanelStatus(status) {
       const panel = store.get().panel;
       if (panel)
@@ -446,6 +495,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     setFullscreen(on) {
       if (store.get().fullscreen === on) return;
       cards.dismissHover();
+      selection.clear();
       store.set({ fullscreen: on });
       if (store.get().status === "ready") syncSiteCaptions();
     },
@@ -504,6 +554,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       lookup.stop();
       data.stop();
       cards.dismissHover();
+      selection.clear();
+      hold.stop();
       watch?.controller.abort();
       watch = undefined;
       adapter.hideSiteCaptions(false);

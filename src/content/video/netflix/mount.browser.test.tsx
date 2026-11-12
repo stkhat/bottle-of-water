@@ -29,6 +29,8 @@ const STATE: VideoState = {
   subtitleTranslation: "",
   hover: null,
   panel: null,
+  phrase: null,
+  selecting: false,
   menuOpen: false,
   fullscreen: false,
   panelTab: "transcript",

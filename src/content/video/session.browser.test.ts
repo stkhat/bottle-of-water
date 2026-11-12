@@ -67,7 +67,12 @@ function fakeSite(
   let id: string | undefined = "vid1";
   let ad = false;
   const listeners = new Set<() => void>();
-  const log = { hidden: [] as boolean[], seeks: [] as number[], loads: 0 };
+  const log = {
+    hidden: [] as boolean[],
+    seeks: [] as number[],
+    playback: [] as ("pause" | "play")[],
+    loads: 0,
+  };
   const adapter: PlatformAdapter = {
     platform: "youtube",
     videoId: () => id,
@@ -87,6 +92,14 @@ function fakeSite(
     async seek(ms) {
       log.seeks.push(ms);
       video.currentTime = ms / 1000;
+    },
+    async pause() {
+      log.playback.push("pause");
+      video.pause();
+    },
+    async play() {
+      log.playback.push("play");
+      await video.play();
     },
     onNavigate(listener) {
       listeners.add(listener);
@@ -1032,6 +1045,255 @@ describe("words in the subtitles", () => {
     const { app, site } = await start();
     app.seekTo(2500);
     expect(site.log.seeks).toEqual([2500]);
+  });
+});
+
+describe("selecting words", () => {
+  const MIND: Cue[] = [
+    { startMs: 0, endMs: 1000, text: "She made up her mind." },
+    { startMs: 1000, endMs: 2000, text: "Knead the dough." },
+    { startMs: 2500, endMs: 3500, text: "Later he made up\nhis mind too." },
+  ];
+  const FIRST = MIND[0]!.text;
+  const at = (cue: number, word: string) => MIND[cue]!.text.indexOf(word);
+  /** Words of cue 0 from inside "made" to inside "mind". */
+  const madeUpHerMind = (place: "subtitle" | "transcript" = "transcript") => ({
+    cue: 0,
+    start: at(0, "made") + 1,
+    end: at(0, "mind") + 2,
+    place,
+  });
+  const boxOf = () => BOX;
+  /** The phrases of each cue, as written. */
+  const phrases = (state: () => VideoState) =>
+    state().spans.map((list, cue) =>
+      (list ?? [])
+        .filter((s) => s.kind === "phrase" && s.category === "learning")
+        .map((s) => MIND[cue]!.text.slice(s.start, s.end)),
+    );
+
+  it("snaps to whole words and shows the card of the pattern they stand for", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    expect(state().selecting).toBe(true);
+    expect(app.selectWords(madeUpHerMind(), boxOf)).toEqual({
+      start: at(0, "made"),
+      end: at(0, "mind") + "mind".length,
+    });
+    await expect
+      .poll(() => state().phrase?.card.key)
+      .toBe("make up one's mind");
+    expect(state().phrase).toMatchObject({
+      from: "transcript",
+      anchor: BOX,
+      ref: {
+        cue: 0,
+        span: -1,
+        selected: { key: "make up one's mind", start: 4, end: 20 },
+      },
+      card: { kind: "phrase", status: "new" },
+    });
+    expect(bg.sent("matchSelection")).toEqual([
+      {
+        type: "matchSelection",
+        lang: "en",
+        text: FIRST,
+        start: at(0, "made"),
+        end: at(0, "mind") + "mind".length,
+      },
+    ]);
+  });
+
+  it("saves the phrase with the line, its time and translation; the cues then show it", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    app.saveSelection("learning");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      kind: "phrase",
+      status: "learning",
+      sentence: FIRST,
+      translation: "イーストはぴりっとした匂い。",
+      pos: { timeMs: 0 },
+      source: { platform: "youtube", title: "Title of vid1" },
+    });
+    await expect.poll(() => state().phrase).toBeNull();
+    expect(state().selecting).toBe(false);
+    // Found again with other words in the slot, across a line break too.
+    await expect
+      .poll(() => phrases(state))
+      .toEqual([["made up her mind"], [], ["made up\nhis mind"]]);
+  });
+
+  it("Details opens the phrase's window, which saves it", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    app.openSelectionDetails();
+    expect(state()).toMatchObject({ phrase: null, selecting: false });
+    await expect.poll(() => state().panel?.card.key).toBe("make up one's mind");
+    expect(state().panel?.card.status).toBe("new");
+    app.setPanelStatus("known");
+    await expect.poll(() => state().panel?.card.status).toBe("known");
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      kind: "phrase",
+      status: "known",
+      sentence: FIRST,
+    });
+    await expect
+      .poll(() => state().spans[2]!.some((s) => s.key === "make up one's mind"))
+      .toBe(true);
+  });
+
+  it("takes 2 to 8 words of one subtitle line, and drops the selection when the line changes", async () => {
+    const { state, app, video } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => state().line).toBe(0);
+    app.selectStart("subtitle");
+    const one = { cue: 0, start: at(0, "made"), end: at(0, "made") + 2 };
+    expect(app.selectWords({ ...one, place: "subtitle" }, boxOf)).toBe(
+      undefined,
+    );
+    expect(state().selecting).toBe(false);
+    // Not the line playing.
+    app.selectStart("subtitle");
+    expect(
+      app.selectWords(
+        { cue: 2, start: 0, end: at(2, "he") + 2, place: "subtitle" },
+        boxOf,
+      ),
+    ).toBe(undefined);
+
+    app.selectStart("subtitle");
+    expect(app.selectWords(madeUpHerMind("subtitle"), boxOf)).toBeDefined();
+    await expect.poll(() => state().phrase).not.toBeNull();
+    await seekTo(video, 1.2);
+    await expect.poll(() => state().phrase).toBeNull();
+    expect(state().selecting).toBe(false);
+  });
+
+  it("shows no hover card while words are selected, and drops the selection on request", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.enterWord(refOf(state, 1, "knead"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.selectStart("transcript");
+    expect(state().hover).toBeNull();
+    app.enterWord(refOf(state, 1, "knead"), BOX);
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    expect(state().hover).toBeNull();
+    app.clearSelection();
+    expect(state()).toMatchObject({ phrase: null, selecting: false });
+  });
+});
+
+describe("pausing while Lingo is in use", () => {
+  /** Plays from the start, slowly, so the first line lasts while a card opens. */
+  async function playSlowly(video: HTMLVideoElement) {
+    await seekTo(video, 0);
+    video.playbackRate = 0.25;
+    await video.play();
+  }
+  const resumeDelay = () => new Promise((resolve) => setTimeout(resolve, 300));
+
+  it("pauses the playing video while a word's hover card shows and plays it after it hides", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    await playSlowly(video);
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    await expect.poll(() => video.paused).toBe(true);
+    app.leaveWord();
+    await expect.poll(() => state().hover).toBeNull();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+    expect(video.paused).toBe(false);
+  });
+
+  it("stays paused from the hover card to the dictionary window, and plays once it closes", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    await playSlowly(video);
+    const ref = refOf(state, 0, "tangy");
+    app.enterWord(ref, BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.clickWord(ref);
+    await expect.poll(() => state().panel).not.toBeNull();
+    await resumeDelay();
+    expect(site.log.playback).toEqual(["pause"]);
+    expect(video.paused).toBe(true);
+    app.closePanel();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+  });
+
+  it("pauses while words are selected and plays once the selection is dropped", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    await playSlowly(video);
+    app.selectStart("subtitle");
+    await expect.poll(() => video.paused).toBe(true);
+    app.clearSelection();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+  });
+
+  it("leaves playback to the user once they pressed play, and a paused video paused", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    const ref = refOf(state, 0, "tangy");
+    app.clickWord(ref);
+    await expect.poll(() => state().panel).not.toBeNull();
+    app.closePanel();
+    await resumeDelay();
+    expect(site.log.playback).toEqual([]);
+
+    await playSlowly(video);
+    app.clickWord(ref);
+    await expect.poll(() => video.paused).toBe(true);
+    await video.play();
+    video.pause();
+    app.closePanel();
+    await resumeDelay();
+    expect(site.log.playback).toEqual(["pause"]);
+    expect(video.paused).toBe(true);
+  });
+
+  it("does not pause an ad, nor play the next video", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    await classified(state);
+    const ref = refOf(state, 0, "tangy");
+    await playSlowly(video);
+    site.setAd(true);
+    app.clickWord(ref);
+    await expect.poll(() => state().panel).not.toBeNull();
+    expect(video.paused).toBe(false);
+    app.closePanel();
+    site.setAd(false);
+
+    app.clickWord(ref);
+    await expect.poll(() => video.paused).toBe(true);
+    site.navigate("vid2");
+    await resumeDelay();
+    expect(site.log.playback).toEqual(["pause"]);
   });
 });
 

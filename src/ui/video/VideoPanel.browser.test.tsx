@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
-import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
+import {
+  addPageStyle,
+  cleanUpMounts,
+  mountInShadowRoot,
+} from "../../testing/shadow-root";
+import { selectedOffsets } from "../selection-in-root";
 import { VideoPanel, type VideoPanelProps } from "./VideoPanel";
 import type { WordRow } from "./WordsList";
 
@@ -97,7 +102,7 @@ const base: VideoPanelProps<WordRow> = {
 afterEach(cleanUpMounts);
 
 const cards = (screen: { container: HTMLElement }) => [
-  ...screen.container.querySelectorAll<HTMLButtonElement>("[data-cue]"),
+  ...screen.container.querySelectorAll<HTMLElement>("[data-cue]"),
 ];
 
 describe("the Transcript tab", () => {
@@ -216,6 +221,19 @@ describe("the Transcript tab", () => {
     expect(onSeek).toHaveBeenCalledWith(3);
   });
 
+  test("Enter or Space on a focused card seeks to it", async () => {
+    const onSeek = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} onSeek={onSeek} />,
+    );
+    cards(screen)[3]!.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onSeek).toHaveBeenLastCalledWith(3);
+    cards(screen)[1]!.focus();
+    await userEvent.keyboard(" ");
+    expect(onSeek).toHaveBeenLastCalledWith(1);
+  });
+
   test("a word tells when the pointer enters and leaves it; clicking it opens it, not a seek", async () => {
     const onWordEnter = vi.fn();
     const onWordLeave = vi.fn();
@@ -258,6 +276,75 @@ describe("the Transcript tab", () => {
     bunch.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onWordEnter).not.toHaveBeenCalled();
     expect(onWordClick).not.toHaveBeenCalled();
+  });
+
+  test("selecting words in a card's line tells which card and where, selects the whole words, and does not seek", async () => {
+    // The site's own style, which would carry down into the transcript.
+    addPageStyle("body { user-select: none; -webkit-user-select: none }");
+    const text = CUES[2]!.text;
+    const onSelectStart = vi.fn();
+    const whole = { from: text.indexOf("tried"), to: text.indexOf("of") + 2 };
+    const onSelect = vi.fn(() => whole);
+    const onSeek = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel
+        {...base}
+        onSelectStart={onSelectStart}
+        onSelect={onSelect}
+        onSeek={onSeek}
+      />,
+    );
+    const line = cards(screen)[2]!.querySelector<HTMLElement>("[lang=en]")!;
+    const bunch = screen.getByText("bunch").element() as HTMLElement;
+    const { height } = line.getBoundingClientRect();
+    // From inside "I've" to the middle of "bunch".
+    await userEvent.dragAndDrop(
+      page.elementLocator(line),
+      page.elementLocator(bunch),
+      { sourcePosition: { x: 6, y: height / 2 } },
+    );
+    await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+    expect(onSelectStart).toHaveBeenCalledExactlyOnceWith(2);
+    expect(onSelect).toHaveBeenCalledWith(
+      2,
+      expect.objectContaining({ from: expect.any(Number) }),
+    );
+    const { from, to } = (onSelect.mock.calls[0] as unknown[])[1] as {
+      from: number;
+      to: number;
+    };
+    expect(from).toBeLessThan(text.indexOf("tried"));
+    expect(to).toBeGreaterThan(text.indexOf("bunch"));
+    expect(to).toBeLessThan(text.indexOf("bunch") + "bunch".length);
+    expect(selectedOffsets(line)).toEqual(whole);
+    expect(onSeek).not.toHaveBeenCalled();
+  });
+
+  test("a drag inside a word of a card opens nothing", async () => {
+    const onSelect = vi.fn(() => undefined);
+    const onWordClick = vi.fn();
+    const onSeek = vi.fn();
+    const screen = await mountInShadowRoot(
+      <VideoPanel
+        {...base}
+        onSelect={onSelect}
+        onWordClick={onWordClick}
+        onSeek={onSeek}
+      />,
+    );
+    const bunch = screen.getByText("bunch").element() as HTMLElement;
+    const { width, height } = bunch.getBoundingClientRect();
+    await userEvent.dragAndDrop(
+      page.elementLocator(bunch),
+      page.elementLocator(bunch),
+      {
+        sourcePosition: { x: 2, y: height / 2 },
+        targetPosition: { x: width - 2, y: height / 2 },
+      },
+    );
+    await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+    expect(onWordClick).not.toHaveBeenCalled();
+    expect(onSeek).not.toHaveBeenCalled();
   });
 
   test("tells when its list scrolls", async () => {

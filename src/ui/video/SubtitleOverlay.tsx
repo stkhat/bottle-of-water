@@ -5,8 +5,9 @@ import { t } from "../../i18n/t";
 import { color, root } from "../styles";
 import { renderTerms, termStyle } from "./terms";
 import { TermSpan } from "./TermSpan";
+import { useTextSelection, type TextSelectionProps } from "./text-selection";
 
-export interface SubtitleOverlayProps {
+export interface SubtitleOverlayProps extends TextSelectionProps {
   /**
    * Over the video (mock Main: dark boxes), in a large light box under it, or over the
    * video in fullscreen (mock Fullscreen: larger dark boxes), or over a vertical video
@@ -205,6 +206,7 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
   const look = LOOK[props.variant];
   const scale = props.size / 100;
   const alpha = look.colors === "onVideo" ? props.opacity / 100 : undefined;
+  const selection = useTextSelection<HTMLParagraphElement>(props);
   const words = renderTerms(props.text, props.spans, (span, index, text) => {
     const style = termStyle(span.category, props.highlight, look.colors);
     const selected = props.selected === index;
@@ -214,7 +216,9 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
         index={index}
         onEnter={(element) => props.onWordEnter(index, element)}
         onLeave={props.onWordLeave}
-        onClick={() => props.onWordClick(index)}
+        onClick={() => {
+          if (!selection.selected()) props.onWordClick(index);
+        }}
         style={{
           // As in the mock: a phrase is not broken across lines.
           display: "inline-block",
@@ -237,7 +241,13 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
       aria-label={t("video.subtitle")}
       style={root(look.box as Style)}
     >
-      <p lang={props.learningLang} style={adjust(look.line, scale, alpha)}>
+      <p
+        ref={selection.ref}
+        lang={props.learningLang}
+        onPointerDown={selection.onPointerDown}
+        // Explicitly: the player's `user-select: none` would carry down.
+        style={{ ...adjust(look.line, scale, alpha), userSelect: "text" }}
+      >
         {words}
       </p>
       {props.showTranslation && props.translation !== "" && (

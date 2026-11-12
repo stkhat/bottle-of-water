@@ -8,8 +8,8 @@ import type { Lookup } from "../lookup/lookup";
 import { warn } from "../lookup/warn";
 import type { Store } from "../store";
 import { describeRef } from "./cards";
+import { selectionKey } from "../../core/selection";
 import {
-  selectionKey,
   snapSelection,
   type BlockIndex,
   type Snapped,
@@ -114,7 +114,7 @@ export function createSelection(o: {
       span: {
         start,
         end,
-        key: match?.key ?? selectionKey(snapped),
+        key: match?.key ?? selectionKey(snapped.block.text, snapped.spans),
         kind: "phrase",
         category: "new",
       },
@@ -150,7 +150,7 @@ export function createSelection(o: {
     await o.send({
       type: "saveTerm",
       lang,
-      key: match?.key ?? selectionKey(snapped),
+      key: match?.key ?? selectionKey(snapped.block.text, snapped.spans),
       display: collapseSpaces(block.text.slice(start, end)),
       kind: "phrase",
       status,

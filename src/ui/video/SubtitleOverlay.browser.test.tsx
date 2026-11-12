@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
-import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
+import {
+  addPageStyle,
+  cleanUpMounts,
+  mountInShadowRoot,
+} from "../../testing/shadow-root";
+import { selectedOffsets } from "../selection-in-root";
 import { SubtitleOverlay, type SubtitleOverlayProps } from "./SubtitleOverlay";
 
 const TEXT =
@@ -294,6 +299,90 @@ describe("SubtitleOverlay", () => {
         "rgba(0, 0, 0, 0)",
       );
       expect(line.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    });
+  });
+
+  describe("selecting words", () => {
+    const line = (screen: { container: HTMLElement }) =>
+      screen.container.querySelector<HTMLElement>("[lang=en]")!;
+    const drag = (from: HTMLElement, to: HTMLElement) =>
+      userEvent.dragAndDrop(page.elementLocator(from), page.elementLocator(to));
+
+    test("selects words over a player whose text is not selectable, and selects the whole words it is told", async () => {
+      // The players' own style, which would carry down into the subtitle.
+      addPageStyle("body { user-select: none; -webkit-user-select: none }");
+      const onSelectStart = vi.fn();
+      const whole = { from: at("today"), to: at("bread") + "bread".length };
+      const onSelect = vi.fn(() => whole);
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay
+          {...base}
+          onSelectStart={onSelectStart}
+          onSelect={onSelect}
+        />,
+      );
+      await drag(word(screen, "today"), word(screen, "bread"));
+      await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+      expect(onSelectStart).toHaveBeenCalledOnce();
+      const selected = (onSelect.mock.calls[0] as unknown[])[0] as {
+        from: number;
+        to: number;
+        boxOf(from: number, to: number): unknown;
+      };
+      // From inside "today" to inside "bread".
+      expect(selected.from).toBeGreaterThan(at("today"));
+      expect(selected.from).toBeLessThan(at("today") + "today".length);
+      expect(selected.to).toBeGreaterThan(at("bread"));
+      expect(selected.to).toBeLessThan(at("bread") + "bread".length);
+      // The box of the words' first line, inside the line's box.
+      const box = selected.boxOf(whole.from, whole.to) as DOMRect;
+      const lineBox = line(screen).getBoundingClientRect();
+      expect(box.left).toBeGreaterThanOrEqual(lineBox.left);
+      expect(box.right).toBeLessThanOrEqual(lineBox.right);
+      expect(selectedOffsets(line(screen))).toEqual(whole);
+    });
+
+    test("a drag inside a word opens nothing", async () => {
+      const onSelect = vi.fn(() => undefined);
+      const onWordClick = vi.fn();
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay
+          {...base}
+          onSelect={onSelect}
+          onWordClick={onWordClick}
+        />,
+      );
+      const bread = word(screen, "bread");
+      const { width, height } = bread.getBoundingClientRect();
+      await userEvent.dragAndDrop(
+        page.elementLocator(bread),
+        page.elementLocator(bread),
+        {
+          sourcePosition: { x: 4, y: height / 2 },
+          targetPosition: { x: width - 4, y: height / 2 },
+        },
+      );
+      await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+      expect(onSelect.mock.calls[0]).toEqual([
+        expect.objectContaining({ from: expect.any(Number) }),
+      ]);
+      expect(onWordClick).not.toHaveBeenCalled();
+    });
+
+    test("a click selects nothing and opens the word", async () => {
+      const onSelect = vi.fn(() => undefined);
+      const onWordClick = vi.fn();
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay
+          {...base}
+          onSelect={onSelect}
+          onWordClick={onWordClick}
+        />,
+      );
+      await userEvent.click(word(screen, "bread"));
+      await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+      expect(onSelect).toHaveBeenCalledWith(undefined);
+      expect(onWordClick).toHaveBeenCalledWith(2);
     });
   });
 });

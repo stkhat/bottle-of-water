@@ -270,6 +270,12 @@ export function createYouTubeAdapter(
     async seek(ms) {
       await call({ type: "seek", seconds: ms / 1000 });
     },
+    async pause() {
+      await call({ type: "pause" });
+    },
+    async play() {
+      await call({ type: "play" });
+    },
     onNavigate(listener) {
       const handler = () => listener();
       document.addEventListener("yt-navigate-finish", handler);

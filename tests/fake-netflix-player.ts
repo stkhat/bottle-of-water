@@ -39,6 +39,8 @@ export const FIXTURE_METADATA = {
 /** What the fake records, on `window.lingoFakeNetflix.log`. */
 interface FakeNetflixLog {
   seek: number[];
+  /** `pause` and `play` calls, in order. */
+  playback: ("pause" | "play")[];
 }
 
 export interface FakeNetflixControl {
@@ -54,13 +56,24 @@ export interface FakeNetflixControl {
 export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
   let movieId = options.movieId;
   const metadata: Record<string, unknown> = {};
-  const log: FakeNetflixLog = { seek: [] };
+  const log: FakeNetflixLog = { seek: [], playback: [] };
 
   const sessionPlayer = {
     seek(ms: number) {
       log.seek.push(ms);
       const video = document.querySelector("video");
       if (video) video.currentTime = ms / 1000;
+    },
+    pause() {
+      log.playback.push("pause");
+      document.querySelector("video")?.pause();
+    },
+    play() {
+      log.playback.push("play");
+      void document
+        .querySelector("video")
+        ?.play()
+        .catch(() => {});
     },
     getMovieId: () => Number(movieId),
   };

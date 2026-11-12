@@ -20,6 +20,8 @@ export interface FakePlayerLog {
   setOption: unknown[][];
   unloadModule: string[];
   seekTo: number[];
+  /** `pauseVideo` and `playVideo` calls, in order. */
+  playback: ("pause" | "play")[];
   requests: string[];
 }
 
@@ -58,6 +60,7 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       setOption: [],
       unloadModule: [],
       seekTo: [],
+      playback: [],
       requests: [],
     };
 
@@ -121,6 +124,14 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       seekTo(seconds: number) {
         log.seekTo.push(seconds);
         if (video) video.currentTime = seconds;
+      },
+      pauseVideo() {
+        log.playback.push("pause");
+        video?.pause();
+      },
+      playVideo() {
+        log.playback.push("play");
+        void video?.play().catch(() => {});
       },
       /** Switches to another video as YouTube's SPA navigation does. */
       fakeNavigate(next: {
