@@ -51,9 +51,13 @@ export interface PageBridge<
   Results extends Record<Call["type"], unknown>,
   Event,
 > {
-  /** Asks the page script; rejects when it does not answer in time (not installed). */
+  /**
+   * Asks the page script; rejects when it does not answer in time (not installed).
+   * `timeoutMs` overrides the bridge's wait for calls that go over the network.
+   */
   call<T extends Call["type"]>(
     call: Extract<Call, { type: T }>,
+    timeoutMs?: number,
   ): Promise<Results[T]>;
   /** Calls `listener` with every event the page script posts. */
   onEvent(listener: (event: Event) => void): () => void;
@@ -92,13 +96,13 @@ export function createPageBridge<
   window.addEventListener("message", onMessage);
 
   return {
-    call(call) {
+    call(call, wait = timeoutMs) {
       const id = crypto.randomUUID();
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id);
           reject(new Error(`No answer from the page to ${call.type}`));
-        }, timeoutMs);
+        }, wait);
         pending.set(id, {
           resolve(value) {
             clearTimeout(timer);

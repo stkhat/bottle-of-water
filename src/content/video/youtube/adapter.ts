@@ -29,11 +29,19 @@ export interface YouTubeAdapterOptions {
   playerRequestWaitMs?: number;
   /** How long to wait for the player's request after asking for a track. */
   captureTimeoutMs?: number;
+  /** How long to wait for one fetch of a track through the page script. */
+  fetchTimeoutMs?: number;
   pollMs?: number;
 }
 
 /** How long to wait for the player response of the current video. */
 const PLAYER_RESPONSE_TIMEOUT_MS = 30_000;
+/**
+ * A track fetch goes over the network: it gets longer than the page channel's default,
+ * and a second try before the video counts as one without captions.
+ */
+const FETCH_TIMEOUT_MS = 20_000;
+const FETCH_ATTEMPTS = 2;
 /** Videos whose last captured request is kept (the current one and a few before). */
 const KEEP_CAPTURES = 4;
 /** A Short's path and its video id. */
@@ -56,6 +64,7 @@ export function createYouTubeAdapter(
   const pollMs = options.pollMs ?? 250;
   const playerRequestWaitMs = options.playerRequestWaitMs ?? 1500;
   const captureTimeoutMs = options.captureTimeoutMs ?? 10_000;
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? FETCH_TIMEOUT_MS;
   const bridge = createPageBridge<PageCall, PageCallResults, TimedtextMessage>({
     channel: CHANNEL,
     isEvent: isTimedtextMessage,
@@ -88,8 +97,23 @@ export function createYouTubeAdapter(
   /** Sends a call to the page script, for the player this page shows. */
   const call = <T extends PageCall["type"]>(
     message: Extract<PageCall, { type: T }>,
+    timeoutMs?: number,
   ): Promise<PageCallResults[T]> =>
-    bridge.call<T>({ ...message, shorts: onShorts() });
+    bridge.call<T>({ ...message, shorts: onShorts() }, timeoutMs);
+
+  /** Fetches a track's body through the page script, trying once more if that fails. */
+  async function fetchTimedtext(url: string): Promise<string> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await call({ type: "fetchTimedtext", url }, fetchTimeoutMs);
+      } catch (error) {
+        // Aborted when Lingo leaves the page: nobody waits for the track.
+        const aborted =
+          error instanceof DOMException && error.name === "AbortError";
+        if (aborted || attempt >= FETCH_ATTEMPTS) throw error;
+      }
+    }
+  }
 
   /** The player response once it is the current video's (it lags behind SPA navigation). */
   async function captionInfo(
@@ -149,10 +173,7 @@ export function createYouTubeAdapter(
       (capture.tlang ?? undefined) === track.tlang;
     const body = same
       ? capture.body
-      : await call({
-          type: "fetchTimedtext",
-          url: trackUrl(capture.url, track),
-        });
+      : await fetchTimedtext(trackUrl(capture.url, track));
     return parseYouTubeJson3(body);
   }
 
