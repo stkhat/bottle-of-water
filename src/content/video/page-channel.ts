@@ -132,6 +132,33 @@ export function createPageBridge<
   };
 }
 
+/**
+ * A page call that goes over the network (a subtitle fetch) waits longer than the
+ * bridge's default, which only tells a missing page script apart.
+ */
+export const NETWORK_CALL_TIMEOUT_MS = 20_000;
+const NETWORK_CALL_ATTEMPTS = 2;
+
+/**
+ * Runs a page call that goes over the network, once more if it fails or gets no answer
+ * in time; not when it was aborted (Lingo leaving the page, or `signal`).
+ */
+export async function retryNetworkCall<T>(
+  call: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      const aborted =
+        error instanceof DOMException && error.name === "AbortError";
+      if (aborted || signal?.aborted || attempt >= NETWORK_CALL_ATTEMPTS)
+        throw error;
+    }
+  }
+}
+
 const installed = new Map<string, () => void>();
 
 /**

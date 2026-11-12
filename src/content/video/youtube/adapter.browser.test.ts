@@ -21,6 +21,7 @@ import {
   VIDEO_ID,
   type TestPage,
 } from "../../../testing/youtube-page";
+import { holdBackPageCalls, type HeldCalls } from "../../../testing/page-calls";
 import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
@@ -53,33 +54,19 @@ function start(
   });
 }
 
-/**
- * Keeps the next `count` fetchTimedtext calls from reaching the page script, as when
- * its answer does not come in time. Returns how many it kept back so far.
- */
-function dropFetchCalls(count: number): () => number {
-  let dropped = 0;
-  const onMessage = (event: MessageEvent) => {
-    const data: unknown = event.data;
-    if (
-      dropped < count &&
-      typeof data === "object" &&
-      data !== null &&
-      "source" in data &&
-      data.source === CHANNEL.toPage &&
-      "call" in data &&
-      (data.call as { type?: unknown }).type === "fetchTimedtext"
-    ) {
-      dropped++;
-      event.stopImmediatePropagation();
-    }
-  };
-  // Listeners run in the order they were added: put this one before the page script's.
-  uninstall();
-  window.addEventListener("message", onMessage);
-  uninstall = installYouTubeHooks();
-  cleanups.push(() => window.removeEventListener("message", onMessage));
-  return () => dropped;
+/** Keeps the next `count` fetchTimedtext calls from the page script (see holdBackPageCalls). */
+function dropFetchCalls(count: number): HeldCalls {
+  const held = holdBackPageCalls({
+    toPage: CHANNEL.toPage,
+    type: "fetchTimedtext",
+    count,
+    reinstall() {
+      uninstall();
+      uninstall = installYouTubeHooks();
+    },
+  });
+  cleanups.push(held.remove);
+  return held;
 }
 const cleanups: (() => void)[] = [];
 
@@ -385,7 +372,10 @@ describe("loading captions", () => {
     const dropped = dropFetchCalls(1);
 
     const captions = await adapter.loadCaptions(REQUEST);
-    expect(dropped()).toBe(1);
+    expect(dropped.held()).toBe(1);
+    // The same track was asked for again.
+    expect(dropped.calls).toHaveLength(2);
+    expect(dropped.calls[1]?.url).toBe(dropped.calls[0]?.url);
     expect(captions?.translation).toEqual({
       source: "siteTrack",
       lang: "ja",
@@ -402,7 +392,7 @@ describe("loading captions", () => {
     await expect(adapter.loadCaptions(REQUEST)).rejects.toThrow(
       "No answer from the page to fetchTimedtext",
     );
-    expect(dropped()).toBe(2);
+    expect(dropped.held()).toBe(2);
   });
 
   it("stops waiting when aborted", async () => {

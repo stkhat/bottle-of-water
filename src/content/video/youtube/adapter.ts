@@ -6,7 +6,11 @@ import {
   type YouTubeTrack,
 } from "../../../core/subtitles/youtube-json3";
 import { firstTranslation, siteCaptionsHider, sleep } from "../adapter-kit";
-import { createPageBridge } from "../page-channel";
+import {
+  createPageBridge,
+  NETWORK_CALL_TIMEOUT_MS,
+  retryNetworkCall,
+} from "../page-channel";
 import { createRecent } from "../recent";
 import type {
   CaptionRequest,
@@ -36,12 +40,6 @@ export interface YouTubeAdapterOptions {
 
 /** How long to wait for the player response of the current video. */
 const PLAYER_RESPONSE_TIMEOUT_MS = 30_000;
-/**
- * A track fetch goes over the network: it gets longer than the page channel's default,
- * and a second try before the video counts as one without captions.
- */
-const FETCH_TIMEOUT_MS = 20_000;
-const FETCH_ATTEMPTS = 2;
 /** Videos whose last captured request is kept (the current one and a few before). */
 const KEEP_CAPTURES = 4;
 /** A Short's path and its video id. */
@@ -64,7 +62,7 @@ export function createYouTubeAdapter(
   const pollMs = options.pollMs ?? 250;
   const playerRequestWaitMs = options.playerRequestWaitMs ?? 1500;
   const captureTimeoutMs = options.captureTimeoutMs ?? 10_000;
-  const fetchTimeoutMs = options.fetchTimeoutMs ?? FETCH_TIMEOUT_MS;
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? NETWORK_CALL_TIMEOUT_MS;
   const bridge = createPageBridge<PageCall, PageCallResults, TimedtextMessage>({
     channel: CHANNEL,
     isEvent: isTimedtextMessage,
@@ -102,18 +100,10 @@ export function createYouTubeAdapter(
     bridge.call<T>({ ...message, shorts: onShorts() }, timeoutMs);
 
   /** Fetches a track's body through the page script, trying once more if that fails. */
-  async function fetchTimedtext(url: string): Promise<string> {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        return await call({ type: "fetchTimedtext", url }, fetchTimeoutMs);
-      } catch (error) {
-        // Aborted when Lingo leaves the page: nobody waits for the track.
-        const aborted =
-          error instanceof DOMException && error.name === "AbortError";
-        if (aborted || attempt >= FETCH_ATTEMPTS) throw error;
-      }
-    }
-  }
+  const fetchTimedtext = (url: string): Promise<string> =>
+    retryNetworkCall(() =>
+      call({ type: "fetchTimedtext", url }, fetchTimeoutMs),
+    );
 
   /** The player response once it is the current video's (it lags behind SPA navigation). */
   async function captionInfo(
