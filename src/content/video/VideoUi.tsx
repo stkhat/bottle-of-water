@@ -51,6 +51,11 @@ export interface VideoLayout {
   subtitleBottom: number;
   /** A vertical short video (spec "YouTube Shorts"): subtitle only, in the video. */
   vertical: boolean;
+  /**
+   * The transcript is in the sidebar beside a player that fills the window or the
+   * screen (Netflix; YouTube in fullscreen), the player narrowed for it.
+   */
+  sidebar: boolean;
 }
 
 /** Mock Main: the in-video subtitle sits 64px above the player's bottom. */
@@ -294,6 +299,11 @@ export function MenuUi(props: {
         position={settings.subtitlePosition}
         showPositions={!fullscreen && !vertical}
         showTranslation={settings.subtitleTranslation}
+        // No transcript over a Short.
+        transcriptShown={vertical ? undefined : settings.transcriptShown}
+        onToggleTranscript={() =>
+          app.changeSettings({ transcriptShown: !settings.transcriptShown })
+        }
         size={settings.subtitleSize}
         opacity={settings.subtitleOpacity}
         onPosition={(subtitlePosition) =>
@@ -338,20 +348,29 @@ export function BelowVideoUi({ app }: { app: VideoApp }) {
   );
 }
 
-/** In the side column: the Transcript and Words tabs (not in fullscreen). */
+/**
+ * In the side column, or the sidebar beside a player that fills the window or the
+ * screen: the Transcript and Words tabs, until the user closes them (in fullscreen only
+ * in the sidebar).
+ */
 export function TranscriptUi(props: {
   app: VideoApp;
   layout: Store<VideoLayout>;
 }) {
   const { app } = props;
   const state = useStore(app.store);
-  const { frameHeight } = useStore(props.layout);
+  const { frameHeight, sidebar } = useStore(props.layout);
   const { cues, spans, summaries, settings, panel } = state;
   const words = useMemo(
     () => videoWords(cues, spans, summaries),
     [cues, spans, summaries],
   );
-  if (!showing(state) || state.fullscreen) return null;
+  if (
+    !showing(state) ||
+    !settings.transcriptShown ||
+    (state.fullscreen && !sidebar)
+  )
+    return null;
   const fromTranscript = state.hover?.from === "transcript";
   const selectedInTranscript = state.phrase?.from === "transcript";
   return (
@@ -412,6 +431,7 @@ export function TranscriptUi(props: {
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}
       dataNote={state.dataNote}
       onRetryData={app.retryPacks}
+      onClose={() => app.changeSettings({ transcriptShown: false })}
     />
   );
 }
@@ -501,9 +521,13 @@ export function PageUi(props: {
 }) {
   const { app, geometry } = props;
   const state = useStore(app.store);
-  const { vertical } = useStore(props.layout);
+  const { vertical, sidebar } = useStore(props.layout);
   const { hover, panel, phrase, settings, fullscreen } = state;
-  const position = fullscreen ? "fullscreen" : settings.subtitlePosition;
+  const position = sidebar
+    ? "sidebar"
+    : fullscreen
+      ? "fullscreen"
+      : settings.subtitlePosition;
   // Placed when the window opens or the screen changes; it stays where the user drags it.
   const frame = useMemo(() => {
     const player = geometry.player();
@@ -512,7 +536,7 @@ export function PageUi(props: {
     return vertical && !fullscreen
       ? verticalDictionaryFrame(player, geometry.beside(), viewport)
       : dictionaryFrame(player, position, viewport, geometry.transcript());
-  }, [panel?.opened, fullscreen]);
+  }, [panel?.opened, fullscreen, sidebar]);
   useClosedByPressAway(app, !!panel);
   useSelectionDroppedByPressAway(app, state.selecting);
   if (!showing(state)) return null;
@@ -521,10 +545,11 @@ export function PageUi(props: {
     <>
       {panel && (
         <DictionaryWindow
-          key={`${panel.opened} ${fullscreen}`}
+          key={`${panel.opened} ${fullscreen} ${sidebar}`}
           variant="window"
           frame={frame}
-          fullscreen={fullscreen}
+          // Over a video that fills the window or the screen: the darker shadow.
+          fullscreen={fullscreen || sidebar}
           entry={windowView(panel.card)}
           nativeLang={settings.nativeLang}
           learningLang={settings.learningLang}

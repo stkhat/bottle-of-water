@@ -21,6 +21,12 @@ export interface TestPage {
   player: HTMLElement & { fake: FakePlayerLog };
   video: HTMLVideoElement;
   captions: HTMLElement;
+  /**
+   * Moves the player into YouTube's full-bleed row at the top of the page, as YouTube
+   * does in fullscreen (with `<html>` in fullscreen) and theater mode
+   * (docs/notes/youtube-captions.md); the returned function puts it back.
+   */
+  fullBleed(): () => void;
   /** Switches the fake player to another video and fires `yt-navigate-finish`. */
   navigate(next: {
     videoId: string;
@@ -233,6 +239,44 @@ function install(
     video,
     captions,
     navigate: (next) => fake.fakeNavigate(next),
+    fullBleed: () => fullBleed(root, player),
     remove: () => root.remove(),
+  };
+}
+
+/** YouTube's full-bleed row: the player's box grows into the row, a hidden panels box beside it. */
+function fullBleed(root: HTMLElement, player: HTMLElement): () => void {
+  const home = player.parentElement!;
+  const size = player.style.cssText;
+  const container = el("div", {
+    id: "player-container",
+    style: "position: absolute; inset: 0;",
+  });
+  const row = el(
+    "div",
+    {
+      id: "full-bleed-container",
+      style: "display: flex; width: 100vw; height: 100vh;",
+    },
+    el(
+      "div",
+      {
+        id: "player-full-bleed-container",
+        style: "position: relative; flex: 1 1 0%;",
+      },
+      container,
+    ),
+    el("div", {
+      id: "panels-full-bleed-container",
+      style: "display: none;",
+    }),
+  );
+  root.prepend(row);
+  player.style.cssText = "width: 100%; height: 100%;";
+  container.append(player);
+  return () => {
+    player.style.cssText = size;
+    home.append(player);
+    row.remove();
   };
 }

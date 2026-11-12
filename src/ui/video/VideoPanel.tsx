@@ -4,7 +4,8 @@ import { languageName } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import { LanguageDataNote } from "../packs/LanguageDataNote";
 import { segment, segmentGroup } from "../Segmented";
-import { badge, color, root } from "../styles";
+import { CloseIcon } from "../icons";
+import { badge, color, iconButton, root } from "../styles";
 import {
   Transcript,
   TranscriptControls,
@@ -38,6 +39,8 @@ export interface VideoPanelProps<R extends WordRow>
    */
   dataNote?: DataNote | null;
   onRetryData?: () => void;
+  /** The × at the right of the tabs: closes the whole column. None without it. */
+  onClose?: () => void;
 }
 
 const TABS: readonly { id: PanelTab; label: MessageKey }[] = [
@@ -75,6 +78,24 @@ export function VideoPanel<R extends WordRow>(props: VideoPanelProps<R>) {
       >
         <span style={badge(24, 7, 12)}>L</span>
         <Tabs tab={props.tab} onTab={props.onTab} />
+        {props.onClose && (
+          <button
+            type="button"
+            aria-label={t("video.closeTranscript")}
+            title={t("video.closeTranscript")}
+            onClick={props.onClose}
+            style={{
+              ...iconButton,
+              width: "36px",
+              height: "36px",
+              // Mock Main: the 36px button sits in the 16px padding.
+              marginRight: "-6px",
+              color: color.ink3,
+            }}
+          >
+            <CloseIcon size={18} stroke={1.8} />
+          </button>
+        )}
       </div>
       {props.dataNote && (
         <div style={{ padding: "12px 12px 0" }}>

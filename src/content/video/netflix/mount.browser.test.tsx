@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page as browserPage, userEvent } from "vitest/browser";
 import { DEFAULT_SETTINGS } from "../../../core/settings";
 import { createStore } from "../../store";
 import { mountVideoUi } from "../mount";
@@ -55,10 +55,15 @@ function fakeApp(): VideoApp {
 }
 
 let uninstall: () => void;
-beforeAll(() => {
+beforeAll(async () => {
   uninstall = installNetflixHooks();
+  // A laptop's window: Netflix's player fills it, the transcript sidebar beside it.
+  await browserPage.viewport(1280, 720);
 });
-afterAll(() => uninstall());
+afterAll(async () => {
+  uninstall();
+  await browserPage.viewport(414, 896);
+});
 
 let page: TestPage;
 let adapter: PlatformAdapter;
@@ -114,7 +119,7 @@ describe("the L and ^ buttons on Netflix", () => {
     expect(document.querySelector("lingo-netflix-controls")).toBeNull();
   });
 
-  it("open the menu above the transcript panel", async () => {
+  it("open the menu above the transcript sidebar", async () => {
     start();
     await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
     menuButton().focus();
@@ -126,10 +131,10 @@ describe("the L and ^ buttons on Netflix", () => {
     await expect.poll(menu).not.toBeNull();
     const box = menu()!.getBoundingClientRect();
     const panel = document
-      .querySelector("lingo-netflix-side")!
+      .querySelector("lingo-video-sidebar")!
       .getBoundingClientRect();
-    // The menu reaches into the panel: the case this is about.
-    expect(box.right).toBeGreaterThan(panel.left);
+    // Over the narrowed player, clear of the sidebar.
+    expect(box.right).toBeLessThanOrEqual(panel.left);
     const host = menu()!.getRootNode() as ShadowRoot;
     for (const [x, y] of [
       [box.left + 4, box.top + 4],
@@ -250,23 +255,48 @@ describe("the subtitle over Netflix's video", () => {
   });
 });
 
-describe("Netflix in fullscreen", () => {
+describe("the transcript sidebar on Netflix", () => {
   const lingo = () => document.querySelector<HTMLElement>("lingo-video");
-  const side = () => document.querySelector<HTMLElement>("lingo-netflix-side");
+  const sidebar = () =>
+    document.querySelector<HTMLElement>("lingo-video-sidebar");
+  const transcript = () =>
+    document.querySelector<HTMLElement>("lingo-transcript");
   const line = () =>
     document
       .querySelector("lingo-video-player")
       ?.shadowRoot?.querySelector<HTMLElement>("[role='region'] [lang]") ??
     null;
 
-  it("moves the page's parts into the player view's page and back, without the side panel", async () => {
+  it("narrows the player for the sidebar beside it, covering nothing of the video", async () => {
+    start();
+    await expect.poll(() => transcript()?.parentElement).toBe(sidebar());
+    const box = sidebar()!.getBoundingClientRect();
+    expect([box.top, box.right, box.bottom, box.width]).toEqual([
+      16,
+      innerWidth - 16,
+      innerHeight - 16,
+      360,
+    ]);
+    await expect
+      .poll(() => page.player.getBoundingClientRect().right)
+      .toBe(innerWidth - 392);
+    // The transcript fills the sidebar.
+    const aside = () => transcript()!.shadowRoot!.querySelector("aside")!;
+    await expect
+      .poll(() => aside().getBoundingClientRect().height)
+      .toBe(innerHeight - 32);
+    // Netflix's control bar goes with the player.
+    expect(page.controls()!.getBoundingClientRect().right).toBe(
+      innerWidth - 392,
+    );
+  });
+
+  it("moves into the fullscreen element with the page's parts, and stays beside the player", async () => {
     start();
     await expect.poll(() => lingo()?.parentElement).toBe(document.body);
-    await expect.poll(() => side()?.hidden).toBe(false);
+    await expect.poll(() => sidebar()?.parentElement).toBe(document.body);
     const button = document.createElement("button");
     button.textContent = "Full screen";
-    button.style.cssText =
-      "position: fixed; top: 0; left: 0; z-index: 2147483647;";
     button.style.cssText =
       "position: fixed; top: 0; left: 0; z-index: 2147483647;";
     button.onclick = () => void page.root.requestFullscreen();
@@ -276,7 +306,9 @@ describe("Netflix in fullscreen", () => {
     await expect.poll(() => document.fullscreenElement).toBe(page.root);
 
     await expect.poll(() => lingo()?.parentElement).toBe(page.root);
-    expect(side()!.hidden).toBe(true);
+    await expect.poll(() => sidebar()?.parentElement).toBe(page.root);
+    expect(transcript()!.parentElement).toBe(sidebar());
+    expect(page.player.getBoundingClientRect().right).toBe(innerWidth - 392);
     await expect.poll(() => line()?.textContent).toBe("HELLO THERE.");
     expect(getComputedStyle(line()!).fontSize).toBe("34px");
     // The L and ^ buttons stay in the bar.
@@ -284,7 +316,7 @@ describe("Netflix in fullscreen", () => {
 
     await document.exitFullscreen();
     await expect.poll(() => lingo()?.parentElement).toBe(document.body);
-    expect(side()!.hidden).toBe(false);
+    await expect.poll(() => sidebar()?.parentElement).toBe(document.body);
     await expect
       .poll(() => line() && getComputedStyle(line()!).fontSize)
       .toBe("24px");

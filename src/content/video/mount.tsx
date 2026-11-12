@@ -58,6 +58,13 @@ function fullscreenHost(): Element | null {
   return NO_CHILDREN.has(element.tagName) ? element.parentElement : element;
 }
 
+/** The transcript sidebar beside a player that fills the window (mock FullWindow): 360px wide, 16px in. */
+const SIDEBAR = { width: 360, inset: 16 };
+/** How much narrower the player gets for the sidebar. */
+const SIDEBAR_ROOM = SIDEBAR.width + 2 * SIDEBAR.inset;
+/** Above the site's player, below Lingo's menu, hover card and dictionary window. */
+const SIDEBAR_LAYER = 2147483600;
+
 /** The most a part is moved back into the same parent in one second. */
 const MAX_MOVES_PER_SECOND = 10;
 
@@ -66,6 +73,8 @@ const MAX_MOVES_PER_SECOND = 10;
  * subtitle inside the player, the subtitle box under it, the transcript in the side
  * column, the L and ^ buttons in the player bar, and the menu, the hover card and the
  * dictionary window over the page (inside the fullscreen element while there is one).
+ * Where the player fills the window or the screen (Netflix; YouTube in fullscreen), the
+ * transcript goes in a sidebar at the right instead, and the player is narrowed for it.
  * The site re-renders its page (YouTube is a single-page app): a MutationObserver puts
  * the parts back. Returns an unmount.
  */
@@ -74,7 +83,12 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     frameHeight: 0,
     subtitleBottom: SUBTITLE_BOTTOM,
     vertical: adapter.vertical?.() ?? false,
+    sidebar: false,
   });
+  const sidebar = document.createElement("lingo-video-sidebar");
+  sidebar.style.cssText = `position: fixed; z-index: ${SIDEBAR_LAYER};
+    top: ${SIDEBAR.inset}px; right: ${SIDEBAR.inset}px; bottom: ${SIDEBAR.inset}px;
+    width: ${SIDEBAR.width}px; overflow: hidden;`;
   const parts: Part[] = [];
   const roots: ShadowRoot[] = [];
 
@@ -125,7 +139,10 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     "lingo-transcript",
     // Clickable inside a frame that lets clicks through to the video (Netflix).
     "display: block; margin-bottom: 12px; pointer-events: auto;",
-    () => adapter.sideColumn(),
+    () =>
+      layout.get().sidebar
+        ? { parent: sidebar, before: null }
+        : adapter.sideColumn(),
     <TranscriptUi app={app} layout={layout} />,
   );
   made.buttons = part(
@@ -168,8 +185,31 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       layout.set({ subtitleBottom });
   }
 
+  /**
+   * The sidebar shows while the transcript does beside a player that fills the window:
+   * the player is narrowed for it, and given its width back otherwise.
+   */
+  function arrangeSidebar() {
+    const { enabled, status, settings } = app.store.get();
+    const on =
+      enabled &&
+      status === "ready" &&
+      settings.transcriptShown &&
+      !layout.get().vertical &&
+      (adapter.fillsWindow?.() ?? false);
+    adapter.narrowPlayer?.(on ? SIDEBAR_ROOM : 0);
+    if (on) {
+      const parent = fullscreenHost() ?? document.body;
+      if (sidebar.parentElement !== parent) parent.append(sidebar);
+    } else sidebar.remove();
+    if (on !== layout.get().sidebar) layout.set({ sidebar: on });
+  }
+
   /** Puts every part where it belongs (only those that moved: no mutation otherwise). */
   function place() {
+    const vertical = adapter.vertical?.() ?? false;
+    if (vertical !== layout.get().vertical) layout.set({ vertical });
+    arrangeSidebar();
     const second = Math.floor(performance.now() / 1000);
     for (const { host, point, moves } of parts) {
       const at = point();
@@ -187,9 +227,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       at.parent.insertBefore(host, at.before);
     }
     liftSubtitle();
-    const vertical = adapter.vertical?.() ?? false;
-    if (vertical !== layout.get().vertical) layout.set({ vertical });
-    const frame = adapter.transcriptFrame?.() ?? adapter.playerElement();
+    const frame = layout.get().sidebar ? sidebar : adapter.playerElement();
     if (frame !== observed) {
       if (observed) resize.unobserve(observed);
       if (frame) resize.observe(frame);
@@ -216,13 +254,18 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     schedule();
   };
   document.addEventListener("fullscreenchange", onFullscreen);
+  // Lingo on or off, the video's subtitles, the menu's switch and the column's ×.
+  const offStore = app.store.subscribe(schedule);
 
   return () => {
+    offStore();
     observer.disconnect();
     resize.disconnect();
     if (frame !== undefined) cancelAnimationFrame(frame);
     document.removeEventListener("fullscreenchange", onFullscreen);
     for (const root of roots) render(null, root);
     for (const { host } of parts) host.remove();
+    sidebar.remove();
+    adapter.narrowPlayer?.(0);
   };
 }

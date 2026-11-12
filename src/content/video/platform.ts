@@ -69,8 +69,18 @@ export interface PlatformAdapter {
   vertical?(): boolean;
   /** What the dictionary window goes to the right of, beside the video (Shorts' buttons). */
   besidePlayer?(): HTMLElement | null;
-  /** The element the transcript is as tall as (default: the player). */
-  transcriptFrame?(): HTMLElement | null;
+  /**
+   * The player fills the window or the screen and can be narrowed (Netflix's watch
+   * page; YouTube in fullscreen): the transcript then goes in the sidebar beside it
+   * (spec "Video UI"). Default: false.
+   */
+  fillsWindow?(): boolean;
+  /**
+   * Narrows the player by `width` px at its right for the sidebar, its video
+   * letterboxed in it; 0 gives it its whole width back. Called on every change to the
+   * page: does nothing when nothing changed.
+   */
+  narrowPlayer?(width: number): void;
   /**
    * The viewport top of the site's control bar while it shows over the bottom of the
    * video (Netflix), so the subtitle can keep clear of it; null while it is hidden.

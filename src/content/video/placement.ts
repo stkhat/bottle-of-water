@@ -25,20 +25,43 @@ const beside = (player: Box, transcript: Box) =>
 
 /** Mock Fullscreen: the window 32px from the screen's top and right edges, 420px tall. */
 const FULLSCREEN = { inset: 32, height: 420 };
+/**
+ * Mock FullWindow and Fullscreen with the transcript sidebar: the window's right edge
+ * at the sidebar's left edge (16px past the player's), 72px from the top, 420px tall.
+ */
+const SIDEBAR = { top: 72, height: 420 };
 
 /**
  * Where the dictionary window opens (mock Main). It sits over the right part of the
  * video, its right edge 12px into the transcript beside the video (at the video's right
  * edge without one), and ends above the subtitle in the video (60% down the video);
  * with the subtitle below the video, it is taller and stops short of the transcript.
- * In fullscreen (mock Fullscreen) it is at the screen's top right.
+ * In fullscreen (mock Fullscreen) it is at the screen's top right. Beside the transcript
+ * sidebar (a player that fills the window or the screen) it ends at the sidebar.
  */
 export function dictionaryFrame(
   player: Box,
-  position: Settings["subtitlePosition"] | "fullscreen",
+  position: Settings["subtitlePosition"] | "fullscreen" | "sidebar",
   viewport: { width: number; height: number },
   transcript?: Box | null,
 ): { left: number; top: number; height: number } {
+  if (position === "sidebar") {
+    const right = transcript?.left ?? player.right;
+    const left = clamp(
+      right - WINDOW_WIDTH,
+      EDGE,
+      viewport.width - WINDOW_WIDTH - EDGE,
+    );
+    const height = Math.max(
+      0,
+      Math.min(SIDEBAR.height, viewport.height - EDGE - SIDEBAR.top),
+    );
+    return {
+      left: Math.round(left),
+      top: SIDEBAR.top,
+      height: Math.round(height),
+    };
+  }
   if (position === "fullscreen") {
     const { inset } = FULLSCREEN;
     const left = clamp(

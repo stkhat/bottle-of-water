@@ -1,7 +1,11 @@
 import { parseTtml } from "../../../core/subtitles/ttml";
 import type { Cue } from "../../../core/subtitles/types";
 import { parseWebVtt } from "../../../core/subtitles/webvtt";
-import { firstTranslation, siteCaptionsHider } from "../adapter-kit";
+import {
+  firstTranslation,
+  playerNarrower,
+  siteCaptionsHider,
+} from "../adapter-kit";
 import {
   createPageBridge,
   NETWORK_CALL_TIMEOUT_MS,
@@ -30,7 +34,6 @@ import {
   query,
   SELECTORS,
   titleText,
-  TOP_BAR_HEIGHT,
 } from "./site";
 import { asTrack, pickOriginalTrack, translationTracks } from "./tracks";
 
@@ -49,19 +52,15 @@ export interface NetflixAdapterOptions {
   fetchTimeoutMs?: number;
 }
 
-/** The transcript panel's width (px). */
-const PANEL_WIDTH = 360;
-/** Lingo's parts over the page, above Netflix's player (below the dictionary window). */
-const PANEL_LAYER = 2147483600;
-
 const WATCH = /^\/watch\/(\d+)/;
 
 /**
  * Netflix's watch page. Subtitles come from the manifest the player parses, observed by
  * the page script (`page.ts`): the learning language's track is the original,
  * the native language's track the translation (Netflix has no machine translation).
- * Netflix has no column beside the video, so the transcript is a panel at the right of
- * the player, and the subtitle box "below the video" sits at the player's bottom. The
+ * Netflix has no column beside the video: its player fills the window (and the screen
+ * in fullscreen), so it is narrowed for the transcript sidebar, and the subtitle box
+ * "below the video" sits at the player's bottom. The
  * L and ^ buttons go into Netflix's control bar, which shows only while the pointer
  * moves; on a page without a recognizable bar they float at the player's bottom right.
  * Nothing is stored: subtitle URLs and texts live in memory only.
@@ -237,22 +236,17 @@ export function createNetflixAdapter(
     player,
   );
 
-  const panel = own(
-    "lingo-netflix-side",
-    `position: fixed; z-index: ${PANEL_LAYER}; right: 16px; width: ${PANEL_WIDTH}px;
-     top: ${TOP_BAR_HEIGHT}px; bottom: ${CONTROL_BAR_HEIGHT}px; overflow: hidden;
-     pointer-events: none;`,
-    () => document.body,
+  // The player view holds the control bar, the back arrow and the video; inside
+  // `.watch-video`, which is the element in fullscreen (docs/notes/netflix.md).
+  const narrowPlayer = playerNarrower(
+    () => {
+      const view = player();
+      return view && view !== document.fullscreenElement ? view : null;
+    },
+    "width",
+    (width) => `calc(100% - ${width}px)`,
   );
-  // No transcript in fullscreen (mock Fullscreen): the side panel steps aside.
-  const onFullscreen = () => {
-    const element = document.querySelector<HTMLElement>("lingo-netflix-side");
-    if (element) element.hidden = document.fullscreenElement !== null;
-  };
-  document.addEventListener("fullscreenchange", onFullscreen);
-  cleanups.push(() =>
-    document.removeEventListener("fullscreenchange", onFullscreen),
-  );
+  cleanups.push(() => narrowPlayer(0));
 
   const floating = own(
     "lingo-netflix-controls",
@@ -372,11 +366,12 @@ export function createNetflixAdapter(
     playerElement: player,
     controlsPoint,
     belowVideoElement: below,
-    sideColumn() {
-      const parent = panel();
-      return parent ? { parent, before: null } : null;
+    sideColumn: () => null,
+    fillsWindow: () => {
+      const view = player();
+      return view !== null && view !== document.fullscreenElement;
     },
-    transcriptFrame: panel,
+    narrowPlayer,
     controlBarTop,
     adShowing: () => false,
     async tracks() {

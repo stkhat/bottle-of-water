@@ -93,3 +93,47 @@ export async function firstTranslation(
     else canAutoTranslate = false;
   }
 }
+
+/**
+ * `PlatformAdapter.narrowPlayer` for a site: sets `property` to `value(width)` on the
+ * element `target` finds (inline, `!important`) and tells the site with a window
+ * `resize`, on which its player sizes the `<video>` again (docs/notes/netflix.md,
+ * youtube-captions.md). Width 0 gives the element its own value back. Asked again with
+ * the same element and width it does nothing, so it can run on every change to the
+ * page; an element the site rendered again gets the value, the old one its own back.
+ */
+export function playerNarrower(
+  target: () => HTMLElement | null,
+  property: string,
+  value: (width: number) => string,
+): (width: number) => void {
+  let narrowed: {
+    element: HTMLElement;
+    width: number;
+    own: { value: string; priority: string };
+  } | null = null;
+
+  function restore() {
+    if (!narrowed) return;
+    const { element, own } = narrowed;
+    if (own.value) element.style.setProperty(property, own.value, own.priority);
+    else element.style.removeProperty(property);
+    narrowed = null;
+  }
+
+  return (width) => {
+    const element = width > 0 ? target() : null;
+    if (narrowed?.element === element && narrowed?.width === width) return;
+    const changed = narrowed !== null || element !== null;
+    restore();
+    if (element) {
+      const own = {
+        value: element.style.getPropertyValue(property),
+        priority: element.style.getPropertyPriority(property),
+      };
+      element.style.setProperty(property, value(width), "important");
+      narrowed = { element, width, own };
+    }
+    if (changed) window.dispatchEvent(new Event("resize"));
+  };
+}
