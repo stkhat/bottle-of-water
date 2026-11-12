@@ -292,13 +292,45 @@ describe("mountVideoUi", () => {
     expect(spy("setMenuOpen")).toHaveBeenCalledWith(true);
     store.set({ menuOpen: true });
     await expect
-      .poll(() => inside("lingo-video-player")?.querySelector("[role=dialog]"))
+      .poll(() => inside("lingo-video")?.querySelector("[role=dialog]"))
       .not.toBeNull();
-    const dialog = inside("lingo-video-player")!
+    const dialog = inside("lingo-video")!
       .querySelector("[role=dialog]")!
       .getBoundingClientRect();
     const buttons = host("lingo-player-buttons").getBoundingClientRect();
     expect(dialog.bottom).toBeLessThanOrEqual(buttons.top);
+  });
+
+  it("keeps the menu over the page and above the buttons while the page scrolls", async () => {
+    mount(readyState({ menuOpen: true }));
+    const spacer = document.createElement("div");
+    spacer.style.height = `${innerHeight * 3}px`;
+    document.body.append(spacer);
+    const dialog = () =>
+      inside("lingo-video")?.querySelector("[role=dialog]") ?? null;
+    await expect.poll(dialog).not.toBeNull();
+    // Something of YouTube's over the player does not cover it.
+    const box = dialog()!.getBoundingClientRect();
+    const cover = document.createElement("div");
+    cover.style.cssText = `position: fixed; z-index: 2147483600; left: ${box.left}px; top: ${box.top}px; width: ${box.width}px; height: ${box.height}px;`;
+    document.body.append(cover);
+    // Its top left: the test's viewport can be narrower than the player.
+    const top = inside("lingo-video")!.elementFromPoint(
+      box.left + 20,
+      box.top + 20,
+    );
+    expect(top !== null && dialog()!.contains(top)).toBe(true);
+    cover.remove();
+    const gap = () =>
+      host("lingo-player-buttons").getBoundingClientRect().top -
+      dialog()!.getBoundingClientRect().bottom;
+    const before = gap();
+    expect(before).toBeGreaterThanOrEqual(0);
+    scrollBy(0, 100);
+    expect(scrollY).toBe(100);
+    await expect.poll(gap).toBe(before);
+    scrollTo(0, 0);
+    spacer.remove();
   });
 
   it("clicks on Lingo's parts do not reach the player", async () => {
@@ -805,7 +837,7 @@ describe("mountVideoUi", () => {
     it("the menu has no subtitle position, and has it again after", async () => {
       const { store } = mount(readyState({ menuOpen: true }));
       const menu = () =>
-        inside("lingo-video-player")?.querySelector("[role=dialog]") ?? null;
+        inside("lingo-video")?.querySelector("[role=dialog]") ?? null;
       await expect.poll(menu).not.toBeNull();
       expect(menu()!.querySelector("[role=group]")).not.toBeNull();
       await enterFullscreen(page.player);
@@ -859,10 +891,10 @@ describe("mountVideoUi", () => {
     it("do not reach the menu's switch or gear; the user's clicks do", async () => {
       const { spy } = mount(readyState({ menuOpen: true }));
       const toggle = await button(
-        "lingo-video-player",
+        "lingo-video",
         "Show translation under the subtitle",
       );
-      const settings = await button("lingo-video-player", "Open settings");
+      const settings = await button("lingo-video", "Open settings");
       syntheticClick(toggle);
       syntheticClick(settings);
       expect(spy("changeSettings")).not.toHaveBeenCalled();

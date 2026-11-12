@@ -6,6 +6,7 @@ import {
   BelowVideoUi,
   CONTROL_BAR_GAP,
   InPlayerUi,
+  MenuUi,
   PageUi,
   PlayerBarUi,
   SUBTITLE_BOTTOM,
@@ -62,8 +63,8 @@ const MAX_MOVES_PER_SECOND = 10;
 
 /**
  * Mounts the video UI on the site's page, each part in its own shadow root: the
- * subtitle and the menu inside the player, the subtitle box under it, the transcript in
- * the side column, the L and ^ buttons in the player bar, and the hover card and the
+ * subtitle inside the player, the subtitle box under it, the transcript in the side
+ * column, the L and ^ buttons in the player bar, and the menu, the hover card and the
  * dictionary window over the page (inside the fullscreen element while there is one).
  * The site re-renders its page (YouTube is a single-page app): a MutationObserver puts
  * the parts back. Returns an unmount.
@@ -107,7 +108,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       const player = adapter.playerElement();
       return player ? { parent: player, before: null } : null;
     },
-    <InPlayerUi app={app} geometry={geometry} layout={layout} />,
+    <InPlayerUi app={app} layout={layout} />,
   );
   part(
     "lingo-video-below",
@@ -138,7 +139,11 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       const parent = fullscreenHost() ?? document.body;
       return parent ? { parent, before: null } : null;
     },
-    <PageUi app={app} geometry={geometry} />,
+    // The menu first: the dictionary window and the hover card stack above it.
+    <>
+      <MenuUi app={app} geometry={geometry} layout={layout} />
+      <PageUi app={app} geometry={geometry} />
+    </>,
   );
 
   const resize = new ResizeObserver(([entry]) => {
