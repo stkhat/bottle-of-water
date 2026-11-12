@@ -230,6 +230,17 @@ describe("answering the content script", () => {
     expect(page.player.fake.seekTo).toEqual([1.5]);
   });
 
+  it("calls Shorts' player when the call is for a Short, with the watch page's still there", async () => {
+    const short = createTestPage({ shorts: true });
+    try {
+      await call({ type: "seek", seconds: 3, shorts: true });
+      expect(short.player.fake.seekTo).toEqual([3]);
+      expect(page.player.fake.seekTo).not.toContain(3);
+    } finally {
+      short.remove();
+    }
+  });
+
   it("ignores malformed calls", async () => {
     const replies: unknown[] = [];
     const listener = (event: MessageEvent) => {
@@ -242,6 +253,14 @@ describe("answering the content script", () => {
     );
     window.postMessage(
       { source: CHANNEL.toPage, id: "y", call: { type: "eval" } },
+      location.origin,
+    );
+    window.postMessage(
+      {
+        source: CHANNEL.toPage,
+        id: "z",
+        call: { type: "videoId", shorts: "yes" },
+      },
       location.origin,
     );
     await flush();

@@ -80,7 +80,16 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - Each comment's language is detected on its own (`<html lang>` is YouTube's interface language): a comment the detector reliably says is in another language is left alone; one it cannot decide on counts as the learning language. A comment YouTube translates is checked again
 - Records are kept as on articles: a word saved from a comment keeps the comment's sentence, saved words seen in comments add occurrences, and comment sentences go into the sentence history. The source is the video (`platform` youtube, its watch URL and title) with the sentence as the position, so "Seen elsewhere" reads "YouTube · Nov 12" and links to the video. The Words tab, the popup's "This video" and the end-of-video save count subtitles only
 - Only one dictionary is open at a time: opening the comments panel closes the video's window, and opening the video's window closes the panel
-- Follows Settings → Sites → "YouTube comments" (on by default; needs YouTube on) and the popup's "On this site", not the player's L button. Shorts are not covered
+- Follows Settings → Sites → "YouTube comments" (on by default; needs YouTube on) and the popup's "On this site", not the player's L button. It covers Shorts' comments too (below)
+
+## YouTube Shorts (mock `YouTube Shorts — subtitles` and `— comments`, 2026-11-13)
+- Shorts (`/shorts/<id>`) get the subtitle only: Lingo's subtitle and its translation over the vertical video, above the Short's channel and title, with the hover card and the dictionary window as on a watch page. No transcript and no "Below video": the ^ menu has no "Subtitles" row there, and the setting stays as it is for watch pages
+- The subtitle is a little smaller than on a watch page (20 px and 15 px for the translation at 100%); "Text size" and "Background" apply as usual
+- The L and ^ group sits in the Short's own controls at the top of the video, before the captions button; the menu opens downward
+- The dictionary window opens beside the video, right of YouTube's like / comments buttons, so it covers none of the video (over the comments panel when that is open)
+- Moving to the next or previous Short loads its subtitles. A Short loops instead of ending: its first loop counts as the end for "Unsaved New words at the end"
+- The comments panel (opened with the comments button) works like the comments under a watch video (above). Its dictionary panel opens just left of the comments panel, over the video, so the comments stay readable. The panel stays open when moving to the next Short, and Lingo starts over on the new comments
+- Records: the source is the video's watch URL (`watch?v=<id>`) and the Short's title
 
 ## Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language

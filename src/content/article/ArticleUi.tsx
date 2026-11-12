@@ -12,6 +12,19 @@ import { useStore } from "../store";
 /** Mock Article: the dictionary panel sits 16px in from the top right. */
 const CARD_INSET = 16;
 
+/** Where the dictionary panel's edges are, in px from the viewport's edges. */
+export interface PanelFrame {
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+const DEFAULT_FRAME: PanelFrame = {
+  top: CARD_INSET,
+  right: CARD_INSET,
+  bottom: CARD_INSET,
+};
+
 /** The mock's selected word: a 2px green outline 2px outside the word's box. */
 function Outline({ box }: { box: Box }) {
   return (
@@ -34,7 +47,14 @@ function Outline({ box }: { box: Box }) {
 }
 
 /** Everything Lingo shows on an article page, inside its shadow root. */
-export function ArticleUi({ app }: { app: ArticleApp }) {
+export function ArticleUi({
+  app,
+  panelFrame,
+}: {
+  app: ArticleApp;
+  /** Where the dictionary panel goes when not at the top right (Shorts' comments). */
+  panelFrame?: () => PanelFrame | null;
+}) {
   const { settings, hover, panel, phrase } = useStore(app.store);
 
   return (
@@ -46,7 +66,7 @@ export function ArticleUi({ app }: { app: ArticleApp }) {
           ))}
           <DictionaryWindow
             variant="panel"
-            frame={{ top: CARD_INSET, right: CARD_INSET, bottom: CARD_INSET }}
+            frame={panelFrame?.() ?? DEFAULT_FRAME}
             entry={windowView(panel.card)}
             nativeLang={settings.nativeLang}
             learningLang={settings.learningLang}

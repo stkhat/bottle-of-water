@@ -12,7 +12,7 @@ import {
   type TimedtextMessage,
 } from "./messages";
 
-/** The parts of YouTube's player API (on `#movie_player`) Lingo calls. */
+/** The parts of YouTube's player API (on `#movie_player` and `#shorts-player`) Lingo calls. */
 interface PlayerApi {
   getPlayerResponse?(): { videoDetails?: unknown; captions?: unknown } | null;
   getVideoData?(): { video_id?: string } | null;
@@ -128,15 +128,17 @@ function install() {
     return result;
   } as typeof window.fetch;
 
-  const player = () =>
-    document.getElementById("movie_player") as (HTMLElement & PlayerApi) | null;
+  // The watch page's player can stay in the DOM while a Short shows, and the other way round.
+  const player = (call: PageCall) =>
+    document.getElementById(call.shorts ? "shorts-player" : "movie_player") as
+      (HTMLElement & PlayerApi) | null;
 
   /** A plain copy that survives postMessage (player objects may hold functions). */
   const plain = (value: unknown): unknown =>
     value === undefined ? null : JSON.parse(JSON.stringify(value));
 
   async function answer(call: PageCall): Promise<unknown> {
-    const api = player();
+    const api = player(call);
     switch (call.type) {
       case "getPlayerResponse": {
         const response = api?.getPlayerResponse?.();

@@ -20,20 +20,27 @@ export interface TimedtextMessage {
   body: string;
 }
 
-export type PageCall =
+/** Which player a call is for: Shorts have their own (`#shorts-player`). */
+interface PlayerChoice {
+  shorts?: boolean;
+}
+
+export type PageCall = PlayerChoice &
   /** The current video's `videoDetails` and `captions` from `getPlayerResponse()`. */
-  | { type: "getPlayerResponse" }
-  | { type: "videoId" }
-  /**
-   * Makes the player load a caption track (it then requests it from /api/timedtext).
-   * Answers the track that was on before, for `restoreCaptions`.
-   */
-  | { type: "loadTrack"; languageCode: string; asr: boolean }
-  /** Puts back the track `loadTrack` answered (captions off when it was none). */
-  | { type: "restoreCaptions"; previous: unknown }
-  /** Fetches a same-origin /api/timedtext URL from the page and answers its body. */
-  | { type: "fetchTimedtext"; url: string }
-  | { type: "seek"; seconds: number };
+  (
+    | { type: "getPlayerResponse" }
+    | { type: "videoId" }
+    /**
+     * Makes the player load a caption track (it then requests it from /api/timedtext).
+     * Answers the track that was on before, for `restoreCaptions`.
+     */
+    | { type: "loadTrack"; languageCode: string; asr: boolean }
+    /** Puts back the track `loadTrack` answered (captions off when it was none). */
+    | { type: "restoreCaptions"; previous: unknown }
+    /** Fetches a same-origin /api/timedtext URL from the page and answers its body. */
+    | { type: "fetchTimedtext"; url: string }
+    | { type: "seek"; seconds: number }
+  );
 
 export interface PageCallResults {
   getPlayerResponse: unknown;
@@ -45,6 +52,8 @@ export interface PageCallResults {
 }
 
 export function isCall(call: Record<string, unknown>): boolean {
+  if (call.shorts !== undefined && typeof call.shorts !== "boolean")
+    return false;
   switch (call.type) {
     case "getPlayerResponse":
     case "videoId":

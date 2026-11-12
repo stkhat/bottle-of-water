@@ -942,6 +942,89 @@ describe("mountVideoUi", () => {
     });
   });
 
+  describe("on a Short", () => {
+    beforeEach(async () => {
+      await browserPage.viewport(1440, 900);
+      adapter.dispose();
+      page.remove();
+      page = createTestPage({ shorts: true });
+      adapter = createYouTubeAdapter({
+        href: () => `https://www.youtube.com/shorts/${VIDEO_ID}`,
+      });
+    });
+
+    const subtitleLine = () =>
+      inside("lingo-video-player")?.querySelector<HTMLElement>(
+        "[role=region] [lang=en]",
+      ) ?? null;
+
+    it("shows the subtitle only, smaller, over the Short's title, even when set below the video", async () => {
+      const { store } = mount();
+      store.set({
+        settings: mergeSettings(
+          { subtitlePosition: "belowVideo" },
+          store.get().settings,
+        ),
+      });
+      await expect
+        .poll(() => subtitleLine()?.textContent)
+        .toBe("The yeast smells tangy.");
+      expect(host("lingo-video-player").parentElement).toBe(page.player);
+      expect(host("lingo-player-buttons").nextElementSibling?.id).toBe(
+        "closed-captioning-button-container",
+      );
+      // No subtitle box below the video and no transcript on the page.
+      expect(host("lingo-video-below")).toBeNull();
+      expect(host("lingo-transcript")).toBeNull();
+      expect(getComputedStyle(subtitleLine()!).fontSize).toBe("20px");
+      const region = inside("lingo-video-player")!
+        .querySelector("[role=region]")!
+        .getBoundingClientRect();
+      const player = page.player.getBoundingClientRect();
+      expect(region.bottom).toBeCloseTo(player.bottom - 132, 0);
+      expect(region.left).toBeCloseTo(player.left + 12, 0);
+    });
+
+    it("opens the menu under the buttons, without the subtitle positions", async () => {
+      mount(readyState({ menuOpen: true }));
+      await expect
+        .poll(() => inside("lingo-video")?.querySelector("[role=dialog]"))
+        .not.toBeNull();
+      const dialog = inside("lingo-video")!.querySelector("[role=dialog]")!;
+      const buttons = host("lingo-player-buttons").getBoundingClientRect();
+      expect(dialog.getBoundingClientRect().top).toBeCloseTo(
+        buttons.bottom + 12,
+        0,
+      );
+      expect(dialog.textContent).not.toContain("Below video");
+    });
+
+    it("opens the dictionary window beside the Short's buttons", async () => {
+      const { store } = mount();
+      store.set({
+        panel: {
+          ref: { cue: 0, span: 1 },
+          card: TANGY,
+          here: [],
+          dictionaries: [],
+          opened: 1,
+        },
+      });
+      await expect
+        .poll(() => inside("lingo-video")?.querySelector("aside"))
+        .not.toBeNull();
+      const win = inside("lingo-video")!
+        .querySelector("aside")!
+        .getBoundingClientRect();
+      const bar = page.actionBar!.getBoundingClientRect();
+      expect(win.left).toBeCloseTo(bar.right + 18, 0);
+      expect(win.top).toBeCloseTo(
+        Math.max(64, page.player.getBoundingClientRect().top),
+        0,
+      );
+    });
+  });
+
   it("removes everything when unmounted", async () => {
     mount();
     await expect.poll(() => host("lingo-video-player")?.isConnected).toBe(true);
