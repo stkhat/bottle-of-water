@@ -433,7 +433,9 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
 /**
  * While the dictionary window is open, a press anywhere else closes it: on the video,
  * the page or Lingo's other controls. Presses on the window, the hover card and words
- * are marked by them (`keepOpen`): a word's click opens it in the same window.
+ * are marked by them (`keepOpen`): a word's click opens it in the same window. Escape
+ * closes it wherever the focus is: after a click on a word it stays in the subtitle or
+ * the transcript, whose shadow host keeps keys from the page (read here, capturing).
  */
 function useClosedByPressAway(app: VideoApp, open: boolean) {
   useEffect(() => {
@@ -446,9 +448,14 @@ function useClosedByPressAway(app: VideoApp, open: boolean) {
         if (!keptOpen(event)) app.closePanel();
       });
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (fromUser(event) && event.key === "Escape") app.closePanel();
+    };
     addEventListener("pointerdown", onPress, true);
+    addEventListener("keydown", onKeyDown, true);
     return () => {
       removeEventListener("pointerdown", onPress, true);
+      removeEventListener("keydown", onKeyDown, true);
       clearTimeout(timer);
     };
   }, [open]);
