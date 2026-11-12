@@ -60,4 +60,4 @@ Decisions (2026-11-13):
 ## Progress
 - [x] Phase 1: selection → phrase card → save (sections 1–4)
 - [x] Phase 2: pause / resume (section 5)
-- [ ] Docs, mock, real-site check, PR (section 6, verification)
+- [x] Docs, mock, real-site check, PR (section 6, verification)
