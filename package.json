@@ -30,7 +30,7 @@
     "test:all": "npm test && npm run test:browser",
     "verify": "npm run check && npm test -- --reporter=dot && VITEST_BROWSERS=chromium npm run test:browser -- --reporter=dot && npm run test:e2e:build -- --reporter=dot",
     "postinstall": "wxt prepare",
-    "check:claude-md": "node scripts/check-claude-md.mjs",
+    "check:claude-md": "node scripts/check-claude-md.ts",
     "test:mutation": "stryker run",
     "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq && npm run data:phrases && npm run data:en-defs",
     "data:ejdict": "node scripts/data/ejdict.ts",
@@ -92,7 +92,7 @@
       ]
     },
     "entry": [
-      "scripts/format-hook.mjs",
+      "scripts/format-hook.ts",
       "scripts/icons/make-icons.ts",
       "vitest.unit.config.ts"
     ]

@@ -74,7 +74,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**", "e2e/serve.mjs"],
+    files: ["scripts/**", "e2e/serve.ts"],
     languageOptions: { globals: { ...globals.node } },
   },
   prettier,

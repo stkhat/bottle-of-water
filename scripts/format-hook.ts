@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-let filePath;
+let filePath: unknown;
 try {
   filePath = JSON.parse(readFileSync(0, "utf8"))?.tool_input?.file_path;
 } catch {

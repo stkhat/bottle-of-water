@@ -1,5 +1,5 @@
 // Downloaded language data, end to end: the check-download build downloads its Spanish
-// data (es, es-en) from the local npm mirror of serve.mjs, which the test breaks
+// data (es, es-en) from the local npm mirror of serve.ts, which the test breaks
 // through /mirror-control.
 import type { BrowserContext } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
@@ -18,7 +18,7 @@ interface MirrorState {
   served: number;
 }
 
-/** Changes how the mirror answers (see serve.mjs), then gives its state. */
+/** Changes how the mirror answers (see serve.ts), then gives its state. */
 async function mirror(
   change: { broken?: boolean; hold?: boolean; reset?: true } = {},
 ): Promise<MirrorState> {
