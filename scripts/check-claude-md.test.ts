@@ -3,9 +3,9 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkFiles, countLines } from "./check-claude-md.mjs";
+import { checkFiles, countLines } from "./check-claude-md.ts";
 
-const script = join(import.meta.dirname, "check-claude-md.mjs");
+const script = join(import.meta.dirname, "check-claude-md.ts");
 const lines = (n: number, eol = "\n", trailing = true) =>
   Array.from({ length: n }, (_, i) => `line ${i + 1}`).join(eol) +
   (trailing ? eol : "");

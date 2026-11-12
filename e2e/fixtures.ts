@@ -19,7 +19,7 @@ import {
  * Which build to load: `npm run build` (production), `wxt build --mode check` (the
  * build loaded in your own Chrome, with WXT's dev logging and the self-reload), or
  * `npm run build:check-download` (the check build without the self-reload, whose
- * Spanish data comes from the local mirror in serve.mjs; see .env.check-download).
+ * Spanish data comes from the local mirror in serve.ts; see .env.check-download).
  * Production closes the shadow roots of Lingo's UI on web pages, so Playwright cannot
  * reach into it there: tests that drive the UI use a check build.
  */

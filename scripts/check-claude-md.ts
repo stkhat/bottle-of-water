@@ -1,6 +1,6 @@
 // Keeps every CLAUDE.md short. Details belong in docs/.
-// Usage: node scripts/check-claude-md.mjs          check all CLAUDE.md files
-//        node scripts/check-claude-md.mjs --hook   Claude Code PostToolUse hook (stdin JSON)
+// Usage: node scripts/check-claude-md.ts          check all CLAUDE.md files
+//        node scripts/check-claude-md.ts --hook   Claude Code PostToolUse hook (stdin JSON)
 import { readFileSync, readdirSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,15 +8,18 @@ import { fileURLToPath } from "node:url";
 const LIMIT = 150;
 const SKIP_DIRS = new Set(["node_modules", ".git", ".output", ".wxt", "data"]);
 
-export function countLines(text) {
+export function countLines(text: string): number {
   if (text === "") return 0;
   const lines = text.split(/\r\n|\n/);
   if (lines[lines.length - 1] === "") lines.pop();
   return lines.length;
 }
 
-export function checkFiles(paths, limit = LIMIT) {
-  const offending = [];
+export function checkFiles(
+  paths: string[],
+  limit = LIMIT,
+): { path: string; lines: number }[] {
+  const offending: { path: string; lines: number }[] = [];
   for (const path of paths) {
     const lines = countLines(readFileSync(path, "utf8"));
     if (lines > limit) offending.push({ path, lines });
@@ -24,8 +27,8 @@ export function checkFiles(paths, limit = LIMIT) {
   return offending;
 }
 
-function findClaudeMdFiles(dir) {
-  const found = [];
+function findClaudeMdFiles(dir: string): string[] {
+  const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (!SKIP_DIRS.has(entry.name)) {
@@ -38,7 +41,7 @@ function findClaudeMdFiles(dir) {
   return found;
 }
 
-function readStdin() {
+function readStdin(): string {
   try {
     return readFileSync(0, "utf8");
   } catch {
@@ -46,8 +49,8 @@ function readStdin() {
   }
 }
 
-function runHook() {
-  let filePath;
+function runHook(): number {
+  let filePath: unknown;
   try {
     filePath = JSON.parse(readStdin())?.tool_input?.file_path;
   } catch {
@@ -56,21 +59,22 @@ function runHook() {
   if (typeof filePath !== "string" || basename(filePath) !== "CLAUDE.md") {
     return 0;
   }
-  let offending;
+  let offending: { path: string; lines: number }[];
   try {
     offending = checkFiles([filePath]);
   } catch {
     return 0; // missing or unreadable file: nothing to check
   }
-  if (offending.length === 0) return 0;
+  const [first] = offending;
+  if (!first) return 0;
   process.stderr.write(
-    `CLAUDE.md has ${offending[0].lines} lines; the limit is ${LIMIT}. ` +
+    `CLAUDE.md has ${first.lines} lines; the limit is ${LIMIT}. ` +
       `Move details to docs/ and link them from CLAUDE.md.\n`,
   );
   return 2;
 }
 
-function runCheck() {
+function runCheck(): number {
   const offending = checkFiles(findClaudeMdFiles(resolve(".")));
   if (offending.length === 0) return 0;
   for (const { path, lines } of offending) {

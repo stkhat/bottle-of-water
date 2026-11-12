@@ -12,7 +12,7 @@
 //                 matches the lock), or as it is;
 //     hold=1|0    requests wait unanswered until hold=0;
 //     reset       broken=0, hold=0 (answering what was held) and served=0.
-import http from "node:http";
+import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,21 +23,17 @@ const PORT = 4719;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, "pages");
 const LOCK = path.join(here, "..", "src", "core", "packs", "packs.lock.json");
-const TYPES = {
+const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
 };
 
 /** The npm package folders, by package name: { dir, version }. */
-function publishPackages() {
+function publishPackages(): Map<string, { dir: string; version: string }> {
   const lock = JSON.parse(fs.readFileSync(LOCK, "utf8"));
   writePackages(PACKS, lock);
-  const packages = new Map();
+  const packages = new Map<string, { dir: string; version: string }>();
   for (const entry of fs.readdirSync(PUBLISH_DIR, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = path.join(PUBLISH_DIR, entry.name);
@@ -52,23 +48,27 @@ function publishPackages() {
 const packages = publishPackages();
 const mirror = { broken: false, hold: false, served: 0 };
 /** Requests waiting for hold=0. */
-let held = [];
+let held: (() => void)[] = [];
 
 const stateOf = () => ({ ...mirror, held: held.length });
 
 /** The file a `/mirror/@scope/name@version/file` path names, or undefined. */
-function mirrorFile(rest) {
+function mirrorFile(rest: string): string | undefined {
   // A scoped package's name has one "/" (@scope/name); its version follows the last "@".
   const match = /^((?:@[^/@]+\/)?[^/@]+)@([^/]+)\/(.+)$/.exec(rest);
   if (!match) return undefined;
-  const [, name, version, file] = match;
+  const [, name = "", version, file = ""] = match;
   const pkg = packages.get(name);
   if (!pkg || pkg.version !== version) return undefined;
   const full = path.join(pkg.dir, path.normalize(file));
   return full.startsWith(pkg.dir + path.sep) ? full : undefined;
 }
 
-function sendFile(res, file, { cors = false, broken = false } = {}) {
+function sendFile(
+  res: ServerResponse,
+  file: string,
+  { cors = false, broken = false } = {},
+): void {
   fs.readFile(file, (err, data) => {
     const headers = cors ? { "access-control-allow-origin": "*" } : {};
     if (err) {
@@ -77,13 +77,16 @@ function sendFile(res, file, { cors = false, broken = false } = {}) {
         .end("Not found");
       return;
     }
-    if (broken && data.length > 0) data[Math.floor(data.length / 2)] ^= 0x01;
+    if (broken && data.length > 0) {
+      const i = Math.floor(data.length / 2);
+      data[i] = (data[i] ?? 0) ^ 0x01;
+    }
     const type = TYPES[path.extname(file)] ?? "application/octet-stream";
     res.writeHead(200, { ...headers, "content-type": type }).end(data);
   });
 }
 
-function serveMirror(res, rest) {
+function serveMirror(res: ServerResponse, rest: string): void {
   const answer = () => {
     mirror.served++;
     const file = mirrorFile(rest);
@@ -108,7 +111,11 @@ function release() {
   for (const answer of waiting) answer();
 }
 
-function control(req, res, params) {
+function control(
+  req: IncomingMessage,
+  res: ServerResponse,
+  params: URLSearchParams,
+): void {
   if (req.method === "POST") {
     if (params.has("reset")) {
       mirror.broken = false;

@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-claude-md.mjs\" --hook"
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-claude-md.ts\" --hook"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/format-hook.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/format-hook.ts\""
           }
         ]
       }

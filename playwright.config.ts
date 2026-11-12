@@ -19,7 +19,7 @@ export default defineConfig({
   // Only Chromium can load unpacked extensions.
   projects: [{ name: "chromium" }],
   webServer: {
-    command: "node e2e/serve.mjs",
+    command: "node e2e/serve.ts",
     port: PORT,
     reuseExistingServer: !isCI,
   },
