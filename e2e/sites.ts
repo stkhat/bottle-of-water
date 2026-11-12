@@ -52,10 +52,11 @@ async function routeTalkVideo(context: BrowserContext, url: string) {
 }
 
 export const YOUTUBE_WATCH = `https://www.youtube.com/watch?v=${FIXTURE_VIDEO_ID}`;
+export const YOUTUBE_SHORT = `https://www.youtube.com/shorts/${FIXTURE_VIDEO_ID}`;
 export const NETFLIX_WATCH = `https://www.netflix.com/watch/${FIXTURE_MOVIE_ID}?trackId=14170286`;
 
 /**
- * Serves youtube.com from fixtures: the watch-page skeleton (with Trusted Types
+ * Serves youtube.com from fixtures: the watch-page and Short skeletons (with Trusted Types
  * enforced, as on the real site), a local 140-second video (the recorded captions end
  * at 2:15), the recorded /api/timedtext answers, and a fake player API.
  */
@@ -66,6 +67,19 @@ export async function routeYouTube(context: BrowserContext) {
   await context.route("https://www.youtube.com/watch*", (route) => {
     const html = readFileSync(
       path.join(here, "fixtures/youtube-watch.html"),
+      "utf8",
+    ).replace("<video", '<video src="/lingo-test/talk.webm" muted');
+    return route.fulfill({
+      contentType: "text/html; charset=utf-8",
+      headers: {
+        "content-security-policy": "require-trusted-types-for 'script'",
+      },
+      body: html,
+    });
+  });
+  await context.route("https://www.youtube.com/shorts/*", (route) => {
+    const html = readFileSync(
+      path.join(here, "fixtures/youtube-shorts.html"),
       "utf8",
     ).replace("<video", '<video src="/lingo-test/talk.webm" muted');
     return route.fulfill({

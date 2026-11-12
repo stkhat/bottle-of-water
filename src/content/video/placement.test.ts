@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { dictionaryFrame, menuPlacement } from "./placement";
+import {
+  dictionaryFrame,
+  menuBelowPlacement,
+  menuPlacement,
+  verticalDictionaryFrame,
+} from "./placement";
 
 /** Mock Main: the 880×495 video at (24, 112) on the 1440×900 artboard. */
 const PLAYER = { left: 24, top: 112, right: 904, bottom: 607 };
@@ -116,5 +121,36 @@ describe("menuPlacement", () => {
   it("stays inside the player", () => {
     const buttons = { left: 860, top: 560, right: 900, bottom: 600 };
     expect(menuPlacement(PLAYER, buttons, VIEWPORT).right).toBe(1440 - 904 + 8);
+  });
+});
+
+/** Mock `YouTube Shorts — subtitles`: the 405×720 Short at (517, 72), its buttons at 934–982. */
+const SHORT = { left: 517, top: 72, right: 922, bottom: 792 };
+const ACTION_BAR = { left: 934, top: 476, right: 982, bottom: 700 };
+
+describe("verticalDictionaryFrame", () => {
+  it("opens right of the Short's buttons, level with the video (mock)", () => {
+    expect(verticalDictionaryFrame(SHORT, ACTION_BAR, VIEWPORT)).toEqual({
+      left: 1000,
+      top: 72,
+      height: 560,
+    });
+  });
+
+  it("goes beside the video without the buttons, and stays on a narrow screen", () => {
+    expect(verticalDictionaryFrame(SHORT, null, VIEWPORT).left).toBe(940);
+    expect(
+      verticalDictionaryFrame(SHORT, ACTION_BAR, { width: 1100, height: 600 }),
+    ).toEqual({ left: 1100 - 360 - 8, top: 72, height: 600 - 8 - 72 });
+  });
+});
+
+describe("menuBelowPlacement", () => {
+  it("opens 12px under the buttons, 16px in from the Short's right edge (mock)", () => {
+    const buttons = { left: 760, top: 88, right: 842, bottom: 132 };
+    expect(menuBelowPlacement(SHORT, buttons, VIEWPORT)).toEqual({
+      right: 1440 - 922 + 16,
+      top: 144,
+    });
   });
 });

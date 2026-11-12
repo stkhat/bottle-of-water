@@ -1,0 +1,205 @@
+<!doctype html>
+<!--
+  Hand-made skeleton of a YouTube Short (www.youtube.com/shorts/<id>), in the structure
+  read on the real site on 2026-11-13 (docs/notes/youtube-shorts.md): ytd-shorts with
+  the reel renderer (#shorts-player with its video and caption container, the Short's
+  own buttons over the video, the title), the action bar beside it, and the comments
+  engagement panel, open, holding two hand-written comments (one in Japanese). Nothing
+  is copied from YouTube's markup beyond element names, ids and the attributes Lingo
+  reads. The <style> block only lays it out at about the real sizes.
+  For E2E: serve it at https://www.youtube.com/shorts/* with context.route.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Do schools kill creativity? - YouTube</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Roboto, Arial, sans-serif;
+      }
+      ytd-shorts,
+      ytd-comments,
+      ytd-item-section-renderer,
+      ytd-comment-thread-renderer,
+      ytd-comment-view-model,
+      ytd-expander,
+      ytd-engagement-panel-section-list-renderer {
+        display: block;
+      }
+      #shorts-inner {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 64px 0 0 240px;
+      }
+      ytd-reel-video-renderer {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+      }
+      #short-video-container {
+        position: relative;
+      }
+      #shorts-player {
+        position: relative;
+        width: 405px;
+        height: 720px;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .html5-video-container,
+      video.html5-main-video {
+        width: 100%;
+        height: 100%;
+      }
+      .ytp-caption-window-container {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      ytd-shorts-player-controls {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        right: 16px;
+        display: flex;
+        justify-content: space-between;
+        z-index: 1;
+      }
+      #left-controls,
+      #right-controls {
+        display: flex;
+        gap: 8px;
+        height: 48px;
+        align-items: center;
+      }
+      ytd-shorts-player-controls button {
+        width: 48px;
+        height: 48px;
+        border-radius: 24px;
+      }
+      yt-reel-metapanel-view-model {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        color: #fff;
+      }
+      yt-reel-metapanel-view-model h1 {
+        margin: 0;
+        font-size: 14px;
+      }
+      reel-action-bar-view-model {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      reel-action-bar-view-model button {
+        width: 48px;
+        height: 48px;
+      }
+      ytd-engagement-panel-section-list-renderer {
+        width: 480px;
+        height: 720px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+      }
+      ytd-comment-thread-renderer {
+        margin: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <ytd-app>
+      <ytd-page-manager id="page-manager">
+        <ytd-shorts>
+          <div id="shorts-inner">
+            <ytd-reel-video-renderer id="reel-video-renderer">
+              <div id="short-video-container">
+                <div class="player-wrapper">
+                  <div id="player-container">
+                    <ytd-player id="player">
+                      <div id="container">
+                        <div
+                          id="shorts-player"
+                          class="html5-video-player ytp-hide-controls"
+                        >
+                          <div class="html5-video-container">
+                            <video
+                              class="video-stream html5-main-video"
+                              loop
+                            ></video>
+                          </div>
+                          <div
+                            id="ytp-caption-window-container"
+                            class="ytp-caption-window-container"
+                          ></div>
+                        </div>
+                      </div>
+                    </ytd-player>
+                  </div>
+                </div>
+                <ytd-shorts-player-controls>
+                  <div id="left-controls">
+                    <button aria-label="Pause (k)">II</button>
+                  </div>
+                  <div id="right-controls">
+                    <div id="closed-captioning-button-container">
+                      <button aria-label="Captions">CC</button>
+                    </div>
+                    <div id="menu-button">
+                      <button aria-label="More actions">⋮</button>
+                    </div>
+                  </div>
+                </ytd-shorts-player-controls>
+                <yt-reel-metapanel-view-model>
+                  <yt-shorts-video-title-view-model>
+                    <h1>Do schools kill creativity?</h1>
+                  </yt-shorts-video-title-view-model>
+                </yt-reel-metapanel-view-model>
+              </div>
+              <reel-action-bar-view-model>
+                <button aria-label="Like">Like</button>
+                <button aria-label="Comments">Comments</button>
+              </reel-action-bar-view-model>
+            </ytd-reel-video-renderer>
+            <div id="anchored-panel">
+              <ytd-engagement-panel-section-list-renderer
+                target-id="engagement-panel-comments-section"
+                visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+              >
+                <ytd-comments>
+                  <ytd-item-section-renderer id="sections">
+                    <div id="contents">
+                      <ytd-comment-thread-renderer>
+                        <ytd-comment-view-model id="comment">
+                          <div id="body"><div id="main">
+                            <div id="header"><a href="#"><span>@viewer</span></a> <a href="#">2 days ago</a></div>
+                            <ytd-expander id="expander"><div id="content"><yt-attributed-string id="content-text"><span>His anecdotes are hilarious and profound at the same time.</span></yt-attributed-string></div></ytd-expander>
+                            <div id="toolbar"><button>Reply</button></div>
+                          </div></div>
+                        </ytd-comment-view-model>
+                      </ytd-comment-thread-renderer>
+                      <ytd-comment-thread-renderer>
+                        <ytd-comment-view-model id="comment">
+                          <div id="body"><div id="main">
+                            <div id="header"><a href="#"><span>@viewer_ja</span></a> <a href="#">1 day ago</a></div>
+                            <ytd-expander id="expander"><div id="content"><yt-attributed-string id="content-text"><span>何度見ても面白いです。</span></yt-attributed-string></div></ytd-expander>
+                            <div id="toolbar"><button>Reply</button></div>
+                          </div></div>
+                        </ytd-comment-view-model>
+                      </ytd-comment-thread-renderer>
+                    </div>
+                  </ytd-item-section-renderer>
+                </ytd-comments>
+              </ytd-engagement-panel-section-list-renderer>
+            </div>
+          </div>
+        </ytd-shorts>
+      </ytd-page-manager>
+    </ytd-app>
+  </body>
+</html>

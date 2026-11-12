@@ -61,6 +61,14 @@ export interface PlatformAdapter {
   belowVideoElement(): HTMLElement | null;
   /** Where the transcript goes in the side column, or null without one. */
   sideColumn(): InsertionPoint | null;
+  /**
+   * The page shows a vertical short video (YouTube Shorts; spec "YouTube Shorts"): the
+   * subtitle is always in the video and smaller, there is no transcript, the menu opens
+   * under the buttons and the dictionary window beside the video.
+   */
+  vertical?(): boolean;
+  /** What the dictionary window goes to the right of, beside the video (Shorts' buttons). */
+  besidePlayer?(): HTMLElement | null;
   /** The element the transcript is as tall as (default: the player). */
   transcriptFrame?(): HTMLElement | null;
   /**

@@ -81,4 +81,4 @@ Videos: `GLNVMi_4Khw` (gaming commentary, 2018, ASR without punctuation), `1w5R5
 - Changing the player's caption track changes what the user sees and may persist; restore it.
 - Player API (`loadModule`, `setOption`, `getPlayerResponse`) and class names are undocumented and may change.
 - Pre-roll ads produce their own timedtext requests and `ad-showing` state; filter by video id and wait for the ad to end.
-- Not checked: videos with only ASR captions (the format is the same as `a.en` above), live streams, Shorts, embedded players. The mobile site (`m.youtube.com`) was checked on 2026-11-13: the same capture works, the DOM differs ([mobile.md](mobile.md)).
+- Not checked: videos with only ASR captions (the format is the same as `a.en` above), live streams, embedded players. Shorts use the same requests through their own player: [youtube-shorts.md](youtube-shorts.md). The mobile site (`m.youtube.com`) was checked on 2026-11-13: the same capture works, the DOM differs ([mobile.md](mobile.md)).

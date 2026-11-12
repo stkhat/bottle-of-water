@@ -36,9 +36,15 @@ export interface YouTubeAdapterOptions {
 const PLAYER_RESPONSE_TIMEOUT_MS = 30_000;
 /** Videos whose last captured request is kept (the current one and a few before). */
 const KEEP_CAPTURES = 4;
+/** A Short's path and its video id. */
+const SHORTS_PATH = /^\/shorts\/([^/]+)/;
+
+/** The URL shows a Short (`/shorts/<id>`; docs/notes/youtube-shorts.md). */
+export const isShortsUrl = (href: string) =>
+  SHORTS_PATH.test(new URL(href).pathname);
 
 /**
- * YouTube's watch page. Captions come from the player's own /api/timedtext request,
+ * YouTube's watch page and Shorts. Captions come from the player's own /api/timedtext request,
  * observed by the page script (`page.ts`): its URL carries the PO token the server
  * requires, so the other tracks are fetched by editing that URL. Caption bodies and
  * URLs live in memory only.
@@ -66,14 +72,24 @@ export function createYouTubeAdapter(
       captures.set(message.videoId, message);
   });
 
+  const onShorts = () => isShortsUrl(href());
+
   function videoId(): string | undefined {
     const url = new URL(href());
-    if (url.pathname !== "/watch") return undefined;
-    return url.searchParams.get("v") ?? undefined;
+    if (url.pathname === "/watch")
+      return url.searchParams.get("v") || undefined;
+    return SHORTS_PATH.exec(url.pathname)?.[1];
   }
 
-  const player = () => document.getElementById("movie_player");
+  // The watch page's player can stay in the DOM while a Short shows: go by the URL.
+  const player = () =>
+    document.getElementById(onShorts() ? "shorts-player" : "movie_player");
   const adShowing = () => player()?.classList.contains("ad-showing") ?? false;
+  /** Sends a call to the page script, for the player this page shows. */
+  const call = <T extends PageCall["type"]>(
+    message: Extract<PageCall, { type: T }>,
+  ): Promise<PageCallResults[T]> =>
+    bridge.call<T>({ ...message, shorts: onShorts() });
 
   /** The player response once it is the current video's (it lags behind SPA navigation). */
   async function captionInfo(
@@ -82,7 +98,7 @@ export function createYouTubeAdapter(
   ): Promise<YouTubeCaptionInfo> {
     const deadline = Date.now() + PLAYER_RESPONSE_TIMEOUT_MS;
     for (;;) {
-      const response = (await bridge.call({ type: "getPlayerResponse" })) as {
+      const response = (await call({ type: "getPlayerResponse" })) as {
         videoDetails?: { videoId?: unknown };
       } | null;
       if (response?.videoDetails?.videoId === id)
@@ -104,7 +120,7 @@ export function createYouTubeAdapter(
     while (adShowing()) await sleep(pollMs, signal);
     const own = await captures.wait(id, playerRequestWaitMs, signal);
     if (own) return own;
-    const { previous } = await bridge.call({
+    const { previous } = await call({
       type: "loadTrack",
       languageCode: original.lang,
       asr: original.kind === "asr",
@@ -113,13 +129,13 @@ export function createYouTubeAdapter(
       return await captures.wait(id, captureTimeoutMs, signal);
     } finally {
       // Put YouTube's own caption choice back as it was.
-      await bridge
-        .call({ type: "restoreCaptions", previous })
-        .catch((error: unknown) => {
+      await call({ type: "restoreCaptions", previous }).catch(
+        (error: unknown) => {
           // Aborted when Lingo leaves the page: nothing to put back.
           if (!(error instanceof DOMException && error.name === "AbortError"))
             console.warn("Lingo:", error);
-        });
+        },
+      );
     }
   }
 
@@ -133,7 +149,7 @@ export function createYouTubeAdapter(
       (capture.tlang ?? undefined) === track.tlang;
     const body = same
       ? capture.body
-      : await bridge.call({
+      : await call({
           type: "fetchTimedtext",
           url: trackUrl(capture.url, track),
         });
@@ -174,7 +190,11 @@ export function createYouTubeAdapter(
     videoId,
     title() {
       const heading = document
-        .querySelector("ytd-watch-metadata h1")
+        .querySelector(
+          onShorts()
+            ? "ytd-shorts yt-shorts-video-title-view-model h1"
+            : "ytd-watch-metadata h1",
+        )
         ?.textContent?.trim();
       return heading || document.title.replace(/ - YouTube$/, "").trim();
     },
@@ -183,11 +203,24 @@ export function createYouTubeAdapter(
       return id ? `https://www.youtube.com/watch?v=${id}` : href();
     },
     video: () =>
-      document.querySelector<HTMLVideoElement>(
-        "#movie_player video.html5-main-video",
-      ),
+      player()?.querySelector<HTMLVideoElement>("video.html5-main-video") ??
+      null,
     playerElement: player,
     controlsPoint() {
+      if (onShorts()) {
+        // The Short's own buttons at the top of the video, before its captions button.
+        const right = document.querySelector(
+          "ytd-shorts ytd-shorts-player-controls #right-controls",
+        );
+        if (!right) return null;
+        return {
+          parent: right,
+          before:
+            right.querySelector(
+              ":scope > #closed-captioning-button-container",
+            ) ?? right.firstElementChild,
+        };
+      }
       const controls = document.querySelector(
         "#movie_player .ytp-right-controls",
       );
@@ -198,8 +231,10 @@ export function createYouTubeAdapter(
         ? { parent: settings.parentElement, before: settings }
         : { parent: controls, before: controls.firstElementChild };
     },
-    belowVideoElement: () => document.getElementById("below"),
+    belowVideoElement: () =>
+      onShorts() ? null : document.getElementById("below"),
     sideColumn() {
+      if (onShorts()) return null;
       const parent = document.getElementById("secondary-inner");
       if (!parent) return null;
       const related = document.getElementById("related");
@@ -208,6 +243,13 @@ export function createYouTubeAdapter(
         before: related?.parentElement === parent ? related : null,
       };
     },
+    vertical: onShorts,
+    besidePlayer: () =>
+      onShorts()
+        ? document.querySelector<HTMLElement>(
+            "ytd-shorts reel-action-bar-view-model",
+          )
+        : null,
     adShowing,
     async tracks() {
       const id = videoId();
@@ -215,7 +257,7 @@ export function createYouTubeAdapter(
     },
     loadCaptions,
     async seek(ms) {
-      await bridge.call({ type: "seek", seconds: ms / 1000 });
+      await call({ type: "seek", seconds: ms / 1000 });
     },
     onNavigate(listener) {
       const handler = () => listener();

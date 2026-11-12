@@ -73,6 +73,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   const layout = createStore<VideoLayout>({
     frameHeight: 0,
     subtitleBottom: SUBTITLE_BOTTOM,
+    vertical: adapter.vertical?.() ?? false,
   });
   const parts: Part[] = [];
   const roots: ShadowRoot[] = [];
@@ -99,6 +100,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       const box = boxOf(made.transcript?.isConnected ? made.transcript : null);
       return box && box.bottom > box.top ? box : null;
     },
+    beside: () => boxOf(adapter.besidePlayer?.() ?? null),
   };
 
   part(
@@ -142,7 +144,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     // The menu first: the dictionary window and the hover card stack above it.
     <>
       <MenuUi app={app} geometry={geometry} layout={layout} />
-      <PageUi app={app} geometry={geometry} />
+      <PageUi app={app} geometry={geometry} layout={layout} />
     </>,
   );
 
@@ -185,6 +187,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       at.parent.insertBefore(host, at.before);
     }
     liftSubtitle();
+    const vertical = adapter.vertical?.() ?? false;
+    if (vertical !== layout.get().vertical) layout.set({ vertical });
     const frame = adapter.transcriptFrame?.() ?? adapter.playerElement();
     if (frame !== observed) {
       if (observed) resize.unobserve(observed);

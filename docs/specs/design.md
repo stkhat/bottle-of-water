@@ -25,7 +25,7 @@ Development pair: learning language = English, native language = Japanese, sites
 - Colors: **white background + dark navy text + green accent**, the same across video, article, popup and settings (Grammarly-like, but not identical). A dark theme follows the browser by default (see [ui.md](ui.md) "Shared: theme")
 
 ## Phases
-1. **Phase 1 (MVP)** and **phase 2** — built: article and video UI (YouTube, Netflix), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen, Spanish → English, definitions translated at display time, downloadable packs, Spanish and Portuguese as native languages, YouTube comments. What is left is in [status.md](../status.md)
+1. **Phase 1 (MVP)** and **phase 2** — built: article and video UI (YouTube, Netflix), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen, Spanish → English, definitions translated at display time, downloadable packs, Spanish and Portuguese as native languages, YouTube comments, YouTube Shorts. What is left is in [status.md](../status.md)
 2. **Phase 3**
    - "Ask AI" button (links that open ChatGPT / Claude with a prompt containing the word and sentence)
    - LLM explanations: embed "word + sentence + nearby subtitles + saved words" in a prompt, receive JSON, cache per word + sentence. Run on Chrome's built-in Prompt API (Gemini Nano) first, with the user's own API key as a fallback
