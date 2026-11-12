@@ -5,14 +5,13 @@ Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes
 ## Where we are
 - Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, YouTube Shorts (subtitles and comments), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
 - Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
-- Video subtitles and the transcript: selecting 2–8 words saves a phrase as on articles, and the video pauses while a card, the dictionary window or a selection is open ([plan](plans/video-selection.md)); checked on YouTube and Netflix on 2026-11-13
+- Video subtitles and the transcript: selecting 2–8 words saves a phrase as on articles, and the video pauses while a card, the dictionary window or a selection is open; checked on YouTube and Netflix on 2026-11-13
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
 
 ## Known issues and open points
 
 ### Video
-- The video dictionary window closes with Escape only while it has focus: after a click on a word the focus stays in the transcript or subtitle, whose host keeps the key from the page
 - Netflix's Japanese lines are loosely timed, so a few land on a neighboring transcript card; sound labels inside a cue stay in the card ("… ( chuckles )")
 - Netflix: the in-video subtitle is centered on the whole video, so its right end can run under the transcript side panel
 - YouTube: real-site layout in theater mode and the narrow single-column layout not checked

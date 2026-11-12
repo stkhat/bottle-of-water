@@ -1037,6 +1037,29 @@ describe("mountVideoUi", () => {
       await userEvent.keyboard("{Escape}");
       expect(spy("closePanel")).toHaveBeenCalled();
     });
+
+    it("the user's Escape closes the dictionary window while the focus is in the transcript", async () => {
+      const { spy } = mount(
+        readyState({
+          panel: {
+            ref: { cue: 0, span: 1 },
+            card: TANGY,
+            here: [],
+            dictionaries: [],
+            opened: 1,
+          },
+        }),
+      );
+      await button("lingo-video", "Close dictionary");
+      const card = await vi.waitUntil(() =>
+        document
+          .querySelector("lingo-transcript")
+          ?.shadowRoot?.querySelector<HTMLElement>("[data-cue]"),
+      );
+      card.focus();
+      await userEvent.keyboard("{Escape}");
+      expect(spy("closePanel")).toHaveBeenCalled();
+    });
   });
 
   describe("on a Short", () => {
