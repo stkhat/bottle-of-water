@@ -191,6 +191,7 @@ Only the Chrome version is published, but the structure must not need rewriting 
 | Built-in AI (phase 3) | Prompt API | none | Only the user's own API key |
 | Article highlights (CSS Custom Highlight API) | available | available from 140, but at release **without underline (`text-decoration`) support** | Without underlines use background colors only (New = pale blue, Learning = pale green, Known = pale gray; colors to tune). Current support and detection method to be confirmed. Video subtitles are drawn with our own elements, so unaffected |
 | DOM work in the background | offscreen document | the event page has a DOM | not needed so far |
+| Reading a selection inside Lingo's shadow roots (words selected in the video subtitle and transcript) | `Selection.getComposedRanges`; older versions only `ShadowRoot.getSelection` (non-standard) | `getComposedRanges` in recent versions | `ui/selection-in-root.ts` uses the first that exists. With neither, those words cannot be selected (no phrase card); everything else works |
 | Page (MAIN world) scripts | available | from 128 | decide the minimum version |
 | Saving to a folder (File System Access API) | available | none | not offered |
 | OAuth (future cloud sync) | `getAuthToken` / `launchWebAuthFlow` | `launchWebAuthFlow` only | standardize on `launchWebAuthFlow` |

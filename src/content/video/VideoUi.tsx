@@ -3,6 +3,11 @@ import { useEffect, useMemo, useReducer } from "preact/hooks";
 import { fromUser } from "../../ui/from-user";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { keptOpen } from "../../ui/keep-open";
+import type { SelectedOffsets } from "../../ui/selection-in-root";
+import {
+  pressedOnText,
+  type SelectedText,
+} from "../../ui/video/text-selection";
 import { formatTime } from "../../ui/format/format";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
@@ -19,7 +24,7 @@ import {
   menuPlacement,
   verticalDictionaryFrame,
 } from "./placement";
-import type { VideoApp, VideoState } from "./state";
+import type { VideoApp, VideoState, WordPlace } from "./state";
 import { filterCounts, filterRows, videoWords } from "./words";
 import { Floating, TOP_LAYER } from "../lookup/Floating";
 import { useStore, type Store } from "../store";
@@ -94,6 +99,8 @@ function playingLine(state: VideoState) {
   );
   return {
     card: line.card,
+    /** Where the line starts in the card's text. */
+    start: line.start,
     text: cue.text.slice(line.start, line.end),
     spans: spans && shown.map((each) => each.span),
     index: shown.map((each) => each.index),
@@ -135,8 +142,41 @@ function Subtitle(props: {
       }
       onWordLeave={app.leaveWord}
       onWordClick={(span) => app.clickWord(ref(span))}
+      onSelectStart={() => app.selectStart("subtitle")}
+      onSelect={(selected) =>
+        selectIn(
+          app,
+          line?.card ?? -1,
+          line?.start ?? 0,
+          "subtitle",
+          line && selected,
+        )
+      }
     />
   );
+}
+
+/**
+ * Words selected in a text that shows a cue from `offset` on (the playing line, or a
+ * whole card): offsets in the cue's text, and back for the words they snap to.
+ */
+function selectIn(
+  app: VideoApp,
+  cue: number,
+  offset: number,
+  place: WordPlace,
+  selected: SelectedText | undefined,
+): SelectedOffsets | undefined {
+  const words = app.selectWords(
+    selected && {
+      cue,
+      start: selected.from + offset,
+      end: selected.to + offset,
+      place,
+    },
+    (start, end) => selected?.boxOf(start - offset, end - offset),
+  );
+  return words && { from: words.start - offset, to: words.end - offset };
 }
 
 /** One video part's content under the theme setting. */
@@ -313,6 +353,7 @@ export function TranscriptUi(props: {
   );
   if (!showing(state) || state.fullscreen) return null;
   const fromTranscript = state.hover?.from === "transcript";
+  const selectedInTranscript = state.phrase?.from === "transcript";
   return (
     <VideoPanel
       tab={state.panelTab}
@@ -335,10 +376,16 @@ export function TranscriptUi(props: {
       }
       onWordLeave={app.leaveWord}
       onWordClick={(cue, span) => app.clickWord({ cue, span })}
-      holdScroll={fromTranscript}
+      onSelectStart={() => app.selectStart("transcript")}
+      onSelect={(cue, selected) =>
+        selectIn(app, cue, 0, "transcript", selected)
+      }
+      // The list holds still while a word's card shows or words are selected.
+      holdScroll={fromTranscript || state.selecting}
       onListScroll={() => {
         // The card would stay where the word was.
         if (fromTranscript) app.dismissHover();
+        if (selectedInTranscript) app.clearSelection();
       }}
       words={filterRows(words, state.wordsFilter).map((word) => {
         const brief = Object.hasOwn(summaries, word.key)
@@ -408,8 +455,37 @@ function useClosedByPressAway(app: VideoApp, open: boolean) {
 }
 
 /**
- * Over the page: the hover card and the dictionary window (in fullscreen too: the host
- * is then inside the fullscreen element).
+ * While words are selected, Escape or a press anywhere else drops the selection and its
+ * card. Presses on Lingo's cards and windows (`keepOpen`) keep it, and a press on a
+ * text words are selected in makes a new selection.
+ */
+function useSelectionDroppedByPressAway(app: VideoApp, selecting: boolean) {
+  useEffect(() => {
+    if (!selecting) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onPress = (event: PointerEvent) => {
+      if (!fromUser(event)) return;
+      // Decided once the press has reached every part, which mark theirs.
+      timer = setTimeout(() => {
+        if (!keptOpen(event) && !pressedOnText(event)) app.clearSelection();
+      });
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (fromUser(event) && event.key === "Escape") app.clearSelection();
+    };
+    addEventListener("pointerdown", onPress, true);
+    addEventListener("keydown", onKeyDown, true);
+    return () => {
+      removeEventListener("pointerdown", onPress, true);
+      removeEventListener("keydown", onKeyDown, true);
+      clearTimeout(timer);
+    };
+  }, [selecting]);
+}
+
+/**
+ * Over the page: the hover card, the selection's card and the dictionary window (in
+ * fullscreen too: the host is then inside the fullscreen element).
  */
 export function PageUi(props: {
   app: VideoApp;
@@ -419,7 +495,7 @@ export function PageUi(props: {
   const { app, geometry } = props;
   const state = useStore(app.store);
   const { vertical } = useStore(props.layout);
-  const { hover, panel, settings, fullscreen } = state;
+  const { hover, panel, phrase, settings, fullscreen } = state;
   const position = fullscreen ? "fullscreen" : settings.subtitlePosition;
   // Placed when the window opens or the screen changes; it stays where the user drags it.
   const frame = useMemo(() => {
@@ -431,6 +507,7 @@ export function PageUi(props: {
       : dictionaryFrame(player, position, viewport, geometry.transcript());
   }, [panel?.opened, fullscreen]);
   useClosedByPressAway(app, !!panel);
+  useSelectionDroppedByPressAway(app, state.selecting);
   if (!showing(state)) return null;
 
   return (
@@ -477,6 +554,22 @@ export function PageUi(props: {
           />
         </Floating>
       )}
+      {phrase && (
+        // Pressing the card's buttons must not clear the selection.
+        <Floating anchor={phrase.anchor} shift={8} onMouseDown={keepSelection}>
+          <HoverCard
+            variant="video"
+            selection
+            {...hoverView(phrase.card)}
+            nativeLang={settings.nativeLang}
+            onLearning={() => app.saveSelection("learning")}
+            onKnown={() => app.saveSelection("known")}
+            onDetails={app.openSelectionDetails}
+          />
+        </Floating>
+      )}
     </>
   );
 }
+
+const keepSelection = (event: MouseEvent) => event.preventDefault();

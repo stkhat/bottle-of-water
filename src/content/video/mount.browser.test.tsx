@@ -61,6 +61,8 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     subtitleTranslation: "イーストはぴりっとした匂い。",
     hover: null,
     panel: null,
+    phrase: null,
+    selecting: false,
     menuOpen: false,
     fullscreen: false,
     panelTab: "transcript",
@@ -391,6 +393,101 @@ describe("mountVideoUi", () => {
     await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
     expect(spy("seekToCue")).not.toHaveBeenCalled();
+  });
+
+  it("selects words in the subtitle over the player, shows their card, and drops it on a press elsewhere or Escape", async () => {
+    // The player's own style (YouTube's), which would carry down into the subtitle.
+    style.textContent += "#movie_player { user-select: none; }";
+    const { store, spy } = mount();
+    const cue = CUES[0]!.text;
+    const whole = { start: cue.indexOf("yeast"), end: cue.length - 1 };
+    spy("selectWords").mockImplementation(() => whole);
+    await expect
+      .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
+      .not.toBeNull();
+    const word = (name: string) =>
+      [
+        ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+          "[data-span]",
+        ),
+      ].find((el) => el.textContent === name)!;
+    const line = inside("lingo-video-player")!.querySelector("[lang=en]")!;
+    const at = line.getBoundingClientRect();
+    const yeast = word("yeast").getBoundingClientRect();
+    // From the middle of "yeast" to just inside its line's end (the narrow test page
+    // cuts the line short).
+    await userEvent.dragAndDrop(
+      browserPage.elementLocator(line),
+      browserPage.elementLocator(line),
+      {
+        sourcePosition: { x: yeast.left - at.left + 10, y: at.height / 2 },
+        targetPosition: {
+          x: Math.min(at.width, innerWidth - at.left) - 4,
+          y: at.height / 2,
+        },
+      },
+    );
+    await expect.poll(() => spy("selectWords").mock.calls.length).toBe(1);
+    expect(spy("selectStart")).toHaveBeenCalledExactlyOnceWith("subtitle");
+    const [words, boxOf] = spy("selectWords").mock.calls[0] as [
+      { cue: number; start: number; end: number; place: string },
+      (start: number, end: number) => DOMRect,
+    ];
+    expect(words).toMatchObject({ cue: 0, place: "subtitle" });
+    expect(words.start).toBeGreaterThan(cue.indexOf("yeast"));
+    expect(words.end).toBeGreaterThan(cue.indexOf("smells"));
+    // The whole words' text, inside their highlights' padding.
+    const anchor = boxOf(whole.start, whole.end);
+    const inset = (a: number, b: number) => Math.round(Math.abs(a - b));
+    expect(inset(anchor.left, word("yeast").getBoundingClientRect().left)).toBe(
+      3,
+    );
+    expect(
+      inset(anchor.right, word("tangy").getBoundingClientRect().right),
+    ).toBe(3);
+    expect(spy("clickWord")).not.toHaveBeenCalled();
+
+    store.set({
+      selecting: true,
+      phrase: {
+        ref: {
+          cue: 0,
+          span: -1,
+          selected: { ...whole, key: "yeast smell tangy" },
+        },
+        from: "subtitle",
+        anchor,
+        card: {
+          ...TANGY,
+          kind: "phrase",
+          head: "yeast smells tangy",
+          status: "new",
+        },
+      },
+    });
+    await expect
+      .poll(() => text("lingo-video"))
+      .toContain("Selected · not saved");
+    const button = (label: string) =>
+      [...inside("lingo-video")!.querySelectorAll("button")].find(
+        (b) => b.textContent === label,
+      )!;
+    // Above the words.
+    expect(button("Details").getBoundingClientRect().bottom).toBeLessThan(
+      anchor.top,
+    );
+    await userEvent.click(button("+ Learning"));
+    expect(spy("saveSelection")).toHaveBeenCalledWith("learning");
+    await userEvent.click(button("Details"));
+    expect(spy("openSelectionDetails")).toHaveBeenCalledOnce();
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+    await settle();
+    expect(spy("clearSelection")).not.toHaveBeenCalled();
+
+    await userEvent.click(document.body);
+    await expect.poll(() => spy("clearSelection").mock.calls.length).toBe(1);
+    await userEvent.keyboard("{Escape}");
+    expect(spy("clearSelection")).toHaveBeenCalledTimes(2);
   });
 
   it("a press outside the dictionary window closes it; a press in it or on a word does not", async () => {

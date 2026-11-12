@@ -1,3 +1,4 @@
+import type { Span } from "../../core/classify";
 import { warn } from "../lookup/warn";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
@@ -20,12 +21,14 @@ export function createCards(o: {
 
   /**
    * The span `ref` points at, with its term as written (the whole phrase for a part of
-   * a phrase with a gap).
+   * a phrase with a gap). Selected words' phrase is a span of its own, not saved.
    */
   function spanOf(ref: WordRef) {
     const { cues, spans } = store.get();
     const cue = cues[ref.cue];
-    const span = spans[ref.cue]?.[ref.span];
+    const span: Span | undefined = ref.selected
+      ? { ...ref.selected, kind: "phrase", category: "new" }
+      : spans[ref.cue]?.[ref.span];
     if (!cue || !span) return undefined;
     const { start, end } = span.part ?? span;
     return { cue, span, surface: flat(cue.text.slice(start, end)) };
@@ -75,6 +78,8 @@ export function createCards(o: {
   let onCard = false;
   const hover = createHoverIntent<string>({
     show(id) {
+      // The selection's card is the card for the words under the pointer.
+      if (store.get().selecting) return;
       // The same word in the subtitle and the transcript are two targets.
       const [from, cue, span] = id.split(":") as [WordPlace, string, string];
       const ref = { cue: Number(cue), span: Number(span) };

@@ -1035,6 +1035,161 @@ describe("words in the subtitles", () => {
   });
 });
 
+describe("selecting words", () => {
+  const MIND: Cue[] = [
+    { startMs: 0, endMs: 1000, text: "She made up her mind." },
+    { startMs: 1000, endMs: 2000, text: "Knead the dough." },
+    { startMs: 2500, endMs: 3500, text: "Later he made up\nhis mind too." },
+  ];
+  const FIRST = MIND[0]!.text;
+  const at = (cue: number, word: string) => MIND[cue]!.text.indexOf(word);
+  /** Words of cue 0 from inside "made" to inside "mind". */
+  const madeUpHerMind = (place: "subtitle" | "transcript" = "transcript") => ({
+    cue: 0,
+    start: at(0, "made") + 1,
+    end: at(0, "mind") + 2,
+    place,
+  });
+  const boxOf = () => BOX;
+  /** The phrases of each cue, as written. */
+  const phrases = (state: () => VideoState) =>
+    state().spans.map((list, cue) =>
+      (list ?? [])
+        .filter((s) => s.kind === "phrase" && s.category === "learning")
+        .map((s) => MIND[cue]!.text.slice(s.start, s.end)),
+    );
+
+  it("snaps to whole words and shows the card of the pattern they stand for", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    expect(state().selecting).toBe(true);
+    expect(app.selectWords(madeUpHerMind(), boxOf)).toEqual({
+      start: at(0, "made"),
+      end: at(0, "mind") + "mind".length,
+    });
+    await expect
+      .poll(() => state().phrase?.card.key)
+      .toBe("make up one's mind");
+    expect(state().phrase).toMatchObject({
+      from: "transcript",
+      anchor: BOX,
+      ref: {
+        cue: 0,
+        span: -1,
+        selected: { key: "make up one's mind", start: 4, end: 20 },
+      },
+      card: { kind: "phrase", status: "new" },
+    });
+    expect(bg.sent("matchSelection")).toEqual([
+      {
+        type: "matchSelection",
+        lang: "en",
+        text: FIRST,
+        start: at(0, "made"),
+        end: at(0, "mind") + "mind".length,
+      },
+    ]);
+  });
+
+  it("saves the phrase with the line, its time and translation; the cues then show it", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    app.saveSelection("learning");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      kind: "phrase",
+      status: "learning",
+      sentence: FIRST,
+      translation: "イーストはぴりっとした匂い。",
+      pos: { timeMs: 0 },
+      source: { platform: "youtube", title: "Title of vid1" },
+    });
+    await expect.poll(() => state().phrase).toBeNull();
+    expect(state().selecting).toBe(false);
+    // Found again with other words in the slot, across a line break too.
+    await expect
+      .poll(() => phrases(state))
+      .toEqual([["made up her mind"], [], ["made up\nhis mind"]]);
+  });
+
+  it("Details opens the phrase's window, which saves it", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    app.openSelectionDetails();
+    expect(state()).toMatchObject({ phrase: null, selecting: false });
+    await expect.poll(() => state().panel?.card.key).toBe("make up one's mind");
+    expect(state().panel?.card.status).toBe("new");
+    app.setPanelStatus("known");
+    await expect.poll(() => state().panel?.card.status).toBe("known");
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "make up one's mind",
+      display: "made up her mind",
+      kind: "phrase",
+      status: "known",
+      sentence: FIRST,
+    });
+    await expect
+      .poll(() => state().spans[2]!.some((s) => s.key === "make up one's mind"))
+      .toBe(true);
+  });
+
+  it("takes 2 to 8 words of one subtitle line, and drops the selection when the line changes", async () => {
+    const { state, app, video } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => state().line).toBe(0);
+    app.selectStart("subtitle");
+    const one = { cue: 0, start: at(0, "made"), end: at(0, "made") + 2 };
+    expect(app.selectWords({ ...one, place: "subtitle" }, boxOf)).toBe(
+      undefined,
+    );
+    expect(state().selecting).toBe(false);
+    // Not the line playing.
+    app.selectStart("subtitle");
+    expect(
+      app.selectWords(
+        { cue: 2, start: 0, end: at(2, "he") + 2, place: "subtitle" },
+        boxOf,
+      ),
+    ).toBe(undefined);
+
+    app.selectStart("subtitle");
+    expect(app.selectWords(madeUpHerMind("subtitle"), boxOf)).toBeDefined();
+    await expect.poll(() => state().phrase).not.toBeNull();
+    await seekTo(video, 1.2);
+    await expect.poll(() => state().phrase).toBeNull();
+    expect(state().selecting).toBe(false);
+  });
+
+  it("shows no hover card while words are selected, and drops the selection on request", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.enterWord(refOf(state, 1, "knead"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.selectStart("transcript");
+    expect(state().hover).toBeNull();
+    app.enterWord(refOf(state, 1, "knead"), BOX);
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    expect(state().hover).toBeNull();
+    app.clearSelection();
+    expect(state()).toMatchObject({ phrase: null, selecting: false });
+  });
+});
+
 /** The Words tab's rows, as key → category ("give up/phrase" for phrases). */
 function rowsOf(state: () => VideoState) {
   const { cues, spans, summaries } = state();
