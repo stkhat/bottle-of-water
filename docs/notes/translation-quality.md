@@ -163,7 +163,8 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
   - The ceiling is 90%: for the rest no sense of the entry fits (a wrong key, a name, slang).
   - Order matters little: dictionary order gives 58 / 72 / 79 / 84%. The sources have no sense frequencies, so "most frequent" means dictionary order with the tagged part of speech first.
   - It helps words with 2–6 senses most (1 → 3 senses: 64 → 90%). Words with 7 or more senses (get, have, so, line) stay low (48 → 56%).
-  - Cost: the learner has to pick the sense, and the line triples. Three senses fit the dictionary window better than the hover. In the hover, showing the first sense large and the next two small would take a mock change.
+  - Cost: the learner has to pick the sense, and the meaning takes about three times the space.
+  - Decided (2026-11-13): the hover shows up to three senses, all the same size.
 
 ## Still open
 - **Wrong sense within the right part of speech** (battery → 砲兵中隊, fleet → 艦隊, hike → ハイキングする, miss → 未婚婦人; in dialogue: guy → 控え綱, cool → 涼しい): no general offline rule found. They need sense frequencies the sources don't give, or "Ask AI".
