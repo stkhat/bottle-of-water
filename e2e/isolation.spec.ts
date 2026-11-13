@@ -1,7 +1,7 @@
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { pointOn, showNewWords } from "./page";
+import { COLD_LOAD, pointOn, showNewWords } from "./page";
 import { routeYouTube, YOUTUBE_WATCH } from "./sites";
 
 // The real host from createShadowRootUi with cssInjectionMode "manual".
@@ -12,6 +12,7 @@ test("page styles do not reach the hover card, and Lingo adds no CSS to the page
   await page.goto("/hostile.html");
   await expect(page.locator("lingo-article")).toHaveCount(1);
   const word = await pointOn(page, "everything", "body");
+  // The first hover waits for the packs and the dictionary.
   await expect
     .poll(async () => {
       await page.mouse.move(word.x + 1, word.y);
@@ -19,7 +20,7 @@ test("page styles do not reach the hover card, and Lingo adds no CSS to the page
       return page
         .getByRole("button", { name: en["hover.details"] })
         .isVisible();
-    })
+    }, COLD_LOAD)
     .toBe(true);
   const head = page
     .locator("lingo-article")

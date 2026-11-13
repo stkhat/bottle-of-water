@@ -1,6 +1,12 @@
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { test, expect } from "./fixtures";
-import { highlighted, openArticle, pointOn, showNewWords } from "./page";
+import {
+  COLD_LOAD,
+  highlighted,
+  openArticle,
+  pointOn,
+  showNewWords,
+} from "./page";
 
 test("a word saved from the dictionary is Learning, and in every form after a reload", async ({
   context,
@@ -11,7 +17,10 @@ test("a word saved from the dictionary is Learning, and in every form after a re
   const loaf = await pointOn(page, "loaf");
   await page.mouse.click(loaf.x, loaf.y);
   const panel = page.getByRole("complementary", { name: en["dict.title"] });
-  await expect(panel.getByRole("heading", { name: "loaf" })).toBeVisible();
+  // The first lookup waits for the dictionary.
+  await expect(panel.getByRole("heading", { name: "loaf" })).toBeVisible(
+    COLD_LOAD,
+  );
   await panel
     .getByRole("button", { name: en["status.learning"], exact: true })
     .click();

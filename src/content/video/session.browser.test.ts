@@ -189,10 +189,11 @@ describe("a video with subtitles", () => {
       enabled: true,
       cues: CUES,
       translationSource: "siteTrack",
-      // Each Japanese line goes to the card it overlaps most.
+      // Each Japanese line goes to the card it overlaps most and to every card it
+      // covers at least half of: the first one covers 800 of the second card's 1000 ms.
       translations: [
         "イーストはぴりっとした匂い。",
-        "",
+        "イーストはぴりっとした匂い。",
         "ぴりっとしたパンだ。",
       ],
     });
@@ -1053,7 +1054,14 @@ describe("words in the subtitles", () => {
   });
 
   it("the hover card's buttons save the word", async () => {
-    const { state, app, bg } = await start();
+    // The first Japanese line only grazes the second card, which so has no translation.
+    const { state, app, bg } = await start({
+      vid1: captionsOf(CUES, {
+        source: "siteTrack",
+        lang: "ja",
+        cues: [{ ...JA[0]!, endMs: 1200 }, JA[1]!],
+      }),
+    });
     await ready(state);
     await classified(state);
     app.enterWord(refOf(state, 1, "knead"), BOX);
