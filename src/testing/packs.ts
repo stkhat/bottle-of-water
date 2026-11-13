@@ -86,6 +86,7 @@ const TEST_PACKS: PackFiles = {
   },
   // "figure out" has more senses than are translated (four), a labelled one and
   // pointers: the background asks the translation cache for cleaned definitions only.
+  // "i mean"'s short meaning only names its function (a usage note).
   "en-defs": {
     defs: {
       "figure out": [
@@ -96,6 +97,13 @@ const TEST_PACKS: PackFiles = {
           ["verb", "Synonym of work out."],
           ["verb", "Synonym of puzzle out: to find a solution by thinking."],
           ["verb", "To calculate an amount."],
+        ],
+      ],
+      "i mean": [
+        "A mild intensifier",
+        [
+          ["particle", "A mild intensifier."],
+          ["particle", "A delaying filler."],
         ],
       ],
     },
@@ -168,7 +176,7 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
   "/packs/en-ja/capital.json": TEST_PACKS["en-ja"].capital,
   "/packs/en-ja/pos.json": TEST_PACKS["en-ja"].sensePos,
   "/packs/en-defs/index.json": {
-    shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
+    shards: [{ file: "dict-1.json", first: "figure out", last: "i mean" }],
   },
   "/packs/en-defs/dict-1.json": TEST_PACKS["en-defs"].defs,
   ...Object.fromEntries(

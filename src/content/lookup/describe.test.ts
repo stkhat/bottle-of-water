@@ -77,6 +77,30 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     ],
     glossLang: "en",
   },
+  "i mean": {
+    head: "I mean",
+    kind: "phrase",
+    short: "A mild intensifier",
+    lines: ["A mild intensifier"],
+    senses: [
+      { pos: "particle", text: "A mild intensifier." },
+      { pos: "particle", text: "A delaying filler." },
+    ],
+    glossLang: "en",
+  },
+  "umbrella term": {
+    head: "umbrella term",
+    kind: "phrase",
+    short: "A word used to cover a broad category of things",
+    lines: ["A word used to cover a broad category of things"],
+    senses: [
+      {
+        pos: "noun",
+        text: "A word used to cover a broad category of things.",
+      },
+    ],
+    glossLang: "en",
+  },
   "spill the bean": {
     head: "spill the bean",
     kind: "phrase",
@@ -471,6 +495,38 @@ describe("describeTerm with an English definition", () => {
     expect(card.senses[0]?.text).toMatch(/apophasis/);
   });
 
+  it("translates a phrase whose definition only names its function as it is written, not an old translation of it", async () => {
+    // A translation of the definition kept before it counted as a usage note.
+    const { send, cached } = fakeSend("new", {
+      "A mild intensifier": "マイルドなインテンシファイア",
+    });
+    const { calls, translator } = recordingTranslator();
+    const card = await describeTerm(
+      { key: "i mean", kind: "phrase", surface: "I mean" },
+      deps(send, translator),
+    );
+    expect(calls).toEqual([["I mean", "hover", EN_JA]]);
+    expect(card).toMatchObject({
+      short: "訳(I mean)",
+      machineTranslated: "literal",
+    });
+    expect(hoverView(card).meanings).toEqual(["訳(I mean)"]);
+    expect(cached()).toEqual([]);
+  });
+
+  it("translates a noun's definition that names a kind of word: it is the noun's meaning", async () => {
+    const { send } = fakeSend();
+    const { calls, translator } = recordingTranslator();
+    const card = await describeTerm(
+      { key: "umbrella term", kind: "phrase", surface: "umbrella term" },
+      deps(send, translator),
+    );
+    expect(calls).toEqual([
+      ["A word used to cover a broad category of things", "hover", EN_JA],
+    ]);
+    expect(card).toMatchObject({ machineTranslated: "definition" });
+  });
+
   it("uses the cached translations without the translator", async () => {
     const { send, cached } = fakeSend("new", {
       "To reveal a secret.": "秘密を漏らす",
@@ -689,6 +745,33 @@ describe("translateSenses", () => {
       "理解するようになる；発見する",
       "訳(To solve (a problem).)",
     ]);
+  });
+
+  it("leaves a short meaning that is a usage note as it is", async () => {
+    const { send } = fakeSend();
+    const { calls, translator } = recordingTranslator();
+    const translated = await translateSenses(
+      {
+        ...card,
+        key: "i mean",
+        head: "I mean",
+        short: "A mild intensifier",
+        senses: [
+          { pos: "particle", text: "A mild intensifier." },
+          { pos: "particle", text: "A delaying filler." },
+        ],
+      },
+      deps(send, translator),
+    );
+    expect(calls).toEqual([
+      ["A mild intensifier.", "window", EN_JA],
+      ["A delaying filler.", "window", EN_JA],
+    ]);
+    expect(translated).toMatchObject({
+      short: "A mild intensifier",
+      shortLang: "en",
+    });
+    expect(translated).not.toHaveProperty("machineTranslated");
   });
 
   it("gives the card back as it is when nothing is translated", async () => {

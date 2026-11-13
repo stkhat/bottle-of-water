@@ -4,6 +4,7 @@ import {
   definitionPointer,
   definitionTexts,
   isUsageNote,
+  isUsageNoteShort,
   MAX_TRANSLATED_SENSES,
 } from "./definitions";
 
@@ -271,5 +272,74 @@ describe("isUsageNote", () => {
     expect(isUsageNote("To reveal a secret.")).toBe(false);
     expect(isUsageNote("An expression of surprise.")).toBe(false);
     expect(isUsageNote("A user of a computer.")).toBe(false);
+  });
+  it("finds definitions that only name the function of a sense that is not nominal", () => {
+    const named = [
+      ["particle", "A mild intensifier."],
+      ["particle", "A delaying filler."],
+      ["particle", "An indication of approximation or uncertainty."],
+      ["interjection", "An informal greeting."],
+      ["interjection", "Space filler or pause during conversation."],
+      ["phrase", "A phrase used at parting."],
+      ["interjection", "A greeting said at noon."],
+      ["prepositional phrase", "Expletive used for emphasis after a word."],
+      ["pronoun", "A title of respect used when referring to a king."],
+      ["phrase", "(colloquial) Serves as an intensifier for a noun."],
+      ["phrase", "An indication that a development will follow."],
+    ] as const;
+    for (const [pos, text] of named)
+      expect(isUsageNote(text, pos), text).toBe(true);
+  });
+  it("leaves the same definitions of a noun or an adjective, and meanings", () => {
+    expect(isUsageNote("A mild intensifier.", "adjective")).toBe(false);
+    expect(isUsageNote("A word used to ask a question.", "noun")).toBe(false);
+    expect(isUsageNote("A phrase used at parting.")).toBe(false);
+    const meanings = [
+      ["interjection", "An expression of surprise."],
+      ["interjection", "An exclamation of greeting or surprise."],
+      // The interjection itself.
+      ["interjection", "Farewell."],
+      ["preposition", "As an indication of; in a show of."],
+      ["adverb", "As said before, likewise."],
+      ["prepositional phrase", "Not being used; on hold."],
+      ["prepositional phrase", "Available to be used at any time."],
+      ["verb", "The act of performing said technique."],
+      ["verb", "To cut a hedge."],
+      // A pointer is shown as written.
+      ["adverb", "Only used in lie doggo."],
+    ] as const;
+    for (const [pos, text] of meanings)
+      expect(isUsageNote(text, pos), text).toBe(false);
+  });
+});
+
+describe("isUsageNoteShort", () => {
+  const senses = [
+    { pos: "particle", text: "A mild intensifier." },
+    { pos: "particle", text: "Used to correct an error." },
+  ];
+  it("reads a phrase's short meaning with the part of speech of its sense", () => {
+    expect(
+      isUsageNoteShort({ kind: "phrase", short: "A mild intensifier", senses }),
+    ).toBe(true);
+    expect(
+      isUsageNoteShort({
+        kind: "phrase",
+        short: "A word used to cover a category",
+        senses: [{ pos: "noun", text: "A word used to cover a category." }],
+      }),
+    ).toBe(false);
+  });
+  it("keeps a word's function label, but not its usage note", () => {
+    expect(
+      isUsageNoteShort({ kind: "word", short: "A mild intensifier", senses }),
+    ).toBe(false);
+    expect(
+      isUsageNoteShort({
+        kind: "word",
+        short: "Used as an intensifier",
+        senses,
+      }),
+    ).toBe(true);
   });
 });

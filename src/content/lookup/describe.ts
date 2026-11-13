@@ -1,7 +1,7 @@
 import type { Category, TermKind, WordStatus } from "../../core/classify";
 import {
   cleanDefinition,
-  isUsageNote,
+  isUsageNoteShort,
   MAX_TRANSLATED_SENSES,
 } from "../../core/lexicon/definitions";
 import type { Sense, Written } from "../../core/lexicon/dictionary";
@@ -231,12 +231,12 @@ export async function describeTerm(
 
   /**
    * A definition that only says how the term is used ("An apophasis used by a speaker
-   * to introduce…") reads as an explanation once translated: the term itself is
-   * translated instead, as a phrase no dictionary has is ("not to mention" → 言うまで
-   * もなく).
+   * to introduce…") or names its function ("A mild intensifier") reads as an
+   * explanation once translated: the term itself is translated instead, as a phrase no
+   * dictionary has is ("not to mention" → 言うまでもなく).
    */
   const usageNote =
-    pair !== undefined && entry !== undefined && isUsageNote(entry.short);
+    pair !== undefined && entry !== undefined && isUsageNoteShort(entry);
 
   /** The short meaning translated from its English definition, when it is one. */
   async function translatedShort() {
@@ -333,8 +333,15 @@ export async function translateSenses(
 ): Promise<TermCard> {
   const pair = definitionPair(card.glossLang, deps.nativeLang);
   if (!pair) return card;
+  // A usage note stays as it is: the hover shows the term's literal translation.
   const shortText =
-    card.shortLang !== undefined && card.short !== undefined
+    card.shortLang !== undefined &&
+    card.short !== undefined &&
+    !isUsageNoteShort({
+      kind: card.kind,
+      short: card.short,
+      senses: card.senses,
+    })
       ? cleanDefinition(card.short)
       : undefined;
   const senseTexts = card.senses.map((sense, i) =>
