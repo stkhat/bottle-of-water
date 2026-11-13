@@ -146,7 +146,7 @@ export interface VideoApp {
   readonly store: Store<VideoState>;
   /** The L button: Lingo on or off for this video. */
   setEnabled(on: boolean): void;
-  /** A transcript card was clicked. */
+  /** A transcript card was clicked: the video plays from its start. */
   seekToCue(index: number): void;
   /** The pointer entered a word of the subtitle or the transcript (its box in the viewport). */
   enterWord(ref: WordRef, anchor: Box, from?: WordPlace): void;
