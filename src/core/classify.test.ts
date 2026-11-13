@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createClassifier,
   unsavedKeys,
+  type ClassifyOptions,
   type Span,
   type TermIndex,
   type TermStatus,
 } from "./classify";
-import type { CapitalMeaning } from "./lexicon/dictionary";
+import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { blockCasing, documentCasing } from "./text/casing";
 
@@ -587,5 +588,66 @@ describe("names by document casing (rule D)", () => {
       { terms: terms(), knownLevel: 1 },
     );
     expect(spans.some((s) => s.name || s.capital)).toBe(false);
+  });
+});
+
+describe("keys and parts of speech by tags (rules A1 and A2)", () => {
+  // The tagger is sure of these words only: "decided" a past tense, "fine" an
+  // adjective, "the" a determiner; "Mark" a proper noun.
+  const tagged = createLanguagePack("en", {
+    lemmas: { decided: "decide" },
+    freq: ["the"],
+    ipa: {},
+    vocab: new Set(["the", "decided", "decide", "fine", "we", "mark"]),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: { decide: ["verb"], fine: ["adjective", "noun"] },
+    names: { mark: "gs" },
+    tagger: {
+      tags: ["NN", "VBD"],
+      words: { decided: "VBD", fine: "JJ", the: "DT", mark: "NNP" },
+      weights: {},
+      scale: 10,
+    },
+  });
+  const outlines: Record<string, EntryOutline> = {
+    decided: { firstMeaning: true, meaning: true, pos: ["adjective"] },
+    decide: { firstMeaning: true, meaning: true, pos: ["verb"] },
+  };
+  const run = (text: string, options: Partial<ClassifyOptions> = {}) =>
+    createClassifier(tagged)
+      .classify(tagged.tokenize(text), {
+        terms: terms(),
+        knownLevel: 1,
+        outline: (key) => outlines[key],
+        ...options,
+      })
+      .map((s) => ({ ...s, text: text.slice(s.start, s.end) }));
+
+  it("gives an unsaved word its key and part of speech by its tag", () => {
+    expect(run("We decided fine.")).toEqual([
+      expect.objectContaining({ text: "We", key: "we" }),
+      expect.objectContaining({ text: "decided", key: "decide", pos: "verb" }),
+      expect.objectContaining({ text: "fine", key: "fine", pos: "adjective" }),
+    ]);
+    expect(run("We decided fine.")[0]).not.toHaveProperty("pos");
+  });
+  it("keeps a saved word's key", () => {
+    expect(
+      run("We decided.", { terms: terms({ decided: "learning" }) })[1],
+    ).toMatchObject({ key: "decided", category: "learning", pos: "verb" });
+  });
+  it("leaves a capitalised word and a name alone", () => {
+    const blocks = ["We met Mark. Then Mark left.", "We saw the Fine Arts."];
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(tagged.tokenize(b), "en")),
+    );
+    const fine = run(blocks[1]!, { casing }).find((s) => s.text === "Fine");
+    expect(fine).toMatchObject({ key: "fine", capital: true });
+    expect(fine).not.toHaveProperty("pos");
+  });
+  it("does nothing without the dictionary's outlines", () => {
+    const spans = run("We decided fine.", { outline: undefined });
+    expect(spans.map((s) => s.key)).toEqual(["we", "decided", "fine"]);
+    expect(spans.some((s) => "pos" in s)).toBe(false);
   });
 });

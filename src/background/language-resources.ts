@@ -67,6 +67,7 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
           patterns: phrases,
           ...("pos" in pack && { pos: pack.pos }),
           ...("names" in pack && { names: pack.names }),
+          ...("tagger" in pack && { tagger: pack.tagger }),
         });
       }),
     ]),

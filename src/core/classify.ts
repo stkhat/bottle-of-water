@@ -1,6 +1,7 @@
-import type { CapitalMeaning } from "./lexicon/dictionary";
+import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
 import { nameVerdict } from "./names";
+import { chooseKey, readWords, sensePos } from "./word-sense";
 import { longestMatch, type PhraseMatch } from "./phrases/matcher";
 import {
   capitalHere,
@@ -69,6 +70,11 @@ export interface Span {
    * gets no highlight and no hover, and the sentence history does not index it.
    */
   name?: true;
+  /**
+   * The part of speech the word's trusted tag gives it here (rule A2, `sensePos`): its
+   * lookup shows the senses of that part of speech first.
+   */
+  pos?: string;
 }
 
 export interface ClassifyOptions {
@@ -83,6 +89,12 @@ export interface ClassifyOptions {
    * and shows it (France → フランス, June → 6月).
    */
   capitalMeaning?(key: string): CapitalMeaning | undefined;
+  /**
+   * The dictionary's outline of a headword (`DictionaryProvider.outline`). With it, a
+   * pack with a tagger tags each sentence and chooses unsaved words' keys by their tags
+   * (rule A1, `chooseKey`) and their spans' `pos` (rule A2).
+   */
+  outline?(key: string): EntryOutline | undefined;
 }
 
 export interface Classifier {
@@ -131,16 +143,24 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   names): a name (`nameVerdict`) is ignored, even a saved word, unless it keeps a
  *   capitalised meaning; that one and a word capitalised in a way that counts
  *   (`capitalHere`) get `capital`.
+ * - With the dictionary's outlines and a pack with a tagger: each sentence is tagged
+ *   once, an unsaved word takes the base form its tag asks for (rule A1,
+ *   `chooseKey`: decided → decide) and a word its trusted tag's part of speech
+ *   (`pos`, rule A2), unless it is a name or capitalised in a way that counts.
  */
 export function createClassifier(pack: LanguagePack): Classifier {
   // One matcher per pack: its dictionary trie is built once.
   const { matcher } = pack;
   const detects = pack.patterns.detect.length > 0;
   return {
-    classify(tokens, { terms, knownLevel, casing, capitalMeaning }) {
+    classify(tokens, { terms, knownLevel, casing, capitalMeaning, outline }) {
       const input = matcher.prepare(tokens);
       const { words } = input;
       const spans: Span[] = [];
+      /** Rules A1 and A2: each word's tag and use, with a tagger and the dictionary. */
+      const readings = outline
+        ? readWords(pack, tokens, words, casing?.mode === "upper")
+        : [];
       /** Rule D and written case, in a mixed-case document only. */
       const cases =
         casing?.mode === "mixed" && pack.namesByCase
@@ -198,15 +218,39 @@ export function createClassifier(pack: LanguagePack): Classifier {
             );
       };
 
+      /**
+       * A word's key and `pos` by its tag (rules A1 and A2): not for a name, a word
+       * capitalised in a way that counts (its capitalised senses come first) or one
+       * the tagger did not read; a saved word keeps its saved key.
+       */
+      const bySense = (
+        i: number,
+        word: { key: string; category: Category },
+        marks: Partial<Span>,
+      ): Partial<Span> => {
+        const reading = readings[i];
+        if (!reading || !outline || word.category === "ignored") return {};
+        if (marks.capital || marks.name) return {};
+        const { token, bases } = words[i]!;
+        const form = normalizeWord(token.text);
+        const key = terms.has(word.key)
+          ? word.key
+          : (chooseKey(form, bases, reading, outline, pack) ?? word.key);
+        const pos = sensePos(form, key, reading);
+        return { key, ...(pos !== undefined && { pos }) };
+      };
+
       const pushWord = (i: number) => {
         const { token, bases } = words[i]!;
         const word = classifyWord(token.text, bases, terms, knownLevel, pack);
+        const marks = casingOf(i, word);
         spans.push({
           start: token.start,
           end: token.end,
           kind: "word",
           ...word,
-          ...casingOf(i, word),
+          ...marks,
+          ...bySense(i, word, marks),
         });
       };
 

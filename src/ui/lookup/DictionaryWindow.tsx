@@ -36,8 +36,16 @@ export interface DictionaryEntryView {
    * `translated`: the browser translator's translation of the sense, shown with `text`
    * below it; any translated sense marks the Meanings heading "Machine translation".
    * `hint`: a translation table's English sense, shown above its native words.
+   * `pos` is shown unless the data build only took it from the senses around it
+   * (`posBy` "gap").
    */
-  senses: { pos?: string; text: string; hint?: string; translated?: string }[];
+  senses: {
+    pos?: string;
+    posBy?: string;
+    text: string;
+    hint?: string;
+    translated?: string;
+  }[];
   /**
    * Language of the senses' `text` when it is not the native language (an English
    * definition).
@@ -291,7 +299,7 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
               key={i}
               style={{ display: "flex", flexDirection: "column", gap: "2px" }}
             >
-              {sense.pos && (
+              {sense.pos && sense.posBy !== "gap" && (
                 <span
                   data-pos
                   style={{

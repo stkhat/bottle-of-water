@@ -158,8 +158,10 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
     vocab,
     phrases: PHRASES,
     names: NAMES,
+    // Sure of no word: no tag counts (rules A1 and A2 change nothing here).
+    tagger: { tags: ["NN", "VB"], words: {}, weights: {}, scale: 10 },
   },
-  "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL },
+  "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL, sensePos: {} },
   "en-defs": { defs: DEFS },
 };
 
@@ -176,6 +178,7 @@ const FILES: Readonly<Record<string, unknown>> = {
   "/packs/en-ja/dict-1.json": DICT,
   "/packs/en-ja/phrases.json": JA_PHRASES,
   "/packs/en-ja/capital.json": CAPITAL,
+  "/packs/en-ja/pos.json": {},
   "/packs/en-defs/index.json": {
     shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
   },

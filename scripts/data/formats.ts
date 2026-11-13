@@ -82,6 +82,12 @@ const SOURCES = {
     by: "the contributors to Wikcionário, listed in each page's history",
     license: "CC BY-SA 4.0",
   },
+  udEwt: {
+    title: "Universal Dependencies English Web Treebank (UD_English-EWT)",
+    url: "https://github.com/UniversalDependencies/UD_English-EWT",
+    by: "The Board of Trustees of The Leland Stanford Junior University and the treebank's contributors (Silveira, Dozat, Manning, Schuster, Chi, Bauer, Connor, de Marneffe, Schneider, Bowman, Zhu, Galbraith), over the texts of the LDC English Web Treebank (LDC2012T13)",
+    license: "CC BY-SA 4.0",
+  },
   freqEs: {
     title: "Wiktionary:Frequency lists/Spanish/Mixed 730K",
     url: "https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists/Spanish/Mixed_730K",
@@ -109,7 +115,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   en: pack("en", false, {
     title: "English word data",
     description:
-      "English base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns and names",
+      "English base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names and a part-of-speech tagger",
     sources: [
       { ...SOURCES.ejdict, used: "vocabulary, phrase list" },
       {
@@ -117,6 +123,10 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
         used: "inflections, US IPA, parts of speech, phrase patterns, names",
       },
       { ...SOURCES.freqEn, used: "frequency ranks" },
+      {
+        ...SOURCES.udEwt,
+        used: "the part-of-speech tagger's model (trained on it)",
+      },
     ],
   }),
   "en-ja": pack("en-ja", false, {
@@ -124,7 +134,10 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
     description: "Japanese meanings of English words and phrases",
     sources: [
       { ...SOURCES.ejdict, used: "the dictionary" },
-      { ...SOURCES.wiktionaryEn, used: "Japanese translations of phrases" },
+      {
+        ...SOURCES.wiktionaryEn,
+        used: "Japanese translations of phrases, the parts of speech its senses are labelled with",
+      },
     ],
   }),
   "en-defs": pack("en-defs", false, {

@@ -26,6 +26,20 @@ const dictionary = createEnJaDictionary({
       ],
     ],
     went: ["goの過去", ["goの過去"]],
+    fine: [
+      "罰金",
+      [
+        "罰金",
+        "〈人〉に罰金を科する",
+        "(物・事が)『りっぱな』,みごとな",
+        "(人が)『優れた』,りっぱな",
+      ],
+    ],
+    saw: ["seeの過去", ["seeの過去", "『のこぎり』"]],
+    better: [
+      "いっそうよい",
+      ["(『good』 の比較級;最上級は 『best』)『いっそうよい』"],
+    ],
     go: ["行く", ["『行く』,出かける", "去る", "進む"]],
     find: ["…を見つける", ["…を『見つける』", "…を見つけだす"]],
     anyway: ["=anyhow", ["=anyhow"]],
@@ -75,6 +89,8 @@ const dictionary = createEnJaDictionary({
     ],
   },
   pos: { dough: ["noun"], tangy: ["adjective"], give: ["verb"] },
+  // As the data build labels EJDict's senses.
+  sensePos: { fine: "n~ v a* a*", saw: "v n*" },
   ipa: {
     dough: "/doʊ/",
     figure: "/ˈfɪɡjɚ/",
@@ -130,6 +146,79 @@ describe("createEnJaDictionary", () => {
     // The dictionary window keeps the entry as it is.
     expect(dictionary.entry("went")?.short).toBe("goの過去");
     expect(dictionary.entry("went")?.senses).toEqual([{ text: "goの過去" }]);
+  });
+
+  it("labels senses as the data build did", () => {
+    expect(dictionary.entry("fine")?.senses.slice(0, 3)).toEqual([
+      { pos: "noun", posBy: "weak", text: "罰金" },
+      { pos: "verb", text: "〈人〉に罰金を科する" },
+      { pos: "adjective", core: true, text: "(物・事が)りっぱな,みごとな" },
+    ]);
+  });
+
+  it("shows the senses of the part of speech the page's tag gives first (rule A2)", () => {
+    expect(dictionary.entry("fine", undefined, "adjective")?.lines).toEqual([
+      "(物・事が)りっぱな,みごとな",
+      "(人が)優れた,りっぱな",
+      "罰金",
+    ]);
+    expect(dictionary.entry("fine", undefined, "noun")?.lines).toEqual(
+      dictionary.entry("fine")?.lines,
+    );
+    // The short meaning and the senses stay as the dictionary has them.
+    const adjective = dictionary.entry("fine", undefined, "adjective");
+    expect(adjective?.short).toBe("罰金");
+    expect(adjective?.senses[0]?.text).toBe("罰金");
+    // A form of a verb gives way to the noun in "a saw", and is not followed.
+    expect(dictionary.entry("saw", undefined, "noun")?.lines).toEqual([
+      "のこぎり",
+    ]);
+    expect(dictionary.entry("saw", undefined, "verb")?.lines[0]).toBe(
+      "seeの過去",
+    );
+  });
+
+  it("takes an English definition's short meaning from the tagged part of speech", () => {
+    expect(dictionary.entry("from scratch", undefined, "adverb")).toMatchObject(
+      { short: "Without using anything already made", glossLang: "en" },
+    );
+    expect(dictionary.entry("from scratch")?.short).toBe("From the beginning");
+  });
+
+  it("outlines a headword for choosing a word's base form (rule A1)", () => {
+    expect(dictionary.outline("dough")).toEqual({
+      firstMeaning: true,
+      meaning: true,
+      pos: ["noun"],
+    });
+    expect(dictionary.outline("went")).toEqual({
+      formOf: "go",
+      firstMeaning: false,
+      meaning: false,
+      pos: [],
+    });
+    expect(dictionary.outline("found")).toMatchObject({
+      formOf: "find",
+      firstMeaning: false,
+      meaning: true,
+    });
+    expect(dictionary.outline("better")).toMatchObject({
+      formOf: "good",
+      firstMeaning: true,
+    });
+    expect(dictionary.outline("anyway")).toMatchObject({
+      firstMeaning: false,
+      meaning: false,
+    });
+    // English definitions where EJDict has nothing.
+    expect(dictionary.outline("search for")).toMatchObject({
+      firstMeaning: false,
+    });
+    expect(dictionary.outline("look for")).toMatchObject({
+      firstMeaning: true,
+      pos: ["verb"],
+    });
+    expect(dictionary.outline("zzyzx")).toBeUndefined();
   });
 
   it("gives a capitalised word its capitalised headword's senses first", () => {
@@ -345,6 +434,16 @@ describe("createDefsDictionary", () => {
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("__proto__")).toBeUndefined();
   });
+
+  it("outlines a form by the word it names", () => {
+    expect(dictionary.outline("casas")).toEqual({
+      formOf: "casa",
+      firstMeaning: false,
+      meaning: false,
+      pos: ["noun"],
+    });
+    expect(dictionary.outline("comer")).toMatchObject({ firstMeaning: true });
+  });
 });
 
 describe("createPairDictionary", () => {
@@ -398,5 +497,14 @@ describe("createPairDictionary", () => {
   it("has nothing for a term neither has", () => {
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("zzyzx")?.short).toBeUndefined();
+  });
+  it("outlines a term from the pair pack or the English definitions", () => {
+    expect(dictionary.outline("light")).toEqual({
+      firstMeaning: true,
+      meaning: true,
+      pos: ["noun"],
+    });
+    expect(dictionary.outline("give up")).toMatchObject({ pos: ["verb"] });
+    expect(dictionary.outline("zzyzx")).toBeUndefined();
   });
 });

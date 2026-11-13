@@ -200,39 +200,45 @@ export function createHandlers({
 
   /**
    * The options a document's blocks are classified with: its casing, when the page
-   * sends one, and then for a language whose capitals mark names (rule D) the
-   * dictionary into the native language, which says which names keep a capitalised
-   * meaning (loaded only for a mixed-case document with capitalised words).
+   * sends one, and the dictionary into the native language when the classifier reads
+   * it: for a language whose capitals mark names (rule D), which names keep a
+   * capitalised meaning (only for a mixed-case document with capitalised words); with
+   * `bySense` and a language with a tagger, the outlines of headwords its tags choose
+   * between (rule A1). Names wait for a dictionary that is not on the device
+   * (`PacksUnavailableError`); tags alone do not hold the highlights back: the words
+   * then keep their keys.
    */
   async function documentOptions(
     lang: string,
     pack: LanguagePack,
     casing: unknown,
     options: ClassifyOptions,
+    bySense = false,
   ): Promise<ClassifyOptions> {
     const read = readCasing(casing);
-    if (!read) return options;
-    if (
-      read.mode !== "mixed" ||
-      !pack.namesByCase ||
-      Object.keys(read.words).length === 0
-    )
-      return { ...options, casing: read };
+    const names =
+      read?.mode === "mixed" &&
+      pack.namesByCase &&
+      Object.keys(read.words).length > 0;
+    const tags = bySense && pack.tagger !== undefined;
+    const withCasing = read ? { ...options, casing: read } : options;
+    if (!names && !tags) return withCasing;
     const { nativeLang } = await settings.get();
     // A pair without a dictionary (the pair changed as the page was analyzed): the
-    // names keep no meaning this time.
+    // names keep no meaning and the tags choose nothing this time.
     const dictionary = await resources
       .dictionary(lang, nativeLang)
       .catch((error: unknown) => {
-        if (error instanceof PacksUnavailableError) throw error;
+        if (names && error instanceof PacksUnavailableError) throw error;
         return undefined;
       });
+    if (!dictionary) return withCasing;
     return {
-      ...options,
-      casing: read,
-      ...(dictionary && {
+      ...withCasing,
+      ...(names && {
         capitalMeaning: (key: string) => dictionary.capitalMeaning(key),
       }),
+      ...(tags && { outline: (key: string) => dictionary.outline(key) }),
     };
   }
 
@@ -251,10 +257,13 @@ export function createHandlers({
         store.termIndex(lang),
         settings.get(),
       ]);
-      const options = await documentOptions(lang, pack, casing, {
-        terms,
-        knownLevel: current.knownLevel,
-      });
+      const options = await documentOptions(
+        lang,
+        pack,
+        casing,
+        { terms, knownLevel: current.knownLevel },
+        true,
+      );
       const spans: Span[][] = blocks.map((block) =>
         classifier.classify(pack.tokenize(block), options),
       );
@@ -286,7 +295,7 @@ export function createHandlers({
       return null;
     },
 
-    async lookup({ lang, key, sourceUrl, written }) {
+    async lookup({ lang, key, sourceUrl, written, pos }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
       const [dictionary, pack, terms, occurrences] = await allOf([
@@ -316,6 +325,7 @@ export function createHandlers({
       const entry = dictionary.entry(
         key,
         WRITTEN.has(written) ? written : undefined,
+        typeof pos === "string" ? pos : undefined,
       );
       const ipa = pack.ipa(key);
       const translated = glossedInOtherLanguage(entry, nativeLang)

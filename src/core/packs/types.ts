@@ -1,5 +1,10 @@
 /** Shapes of the pack files in public/packs/ and data/packs/. */
 
+import type { TaggerModel } from "../tagging/tagger";
+
+/** en/tagger.json: the English part-of-speech tagger's model (`PerceptronModel`). */
+export type TaggerPack = TaggerModel;
+
 /** en/lemmas.json: inflected form → base form(s). */
 export type LemmaPack = Readonly<Record<string, string | readonly string[]>>;
 /** en/ipa.json: word → US IPA. */
@@ -55,6 +60,11 @@ export type PairPack = Readonly<
     ]
   >
 >;
+/**
+ * en-ja/pos.json: the parts of speech of EJDict's senses for words with several, one
+ * code per sense (`sense-labels.ts`): "n~ v a* a".
+ */
+export type SensePosPack = Readonly<Record<string, string>>;
 /** en-ja/index.json (and the other dictionaries' index.json): the shards, in headword order. */
 export interface ShardIndex {
   readonly shards: readonly {
