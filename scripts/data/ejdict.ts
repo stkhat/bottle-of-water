@@ -1,5 +1,5 @@
 // EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>,capital}.json,
-// public/packs/en/vocab.json and data/gate/en-capitalized.json (for the quality gate)
+// and data/gate/en-capitalized.json (for the quality gate); kaikki.ts writes the vocabulary
 // Usage: node scripts/data/ejdict.ts   (downloads missing raw files into data/raw/ejdict/)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -160,7 +160,7 @@ export const readEjdictText = () =>
     readFileSync(join(EJDICT_DIR, `${letter}.txt`), "utf8"),
   ).join("\n");
 
-/** The words Lingo knows: single-word headwords, sorted by code unit. */
+/** EJDict's single-word headwords, sorted by code unit: the vocabulary before rule E. */
 export function vocabularyOf(dict: DictPack) {
   return Object.keys(dict)
     .filter((key) => !key.includes(" "))
@@ -183,12 +183,9 @@ async function main() {
   const { dict, capital } = parseEjdict(text);
   const index = writeShards("en-ja", dict, PACKS_DIR);
   writePack("en-ja/capital.json", capital);
-  const vocab = vocabularyOf(dict);
-  writePack("en/vocab.json", vocab);
   writePack("en-capitalized.json", capitalizedOnly(text), GATE_DIR);
   console.log(
     `en-ja: ${Object.keys(dict).length} headwords in ${index.shards.length} shards; ` +
-      `en/vocab.json: ${vocab.length} single words; ` +
       `en-ja/capital.json: ${Object.keys(capital).length} capitalised headwords`,
   );
 }

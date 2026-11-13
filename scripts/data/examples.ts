@@ -22,6 +22,17 @@ export interface ExampleCounts {
 interface Example {
   text?: unknown;
   bold_text_offsets?: unknown;
+  /** A quotation's reference, starting with its year ("1611, The Holy Bible…"). */
+  ref?: unknown;
+}
+
+/** The year a quotation's reference starts with; undefined for a usage example. */
+function exampleYear(example: Example): number | undefined {
+  const year =
+    typeof example.ref === "string"
+      ? /^\s*(\d{3,4})\b/.exec(example.ref)
+      : null;
+  return year ? Number(year[1]) : undefined;
 }
 
 /** An example's text in pieces, cut where kaikki marks the entry's headword in bold. */
@@ -77,6 +88,24 @@ export function phraseVariants(
 }
 
 /**
+ * The pieces of every usage example and quotation of an entry (`examplePieces`);
+ * with `since`, without the quotations from before that year.
+ */
+export function* entryExamplePieces(
+  entry: KaikkiEntry,
+  since?: number,
+): Generator<string> {
+  for (const sense of entry.senses ?? [])
+    for (const example of (sense as { examples?: Example[] }).examples ?? []) {
+      const year = since === undefined ? undefined : exampleYear(example);
+      if (year === undefined || year >= since!) yield* examplePieces(example);
+    }
+}
+
+/** The words of a piece of an example, as written. */
+export const pieceWords = (piece: string): string[] => piece.match(TOKEN) ?? [];
+
+/**
  * Counts the words and the phrases (`variants`) of the examples of the `lang` entries
  * in a kaikki extract. N-grams do not bridge a cut-out headword.
  */
@@ -92,7 +121,7 @@ export async function countExamples(
   const phrases = new Map<string, number>();
   let tokens = 0;
   const count = (piece: string) => {
-    const found = (piece.match(TOKEN) ?? []).map((t) => t.toLowerCase());
+    const found = pieceWords(piece).map((t) => t.toLowerCase());
     tokens += found.length;
     for (let i = 0; i < found.length; i++) {
       let gram = found[i]!;
@@ -106,9 +135,7 @@ export async function countExamples(
   };
   await eachEntry(path, (entry: KaikkiEntry) => {
     if (entry.lang_code !== lang) return;
-    for (const sense of entry.senses ?? [])
-      for (const example of (sense as { examples?: Example[] }).examples ?? [])
-        for (const piece of examplePieces(example)) count(piece);
+    for (const piece of entryExamplePieces(entry)) count(piece);
   });
   return { tokens, words, phrases };
 }

@@ -262,6 +262,36 @@ describe("names over the generated packs (rule D)", () => {
     // "mark" is in lower case in the document: "Mark" is no name there.
     expect(of("Mark").every((s) => s.name === undefined)).toBe(true);
   });
+  it("takes a common word Wiktionary adds for a name where the document capitalises it (rule E)", () => {
+    const text = [
+      "Um, Jake said the app was down.",
+      "We waited for Jake, um, an hour.",
+    ];
+    const doc = documentCasing(
+      text.map((t) => blockCasing(withNames.tokenize(t), "en")),
+    );
+    const spans = text.flatMap((t) =>
+      names
+        .classify(withNames.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: doc,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .map((s) => ({ ...s, text: t.slice(s.start, s.end) })),
+    );
+    const verdicts = (word: string) =>
+      spans
+        .filter((s) => s.text === word)
+        .map((s) => (s.name ? "name" : s.category));
+    // jake, a young male turkey, and a given name.
+    expect(en.vocab).toContain("jake");
+    expect(verdicts("Jake")).toEqual(["name", "name"]);
+    // An interjection is never a name; it is common enough to be known.
+    expect(verdicts("Um")).toEqual(["known"]);
+    expect(verdicts("um")).toEqual(["known"]);
+    expect(verdicts("app")).toEqual(["new"]);
+  });
   it("reads a run of capitalised words as one name, titles and titled common nouns aside", () => {
     const text = [
       "I work for Harvey Specter at Pearson Specter Litt.",

@@ -123,7 +123,8 @@ export function entrySenses(
   const senses: SourceSense[] = [];
   for (const sense of entry.senses ?? []) {
     const gloss = lastGloss(sense);
-    if (!gloss || LITERAL_NOTE.test(gloss)) continue;
+    // A gloss without a letter (".") says nothing.
+    if (!/\p{L}/u.test(gloss) || LITERAL_NOTE.test(gloss)) continue;
     const tags = (sense.tags ?? []).filter((tag) => typeof tag === "string");
     if (tags.some((tag) => UNUSABLE_TAGS.has(tag))) continue;
     const target = targetOf(sense.alt_of) ?? targetOf(sense.form_of);

@@ -1,0 +1,17 @@
+{"word": "story", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["An account of events."], "examples": [{"text": "Um, the app crashed, um, again; an app, an app, an app."}, {"text": "My apps and the app store, um, um, um, um."}, {"text": "We use AI. AI is everywhere, AI wins, AI, AI, AI."}, {"text": "The ai sleeps; an ai, an ai, the ai, one ai."}, {"text": "OMG, OMG, OMG, OMG, OMG, OMG, omg omg omg omg omg."}, {"text": "a joey and a joey and a joey, joey, joey."}, {"text": "Thou shalt not passe vnder the vnder vnder vnder vnder vnder.", "ref": "1611, The Holy Bible, Genesis:", "type": "quotation"}, {"text": "I read it on a website, a website, the website, my website, your website.", "ref": "2001, A Book:", "type": "quotation"}, {"text": "They came, came, came, came, came, came."}, {"text": "A zyzzyva, based on based, based, based, based facts."}, {"text": "For god's sake, god's, god's, god's, god's love; years, years, years, years, years."}, {"text": "trie trie trie trie trie."}]}]}
+{"word": "app", "lang_code": "en", "pos": "noun", "forms": [{"form": "apps", "tags": ["plural"]}], "sounds": [{"tags": ["US"], "ipa": "/æp/"}], "senses": [{"glosses": ["A small computer program."], "examples": [{"text": "I love this app.", "bold_text_offsets": [[12, 15]]}]}]}
+{"word": "um", "lang_code": "en", "pos": "intj", "senses": [{"glosses": ["Expression of hesitation."]}]}
+{"word": "Um", "lang_code": "en", "pos": "name", "senses": [{"glosses": ["A Korean surname."]}]}
+{"word": "ai", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["A three-toed sloth."]}]}
+{"word": "omg", "lang_code": "en", "pos": "intj", "senses": [{"glosses": ["Oh my God."], "tags": ["Internet", "abbreviation", "alt-of"], "alt_of": [{"word": "oh my God"}]}]}
+{"word": "vnder", "lang_code": "en", "pos": "prep", "senses": [{"glosses": ["Early Modern spelling of under."], "alt_of": [{"word": "under"}]}]}
+{"word": "joey", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["A young kangaroo."]}]}
+{"word": "Joey", "lang_code": "en", "pos": "name", "senses": [{"glosses": ["A diminutive of the male given name Joseph."]}]}
+{"word": "coom", "lang_code": "en", "pos": "verb", "forms": [{"form": "came", "tags": ["past"]}], "senses": [{"glosses": ["To come."], "tags": ["dialectal"]}]}
+{"word": "zyzzyva", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["A weevil."]}]}
+{"word": "base", "lang_code": "en", "pos": "verb", "forms": [{"form": "based", "tags": ["past"]}], "senses": [{"glosses": ["To give a base to."]}]}
+{"word": "based", "lang_code": "en", "pos": "adj", "senses": [{"glosses": ["Having a basis."]}]}
+{"word": "god's", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["Possessive of god."]}]}
+{"word": "years", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["plural of year"], "tags": ["form-of", "plural"], "form_of": [{"word": "year"}]}]}
+{"word": "website", "lang_code": "en", "pos": "noun", "senses": [{"glosses": ["A collection of web pages."]}]}
+{"word": "trie", "lang_code": "en", "pos": "verb", "senses": [{"glosses": ["Obsolete spelling of try."], "tags": ["alt-of", "obsolete"], "alt_of": [{"word": "try"}]}]}

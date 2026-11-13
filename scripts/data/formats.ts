@@ -120,7 +120,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       { ...SOURCES.ejdict, used: "vocabulary, phrase list" },
       {
         ...SOURCES.wiktionaryEn,
-        used: "inflections, US IPA, parts of speech, phrase patterns, names",
+        used: "vocabulary beyond EJDict's, inflections, US IPA, parts of speech, phrase patterns, names, frequency ranks of words the list lacks",
       },
       { ...SOURCES.freqEn, used: "frequency ranks" },
       {

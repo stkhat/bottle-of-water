@@ -80,7 +80,7 @@ export interface LanguagePackData {
   lemmas: LemmaPack;
   freq: FreqPack;
   ipa: IpaPack;
-  /** The words Lingo knows (single-word dictionary headwords). */
+  /** The words Lingo knows (the dictionary's single-word headwords and rule E's words). */
   vocab: ReadonlySet<string>;
   /** Dictionary phrase patterns (idioms, phrasal verbs, prepositional phrases). */
   patterns: PhrasePatterns;
