@@ -32,10 +32,12 @@ describe.each(
   );
 });
 
-// Every English page loads these: the tagger with the language pack, the sense labels
+// Every English page loads these: the tagger and the phrase patterns with the language
+// pack, the sense labels
 // with the dictionary (docs/notes/data-sizes.md).
 describe.each([
   ["en/tagger.json", 150_000],
+  ["en/phrases.json", 150_000],
   ["en-ja/pos.json", 100_000],
 ])("%s", (file, budget) => {
   it(`stays under ${budget / 1000} KB gzipped`, () => {

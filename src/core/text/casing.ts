@@ -47,15 +47,24 @@ export interface DocumentCasing {
   words: Readonly<
     Record<string, readonly [capitalised: number, lower: number]>
   >;
+  /**
+   * The document writes almost no commas (at least 50 words, fewer than one comma per 50): speech
+   * recognition, where punctuation says nothing of where a phrase ends.
+   */
+  unpunctuated?: true;
 }
 
 const MODES: ReadonlySet<unknown> = new Set(["upper", "lower", "mixed"]);
 
 /** A casing as a message carries it, or undefined when it is not one. */
 export function readCasing(value: unknown): DocumentCasing | undefined {
-  const { mode, words } = (value ?? {}) as Record<string, unknown>;
+  const { mode, words, unpunctuated } = (value ?? {}) as Record<
+    string,
+    unknown
+  >;
   if (!MODES.has(mode) || typeof words !== "object" || words === null)
     return undefined;
+  if (unpunctuated !== undefined && unpunctuated !== true) return undefined;
   const counts = Object.values(words);
   if (
     !counts.every(
@@ -83,12 +92,17 @@ export interface BlockCasing {
   lower: ReadonlyMap<string, number>;
   /** Every word of the block, however written. */
   keys: ReadonlySet<string>;
+  /** Word tokens, and commas. */
+  words: number;
+  commas: number;
 }
 
 /** Share of ALL-CAPS words over which a document is "upper". */
 const UPPER_SHARE = 0.6;
 /** Share of capitalised words inside sentences under which a document is "lower". */
 const LOWER_SHARE = 0.003;
+/** Words per comma above which a document of at least that many words is `unpunctuated`. */
+const WORDS_PER_COMMA = 50;
 /** How much more often a word must be capitalised than not for a sentence start to count. */
 const MOSTLY = 5;
 
@@ -172,6 +186,12 @@ export function blockCasing(
     capitalised: new Map<string, number>(),
     lower: new Map<string, number>(),
     keys: new Set(cases.map((word) => word.key)),
+    words: words.length,
+    commas: tokens.reduce(
+      (n, token) =>
+        token.isWord ? n : n + (token.text.match(/[,，、]/g)?.length ?? 0),
+      0,
+    ),
   };
   cases.forEach((word, i) => {
     if (word.written === undefined) return;
@@ -199,9 +219,13 @@ export function documentCasing(blocks: Iterable<BlockCasing>): DocumentCasing {
   let upper = 0;
   let inner = 0;
   let capitalInner = 0;
+  let words = 0;
+  let commas = 0;
   const capitalised = new Map<string, number>();
   const lower = new Map<string, number>();
   for (const block of blocks) {
+    words += block.words;
+    commas += block.commas;
     letters += block.letters;
     upper += block.upper;
     inner += block.inner;
@@ -217,12 +241,17 @@ export function documentCasing(blocks: Iterable<BlockCasing>): DocumentCasing {
       : capitalInner < LOWER_SHARE * inner || inner === 0
         ? "lower"
         : "mixed";
-  if (mode !== "mixed") return { mode, words: {} };
+  const punctuation =
+    words >= WORDS_PER_COMMA && commas * WORDS_PER_COMMA < words
+      ? { unpunctuated: true as const }
+      : {};
+  if (mode !== "mixed") return { mode, words: {}, ...punctuation };
   return {
     mode,
     words: Object.fromEntries(
       [...capitalised].map(([key, n]) => [key, [n, lower.get(key) ?? 0]]),
     ),
+    ...punctuation,
   };
 }
 

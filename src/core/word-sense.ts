@@ -13,6 +13,7 @@ import {
   trustedTag,
   type TaggedWord,
   type TokenTag,
+  type WordRole,
   type WordUse,
 } from "./tagging/tagger";
 import { sentenceSegments } from "./text/sentences";
@@ -23,6 +24,10 @@ export interface WordReading {
   /** Its tag, when trusted (`trustedTag`). */
   tag?: TokenTag;
   use: WordUse;
+  /** What it is among the language's closed classes (`Tagger.role`); none when untagged. */
+  role?: WordRole;
+  /** Punctuation comes between the word before and this one. */
+  pauseBefore: boolean;
 }
 
 const NO_USE: WordUse = {
@@ -68,19 +73,23 @@ export function readWords(
     parts.forEach((part, i) => tagAt.set(part.start, tags[i]!));
   }
 
+  const pauses = words.map(({ token }, i) => {
+    const previous = words[i - 1];
+    return (
+      previous !== undefined &&
+      PAUSE.test(text.slice(previous.token.end, token.start))
+    );
+  });
   const tagged = words.map(({ token, bases }, i): TaggedWord | undefined => {
     const tag = tagAt.get(token.start);
     if (!tag) return undefined;
     const form = normalizeWord(token.text);
-    const previous = words[i - 1];
     return {
       form,
       bases,
       tag,
       trusted: trustedTag(tag, tagger.threshold, form, bases),
-      pauseBefore:
-        previous !== undefined &&
-        PAUSE.test(text.slice(previous.token.end, token.start)),
+      pauseBefore: pauses[i]!,
     };
   });
 
@@ -96,6 +105,8 @@ export function readWords(
       readings.push({
         ...(word?.trusted && { tag: word.tag }),
         use: uses[k] ?? NO_USE,
+        ...(word && { role: tagger.role(word) }),
+        pauseBefore: pauses[from + k]!,
       }),
     );
     from = to;

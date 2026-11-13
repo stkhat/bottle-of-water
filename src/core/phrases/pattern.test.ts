@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ENGLISH_RULES } from "./en";
 import { SPANISH_RULES } from "./es";
 import { normalizeWord } from "../text/tokenize";
-import { NO_RULES, parsePattern } from "./pattern";
+import { NO_RULES, parsePattern, phrasePosIndex } from "./pattern";
+import { decodePhrasePos, encodePhrasePos } from "./phrase-pos";
 import { rulesFor } from "./rules";
 
 describe("parsePattern", () => {
@@ -70,5 +71,34 @@ describe("rulesFor", () => {
 
   it("does not read inherited properties as languages", () => {
     expect(rulesFor("constructor")).toBe(NO_RULES);
+  });
+});
+
+describe("phrasePosIndex", () => {
+  it("reads each pattern's parts of speech, main one first, by its key", () => {
+    const index = phrasePosIndex({
+      detect: ["come on", "give up", "up to"],
+      more: ["thank you"],
+      gap: [],
+      pos: { detect: "vi va -", more: "h" },
+    });
+    expect(index.get("come on")).toEqual(["verb", "intj"]);
+    expect(index.get("give up")).toEqual(["verb", "adj"]);
+    expect(index.get("thank you")).toEqual(["phrase"]);
+    expect(index.has("up to")).toBe(false);
+  });
+  it("is empty for patterns without parts of speech", () => {
+    expect(phrasePosIndex({ detect: ["a b"], more: [], gap: [] }).size).toBe(0);
+  });
+});
+
+describe("encodePhrasePos", () => {
+  it("writes a letter per part of speech it knows, and - for none", () => {
+    expect(encodePhrasePos(["prep_phrase", "noun"])).toBe("Pn");
+    expect(encodePhrasePos(["suffix"])).toBe("-");
+    expect(decodePhrasePos(encodePhrasePos(["intj", "particle"]))).toEqual([
+      "intj",
+      "particle",
+    ]);
   });
 });

@@ -386,3 +386,111 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     );
   });
 });
+
+describe("phrase precision over the generated packs", () => {
+  const tagged = createLanguagePack("en", {
+    lemmas: en.lemmas,
+    freq: en.freq,
+    ipa: en.ipa,
+    vocab: new Set(en.vocab),
+    patterns: en.phrases,
+    pos: en.pos,
+    names: en.names,
+    tagger: en.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createEnJaDictionary({
+    ...ja,
+    defs: defs.defs,
+    pos: en.pos,
+    ipa: en.ipa,
+  });
+  const spansOf = (text: string) =>
+    classifier.classify(tagged.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+      outline: (key) => dictionary.outline(key),
+    });
+  /** The dictionary phrases highlighted in `text`, with a discourse marker's part of speech. */
+  const phrases = (text: string) =>
+    spansOf(text)
+      .filter((s) => s.kind === "phrase")
+      .map((s) => (s.pos ? `${s.key}/${s.pos}` : s.key));
+
+  it("has parts of speech for most patterns and transitivity for some phrasal verbs", () => {
+    expect(tagged.phrasePos("give up")[0]).toBe("verb");
+    expect(tagged.phrasePos("kind of")).toEqual(["adv"]);
+    expect(tagged.phrasePos("to be honest")).toEqual(["phrase"]);
+    expect(tagged.phrasePos("come on")).toEqual(["verb", "intj"]);
+    expect(tagged.intransitive("act up")).toBe(true);
+    expect(tagged.intransitive("give up")).toBe(false);
+  });
+  it("does not highlight a whole utterance (P1), which a selection still finds", () => {
+    const text = "To be honest, I liked it.";
+    expect(phrases(text)).toEqual([]);
+    const input = tagged.matcher.prepare(tagged.tokenize(text));
+    expect(tagged.matcher.matchSelection(input, 0, 3)?.key).toBe(
+      "to be honest",
+    );
+  });
+  it("highlights a verb and particle only where the particle is adverbial (P2)", () => {
+    expect(phrases("She gave up.")).toEqual(["give up"]);
+    expect(phrases("Let's find out.")).toEqual(["find out"]);
+    expect(phrases("Do you think we can sneak out of here?")).toEqual([
+      "sneak out",
+    ]);
+    expect(phrases("They talked about her plans.")).toEqual([]);
+    expect(phrases("Fill in the form.")).toEqual([]);
+  });
+  it("classifies the words of a dropped phrase as words, with their tags", () => {
+    const text = "They talked about her plans.";
+    const words = spansOf(text).map((s) => [
+      text.slice(s.start, s.end),
+      s.kind,
+      s.key,
+    ]);
+    expect(words).toContainEqual(["talked", "word", "talk"]);
+    expect(words).toContainEqual(["about", "word", "about"]);
+  });
+  it("drops an adverb with a noun in it after a determiner", () => {
+    expect(phrases("The first thing we need is water.")).toEqual([]);
+    expect(phrases("I'll call you first thing tomorrow.")).toEqual([
+      "first thing",
+    ]);
+  });
+  it("drops a prepositional phrase inside a clause before a noun phrase", () => {
+    expect(phrases("He is in advanced talks.")).toEqual([]);
+    expect(phrases("We booked the tickets in advance.")).toEqual([
+      "in advance",
+    ]);
+    expect(phrases("Prices rose as a result of the storm.")).toEqual([
+      "as a result",
+    ]);
+  });
+  it("drops an interjection used as words of the sentence", () => {
+    expect(phrases("It was a good day.")).toEqual([]);
+    expect(phrases("We waited for so long.")).toEqual([]);
+    expect(phrases("So long, everyone!")).toEqual(["so long/interjection"]);
+  });
+  it("drops a verb phrase whose first word is a noun in a noun phrase, or a passive", () => {
+    expect(phrases("Take that mask off.")).toEqual([]);
+    expect(phrases("Why did your boyfriend break up with you?")).toEqual([
+      "break up",
+    ]);
+    expect(phrases("It is yet to be passed up the chain of command.")).toEqual(
+      [],
+    );
+    expect(phrases("He passed up the chance.")).toEqual(["pass up"]);
+  });
+  it("gives a discourse marker at a clause start its interjection senses", () => {
+    expect(phrases("Shut up, this has nothing to do with you.")).toEqual([
+      "shut up/interjection",
+    ]);
+    const [span] = spansOf("Come along, children.");
+    expect(span).toMatchObject({ key: "come along", pos: "interjection" });
+    expect(dictionary.entry("come along")?.lines[0]).toMatch(/accompany/i);
+    expect(
+      dictionary.entry("come along", undefined, span!.pos)?.lines[0],
+    ).toMatch(/encouragement/i);
+  });
+});

@@ -85,6 +85,7 @@ const reading = (
 ): WordReading => ({
   ...(t && { tag: t }),
   use: { ...USE, ...use },
+  pauseBefore: false,
 });
 
 const key = (form: string, bases: string[], r: WordReading) =>

@@ -21,6 +21,8 @@ const pack = createLanguagePack("en", {
     detect: ["figure out"],
     more: ["make up one's mind"],
     gap: ["figure out"],
+    pos: { detect: "v", more: "-" },
+    intransitive: ["figure out"],
   },
 });
 
@@ -32,6 +34,13 @@ describe("createLanguagePack (en)", () => {
   it("has the dictionary's phrase patterns, and the ones to detect as a set", () => {
     expect(pack.patterns.more).toEqual(["make up one's mind"]);
     expect([...pack.phrases]).toEqual(["figure out"]);
+  });
+
+  it("has the patterns' parts of speech and transitivity", () => {
+    expect(pack.phrasePos("figure out")).toEqual(["verb"]);
+    expect(pack.phrasePos("make up one's mind")).toEqual([]);
+    expect(pack.intransitive("figure out")).toBe(true);
+    expect(pack.intransitive("make up one's mind")).toBe(false);
   });
 
   it("has the English phrase rules", () => {

@@ -1,4 +1,5 @@
 import { normalizeWord } from "../text/tokenize";
+import { decodePhrasePos } from "./phrase-pos";
 /**
  * How one language's phrase patterns match text: which words are slots, what fills
  * them, and how many words a phrasal verb may have between its parts.
@@ -20,6 +21,12 @@ export interface PhraseRules {
    * file and kept in" is not `lock in` and "figure we'll find out" is not `figure out`.
    */
   readonly gapStop?: ReadonlySet<string>;
+  /**
+   * Adverbial particles and prepositions that complete a verb ("give up", "come to"):
+   * a two-word verb pattern ending in one is highlighted only where the tagger reads
+   * it as an adverb (rule P2). None for a language without phrasal verbs.
+   */
+  readonly particles?: ReadonlySet<string>;
 }
 
 /**
@@ -35,6 +42,34 @@ export interface PhrasePatterns {
   readonly more: readonly string[];
   /** Phrasal verbs: words may come after the first word. */
   readonly gap: readonly string[];
+  /**
+   * The patterns' own parts of speech in the source (kaikki's names: verb, adv,
+   * prep_phrase, intj, particle, phrase, noun, adj…), main one first, one code per
+   * pattern of `detect` and of `more`, in their order, separated by single spaces
+   * (`phrase-pos.ts`: "v vi P -").
+   */
+  readonly pos?: { readonly detect: string; readonly more: string };
+  /**
+   * Verb patterns whose senses the source marks intransitive and never transitive,
+   * sorted ("fly in"; weak data: most senses are marked neither way).
+   */
+  readonly intransitive?: readonly string[];
+}
+
+/** Each pattern's parts of speech (`PhrasePatterns.pos`), by its key; none without. */
+export function phrasePosIndex(
+  patterns: PhrasePatterns,
+): ReadonlyMap<string, readonly string[]> {
+  const index = new Map<string, readonly string[]>();
+  if (!patterns.pos) return index;
+  for (const list of ["detect", "more"] as const) {
+    const codes = patterns.pos[list].split(" ");
+    patterns[list].forEach((key, i) => {
+      const pos = decodePhrasePos(codes[i] ?? "-");
+      if (pos.length > 0) index.set(key, pos);
+    });
+  }
+  return index;
 }
 
 interface PatternWord {

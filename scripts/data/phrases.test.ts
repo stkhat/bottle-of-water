@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { phrasePosIndex } from "../../src/core/phrases/pattern.ts";
 import { importPhrases, patternKey, type PhrasesResult } from "./phrases.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-phrases.jsonl");
@@ -217,6 +218,22 @@ describe("importPhrases", () => {
       "by heart": ["そらで", ["そらで", "暗記して"]],
     });
   });
+  it("gives each pattern the source's parts of speech, the one with the most usable senses first", () => {
+    const pos = phrasePosIndex(result.phrases);
+    // give up: three adjective senses, two usable verb senses (one is archaic).
+    expect(pos.get("give up")).toEqual(["adj", "verb"]);
+    expect(pos.get("from scratch")).toEqual(["prep_phrase"]);
+    expect(pos.get("very well")).toEqual(["adv"]);
+    expect(pos.get("make up one's mind")).toEqual(["verb"]);
+    // EJDict's alone.
+    expect(pos.has("up to")).toBe(false);
+    expect(result.phrases.pos?.detect.split(" ")).toHaveLength(
+      result.phrases.detect.length,
+    );
+  });
+  it("lists the verb patterns whose senses are intransitive and never transitive", () => {
+    expect(result.phrases.intransitive).toEqual(["kick in"]);
+  });
   it("counts multi-word entries, unparsable lines and patterns", () => {
     expect(result.stats).toEqual({
       entries: 28,
@@ -224,6 +241,7 @@ describe("importPhrases", () => {
       detect: 11,
       more: 8,
       trivial: 2,
+      withPos: 15,
       gap: 5,
       fromEjdict: 5,
       fromKaikki: 15,
