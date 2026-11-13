@@ -60,7 +60,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - **Subtitle position is selectable**: "In video" (overlaid on the video, default) / "Below video" (a large box under the video)
 - **Translation visibility is set separately for the subtitle and the transcript** (both shown by default)
 - **Prefer translations provided by the site** (order in [architecture](architecture.md) "Choosing a translation"). Where a translation came from is not shown
-- **Two buttons in the player bar**, grouped in **one green outline** so they are not confused with YouTube's own gear
+- **Two buttons in the player bar**, grouped in **one outline (translucent white)** over a faint white tint (2026-11-14) so they are not confused with YouTube's own gear
   - **L button**: one click turns Lingo on/off (when off: dotted outline + strikethrough). The state is remembered per platform (YouTube, Netflix): the next video there starts the same way
   - **Up arrow (^) button**: opens the Lingo menu (the ^ button itself has no gear icon). From the top:
     - Header: L, Lingo, current state (On / Off for this video), and a gear at the right that opens the settings page ("Open settings")

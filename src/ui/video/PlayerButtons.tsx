@@ -13,9 +13,10 @@ export interface PlayerButtonsProps {
 }
 
 /**
- * Mock Main's group in the player bar: the L toggle and the ^ menu button in one green
- * outline, so they are not taken for the site's own buttons. Both carry
- * `data-lingo-menu` and `keepMenuOpen`: pressing them is not a click outside the menu.
+ * Mock Main's group in the player bar: the L toggle and the ^ menu button in one
+ * translucent white outline over a faint white tint, so they are not taken for the
+ * site's own buttons. Both carry `data-lingo-menu` and `keepMenuOpen`: pressing them is
+ * not a click outside the menu.
  */
 export function PlayerButtons(props: PlayerButtonsProps) {
   const on = props.enabled;
@@ -29,8 +30,8 @@ export function PlayerButtons(props: PlayerButtonsProps) {
         margin: "0 6px",
         padding: "2px",
         borderRadius: "10px",
-        border: "1.5px solid #3FC79F",
-        background: "rgba(11,138,108,0.22)",
+        border: "1.5px solid rgba(255,255,255,0.55)",
+        background: "rgba(255,255,255,0.12)",
         verticalAlign: "middle",
       })}
     >
