@@ -11,27 +11,28 @@ Two rounds:
   - 10 YouTube videos: TED, BBC explainer, late-night interview, Kurzgesagt, cooking, teen vlog (ASR), SNL, a 67-minute podcast (ASR), Crash Course, tech review.
   - 5 random Friends episodes.
   - 10 news articles from BBC, AP, Guardian and NPR.
-- **Round 2 corpus** (103,500 tokens, different content):
+- **Round 2 corpus** (167,000 tokens, different content):
   - 30 YouTube videos in 14 genres. 14 are ASR-only and 4 have a human Japanese track. They include US, UK and Australian speakers, vlogs, gaming, podcasts, stand-up and sports.
   - 30 articles from 10 outlets: BBC, Guardian, AP, NPR, Al Jazeera, The Conversation, Sky, CBS, PBS and CNN.
-  - Netflix was not collected (see the end of this note).
+  - 15 Netflix episodes (63,800 tokens): 3 random episodes each (seeded) of Suits, The Office (US), Breaking Bad, Brooklyn Nine-Nine and The Crown. Two of them have ALL-CAPS captions.
 - **Collection**: everything was collected in the user's Chrome with the check build. Captions are the player's own tracks (`en`, `ja`, `tlang=ja`); Netflix cards come from Lingo's transcript. Copyrighted text stays out of the repo.
 - **Pipeline**: Lingo's own code ran offline over the corpus (`createLanguagePack`, `createClassifier`, `createEnJaDictionary`, `captionCards`). Spot checks of highlights and hover cards in the real UI matched it. The check build's error log was empty after every session.
 - **Judging**: Claude judged every sample against its sentence.
   - Round 1: 480 hovers, 185 cards/paragraphs, 471 phrase keys, 272 machine-translated definitions, 100 subtitle lines.
-  - Round 2: two blind A/B rounds of about 780 hovers and 330 units each, current build against prototype. The second A/B used a fresh sample, so the rules were not tested on the items they were tuned on.
+  - Round 2: two blind A/B rounds of about 780 hovers and 330 units each on YouTube and articles, current build against prototype. The second A/B used a fresh sample, so the rules were not tested on the items they were tuned on.
+  - Netflix was judged last (390 hovers, 165 cards), with the prototype frozen: no rule was tuned on TV dialogue.
   - The samples over-represent hovers the prototype changes; rates below are re-weighted to the corpus.
   - One judge per item: read differences under ±4 points as noise.
 - **Chrome's built-in AI** (Translator API, Prompt API / Gemini Nano) ran in the user's Chrome 157.
 
 ## Results: current build
-| | Round 1 YouTube | Round 1 Netflix | Round 1 articles | Round 2 YouTube | Round 2 articles |
-|---|---|---|---|---|---|
-| Hover meaning good | 59% | 57% | 46% | 56–58% | 48–50% |
-| Hover meaning wrong or misleading | 21% | 22% | 34% | 17–21% | 23–25% |
-| Tokens with no hover (besides "I", "a") | 2.4% | 3.4% | 5.3% | 2.7% | 6.0% |
-| Phrase highlights per 1,000 tokens | 18 | 17 | 18 | 17 | 15 |
-| Cards with no Japanese line | 1.5% | 28% | – | – | – |
+| | Round 1 YouTube | Round 1 Netflix | Round 1 articles | Round 2 YouTube | Round 2 Netflix | Round 2 articles |
+|---|---|---|---|---|---|---|
+| Hover meaning good | 59% | 57% | 46% | 56–58% | 61% | 48–50% |
+| Hover meaning wrong or misleading | 21% | 22% | 34% | 17–21% | 16% | 23–25% |
+| Tokens with no hover (besides "I", "a") | 2.4% | 3.4% | 5.3% | 2.7% | 3.5% | 6.0% |
+| Phrase highlights per 1,000 tokens | 18 | 17 | 18 | 17 | 22 | 15 |
+| Cards with no Japanese line | 1.5% | 28% | – | – | 15% | – |
 
 Round 1 details that still hold:
 - **Phrases**:
@@ -64,7 +65,7 @@ Round 1 details that still hold:
 | Idea | Result | Decision |
 |---|---|---|
 | Prototype v1 (all fixes below, first version) | Good hovers +12–14 pts, but wrong/misleading unchanged (21→21%, 25→24%): it fixed readability, not wrong senses. Phrases: more useful, more noise, units a tie. | Refined |
-| **Prototype v2** (A1–A3, D with the fixes below, phrase data v2, context check) | **YouTube**: good 58→70%, wrong/misleading 17→11%. **Articles**: good 50→66%, wrong/misleading 23→15%. Changed hovers preferred 275 vs 52. Phrases: articles useful 37→40, low-value 19→4, wrong-match 16→8. YouTube useful 14→33, wrong-match 7→14. Units preferred 55 vs 37. | **Recommended** |
+| **Prototype v2** (A1–A3, D with the fixes below, phrase data v2, context check) | **YouTube**: good 58→70%, wrong/misleading 17→11%. **Articles**: good 50→66%, wrong/misleading 23→15%. Changed hovers preferred 275 vs 52. Phrases: articles useful 37→40, low-value 19→4, wrong-match 16→8. YouTube useful 14→33, wrong-match 7→14. Units preferred 55 vs 37. **Netflix** (not tuned on): good 61→74%, wrong/misleading 16→13%, changed hovers preferred 137 vs 27, phrases useful 23→46, wrong-match 3→13, units preferred 29 vs 20. | **Recommended** |
 | Pick the sense by matching glosses against the card's Japanese line | ~7 fixed, ~7 broken of 282 | Dropped |
 | Gemini Nano picks the sense freely | Changed 71% of hovers; 72% fit vs 70% today | Dropped |
 | Gemini Nano as a yes/no verifier of the shown meaning | Says "no" to 80% of hovers: catches 97% of bad ones, but also flags 3 of 4 good ones | Dropped (automatic use) |
@@ -95,7 +96,7 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
 | C2 Rank English definitions by the source's labels | Demotes usage notes, register (vulgar, dated, slang) and domain senses for multi-word terms, and resolves "Synonym of / Clipping of X". | 11 of 70 wrong-sense phrases now fit; 14,875 pointers resolved |
 | D Names by document casing | A word capitalised mid-sentence in mixed-case text and never lower-case there is a name for the whole document, if the names lexicon has it. Never a name: function words, interjections, sentence starts without evidence, words after a determiner. Shows "(name)" only when the dictionary would give a common-noun meaning; a proper-noun meaning is kept (France → フランス). | v1 lost France/June; fixed in v2 |
 | E Vocabulary from the learning language's Wiktionary | A headword joins the vocabulary when it appears in lower case at least 5 times in other entries' examples. Meanings for words the pair dictionary lacks are English definitions translated at display time, as phrases already are. | +12,493 words. Round-1 unknown tokens 1,366 → 830 (um, cuz, wanna, app, website, chemo) |
-| G Many-to-many alignment of site translations | Shows a translation cue on every card it overlaps substantially, as `alignAsrSentences` already does for ASR. Not prototyped. | Netflix: 28% of cards empty today |
+| G Many-to-many alignment of site translations | Shows a translation cue on every card it overlaps substantially, as `alignAsrSentences` already does for ASR. Not prototyped. | Netflix cards with no Japanese line today: 28% (Friends), 15% (round 2, 3–22% per episode) |
 
 ### LEARNING part (per learning language, in `LanguagePack`)
 - **Tagger**: `tagger(sentence) → {label, inflected, proper, confidence}[]` plus a confidence threshold. English: an averaged perceptron trained on UD English-EWT.
@@ -141,14 +142,14 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
   - It misses sobre todo and ya que, and highlights "lo que": the Spanish example corpus is 46 times smaller.
 
 ## Costs and decisions for you
-- **Highlight density**: phrases per 1,000 tokens go 16.8 → 27.9. "you know", "I mean" and "kind of" become visible. Reversing PR #28's rule for common pairs is intended here: B2 now decides by meaning, not word rank.
+- **Highlight density**: phrases per 1,000 tokens go 16.8 → 27.9 on YouTube and articles, and 22 → 40 on Netflix dialogue. "you know", "I mean" and "kind of" become visible. Reversing PR #28's rule for common pairs is intended here: B2 now decides by meaning, not word rank.
 - **Bundle size**: packs grow 24.3 → 43.5 MB (6.8 → 11.4 MB gzipped), mostly English definitions.
   - Moving definitions of selection-only phrases (8.9 MB) to a downloadable pack is the simplest cut, once pack hosting exists.
 - **Tagger model licence**: CC BY-SA (like the Wiktionary packs).
 - **Threshold**: B2's threshold (0.55) is a product choice between recall and noise; the measured sweep is in the prototype notes.
 
 ## Still open
-- **Wrong sense within the right part of speech** (battery → 砲兵中隊, fleet → 艦隊, hike → ハイキングする, miss → 未婚婦人): no general offline rule found. They need sense frequencies the sources don't give, or "Ask AI".
+- **Wrong sense within the right part of speech** (battery → 砲兵中隊, fleet → 艦隊, hike → ハイキングする, miss → 未婚婦人; in dialogue: guy → 控え綱, cool → 涼しい): no general offline rule found. They need sense frequencies the sources don't give, or "Ask AI".
 - **Literal vs idiomatic readings** that POS can't separate: come to, in time ("point in time"), not even, got it.
 - **Useful vs transparent compounds** that look alike in the data: law enforcement vs public health.
 - **Expressions that are not Wiktionary entries** (a lot of, depend on, think less of): 98 of the 185 round-1 misses. They need a collocation source.
@@ -164,9 +165,30 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
 6. Keep the on-device model for "Ask AI".
 
 ## Netflix
-- Round 2's Netflix part (Suits, The Office and three other shows, 3 random episodes each) is not done yet: the collection stopped at the profile picker.
-- Round 1's five Friends episodes are the Netflix evidence so far.
-- What Netflix adds: three of them have ALL-CAPS closed captions, sitcom interjections are poorly glossed (ew → enlisted woman, bye → 二の次の事), and 28% of cards have no Japanese line.
+Round 2 judged Netflix last, after the prototype was frozen, so these numbers test whether the rules carry over to TV dialogue.
+
+**Results**:
+- Hovers: good 61% → 74%, wrong or misleading 16% → 13%. Of the changed hovers, the prototype was preferred 137 times and the current build 27 times.
+- Phrases: useful 23 → 46, low-value 12 → 11, wrong-match 3 → 13. Units were preferred 29 vs 20; 116 were a tie.
+- Names: 1,991 tokens become "(name)": 805 had a common-noun meaning before (Harvey, Zane, Dwight), and 1,186 had no hover at all.
+- Hovers missing in the current build are mostly character names and spoken forms: wanna, yo, um, ya, hmm. "anymore" is missing too, because EJDict has only "any more".
+
+**What dialogue adds to the list** (general rules, not prototyped):
+- **A1 on light verbs**: most of the 27 hovers where the current build won are inflected light verbs.
+  - got home, got blown up → 受け取る; made, broke, had to → the base's first sense; "Does Harvey know" → …をする. The current build's grammar pointer ("getの過去") was rated acceptable; the base's first sense is wrong.
+  - Rule: treat do-support (do + subject + verb, do + not), have/has/had + to and get + past participle as auxiliaries, which A1 already handles.
+  - Rule: when the base has many senses and A2 has no evidence, show the pointer with the base's first two senses, not the first sense alone. The sense count is a statistic of the entry, so the rule needs no word list.
+- **Slots inside longer idioms**: most new wrong matches are a short entry inside a longer idiom the data cannot match.
+  - next thing I know → "I know"; a long way to go → "way to go"; kick my ass → "my ass"; have your work cut out → "cut out".
+  - Rule: expand Wiktionary's placeholders (one's, someone, something) into pronoun, possessive and noun-phrase slots when the patterns are built. Then let the longest match win.
+- **Discourse markers**: you know, I mean, all right and come on are judged useful, but the meaning shown often does not fit. Phrase POS is already in the data (B1), so A2's rule can run on phrases too: a marker at the start of a clause or standing alone takes its interjection sense.
+- **Caption labels**: [sighs], [scoffs], [clears throat] have no subject, so the tagger reads them as nouns (sighs → ため息). The captions part should tag a bracketed label as a clause with an implied subject.
+- **Interjections taken as names**: "Aww" at the start of a dialogue turn became "(name)". D must treat a dialogue dash ("- ") and a bracketed speaker label as a sentence start.
+- **Within-POS senses in casual speech**: guy → 控え綱, cool → 涼しい, last night → 最後の, "the second you…" → 第2の. These belong to "Still open" (wrong sense within the right part of speech). They are the most frequent wrong hovers left in dialogue.
+
+**Site translations**: 15% of spoken cards have no Japanese line (3–22% per episode), against 28% on Friends in round 1. G (many-to-many alignment) is still needed.
+
+**ALL-CAPS captions** (The Office S5E9, Brooklyn Nine-Nine S1E15): the tagger stays confident on them (87% of tokens vs 84% on mixed case), but it misreads some verbs as nouns (THROW → 投げること). Case-insensitive tagging was not tested.
 
 ## Measuring
 - The offline runner, the blind A/B packets and the judging rubric worked well and could become `npm run eval:quality`.
