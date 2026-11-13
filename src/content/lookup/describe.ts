@@ -32,6 +32,12 @@ export interface TermCard {
   ipa?: string;
   short?: string;
   /**
+   * The hover card's meanings, one per line (`DictionaryEntry.lines`): up to three
+   * senses of a dictionary's own glosses. Missing: `short` alone (a machine
+   * translation, an English definition).
+   */
+  lines?: string[];
+  /**
    * Language of `short` when it is not the native language (an English definition not
    * translated: "en"); the UI sets it as its `lang`.
    */
@@ -68,7 +74,7 @@ export const hoverView = (card: TermCard) => ({
   status: shownStatus(card),
   head: card.head,
   ipa: card.ipa,
-  short: card.short,
+  meanings: card.lines ?? (card.short === undefined ? [] : [card.short]),
   machineTranslated: card.machineTranslated !== undefined,
   shortLang: card.shortLang,
   sub: card.sub,
@@ -245,6 +251,8 @@ export async function describeTerm(
     short = literal;
     machineTranslated = "literal";
   }
+  // A translation (and an English definition, whose entry has one line) shows alone.
+  const lines = machineTranslated === undefined ? entry?.lines : undefined;
   const sub =
     main !== undefined
       ? word?.entry && `${main} — ${word.entry.short}`
@@ -264,6 +272,7 @@ export async function describeTerm(
     head: entry?.head ?? (term.kind === "phrase" ? term.surface : term.key),
     ...(ipa !== undefined && { ipa }),
     ...(short !== undefined && { short }),
+    ...(lines !== undefined && { lines }),
     ...(shortLang !== undefined && { shortLang }),
     ...(entry?.glossLang !== undefined && { glossLang: entry.glossLang }),
     ...(sub !== undefined && { sub }),

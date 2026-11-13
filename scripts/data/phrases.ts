@@ -173,13 +173,6 @@ function japaneseOf(
   }
 }
 
-/** The first sense cut at the first `;`, without a final period. */
-export function shortOf(text: string) {
-  const semicolon = text.indexOf(";");
-  const cut = (semicolon >= 0 ? text.slice(0, semicolon) : text).trim();
-  return cut.endsWith(".") ? cut.slice(0, -1).trimEnd() : cut;
-}
-
 /** The rank of a word as its most common base when it is not a vocabulary word. */
 export function rankOfWord(
   ranks: ReadonlyMap<string, number>,

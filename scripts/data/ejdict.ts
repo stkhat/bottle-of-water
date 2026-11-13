@@ -3,6 +3,7 @@
 // Usage: node scripts/data/ejdict.ts   (downloads missing raw files into data/raw/ejdict/)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { cleanShort } from "../../src/core/lexicon/short-lines.ts";
 import type { DictPack } from "../../src/core/packs/types.ts";
 import {
   byCodeUnit,
@@ -18,21 +19,6 @@ const COMMIT = "2dd9e71ffcefce89b4d946ce07bf51fa0573aac0";
 const BASE_URL = `https://raw.githubusercontent.com/kujirahand/EJDict/${COMMIT}/src/`;
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 const EJDICT_DIR = join(RAW_DIR, "ejdict");
-
-/** Removes 《…》 notes (nested too), 『』 marks and 〈C〉/〈U〉, and cuts at the first `;`. */
-export function cleanShort(sense: string) {
-  let out = "";
-  let depth = 0;
-  for (const ch of sense) {
-    if (ch === "《") depth++;
-    else if (ch === "》") depth = Math.max(0, depth - 1);
-    else if (depth === 0) out += ch;
-  }
-  out = out.replace(/[『』]/g, "").replace(/〈[CU]〉/g, "");
-  const semicolon = out.indexOf(";");
-  if (semicolon >= 0) out = out.slice(0, semicolon);
-  return out.trim();
-}
 
 function shortOf(senses: string[]) {
   for (const sense of senses) {

@@ -13,6 +13,20 @@ const dictionary = createEnJaDictionary({
     ],
     "figure out": ["…を理解する", ["…を理解する", "…を計算する"]],
     tangy: ["ぴりっとする", ["ぴりっとする,刺激的な"]],
+    found: [
+      "findの過去・過去分詞",
+      [
+        "findの過去・過去分詞",
+        "…を『創設する』,設立する(establish)",
+        "=found2",
+        "…を『創設する』,設立する(establish)",
+        "〈C〉(…の上に)〈建物など〉を建てる;(…に)…の基礎を置く",
+        "〈物〉を鋳造する",
+        "発酵体",
+      ],
+    ],
+    went: ["goの過去", ["goの過去"]],
+    were: ["be の仮定法過去", ["《be の直説法過去》", "《be の仮定法過去》"]],
   },
   // Japanese translations of phrases EJDict lacks.
   phrases: {
@@ -54,11 +68,27 @@ describe("createEnJaDictionary", () => {
       kind: "word",
       ipa: "/doʊ/",
       short: "練り粉,こね粉,生パン",
+      lines: ["練り粉,こね粉,生パン", "金銭,ぜに"],
       senses: [
         { pos: "noun", text: "練り粉,こね粉,生パン" },
         { pos: "noun", text: "《おもに米俗》金銭,ぜに" },
       ],
     });
+  });
+
+  it("gives the hover card up to three senses as short lines, cross-references and repeats left out", () => {
+    // The form it is of stays first: the word on the page is most likely that.
+    expect(dictionary.entry("found")?.lines).toEqual([
+      "findの過去・過去分詞",
+      "…を創設する,設立する(establish)",
+      "(…の上に)〈建物など〉を建てる",
+    ]);
+    expect(dictionary.entry("found")?.short).toBe("findの過去・過去分詞");
+  });
+
+  it("keeps a pointer that is the only sense, and the short meaning when every line is empty", () => {
+    expect(dictionary.entry("went")?.lines).toEqual(["goの過去"]);
+    expect(dictionary.entry("were")?.lines).toEqual(["be の仮定法過去"]);
   });
 
   it("gives a phrase's entry with its words' IPA joined", () => {
@@ -67,6 +97,7 @@ describe("createEnJaDictionary", () => {
       kind: "phrase",
       ipa: "/ˈfɪɡjər aʊt/",
       short: "…を理解する",
+      lines: ["…を理解する", "…を計算する"],
       senses: [{ text: "…を理解する" }, { text: "…を計算する" }],
     });
   });
@@ -78,6 +109,7 @@ describe("createEnJaDictionary", () => {
       kind: "phrase",
       ipa: "/ɡɪv ʌp/",
       short: "諦める",
+      lines: ["諦める", "やめる"],
       senses: [{ text: "諦める" }, { text: "やめる" }],
     });
   });
@@ -89,6 +121,8 @@ describe("createEnJaDictionary", () => {
       kind: "phrase",
       ipa: "/frʌm skrætʃ/",
       short: "From the beginning",
+      // Translated at display time: one line.
+      lines: ["From the beginning"],
       glossLang: "en",
       senses: [
         { pos: "prepositional phrase", text: "From the beginning, from zero." },
@@ -127,6 +161,23 @@ describe("createDefsDictionary", () => {
       ],
       casa: ["house", [["noun", "house"]]],
       "a escondidas": ["secretly", [["adverb", "secretly, covertly"]]],
+      fue: [
+        "third-person singular preterite indicative of ir",
+        [
+          ["verb", "third-person singular preterite indicative of ir"],
+          ["verb", "third-person singular preterite indicative of ser"],
+        ],
+      ],
+      vela: [
+        "candle",
+        [
+          ["noun", "candle; taper."],
+          ["noun", "Alternative form of velo"],
+          ["noun", "sail"],
+          ["noun", "vigil"],
+          ["noun", "wake"],
+        ],
+      ],
     },
     ipa: { comer: "/koˈmeɾ/", a: "/a/", escondidas: "/eskonˈdidas/" },
   });
@@ -142,11 +193,24 @@ describe("createDefsDictionary", () => {
       kind: "word",
       ipa: "/koˈmeɾ/",
       short: "to eat",
+      lines: ["to eat", "to have lunch"],
       senses: [
         { pos: "verb", text: "to eat" },
         { pos: "verb", text: "to have lunch" },
       ],
     });
+  });
+
+  it("gives the hover card up to three senses as short lines, pointers left out unless alone", () => {
+    expect(dictionary.entry("vela")?.lines).toEqual([
+      "candle",
+      "sail",
+      "vigil",
+    ]);
+    expect(dictionary.entry("fue")?.lines).toEqual([
+      "third-person singular preterite indicative of ir",
+      "third-person singular preterite indicative of ser",
+    ]);
   });
 
   it("gives a phrase's entry with its words' IPA joined", () => {
@@ -155,6 +219,7 @@ describe("createDefsDictionary", () => {
       kind: "phrase",
       ipa: "/a eskonˈdidas/",
       short: "secretly",
+      lines: ["secretly, covertly"],
       senses: [{ pos: "adverb", text: "secretly, covertly" }],
     });
   });
@@ -196,6 +261,8 @@ describe("createPairDictionary", () => {
       kind: "word",
       ipa: "/laɪt/",
       short: "luz",
+      // A translation table's sense gives its first word.
+      lines: ["Luz", "lámpara"],
       senses: [
         { pos: "noun", text: "Luz." },
         {
@@ -211,6 +278,7 @@ describe("createPairDictionary", () => {
       head: "give up",
       kind: "phrase",
       short: "To surrender",
+      lines: ["To surrender"],
       senses: [{ pos: "verb", text: "To surrender." }],
       glossLang: "en",
     });

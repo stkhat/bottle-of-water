@@ -842,6 +842,7 @@ describe("handlers: lookup", () => {
         kind: "word",
         ipa: "/loʊf/",
         short: "パンのひと塊",
+        lines: ["パンのひと塊"],
         senses: [{ pos: "noun", text: "パンのひと塊" }],
       },
       ipa: "/loʊf/",
@@ -1023,6 +1024,7 @@ describe("handlers: machine translations of English definitions", () => {
     await setSettings({ nativeLang: "en" });
     const definition = {
       short: SHORT,
+      lines: [SHORT],
       senses: [{ text: SENSES[0]! }],
       glossLang: "en",
     };

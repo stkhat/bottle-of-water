@@ -19,19 +19,31 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     kind: "word",
     ipa: "/loʊf/",
     short: "（パンの）ひと塊",
-    senses: [{ pos: "noun", text: "（パンなどの）ひと塊" }],
+    lines: ["（パンの）ひと塊", "（食品の）塊"],
+    senses: [
+      { pos: "noun", text: "（パンなどの）ひと塊" },
+      { pos: "noun", text: "（食品の）塊" },
+    ],
   },
   figure: {
     head: "figure",
     kind: "word",
     short: "数字、姿、人物",
+    lines: ["数字、姿、人物"],
     senses: [{ text: "数字；姿；人物" }],
   },
-  tangy: { head: "tangy", kind: "word", short: "ぴりっとした", senses: [] },
+  tangy: {
+    head: "tangy",
+    kind: "word",
+    short: "ぴりっとした",
+    lines: ["ぴりっとした"],
+    senses: [],
+  },
   "look into": {
     head: "look into",
     kind: "phrase",
     short: "To investigate",
+    lines: ["To investigate"],
     senses: [{ pos: "verb", text: "To investigate or examine." }],
     glossLang: "en",
   },
@@ -39,6 +51,7 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     head: "spill the beans",
     kind: "phrase",
     short: "(idiomatic) To reveal a secret.",
+    lines: ["(idiomatic) To reveal a secret."],
     senses: [
       {
         pos: "verb",
@@ -52,6 +65,7 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     head: "spill the bean",
     kind: "phrase",
     short: "Misspelling of spill the beans.",
+    lines: ["Misspelling of spill the beans."],
     senses: [{ text: "Misspelling of spill the beans." }],
     glossLang: "en",
   },
@@ -157,11 +171,19 @@ describe("describeTerm", () => {
       head: "loaf",
       ipa: "/loʊf/",
       short: "（パンの）ひと塊",
+      lines: ["（パンの）ひと塊", "（食品の）塊"],
       sub: "loaves → loaf",
       status: "learning",
       termId: "en:loaf",
-      senses: [{ pos: "noun", text: "（パンなどの）ひと塊" }],
+      senses: [
+        { pos: "noun", text: "（パンなどの）ひと塊" },
+        { pos: "noun", text: "（食品の）塊" },
+      ],
     });
+    expect(hoverView(card).meanings).toEqual([
+      "（パンの）ひと塊",
+      "（食品の）塊",
+    ]);
     expect(requests).toEqual([
       {
         type: "lookup",
@@ -194,6 +216,8 @@ describe("describeTerm", () => {
       machineTranslated: "literal",
     });
     expect(card.ipa).toBeUndefined();
+    expect(card.lines).toBeUndefined();
+    expect(hoverView(card).meanings).toEqual(["訳(figured out)"]);
   });
 
   it("notes the main word of a phrase with a slot, not the slot", async () => {
@@ -234,6 +258,7 @@ describe("describeTerm", () => {
     expect(card).toMatchObject({
       head: "look into",
       short: "To investigate",
+      lines: ["To investigate"],
       shortLang: "en",
       glossLang: "en",
       senses: [{ pos: "verb", text: "To investigate or examine." }],
@@ -354,6 +379,9 @@ describe("describeTerm with an English definition", () => {
     expect(card).not.toHaveProperty("shortLang");
     expect(card.senses[0]).not.toHaveProperty("translated");
     expect(calls).toEqual([["To reveal a secret.", "hover", EN_JA]]);
+    // One line: the other senses are not translated for the hover card.
+    expect(card).not.toHaveProperty("lines");
+    expect(hoverView(card).meanings).toEqual(["訳(To reveal a secret.)"]);
     await expect.poll(cached).toEqual([
       {
         type: "cacheTranslations",
@@ -626,7 +654,7 @@ describe("hoverView and windowView", () => {
 
   it("marks a translated definition on the hover card, and in the window on its senses only", () => {
     expect(hoverView(card)).toMatchObject({
-      short: "秘密を漏らす",
+      meanings: ["秘密を漏らす"],
       machineTranslated: true,
       shortLang: undefined,
     });
@@ -665,5 +693,24 @@ describe("hoverView and windowView", () => {
       shortLang: "en",
       machineTranslated: false,
     });
+  });
+
+  it("shows the card's lines on the hover card, else its short meaning alone, else nothing", () => {
+    const word: TermCard = {
+      ...card,
+      short: "（パンの）ひと塊",
+      lines: ["（パンの）ひと塊", "（食品の）塊"],
+    };
+    delete word.machineTranslated;
+    expect(hoverView(word).meanings).toEqual([
+      "（パンの）ひと塊",
+      "（食品の）塊",
+    ]);
+    // The dictionary window keeps the short meaning.
+    expect(windowView(word).short).toBe("（パンの）ひと塊");
+    delete word.lines;
+    expect(hoverView(word).meanings).toEqual(["（パンの）ひと塊"]);
+    delete word.short;
+    expect(hoverView(word).meanings).toEqual([]);
   });
 });

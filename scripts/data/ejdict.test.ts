@@ -2,34 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { byCodeUnit, shardDict, stringifyPack } from "./common.ts";
-import {
-  capitalizedOnly,
-  cleanShort,
-  parseEjdict,
-  vocabularyOf,
-} from "./ejdict.ts";
+import { capitalizedOnly, parseEjdict, vocabularyOf } from "./ejdict.ts";
 
 const fixture = readFileSync(
   join(import.meta.dirname, "fixtures", "ejdict.txt"),
   "utf8",
 );
-
-describe("cleanShort", () => {
-  it("removes 《…》 notes and 『』 marks and cuts at the first ;", () => {
-    expect(cleanShort("《可能性の推量》…『かもしれない』;たぶん")).toBe(
-      "…かもしれない",
-    );
-  });
-  it("removes nested 《…》 notes", () => {
-    expect(
-      cleanShort("のらくらする《+『around』(『along』),《英》『about』》"),
-    ).toBe("のらくらする");
-  });
-  it("removes countability markers 〈C〉 and 〈U〉 but keeps other 〈…〉 notes", () => {
-    expect(cleanShort("〈C〉〈U〉『色』,色彩")).toBe("色,色彩");
-    expect(cleanShort("〈人が〉『急ぐ』")).toBe("〈人が〉急ぐ");
-  });
-});
 
 describe("parseEjdict", () => {
   const dict = parseEjdict(fixture);

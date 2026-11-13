@@ -12,7 +12,7 @@ const figureOut: HoverCardProps = {
   status: "learning",
   head: "figure out",
   ipa: "/ˈfɪɡjər ˈaʊt/",
-  short: "（答え・方法を）見つけ出す、理解する",
+  meanings: ["（答え・方法を）見つけ出す、理解する"],
   sub: "figure — 数字、姿、人物",
   nativeLang: "ja",
   onLearning: () => {},
@@ -43,11 +43,44 @@ describe("HoverCard", () => {
 
   test("marks an English definition as English", async () => {
     const screen = await mountInShadowRoot(
-      <HoverCard {...figureOut} short="To come to understand" shortLang="en" />,
+      <HoverCard
+        {...figureOut}
+        meanings={["To come to understand"]}
+        shortLang="en"
+      />,
     );
     await expect
       .element(screen.getByText("To come to understand"))
       .toHaveAttribute("lang", "en");
+  });
+
+  test("stacks several meanings, one per line, all alike", async () => {
+    const lines = ["パチパチ音を立てる", "パチパチいう音", "細かいひび模様"];
+    const screen = await mountInShadowRoot(
+      <HoverCard
+        {...figureOut}
+        kind="word"
+        head="crackle"
+        variant="article"
+        meanings={lines}
+      />,
+    );
+    const elements = lines.map((line) => screen.getByText(line).element());
+    const boxes = elements.map((element) => element.getBoundingClientRect());
+    for (const [i, element] of elements.entries()) {
+      expect(element).toHaveAttribute("lang", "ja");
+      const style = getComputedStyle(element);
+      expect(style.fontSize).toBe("15px");
+      expect(style.fontWeight).toBe("400");
+      expect(style.color).toBe("rgb(42, 47, 69)");
+      // Each one under the one before, at the same left edge.
+      if (i > 0) {
+        expect(boxes[i]!.top).toBeGreaterThanOrEqual(boxes[i - 1]!.bottom);
+        expect(boxes[i]!.left).toBe(boxes[0]!.left);
+      }
+    }
+    // Nothing but the meanings: no numbers or bullets.
+    expect(screen.container.textContent).toContain(lines.join(""));
   });
 
   test("labels a word and an unsaved status", async () => {
@@ -82,7 +115,7 @@ describe("HoverCard", () => {
       <HoverCard
         {...figureOut}
         variant="article"
-        short="1時間待つ"
+        meanings={["1時間待つ"]}
         machineTranslated
       />,
     );
@@ -99,7 +132,9 @@ describe("HoverCard", () => {
       Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2),
     ).toBeLessThan(2);
     expect(getComputedStyle(mark.element()).fontSize).toBe("11px");
-    await screen.rerender(<HoverCard {...figureOut} short="1時間待つ" />);
+    await screen.rerender(
+      <HoverCard {...figureOut} meanings={["1時間待つ"]} />,
+    );
     expect(screen.container.textContent).not.toContain("Machine translation");
   });
 
@@ -108,7 +143,7 @@ describe("HoverCard", () => {
       <HoverCard
         {...figureOut}
         ipa={undefined}
-        short={undefined}
+        meanings={undefined}
         sub={undefined}
       />,
     );

@@ -14,18 +14,21 @@ export interface HoverCardProps {
   selection?: boolean;
   head: string;
   ipa?: string;
-  /** Short translation, in the native language (or `shortLang`). */
-  short?: string;
   /**
-   * `short` came from the browser's translator (a literal translation or a translated
-   * definition): marked "Machine translation".
+   * Short translations, one per line, all alike: up to three senses, in the native
+   * language (or `shortLang`). None: no translation line.
+   */
+  meanings?: readonly string[];
+  /**
+   * The meaning came from the browser's translator (a literal translation or a
+   * translated definition; one line): marked "Machine translation".
    */
   machineTranslated?: boolean;
   /** Extra notes (etymology, related words, pronunciation). */
   sub?: string;
-  /** The native language: the `lang` of `short` unless `shortLang` says otherwise. */
+  /** The native language: the `lang` of `meanings` unless `shortLang` says otherwise. */
   nativeLang: string;
-  /** Language of `short` when it is not the native language (an English definition). */
+  /** Language of `meanings` when it is not the native language (an English definition). */
   shortLang?: string;
   onLearning: () => void;
   onKnown: () => void;
@@ -72,6 +75,7 @@ const STATUS_LABEL = {
 /** The card shown while hovering a word. It renders the box only; the caller positions it. */
 export function HoverCard(props: HoverCardProps) {
   const box = BOX[props.variant];
+  const meanings = (props.meanings ?? []).filter(Boolean);
   const known = statusButton.known(props.status === "known");
   if (props.variant === "article" && props.status !== "known")
     known.background = "transparent";
@@ -125,8 +129,9 @@ export function HoverCard(props: HoverCardProps) {
           {props.ipa}
         </div>
       )}
-      {props.short && (
+      {meanings.map((meaning, i) => (
         <div
+          key={i}
           style={{
             display: "flex",
             alignItems: "center",
@@ -137,10 +142,12 @@ export function HoverCard(props: HoverCardProps) {
             marginTop: "2px",
           }}
         >
-          <span lang={props.shortLang ?? props.nativeLang}>{props.short}</span>
-          {props.machineTranslated && <MachineTranslationMark />}
+          <span lang={props.shortLang ?? props.nativeLang}>{meaning}</span>
+          {props.machineTranslated && i === meanings.length - 1 && (
+            <MachineTranslationMark />
+          )}
         </div>
-      )}
+      ))}
       {props.sub && (
         <>
           <div

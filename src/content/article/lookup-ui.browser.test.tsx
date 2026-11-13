@@ -39,7 +39,10 @@ describe("hover card", () => {
 
     await expect.element(hoverCard()).toBeVisible();
     expect(performance.now() - started).toBeGreaterThanOrEqual(250);
-    await expect.element(page.getByText("退屈な、面倒な")).toBeVisible();
+    // The hover card shows the senses (here one), the panel the short meaning.
+    await expect
+      .element(page.getByText("退屈な；うんざりする；面倒な"))
+      .toBeVisible();
     await expect.element(page.getByText("/ˈtiːdiəs/")).toBeVisible();
     await expect.element(page.getByText("New · not saved")).toBeVisible();
 
@@ -66,7 +69,7 @@ describe("hover card", () => {
     const { root } = await setup(ARTICLE);
     await pointAt(root, "loaves");
     await expect.element(page.getByText("loaves → loaf")).toBeVisible();
-    await expect.element(page.getByText("（パンの）ひと塊")).toBeVisible();
+    await expect.element(page.getByText("（パンなどの）ひと塊")).toBeVisible();
   });
 
   it("stays while the pointer is in it and goes after it leaves", async () => {

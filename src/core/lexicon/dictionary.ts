@@ -7,8 +7,15 @@ import type {
 } from "../packs/types";
 import { kindOfKey } from "../term-id";
 import { own } from "../util";
+import { cleanDefinition } from "./definitions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
+import {
+  cleanShort,
+  japanesePointer,
+  shortLines,
+  shortOfDefinition,
+} from "./short-lines";
 
 export type { Sense };
 
@@ -17,8 +24,14 @@ export interface DictionaryEntry {
   head: string;
   kind: "word" | "phrase";
   ipa?: string;
-  /** Short translation for the hover card. */
+  /** Short translation (the dictionary window, the word list). */
   short: string;
+  /**
+   * The hover card's meanings, one per line: up to three senses as short lines
+   * (`shortLines`). Only `short` for an entry glossed in another language, which is
+   * translated at display time.
+   */
+  lines: string[];
   senses: Sense[];
   /**
    * Language of `short` and `senses` when it is not the native language (an English
@@ -48,8 +61,11 @@ const normalize = (term: string) =>
 
 const NO_POS: PosPack = {};
 
-/** An entry as a source has it, with the language of its glosses when that is not the native one. */
-type Found = Entry & { glossLang?: string };
+/**
+ * An entry as a source has it, with the hover card's lines (none: `short` alone) and
+ * the language of its glosses when that is not the native one.
+ */
+type Found = Entry & { lines?: string[]; glossLang?: string };
 
 function dictionaryOver(
   ipa: IpaPack,
@@ -66,6 +82,7 @@ function dictionaryOver(
         kind: kindOfKey(head),
         ...(headIpa !== undefined && { ipa: headIpa }),
         short: found.short,
+        lines: found.lines ?? [found.short],
         senses: found.senses,
         ...(found.glossLang !== undefined && { glossLang: found.glossLang }),
       };
@@ -83,7 +100,15 @@ export function createEnJaDictionary(
   return dictionaryOver(data.ipa, (head) => {
     const found =
       lookup(head, data.dict, data.pos) ?? lookup(head, data.phrases, NO_POS);
-    if (found) return found;
+    if (found)
+      return {
+        ...found,
+        lines: shortLines(
+          found.senses.map((sense) => cleanShort(sense.text)),
+          found.short,
+          japanesePointer,
+        ),
+      };
     const definition = definitionOf(head, data.defs);
     return definition && { ...definition, glossLang: "en" };
   });
@@ -97,7 +122,19 @@ export function createDefsDictionary({
   defs: DefsPack;
   ipa: IpaPack;
 }): DictionaryProvider {
-  return dictionaryOver(ipa, (head) => definitionOf(head, defs));
+  return dictionaryOver(ipa, (head) => {
+    const found = definitionOf(head, defs);
+    return (
+      found && {
+        ...found,
+        lines: shortLines(
+          found.senses.map((sense) => shortOfDefinition(sense.text)),
+          found.short,
+          (line) => (cleanDefinition(line) === undefined ? "form" : undefined),
+        ),
+      }
+    );
+  });
 }
 
 /**
@@ -120,6 +157,15 @@ export function createPairDictionary({
       const [short, senses] = found;
       return {
         short,
+        // A translation table's sense is a list of words: its line is the first one.
+        lines: shortLines(
+          senses.map(([, text, hint]) =>
+            hint === undefined
+              ? shortOfDefinition(text)
+              : text.split(", ")[0]!.trim(),
+          ),
+          short,
+        ),
         senses: senses.map(([pos, text, hint]) => ({
           pos,
           text,

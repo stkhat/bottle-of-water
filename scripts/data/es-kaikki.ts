@@ -4,6 +4,7 @@
 // Usage: node scripts/data/es-kaikki.ts [path]   (default data/raw/kaikki-es.jsonl; run es-frequency.ts first)
 import { join } from "node:path";
 import { singleIpa } from "../../src/core/lexicon/ipa.ts";
+import { shortOfDefinition } from "../../src/core/lexicon/short-lines.ts";
 import type { DefsPack } from "../../src/core/packs/types.ts";
 import { SPANISH_RULES } from "../../src/core/phrases/es.ts";
 import {
@@ -25,7 +26,6 @@ import {
   PHRASE_COMMON_RANK,
   PHRASE_POS,
   rankOfWord,
-  shortOf,
 } from "./phrases.ts";
 
 const KAIKKI_ES_PATH = join(RAW_DIR, "kaikki-es.jsonl");
@@ -82,7 +82,7 @@ function usableSenses(entry: KaikkiEntry) {
 
 function definition(senses: Sense[]): DefsPack[string] {
   const kept = senses.slice(0, MAX_SENSES);
-  return [shortOf(kept[0]![1]), kept];
+  return [shortOfDefinition(kept[0]![1]), kept];
 }
 
 export type EsPacks = Awaited<ReturnType<typeof buildEsPacks>>;
