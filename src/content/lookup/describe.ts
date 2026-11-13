@@ -1,9 +1,11 @@
 import type { Category, TermKind, WordStatus } from "../../core/classify";
 import {
   cleanDefinition,
+  isUsageNote,
   MAX_TRANSLATED_SENSES,
 } from "../../core/lexicon/definitions";
 import type { Sense, Written } from "../../core/lexicon/dictionary";
+import { translatedLine } from "../../core/lexicon/short-lines";
 import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
 import { normalizeWord } from "../../core/text/tokenize";
 import { rulesFor } from "../../core/phrases/rules";
@@ -182,10 +184,12 @@ function keepTranslations(
  * Looks a term up. A meaning that exists only as an English definition (`glossLang`)
  * shows translated when it can: its short meaning from the cache or else the
  * translator (within the wait; `machineTranslated`), its senses from the cache
- * (`translateSenses` translates the others for the window). A phrase missing from
+ * (`translateSenses` translates the others for the window); a definition that is only
+ * a usage note gives way to the term's literal translation. A phrase missing from
  * every dictionary (a selected phrase) is shown as written on the page, with its
  * literal translation (`machineTranslated`; left out when it does not come in time)
  * and a note with its main word's translation; its IPA comes from the language pack.
+ * The hover card shows a translation as one short line (`translatedLine`).
  */
 export async function describeTerm(
   term: {
@@ -225,10 +229,19 @@ export async function describeTerm(
   const cached = (text: string | undefined) =>
     pair && text !== undefined ? found.translations?.[text] : undefined;
 
+  /**
+   * A definition that only says how the term is used ("An apophasis used by a speaker
+   * to introduce…") reads as an explanation once translated: the term itself is
+   * translated instead, as a phrase no dictionary has is ("not to mention" → 言うまで
+   * もなく).
+   */
+  const usageNote =
+    pair !== undefined && entry !== undefined && isUsageNote(entry.short);
+
   /** The short meaning translated from its English definition, when it is one. */
   async function translatedShort() {
     const english = pair && entry && cleanDefinition(entry.short);
-    if (!pair || !english) return undefined;
+    if (!pair || !english || usageNote) return undefined;
     const hit = cached(english);
     if (hit !== undefined || shownIn === "window") return hit;
     const translation = translator.translate(english, shownIn, pair);
@@ -244,7 +257,7 @@ export async function describeTerm(
     term.kind === "phrase" ? mainWord(term.key, rulesFor(lang)) : undefined;
   const [definition, literal, word] = await Promise.all([
     translatedShort(),
-    term.kind === "phrase" && entry?.short === undefined
+    (term.kind === "phrase" && entry?.short === undefined) || usageNote
       ? within(
           translator.translate(term.surface, shownIn, {
             from: lang,
@@ -263,12 +276,17 @@ export async function describeTerm(
     short = definition;
     shortLang = undefined;
     machineTranslated = "definition";
-  } else if (short === undefined && literal !== undefined) {
+  } else if (literal !== undefined) {
     short = literal;
+    shortLang = undefined;
     machineTranslated = "literal";
   }
-  // A translation (and an English definition, whose entry has one line) shows alone.
-  const lines = machineTranslated === undefined ? entry?.lines : undefined;
+  // A translation (and an English definition, whose entry has one line) shows alone,
+  // as one short line (the window shows it whole).
+  const lines =
+    machineTranslated === undefined || short === undefined
+      ? entry?.lines
+      : [translatedLine(short, nativeLang)];
   const sub =
     main !== undefined
       ? word?.entry && `${main} — ${word.entry.short}`

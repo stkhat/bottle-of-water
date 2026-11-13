@@ -256,6 +256,36 @@ describe("names over the generated packs (rule D)", () => {
       expect(of(word)[0], word).toMatchObject({ capital: true });
     expect(of("Japan")[0]?.category).not.toBe("ignored");
   });
+  it("reads a capitalised abbreviation as the word it stands for, not as a word Wiktionary adds (rule E)", () => {
+    const text = [
+      "Published On 12 Nov 2026",
+      "The vote was held on Nov 3, and the count ended on Mon after a recount.",
+    ];
+    const doc = documentCasing(
+      text.map((t) => blockCasing(withNames.tokenize(t), "en")),
+    );
+    const nov = text.flatMap((t) =>
+      names
+        .classify(withNames.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: doc,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .filter((s) => t.slice(s.start, s.end) === "Nov"),
+    );
+    expect(nov.map((s) => [s.key, s.name, s.capital])).toEqual([
+      ["nov", undefined, true],
+      ["nov", undefined, true],
+    ]);
+    // "nov" (a clipping of novice) joined the vocabulary with rule E.
+    expect(dictionary.entry("nov", "capital")?.lines[0]).toMatch(/^11月/);
+    expect(dictionary.entry("mon", "capital")?.lines[0]).toMatch(/^月曜日/);
+    expect(dictionary.entry("dec", "capital")?.lines[0]).toMatch(/^12月/);
+    expect(dictionary.entry("nov", "lower")?.glossLang).toBe("en");
+    // A word EJDict has keeps its own meaning: "the Sun" is no Sunday.
+    expect(dictionary.entry("sun", "capital")?.lines[0]).toMatch(/太陽/);
+  });
   it("never takes an interjection, a word after a determiner or one written in lower case for a name", () => {
     expect(of("Yes")[0]?.name).toBeUndefined();
     expect(of("Enlightenment")[0]?.name).toBeUndefined();
@@ -565,6 +595,23 @@ describe("phrase precision over the generated packs", () => {
     expect(phrases("It was a good day.")).toEqual([]);
     expect(phrases("We waited for so long.")).toEqual([]);
     expect(phrases("So long, everyone!")).toEqual(["so long/interjection"]);
+  });
+  it("drops a whole clause with its object inside a longer sentence", () => {
+    expect(
+      phrases("Why don't you tell me what's really going on here?"),
+    ).toEqual([]);
+    expect(phrases("You told me that you didn't want it.")).toEqual([]);
+    expect(phrases("Where is he? You tell me!")).toEqual([
+      "you tell me/interjection",
+    ]);
+  });
+  it("drops an adverb ending in a preposition before a personal pronoun", () => {
+    expect(
+      phrases("This isn't just about you protecting your client's interests."),
+    ).toEqual([]);
+    expect(phrases("That's kind of you.")).toEqual([]);
+    expect(phrases("I'm just about done.")).toEqual(["just about"]);
+    expect(phrases("Just about everyone knows it.")).toEqual(["just about"]);
   });
   it("drops a verb phrase whose first word is a noun in a noun phrase, or a passive", () => {
     expect(phrases("Take that mask off.")).toEqual([]);

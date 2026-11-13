@@ -150,6 +150,28 @@ export function definitionPointer(text: string): Pointer | undefined {
   return undefined;
 }
 
+/** A definition that says how an expression is used: "Used to…", "Said when…". */
+const USED =
+  /^(?:(?:usually|often|chiefly|mostly|also|sometimes)\s+)?(?:used|said|uttered)\b/i;
+/**
+ * …or describes it as a figure of speech rather than meaning it: "An apophasis used by
+ * a speaker to introduce…", "A rhetorical question…". An interjection's "An expression
+ * of surprise" is its meaning, and "the speaker" alone is part of many ("there": away
+ * from the speaker).
+ */
+const DESCRIBES = /\b(?:figure of speech|apophasis|rhetorical)\b/i;
+
+/**
+ * A usage note: a definition that describes how the expression is used instead of
+ * saying what it means ("Used to express surprise", "An apophasis used by a speaker to
+ * introduce…"). Translated, it reads as an explanation, not a meaning. A note that
+ * the words are also meant literally ("Used other than figuratively…") is one too.
+ */
+export function isUsageNote(text: string): boolean {
+  const cleaned = withoutLabels(text);
+  return USED.test(cleaned) || DESCRIBES.test(cleaned);
+}
+
 /**
  * The English definition as it is translated: trimmed, without leading labels
  * ("(idiomatic, informal) To reveal a secret." → "To reveal a secret."). A pointer

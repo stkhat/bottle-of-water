@@ -52,6 +52,10 @@ const dictionary = createEnJaDictionary({
     paris: ["パリ", ["『パリ』(フランスの首都)"]],
     germany: ["ドイツ", ["ドイツ"]],
     frank: ["率直な", ["『率直な』"]],
+    november: ["11月", ["『11月』(《略》Nov.)"]],
+    street: ["通り", ["『通り』,街路"]],
+    sun: ["太陽", ["《the~》『太陽』"]],
+    sunday: ["日曜日", ["『日曜日』"]],
   },
   // EJDict's capitalised headwords, apart (acronyms under their capitals).
   capital: {
@@ -63,6 +67,10 @@ const dictionary = createEnJaDictionary({
     germany: ["ドイツ", ["ドイツ"]],
     frank: ["フランク人", ["フランク人(ゲルマン人の一部族)"]],
     lincoln: ["リンカン", ["リンカン(『Abraham~』;1809‐1865;米国の大統領)"]],
+    // Abbreviations, under their key with the period.
+    "nov.": ["November", ["November"]],
+    "st.": ["Street", ["Street", "Saint(複SS.,Sts.)聖…,セント…"]],
+    "sun.": ["Sunday", ["Sunday"]],
   },
   // Japanese translations of phrases EJDict lacks.
   phrases: {
@@ -83,6 +91,7 @@ const dictionary = createEnJaDictionary({
   },
   // English definitions of phrases neither has.
   defs: {
+    nov: ["A novice", [["noun", "A novice."]]],
     "give up": ["(unused)", [["verb", "(unused)"]]],
     "search for": ["Synonym of look for", [["verb", "Synonym of look for"]]],
     "look for": [
@@ -244,6 +253,23 @@ describe("createEnJaDictionary", () => {
       "United States 合衆国",
       "我々を",
     ]);
+  });
+
+  it("gives a capitalised word EJDict has only as an abbreviation the meanings it stands for", () => {
+    expect(dictionary.entry("nov", "capital")).toMatchObject({
+      short: "11月(Nov.)",
+      lines: ["11月(Nov.)"],
+      senses: [{ text: "11月(《略》Nov.)", hint: "November" }],
+    });
+    expect(dictionary.entry("st", "capital")?.lines).toEqual([
+      "通り,街路",
+      "Saint(複SS.,Sts.)聖…,セント…",
+    ]);
+    // In lower case, or where the page does not say: the word's own definition.
+    expect(dictionary.entry("nov", "lower")?.short).toBe("A novice");
+    expect(dictionary.entry("nov")?.short).toBe("A novice");
+    // A word EJDict has keeps its own senses ("the Sun" is not Sunday).
+    expect(dictionary.entry("sun", "capital")?.lines).toEqual(["太陽"]);
   });
 
   it("gives a word in lower case its lowercase senses only", () => {

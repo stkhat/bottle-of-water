@@ -36,8 +36,8 @@ const NO_USE: WordUse = {
   prepositionSlot: false,
 };
 
-/** Punctuation between two words: the second starts a new phrase ("I mean, this"). */
-const PAUSE = /[,.;:!?…"“”()[\]—–]|\s-\s|>>/;
+/** Punctuation between two words: the second starts a new phrase ("I mean, this", "I didn't -- I mean"). */
+const PAUSE = /[,.;:!?…"“”()[\]—–]|\s-\s|--|>>/;
 
 /**
  * Tags a block's tokens sentence by sentence, and reads how each of its words (`words`,

@@ -74,8 +74,10 @@ export interface WordRole {
   nounPhrase: boolean;
   /** Can open an object or a complement: a noun phrase, "that", an object pronoun, a wh-word. */
   object: boolean;
-  /** A modal or a do-support auxiliary ("can", "do" in "do you know"). */
+  /** A modal or a do-support auxiliary ("can", "do" in "do you know", "don't"). */
   modal: boolean;
+  /** A personal pronoun or possessive other than "it" ("you", "him", "your"). */
+  personal: boolean;
   /** The infinitive marker ("to" before a verb). */
   infinitive: boolean;
   /** A preposition. */

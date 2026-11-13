@@ -224,15 +224,29 @@ describe("englishTagger: role", () => {
     expect(it).toMatchObject({ nounPhrase: false, subject: true });
   });
   it("finds objects, modals, the infinitive marker and prepositions", () => {
-    const [him, can, does, to, of, at] = roles(
-      "him/PRP can/MD does/VBZ/do to/TO of/IN at/IN",
+    const [him, can, does, dont, to, of, at] = roles(
+      "him/PRP can/MD does/VBZ/do don't/VBP to/TO of/IN at/IN",
     );
     expect(him!.object).toBe(true);
     expect(can!.modal).toBe(true);
     expect(does!.modal).toBe(true);
+    // "don't" is no headword's form of "do"; the tagger reads its "do".
+    expect(dont!.modal).toBe(true);
     expect(to!.infinitive).toBe(true);
     expect(of).toMatchObject({ partitive: true, preposition: true });
     expect(at).toMatchObject({ partitive: false, preposition: true });
+  });
+  it("finds personal pronouns and possessives, not it", () => {
+    const [you, your, it, its, the] = roles(
+      "you/PRP your/PRP$ it/PRP its/PRP$ the/DT",
+    );
+    expect([you, your, it, its, the].map((r) => r!.personal)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
   });
   it("finds be and past participles", () => {
     const [was, were, held, holds] = roles(

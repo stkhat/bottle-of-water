@@ -3,7 +3,10 @@
 // (vulgar, dated, slang…), domain topics and regional labels move a sense down,
 // translation-table sizes move it up. Every signal is the source's own structure;
 // the only English pieces are the gloss patterns of usage notes and literal notes.
-import { cleanDefinition } from "../../src/core/lexicon/definitions.ts";
+import {
+  cleanDefinition,
+  isUsageNote,
+} from "../../src/core/lexicon/definitions.ts";
 import type { SenseLabel } from "../../src/core/lexicon/sense-labels.ts";
 import type { KaikkiEntry, KaikkiSense, KaikkiTranslation } from "./common.ts";
 
@@ -195,13 +198,28 @@ export const isPointer = (sense: SourceSense) =>
 /** Other capitalised tags than "Internet" are regions (US, UK, Australia). */
 const isRegion = (tag: string) => /^[A-Z]/.test(tag) && tag !== "Internet";
 
+/** How `rankSenses` reads the source's labels. */
+export interface RankOptions {
+  /**
+   * The ranking of the definitions shown for a term (en-defs): any description of the
+   * expression counts as a usage note (`isUsageNote`: "An apophasis used by a
+   * speaker…", "A rhetorical question…"), not only "Used…" and "Said…".
+   */
+  shown?: boolean;
+}
+
 /**
  * How marginal a sense's labels make it (0 for none): a usage note, a register label,
  * a pointer; for a multi-word term (`domains`) also a domain topic or a regional label.
  */
-function labelPenalty(sense: SourceSense, domains: boolean) {
+function labelPenalty(
+  sense: SourceSense,
+  domains: boolean,
+  { shown = false }: RankOptions,
+) {
   let penalty = 0;
-  if (USAGE_NOTE.test(sense.gloss)) penalty += 1;
+  if (shown ? isUsageNote(sense.gloss) : USAGE_NOTE.test(sense.gloss))
+    penalty += 1;
   if (sense.tags.some((tag) => REGISTER.has(tag))) penalty += 1.5;
   if (domains && sense.topics.length > 0) penalty += 1.5;
   if (domains && sense.tags.some(isRegion)) penalty += 0.75;
@@ -226,6 +244,7 @@ export interface RankedSense extends SourceSense {
 export function rankSenses(
   senses: readonly SourceSense[],
   multiWord: boolean,
+  options: RankOptions = {},
 ): RankedSense[] {
   const blocks = new Map<string, { tables: number; first: number }>();
   senses.forEach(({ pos, tables }, i) => {
@@ -240,7 +259,7 @@ export function rankSenses(
   );
   return senses
     .map((sense, i) => {
-      const labels = labelPenalty(sense, multiWord);
+      const labels = labelPenalty(sense, multiWord, options);
       const lift = multiWord
         ? Math.min(1.5, 0.35 * Math.log2(1 + sense.tables))
         : 0;
