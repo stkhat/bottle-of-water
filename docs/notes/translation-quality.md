@@ -72,6 +72,9 @@ Round 1 details that still hold:
 | Normalise definitions before MT (drop "To ", trim ために, dedupe) | Preferred 32 vs 43 the other way; mean 3.23 vs 3.36 | Dropped |
 | Sentence-case ALL-CAPS lines before MT | 59 of 60 translations identical (the translator ignores case) | Dropped |
 | Previous line as MT context | Improved 0 of 29, worse 4 | Dropped |
+| Raise B2's threshold for phrase precision | 0.55 → 0.75 keeps 68 of 178 judged highlights, but the useful share stays 67–71% | Dropped: the score does not separate noise from useful phrases |
+| Precision rules P1 + P2 (below) | Useful share of highlights 67% → 78% (current build: 54%); useful with a fitting meaning 53% → 62%. Density 33 → 26 per 1,000 tokens. Tuned and measured on the same 178 judgements, so expect less on new text | **Recommended** (precision first) |
+| Show the top senses instead of one (hit@k) | A fitting sense is among the first 1 / 2 / 3 / 4 senses for 60 / 74 / 81 / 86% of 360 words; 90% have one somewhere. Lines grow from 10 to 20 / 29 characters (median) | Option for the UI (see "Costs and decisions") |
 
 The on-device model is not reliable enough to decide anything on its own. It belongs to the user-initiated "Ask AI" of phase 3, not to automatic hovers.
 
@@ -93,6 +96,8 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
 | B2b Transparent compounds | A noun phrase whose definition names every content word is not highlighted (digital signature, Olympic flame). | Low-value highlights 34 → 19 |
 | B4 Named entities | Proper-noun or Title Case entries (New York, American Revolution) are not highlighted; they stay available for lookup. | |
 | Context check on phrase matches | Drops a match whose own POS conflicts with its context: adverb "kind of" before a noun ("what kind of music"), interjection "you know" with an object. Drops a verb-only phrasal verb whose first word is tagged as a non-verb (trucks in, punch in the gut). | 12 of 28 wrong matches removed, 2 of 126 useful lost |
+| P1 Conversational sentences are lookup-only | An entry whose only POS in the source is "phrase" (a whole utterance: thank you, I know, see you, let me see) is never highlighted; it stays available on selection. | 20 judged highlights, 35% useful |
+| P2 Particle must be adverbial | A two-word verb + particle pattern is highlighted only when the tagger reads the particle as an adverbial particle (RP/RB): find out, give up, end up stay; come to + NP, look at, press on, get through go. | Removes 14 bad and 5 useful highlights |
 | C2 Rank English definitions by the source's labels | Demotes usage notes, register (vulgar, dated, slang) and domain senses for multi-word terms, and resolves "Synonym of / Clipping of X". | 11 of 70 wrong-sense phrases now fit; 14,875 pointers resolved |
 | D Names by document casing | A word capitalised mid-sentence in mixed-case text and never lower-case there is a name for the whole document, if the names lexicon has it. Never a name: function words, interjections, sentence starts without evidence, words after a determiner. Shows "(name)" only when the dictionary would give a common-noun meaning; a proper-noun meaning is kept (France → フランス). | v1 lost France/June; fixed in v2 |
 | E Vocabulary from the learning language's Wiktionary | A headword joins the vocabulary when it appears in lower case at least 5 times in other entries' examples. Meanings for words the pair dictionary lacks are English definitions translated at display time, as phrases already are. | +12,493 words. Round-1 unknown tokens 1,366 → 830 (um, cuz, wanna, app, website, chemo) |
@@ -142,11 +147,23 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
   - It misses sobre todo and ya que, and highlights "lo que": the Spanish example corpus is 46 times smaller.
 
 ## Costs and decisions for you
-- **Highlight density**: phrases per 1,000 tokens go 16.8 → 27.9 on YouTube and articles, and 22 → 40 on Netflix dialogue. "you know", "I mean" and "kind of" become visible. Reversing PR #28's rule for common pairs is intended here: B2 now decides by meaning, not word rank.
+- **Highlight density**: phrases per 1,000 tokens go 16.8 → 27.9 on YouTube and articles, and 22 → 40 on Netflix dialogue (all sites: 33, or 26 with P1 and P2). "you know", "I mean" and "kind of" become visible. Reversing PR #28's rule for common pairs is intended here: B2 now decides by meaning, not word rank.
 - **Bundle size**: packs grow 24.3 → 43.5 MB (6.8 → 11.4 MB gzipped), mostly English definitions.
   - Moving definitions of selection-only phrases (8.9 MB) to a downloadable pack is the simplest cut, once pack hosting exists.
 - **Tagger model licence**: CC BY-SA (like the Wiktionary packs).
-- **Threshold**: B2's threshold (0.55) is a product choice between recall and noise; the measured sweep is in the prototype notes.
+- **Threshold**: B2's threshold (0.55) was set for recall. Raising it does not raise precision, so precision comes from P1 and P2 instead (decided: precision before recall).
+- **Several senses in the hover** (hit@k, 360 words in context, YouTube / Netflix / articles):
+
+  | Senses shown | 1 | 2 | 3 | 4 |
+  |---|---|---|---|---|
+  | A fitting sense is among them | 60% | 74% | 81% | 86% |
+  | Highlighted (new) words only | 58% | 74% | 86% | 90% |
+  | Line length, median / 90th percentile (chars) | 10 / 21 | 20 / 40 | 29 / 51 | |
+
+  - The ceiling is 90%: for the rest no sense of the entry fits (a wrong key, a name, slang).
+  - Order matters little: dictionary order gives 58 / 72 / 79 / 84%. The sources have no sense frequencies, so "most frequent" means dictionary order with the tagged part of speech first.
+  - It helps words with 2–6 senses most (1 → 3 senses: 64 → 90%). Words with 7 or more senses (get, have, so, line) stay low (48 → 56%).
+  - Cost: the learner has to pick the sense, and the line triples. Three senses fit the dictionary window better than the hover. In the hover, showing the first sense large and the next two small would take a mock change.
 
 ## Still open
 - **Wrong sense within the right part of speech** (battery → 砲兵中隊, fleet → 艦隊, hike → ハイキングする, miss → 未婚婦人; in dialogue: guy → 控え綱, cool → 涼しい): no general offline rule found. They need sense frequencies the sources don't give, or "Ask AI".
@@ -158,7 +175,7 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
 
 ## Suggested order
 1. A1, A3, D and the EJDict capitalised split (small, deterministic, measured).
-2. The tagger part, then A2 and the phrase context check.
+2. The tagger part, then A2 and the phrase context check with P1 and P2.
 3. The phrase data rebuild (B1, B2, B4, C1, C2) with its size decision.
 4. E (vocabulary).
 5. G (alignment).
