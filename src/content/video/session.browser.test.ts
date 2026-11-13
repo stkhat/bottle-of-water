@@ -1318,8 +1318,8 @@ describe("selecting words over a highlighted phrase", () => {
       .toContain("gave up the crust:give up the crust:known");
   });
 
-  it("snaps to the words of a saved phrase the selection only partly covers", async () => {
-    const { state, app } = await start(
+  it("snaps to the words of a saved phrase the selection only partly covers, and draws the longer phrase once saved", async () => {
+    const { state, app, bg } = await start(
       { vid1: captionsOf(CRUST) },
       {
         before: (bg) =>
@@ -1350,6 +1350,13 @@ describe("selecting words over a highlighted phrase", () => {
       end: at("crust") + "crust".length,
     });
     await expect.poll(() => state().phrase?.card.key).toBe("up the crust");
+    app.saveSelection("known");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(2);
+    // The longer phrase is drawn in place of the saved one it overlaps.
+    await expect
+      .poll(() => spansOf(state))
+      .toContain("up the crust:up the crust:known");
+    expect(spansOf(state)).toContain("gave:give:new");
   });
 });
 

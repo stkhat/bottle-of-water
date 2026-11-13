@@ -419,6 +419,40 @@ describe("selection card: words partly over a highlighted phrase", () => {
     expect(highlighted("lingo-new")).not.toContain("gave up");
   });
 
+  it("saves words partly over a saved phrase and draws them when they are longer", async () => {
+    const { root, background } = await setup(CRUST, {
+      before: async (bg) => {
+        await bg.send({
+          type: "saveTerm",
+          lang: "en",
+          key: "give up",
+          display: "gave up",
+          kind: "phrase",
+          status: "learning",
+          source: {
+            platform: "web",
+            url: "https://example.com/",
+            title: "",
+            lang: "en",
+          },
+          sentence: "They gave up.",
+          pos: { textQuote: "They gave up." },
+        });
+      },
+    });
+    await expect.poll(() => highlighted("lingo-learning")).toEqual(["gave up"]);
+    selectText(root, "up the", 0, "crust", 5);
+    expect(getSelection()!.toString()).toBe("up the crust");
+    await (await cardButton("up the crust", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(2);
+    expect(background.sent("saveTerm")[1]).toMatchObject({
+      key: "up the crust",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["up the crust"]);
+  });
+
   it("saves words selected over the phrase and past it under their own keys", async () => {
     const { root, background } = await setup(CRUST);
     selectText(root, "gave", 0, "crust", 5);

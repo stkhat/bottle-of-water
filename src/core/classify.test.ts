@@ -453,12 +453,36 @@ describe("classify dictionary phrases", () => {
     ).toEqual(["spilled:spill:new", "the beans:the bean:known"]);
   });
 
-  it("draws the first of two overlapping saved phrases", () => {
+  it("draws the longer of two overlapping saved phrases, the earlier on a tie", () => {
+    // A longer phrase saved over part of an earlier one.
+    expect(
+      brief(
+        classify("gave up on it", {
+          "give up": "learning",
+          "up on it": "known",
+        }),
+      ),
+    ).toEqual(["gave:give:new", "up on it:up on it:known"]);
     expect(
       brief(
         classify("gave up on it", { "give up": "known", "up on": "known" }),
       ),
     ).toEqual(["gave up:give up:known", "on:on:known", "it:it:new"]);
+  });
+
+  it("counts the words in a gap toward a saved phrase's length", () => {
+    expect(
+      brief(
+        classify("figure it out", {
+          "figure out": "learning",
+          "it out": "known",
+        }),
+      ),
+    ).toEqual([
+      "figure:figure out:learning",
+      "it:it:new",
+      "out:figure out:learning",
+    ]);
   });
 
   it("detects the longest dictionary phrase when no saved phrase matches", () => {

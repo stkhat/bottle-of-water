@@ -136,10 +136,10 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   phrases match in "saved" mode (slots: "made up his mind" is `make up one's mind`;
  *   a gap when the pack flags the phrase as one: "figure it out" is `figure out`);
  *   dictionary phrases in "detect" mode (contiguous, no slots). Saved phrases win:
- *   they are found first, left to right (the longest at each word, none starting
- *   inside an earlier one), even where a dictionary phrase is longer or starts
- *   earlier; dictionary phrases (the longest at each word) fill the words outside
- *   them. A saved
+ *   they are placed first, the longest first (words from first to last, gap words
+ *   included; on a tie the earlier one), each where it overlaps no phrase placed
+ *   before it, even where a dictionary phrase is longer or starts earlier;
+ *   dictionary phrases (the longest at each word) fill the words outside them. A saved
  *   phrase takes its status; an unsaved dictionary phrase is new (the known level
  *   applies to words only) and does not match over a word saved as learning, which
  *   keeps its own span.
@@ -221,19 +221,33 @@ export function createClassifier(pack: LanguagePack): Classifier {
       );
 
       /**
-       * Saved phrases first, left to right: the longest one starting at a word, and
-       * none starting inside an earlier one (gap words included). `savedAt[i]`: the
-       * saved phrase starting at word i; `inSaved[i]`: word i is inside one.
+       * Saved phrases first, the longest first (the most words from first to last,
+       * gap words included, then the most pattern words, then the earliest start,
+       * then the key): each that overlaps no phrase placed before it is placed.
+       * `savedAt[i]`: the saved phrase starting at word i; `inSaved[i]`: word i is
+       * inside one.
        */
       const savedAt: (PhraseMatch | undefined)[] = [];
       const inSaved: boolean[] = [];
-      for (let i = 0; i < words.length; i++) {
-        const saved = matcher.longestAt(input, i, "saved", terms);
-        if (!saved) continue;
-        savedAt[i] = saved;
-        const last = saved.words.at(-1)!;
-        for (let j = i; j <= last; j++) inSaved[j] = true;
-        i = last;
+      const savedMatches: PhraseMatch[] = [];
+      for (let i = 0; i < words.length; i++)
+        savedMatches.push(...matcher.matchesAt(input, i, "saved", terms));
+      const first = (m: PhraseMatch) => m.words[0]!;
+      const last = (m: PhraseMatch) => m.words.at(-1)!;
+      savedMatches.sort(
+        (a, b) =>
+          last(b) - first(b) - (last(a) - first(a)) ||
+          b.words.length - a.words.length ||
+          first(a) - first(b) ||
+          (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+      );
+      for (const match of savedMatches) {
+        let free = true;
+        for (let j = first(match); j <= last(match) && free; j++)
+          free = !inSaved[j];
+        if (!free) continue;
+        savedAt[first(match)] = match;
+        for (let j = first(match); j <= last(match); j++) inSaved[j] = true;
       }
 
       /**
