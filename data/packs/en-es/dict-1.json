@@ -10275,7 +10275,7 @@
 "forbear":["Ser paciente",[["verb","Ser paciente"],["verb","Contenerse"],["verb","Abstenerse de"],["noun","Ortografía alternativa de forebear"]],0],
 "forbearance":["templanza",[["noun","templanza","restraint and tolerance under provocation; patient self-control"]],1],
 "forbearing":["Indulgente",[["adjective","Indulgente"]],0],
-"forbid":["Prohibir,",[["verb","Prohibir,"],["verb","Impedir"]],0],
+"forbid":["Prohibir",[["verb","Prohibir,"],["verb","Impedir"]],0],
 "forbidden":["vedado",[["adjective","vedado, defeso, interdicho","not allowed"]],1],
 "forbidden fruit":["fruto prohibido",[["noun","fruto prohibido","the fruit forbidden to Adam"]],1],
 "force":["Fuerza",[["noun","Fuerza"],["verb","Forzar"]],0],
@@ -11818,7 +11818,7 @@
 "hacksaw":["sierra para metales",[["noun","sierra para metales, sierra, sierra de arco","saw"]],1],
 "had better":["valer más",[["verb","valer más, pobre de, más vale que","should; ought to; must"]],1],
 "haddock":["(Melanogrammus aeglefinus) Eglefino",[["noun","(Melanogrammus aeglefinus) Eglefino"]],0],
-"hadn't":["No tenía, contracción de 'had not',",[["contraction","No tenía, contracción de 'had not',"]],0],
+"hadn't":["No tenía, contracción de 'had not'",[["contraction","No tenía, contracción de 'had not',"]],0],
 "hafnium":["hafnio",[["noun","hafnio","chemical element"]],1],
 "haft":["empuñadura",[["noun","empuñadura, asidero","handle"]],1],
 "hag":["Vieja bruja",[["noun","Vieja bruja"],["noun","Arpía"]],0],
@@ -16305,7 +16305,7 @@
 "matchbox":["fosforera",[["noun","fosforera, cerillero, caja de fósforos","small cardboard box in which matches are kept"]],1],
 "matchmaker":["casamentero",[["noun","casamentero, casamentera, alcahuete","someone who finds suitable marriage partners"]],1],
 "matchstick":["fósforo",[["noun","fósforo","piece of wood"]],1],
-"mate":["Pareja (miembro de un par",[["noun","Pareja (miembro de un par; compañero sexual)"],["noun","Oficial de rango inferior al capitán"],["noun","Oficial, aprendiz (de un oficio)"],["noun","Amigo, colega, compañero"]],0],
+"mate":["Pareja (miembro de un par; compañero sexual)",[["noun","Pareja (miembro de un par; compañero sexual)"],["noun","Oficial de rango inferior al capitán"],["noun","Oficial, aprendiz (de un oficio)"],["noun","Amigo, colega, compañero"]],0],
 "material":["material",[["adjective","material","related to matter"],["adjective","significativo","significant"],["noun","menaje","text"]],1],
 "materialism":["materialismo",[["noun","materialismo","concern over material possessions"]],1],
 "materialist":["materialista",[["noun","materialista","someone who is materialistic"]],1],
@@ -17305,7 +17305,7 @@
 "music":["Música",[["noun","Música"]],0],
 "music box":["caja de música",[["noun","caja de música","box that generates or plays music"]],1],
 "music to someone's ears":["música para los oídos",[["noun","música para los oídos","spoken expression or sound which is pleasing"]],1],
-"musical":["Musical (relativo a la música",[["adjective","Musical (relativo a la música; con talento para la música; agradable al oído)"],["noun","Musical (espectáculo con música)"]],0],
+"musical":["Musical (relativo a la música; con talento para la música; agradable al oído)",[["adjective","Musical (relativo a la música; con talento para la música; agradable al oído)"],["noun","Musical (espectáculo con música)"]],0],
 "musical chairs":["juego de las sillas",[["noun","juego de las sillas, sillita musical, sillas musicales","game"]],1],
 "musician":["Músico",[["noun","Músico"]],0],
 "musicologist":["musicólogo",[["noun","musicólogo","one who studies musicology"]],1],
@@ -18338,6 +18338,5 @@
 "ontological":["ontológico",[["adjective","ontológico","of, or relating to, ontology"]],1],
 "ontology":["ontología",[["noun","ontología","study of being"]],1],
 "onward":["Adelante",[["adverb","Adelante"]],0],
-"onyx":["ónix",[["noun","ónix, ónice, ónique","a banded variety of chalcedony"]],1],
-"oof":["uf",[["interjection","uf, hum, huf","expressing sympathy at another's pain, shock at a high price, etc."]],1]
+"onyx":["ónix",[["noun","ónix, ónice, ónique","a banded variety of chalcedony"]],1]
 }

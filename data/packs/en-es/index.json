@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"'em","last":"oof"},{"file":"dict-2.json","first":"oomph","last":"éclair"}],
+"shards":[{"file":"dict-1.json","first":"'em","last":"onyx"},{"file":"dict-2.json","first":"oof","last":"éclair"}],
 "sources":["eswiktionary","enwiktionary-translations"]
 }

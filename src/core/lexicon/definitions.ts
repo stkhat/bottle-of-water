@@ -4,6 +4,7 @@
  * key of the translation cache, so the background and the UI clean it the same way.
  */
 import type { DictionaryEntry } from "./dictionary";
+import { pointerTarget, type Pointer } from "./short-lines";
 
 /** The dictionary window translates up to this many senses (the hover card: the short meaning). */
 export const MAX_TRANSLATED_SENSES = 4;
@@ -120,6 +121,29 @@ const POINTERS: readonly RegExp[] = [
   /^short\s+for\b/i,
   /^(?:only|chiefly|mostly|usually)\s+(?:used|found)\s+in\b/i,
 ];
+
+/**
+ * An English sense that only points to another term, with that term when it names
+ * one alone ("Synonym of look for" → reference to "look for"; "Plural of mouse." →
+ * form of "mouse"). An inflection is a form; synonyms, variants and the rest are
+ * references. A pointer that glosses its term names one of its senses ("Synonym of
+ * deal with (“to behave in a certain way towards”)"): it has no target, since the
+ * term's own first senses may be others. A pointer followed by a definition of its own
+ * ("Synonym of X: to annoy") is not one.
+ */
+export function definitionPointer(text: string): Pointer | undefined {
+  const cleaned = withoutLabels(text);
+  for (const [i, pointer] of POINTERS.entries()) {
+    const match = pointer.exec(cleaned);
+    if (!match) continue;
+    const rest = cleaned.slice(match[0].length).replace(/\.\s*$/, "");
+    if (rest.includes(":")) return undefined;
+    const kind = i === 0 ? "form" : "reference";
+    const target = /[(“",;]/.test(rest) ? undefined : pointerTarget(rest);
+    return target === undefined ? { kind } : { kind, target };
+  }
+  return undefined;
+}
 
 /**
  * The English definition as it is translated: trimmed, without leading labels

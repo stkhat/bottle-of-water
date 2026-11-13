@@ -26,6 +26,10 @@ const dictionary = createEnJaDictionary({
       ],
     ],
     went: ["goの過去", ["goの過去"]],
+    go: ["行く", ["『行く』,出かける", "去る", "進む"]],
+    find: ["…を見つける", ["…を『見つける』", "…を見つけだす"]],
+    anyway: ["=anyhow", ["=anyhow"]],
+    anyhow: ["どうしても", ["《否定文で》『どうしても』", "いずれにせよ"]],
     were: ["be の仮定法過去", ["《be の直説法過去》", "《be の仮定法過去》"]],
   },
   // Japanese translations of phrases EJDict lacks.
@@ -36,6 +40,14 @@ const dictionary = createEnJaDictionary({
   // English definitions of phrases neither has.
   defs: {
     "give up": ["(unused)", [["verb", "(unused)"]]],
+    "search for": ["Synonym of look for", [["verb", "Synonym of look for"]]],
+    "look for": [
+      "To seek",
+      [
+        ["verb", "To seek; to try to find."],
+        ["verb", "To expect."],
+      ],
+    ],
     "from scratch": [
       "From the beginning",
       [
@@ -77,17 +89,32 @@ describe("createEnJaDictionary", () => {
   });
 
   it("gives the hover card up to three senses as short lines, cross-references and repeats left out", () => {
-    // The form it is of stays first: the word on the page is most likely that.
+    // The form it is of stays first, with that word's first meaning: the word on
+    // the page is most likely that form.
     expect(dictionary.entry("found")?.lines).toEqual([
       "findの過去・過去分詞",
+      "…を見つける",
       "…を創設する,設立する(establish)",
-      "(…の上に)〈建物など〉を建てる",
     ]);
     expect(dictionary.entry("found")?.short).toBe("findの過去・過去分詞");
   });
 
-  it("keeps a pointer that is the only sense, and the short meaning when every line is empty", () => {
-    expect(dictionary.entry("went")?.lines).toEqual(["goの過去"]);
+  it("follows a pointer to the meanings of the word it names", () => {
+    expect(dictionary.entry("went")?.lines).toEqual([
+      "goの過去",
+      "行く,出かける",
+      "去る",
+    ]);
+    expect(dictionary.entry("anyway")?.lines).toEqual([
+      "どうしても",
+      "いずれにせよ",
+    ]);
+    // The dictionary window keeps the entry as it is.
+    expect(dictionary.entry("went")?.short).toBe("goの過去");
+    expect(dictionary.entry("went")?.senses).toEqual([{ text: "goの過去" }]);
+  });
+
+  it("keeps the short meaning when every line is empty", () => {
     expect(dictionary.entry("were")?.lines).toEqual(["be の仮定法過去"]);
   });
 
@@ -131,6 +158,14 @@ describe("createEnJaDictionary", () => {
     });
   });
 
+  it("follows an English definition that only points to another term to that term's definitions", () => {
+    expect(dictionary.entry("search for")).toMatchObject({
+      short: "Synonym of look for",
+      lines: ["To seek", "To expect"],
+      glossLang: "en",
+    });
+  });
+
   it("marks only English definitions with their language", () => {
     expect(dictionary.entry("dough")).not.toHaveProperty("glossLang");
     expect(dictionary.entry("figure out")).not.toHaveProperty("glossLang");
@@ -168,6 +203,7 @@ describe("createDefsDictionary", () => {
           ["verb", "third-person singular preterite indicative of ser"],
         ],
       ],
+      casas: ["Plural of casa", [["noun", "Plural of casa"]]],
       vela: [
         "candle",
         [
@@ -210,6 +246,13 @@ describe("createDefsDictionary", () => {
     expect(dictionary.entry("fue")?.lines).toEqual([
       "third-person singular preterite indicative of ir",
       "third-person singular preterite indicative of ser",
+    ]);
+  });
+
+  it("follows a form to the meanings of the word it names", () => {
+    expect(dictionary.entry("casas")?.lines).toEqual([
+      "Plural of casa",
+      "house",
     ]);
   });
 
