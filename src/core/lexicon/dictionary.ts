@@ -235,10 +235,32 @@ export function createEnJaDictionary(
       ? "name"
       : "word";
   };
+  /**
+   * EJDict's abbreviation of a word written with a capital ("Nov." for Nov, "St." for
+   * St): each sense that only spells out the abbreviation ("November") becomes the
+   * first sense of the word it names (11月), with that word as its hint.
+   */
+  const abbreviationOf = (head: string): Entry | undefined => {
+    if (/[\s.]/.test(head)) return undefined;
+    const found = own(data.capital, `${head}.`);
+    if (!found) return undefined;
+    const senses = found[1].map((text): Sense => {
+      const expansion = SPELLED_OUT.test(text)
+        ? japanese(text.split(/[,;]/)[0]!.trim(), NO_POS)?.senses[0]
+        : undefined;
+      return expansion
+        ? { ...expansion, hint: text.replace(/\.$/, "") }
+        : { text };
+    });
+    return { short: cleanShort(senses[0]!.text), senses };
+  };
   /** The entry as the word was written (`DictionaryProvider.entry`). */
   const asWritten = (head: string, written: Written | undefined) => {
     const lower = japanese(head, data.pos);
-    if (written === "lower" || !lower) return lower;
+    if (written === "lower") return lower;
+    // A capitalised word EJDict has no lower-case entry for: its abbreviation comes
+    // before the English definitions ("Nov" is November, not the slang "nov").
+    if (!lower) return written && abbreviationOf(head);
     const title = capitalOf(head);
     const upper = capitalOf(head, true);
     if (written === undefined)
@@ -286,6 +308,9 @@ export function createEnJaDictionary(
 
 /** Kana or kanji: a sense with a Japanese gloss, not only a Latin name ("Ohio"). */
 const JAPANESE = /[\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Han}]/u;
+
+/** An abbreviation's sense that only spells it out in English ("November", "Democrat, Democratic"). */
+const SPELLED_OUT = /^[A-Za-z][A-Za-z' ,;-]*\.?$/;
 
 /** A sense's main item: its text outside brackets, without 『』 marks. */
 const mainItem = (sense: string) =>

@@ -197,6 +197,9 @@ function use(words: readonly TaggedWord[], i: number): WordUse {
   };
 }
 
+/** Do-support with "not" in one token, which the tagger reads as "do". */
+const DO_NOT = /^(?:do|does|did)n't$/;
+
 /** Determiner tags: articles, demonstratives, possessives, wh-determiners ("what kind"). */
 const DETERMINER = /^(DT|PDT|PRP\$|WDT|WP|WP\$)$/;
 /** Pronouns that are only objects: "you know them", "I mean him". */
@@ -226,7 +229,10 @@ function role(word: TaggedWord): WordRole {
       form === "that" ||
       OBJECT_PRONOUNS.has(form) ||
       /^W(DT|P|RB)$/.test(raw),
-    modal: raw === "MD" || (formOf(word, "do") && tag?.label === "verb"),
+    modal:
+      raw === "MD" ||
+      ((formOf(word, "do") || DO_NOT.test(form)) && tag?.label === "verb"),
+    personal: /^PRP\$?$/.test(raw) && form !== "it" && form !== "its",
     infinitive: raw === "TO",
     preposition: tag?.label === "preposition",
     subject: tag?.label === "pronoun" || tag?.label === "noun",

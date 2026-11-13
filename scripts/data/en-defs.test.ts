@@ -8,14 +8,15 @@ import { buildEnDefs } from "./en-defs.ts";
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-defs.jsonl");
 const packs = {
   vocab: [
-    ...["cool", "give", "gave", "colour", "color", "kinda", "light"],
+    ...["cool", "give", "gave", "colour", "color", "kinda", "light", "aka"],
     // The phrases' words, which the fixture does not define.
     ...["kind", "of", "knock", "on", "send", "out", "all", "right"],
+    ...["not", "to", "mention"],
   ],
   lemmas: {},
   phrases: {
     detect: ["kind of", "knock on", "send out"],
-    more: ["all right"],
+    more: ["all right", "not to mention"],
     gap: ["knock on", "send out"],
   },
 };
@@ -31,6 +32,7 @@ describe("buildEnDefs", () => {
   });
   it("defines vocabulary words and every phrase pattern, detected or not", () => {
     expect(Object.keys(result.defs).sort()).toEqual([
+      "aka",
       "all right",
       "color",
       "colour",
@@ -39,6 +41,7 @@ describe("buildEnDefs", () => {
       "kind of",
       "kinda",
       "knock on",
+      "not to mention",
       "send out",
     ]);
     expect(result.defs["give"]).toEqual([
@@ -88,7 +91,18 @@ describe("buildEnDefs", () => {
       expect(result.defs["colour"]![1]).toEqual([
         ["noun", "The spectral composition of visible light."],
       ]);
-      expect(result.stats.resolved).toBe(2);
+      // A letter-case form names another entry ("aka" → "AKA").
+      expect(result.defs["aka"]![1]).toEqual([
+        ["noun", "The New Zealand vine Metrosideros fulgens."],
+        [
+          "preposition",
+          "Used to introduce an explanation or clarification: in other words, i.e.",
+        ],
+      ]);
+      expect(result.stats.resolved).toBe(3);
+    });
+    it("moves a definition that describes the expression down", () => {
+      expect(result.defs["not to mention"]![0]).toBe("And also");
     });
   });
 
@@ -103,7 +117,7 @@ describe("buildEnDefs", () => {
     expect(pairs.stats.left).toBe(2);
   });
   it("counts the words and phrases", () => {
-    expect(result.stats).toMatchObject({ words: 5, phrases: 4, unparsable: 1 });
+    expect(result.stats).toMatchObject({ words: 6, phrases: 5, unparsable: 1 });
   });
   it("writes the shards and their index", () => {
     const dir = mkdtempSync(join(tmpdir(), "en-defs-"));
@@ -116,7 +130,7 @@ describe("buildEnDefs", () => {
       readFileSync(join(dir, "en-defs", "index.json"), "utf8"),
     );
     expect(index.shards).toEqual([
-      { file: "dict-1.json", first: "all right", last: "send out" },
+      { file: "dict-1.json", first: "aka", last: "send out" },
     ]);
   });
 });

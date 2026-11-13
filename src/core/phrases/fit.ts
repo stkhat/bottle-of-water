@@ -17,6 +17,8 @@ export type PhraseRule =
   | "particle"
   /** An adverb with a noun in it after a determiner ("what kind of music"). */
   | "adverb"
+  /** An adverb ending in a preposition that takes a person as its object ("just about you"). */
+  | "object"
   /** A prepositional phrase inside a clause opening a noun phrase ("after all the work"). */
   | "prepositional"
   /** An interjection used as words of the sentence ("do you know", "you know the guy"). */
@@ -114,6 +116,18 @@ const takesObject = (c: Context, punctuated: boolean) =>
   c.after?.role?.object === true;
 
 /**
+ * An interjection that is a whole clause with its object or complement, its subject a
+ * personal pronoun ("you tell me", "you hear me"), inside a longer sentence: a word right before or after it, in a
+ * punctuated document ("why don't you tell me what's going on").
+ */
+const insideClause = (c: Context, punctuated: boolean) =>
+  punctuated &&
+  c.head.role?.personal === true &&
+  c.head.role.subject &&
+  c.main(c.pattern.at(-1)) !== "verb" &&
+  (c.before !== undefined || c.after !== undefined);
+
+/**
  * The rule a dictionary phrase's match breaks in its sentence, or undefined when it
  * fits. Its words are then classified as words. `punctuated`: the document writes
  * commas (speech recognition does not, so where a filler ends says nothing there).
@@ -126,7 +140,9 @@ const takesObject = (c: Context, punctuated: boolean) =>
  * - By the phrase's main part of speech, punctuation between the phrase and a
  *   neighbour cutting the link:
  *   - adverb: not after a determiner when a word of it is mainly a noun, unless a
- *     verb, adjective or adverb follows ("what kind of music");
+ *     verb, adjective or adverb follows ("what kind of music"); one ending in a
+ *     preposition not before a personal pronoun, its object ("this isn't just about
+ *     you"; "just about everyone", "just about done" stay);
  *   - prepositional phrase: inside a clause, not before a noun phrase ("in Green
  *     Class"), unless it ends in a preposition; one ending in a determiner or a
  *     pronoun not before a partitive either ("after all of that"; "as a result of"
@@ -134,8 +150,10 @@ const takesObject = (c: Context, punctuated: boolean) =>
  *   - interjection or particle: not after a modal or do-auxiliary ("do you know");
  *     one that does not start with a pronoun also not after a determiner, the
  *     infinitive marker or a preposition ("a big deal"); one starting with a verb not
- *     after a subject ("he got it"); one ending in a verb not before an object, in a
- *     punctuated document ("you know the guy");
+ *     after a subject ("he got it"); in a punctuated document, one ending in a verb
+ *     not before an object ("you know the guy"), and a whole clause with its object
+ *     ("you tell me") not next to another word of a sentence ("why don't you tell me
+ *     what's going on");
  *   - verb: not when its first word is tagged as something else inside a noun
  *     phrase, after a determiner, an adjective or a number ("the link in the
  *     description", "the case up", "a deadly pile up"; elsewhere a noun tag is more
@@ -178,6 +196,11 @@ export function phraseMisfit(
         ? "nominal"
         : undefined;
     case "adv":
+      if (
+        c.main(pattern.at(-1)) === "preposition" &&
+        after?.role?.personal === true
+      )
+        return "object";
       return before?.role?.determiner &&
         pattern.some((word) => c.main(word) === "noun") &&
         !(after?.tag && ADVERB_FOLLOWERS.has(after.tag.label))
@@ -203,7 +226,9 @@ export function phraseMisfit(
           (c.main(pattern[0]) === "verb" && role.subject))
       )
         return "interjection";
-      return takesObject(c, punctuated) ? "interjection" : undefined;
+      return takesObject(c, punctuated) || insideClause(c, punctuated)
+        ? "interjection"
+        : undefined;
     }
     case "verb": {
       if (

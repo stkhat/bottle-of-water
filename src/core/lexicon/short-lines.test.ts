@@ -8,6 +8,7 @@ import {
   japanesePointer,
   shortLines,
   shortOfDefinition,
+  translatedLine,
 } from "./short-lines";
 
 describe("cleanShort", () => {
@@ -325,5 +326,81 @@ describe("shortLines", () => {
       "行く",
       "去る",
     ]);
+  });
+});
+
+describe("translatedLine", () => {
+  it("drops a final period and repeated items", () => {
+    expect(translatedLine("組み立て、構築、構築、または定式化。", "ja")).toBe(
+      "組み立て、構築、または定式化",
+    );
+    expect(translatedLine("明らかに、明らかに", "ja")).toBe("明らかに");
+  });
+
+  it("keeps the first sentence of a long Japanese line, without notes in brackets", () => {
+    expect(
+      translatedLine(
+        "丸みを帯びた、または雲の形をした輪郭。通常は単語を含み、漫画の思考を表す。",
+        "ja",
+      ),
+    ).toBe("丸みを帯びた、または雲の形をした輪郭");
+    // A particle the note leaves after a dependent ending goes with it.
+    expect(
+      translatedLine(
+        "多くの場合、事前に決められた時間および/または場所で (誰か) と一緒に来る",
+        "ja",
+      ),
+    ).toBe("事前に決められた時間および/または場所で一緒に来る");
+    expect(
+      translatedLine(
+        "(文書や事実などの集まり) を調べて、それらを理解する、または整理する",
+        "ja",
+      ),
+    ).toBe("調べて、それらを理解する、または整理する");
+  });
+
+  it("cuts a long Japanese line after a clause of its own, or keeps its main verb", () => {
+    // The longer of a head that ends a clause and a tail.
+    expect(
+      translatedLine(
+        "通過する、通過する、通過する、またはある場所を横切る、または別の場所に移動する",
+        "ja",
+      ),
+    ).toBe("ある場所を横切る、または別の場所に移動する");
+    expect(
+      translatedLine(
+        "誤って作成する、捏造する、偽造する、でっち上げる、または架空の話を作り上げて広める",
+        "ja",
+      ),
+    ).toBe("誤って作成する、捏造する、偽造する、でっち上げる");
+    // A head ending in …たり depends on what follows: the tail keeps the main verb.
+    expect(
+      translatedLine(
+        "腕を伸ばしたり、手を動かしたりして、何かを手に入れようとする",
+        "ja",
+      ),
+    ).toBe("手を動かしたりして、何かを手に入れようとする");
+    // No comma: the longest tail after a particle, which keeps the main verb.
+    expect(
+      translatedLine(
+        "トランスミッションまたは他のギアボックスで利用可能なギアの2番目",
+        "ja",
+      ),
+    ).toBe("他のギアボックスで利用可能なギアの2番目");
+    expect(
+      translatedLine(
+        "ドアまたは通路を通って部屋またはその他のスペースに入る",
+        "ja",
+      ),
+    ).toBe("通路を通って部屋またはその他のスペースに入る");
+  });
+
+  it("caps a line in another language at 40 characters", () => {
+    expect(
+      translatedLine(
+        "Ensamblar, construir, construir o formular algo nuevo.",
+        "es",
+      ),
+    ).toBe("Ensamblar, construir");
   });
 });

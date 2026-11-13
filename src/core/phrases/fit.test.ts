@@ -17,6 +17,8 @@ const PHRASE_POS: Record<string, string[]> = {
   "as a result": ["prep_phrase"],
   "big deal": ["intj", "noun"],
   "you know": ["intj"],
+  "you tell me": ["intj"],
+  "just about": ["adv"],
   "got it": ["intj"],
   "come on": ["verb", "intj"],
   "link in": ["verb"],
@@ -38,6 +40,10 @@ const WORD_POS: Record<string, string[]> = {
   big: ["adjective"],
   got: ["verb"],
   come: ["verb"],
+  tell: ["verb"],
+  me: ["pronoun"],
+  just: ["adverb"],
+  about: ["preposition", "adverb"],
 };
 const pack = {
   phrasePos: (key: string) => PHRASE_POS[key] ?? [],
@@ -55,6 +61,7 @@ const NO_ROLE: WordRole = {
   nounPhrase: false,
   object: false,
   modal: false,
+  personal: false,
   infinitive: false,
   preposition: false,
   subject: false,
@@ -187,6 +194,21 @@ describe("phraseMisfit: adverbs", () => {
       ),
     ).toBeUndefined();
   });
+  it("drops one ending in a preposition before a personal pronoun, its object", () => {
+    expect(
+      misfit(
+        "just about",
+        "isn't/verb just/adverb about/? you/pronoun/personal protecting/verb",
+        1,
+      ),
+    ).toBe("object");
+    expect(
+      misfit("just about", "just/adverb about/? everyone/noun knows/verb", 0),
+    ).toBeUndefined();
+    expect(
+      misfit("just about", "i'm/? just/adverb about/adverb done/verb", 1),
+    ).toBeUndefined();
+  });
 });
 
 describe("phraseMisfit: prepositional phrases", () => {
@@ -257,6 +279,26 @@ describe("phraseMisfit: interjections", () => {
       "interjection",
     );
     expect(misfit("got it", "got/verb it/pronoun", 0)).toBeUndefined();
+  });
+  it("drops a whole clause with its object next to another word of a sentence, in a punctuated document only", () => {
+    const text =
+      "why/adverb don't/verb you/pronoun/personal tell/verb me/pronoun/personal what's/?";
+    expect(misfit("you tell me", text, 2)).toBe("interjection");
+    expect(
+      misfit(
+        "you tell me",
+        "you/pronoun/personal tell/verb me/pronoun/personal what's/?",
+        0,
+      ),
+    ).toBe("interjection");
+    expect(misfit("you tell me", text, 2, false)).toBeUndefined();
+    expect(
+      misfit(
+        "you tell me",
+        "where/adverb is/verb he/pronoun ,you/pronoun/personal tell/verb me/pronoun/personal",
+        3,
+      ),
+    ).toBeUndefined();
   });
   it("drops one ending in a verb before an object, in a punctuated document only", () => {
     const text = "you/pronoun know/verb the/determiner guy/noun";

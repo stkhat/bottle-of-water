@@ -3,6 +3,7 @@ import {
   cleanDefinition,
   definitionPointer,
   definitionTexts,
+  isUsageNote,
   MAX_TRANSLATED_SENSES,
 } from "./definitions";
 
@@ -250,5 +251,25 @@ describe("definitionTexts", () => {
         ],
       }),
     ).toEqual(["To reveal a secret", "To reveal a secret.", "To confess."]);
+  });
+});
+
+describe("isUsageNote", () => {
+  it("finds definitions that say how an expression is used", () => {
+    expect(isUsageNote("Used to express surprise.")).toBe(true);
+    expect(isUsageNote("(idiomatic) Said when leaving.")).toBe(true);
+    expect(
+      isUsageNote(
+        "(idiomatic) An apophasis used by a speaker to introduce, despite claiming not to address, a given point of discussion.",
+      ),
+    ).toBe(true);
+    expect(isUsageNote("A rhetorical question asked to show doubt.")).toBe(
+      true,
+    );
+  });
+  it("leaves definitions that mean something, an interjection's too", () => {
+    expect(isUsageNote("To reveal a secret.")).toBe(false);
+    expect(isUsageNote("An expression of surprise.")).toBe(false);
+    expect(isUsageNote("A user of a computer.")).toBe(false);
   });
 });

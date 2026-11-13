@@ -4,8 +4,8 @@
 // time by the browser's translator).
 //
 // Rule C2: a term's senses are ranked by the source's own labels (`rankSenses`: usage
-// notes, register labels and, for phrases, domain and regional labels go down;
-// translation tables lift a phrase's senses), and a sense that only names another term
+// notes and descriptions of the expression, register labels and, for phrases, domain
+// and regional labels go down; translation tables lift a phrase's senses), and a sense that only names another term
 // ("Synonym of X", "Clipping of X", an alternative spelling) takes that term's best
 // definition. Inflections ("Plural of X") are left out: the extension follows them.
 // A term every English pair dictionary has is left out: no lookup reaches it.
@@ -36,6 +36,9 @@ import {
   rankSenses,
   type SourceSense,
 } from "./senses.ts";
+
+/** Definitions are ranked as they are shown (`RankOptions.shown`). */
+const SHOWN = { shown: true } as const;
 
 /** Senses kept per term (the dictionary window shows up to four). */
 const MAX_SENSES = 4;
@@ -121,7 +124,7 @@ export async function buildEnDefs(
   });
   const bestOf = (term: string) => {
     const list = named.get(term);
-    return list && rankSenses(list, term.includes(" "))[0];
+    return list && rankSenses(list, term.includes(" "), SHOWN)[0];
   };
 
   const defs: Record<string, DefsPack[string]> = {};
@@ -130,15 +133,15 @@ export async function buildEnDefs(
     const senses = list.map((sense) => {
       if (!isPointer(sense)) return sense;
       const target = targetOf(sense);
-      const best =
-        target && target.toLowerCase() !== key ? bestOf(target) : undefined;
+      // A letter-case form names another entry too ("aka" → "AKA").
+      const best = target && target !== key ? bestOf(target) : undefined;
       if (!best) return sense;
       resolved++;
       // The target's definition, with the pointer's own labels.
       return { ...sense, target: undefined, gloss: best.gloss };
     });
     const out: [string, string][] = [];
-    for (const sense of rankSenses(senses, key.includes(" "))) {
+    for (const sense of rankSenses(senses, key.includes(" "), SHOWN)) {
       if (out.some(([, text]) => text === sense.gloss)) continue;
       out.push([posLabel(sense.pos), sense.gloss]);
       if (out.length >= MAX_SENSES) break;

@@ -317,6 +317,124 @@ function withTarget(kind: Pointer["kind"], term: string): Pointer {
   return target === undefined ? { kind } : { kind, target };
 }
 
+/**
+ * Endings of a Japanese clause that depends on what follows it (…して, …したり,
+ * …するために, …を): a line cut after one leaves out its main verb, which comes last.
+ */
+const JA_DEPENDENT =
+  /(?:て|(?<!ま)で|たり|ために|ように|ながら|ので|から|けど|けれど|ば|ずに|ないで|ても|には|では|とは|ため|つつ|を|の|と|や|へ|より|など|が|は|も)$/;
+
+/** Japanese particles that attach to what comes before them. */
+const JA_PARTICLE = "をにがのとはへでや";
+
+/**
+ * A translated line without its notes in brackets, which qualify the meaning, and the
+ * particle a note leaves after a dependent ending ("…場所で (誰か) と一緒に来る" → "…場所で一緒に来る",
+ * "(文書などの集まり) を調べて" → "調べて").
+ */
+function withoutJapaneseNotes(text: string): string {
+  let out = "";
+  let depth = 0;
+  let dropped = false;
+  for (const ch of text) {
+    if ("(（[［".includes(ch)) depth++;
+    else if (")）]］".includes(ch)) {
+      depth = Math.max(0, depth - 1);
+      dropped = depth === 0;
+    } else if (depth === 0) {
+      if (dropped && /\s/.test(ch)) continue;
+      const bare = out.trimEnd();
+      if (
+        dropped &&
+        JA_PARTICLE.includes(ch) &&
+        (bare === "" || /[、,]$/.test(bare) || JA_DEPENDENT.test(bare))
+      ) {
+        dropped = false;
+        continue;
+      }
+      dropped = false;
+      out += ch;
+    }
+  }
+  return trimItems(withoutWideSpaces(out));
+}
+
+/** Without spaces next to a Japanese character ("次の 単語" → "次の単語"). */
+const withoutWideSpaces = (text: string) =>
+  text
+    .replace(/\s+/g, " ")
+    .replace(
+      new RegExp(`(?<=${JAPANESE.source})\\s+|\\s+(?=${JAPANESE.source})`, "g"),
+      "",
+    );
+
+/** A clause after a comma without its leading conjunction: "または許す" → "許す". */
+const withoutConjunction = (text: string) =>
+  text.replace(/^(?:または|あるいは|もしくは|そして|および|かつ)\s*/, "");
+
+/**
+ * The longest tail of a clause that fits, cut after a particle before a word ("…部屋
+ * またはその他のスペースに入る" → "その他のスペースに入る"): it keeps the main verb,
+ * which comes last, where cutting the head would lose it.
+ */
+function afterParticle(
+  text: string,
+  fits: (cut: string) => boolean,
+): string | undefined {
+  for (let i = 1; i < text.length - 1; i++)
+    if (
+      JA_PARTICLE.includes(text[i]!) &&
+      !/[\p{scx=Hiragana}\s]/u.test(text[i + 1]!) &&
+      fits(text.slice(i + 1))
+    )
+      return text.slice(i + 1);
+  return undefined;
+}
+
+/**
+ * A Japanese translation within the cap, keeping as much of it as fits
+ * (`translatedLine`): its first sentence, without notes in brackets; then the longer
+ * of its longest head that ends a clause of its own ("通過する、またはある場所を横切る")
+ * and its longest tail, which keeps the main verb that comes last ("…して、何かを手に
+ * 入れようとする"); else its longest tail after a particle; else cut hard.
+ */
+function japaneseTranslation(line: string): string {
+  if (displayWidth(line) <= JAPANESE_CAP) return line;
+  const sentence = line.split("。")[0]!;
+  const text =
+    withoutRepeatedItems(withoutJapaneseNotes(sentence)) || sentence.trim();
+  if (displayWidth(text) <= JAPANESE_CAP) return text;
+  const fits = (cut: string) => cut !== "" && displayWidth(cut) <= JAPANESE_CAP;
+  const commas = indicesOutside(text, isComma);
+  const head = commas
+    .map((i) => text.slice(0, i).trimEnd())
+    .filter((cut) => fits(cut) && !JA_DEPENDENT.test(cut))
+    .at(-1);
+  const tail = commas
+    .map((i) => withoutConjunction(trimItems(text.slice(i + 1))))
+    .find(fits);
+  if (head === undefined || tail === undefined)
+    return (
+      head ?? tail ?? afterParticle(text, fits) ?? capLine(text, JAPANESE_CAP)
+    );
+  return displayWidth(tail) >= displayWidth(head) ? tail : head;
+}
+
+/**
+ * A meaning the browser's translator gave (an English definition translated into
+ * `lang`) as a hover line, like the dictionaries' lines: without a final period, each
+ * comma item once ("組み立て、構築、構築" → "組み立て、構築"), within the cap. A
+ * Japanese line keeps its main verb, which comes last: a long line loses its notes in
+ * brackets, then is cut after a clause that does not depend on what follows, else keeps
+ * its last clauses. The dictionary window shows the whole translation.
+ */
+export function translatedLine(text: string, lang: string): string {
+  const line = withoutRepeatedItems(text.trim().replace(/[。．.]+$/, ""));
+  return lang === "ja"
+    ? japaneseTranslation(line)
+    : capLine(line, DEFINITION_CAP);
+}
+
 // EJDict
 
 /** EJDict's markup: countability 〈C〉/〈U〉 and part-of-speech marks ({形}, {名}). */
