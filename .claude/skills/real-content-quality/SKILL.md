@@ -5,7 +5,7 @@ description: Measure and improve what Lingo shows on real content — hover mean
 
 # Improving Lingo's output on real content
 
-This is the loop used for the 2026-11 translation-quality work (`docs/notes/translation-quality.md` on branch `claude/translation-quality-testing-0cdf07`; PRs #53–#62). It goes: real corpus → offline runner → blind judging → root causes → prototype and blind A/B → report and user decisions → one PR per step → real-site check. Each phase exists because skipping it produced a wrong conclusion at least once; the reasons are given so you can adapt a phase rather than drop it.
+This is the loop used for the 2026-11 translation-quality work ([docs/notes/translation-quality.md](../../../docs/notes/translation-quality.md); PRs #53–#63). It goes: real corpus → offline runner → blind judging → root causes → prototype and blind A/B → report and user decisions → one PR per step → real-site check. Each phase exists because skipping it produced a wrong conclusion at least once; the reasons are given so you can adapt a phase rather than drop it.
 
 Read the parts of the spec the work touches first (CLAUDE.md "Read first"). Chat with the user in Japanese; everything committed is in English.
 
