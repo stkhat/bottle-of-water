@@ -22,8 +22,8 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** Hides or shows the site's own captions with a style element of Lingo's. */
-export function siteCaptionsHider(id: string, css: string) {
+/** Adds or removes a style element of Lingo's (hiding the site's captions or control bar). */
+export function styleSwitch(id: string, css: string) {
   return (hidden: boolean) => {
     const existing = document.getElementById(id);
     if (!hidden) existing?.remove();
