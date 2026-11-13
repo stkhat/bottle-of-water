@@ -29,7 +29,7 @@ const {
   vocab: vocabList,
   phrases,
 } = await loadPack("en");
-const { dict, phrases: jaPhrases } = await loadPack("en-ja");
+const { dict, phrases: jaPhrases, capital } = await loadPack("en-ja");
 const { defs } = await loadPack("en-defs");
 const vocab = new Set(vocabList);
 
@@ -109,6 +109,7 @@ describe("generated phrases", () => {
   const dictionary = createEnJaDictionary({
     dict,
     phrases: jaPhrases,
+    capital,
     defs,
     pos,
     ipa,
@@ -167,6 +168,25 @@ describe("generated phrases", () => {
   });
 
   const lines = (term: string) => dictionary.entry(term)?.lines ?? [];
+
+  it("give a capitalised word its capitalised senses first, and a lowercase one none", () => {
+    expect(dictionary.entry("japan", "capital")?.lines[0]).toBe("日本");
+    expect(dictionary.entry("japan", "lower")?.lines).not.toContain("日本");
+    expect(dictionary.entry("china", "capital")?.lines[0]).toMatch(/^中国/);
+    expect(dictionary.entry("china", "lower")?.lines[0]).toMatch(/^磁器/);
+    expect(dictionary.entry("june", "capital")?.lines[0]).toMatch(/^6月/);
+    expect(dictionary.entry("us", "upper")?.lines[0]).toMatch(/合衆国/);
+    expect(dictionary.entry("oh", "lower")?.lines.join()).not.toMatch(/Ohio/);
+    // The word list does not say how the word was written: every sense.
+    expect(dictionary.entry("japan")?.lines).toContain("日本");
+  });
+
+  it("say which capitalised meanings a name keeps", () => {
+    expect(dictionary.capitalMeaning("june")).toBe("word");
+    expect(dictionary.capitalMeaning("france")).toBeDefined();
+    expect(dictionary.capitalMeaning("mark")).toBeUndefined();
+    expect(dictionary.capitalMeaning("frank")).toBeUndefined();
+  });
 
   it("follow a form or a cross-reference to the word it names for the hover card", () => {
     const go = lines("go");

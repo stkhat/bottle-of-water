@@ -41,6 +41,8 @@ const TEST_PACKS: PackFiles = {
       more: ["make up one's mind"],
       gap: ["figure out"],
     },
+    // A given name whose capitalised headword is about one person, and a place.
+    names: { crust: "gs", yeast: "p" },
   },
   "en-ja": {
     dict: {
@@ -53,6 +55,10 @@ const TEST_PACKS: PackFiles = {
     phrases: {
       "from scratch": ["最初から", ["最初から", "ゼロから"]],
       "give up": ["諦める", ["諦める", "やめる"]],
+    },
+    capital: {
+      crust: ["聖クラスト", ["聖クラスト"]],
+      yeast: ["イースト国", ["イースト国"]],
     },
   },
   // "figure out" has more senses than are translated (four), a labelled one and
@@ -135,6 +141,7 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
   "/packs/en-ja/dict-1.json": { crust, ferment, loaf },
   "/packs/en-ja/dict-2.json": { the, yeast },
   "/packs/en-ja/phrases.json": TEST_PACKS["en-ja"].phrases,
+  "/packs/en-ja/capital.json": TEST_PACKS["en-ja"].capital,
   "/packs/en-defs/index.json": {
     shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
   },

@@ -9,8 +9,9 @@ import type {
   TermKind,
   TermStatus,
 } from "../core/classify";
-import type { DictionaryEntry } from "../core/lexicon/dictionary";
+import type { DictionaryEntry, Written } from "../core/lexicon/dictionary";
 import type { PackState } from "../core/packs/state";
+import type { DocumentCasing } from "../core/text/casing";
 import type { Settings, SettingsPatch } from "../core/settings";
 import type { Platform, Position } from "../core/url";
 
@@ -77,8 +78,12 @@ export interface TranslationItem {
 export type Request =
   | { type: "getSettings" }
   | { type: "setSettings"; patch: SettingsPatch }
-  /** Classifies blocks of text (paragraphs, subtitle lines) of one language. */
-  | { type: "analyze"; lang: string; blocks: string[] }
+  /**
+   * Classifies blocks of text (paragraphs, subtitle lines) of one language. `casing` is
+   * the casing of the whole document the blocks belong to (a caption track, an
+   * article's main content): names (rule D) and capitalised words come from it.
+   */
+  | { type: "analyze"; lang: string; blocks: string[]; casing?: DocumentCasing }
   /**
    * The dictionary pattern a selection of words stands for (select mode: slots and
    * gaps). `start` and `end` are the selection's offsets in `text`, `end` exclusive:
@@ -93,8 +98,18 @@ export type Request =
     }
   /** Loads the dictionary into the native language ahead of the first lookup. */
   | { type: "warmDictionary"; lang: string }
-  /** `sourceUrl` is the page or video the user is on; its occurrences come back as `here`. */
-  | { type: "lookup"; lang: string; key: string; sourceUrl?: string }
+  /**
+   * `sourceUrl` is the page or video the user is on; its occurrences come back as
+   * `here`. `written`: how the word was written there, when the page says: in lower
+   * case, capitalised in a way that counts (`Span.capital`), or as an acronym.
+   */
+  | {
+      type: "lookup";
+      lang: string;
+      key: string;
+      sourceUrl?: string;
+      written?: Written;
+    }
   | ({ type: "saveTerm" } & SaveTermInput)
   | { type: "setStatus"; id: string; status: TermStatus }
   | { type: "removeTerm"; id: string }
@@ -118,11 +133,15 @@ export type Request =
   | { type: "termSummaries"; lang: string; keys: string[] }
   /** Content scripts cannot open the options page themselves. */
   | { type: "openOptions" }
-  /** Nothing is kept while the history is off or the host is blocked. */
+  /**
+   * Nothing is kept while the history is off or the host is blocked. `casing` is the
+   * document's, as `analyze` has it: its names are not kept.
+   */
   | {
       type: "recordHistory";
       source: SourceInput;
       sentences: HistorySentenceInput[];
+      casing?: DocumentCasing;
     }
   | { type: "historyStatus" }
   | { type: "clearHistory" }

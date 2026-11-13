@@ -109,12 +109,12 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   en: pack("en", false, {
     title: "English word data",
     description:
-      "English base forms, frequency ranks, IPA, parts of speech, vocabulary and phrase patterns",
+      "English base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns and names",
     sources: [
       { ...SOURCES.ejdict, used: "vocabulary, phrase list" },
       {
         ...SOURCES.wiktionaryEn,
-        used: "inflections, US IPA, parts of speech, phrase patterns",
+        used: "inflections, US IPA, parts of speech, phrase patterns, names",
       },
       { ...SOURCES.freqEn, used: "frequency ranks" },
     ],

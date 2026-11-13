@@ -10,7 +10,7 @@ const fixture = readFileSync(
 );
 
 describe("parseEjdict", () => {
-  const dict = parseEjdict(fixture);
+  const { dict, capital } = parseEjdict(fixture);
 
   it("splits the meaning on ' / ' into trimmed senses", () => {
     expect(dict.dough).toEqual([
@@ -33,22 +33,54 @@ describe("parseEjdict", () => {
     expect(dict.the?.[0]).toBe("その,あの");
   });
   it("keeps the note text when every sense is only a note", () => {
-    expect(parseEjdict("were\t《be の過去形》 / 《be の仮定法過去》")).toEqual({
+    expect(
+      parseEjdict("were\t《be の過去形》 / 《be の仮定法過去》").dict,
+    ).toEqual({
       were: ["be の過去形", ["《be の過去形》", "《be の仮定法過去》"]],
     });
   });
-  it("merges headwords that differ only in case, lowercase headword first", () => {
+  it("keeps the senses of a capitalised headword apart from its lowercase one", () => {
     expect(dict.may).toEqual([
       "…かもしれない",
-      [
-        "《可能性の推量》…『かもしれない』",
-        "《許可》…『してもよい』",
-        "『5月』",
-      ],
+      ["《可能性の推量》…『かもしれない』", "《許可》…『してもよい』"],
     ]);
+    expect(capital.may).toEqual(["5月", ["『5月』"]]);
+  });
+  it("keeps a headword written only with capitals in the dictionary too", () => {
+    const { dict: only, capital: caps } = parseEjdict(
+      "Paris\t『パリ』(フランスの首都)\nTV\tテレビ",
+    );
+    expect(only.paris?.[1]).toEqual(["『パリ』(フランスの首都)"]);
+    expect(caps.paris).toEqual(only.paris);
+    expect(only.tv?.[1]).toEqual(["テレビ"]);
+    expect(caps).not.toHaveProperty("tv");
+    expect(caps).not.toHaveProperty("TV");
+  });
+  it("keeps an acronym's senses apart under the key in capitals", () => {
+    const { dict: both, capital: caps } = parseEjdict(
+      "U.S.,US\tUnited States 合衆国\nus\t私たちを\nUs\tアス",
+    );
+    expect(both.us?.[1]).toEqual(["私たちを"]);
+    expect(caps.US?.[1]).toEqual(["United States 合衆国"]);
+    expect(caps.us?.[1]).toEqual(["アス"]);
+  });
+  it("counts a line that lists both casings as lowercase", () => {
+    const { dict: both, capital: caps } = parseEjdict(
+      "Turkey,turkey\tシチメンチョウ\nTurkey\tトルコ",
+    );
+    expect(both.turkey?.[1]).toEqual(["シチメンチョウ"]);
+    expect(caps.turkey?.[1]).toEqual(["トルコ"]);
+  });
+  it("merges the casings of a multi-word headword, lowercase first", () => {
+    expect(
+      parseEjdict("New Deal\tニューディール政策\nnew deal\t新規まき直し").dict[
+        "new deal"
+      ]?.[1],
+    ).toEqual(["新規まき直し", "ニューディール政策"]);
+    expect(capital).not.toHaveProperty("jim crow");
   });
   it("ignores blank lines and CRLF line endings", () => {
-    expect(parseEjdict("dough\tパン生地\r\n\r\n")).toEqual({
+    expect(parseEjdict("dough\tパン生地\r\n\r\n").dict).toEqual({
       dough: ["パン生地", ["パン生地"]],
     });
   });
@@ -56,7 +88,7 @@ describe("parseEjdict", () => {
 
 describe("vocabularyOf", () => {
   it("is the single-word headwords, sorted", () => {
-    expect(vocabularyOf(parseEjdict(fixture))).toEqual([
+    expect(vocabularyOf(parseEjdict(fixture).dict)).toEqual([
       "color",
       "colour",
       "dough",
@@ -68,7 +100,7 @@ describe("vocabularyOf", () => {
 });
 
 describe("shardDict", () => {
-  const dict = parseEjdict(fixture);
+  const { dict } = parseEjdict(fixture);
   const keys = Object.keys(dict).sort(byCodeUnit);
   const bytes = (value: Record<string, unknown>) =>
     Buffer.byteLength(stringifyPack(value));

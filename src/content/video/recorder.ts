@@ -1,4 +1,5 @@
 import type { Settings } from "../../core/settings";
+import type { DocumentCasing } from "../../core/text/casing";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
 import type { SourceInput } from "../../messaging/protocol";
@@ -19,6 +20,8 @@ export function createRecorder(o: {
   source(): SourceInput;
   /** Still the video on the page. */
   active(): boolean;
+  /** The caption track's casing: the history leaves its names out. */
+  casing(): DocumentCasing | undefined;
 }) {
   const played = new Set<number>();
   /** "key\ncard index" already recorded. */
@@ -47,7 +50,7 @@ export function createRecorder(o: {
         const cue = cues[index];
         if (!cue || !played.has(index)) continue;
         for (const span of spans[index] ?? []) {
-          if (!saved.has(span.key)) continue;
+          if (span.category === "ignored" || !saved.has(span.key)) continue;
           const seen = `${span.key}\n${index}`;
           if (recorded.has(seen)) continue;
           recorded.add(seen);
@@ -71,6 +74,7 @@ export function createRecorder(o: {
       const cue = cues[index];
       if (!o.active() || !cue || !o.settings().sentenceHistory) return;
       const translation = translations[index];
+      const casing = o.casing();
       o.send({
         type: "recordHistory",
         source: from,
@@ -81,6 +85,7 @@ export function createRecorder(o: {
             pos: { timeMs: cue.startMs },
           },
         ],
+        ...(casing && { casing }),
       }).catch(warn);
     },
   };

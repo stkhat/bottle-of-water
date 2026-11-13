@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.ts";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
+import { createEnJaDictionary } from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { createPackLoader } from "./packs/load";
+import { blockCasing, documentCasing } from "./text/casing";
 
 const loadPack = createPackLoader(async (path) =>
   JSON.parse(readFileSync(packSourcePath(path), "utf8")),
@@ -184,6 +186,65 @@ describe("classifier over the generated packs", () => {
       "phrase",
       "learning",
     ]);
+  });
+});
+
+const ja = await loadPack("en-ja");
+const defs = await loadPack("en-defs");
+
+describe("names over the generated packs (rule D)", () => {
+  const withNames = createLanguagePack("en", {
+    lemmas: en.lemmas,
+    freq: en.freq,
+    ipa: en.ipa,
+    vocab: new Set(en.vocab),
+    patterns: en.phrases,
+    pos: en.pos,
+    names: en.names,
+  });
+  const names = createClassifier(withNames);
+  const dictionary = createEnJaDictionary({
+    ...ja,
+    defs: defs.defs,
+    pos: en.pos,
+    ipa: en.ipa,
+  });
+  const TEXT = [
+    "Yesterday Mark flew to Japan with Frank.",
+    "In June, Mark wrote about the Enlightenment. Yes, Frank said, the trip was long.",
+    "They saw a mark on the wall in France.",
+  ];
+  const casing = documentCasing(
+    TEXT.map((text) => blockCasing(withNames.tokenize(text), "en")),
+  );
+  const spans = TEXT.flatMap((text) =>
+    names
+      .classify(withNames.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        casing,
+        capitalMeaning: (key) => dictionary.capitalMeaning(key),
+      })
+      .map((s) => ({ ...s, text: text.slice(s.start, s.end) })),
+  );
+  const of = (text: string) => spans.filter((s) => s.text === text);
+
+  it("ignores a name the document always capitalises", () => {
+    expect(of("Frank").map((s) => [s.category, s.name])).toEqual([
+      ["ignored", true],
+      ["ignored", true],
+    ]);
+  });
+  it("keeps a name whose capitalised headword has a meaning, capitalised", () => {
+    for (const word of ["Japan", "June", "France"])
+      expect(of(word)[0], word).toMatchObject({ capital: true });
+    expect(of("Japan")[0]?.category).not.toBe("ignored");
+  });
+  it("never takes an interjection, a word after a determiner or one written in lower case for a name", () => {
+    expect(of("Yes")[0]?.name).toBeUndefined();
+    expect(of("Enlightenment")[0]?.name).toBeUndefined();
+    // "mark" is in lower case in the document: "Mark" is no name there.
+    expect(of("Mark").every((s) => s.name === undefined)).toBe(true);
   });
 });
 

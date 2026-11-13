@@ -3,7 +3,7 @@ import {
   cleanDefinition,
   MAX_TRANSLATED_SENSES,
 } from "../../core/lexicon/definitions";
-import type { Sense } from "../../core/lexicon/dictionary";
+import type { Sense, Written } from "../../core/lexicon/dictionary";
 import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
 import { normalizeWord } from "../../core/text/tokenize";
 import { rulesFor } from "../../core/phrases/rules";
@@ -188,7 +188,14 @@ function keepTranslations(
  * and a note with its main word's translation; its IPA comes from the language pack.
  */
 export async function describeTerm(
-  term: { key: string; kind: TermKind; surface: string; category?: Category },
+  term: {
+    key: string;
+    kind: TermKind;
+    surface: string;
+    category?: Category;
+    /** How the word was written on the page, when it says. */
+    written?: Written;
+  },
   {
     send,
     lang,
@@ -199,9 +206,15 @@ export async function describeTerm(
     shownIn = "hover",
   }: DescribeDeps,
 ): Promise<TermCard> {
-  const lookup = (key: string) =>
-    send({ type: "lookup", lang, key, sourceUrl });
-  const found = await lookup(term.key);
+  const lookup = (key: string, written?: Written) =>
+    send({
+      type: "lookup",
+      lang,
+      key,
+      sourceUrl,
+      ...(written !== undefined && { written }),
+    });
+  const found = await lookup(term.key, term.written);
   const { entry } = found;
   const ipa = entry?.ipa ?? found.ipa;
   const pair = definitionPair(entry?.glossLang, nativeLang);

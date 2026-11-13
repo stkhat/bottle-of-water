@@ -6,6 +6,8 @@ import {
   type SettingsPatch,
 } from "../../core/settings";
 import { joinerFor } from "../../core/subtitles/translation";
+import { blockCasing, documentCasing } from "../../core/text/casing";
+import { tokenize } from "../../core/text/tokenize";
 import { hostnameOf } from "../../core/url";
 import { followPackStatus, pairNote } from "../../messaging/pack-status";
 import {
@@ -167,6 +169,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (watch && watch.id === id) return;
     watch?.controller.abort();
     watch = undefined;
+    lookup.setCasing(undefined);
     cards.dismissHover();
     selection.clear();
     // The L button starts where it was left on this platform.
@@ -193,6 +196,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       flat,
       source,
       active,
+      casing: () => lookup.casing,
     });
     const summaries = createSummaries({
       send: deps.send,
@@ -255,6 +259,14 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     }
     const { state, timed } = captionCards(captions);
     w.timed = timed;
+    // The whole track is the document whose capitals tell names (rule D).
+    lookup.setCasing(
+      documentCasing(
+        state.cues.map((cue) =>
+          blockCasing(tokenize(cue.text, lang()), lang()),
+        ),
+      ),
+    );
     store.set({ status: "ready", ...state });
     if (state.translationSource === "builtIn")
       subtitlePair = { from: lang(), to: settings.nativeLang };

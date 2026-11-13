@@ -1,5 +1,13 @@
+import type { CapitalMeaning } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
+import { nameVerdict } from "./names";
 import { longestMatch, type PhraseMatch } from "./phrases/matcher";
+import {
+  capitalHere,
+  wordCases,
+  type DocumentCasing,
+  type WordCase,
+} from "./text/casing";
 import { normalizeWord, type Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
@@ -50,12 +58,31 @@ export interface Span {
    * (at `index` 0).
    */
   part?: SpanPart;
+  /**
+   * A word capitalised on the page in a way that counts (`capitalHere`, or a name that
+   * keeps its capitalised meaning): its lookup asks for the capitalised headword's
+   * senses first.
+   */
+  capital?: true;
+  /**
+   * A word rule D takes for a name in this document (`nameVerdict`): `ignored`, so it
+   * gets no highlight and no hover, and the sentence history does not index it.
+   */
+  name?: true;
 }
 
 export interface ClassifyOptions {
   terms: TermIndex;
   /** Unsaved words ranked at or above this are known. */
   knownLevel: number;
+  /** The document's casing (rule D), when the page sends it. */
+  casing?: DocumentCasing;
+  /**
+   * What the dictionary's capitalised headword of a word means
+   * (`DictionaryProvider.capitalMeaning`): a name with such a meaning stays a word
+   * and shows it (France → フランス, June → 6月).
+   */
+  capitalMeaning?(key: string): CapitalMeaning | undefined;
 }
 
 export interface Classifier {
@@ -100,16 +127,56 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   when there is one, a learning one before a known one. Otherwise its key is the
  *   first base form (the word itself when it is in the vocabulary), and it is known
  *   when its most common base form is ranked within the known level.
+ * - With the document's casing (a mixed-case document, a language whose capitals mark
+ *   names): a name (`nameVerdict`) is ignored, even a saved word, unless it keeps a
+ *   capitalised meaning; that one and a word capitalised in a way that counts
+ *   (`capitalHere`) get `capital`.
  */
 export function createClassifier(pack: LanguagePack): Classifier {
   // One matcher per pack: its dictionary trie is built once.
   const { matcher } = pack;
   const detects = pack.patterns.detect.length > 0;
   return {
-    classify(tokens, { terms, knownLevel }) {
+    classify(tokens, { terms, knownLevel, casing, capitalMeaning }) {
       const input = matcher.prepare(tokens);
       const { words } = input;
       const spans: Span[] = [];
+      /** Rule D and written case, in a mixed-case document only. */
+      const cases =
+        casing?.mode === "mixed" && pack.namesByCase
+          ? wordCases(tokens, pack.lang)
+          : undefined;
+
+      /** For each word, the word before it when only spaces come between them. */
+      const before: (string | undefined)[] = [];
+      if (cases) {
+        let previous: string | undefined;
+        /** Only whitespace since the previous word. */
+        let spaces = true;
+        for (const token of tokens) {
+          if (token.isWord) {
+            before.push(spaces ? previous : undefined);
+            previous = normalizeWord(token.text);
+            spaces = true;
+          } else spaces &&= /^\s+$/.test(token.text);
+        }
+      }
+
+      /** A word span's casing marks: a name, or capitalised in a way that counts. */
+      const casingOf = (
+        i: number,
+        word: { key: string; category: Category },
+      ): Partial<Span> => {
+        const written: WordCase | undefined = cases?.[i];
+        if (!casing || !written || word.category === "ignored") return {};
+        const name = nameVerdict(written, casing, pack, before[i], () =>
+          capitalMeaning?.(word.key),
+        );
+        if (name === "name") return { category: "ignored", name: true };
+        return name === "kept" || capitalHere(casing, written)
+          ? { capital: true }
+          : {};
+      };
 
       /** Words with a base saved as learning: unsaved dictionary phrases skip them. */
       const learning = words.map(({ bases }) =>
@@ -133,11 +200,13 @@ export function createClassifier(pack: LanguagePack): Classifier {
 
       const pushWord = (i: number) => {
         const { token, bases } = words[i]!;
+        const word = classifyWord(token.text, bases, terms, knownLevel, pack);
         spans.push({
           start: token.start,
           end: token.end,
           kind: "word",
-          ...classifyWord(token.text, bases, terms, knownLevel, pack),
+          ...word,
+          ...casingOf(i, word),
         });
       };
 

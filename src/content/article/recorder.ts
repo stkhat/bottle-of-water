@@ -1,4 +1,5 @@
 import type { Settings } from "../../core/settings";
+import type { DocumentCasing } from "../../core/text/casing";
 import { splitSentences } from "../../core/text/sentences";
 import { termId } from "../../core/term-id";
 import type { send } from "../../messaging/client";
@@ -18,6 +19,8 @@ export function createRecorder(o: {
   source(): SourceInput;
   settings(): Settings;
   spans: SpanMap;
+  /** The page's casing: the history leaves its names out. */
+  casing(): DocumentCasing | undefined;
 }) {
   const { lang } = o;
   const kept = new Set<string>();
@@ -35,16 +38,20 @@ export function createRecorder(o: {
           sentences.push({ text, pos: { textQuote: text } });
         }
       }
-      if (sentences.length > 0)
-        o.send({ type: "recordHistory", source: o.source(), sentences }).catch(
-          warn,
-        );
+      if (sentences.length === 0) return;
+      const casing = o.casing();
+      o.send({
+        type: "recordHistory",
+        source: o.source(),
+        sentences,
+        ...(casing && { casing }),
+      }).catch(warn);
     },
     encounters(blocks: TextBlock[], saved: ReadonlySet<string>) {
       const items = [];
       for (const block of blocks) {
         for (const span of o.spans.get(block) ?? []) {
-          if (!saved.has(span.key)) continue;
+          if (span.category === "ignored" || !saved.has(span.key)) continue;
           const sentence = sentenceAt(block.text, span.start, span.end, lang);
           const seen = `${span.key}\n${sentence}`;
           if (recorded.has(seen)) continue;

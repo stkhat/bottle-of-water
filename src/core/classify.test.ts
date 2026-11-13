@@ -6,7 +6,9 @@ import {
   type TermIndex,
   type TermStatus,
 } from "./classify";
+import type { CapitalMeaning } from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
+import { blockCasing, documentCasing } from "./text/casing";
 
 // Ranks: the 1, you 2, out 3, look 4, up 5, good 6, well 7, life 8, live 9, on 10,
 // figure 11, to 12, dough 13, ferment 14, tangy 15.
@@ -450,5 +452,140 @@ describe("unsavedKeys", () => {
       knownLevel: 10,
     });
     expect(unsavedKeys(spans)).toEqual(["we", "give up", "tangy", "yeast"]);
+  });
+});
+
+describe("names by document casing (rule D)", () => {
+  // Ranks: park 1, the 2; every other word is rare.
+  const vocab = [
+    ...["park", "the", "mark", "badger", "world", "english", "hey", "a"],
+    ...["japan", "germany", "helen", "met", "saw", "we", "in", "and", "it"],
+    ...["enlightenment", "on", "rained", "then"],
+  ];
+  const names = createLanguagePack("en", {
+    lemmas: {},
+    freq: ["park", "the"],
+    ipa: {},
+    vocab: new Set(vocab),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: {
+      the: ["article"],
+      a: ["article"],
+      hey: ["interjection", "verb"],
+      we: ["pronoun"],
+      mark: ["noun", "verb"],
+    },
+    names: {
+      mark: "gs",
+      badger: "sp",
+      park: "sp",
+      world: "x",
+      english: "gs!",
+      hey: "s",
+      japan: "p",
+      germany: "pg",
+      helen: "xg",
+      enlightenment: "g",
+    },
+  });
+  const meanings: Record<string, CapitalMeaning> = {
+    japan: "word",
+    germany: "name",
+    helen: "name",
+  };
+  const run = (blocks: string[], mode?: "upper") => {
+    const casing =
+      mode === "upper"
+        ? { mode, words: {} }
+        : documentCasing(
+            blocks.map((b) => blockCasing(names.tokenize(b), "en")),
+          );
+    const classifyNames = createClassifier(names);
+    return blocks.flatMap((block) =>
+      classifyNames
+        .classify(names.tokenize(block), {
+          terms: terms(),
+          knownLevel: 1,
+          casing,
+          capitalMeaning: (key) => meanings[key],
+        })
+        .map((s) => ({ ...s, text: block.slice(s.start, s.end) })),
+    );
+  };
+  const verdicts = (spans: ReturnType<typeof run>) =>
+    spans
+      .filter((s) => /^\p{Lu}/u.test(s.text))
+      .map(
+        (s) =>
+          `${s.text}:${s.name ? "name" : s.capital ? "capital" : s.category}`,
+      );
+
+  it("ignores a name the document always capitalises inside sentences", () => {
+    expect(
+      verdicts(
+        run(["We met Mark and Badger in Japan.", "Then Mark saw Helen."]),
+      ),
+    ).toEqual([
+      "We:new",
+      "Mark:name",
+      "Badger:name",
+      "Japan:capital",
+      "Then:new",
+      "Mark:name",
+      "Helen:name",
+    ]);
+    const mark = run(["We met Mark."]).find((s) => s.text === "Mark");
+    expect(mark).toMatchObject({ category: "ignored", name: true });
+  });
+
+  it("keeps a name whose capitalised meaning says what it is, or that is a place first", () => {
+    const spans = run(["We saw Japan and Germany."]);
+    expect(verdicts(spans)).toEqual([
+      "We:new",
+      "Japan:capital",
+      "Germany:capital",
+    ]);
+    expect(spans.find((s) => s.text === "Japan")?.category).toBe("new");
+  });
+
+  it("never takes a word written in lower case there, a capitalised common word, an interjection, a titled common noun or a word after a determiner for a name", () => {
+    expect(
+      verdicts(
+        run([
+          "We met Mark and a mark.",
+          "We saw English and Hey and World and Park.",
+          "We saw the Enlightenment.",
+        ]),
+      ),
+    ).toEqual([
+      "We:new",
+      "Mark:capital",
+      "We:new",
+      "English:capital",
+      "Hey:capital",
+      "World:capital",
+      "Park:capital",
+      "We:new",
+      "Enlightenment:capital",
+    ]);
+  });
+
+  it("finds no names in a caseless document", () => {
+    expect(
+      run(["WE MET MARK IN JAPAN."], "upper").some((s) => s.name || s.capital),
+    ).toBe(false);
+    expect(
+      run(["we met mark in japan. it rained."]).some(
+        (s) => s.name || s.capital,
+      ),
+    ).toBe(false);
+  });
+
+  it("does nothing without the document's casing", () => {
+    const spans = createClassifier(names).classify(
+      names.tokenize("We met Mark."),
+      { terms: terms(), knownLevel: 1 },
+    );
+    expect(spans.some((s) => s.name || s.capital)).toBe(false);
   });
 });

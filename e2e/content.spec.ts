@@ -25,3 +25,16 @@ test("a word saved from the dictionary is Learning, and in every form after a re
     .toEqual(["loaf", "loaves"]);
   expect(await highlighted(page, "lingo-new")).not.toContain("loaves");
 });
+
+test("a name the page always capitalises is no word: not highlighted", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  // "Maya" is a vocabulary word (EJDict's マヤ人), capitalised inside a sentence.
+  await expect
+    .poll(() => highlighted(page, "lingo-new"))
+    .toContain("sourdough");
+  expect(await highlighted(page, "lingo-new")).not.toContain("Maya");
+});

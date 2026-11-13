@@ -1,6 +1,13 @@
-import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
+import {
+  unsavedKeys,
+  type ClassifyOptions,
+  type Span,
+  type TermStatus,
+} from "../core/classify";
 import { cleanDefinition, definitionTexts } from "../core/lexicon/definitions";
 import type { DictionaryEntry } from "../core/lexicon/dictionary";
+import type { LanguagePack } from "../core/lexicon/language-pack";
+import { readCasing } from "../core/text/casing";
 import { learningLanguages } from "../core/languages";
 import { packBytes, type PackLock } from "../core/packs/lock";
 import { packsFor, pairsOfPack, translationPair } from "../core/packs/pairs";
@@ -76,6 +83,8 @@ type Handlers = {
     sender: MessageSender,
   ) => Promise<ResponseOf<T>>;
 };
+
+const WRITTEN: ReadonlySet<unknown> = new Set(["lower", "capital", "upper"]);
 
 /** Private (incognito) windows leave nothing behind: no history, no encounters. */
 const fromIncognito = (sender: MessageSender) => sender.tab?.incognito === true;
@@ -189,6 +198,44 @@ export function createHandlers({
     });
   }
 
+  /**
+   * The options a document's blocks are classified with: its casing, when the page
+   * sends one, and then for a language whose capitals mark names (rule D) the
+   * dictionary into the native language, which says which names keep a capitalised
+   * meaning (loaded only for a mixed-case document with capitalised words).
+   */
+  async function documentOptions(
+    lang: string,
+    pack: LanguagePack,
+    casing: unknown,
+    options: ClassifyOptions,
+  ): Promise<ClassifyOptions> {
+    const read = readCasing(casing);
+    if (!read) return options;
+    if (
+      read.mode !== "mixed" ||
+      !pack.namesByCase ||
+      Object.keys(read.words).length === 0
+    )
+      return { ...options, casing: read };
+    const { nativeLang } = await settings.get();
+    // A pair without a dictionary (the pair changed as the page was analyzed): the
+    // names keep no meaning this time.
+    const dictionary = await resources
+      .dictionary(lang, nativeLang)
+      .catch((error: unknown) => {
+        if (error instanceof PacksUnavailableError) throw error;
+        return undefined;
+      });
+    return {
+      ...options,
+      casing: read,
+      ...(dictionary && {
+        capitalMeaning: (key: string) => dictionary.capitalMeaning(key),
+      }),
+    };
+  }
+
   const handlers: Handlers = {
     getSettings: () => settings.get(),
     setSettings: ({ patch }) => settings.set(patch),
@@ -197,19 +244,25 @@ export function createHandlers({
       return null;
     },
 
-    async analyze({ lang, blocks }) {
-      const [pack, classifier, terms, { knownLevel }] = await allOf([
+    async analyze({ lang, blocks, casing }) {
+      const [pack, classifier, terms, current] = await allOf([
         resources.pack(lang),
         resources.classifier(lang),
         store.termIndex(lang),
         settings.get(),
       ]);
+      const options = await documentOptions(lang, pack, casing, {
+        terms,
+        knownLevel: current.knownLevel,
+      });
       const spans: Span[][] = blocks.map((block) =>
-        classifier.classify(pack.tokenize(block), { terms, knownLevel }),
+        classifier.classify(pack.tokenize(block), options),
       );
       const all = spans.flat();
       const saved = new Set(
-        all.filter((s) => terms.has(s.key)).map((s) => s.key),
+        all
+          .filter((s) => s.category !== "ignored" && terms.has(s.key))
+          .map((s) => s.key),
       );
       return { spans, unsaved: unsavedKeys(all), saved: [...saved] };
     },
@@ -233,7 +286,7 @@ export function createHandlers({
       return null;
     },
 
-    async lookup({ lang, key, sourceUrl }) {
+    async lookup({ lang, key, sourceUrl, written }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
       const [dictionary, pack, terms, occurrences] = await allOf([
@@ -260,7 +313,10 @@ export function createHandlers({
           console.error("Lingo: could not read the sentence history", error);
         }
       }
-      const entry = dictionary.entry(key);
+      const entry = dictionary.entry(
+        key,
+        WRITTEN.has(written) ? written : undefined,
+      );
       const ipa = pack.ipa(key);
       const translated = glossedInOtherLanguage(entry, nativeLang)
         ? await cachedTranslations(
@@ -374,7 +430,7 @@ export function createHandlers({
       return null;
     },
 
-    async recordHistory({ source, sentences }, sender) {
+    async recordHistory({ source, sentences, casing }, sender) {
       if (fromIncognito(sender)) return { kept: 0 };
       const current = await settings.get();
       const host = hostnameOf(source.url);
@@ -390,7 +446,10 @@ export function createHandlers({
         resources.classifier(source.lang),
         store.termIndex(source.lang),
       ]);
-      const options = { terms, knownLevel: current.knownLevel };
+      const options = await documentOptions(source.lang, pack, casing, {
+        terms,
+        knownLevel: current.knownLevel,
+      });
       const items = sentences.map((sentence) => ({
         ...sentence,
         keys: historyKeys(sentence.text, pack, classifier, options),

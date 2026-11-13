@@ -76,8 +76,9 @@ const sentenceSize = (
 
 /**
  * The term ids a kept sentence is found by: every base form of each word except the
- * most common ones, then the phrases (dictionary and saved) the classifier finds in it.
- * Each id once, in that order.
+ * most common ones and the names the classifier finds (rule D, with the document's
+ * casing in `options`), then the phrases (dictionary and saved) it finds. Each id
+ * once, in that order.
  */
 export function historyKeys(
   text: string,
@@ -87,12 +88,14 @@ export function historyKeys(
 ): string[] {
   const keys = new Set<string>();
   const tokens = pack.tokenize(text);
+  const spans = classifier.classify(tokens, options);
+  const names = new Set(spans.filter((s) => s.name).map((s) => s.start));
   for (const token of tokens) {
-    if (!token.isWord) continue;
+    if (!token.isWord || names.has(token.start)) continue;
     for (const base of pack.lemmas(token.text))
       if (pack.rank(base) > COMMON_RANK) keys.add(termId(pack.lang, base));
   }
-  for (const span of classifier.classify(tokens, options))
+  for (const span of spans)
     if (span.kind === "phrase") keys.add(termId(pack.lang, span.key));
   return [...keys];
 }

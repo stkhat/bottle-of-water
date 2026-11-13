@@ -1,4 +1,4 @@
-// EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>}.json,
+// EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>,capital}.json,
 // public/packs/en/vocab.json and data/gate/en-capitalized.json (for the quality gate)
 // Usage: node scripts/data/ejdict.ts   (downloads missing raw files into data/raw/ejdict/)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -29,10 +29,39 @@ function shortOf(senses: string[]) {
   return cleanShort(senses[0]!.replace(/[《》]/g, ""));
 }
 
-/** Parses EJDict TSV text into `{ headword: [short, senses] }` with lowercase keys. */
-export function parseEjdict(text: string): DictPack {
-  // Headwords that differ only in case (May / may) are merged; the lowercase one comes first.
-  const groups = new Map<string, { lower: string[]; other: string[] }>();
+/**
+ * How a headword is written: in lower case, capitalised (Japan, May, McDonald), in
+ * capitals only (an acronym: US, WHO, U.S.), or otherwise (iPhone).
+ */
+function writtenOf(headword: string) {
+  if (headword === headword.toLowerCase()) return "lower";
+  if (!/^\p{Lu}/u.test(headword)) return "other";
+  return /\p{Ll}/u.test(headword) ? "title" : "upper";
+}
+
+export interface Ejdict {
+  /** `{ headword: [short, senses] }` with lowercase keys. */
+  dict: DictPack;
+  /**
+   * en-ja/capital.json: the senses of the capitalised headwords of single words, by
+   * the lowercase key (Japan → 『日本』, May → 『5月』, Paris, David), and those of
+   * acronyms by the key in capitals (US → 合衆国, WHO). A key that also has a
+   * lowercase headword (japan, may, us) keeps only the lowercase senses in `dict`; a
+   * key written only with capitals keeps them in `dict` too, and is listed here only
+   * with its capitalised headwords (Paris, not TV).
+   */
+  capital: DictPack;
+}
+
+/**
+ * Parses EJDict TSV text. Headwords that differ only in case are one key. A
+ * single-word key with a lowercase headword and capitalised ones (may / May, us / US)
+ * keeps the lowercase senses; the others go to `capital`. Otherwise the variants are
+ * merged, the lowercase headword first (a multi-word key like "jim crow").
+ */
+export function parseEjdict(text: string): Ejdict {
+  type Written = ReturnType<typeof writtenOf>;
+  const groups = new Map<string, Record<Written, string[]>>();
   for (const line of text.split(/\r?\n/)) {
     const tab = line.indexOf("\t");
     if (tab < 0) continue;
@@ -42,25 +71,45 @@ export function parseEjdict(text: string): DictPack {
       .map((s) => s.trim())
       .filter(Boolean);
     if (senses.length === 0) continue;
-    const keys = new Map<string, boolean>();
+    /** key → how the line writes it; a line that lists the lowercase headword is lowercase */
+    const keys = new Map<string, Written>();
     for (const variant of line.slice(0, tab).split(",")) {
       const headword = variant.trim();
       if (!headword) continue;
       const key = headword.toLowerCase();
-      keys.set(key, keys.get(key) || headword === key);
+      const written = writtenOf(headword);
+      if (keys.get(key) !== "lower") keys.set(key, written);
     }
-    for (const [key, isLower] of keys) {
+    for (const [key, written] of keys) {
       let group = groups.get(key);
-      if (!group) groups.set(key, (group = { lower: [], other: [] }));
-      (isLower ? group.lower : group.other).push(...senses);
+      if (!group)
+        groups.set(
+          key,
+          (group = { lower: [], title: [], upper: [], other: [] }),
+        );
+      group[written].push(...senses);
     }
   }
   const dict: Record<string, [string, string[]]> = {};
-  for (const [key, { lower, other }] of groups) {
-    const senses = [...new Set([...lower, ...other])];
-    dict[key] = [shortOf(senses), senses];
+  const capital: Record<string, [string, string[]]> = {};
+  const entry = (senses: string[]): [string, string[]] => [
+    shortOf(senses),
+    senses,
+  ];
+  for (const [key, { lower, title, upper, other }] of groups) {
+    const single = !/\s/.test(key);
+    const split = single && lower.length > 0;
+    const own = [...new Set(split ? [...lower, ...other] : [])];
+    const apart = (senses: string[]) =>
+      [...new Set(senses)].filter((sense) => !own.includes(sense));
+    if (single && apart(title).length > 0) capital[key] = entry(apart(title));
+    if (split && apart(upper).length > 0)
+      capital[key.toUpperCase()] = entry(apart(upper));
+    dict[key] = entry(
+      split ? own : [...new Set([...lower, ...title, ...upper, ...other])],
+    );
   }
-  return dict;
+  return { dict, capital };
 }
 
 /**
@@ -105,14 +154,16 @@ async function main() {
   const text = LETTERS.map((letter) =>
     readFileSync(join(EJDICT_DIR, `${letter}.txt`), "utf8"),
   ).join("\n");
-  const dict = parseEjdict(text);
+  const { dict, capital } = parseEjdict(text);
   const index = writeShards("en-ja", dict, PACKS_DIR);
+  writePack("en-ja/capital.json", capital);
   const vocab = vocabularyOf(dict);
   writePack("en/vocab.json", vocab);
   writePack("en-capitalized.json", capitalizedOnly(text), GATE_DIR);
   console.log(
     `en-ja: ${Object.keys(dict).length} headwords in ${index.shards.length} shards; ` +
-      `en/vocab.json: ${vocab.length} single words`,
+      `en/vocab.json: ${vocab.length} single words; ` +
+      `en-ja/capital.json: ${Object.keys(capital).length} capitalised headwords`,
   );
 }
 
