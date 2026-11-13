@@ -9,7 +9,10 @@ export type TaggerPack = TaggerModel;
 export type LemmaPack = Readonly<Record<string, string | readonly string[]>>;
 /** en/ipa.json: word → US IPA. */
 export type IpaPack = Readonly<Record<string, string>>;
-/** en/freq.json: base forms in rank order (index 0 = rank 1). */
+/**
+ * en/freq.json: base forms in rank order (index 0 = rank 1): the frequency list's, with
+ * rule E's words it lacks placed by the example corpus.
+ */
 export type FreqPack = readonly string[];
 /** en/pos.json: word → parts of speech. */
 export type PosPack = Readonly<Record<string, readonly string[]>>;
@@ -21,7 +24,10 @@ export type PosPack = Readonly<Record<string, readonly string[]>>;
  * words and given names.
  */
 export type NamesPack = Readonly<Record<string, string>>;
-/** en/vocab.json: the words Lingo knows (single-word dictionary headwords), sorted. */
+/**
+ * en/vocab.json: the words Lingo knows (EJDict's single-word headwords and the words in
+ * use that Wiktionary adds, rule E), sorted.
+ */
 export type VocabPack = readonly string[];
 /**
  * en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. en-ja/phrases.json has

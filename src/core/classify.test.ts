@@ -461,7 +461,7 @@ describe("names by document casing (rule D)", () => {
   const vocab = [
     ...["park", "the", "mark", "badger", "world", "english", "hey", "a"],
     ...["japan", "germany", "helen", "met", "saw", "we", "in", "and", "it"],
-    ...["enlightenment", "on", "rained", "then"],
+    ...["enlightenment", "on", "rained", "then", "um"],
   ];
   const names = createLanguagePack("en", {
     lemmas: {},
@@ -473,6 +473,7 @@ describe("names by document casing (rule D)", () => {
       the: ["article"],
       a: ["article"],
       hey: ["interjection", "verb"],
+      um: ["interjection", "verb", "noun"],
       we: ["pronoun"],
       mark: ["noun", "verb"],
     },
@@ -483,6 +484,7 @@ describe("names by document casing (rule D)", () => {
       world: "x",
       english: "gs!",
       hey: "s",
+      um: "s",
       japan: "p",
       germany: "pg",
       helen: "xg",
@@ -569,6 +571,20 @@ describe("names by document casing (rule D)", () => {
       "We:new",
       "Enlightenment:capital",
     ]);
+  });
+
+  it("takes an interjection the lexicon also has as a surname for a word, and a word outside the vocabulary for no word at all", () => {
+    // um, from Wiktionary's vocabulary (rule E): an interjection, and a Korean surname.
+    const spans = run(["Um, we met Mark and Um and Zork.", "Um, then Zork."]);
+    expect(verdicts(spans)).toEqual([
+      "Um:capital",
+      "Mark:name",
+      "Um:capital",
+      "Zork:ignored",
+      "Um:capital",
+      "Zork:ignored",
+    ]);
+    expect(spans.filter((s) => s.text === "Zork" && s.name)).toEqual([]);
   });
 
   it("finds no names in a caseless document", () => {

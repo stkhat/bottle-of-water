@@ -1,4 +1,8 @@
-// kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/{lemmas,ipa,pos,names}.json
+// kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/{vocab,lemmas,ipa,pos,names}.json
+// The vocabulary is EJDict's single-word headwords and the words rule E adds
+// (`vocabulary.ts`), listed in data/gate/en-wiktionary-words.json (the frequency list
+// ranks those it lacks, the quality gate leaves them out); the example counts that
+// rank them go to data/raw/en-example-counts.json (not shipped, not committed).
 // Usage: node scripts/data/kaikki.ts [path]   (default data/raw/kaikki-en.jsonl; run ejdict.ts first)
 import { singleIpa } from "../../src/core/lexicon/ipa.ts";
 import type {
@@ -8,16 +12,24 @@ import type {
   NamesPack,
   PosPack,
 } from "../../src/core/packs/types.ts";
+import { writeFileSync } from "node:fs";
+import { basename } from "node:path";
 import {
+  byCodeUnit,
   eachEntry,
+  EXAMPLE_COUNTS_PATH,
+  GATE_DIR,
   KAIKKI_PATH,
   posLabel,
   readDictPacks,
-  readPack,
+  stringifyPack,
+  WIKTIONARY_WORDS_PATH,
   writePack,
   type KaikkiEntry,
 } from "./common.ts";
+import { vocabularyOf } from "./ejdict.ts";
 import { PACKS } from "./formats.ts";
+import { createVocabularyRule, type VocabularyRule } from "./vocabulary.ts";
 
 const INFLECTION_TAGS = new Set([
   "plural",
@@ -235,12 +247,16 @@ function createNames() {
 /**
  * Collects, for each vocabulary word, its inflected forms, US IPA and parts of speech.
  * Entries spelt exactly like the vocabulary word win; entries in another casing (Monday
- * for "monday") are used only when there are none.
+ * for "monday") are used only when there are none. With `extend` (rule E,
+ * `vocabulary.ts`), the same pass also chooses the words that join the vocabulary
+ * (`added`), and counts how often the examples write each vocabulary word
+ * (`examples`, with its inflected forms; words never written are left out).
  */
 export async function importKaikki(
   path: string,
   vocab: Iterable<string>,
   dict: DictPack = {},
+  extend?: VocabularyRule,
 ) {
   const words = new Set(vocab);
   const exact = new Map<string, Bucket>();
@@ -250,67 +266,107 @@ export async function importKaikki(
   const stats = await eachEntry(path, (entry) => {
     if (entry.lang_code !== "en") return;
     names.add(entry);
+    extend?.add(entry);
     const base = entry.word.toLowerCase();
-    if (!words.has(base)) return;
-    if (entry.word === base) addConfirmations(confirmations, base, entry);
-    const buckets = entry.word === base ? exact : folded;
+    // A word rule E may add is collected like a vocabulary word, from its own spelling.
+    const exactly = entry.word === base;
+    if (!words.has(base) && !(extend && exactly && extend.shaped(base))) return;
+    if (exactly) addConfirmations(confirmations, base, entry);
+    const buckets = exactly ? exact : folded;
     let bucket = buckets.get(base);
     if (!bucket) buckets.set(base, (bucket = { pos: [], bases: new Map() }));
     addEntry(bucket, base, entry);
   });
 
-  const lemmaSets = new Map<string, Set<string>>();
+  const bucketOf = (word: string) => exact.get(word) ?? folded.get(word);
+  /** Inflected form → its bases among `known`, each confirmed when the form is a word too. */
+  const lemmasOf = (known: ReadonlySet<string>) => {
+    const lemmaSets = new Map<string, Set<string>>();
+    for (const word of known)
+      for (const form of bucketOf(word)?.bases.keys() ?? []) {
+        let bases = lemmaSets.get(form);
+        if (!bases) lemmaSets.set(form, (bases = new Set()));
+        bases.add(word);
+      }
+    const lemmas: Record<string, string | string[]> = {};
+    for (const [form, bases] of lemmaSets) {
+      const sorted = [...bases]
+        .filter((base) => base.length > 1)
+        .filter(
+          (base) =>
+            !known.has(form) ||
+            isConfirmed(confirmations.get(form)?.get(base), form, base, dict),
+        )
+        .sort();
+      if (sorted.length > 0)
+        lemmas[form] = sorted.length === 1 ? sorted[0]! : sorted;
+    }
+    return lemmas;
+  };
+
+  // Rule E counts a new word with the forms its own entries list, but not a form that
+  // is a vocabulary word or one's form already ("coom", a dialect "come", lists "came").
+  const known = lemmasOf(words);
+  const newForms = (word: string) =>
+    [...(exact.get(word)?.bases.keys() ?? [])].filter(
+      (form) => !words.has(form) && !Object.hasOwn(known, form),
+    );
+  const added =
+    extend?.select({ vocab: words, lemmas: known, formsOf: newForms }) ?? [];
+  for (const word of added) words.add(word);
+
   const ipa: Record<string, string> = {};
   const pos: Record<string, string[]> = {};
   for (const word of words) {
-    const bucket = exact.get(word) ?? folded.get(word);
+    const bucket = bucketOf(word);
     if (!bucket) continue;
     if (bucket.pos.length > 0) pos[word] = bucket.pos;
     const usIpa = bucket.phonemicIpa ?? bucket.anyIpa ?? bucket.untaggedIpa;
     if (usIpa) ipa[word] = usIpa;
-    for (const form of bucket.bases.keys()) {
-      let bases = lemmaSets.get(form);
-      if (!bases) lemmaSets.set(form, (bases = new Set()));
-      bases.add(word);
-    }
   }
-  const lemmas: Record<string, string | string[]> = {};
-  for (const [form, bases] of lemmaSets) {
-    const sorted = [...bases]
-      .filter((base) => base.length > 1)
-      .filter(
-        (base) =>
-          !words.has(form) ||
-          isConfirmed(confirmations.get(form)?.get(base), form, base, dict),
-      )
-      .sort();
-    if (sorted.length > 0)
-      lemmas[form] = sorted.length === 1 ? sorted[0]! : sorted;
+  const lemmas = lemmasOf(words);
+  // How often the examples write each vocabulary word, with the forms the lemmas give it.
+  const examples: Record<string, number> = {};
+  if (extend) {
+    const forms = new Map<string, string[]>();
+    for (const [form, bases] of Object.entries(lemmas))
+      for (const base of [bases].flat()) {
+        let list = forms.get(base);
+        if (!list) forms.set(base, (list = []));
+        list.push(form);
+      }
+    for (const word of words) {
+      const count = extend.count(word, forms.get(word) ?? []);
+      if (count > 0) examples[word] = count;
+    }
   }
   return {
     lemmas: lemmas as LemmaPack,
     ipa: ipa as IpaPack,
     pos: pos as PosPack,
     names: names.pack(words),
+    added,
+    examples,
     stats,
   };
 }
 
 async function main() {
   const dict = readDictPacks<DictPack[string]>(PACKS["en-ja"].dir);
-  const vocab = readPack<string[]>("en/vocab.json");
   const path = process.argv[2] ?? KAIKKI_PATH;
-  const { lemmas, ipa, pos, names, stats } = await importKaikki(
-    path,
-    vocab,
-    dict,
-  );
+  const { lemmas, ipa, pos, names, added, examples, stats } =
+    await importKaikki(path, vocabularyOf(dict), dict, createVocabularyRule());
+  const vocab = [...vocabularyOf(dict), ...added].sort(byCodeUnit);
+  writePack("en/vocab.json", vocab);
   writePack("en/lemmas.json", lemmas);
   writePack("en/ipa.json", ipa);
   writePack("en/pos.json", pos);
   writePack("en/names.json", names);
+  writePack(basename(WIKTIONARY_WORDS_PATH), added, GATE_DIR);
+  writeFileSync(EXAMPLE_COUNTS_PATH, stringifyPack(examples));
   console.log(
     `kaikki: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
+      `en/vocab.json: ${vocab.length} words (${added.length} from Wiktionary, rule E); ` +
       `${Object.keys(lemmas).length} lemma forms, ${Object.keys(ipa).length} IPA, ` +
       `${Object.keys(pos).length} words with parts of speech, ` +
       `${Object.keys(names).length} names`,

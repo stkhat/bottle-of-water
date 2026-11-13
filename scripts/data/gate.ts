@@ -3,7 +3,7 @@
 // frequent content words (docs/specs/architecture.md "Native meanings and the quality gate").
 // English definitions and the browser's translator do not count.
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   DICTIONARY_PACKS,
   type LANGUAGE_PACKS,
@@ -101,11 +101,21 @@ function learningTerms(
         ]),
       );
   const namesPath = join(GATE_DIR, `${lang}-capitalized.json`);
+  // The words rule E adds are not counted: the gate measures the pair on the
+  // vocabulary it was decided on (the dictionary's headwords).
+  const addedPath = join(GATE_DIR, `${lang}-wiktionary-words.json`);
+  const added = new Set(
+    existsSync(addedPath)
+      ? readPack<string[]>(basename(addedPath), GATE_DIR)
+      : [],
+  );
   const { words } = contentWords({
     freq: readPack("freq.json", dir),
     pos,
     lemmas: readPack("lemmas.json", dir),
-    vocab: new Set(readPack<string[]>("vocab.json", dir)),
+    vocab: new Set(
+      readPack<string[]>("vocab.json", dir).filter((word) => !added.has(word)),
+    ),
     top: GATE.top,
     names: new Set(
       existsSync(namesPath)

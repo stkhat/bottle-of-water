@@ -26,6 +26,9 @@ describe("buildEnDefs", () => {
     result = await buildEnDefs(fixture, packs);
   });
 
+  it('takes no sense from a gloss without a word (".")', () => {
+    expect(result.defs).not.toHaveProperty("light");
+  });
   it("defines vocabulary words and every phrase pattern, detected or not", () => {
     expect(Object.keys(result.defs).sort()).toEqual([
       "all right",

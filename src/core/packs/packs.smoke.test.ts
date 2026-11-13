@@ -59,11 +59,42 @@ describe("generated dictionary shards", () => {
 });
 
 describe("generated vocabulary", () => {
-  it("is the dictionary's single-word headwords, sorted", () => {
-    const singleWords = Object.keys(dict)
-      .filter((key) => !key.includes(" "))
-      .sort(byCodeUnit);
-    expect(vocabList).toEqual(singleWords);
+  it("has the dictionary's single-word headwords and Wiktionary's words in use, sorted", () => {
+    const singleWords = Object.keys(dict).filter((key) => !key.includes(" "));
+    expect(singleWords.filter((word) => !vocab.has(word))).toEqual([]);
+    expect(vocabList).toEqual([...vocabList].sort(byCodeUnit));
+    // Rule E: words EJDict lacks, or writes only in another form ("any more").
+    for (const word of ["um", "wanna", "app", "website", "chemo", "anymore"])
+      expect(vocab.has(word) && !Object.hasOwn(dict, word), word).toBe(true);
+    // Not forms of other words, rare words or old spellings.
+    for (const word of ["years", "based", "zyzzyva", "clepe"])
+      expect(vocab.has(word), word).toBe(false);
+  });
+  it("ranks Wiktionary's words, from the frequency list or the example corpus", () => {
+    const rank = (word: string) => freq.indexOf(word) + 1 || Infinity;
+    // From the TV list, which had no vocabulary word for them.
+    expect(rank("um")).toBeLessThan(3000);
+    expect(rank("wanna")).toBeLessThan(3000);
+    // Placed by the example corpus: words of the 2010s.
+    expect(rank("selfie")).toBeLessThan(20000);
+    expect(rank("chemo")).toBeLessThan(20000);
+  });
+  it("gives Wiktionary's words their English definitions, to translate", () => {
+    const dictionary = createEnJaDictionary({
+      dict,
+      phrases: jaPhrases,
+      capital,
+      sensePos,
+      defs,
+      pos,
+      ipa,
+    });
+    for (const word of ["um", "wanna", "app", "website", "chemo", "anymore"])
+      expect(dictionary.entry(word), word).toMatchObject({
+        glossLang: "en",
+        short: expect.any(String),
+      });
+    expect(dictionary.entry("app")?.short).toMatch(/program|application/i);
   });
 });
 
