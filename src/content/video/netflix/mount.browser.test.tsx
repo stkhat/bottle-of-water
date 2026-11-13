@@ -70,14 +70,35 @@ let adapter: PlatformAdapter;
 let app: VideoApp;
 let unmount: () => void;
 
-function start(options: Parameters<typeof createTestPage>[0] = {}) {
+function start(
+  options: Parameters<typeof createTestPage>[0] = {},
+  state: Partial<VideoState> = {},
+  controlBarDelayMs?: number,
+) {
   page = createTestPage(options);
   adapter = createNetflixAdapter({
     href: () => `https://www.netflix.com/watch/${MOVIE_ID}`,
     idleMs: 60_000,
+    controlBarDelayMs,
   });
   app = fakeApp();
+  app.store.set(state);
   unmount = mountVideoUi({ adapter, app });
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** The pointer moves over the player: at its bottom (the bar's area) or its middle. */
+function moveOver(where: "bottom" | "middle") {
+  const box = page.player.getBoundingClientRect();
+  page.video.dispatchEvent(
+    new PointerEvent("pointermove", {
+      bubbles: true,
+      clientX: (box.left + box.right) / 2,
+      clientY:
+        where === "bottom" ? box.bottom - 40 : (box.top + box.bottom) / 2,
+    }),
+  );
 }
 afterEach(async () => {
   if (document.fullscreenElement) await document.exitFullscreen();
@@ -232,7 +253,7 @@ describe("the subtitle over Netflix's video", () => {
     // Without the bar: 64px above the player's bottom.
     await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
 
-    page.showControls(true);
+    moveOver("bottom");
     expect(page.controls()).not.toBeNull();
     expect(barTop()).toBeLessThan(player.bottom - 64);
     await settlesAbove(() => Math.min(barTop(), partsTop()));
@@ -245,7 +266,7 @@ describe("the subtitle over Netflix's video", () => {
   // under it, or the hover card closes and the video plays again.
   it("keeps its height while Lingo is in use, and follows the bar once it is not", async () => {
     start();
-    page.showControls(true);
+    moveOver("bottom");
     await expect.poll(() => subtitle()).not.toBeNull();
     await settlesAbove(() => Math.min(barTop(), partsTop()));
     const lifted = bottomOf();
@@ -271,11 +292,16 @@ describe("the subtitle over Netflix's video", () => {
     expect(bottomOf()).toBeCloseTo(player.bottom - 64, 0);
 
     app.store.set({ selecting: true });
-    page.showControls(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    moveOver("bottom");
+    await wait(400);
     expect(bottomOf()).toBeCloseTo(player.bottom - 64, 0);
 
+    // The bar shown meanwhile stays out of sight: it comes as a new one would.
+    moveOver("middle");
     app.store.set({ selecting: false });
+    await wait(400);
+    expect(bottomOf()).toBeCloseTo(player.bottom - 64, 0);
+    moveOver("bottom");
     await settlesAbove(() => Math.min(barTop(), partsTop()));
   });
 
@@ -288,10 +314,147 @@ describe("the subtitle over Netflix's video", () => {
       }),
     );
     page.showControls(false);
-    page.showControls(true);
+    moveOver("bottom");
     const player = page.player.getBoundingClientRect();
     expect(barTop()).toBe(player.top);
     await settlesAbove(partsTop);
+  });
+});
+
+// Netflix shows its bar on any move, and the subtitle rises above it: moving to a word
+// would move the word.
+describe("Netflix's control bar while Lingo's subtitle is over the video", () => {
+  const shown = () =>
+    page.controls() !== null &&
+    getComputedStyle(page.controls()!).visibility === "visible";
+  const subtitleBottom = () =>
+    document
+      .querySelector("lingo-video-player")!
+      .shadowRoot!.querySelector("[role='region']")!
+      .getBoundingClientRect().bottom;
+  const down = () => page.player.getBoundingClientRect().bottom - 64;
+
+  it("stays out of sight for a short move over the video, and the subtitle stays down", async () => {
+    start({}, {}, 200);
+    page.showControls(false);
+    await wait(100);
+    moveOver("middle");
+    expect(page.controls()).not.toBeNull();
+    await wait(400);
+    expect(shown()).toBe(false);
+    expect(adapter.controlBarTop!()).toBeNull();
+    expect(subtitleBottom()).toBeCloseTo(down(), 0);
+  });
+
+  it("shows once the pointer keeps moving over the video", async () => {
+    start({}, {}, 200);
+    page.showControls(false);
+    await wait(100);
+    for (let i = 0; i < 6; i++) {
+      moveOver("middle");
+      await wait(50);
+    }
+    await expect.poll(shown).toBe(true);
+    await expect.poll(subtitleBottom).toBeLessThan(down() - 20);
+  });
+
+  it("counts moves apart by a rest as separate short moves", async () => {
+    start({}, {}, 200);
+    page.showControls(false);
+    await wait(100);
+    for (let i = 0; i < 3; i++) {
+      moveOver("middle");
+      await wait(350);
+    }
+    expect(shown()).toBe(false);
+  });
+
+  it("shows at once when the pointer is in the bar's area", async () => {
+    start();
+    page.showControls(false);
+    await wait(100);
+    moveOver("bottom");
+    await expect.poll(shown).toBe(true);
+  });
+
+  // On netflix.com they sit outside the bar's element and come with it.
+  it("holds back the back arrow and the flag at the top with it", async () => {
+    start();
+    const back = document.createElement("button");
+    back.setAttribute("data-uia", "control-nav-back");
+    page.player.append(back);
+    page.showControls(false);
+    await wait(100);
+    moveOver("middle");
+    await wait(100);
+    expect(getComputedStyle(back).visibility).toBe("hidden");
+    moveOver("bottom");
+    await expect.poll(() => getComputedStyle(back).visibility).toBe("visible");
+  });
+
+  it("is held back again once Netflix took it away", async () => {
+    start();
+    moveOver("bottom");
+    await expect.poll(shown).toBe(true);
+    page.showControls(false);
+    await wait(600);
+    moveOver("middle");
+    await wait(100);
+    expect(shown()).toBe(false);
+  });
+
+  // Netflix also builds the bar anew while the pointer moves.
+  it("stays shown when Netflix builds it anew at once", async () => {
+    start();
+    moveOver("bottom");
+    await expect.poll(shown).toBe(true);
+    // Past the subtitle's 0.2s slide.
+    await wait(400);
+    const lifted = subtitleBottom();
+    page.showControls(false);
+    await wait(50);
+    page.showControls(true);
+    await wait(700);
+    expect(shown()).toBe(true);
+    expect(subtitleBottom()).toBeCloseTo(lifted, 0);
+  });
+
+  it("never shows while Lingo is in use, and goes when it comes into use", async () => {
+    start();
+    moveOver("bottom");
+    await expect.poll(shown).toBe(true);
+    app.store.set({ selecting: true });
+    await expect.poll(shown).toBe(false);
+    moveOver("bottom");
+    await wait(100);
+    expect(shown()).toBe(false);
+  });
+
+  it("shows when Lingo's use ends with the pointer in the bar's area", async () => {
+    start();
+    app.store.set({ selecting: true });
+    moveOver("bottom");
+    await wait(100);
+    expect(shown()).toBe(false);
+    // The move to the bar closed the card.
+    app.store.set({ selecting: false });
+    await expect.poll(shown).toBe(true);
+  });
+
+  it("shows as Netflix shows it while Lingo is off or its subtitle is below the video", async () => {
+    start({}, { enabled: false });
+    await wait(100);
+    expect(shown()).toBe(true);
+    unmount();
+    adapter.dispose();
+    page.remove();
+
+    start(
+      {},
+      { settings: { ...DEFAULT_SETTINGS, subtitlePosition: "belowVideo" } },
+    );
+    await wait(100);
+    expect(shown()).toBe(true);
   });
 });
 

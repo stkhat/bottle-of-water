@@ -597,13 +597,11 @@ for (const build of ["production", "check"] as const)
       await expect(inVideo(page)).toContainText(NF_LINE);
 
       const controlBar = page.locator("[data-uia='controls-standard']");
+      // In the bar's area: Lingo lets Netflix's bar show there at once.
       const moveOverVideo = async () => {
         const viewport = page.viewportSize()!;
-        await page.mouse.move(viewport.width / 3, viewport.height / 2);
-        await page.mouse.move(
-          viewport.width / 3 + 10,
-          viewport.height / 2 + 10,
-        );
+        await page.mouse.move(viewport.width / 3, viewport.height - 60);
+        await page.mouse.move(viewport.width / 3 + 10, viewport.height - 50);
         await expect(controlBar).toBeVisible();
       };
       await moveOverVideo();

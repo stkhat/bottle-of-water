@@ -118,9 +118,11 @@ test("× closes the transcript sidebar for good, the player takes the whole wind
   await expect(transcript).toBeHidden();
   await expect.poll(playerWidth).toBe(windowWidth);
 
-  // Netflix shows its control bar, with the L and ^ buttons, while the pointer moves.
-  await page.mouse.move(200, 200);
-  await page.mouse.move(220, 220);
+  // Netflix shows its control bar, with the L and ^ buttons, while the pointer moves;
+  // Lingo lets it show at once in the bar's area at the bottom.
+  const height = page.viewportSize()!.height;
+  await page.mouse.move(200, height - 60);
+  await page.mouse.move(220, height - 50);
   await page.getByRole("button", { name: en["video.menu"] }).click();
   const menu = page.getByRole("dialog", { name: en["video.menu"] });
   const sidebar = menu.getByRole("switch", {
