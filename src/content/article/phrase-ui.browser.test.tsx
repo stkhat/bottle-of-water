@@ -257,9 +257,11 @@ describe("selection card: the pattern a selection stands for", () => {
     selectText(root, "made", 0, "mind", 4);
     await cardButton("make up one's mind", "+ Learning");
     expect(session.app.store.get().phrase?.card.key).toBe("make up one's mind");
-    await expect
-      .element(card().getByText("決心する、決める"))
-      .toHaveAttribute("lang", "ja");
+    // Its senses, one per line.
+    for (const meaning of ["決心する", "決める"])
+      await expect
+        .element(card().getByText(meaning, { exact: true }))
+        .toHaveAttribute("lang", "ja");
     await expect.element(card().getByText("make — 作る")).toBeVisible();
     expect(cardRoot().textContent).not.toContain("Machine translation");
     expect(background.sent("matchSelection")).toEqual([

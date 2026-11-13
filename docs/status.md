@@ -7,6 +7,7 @@ Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes
 - Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
 - Video subtitles and the transcript: selecting 2–8 words saves a phrase as on articles, and the video pauses while a card, the dictionary window or a selection is open; checked on YouTube and Netflix on 2026-11-13
 - Transcript sidebar: where the player fills the window or the screen (Netflix, YouTube in fullscreen) the player is narrowed and the transcript sits beside it; × and the menu's "Show transcript in sidebar" close and reopen the column everywhere. Checked on Netflix in the window and on the YouTube watch page on 2026-11-13
+- Hover card: up to three senses, one per line, all the same size (2026-11-13); machine-translated meanings keep one line. Not yet checked in the user's Chrome
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
 

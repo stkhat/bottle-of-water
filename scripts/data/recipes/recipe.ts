@@ -1,15 +1,10 @@
 // Build recipes: a pair dictionary merged from human-made sources in order, where the
 // first source that has a term supplies all of it (one source tag per term). See
 // docs/specs/architecture.md "Native meanings and the quality gate".
+import { shortOfDefinition } from "../../../src/core/lexicon/short-lines.ts";
 import type { LemmaPack } from "../../../src/core/packs/types.ts";
 import { eachEntry, posLabel, type KaikkiTranslation } from "../common.ts";
-import {
-  glossOf,
-  isNonConstituent,
-  isUsable,
-  patternKey,
-  shortOf,
-} from "../phrases.ts";
+import { glossOf, isNonConstituent, isUsable, patternKey } from "../phrases.ts";
 
 const MAX_SENSES = 4;
 /** Translated words kept per translation-table sense. */
@@ -104,7 +99,7 @@ export async function readEdition(
       addSense(termOf(terms, key), [pos, text]);
     }
   });
-  return { terms: finish(terms, shortOf), stats };
+  return { terms: finish(terms, shortOfDefinition), stats };
 }
 
 const senseLabel = (text: unknown) =>
@@ -162,7 +157,7 @@ export async function readTranslationTables(
         : undefined;
       add(
         sense.translations,
-        typeof gloss === "string" ? shortOf(gloss.trim()) : undefined,
+        typeof gloss === "string" ? shortOfDefinition(gloss.trim()) : undefined,
       );
     }
     for (const [hint, words] of groups)

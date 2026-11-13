@@ -210,6 +210,7 @@ describe("createLanguageResources", () => {
       kind: "word",
       ipa: "/koˈmeɾ/",
       short: "to eat",
+      lines: ["to eat"],
       senses: [{ pos: "verb", text: "to eat" }],
     });
     expect(dictionary.entry("a escondidas")).toMatchObject({
