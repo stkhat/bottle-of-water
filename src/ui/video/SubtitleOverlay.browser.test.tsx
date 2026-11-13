@@ -342,6 +342,27 @@ describe("SubtitleOverlay", () => {
       expect(selectedOffsets(line(screen))).toEqual(whole);
     });
 
+    test("a drag that starts inside the selected words selects anew instead of dragging them", async () => {
+      const whole = { from: at("today"), to: at("bread") + "bread".length };
+      const onSelect = vi.fn((): typeof whole | undefined => whole);
+      const screen = await mountInShadowRoot(
+        <SubtitleOverlay {...base} onSelect={onSelect} />,
+      );
+      await drag(word(screen, "today"), word(screen, "bread"));
+      await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+      expect(selectedOffsets(line(screen))).toEqual(whole);
+
+      onSelect.mockImplementation(() => undefined);
+      await drag(word(screen, "figure out"), word(screen, "from scratch"));
+      await expect.poll(() => onSelect.mock.calls.length).toBe(2);
+      const selected = (onSelect.mock.calls[1] as unknown[])[0] as {
+        from: number;
+        to: number;
+      };
+      expect(selected.from).toBeGreaterThan(at("figure"));
+      expect(selected.to).toBeGreaterThan(at("from"));
+    });
+
     test("a drag inside a word opens nothing", async () => {
       const onSelect = vi.fn(() => undefined);
       const onWordClick = vi.fn();

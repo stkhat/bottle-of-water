@@ -236,6 +236,16 @@ describe("selection card", () => {
     await cardButton("one two three four five six seven eight", "Known");
   });
 
+  it("selects anew from a drag that starts inside the selected words", async () => {
+    const { root } = await setup(ARTICLE);
+    await dragSelect(root, "rise", 2, "fall", 2);
+    await cardButton("rise and fall", "+ Learning");
+    expect(getSelection()!.toString()).toBe("rise and fall");
+    await dragSelect(root, "and fall", 1, "back", 2);
+    await cardButton("and fall back", "+ Learning");
+    expect(getSelection()!.toString()).toBe("and fall back");
+  });
+
   it("goes away when the selection does", async () => {
     const { root } = await setup(ARTICLE);
     await dragSelect(root, "rise", 0, "fall", 4);

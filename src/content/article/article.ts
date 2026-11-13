@@ -477,6 +477,7 @@ export async function startArticle(
     selection: selection.select,
     escape: closePanel,
     pressAway: closePanel,
+    selecting: selection.selecting,
     scroll() {
       cards.follow();
       selection.follow();

@@ -3,7 +3,7 @@
 Progress (one subagent per step, one branch `claude/highlight-feature-fixes-0dea49`, one PR):
 - [x] A. Details button always on the hover card (item 3) + white outline on the L / ^ group (item 4), mock and spec
 - [x] B. Netflix L group height (item 5)
-- [ ] C. Selection partly over an existing highlight (item 2)
+- [x] C. Selection partly over an existing highlight (item 2)
 - [ ] D. Meta-label definitions such as "A mild intensifier." (item 6)
 - [ ] E. Freeze while selecting: measure, then fix (item 1)
 - [ ] F. verify, PR, merge

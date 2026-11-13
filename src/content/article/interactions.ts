@@ -14,6 +14,11 @@ export interface InteractionCallbacks {
   escape(): void;
   /** The user pressed the page somewhere other than a word a click opens. */
   pressAway(): void;
+  /**
+   * Words are selected for a phrase: a press on the page drops the selection first,
+   * so it selects anew instead of dragging the selected words.
+   */
+  selecting(): boolean;
   /** The page or an element in it scrolled, or the window was resized. */
   scroll(): void;
 }
@@ -93,6 +98,8 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
     if (!fromUser(event) || inLingoUi(event)) return;
     pressed = true;
     hideNow();
+    if (event.button === 0 && !event.shiftKey && cb.selecting())
+      getSelection()?.removeAllRanges();
     if (!opensWord(event)) cb.pressAway();
   }
 
@@ -108,6 +115,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
     }, delay);
   }
 
+  /** The press ended, or the browser took it over (`pointercancel`). */
   function onPointerUp(event: PointerEvent) {
     if (!fromUser(event) || !pressed) return;
     pressed = false;
@@ -154,6 +162,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
   document.addEventListener("pointermove", onPointerMove, passive);
   document.addEventListener("pointerdown", onPointerDown, passive);
   document.addEventListener("pointerup", onPointerUp, passive);
+  document.addEventListener("pointercancel", onPointerUp, passive);
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown, true);
@@ -178,6 +187,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
       document.removeEventListener("pointermove", onPointerMove, passive);
       document.removeEventListener("pointerdown", onPointerDown, passive);
       document.removeEventListener("pointerup", onPointerUp, passive);
+      document.removeEventListener("pointercancel", onPointerUp, passive);
       document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKeyDown, true);
