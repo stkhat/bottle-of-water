@@ -454,7 +454,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     },
     seekToCue(index) {
       const cue = store.get().cues[index];
-      if (cue) adapter.seek(cue.startMs).catch(warn);
+      if (!cue) return;
+      // A card plays from its start, even when the video was paused.
+      adapter
+        .seek(cue.startMs)
+        .then(() => (adapter.video()?.paused ? adapter.play() : undefined))
+        .catch(warn);
     },
     enterWord: (ref, anchor, from = "subtitle") =>
       cards.enterWord(ref, anchor, from),

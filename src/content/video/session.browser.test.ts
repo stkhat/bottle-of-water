@@ -747,12 +747,25 @@ describe("on and off", () => {
     expect(state().enabled).toBe(true);
   });
 
-  it("seeks to a card", async () => {
-    const { state, site, session } = await start();
+  it("seeks to a card and plays the paused video from there", async () => {
+    const { state, video, site, session } = await start();
     await ready(state);
+    expect(video.paused).toBe(true);
+    session.app.seekToCue(2);
+    expect(site.log.seeks).toEqual([2500]);
+    await expect.poll(() => site.log.playback).toEqual(["play"]);
+    await expect.poll(() => state().current).toBe(2);
+    expect(video.paused).toBe(false);
+  });
+
+  it("keeps a playing video playing when a card is clicked", async () => {
+    const { state, video, site, session } = await start();
+    await ready(state);
+    await video.play();
     session.app.seekToCue(2);
     expect(site.log.seeks).toEqual([2500]);
     await expect.poll(() => state().current).toBe(2);
+    expect(site.log.playback).toEqual([]);
   });
 
   it("follows nothing while an ad plays", async () => {

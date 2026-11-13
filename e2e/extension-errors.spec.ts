@@ -588,6 +588,13 @@ for (const build of ["production", "check"] as const)
     async function useNetflix(page: Page) {
       await videoCard(page, NF_LINE).click({ position: ON_TIME });
       await expect(inVideo(page)).toContainText(NF_LINE);
+      // The card plays the video from its line; paused, the flow below stays on it.
+      const video = page.locator("video");
+      await expect
+        .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
+        .toBe(false);
+      await video.evaluate((v: HTMLVideoElement) => v.pause());
+      await expect(inVideo(page)).toContainText(NF_LINE);
 
       const controlBar = page.locator("[data-uia='controls-standard']");
       const moveOverVideo = async () => {
