@@ -208,6 +208,13 @@ Real-site check after all six steps (check build from b66986e; the same article,
   - Wrong phrase matches in dialogue: "just about" in "this isn't just about you…", and "you tell me" in "why don't you tell me…".
 - Next fixes this suggests: apply A3's cap and de-duplication to translated English definitions; demote "Used to…" and figure-of-speech definitions in C2; keep abbreviations (Nov, Mon, Jan) on their dictionary entry before rule E words; check "just about" (before a pronoun or noun phrase) and multi-word phrases inside questions with the context rule.
 
+Hover fixes after that check (PR #62, 2026-11-14; corpus of 171,709 tokens; checked in the user's Chrome with the check build from 87d8606, error log empty on all three pages, then cleared):
+- Translated meanings: the hover shows one short line (each comma item once, within 25 Japanese characters; a long line keeps the longer of a head that ends a clause and a tail, since the main verb comes last). Over 264 Chrome translations of definitions: width median 32 → 30, 90th percentile 66 → 46, over the cap 23% → 0%. "put together" → 組み立て、構築、または定式化.
+- Usage notes: a definition that only says how a phrase is used ("Used to…", an apophasis, a rhetorical question) is not translated; the phrase itself is. "not to mention" → 言うまでもありません. Over the 22 such terms in the corpus (94 uses): better 71, worse 12 (my goodness → 私の良さ, suck it), alike 11.
+- Abbreviations: a capitalised word EJDict has no lower-case entry for takes EJDict's abbreviation ("Nov" → 11月(Nov.); Wis, St, Mon). A lower-case pointer to a letter-case form takes that form's definition (aka, gif, dna: 219 words).
+- Dialogue: "you tell me" inside a longer sentence and "just about" / "kind of" before a personal pronoun are no longer highlighted; "don't" counts as a do-auxiliary. Highlights 26.8 → 26.7 per 1,000 tokens; the 23 removed are all wrong matches; the 178 judged highlights are unchanged.
+- Not fixed: "get around" still shows Wiktionary's first, literal sense (now one short line). Lifting senses labelled figurative or idiomatic was measured and dropped: the labels are uneven ("get it" ×48 → to receive punishment; with verbs and "figuratively" only, 15 better vs 8 worse, "go to sleep" → paresthesia).
+
 ## Netflix
 Round 2 judged Netflix last, after the prototype was frozen, so these numbers test whether the rules carry over to TV dialogue.
 
