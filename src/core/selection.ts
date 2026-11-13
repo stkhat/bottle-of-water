@@ -9,23 +9,29 @@ export interface SnappedWords {
 }
 
 /**
- * A detected (unsaved) phrase as its words, so a selection snaps to whole words
- * rather than to a phrase the user did not choose. Its words are separated only by
- * spaces, and its key has one base form per word. Saved phrases stay whole, and so do
- * the parts of a saved phrase with a gap.
+ * A phrase as its words, so a selection snaps to whole words rather than to a phrase
+ * the user did not choose: a detected (unsaved) phrase, and a saved one the selection
+ * (`from` to `to`) covers only part of. Its words are separated only by spaces, and
+ * its key has one base form per word (no slot another word fills). A saved phrase the
+ * selection covers whole stays whole, and so does a saved phrase with a slot and the
+ * parts of a phrase with a gap.
  */
-function wordsOf(span: Span, text: string): Span[] {
-  if (span.kind !== "phrase" || span.category !== "new") return [span];
+function wordsOf(span: Span, text: string, from: number, to: number): Span[] {
+  if (span.kind !== "phrase" || span.part || span.slot) return [span];
   const keys = span.key.split(" ");
   const words = [...text.slice(span.start, span.end).matchAll(/\S+/g)];
   if (words.length !== keys.length) return [span];
-  return words.map((word, i) => ({
+  const spans = words.map((word, i): Span => ({
     start: span.start + word.index,
     end: span.start + word.index + word[0].length,
     key: keys[i]!,
     kind: "word",
     category: span.category,
   }));
+  const saved = span.category !== "new";
+  return saved && spans.every((s) => s.end > from && s.start < to)
+    ? [span]
+    : spans;
 }
 
 const MIN_PHRASE_WORDS = 2;
@@ -41,9 +47,9 @@ const wordCount = (span: Span, text: string) =>
   wordsIn(span.part ? text.slice(span.start, span.end) : span.key);
 
 /**
- * The text from `from` to `to` as a selection of 2–8 words, widened to whole words and
- * whole saved phrases, every part of a phrase with a gap included (a detected phrase
- * counts as its words). `spans` are the text's spans in text order. Undefined when it is
+ * The text from `from` to `to` as a selection of 2–8 words, widened to whole words,
+ * every part of a phrase with a gap included, and a saved phrase with a slot (a
+ * detected phrase, and a saved one it covers only part of, count as their words). `spans` are the text's spans in text order. Undefined when it is
  * collapsed, has fewer or more words, or its words are separated by anything but spaces
  * (a saved phrase only matches words joined by spaces).
  */
@@ -63,7 +69,7 @@ export function snapWords(
       end = Math.max(end, part.end);
     }
   const inside = spans
-    .flatMap((s) => wordsOf(s, text))
+    .flatMap((s) => wordsOf(s, text, start, end))
     .filter((s) => s.end > start && s.start < end);
   const words = inside.reduce((n, s) => n + wordCount(s, text), 0);
   if (words < MIN_PHRASE_WORDS || words > MAX_PHRASE_WORDS) return undefined;

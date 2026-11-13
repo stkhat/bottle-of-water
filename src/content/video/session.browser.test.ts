@@ -1252,6 +1252,107 @@ describe("selecting words", () => {
   });
 });
 
+describe("selecting words over a highlighted phrase", () => {
+  const CRUST: Cue[] = [
+    { startMs: 0, endMs: 2000, text: "She gave up the crust." },
+  ];
+  const TEXT = CRUST[0]!.text;
+  const at = (word: string) => TEXT.indexOf(word);
+  /** Words from inside "up" to inside "crust": "give up" is highlighted over "gave up". */
+  const upTheCrust = {
+    cue: 0,
+    start: at("up") + 1,
+    end: at("crust") + 2,
+    place: "transcript" as const,
+  };
+  const spansOf = (state: () => VideoState) =>
+    state().spans[0]!.map(
+      (s) => `${TEXT.slice(s.start, s.end)}:${s.key}:${s.category}`,
+    );
+
+  it("shows the selected words' card, saves them and highlights them instead of the detected phrase", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(CRUST) });
+    await ready(state);
+    await classified(state);
+    expect(spansOf(state)).toContain("gave up:give up:new");
+    app.selectStart("transcript");
+    expect(app.selectWords(upTheCrust, () => BOX)).toEqual({
+      start: at("up"),
+      end: at("crust") + "crust".length,
+    });
+    await expect.poll(() => state().phrase?.card.key).toBe("up the crust");
+    expect(state().phrase?.ref.selected).toEqual({
+      key: "up the crust",
+      start: at("up"),
+      end: at("crust") + "crust".length,
+    });
+    app.saveSelection("learning");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "up the crust",
+      display: "up the crust",
+      kind: "phrase",
+      status: "learning",
+    });
+    await expect
+      .poll(() => spansOf(state))
+      .toContain("up the crust:up the crust:learning");
+    expect(spansOf(state).some((s) => s.includes("give up"))).toBe(false);
+  });
+
+  it("saves words selected over a detected phrase and past it under their own keys", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(CRUST) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords({ ...upTheCrust, start: at("gave") + 1 }, () => BOX);
+    await expect.poll(() => state().phrase?.card.key).toBe("give up the crust");
+    app.saveSelection("known");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "give up the crust",
+      display: "gave up the crust",
+    });
+    await expect
+      .poll(() => spansOf(state))
+      .toContain("gave up the crust:give up the crust:known");
+  });
+
+  it("snaps to the words of a saved phrase the selection only partly covers", async () => {
+    const { state, app } = await start(
+      { vid1: captionsOf(CRUST) },
+      {
+        before: (bg) =>
+          bg.send({
+            type: "saveTerm",
+            lang: "en",
+            key: "give up",
+            display: "gave up",
+            kind: "phrase",
+            status: "learning",
+            source: {
+              platform: "web",
+              url: "https://example.com/",
+              title: "",
+              lang: "en",
+            },
+            sentence: "They gave up.",
+            pos: { textQuote: "They gave up." },
+          }),
+      },
+    );
+    await ready(state);
+    await classified(state);
+    expect(spansOf(state)).toContain("gave up:give up:learning");
+    app.selectStart("transcript");
+    expect(app.selectWords(upTheCrust, () => BOX)).toEqual({
+      start: at("up"),
+      end: at("crust") + "crust".length,
+    });
+    await expect.poll(() => state().phrase?.card.key).toBe("up the crust");
+  });
+});
+
 describe("pausing while Lingo is in use", () => {
   /** Plays from the start, slowly, so the first line lasts while a card opens. */
   async function playSlowly(video: HTMLVideoElement) {

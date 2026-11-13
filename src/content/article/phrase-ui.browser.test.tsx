@@ -383,3 +383,43 @@ describe("selection card: the pattern a selection stands for", () => {
     await expect.element(panel.getByText("On this page · 2")).toBeVisible();
   });
 });
+
+describe("selection card: words partly over a highlighted phrase", () => {
+  const CRUST = `
+    <div style="height: 120px"></div>
+    <p>She gave up the crust.</p>`;
+
+  it("saves the selected words, not the phrase, and highlights them instead of it", async () => {
+    const { root, background } = await setup(CRUST, {
+      settings: { highlight: { new: true, learning: true, known: false } },
+    });
+    await expect.poll(() => highlighted("lingo-new")).toContain("gave up");
+    selectText(root, "up the", 0, "crust", 5);
+    await (await cardButton("up the crust", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "up the crust",
+      display: "up the crust",
+      kind: "phrase",
+      status: "learning",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["up the crust"]);
+    expect(highlighted("lingo-new")).not.toContain("gave up");
+  });
+
+  it("saves words selected over the phrase and past it under their own keys", async () => {
+    const { root, background } = await setup(CRUST);
+    selectText(root, "gave", 0, "crust", 5);
+    await (await cardButton("gave up the crust", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "give up the crust",
+      display: "gave up the crust",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["gave up the crust"]);
+  });
+});

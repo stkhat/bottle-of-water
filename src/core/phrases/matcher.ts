@@ -80,12 +80,13 @@ export interface PhraseMatcher {
   ): PhraseMatch | undefined;
   /**
    * The pattern a selection of words `from` (inclusive) to `to` (exclusive) stands
-   * for, in select mode. A match counts when at least two of its pattern words are
+   * for, in select mode. A match counts when its first-to-last word (gap words
+   * included) spans every selected word and at least two of its pattern words are
    * selected (so a one-word selection matches nothing); it may reach past the
    * selection, so the sentence completes a selection that is part of a longer
-   * pattern. Wins: the most selected words inside the match's first-to-last word
-   * (gap words included), then the most pattern words, then the earliest start, then
-   * the key in code-unit order. Undefined when no match counts.
+   * pattern, but a pattern that only part of the selection is in does not stand for
+   * it. Wins: the most pattern words, then the earliest start, then the key in
+   * code-unit order. Undefined when no match counts.
    */
   matchSelection(
     input: MatchInput,
@@ -327,18 +328,14 @@ export function createPhraseMatcher({
     longestAt,
     matchSelection(input, from, to) {
       const selected = (i: number) => i >= from && i < to;
-      const covered = (match: PhraseMatch) =>
-        Math.min(match.words.at(-1)!, to - 1) -
-        Math.max(match.words[0]!, from) +
-        1;
       let best: PhraseMatch | undefined;
-      for (let i = 0; i < to; i++)
+      for (let i = 0; i <= from; i++)
         for (const match of matchesAt(input, i, "select")) {
+          if (match.words.at(-1)! < to - 1) continue;
           if (match.words.filter(selected).length < 2) continue;
           if (
             !best ||
-            (covered(match) - covered(best) ||
-              match.words.length - best.words.length ||
+            (match.words.length - best.words.length ||
               best.words[0]! - match.words[0]! ||
               byKey(best, match)) > 0
           )

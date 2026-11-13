@@ -61,6 +61,12 @@ export interface Span {
    */
   part?: SpanPart;
   /**
+   * Set on a phrase whose key has a slot that another word fills ("her" for one's in
+   * "made up her mind" under `make up one's mind`): its key's words are not all its
+   * words' keys.
+   */
+  slot?: true;
+  /**
    * A word capitalised on the page in a way that counts (`capitalHere`, or a name that
    * keeps its capitalised meaning): its lookup asks for the capitalised headword's
    * senses first.
@@ -130,8 +136,10 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   phrases match in "saved" mode (slots: "made up his mind" is `make up one's mind`;
  *   a gap when the pack flags the phrase as one: "figure it out" is `figure out`);
  *   dictionary phrases in "detect" mode (contiguous, no slots). Saved phrases win:
- *   where any saved phrase matches, the longest saved one is used, even when a
- *   dictionary phrase is longer; otherwise the longest dictionary phrase. A saved
+ *   they are found first, left to right (the longest at each word, none starting
+ *   inside an earlier one), even where a dictionary phrase is longer or starts
+ *   earlier; dictionary phrases (the longest at each word) fill the words outside
+ *   them. A saved
  *   phrase takes its status; an unsaved dictionary phrase is new (the known level
  *   applies to words only) and does not match over a word saved as learning, which
  *   keeps its own span.
@@ -213,21 +221,38 @@ export function createClassifier(pack: LanguagePack): Classifier {
       );
 
       /**
-       * The phrase starting at word i: the longest saved phrase, or when no saved
-       * phrase matches, the longest dictionary phrase without a word saved as learning,
+       * Saved phrases first, left to right: the longest one starting at a word, and
+       * none starting inside an earlier one (gap words included). `savedAt[i]`: the
+       * saved phrase starting at word i; `inSaved[i]`: word i is inside one.
+       */
+      const savedAt: (PhraseMatch | undefined)[] = [];
+      const inSaved: boolean[] = [];
+      for (let i = 0; i < words.length; i++) {
+        const saved = matcher.longestAt(input, i, "saved", terms);
+        if (!saved) continue;
+        savedAt[i] = saved;
+        const last = saved.words.at(-1)!;
+        for (let j = i; j <= last; j++) inSaved[j] = true;
+        i = last;
+      }
+
+      /**
+       * The phrase starting at word i: the saved phrase there, or the longest
+       * dictionary phrase without a word saved as learning or inside a saved phrase,
        * when it is that phrase here (`phraseMisfit`; a shorter one does not stand in
        * for it: "so long as" is no "so long").
        */
       const phraseAt = (i: number): PhraseMatch | undefined => {
-        const saved = matcher.longestAt(input, i, "saved", terms);
-        if (saved || !detects) return saved;
+        const saved = savedAt[i];
+        if (saved || !detects || inSaved[i]) return saved;
         const matches = matcher.matchesAt(input, i, "detect");
         const longest =
           matches.length === 0
             ? undefined
             : longestMatch(
                 matches.filter(
-                  (match) => !match.words.some((j) => learning[j]),
+                  (match) =>
+                    !match.words.some((j) => learning[j] || inSaved[j]),
                 ),
               );
         return longest &&
@@ -283,6 +308,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const pos = markerPos(pack, match, readings, punctuated);
         const last = match.words.at(-1)!;
         const runs = runsOf(match.words);
+        const keyWords = key.split(" ").map(normalizeWord);
+        const slot = match.words.some(
+          (j, n) => !words[j]!.forms.includes(keyWords[n]!),
+        );
         const whole = {
           start: words[i]!.token.start,
           end: words[last]!.token.end,
@@ -298,6 +327,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             kind: "phrase",
             category,
             ...(pos !== undefined && { pos }),
+            ...(slot && { slot }),
             ...(runs.length > 1 && {
               part: { index, count: runs.length, ...whole },
             }),

@@ -241,7 +241,7 @@ describe("classify phrases", () => {
 });
 
 describe("classify phrases with slots and gaps", () => {
-  it("matches a saved phrase with a slot as one span", () => {
+  it("matches a saved phrase with a slot as one span, marked when another word fills the slot", () => {
     expect(
       classify("She made up his mind.", { "make up one's mind": "learning" }),
     ).toContainEqual({
@@ -250,8 +250,21 @@ describe("classify phrases with slots and gaps", () => {
       key: "make up one's mind",
       kind: "phrase",
       category: "learning",
+      slot: true,
       text: "made up his mind",
     });
+    expect(
+      classify("Make up one's mind.", { "make up one's mind": "learning" }),
+    ).toEqual([
+      {
+        start: 0,
+        end: 18,
+        key: "make up one's mind",
+        kind: "phrase",
+        category: "learning",
+        text: "Make up one's mind",
+      },
+    ]);
   });
 
   it("does not detect a pattern that is matched only when saved", () => {
@@ -428,6 +441,24 @@ describe("classify dictionary phrases", () => {
     expect(brief(classify("gave up on it", { "give up": "learning" }))).toEqual(
       ["gave up:give up:learning", "on:on:known", "it:it:new"],
     );
+  });
+
+  it("draws a saved phrase that starts inside an earlier dictionary phrase, not that phrase", () => {
+    expect(brief(classify("gave up on it", { "on it": "learning" }))).toEqual([
+      "gave up:give up:new",
+      "on it:on it:learning",
+    ]);
+    expect(
+      brief(classify("spilled the beans", { "the bean": "known" })),
+    ).toEqual(["spilled:spill:new", "the beans:the bean:known"]);
+  });
+
+  it("draws the first of two overlapping saved phrases", () => {
+    expect(
+      brief(
+        classify("gave up on it", { "give up": "known", "up on": "known" }),
+      ),
+    ).toEqual(["gave up:give up:known", "on:on:known", "it:it:new"]);
   });
 
   it("detects the longest dictionary phrase when no saved phrase matches", () => {
