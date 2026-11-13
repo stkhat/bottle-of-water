@@ -6,7 +6,7 @@ Progress (one subagent per step, one branch `claude/highlight-feature-fixes-0dea
 - [x] C. Selection partly over an existing highlight (item 2)
 - [x] D. Meta-label definitions such as "A mild intensifier." (item 6)
 - [x] E. Freeze while selecting: measure, then fix (item 1) — not reproduced on the dev Mac; render and stuck-state fixes, `docs/notes/selection-performance.md`
-- [ ] F. verify, PR, merge
+- [x] F. verify, PR, merge
 
 
 ## Context

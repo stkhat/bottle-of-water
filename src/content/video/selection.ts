@@ -233,10 +233,6 @@ export function createSelection(o: {
     lineChanged() {
       if (pressFrom === "subtitle") clear();
     },
-    /** The transcript scrolled: its selection's card would no longer be by the words. */
-    transcriptScrolled() {
-      if (pressFrom === "transcript") clear();
-    },
     /**
      * The video started playing (the user's play, or a transcript card's): words
      * selected in the transcript go, as Lingo paused the video for them.
