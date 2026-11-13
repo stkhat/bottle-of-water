@@ -175,8 +175,12 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
 - **Tagger accuracy on ASR and captions** (measured only in-domain); its errors flip a few senses (calmer → 静けさ).
 
 ## Suggested order
-1. A1, A3, D and the EJDict capitalised split (small, deterministic, measured).
-2. The tagger part, then A2 and the phrase context check with P1 and P2.
+1. A1, A3, D and the EJDict capitalised split (small, deterministic, measured). **Done** (2026-11-13):
+   - PR #54: hover lines follow pointers to the base word (went → goの過去, then go's senses) and keep one short sense per line (lines wider than 25 Japanese characters 21,750 → 328 on the corpus).
+   - PR #55: EJDict's capitalised senses are kept apart (Japan → 日本 first) and names are found by document casing (no highlight, no hover).
+   - The tag-dependent part of A1 (decided → decide, auxiliary "has been") moves to step 2.
+   - Seen in the real-site check: a surname missing from the names lexicon still gets a common meaning (Harvey Specter → 幽霊). A run of capitalised words should be one name, which would cover it.
+2. The tagger part, then A2 and the phrase context check with P1 and P2. Also the tag-dependent part of A1.
 3. The phrase data rebuild (B1, B2, B4, C1, C2) with its size decision.
 4. E (vocabulary).
 5. G (alignment).
