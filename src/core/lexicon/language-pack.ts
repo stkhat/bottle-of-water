@@ -7,7 +7,11 @@ import type {
 } from "../packs/types";
 import { own } from "../util";
 import { createPhraseMatcher, type PhraseMatcher } from "../phrases/matcher";
-import type { PhrasePatterns, PhraseRules } from "../phrases/pattern";
+import {
+  phrasePosIndex,
+  type PhrasePatterns,
+  type PhraseRules,
+} from "../phrases/pattern";
 import { rulesFor } from "../phrases/rules";
 import { tokenize, type Token } from "../text/tokenize";
 import { englishTagger } from "../tagging/en";
@@ -59,6 +63,13 @@ export interface LanguagePack {
   /** A word's parts of speech, its main one first; [] when the pack has none. */
   partsOfSpeech(word: string): readonly string[];
   /**
+   * A phrase pattern's own parts of speech in the source (`PhrasePatterns.pos`:
+   * verb, adv, prep_phrase, intj…), its main one first; [] when it has none.
+   */
+  phrasePos(key: string): readonly string[];
+  /** The source marks the verb pattern's senses intransitive and never transitive ("fly in"). */
+  intransitive(key: string): boolean;
+  /**
    * The language's part-of-speech tagger and grammar (rules A1 and A2,
    * `word-sense.ts`), when the pack has a model for it (English so far).
    */
@@ -87,6 +98,8 @@ export function createLanguagePack(
   const lemmas = (word: string) => lemmatize(word, data.lemmas, data.vocab);
   let phrases: ReadonlySet<string> | undefined;
   let matcher: PhraseMatcher | undefined;
+  let phrasePos: ReadonlyMap<string, readonly string[]> | undefined;
+  let intransitive: ReadonlySet<string> | undefined;
   const makeTagger = own(TAGGERS, lang);
   const tagger = data.tagger && makeTagger?.(data.tagger);
   return {
@@ -101,6 +114,10 @@ export function createLanguagePack(
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
     name: (word) => (data.names ? own(data.names, word) : undefined),
     partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
+    phrasePos: (key) =>
+      (phrasePos ??= phrasePosIndex(data.patterns)).get(key) ?? [],
+    intransitive: (key) =>
+      (intransitive ??= new Set(data.patterns.intransitive)).has(key),
     ...(tagger && { tagger }),
     get phrases() {
       return (phrases ??= new Set(data.patterns.detect));

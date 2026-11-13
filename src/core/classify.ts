@@ -2,6 +2,7 @@ import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
 import { nameVerdict } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
+import { markerPos, phraseMisfit } from "./phrases/fit";
 import { longestMatch, type PhraseMatch } from "./phrases/matcher";
 import {
   capitalHere,
@@ -71,8 +72,9 @@ export interface Span {
    */
   name?: true;
   /**
-   * The part of speech the word's trusted tag gives it here (rule A2, `sensePos`): its
-   * lookup shows the senses of that part of speech first.
+   * The part of speech the word's trusted tag gives it here (rule A2, `sensePos`), or a
+   * discourse marker's ("interjection" for "you know" at a clause start, `markerPos`):
+   * its lookup shows the senses of that part of speech first.
    */
   pos?: string;
 }
@@ -143,10 +145,14 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   names): a name (`nameVerdict`) is ignored, even a saved word, unless it keeps a
  *   capitalised meaning; that one and a word capitalised in a way that counts
  *   (`capitalHere`) get `capital`.
- * - With the dictionary's outlines and a pack with a tagger: each sentence is tagged
- *   once, an unsaved word takes the base form its tag asks for (rule A1,
- *   `chooseKey`: decided → decide) and a word its trusted tag's part of speech
- *   (`pos`, rule A2), unless it is a name or capitalised in a way that counts.
+ * - With a tagger, each sentence is tagged once. A dictionary phrase is matched only
+ *   where its context fits it (`phraseMisfit`: "what kind of music" is no adverb "kind
+ *   of"); its words are words otherwise. A discourse marker at a clause start takes
+ *   its interjection senses (`markerPos`).
+ * - With the dictionary's outlines and a pack with a tagger: an unsaved word takes
+ *   the base form its tag asks for (rule A1, `chooseKey`: decided → decide) and a
+ *   word its trusted tag's part of speech (`pos`, rule A2), unless it is a name or
+ *   capitalised in a way that counts.
  */
 export function createClassifier(pack: LanguagePack): Classifier {
   // One matcher per pack: its dictionary trie is built once.
@@ -157,10 +163,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
       const input = matcher.prepare(tokens);
       const { words } = input;
       const spans: Span[] = [];
-      /** Rules A1 and A2: each word's tag and use, with a tagger and the dictionary. */
-      const readings = outline
-        ? readWords(pack, tokens, words, casing?.mode === "upper")
-        : [];
+      /** With a tagger, each word's tag and use: the phrase rules, A1 and A2 read them. */
+      const readings = readWords(pack, tokens, words, casing?.mode === "upper");
+      const punctuated = casing?.unpunctuated !== true;
       /** Rule D and written case, in a mixed-case document only. */
       const cases =
         casing?.mode === "mixed" && pack.namesByCase
@@ -205,17 +210,26 @@ export function createClassifier(pack: LanguagePack): Classifier {
 
       /**
        * The phrase starting at word i: the longest saved phrase, or when no saved
-       * phrase matches, the longest dictionary phrase without a word saved as learning.
+       * phrase matches, the longest dictionary phrase without a word saved as learning,
+       * when it is that phrase here (`phraseMisfit`; a shorter one does not stand in
+       * for it: "so long as" is no "so long").
        */
       const phraseAt = (i: number): PhraseMatch | undefined => {
         const saved = matcher.longestAt(input, i, "saved", terms);
         if (saved || !detects) return saved;
         const matches = matcher.matchesAt(input, i, "detect");
-        return matches.length === 0
-          ? undefined
-          : longestMatch(
-              matches.filter((match) => !match.words.some((j) => learning[j])),
-            );
+        const longest =
+          matches.length === 0
+            ? undefined
+            : longestMatch(
+                matches.filter(
+                  (match) => !match.words.some((j) => learning[j]),
+                ),
+              );
+        return longest &&
+          phraseMisfit(pack, longest, readings, punctuated) === undefined
+          ? longest
+          : undefined;
       };
 
       /**
@@ -262,6 +276,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         }
         const { key } = match;
         const category = terms.get(key) ?? "new";
+        const pos = markerPos(pack, match, readings, punctuated);
         const last = match.words.at(-1)!;
         const runs = runsOf(match.words);
         const whole = {
@@ -278,6 +293,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             key,
             kind: "phrase",
             category,
+            ...(pos !== undefined && { pos }),
             ...(runs.length > 1 && {
               part: { index, count: runs.length, ...whole },
             }),

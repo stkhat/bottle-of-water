@@ -35,6 +35,17 @@ describe("englishTagger: tag", () => {
       "NN",
     ]);
   });
+  it("splits gonna, wanna and gotta as the treebank does, taking the verb's tag", () => {
+    const spoken = englishTagger({
+      ...MODEL,
+      words: { gon: "VBG", na: "TO", wan: "VBP", got: "VBD", ta: "TO" },
+    });
+    expect(spoken.tag(["gonna", "wanna", "gotta"]).map((t) => t.tag)).toEqual([
+      "VBG",
+      "VBP",
+      "VBD",
+    ]);
+  });
   it("reads a lower-case i as the pronoun, as the treebank writes it", () => {
     // Only the shape feature sees the capital: "i" and "I" score alike otherwise.
     const shaped = englishTagger({
@@ -103,6 +114,11 @@ const T: Record<string, TokenTag> = {
   VBD: tagOf("VBD", "verb", true),
   VBN: tagOf("VBN", "verb", true),
   VBG: tagOf("VBG", "verb", true),
+  MD: tagOf("MD", "verb"),
+  RP: tagOf("RP", "adverb"),
+  CD: tagOf("CD", "numeral"),
+  WP: tagOf("WP", "pronoun"),
+  PRP$: tagOf("PRP$", "determiner"),
 };
 
 /** Words "form/TAG[/base]", trusted unless the tag is a proper noun's. */
@@ -183,6 +199,53 @@ describe("englishTagger: uses", () => {
       false,
     );
     expect(slot("the/DT table/NN")[0]).toBe(false);
+  });
+});
+
+describe("englishTagger: role", () => {
+  const roles = (text: string) => sentence(text).map(tagger.role);
+  it("finds what opens a noun phrase, and determiners", () => {
+    const [the, my, what, that, dog, three, harvey, it] = roles(
+      "the/DT my/PRP$ what/WP that/DT dog/NN three/CD harvey/NNP it/PRP",
+    );
+    expect([the, my, what].map((r) => r!.determiner)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    // "that" opens a clause as often as a noun phrase.
+    expect(that).toMatchObject({ determiner: false, nounPhrase: false });
+    expect(that!.object).toBe(true);
+    expect([dog, three, harvey].map((r) => r!.nounPhrase)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    expect(it).toMatchObject({ nounPhrase: false, subject: true });
+  });
+  it("finds objects, modals, the infinitive marker and prepositions", () => {
+    const [him, can, does, to, of, at] = roles(
+      "him/PRP can/MD does/VBZ/do to/TO of/IN at/IN",
+    );
+    expect(him!.object).toBe(true);
+    expect(can!.modal).toBe(true);
+    expect(does!.modal).toBe(true);
+    expect(to!.infinitive).toBe(true);
+    expect(of).toMatchObject({ partitive: true, preposition: true });
+    expect(at).toMatchObject({ partitive: false, preposition: true });
+  });
+  it("finds be and past participles", () => {
+    const [was, were, held, holds] = roles(
+      "was/VBD/be we're/PRP held/VBN/hold holds/VBZ/hold",
+    );
+    expect(was!.be).toBe(true);
+    expect(were!.be).toBe(true);
+    expect(held!.pastParticiple).toBe(true);
+    expect(holds!.pastParticiple).toBe(false);
+  });
+  it("reads nothing from a tag that is not trusted", () => {
+    const [word] = sentence("the/DT");
+    expect(tagger.role({ ...word!, trusted: false }).determiner).toBe(false);
   });
 });
 

@@ -151,5 +151,24 @@ describe("readCasing", () => {
     expect(readCasing({ mode: "loud", words: {} })).toBeUndefined();
     expect(readCasing({ mode: "mixed", words: { a: [1] } })).toBeUndefined();
     expect(readCasing(undefined)).toBeUndefined();
+    expect(
+      readCasing({ mode: "lower", words: {}, unpunctuated: true }),
+    ).toEqual({ mode: "lower", words: {}, unpunctuated: true });
+    expect(
+      readCasing({ mode: "lower", words: {}, unpunctuated: 1 }),
+    ).toBeUndefined();
+  });
+});
+
+describe("documentCasing: punctuation", () => {
+  const words = (n: number) => Array.from({ length: n }, () => "so").join(" ");
+  it("finds a document of 50 words or more with fewer than one comma per 50 unpunctuated", () => {
+    expect(casingOf(words(60), words(60)).unpunctuated).toBe(true);
+    expect(
+      casingOf(`${words(30)}, ${words(30)},`, words(40)).unpunctuated,
+    ).toBeUndefined();
+  });
+  it("takes a shorter document for punctuated", () => {
+    expect(casingOf(words(49)).unpunctuated).toBeUndefined();
   });
 });

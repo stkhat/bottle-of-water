@@ -4,6 +4,7 @@
 // Usage: node scripts/data/phrases.ts [path]   (default data/raw/kaikki-en.jsonl; run ejdict.ts, kaikki.ts and frequency.ts first)
 import type { DictPack, LemmaPack } from "../../src/core/packs/types.ts";
 import { ENGLISH_RULES } from "../../src/core/phrases/en.ts";
+import { encodePhrasePos } from "../../src/core/phrases/phrase-pos.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
 import {
   byCodeUnit,
@@ -46,6 +47,8 @@ export const PHRASE_POS: ReadonlySet<string> = new Set([
   "phrase",
   "prep_phrase",
 ]);
+/** A gloss naming a slot: the sense takes an object ("To surrender (someone or something)"). */
+const OBJECT_GLOSS = /\b(something|someone|somebody|sth|sb)\b/;
 // Glosses that only point at the words' literal meanings ("see on, the").
 const LITERAL_GLOSS = /^Used other than figuratively or idiomatically/;
 /** An idiomatic sense counts only when a literal word of the phrase is rarer than this rank ("in it" does not). */
@@ -200,6 +203,8 @@ export interface PhrasesResult {
     more: number;
     /** kaikki patterns left undetected only because they are common-word pairs (isCommonPair). */
     trivial: number;
+    /** Patterns with parts of speech from kaikki. */
+    withPos: number;
     gap: number;
     fromEjdict: number;
     fromKaikki: number;
@@ -248,6 +253,11 @@ export async function importPhrases(
     senseJa: string[];
     topJa: string[];
     rarestRank: number;
+    /** Usable senses per part of speech, in the order the entries come. */
+    pos: Map<string, number>;
+    /** The verb entries' senses: some take an object, some are marked intransitive. */
+    transitive: boolean;
+    intransitive: boolean;
   }
   // entries merged in file order
   const found = new Map<string, Found>();
@@ -269,6 +279,9 @@ export async function importPhrases(
             senseJa: [],
             topJa: [],
             rarestRank: rarestRankOf(key),
+            pos: new Map(),
+            transitive: false,
+            intransitive: false,
           }),
         );
       japaneseOf(entry.translations, item.topJa);
@@ -277,6 +290,19 @@ export async function importPhrases(
         item.phrase ||= isPhraseSense(entry, sense, item.rarestRank);
         item.gap ||= inCategory(sense.categories, "phrasal verbs");
         japaneseOf(sense.translations, item.senseJa);
+        if (entry.pos === undefined) continue;
+        item.pos.set(entry.pos, (item.pos.get(entry.pos) ?? 0) + 1);
+        if (entry.pos !== "verb") continue;
+        const tags = sense.tags ?? [];
+        if (
+          tags.includes("transitive") ||
+          tags.includes("ditransitive") ||
+          sense.glosses.some(
+            (gloss) => typeof gloss === "string" && OBJECT_GLOSS.test(gloss),
+          )
+        )
+          item.transitive = true;
+        else if (tags.includes("intransitive")) item.intransitive = true;
       }
     },
     // Most lines are single words: skip them before parsing.
@@ -296,6 +322,12 @@ export async function importPhrases(
     .sort(byCodeUnit);
   const commonPair = (key: string) =>
     isCommonPair(key, found.get(key)!.rarestRank);
+  /** Its parts of speech, the one with the most usable senses first (ties: the entries' order). */
+  const posOf = (key: string) =>
+    [...(found.get(key)?.pos ?? [])]
+      .sort((a, b) => b[1] - a[1])
+      .map(([pos]) => pos);
+
   const ejdictDetect = new Set(fromEjdict.filter((key) => !hasSlot(key)));
   const kaikkiCandidates = fromKaikki.filter(
     (key) => !hasSlot(key) && !startsWithAuxiliary(key),
@@ -308,11 +340,20 @@ export async function importPhrases(
     ...ejdictDetect,
     ...kaikkiCandidates.filter((key) => !commonPair(key)),
   ]);
-  const all = new Set([...fromEjdict, ...fromKaikki]);
+  const all = [...new Set([...fromEjdict, ...fromKaikki])].sort(byCodeUnit);
+  const detected = [...detect].sort(byCodeUnit);
+  const more = all.filter((key) => !detect.has(key));
+  const codes = (keys: readonly string[]) =>
+    keys.map((key) => encodePhrasePos(posOf(key))).join(" ");
   const phrases = {
-    detect: [...detect].sort(byCodeUnit),
-    more: [...all].filter((key) => !detect.has(key)).sort(byCodeUnit),
+    detect: detected,
+    more,
     gap: fromKaikki.filter((key) => found.get(key)!.gap),
+    pos: { detect: codes(detected), more: codes(more) },
+    intransitive: all.filter((key) => {
+      const item = found.get(key);
+      return item?.intransitive === true && !item.transitive;
+    }),
   };
   const ja: Record<string, [string, string[]]> = {};
   for (const key of fromKaikki) {
@@ -330,6 +371,7 @@ export async function importPhrases(
       detect: phrases.detect.length,
       more: phrases.more.length,
       trivial: trivial.length,
+      withPos: all.filter((key) => posOf(key).length > 0).length,
       gap: phrases.gap.length,
       fromEjdict: fromEjdict.length,
       fromKaikki: fromKaikki.length,
@@ -353,6 +395,7 @@ async function main() {
   console.log(
     `phrases: ${stats.entries} multi-word entries (${stats.unparsable} unparsable); ` +
       `${stats.detect} detected and ${stats.more} more patterns (${stats.trivial} common-word pairs), ` +
+      `${stats.withPos} with parts of speech (${phrases.intransitive?.length} intransitive), ` +
       `${stats.gap} with a gap ` +
       `(${stats.fromEjdict} from EJDict, ${stats.fromKaikki} from kaikki); ` +
       `${stats.ja} with Japanese translations`,

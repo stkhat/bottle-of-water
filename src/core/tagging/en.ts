@@ -4,7 +4,7 @@
  * get) and participles used as adjectives or prepositions.
  */
 import { tagSentence, type PerceptronModel } from "./perceptron";
-import type { Tagger, TaggedWord, TokenTag, WordUse } from "./tagger";
+import type { Tagger, TaggedWord, TokenTag, WordRole, WordUse } from "./tagger";
 
 /**
  * A tag's score margin from which it is trusted. On EWT's test set, 5 keeps about 90%
@@ -57,10 +57,17 @@ const MORPH = /^(VBD|VBN|VBG|VBZ|NNS|NNPS|JJR|JJS|RBR|RBS)$/;
 
 /** Contractions the treebank writes as two tokens: "do" "n't", "I" "'m". */
 const CONTRACTION = /^(.+?)(n't|'s|'re|'ll|'ve|'d|'m)$/i;
+/** Spoken forms the treebank writes as a verb and "to": "gon" "na", "wan" "na", "got" "ta". */
+const VERB_TO = /^(gon|wan|got)(na|ta)$/i;
 
-/** The treebank's tokens of a token as written: contractions split, ’ written as '. */
+/**
+ * The treebank's tokens of a token as written: contractions and gonna, wanna, gotta
+ * split, ’ written as '.
+ */
 function treebankTokens(token: string): string[] {
   const text = token.replaceAll("’", "'");
+  const spoken = VERB_TO.exec(text);
+  if (spoken) return [spoken[1]!, spoken[2]!];
   const split = CONTRACTION.exec(text);
   const words =
     split && /\p{L}/u.test(split[1]!) ? [split[1]!, split[2]!] : [text];
@@ -190,6 +197,45 @@ function use(words: readonly TaggedWord[], i: number): WordUse {
   };
 }
 
+/** Determiner tags: articles, demonstratives, possessives, wh-determiners ("what kind"). */
+const DETERMINER = /^(DT|PDT|PRP\$|WDT|WP|WP\$)$/;
+/** Pronouns that are only objects: "you know them", "I mean him". */
+const OBJECT_PRONOUNS: ReadonlySet<string> = new Set([
+  "me",
+  "him",
+  "us",
+  "them",
+]);
+
+function role(word: TaggedWord): WordRole {
+  const { form } = word;
+  const tag = word.trusted ? word.tag : undefined;
+  const raw = tag?.tag ?? "";
+  // "that" and contractions ("that's", "what's") open a clause, not a noun phrase.
+  const determiner = DETERMINER.test(raw) && form !== "that" && !/'/.test(form);
+  const nounPhrase =
+    determiner ||
+    tag?.label === "noun" ||
+    tag?.label === "numeral" ||
+    word.tag.proper;
+  return {
+    determiner,
+    nounPhrase,
+    object:
+      nounPhrase ||
+      form === "that" ||
+      OBJECT_PRONOUNS.has(form) ||
+      /^W(DT|P|RB)$/.test(raw),
+    modal: raw === "MD" || (formOf(word, "do") && tag?.label === "verb"),
+    infinitive: raw === "TO",
+    preposition: tag?.label === "preposition",
+    subject: tag?.label === "pronoun" || tag?.label === "noun",
+    partitive: form === "of",
+    be: formOf(word, "be") || /'(s|re|m)$/.test(form),
+    pastParticiple: raw === "VBN",
+  };
+}
+
 export function englishTagger(model: PerceptronModel): Tagger {
   return {
     threshold: THRESHOLD,
@@ -204,5 +250,6 @@ export function englishTagger(model: PerceptronModel): Tagger {
       });
     },
     uses: (words) => words.map((_, i) => use(words, i)),
+    role,
   };
 }

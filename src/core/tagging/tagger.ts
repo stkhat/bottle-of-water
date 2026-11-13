@@ -62,6 +62,34 @@ export interface WordUse {
   label?: string;
 }
 
+/**
+ * What a word is, as the phrase rules read a dictionary phrase's context
+ * (`phrases/fit.ts`): the language's closed classes, from the word's trusted tag and
+ * its form.
+ */
+export interface WordRole {
+  /** A determiner that opens a noun phrase ("the", "my", "what"; not "that"). */
+  determiner: boolean;
+  /** Opens a noun phrase: a determiner, a noun (a proper noun even when not trusted), a number. */
+  nounPhrase: boolean;
+  /** Can open an object or a complement: a noun phrase, "that", an object pronoun, a wh-word. */
+  object: boolean;
+  /** A modal or a do-support auxiliary ("can", "do" in "do you know"). */
+  modal: boolean;
+  /** The infinitive marker ("to" before a verb). */
+  infinitive: boolean;
+  /** A preposition. */
+  preposition: boolean;
+  /** Can be a subject: a pronoun or a noun. */
+  subject: boolean;
+  /** The partitive "of" ("all of that"). */
+  partitive: boolean;
+  /** A form of "be", also in a contraction ("it's", "we're"). */
+  be: boolean;
+  /** A past participle ("held"). */
+  pastParticiple: boolean;
+}
+
 export interface Tagger {
   /**
    * Tags the tokens of one sentence (its words and punctuation as written, without
@@ -73,6 +101,8 @@ export interface Tagger {
   readonly threshold: number;
   /** How each word of a tagged sentence is used (the language's grammar). */
   uses(words: readonly TaggedWord[]): WordUse[];
+  /** What a tagged word is among the language's closed classes. */
+  role(word: TaggedWord): WordRole;
 }
 
 /** The model a language pack ships for its tagger. */
