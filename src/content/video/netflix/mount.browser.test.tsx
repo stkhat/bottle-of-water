@@ -121,6 +121,21 @@ describe("the L and ^ buttons on Netflix", () => {
     expect(document.querySelector("lingo-netflix-controls")).toBeNull();
   });
 
+  it("line up with Netflix's buttons in the row", async () => {
+    start();
+    await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
+    const centre = (element: Element) => {
+      const { top, bottom } = element.getBoundingClientRect();
+      return (top + bottom) / 2;
+    };
+    // Netflix's button sits at the top of its taller wrapper: its centre, not the row's.
+    const audio = audioWrapper()!.firstElementChild!;
+    expect(centre(audio)).toBeLessThan(centre(audioWrapper()!) - 1);
+    expect(Math.abs(centre(menuButton()) - centre(audio))).toBeLessThanOrEqual(
+      1,
+    );
+  });
+
   it("open the menu above the transcript sidebar", async () => {
     start();
     await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
@@ -248,6 +263,8 @@ describe("the subtitle over Netflix's video", () => {
     page.showControls(true);
     await expect.poll(() => subtitle()).not.toBeNull();
     await settlesAbove(() => Math.min(barTop(), partsTop()));
+    // The end of the slide up (it is within 12-14px of the bar before it stops).
+    await new Promise((resolve) => setTimeout(resolve, 400));
     const lifted = bottomOf();
 
     app.store.set({ selecting: true });

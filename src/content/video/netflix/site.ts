@@ -58,6 +58,15 @@ export const KEEP_TITLES = 6;
 /** Lingo's parts over the player keep clear of the control bar at the bottom (px). */
 export const CONTROL_BAR_HEIGHT = 120;
 
+/**
+ * The L and ^ buttons' host in the control bar's row. Netflix's buttons are 4.4rem tall
+ * and sit at the top of their 5.2rem wrappers (an inline-block in a block), so their
+ * centre is 0.4rem above the row's: the host takes the buttons' height at the row's top,
+ * and the group is centred in it like theirs (rem scales with the window, as Netflix's
+ * sizes do). Measured on netflix.com, 2026-11-14 (docs/notes/netflix.md).
+ */
+export const CONTROLS_STYLE = "align-self: flex-start; height: 4.4rem;";
+
 /** The first element matching one of `selectors`. */
 export function query<E extends Element = HTMLElement>(
   selectors: readonly string[],

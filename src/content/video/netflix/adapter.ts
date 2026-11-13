@@ -29,6 +29,7 @@ import {
 } from "./messages";
 import {
   CONTROL_BAR_HEIGHT,
+  CONTROLS_STYLE,
   HIDE_CAPTIONS_CSS,
   KEEP_TITLES,
   query,
@@ -365,6 +366,7 @@ export function createNetflixAdapter(
       player()?.querySelector("video") ?? document.querySelector("video"),
     playerElement: player,
     controlsPoint,
+    controlsStyle: CONTROLS_STYLE,
     belowVideoElement: below,
     sideColumn: () => null,
     fillsWindow: () => {
