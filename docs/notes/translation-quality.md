@@ -180,11 +180,33 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
    - PR #55: EJDict's capitalised senses are kept apart (Japan → 日本 first) and names are found by document casing (no highlight, no hover).
    - The tag-dependent part of A1 (decided → decide, auxiliary "has been") moves to step 2.
    - Seen in the real-site check: a surname missing from the names lexicon still gets a common meaning (Harvey Specter → 幽霊). A run of capitalised words should be one name, which would cover it.
-2. The tagger part, then A2 and the phrase context check with P1 and P2. Also the tag-dependent part of A1.
-3. The phrase data rebuild (B1, B2, B4, C1, C2) with its size decision.
-4. E (vocabulary).
-5. G (alignment).
-6. Keep the on-device model for "Ask AI".
+2. The tagger part, then A2 and the phrase context check with P1 and P2. Also the tag-dependent part of A1. **Done** (2026-11-13):
+   - PR #56: an averaged-perceptron tagger trained on UD English-EWT (118 KB gzipped) picks the sense by part of speech (A2) and the base form of inflected verbs (A1); 10,212 hovers changed on the corpus.
+   - PR #57: phrase part of speech, P1, P2 and the context check. Phrase highlights 18.4 → 14.9 per 1,000 tokens; useful share of judged highlights 89 → 94%.
+3. The phrase data rebuild (B1, B2, B4, C1, C2) with its size decision. **Done** (PR #58, 2026-11-13):
+   - Patterns 19,932 → 73,112; phrasal verbs are always detected (P2 still checks each match); particles that are never adverbs (to, for, with…) never make a phrasal verb.
+   - Phrases with Japanese 901 → 7,270; English definitions ranked by label.
+   - A run of capitalised words after a name is one name (fixes Harvey Specter).
+   - Highlights 14.9 → 26.8 per 1,000 tokens, as estimated in "Costs and decisions"; useful share of judged highlights 94 → 79%.
+   - Size: all packs 37.7 → 46.5 MB, all bundled (en-defs leaves out terms every pair dictionary has). A test fails above 50 MB.
+4. E (vocabulary). **Done** (PR #59, 2026-11-13):
+   - Threshold 8 lower-case uses (not 5) in post-1900 examples, to stay under 50 MB: +6,328 words. Acronyms join only as their own entry (AI is no longer a sloth).
+   - Word tokens with no meaning 5,566 → 3,979. New words get a rank from the TV list or the example count.
+   - Words shown as New 77.5 → 84.4 per 1,000 tokens; 23 of 30 judged new words show a useful meaning (kinda, cuz, aka still wrong).
+   - All packs 49.65 MB. E2E waits on the first cold dictionary load are close to their 5 s limit on the CI runner.
+5. G (alignment). **Done** (PR #60, 2026-11-13):
+   - A translated cue also shows on every other card it covers at least 50% of.
+   - Measured on 6 YouTube videos with human Japanese tracks: cards with no line 2.3 → 1.3%; on tracks condensed like Netflix 21.7 → 1.0%. Neighbour's text 3.9 → 6.3% on condensed tracks; on finely cut, loosely timed tracks about 0.8% of cards get worse.
+   - Netflix was not re-measured offline (no timed Japanese tracks in the corpus).
+6. Keep the on-device model for "Ask AI". **Done** (PR #61, 2026-11-13): design.md and the roadmap say the model is used only when the user asks.
+
+Real-site check after all six steps (check build from b66986e; the same article, YouTube video and Suits episode as step 1; error log empty on every page, then cleared):
+- Working as intended: names in a run are not highlighted (Pearson Specter Litt, Simon Mabon, Lancaster University); Gulf after "the" shows 湾 first; "no longer" → 最早,もう,これ以上; a Japanese cue that spans several cards shows on each of them.
+- Still wrong:
+  - Meanings translated at display time are not shortened. "get around" shows a three-line translation of its literal sense (move around an obstacle), and "not to mention" shows the figure-of-speech definition, the same failure as the MT judging (section A). "put together" repeats an item (構築、構築).
+  - "Nov" in a date shows 初心者: rule E's "nov" (a clipping of novice) wins over the month abbreviation.
+  - Wrong phrase matches in dialogue: "just about" in "this isn't just about you…", and "you tell me" in "why don't you tell me…".
+- Next fixes this suggests: apply A3's cap and de-duplication to translated English definitions; demote "Used to…" and figure-of-speech definitions in C2; keep abbreviations (Nov, Mon, Jan) on their dictionary entry before rule E words; check "just about" (before a pronoun or noun phrase) and multi-word phrases inside questions with the context rule.
 
 ## Netflix
 Round 2 judged Netflix last, after the prototype was frozen, so these numbers test whether the rules carry over to TV dialogue.
