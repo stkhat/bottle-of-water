@@ -1,10 +1,11 @@
-// kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/{lemmas,ipa,pos}.json
+// kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/{lemmas,ipa,pos,names}.json
 // Usage: node scripts/data/kaikki.ts [path]   (default data/raw/kaikki-en.jsonl; run ejdict.ts first)
 import { singleIpa } from "../../src/core/lexicon/ipa.ts";
 import type {
   DictPack,
   IpaPack,
   LemmaPack,
+  NamesPack,
   PosPack,
 } from "../../src/core/packs/types.ts";
 import {
@@ -154,6 +155,83 @@ function isConfirmed(
   );
 }
 
+/** A name as written in text: a capital, then at least one lowercase letter (not an acronym). */
+const NAME_WORD = /^\p{Lu}\p{Ll}[\p{L}']*$/u;
+/**
+ * Parts of speech of a capitalised entry that make the word a capitalised common word
+ * (English, Christian, Monday as an adverb, God as an interjection): rule D never takes
+ * it for a name. A capitalised noun does not count, since most names have one (Mark,
+ * the currency; Rachel, the haircut).
+ */
+const COMMON_CAPITALIZED_POS = new Set(["adj", "adv", "verb", "intj"]);
+
+/** The kinds of name a sense can name, as `NamesPack` letters. */
+const NAME_TYPES: readonly [letter: string, test: RegExp][] = [
+  ["g", /\bgiven name\b|\bdiminutive of\b.*\bname\b/],
+  ["s", /\bsurname\b/],
+  [
+    "p",
+    /\b(city|town|village|country|state of|province|capital|river|island|county|region|mountain|lake|sea|ocean|continent|district|suburb|borough|peninsula|desert)\b/,
+  ],
+  [
+    "o",
+    /\b(company|corporation|organi[sz]ation|university|brand|band|political party|agency|newspaper|team|club|airline|manufacturer)\b/,
+  ],
+];
+
+const categoryNames = (categories: KaikkiEntry["categories"]) =>
+  (categories ?? [])
+    .map((c) => (typeof c === "string" ? c : String(c?.name ?? "")))
+    .join(" ");
+
+/**
+ * The kinds of name a `name` entry names, sense by sense (given, surname, place,
+ * organisation, else other: x), each once, in the order its senses give them: the
+ * first is its main kind.
+ */
+export function nameTypes(entry: KaikkiEntry): string {
+  const types = new Set<string>();
+  for (const sense of entry.senses ?? []) {
+    const text =
+      `${(sense.glosses ?? []).filter((g) => typeof g === "string").join(" ")} | ${categoryNames(sense.categories)}`.toLowerCase();
+    const found = NAME_TYPES.filter(([, test]) => test.test(text));
+    if (found.length === 0) types.add("x");
+    for (const [letter] of found) types.add(letter);
+  }
+  return types.size > 0 ? [...types].join("") : "x";
+}
+
+/** Collects the names lexicon from every English entry (`importKaikki` feeds it). */
+function createNames() {
+  const types = new Map<string, Set<string>>();
+  const common = new Set<string>();
+  return {
+    add(entry: KaikkiEntry) {
+      const word = entry.word.replaceAll("’", "'");
+      if (!NAME_WORD.test(word)) return;
+      const key = word.toLowerCase();
+      if (entry.pos === "name") {
+        let found = types.get(key);
+        if (!found) types.set(key, (found = new Set()));
+        for (const letter of nameTypes(entry)) found.add(letter);
+      } else if (entry.pos && COMMON_CAPITALIZED_POS.has(entry.pos))
+        common.add(key);
+    },
+    /**
+     * Each name that is a vocabulary word or a given name → its types, with "!" when
+     * the word is also a capitalised common word.
+     */
+    pack(words: ReadonlySet<string>): NamesPack {
+      const names: Record<string, string> = {};
+      for (const [key, found] of types) {
+        if (!words.has(key) && !found.has("g")) continue;
+        names[key] = [...found].join("") + (common.has(key) ? "!" : "");
+      }
+      return names;
+    },
+  };
+}
+
 /**
  * Collects, for each vocabulary word, its inflected forms, US IPA and parts of speech.
  * Entries spelt exactly like the vocabulary word win; entries in another casing (Monday
@@ -168,8 +246,10 @@ export async function importKaikki(
   const exact = new Map<string, Bucket>();
   const folded = new Map<string, Bucket>();
   const confirmations: Confirmations = new Map();
+  const names = createNames();
   const stats = await eachEntry(path, (entry) => {
     if (entry.lang_code !== "en") return;
+    names.add(entry);
     const base = entry.word.toLowerCase();
     if (!words.has(base)) return;
     if (entry.word === base) addConfirmations(confirmations, base, entry);
@@ -211,6 +291,7 @@ export async function importKaikki(
     lemmas: lemmas as LemmaPack,
     ipa: ipa as IpaPack,
     pos: pos as PosPack,
+    names: names.pack(words),
     stats,
   };
 }
@@ -219,14 +300,20 @@ async function main() {
   const dict = readDictPacks<DictPack[string]>(PACKS["en-ja"].dir);
   const vocab = readPack<string[]>("en/vocab.json");
   const path = process.argv[2] ?? KAIKKI_PATH;
-  const { lemmas, ipa, pos, stats } = await importKaikki(path, vocab, dict);
+  const { lemmas, ipa, pos, names, stats } = await importKaikki(
+    path,
+    vocab,
+    dict,
+  );
   writePack("en/lemmas.json", lemmas);
   writePack("en/ipa.json", ipa);
   writePack("en/pos.json", pos);
+  writePack("en/names.json", names);
   console.log(
     `kaikki: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `${Object.keys(lemmas).length} lemma forms, ${Object.keys(ipa).length} IPA, ` +
-      `${Object.keys(pos).length} words with parts of speech`,
+      `${Object.keys(pos).length} words with parts of speech, ` +
+      `${Object.keys(names).length} names`,
   );
   if (stats.unparsable > 0) process.exitCode = 1;
 }

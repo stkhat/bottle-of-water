@@ -117,6 +117,40 @@ describe("hover card", () => {
     expect(hoverCard().query()).toBeNull();
   });
 
+  it("shows nothing over a name and leaves it unhighlighted; a capitalised place shows its capitalised meaning", async () => {
+    // "Mark" is always capitalised here: a name. "Japan" keeps its capitalised meaning.
+    const { root } = await setup(
+      `<div style="height: 200px"></div>
+       <p>Yesterday Mark baked a loaf in Japan. The dough was tedious for Mark.</p>`,
+      { settings: { highlight: { new: true, learning: true, known: false } } },
+    );
+    await expect.poll(() => highlighted("lingo-new")).toContain("Japan");
+    expect(highlighted("lingo-new")).not.toContain("Mark");
+    await pointAt(root, "Mark");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(hoverCard().query()).toBeNull();
+
+    await pointAt(root, "Japan");
+    await expect.element(hoverCard()).toBeVisible();
+    await expect.element(page.getByText("日本", { exact: true })).toBeVisible();
+    // Its capitalised sense comes first, before the lowercase headword's.
+    const text = cardRoot().textContent;
+    expect(text.indexOf("日本")).toBeLessThan(text.indexOf("黒い漆"));
+  });
+
+  it("classifies a name's blocks again when the page later writes it in lower case", async () => {
+    const { root } = await setup(
+      "<p>Yesterday Mark baked a loaf. The dough was tedious.</p>",
+      { settings: { highlight: { new: true, learning: true, known: false } } },
+    );
+    await expect.poll(() => highlighted("lingo-new")).toContain("loaf");
+    expect(highlighted("lingo-new")).not.toContain("Mark");
+    const added = document.createElement("p");
+    added.textContent = "The knife left a mark on the loaf.";
+    root.append(added);
+    await expect.poll(() => highlighted("lingo-new")).toContain("Mark");
+  });
+
   it("+ Learning saves the word and updates the card and the highlights", async () => {
     const { root, background } = await setup(
       `<div style="height: 200px"></div>${ARTICLE}`,

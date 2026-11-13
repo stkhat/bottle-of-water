@@ -4,6 +4,8 @@ import type { TermIndex } from "../core/classify";
 import type { PackName } from "../core/packs/load";
 import { applyOverrides, readLock, type PackLock } from "../core/packs/lock";
 import type { PackState } from "../core/packs/state";
+import { blockCasing, documentCasing } from "../core/text/casing";
+import { tokenize } from "../core/text/tokenize";
 import type {
   Reply,
   Request,
@@ -535,6 +537,10 @@ describe("handlers: language data", () => {
   });
 });
 
+/** The casing of a document made of `blocks`, as the content scripts send it. */
+const casingOf = (blocks: string[]) =>
+  documentCasing(blocks.map((b) => blockCasing(tokenize(b, "en"), "en")));
+
 describe("handlers: analyze", () => {
   it("classifies each block and lists the distinct unsaved and saved keys", async () => {
     store.termIndex.mockResolvedValue(
@@ -570,6 +576,61 @@ describe("handlers: analyze", () => {
     expect(
       filesRead(loadPack).filter((p) => !p.startsWith("/packs/en/")),
     ).toEqual([]);
+  });
+
+  it("takes a word the document always capitalises for a name: ignored, no dictionary meaning kept", async () => {
+    // "crust" is a given name in the test lexicon; its capitalised headword is about
+    // one person. "Yeast" is capitalised inside a sentence: its capitalised senses count.
+    const blocks = ["We met Crust in town.", "Crust waved at the Yeast shop."];
+    const result = await value({
+      type: "analyze",
+      lang: "en",
+      blocks,
+      casing: casingOf(blocks),
+    });
+    const crust = result.spans[0]!.find((s) => s.key === "crust");
+    expect(crust).toMatchObject({ category: "ignored", name: true });
+    expect(result.spans[1]!.find((s) => s.key === "yeast")).toMatchObject({
+      category: "known",
+      capital: true,
+    });
+  });
+
+  it("loads the dictionary only for a mixed-case document with capitalised words", async () => {
+    const blocks = ["the loaf rises. the crust browns."];
+    await value({
+      type: "analyze",
+      lang: "en",
+      blocks,
+      casing: casingOf(blocks),
+    });
+    expect(filesRead(loadPack)).not.toContain("/packs/en-ja/index.json");
+    const mixed = ["We met Crust in town."];
+    await value({
+      type: "analyze",
+      lang: "en",
+      blocks: mixed,
+      casing: casingOf(mixed),
+    });
+    expect(filesRead(loadPack)).toContain("/packs/en-ja/capital.json");
+  });
+
+  it("reads no names from a caseless document or a casing it cannot read", async () => {
+    const upper = ["WE MET CRUST IN TOWN.", "CRUST WAVED."];
+    const caseless = await value({
+      type: "analyze",
+      lang: "en",
+      blocks: upper,
+      casing: casingOf(upper),
+    });
+    expect(caseless.spans.flat().some((s) => s.name || s.capital)).toBe(false);
+    const broken = await value({
+      type: "analyze",
+      lang: "en",
+      blocks: ["We met Crust."],
+      casing: { mode: "mixed", words: { crust: "many" } } as never,
+    });
+    expect(broken.spans.flat().some((s) => s.name)).toBe(false);
   });
 
   it("uses the known level from the settings", async () => {
@@ -955,6 +1016,21 @@ describe("handlers: lookup", () => {
     });
   });
 
+  it("gives a capitalised word its capitalised senses first, a lowercase one none", async () => {
+    const lines = async (written?: "capital" | "lower") =>
+      (
+        await value({
+          type: "lookup",
+          lang: "en",
+          key: "yeast",
+          ...(written && { written }),
+        })
+      ).entry?.lines;
+    expect(await lines("capital")).toEqual(["イースト国", "酵母"]);
+    expect(await lines("lower")).toEqual(["酵母"]);
+    expect(await lines()).toEqual(["酵母", "イースト国"]);
+  });
+
   it("loads the dictionary on the first lookup", async () => {
     expect(filesRead(loadPack)).toEqual([]);
     await value({ type: "lookup", lang: "en", key: "loaf" });
@@ -1037,6 +1113,7 @@ describe("handlers: machine translations of English definitions", () => {
           to,
           short: () => SHORT,
           entry: (term) => ({ head: term, kind: "phrase", ...definition }),
+          capitalMeaning: () => undefined,
         }),
       },
     });
@@ -1246,6 +1323,19 @@ describe("handlers: recordHistory", () => {
     expect(await recordedKeys(["They figure it out."])).toEqual([
       ["en:figure", "en:out", "en:figure out"],
     ]);
+  });
+
+  it("leaves the document's names out", async () => {
+    const texts = ["We met Crust and the yeast."];
+    history.record.mockImplementation(async (_source, items) => items.length);
+    await value({
+      type: "recordHistory",
+      source: PAGE,
+      sentences: texts.map((text) => ({ text, pos: { textQuote: text } })),
+      casing: casingOf([...texts, "Crust waved."]),
+    });
+    expect(history.record.mock.calls.at(-1)![1][0]!.keys).toEqual(["en:yeast"]);
+    expect(await recordedKeys(texts)).toEqual([["en:crust", "en:yeast"]]);
   });
 
   it("gives each key once per sentence", async () => {

@@ -1,6 +1,13 @@
 import type { Category, Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import {
+  blockCasing,
+  casingChanges,
+  documentCasing,
+  type BlockCasing,
+} from "../../core/text/casing";
+import { tokenize } from "../../core/text/tokenize";
+import {
   unsupportedPage,
   type PageRequest,
   type PageSummary,
@@ -154,7 +161,45 @@ export async function startArticle(
     source,
     settings: () => settings,
     spans,
+    casing: () => lookup.casing,
   });
+
+  /** What each block says about the page's casing (rule D). */
+  const blockCasings = new WeakMap<TextBlock, BlockCasing>();
+  function casingOf(block: TextBlock) {
+    let found = blockCasings.get(block);
+    if (!found) {
+      found = blockCasing(tokenize(block.text, lang), lang);
+      blockCasings.set(block, found);
+    }
+    return found;
+  }
+
+  /**
+   * Takes the casing of the page's main content as it is now (menus and Title Case
+   * links outside it say nothing about names), and classifies again the analyzed
+   * blocks with a word whose verdict changed.
+   */
+  function updateCasing() {
+    const before = lookup.casing;
+    const after = documentCasing(
+      pageText
+        .blocks()
+        .filter((block) => main.contains(block))
+        .map(casingOf),
+    );
+    lookup.setCasing(after);
+    if (!before) return;
+    const changed = casingChanges(before, after);
+    if (changed !== "all" && changed.size === 0) return;
+    const stale = [...spans.keys()].filter(
+      (block) =>
+        live.has(block) &&
+        (changed === "all" ||
+          [...changed].some((key) => casingOf(block).keys.has(key))),
+    );
+    if (stale.length > 0) run(() => reanalyze(stale));
+  }
   const cards = createCards({
     store,
     lookup,
@@ -408,9 +453,11 @@ export async function startArticle(
       main = surface.mainContent(root, pageText.blocks());
       end.update(main.last);
       rescope();
+      updateCasing();
     },
   });
   main = surface.mainContent(root, pageText.blocks());
+  updateCasing();
   for (const block of pageText.blocks()) live.add(block);
   index.add(pageText.blocks());
   visible.add(pageText.blocks());

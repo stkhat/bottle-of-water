@@ -123,8 +123,25 @@ describe("importKaikki", () => {
     expect(result.pos.the).toEqual(["article"]);
     expect(result.pos).not.toHaveProperty("zzyzx");
   });
+  it("lists names that are vocabulary words or given names, with their kinds", () => {
+    expect(result.names).toEqual({
+      harvey: "gs",
+      look: "p",
+      may: "x",
+      monday: "x",
+    });
+  });
+  it("flags a name that is also a capitalised common word, and keeps it", async () => {
+    const withEnglish = await importKaikki(fixture, [...vocab, "english"]);
+    expect(withEnglish.names.english).toBe("s!");
+  });
+  it("leaves out acronyms and names that are neither vocabulary words nor given names", () => {
+    expect(result.names).not.toHaveProperty("nato");
+    expect(result.names).not.toHaveProperty("zorbania");
+    expect(result.names).not.toHaveProperty("abbey");
+  });
   it("counts lines it cannot parse instead of failing", () => {
-    expect(result.stats).toEqual({ entries: 28, unparsable: 1 });
+    expect(result.stats).toEqual({ entries: 36, unparsable: 1 });
   });
 });
 

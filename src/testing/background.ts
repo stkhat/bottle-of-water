@@ -82,9 +82,24 @@ const RARE = [
   "scratch",
   "give",
   "up",
+  // Names, when the document always capitalises them (rule D): "Mark" is a given name
+  // whose capitalised sense is about one person (ignored); "Japan" a place that keeps
+  // its capitalised meaning.
+  "mark",
+  "japan",
 ];
 
+/** The names lexicon (en/names.json). */
+const NAMES = { mark: "gs", japan: "p" };
+/** EJDict's capitalised headwords (en-ja/capital.json). */
+const CAPITAL: Record<string, readonly [string, readonly string[]]> = {
+  mark: ["聖マルコ", ["聖マルコ(『St.~』)"]],
+  japan: ["日本", ["『日本』"]],
+};
+
 const DICT: Record<string, readonly [string, readonly string[]]> = {
+  mark: ["跡", ["『跡』", "印"]],
+  japan: ["黒い漆", ["黒い漆(うるし)"]],
   knead: ["（生地を）こねる", ["（生地を）こねる；練る"]],
   loaf: ["（パンの）ひと塊", ["（パンなどの）ひと塊"]],
   tedious: ["退屈な、面倒な", ["退屈な；うんざりする；面倒な"]],
@@ -142,8 +157,9 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
     pos: { tedious: ["adjective"], loaf: ["noun"], knead: ["verb"] },
     vocab,
     phrases: PHRASES,
+    names: NAMES,
   },
-  "en-ja": { dict: DICT, phrases: JA_PHRASES },
+  "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL },
   "en-defs": { defs: DEFS },
 };
 
@@ -159,6 +175,7 @@ const FILES: Readonly<Record<string, unknown>> = {
   },
   "/packs/en-ja/dict-1.json": DICT,
   "/packs/en-ja/phrases.json": JA_PHRASES,
+  "/packs/en-ja/capital.json": CAPITAL,
   "/packs/en-defs/index.json": {
     shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
   },

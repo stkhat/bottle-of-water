@@ -31,6 +31,24 @@ const dictionary = createEnJaDictionary({
     anyway: ["=anyhow", ["=anyhow"]],
     anyhow: ["どうしても", ["《否定文で》『どうしても』", "いずれにせよ"]],
     were: ["be の仮定法過去", ["《be の直説法過去》", "《be の仮定法過去》"]],
+    japan: ["黒い漆", ["黒い漆(うるし)", "…に黒漆を塗る"]],
+    mark: ["跡", ["〈C〉『跡』", "『印』"]],
+    us: ["我々を", ["『我々を』"]],
+    oh: ["おお", ["『おお』"]],
+    paris: ["パリ", ["『パリ』(フランスの首都)"]],
+    germany: ["ドイツ", ["ドイツ"]],
+    frank: ["率直な", ["『率直な』"]],
+  },
+  // EJDict's capitalised headwords, apart (acronyms under their capitals).
+  capital: {
+    japan: ["日本", ["『日本』"]],
+    mark: ["聖マルコ", ["聖マルコ(『St.~』;4人の福音書の記者の一人)"]],
+    US: ["合衆国", ["United States 合衆国"]],
+    OH: ["Ohio", ["Ohio"]],
+    paris: ["パリ", ["『パリ』(フランスの首都)"]],
+    germany: ["ドイツ", ["ドイツ"]],
+    frank: ["フランク人", ["フランク人(ゲルマン人の一部族)"]],
+    lincoln: ["リンカン", ["リンカン(『Abraham~』;1809‐1865;米国の大統領)"]],
   },
   // Japanese translations of phrases EJDict lacks.
   phrases: {
@@ -112,6 +130,57 @@ describe("createEnJaDictionary", () => {
     // The dictionary window keeps the entry as it is.
     expect(dictionary.entry("went")?.short).toBe("goの過去");
     expect(dictionary.entry("went")?.senses).toEqual([{ text: "goの過去" }]);
+  });
+
+  it("gives a capitalised word its capitalised headword's senses first", () => {
+    expect(dictionary.entry("japan", "capital")?.lines).toEqual([
+      "日本",
+      "黒い漆",
+      "…に黒漆を塗る",
+    ]);
+    expect(dictionary.entry("japan", "capital")?.short).toBe("日本");
+    expect(dictionary.entry("us", "upper")?.lines).toEqual([
+      "United States 合衆国",
+      "我々を",
+    ]);
+  });
+
+  it("gives a word in lower case its lowercase senses only", () => {
+    expect(dictionary.entry("japan", "lower")?.lines).toEqual([
+      "黒い漆",
+      "…に黒漆を塗る",
+    ]);
+    expect(dictionary.entry("us", "lower")?.lines).toEqual(["我々を"]);
+    // A word written only with capitals keeps its senses.
+    expect(dictionary.entry("paris", "lower")?.short).toBe("パリ");
+  });
+
+  it("leaves out capitalised senses about one person or without a gloss", () => {
+    expect(dictionary.entry("mark", "capital")?.lines).toEqual(["跡", "印"]);
+    expect(dictionary.entry("oh", "upper")?.lines).toEqual(["おお"]);
+  });
+
+  it("gives every sense, lowercase first, when the page does not say how the word was written", () => {
+    expect(dictionary.entry("japan")?.lines).toEqual([
+      "黒い漆",
+      "…に黒漆を塗る",
+      "日本",
+    ]);
+    expect(dictionary.entry("us")?.lines).toEqual([
+      "我々を",
+      "United States 合衆国",
+    ]);
+  });
+
+  it("says what a capitalised headword means for a name", () => {
+    expect(dictionary.capitalMeaning("japan")).toBe("word");
+    expect(dictionary.capitalMeaning("paris")).toBe("name");
+    expect(dictionary.capitalMeaning("Germany")).toBe("name");
+    // About one person, a people or a lifespan: no meaning for other bearers.
+    expect(dictionary.capitalMeaning("mark")).toBeUndefined();
+    expect(dictionary.capitalMeaning("frank")).toBeUndefined();
+    expect(dictionary.capitalMeaning("lincoln")).toBeUndefined();
+    expect(dictionary.capitalMeaning("dough")).toBeUndefined();
   });
 
   it("keeps the short meaning when every line is empty", () => {

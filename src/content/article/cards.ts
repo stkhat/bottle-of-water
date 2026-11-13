@@ -14,20 +14,24 @@ export const writtenOf = ({ block, span }: SpanRef) => {
   return collapseSpaces(block.text.slice(start, end));
 };
 
-export const describeRef = (
+export function describeRef(
   lookup: Lookup,
   ref: SpanRef,
   shownIn: "hover" | "window" = "hover",
-) =>
-  lookup.describe(
+) {
+  const surface = writtenOf(ref);
+  const written = lookup.written(ref.span, surface);
+  return lookup.describe(
     {
       key: ref.span.key,
       kind: ref.span.kind,
-      surface: writtenOf(ref),
+      surface,
       category: ref.span.category,
+      ...(written !== undefined && { written }),
     },
     shownIn,
   );
+}
 
 const boxesOf = ({ block, span }: SpanRef) =>
   wordBoxes(rangeOf(block, span.start, span.end));

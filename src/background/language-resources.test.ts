@@ -81,6 +81,7 @@ describe("createLanguageResources", () => {
     expect(filesRead(loadPack)).toEqual([
       "/packs/en-defs/dict-1.json",
       "/packs/en-defs/index.json",
+      "/packs/en-ja/capital.json",
       "/packs/en-ja/dict-1.json",
       "/packs/en-ja/dict-2.json",
       "/packs/en-ja/index.json",
@@ -88,6 +89,7 @@ describe("createLanguageResources", () => {
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
+      "/packs/en/names.json",
       "/packs/en/phrases.json",
       "/packs/en/pos.json",
       "/packs/en/vocab.json",
@@ -102,6 +104,7 @@ describe("createLanguageResources", () => {
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
+      "/packs/en/names.json",
       "/packs/en/phrases.json",
       "/packs/en/pos.json",
       "/packs/en/vocab.json",

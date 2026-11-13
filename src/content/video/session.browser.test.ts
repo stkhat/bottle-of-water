@@ -252,7 +252,13 @@ describe("a video with subtitles", () => {
     await ready(state);
     await expect.poll(() => state().spans.every((s) => s !== null)).toBe(true);
     expect(bg.sent("analyze")).toEqual([
-      { type: "analyze", lang: "en", blocks: CUES.map((c) => c.text) },
+      {
+        type: "analyze",
+        lang: "en",
+        blocks: CUES.map((c) => c.text),
+        // The track's casing: no word is capitalised inside a sentence.
+        casing: { mode: "lower", words: {} },
+      },
     ]);
     const tangy = state().spans[0]!.find((s) => s.key === "tangy");
     expect(tangy?.category).toBe("new");
@@ -881,6 +887,28 @@ describe("words in the subtitles", () => {
     });
     app.leaveWord();
     await expect.poll(() => state().hover).toBeNull();
+  });
+
+  it("takes a name the track always capitalises for no word, and gives a capitalised place its capitalised meaning", async () => {
+    const named: Cue[] = [
+      { startMs: 0, endMs: 1000, text: "Yesterday Mark baked a loaf." },
+      { startMs: 1000, endMs: 2000, text: "Then he flew to Japan." },
+      { startMs: 2500, endMs: 3500, text: "The dough was tedious for Mark." },
+    ];
+    const { state, app, bg } = await start({ vid1: captionsOf(named) });
+    await ready(state);
+    await classified(state);
+    expect(bg.sent("analyze")[0]?.casing).toMatchObject({ mode: "mixed" });
+    const mark = state().spans[0]![refOf(state, 0, "mark").span]!;
+    expect(mark).toMatchObject({ category: "ignored", name: true });
+    expect(state().spans[2]!.find((s) => s.key === "mark")?.name).toBe(true);
+    expect(
+      videoWords(state().cues, state().spans, {}).map((w) => w.key),
+    ).not.toContain("mark");
+
+    app.enterWord(refOf(state, 1, "japan"), BOX);
+    await expect.poll(() => state().hover?.card.head).toBe("japan");
+    expect(state().hover?.card.lines).toEqual(["日本", "黒い漆"]);
   });
 
   it("shows the card of a word known by its frequency, as known but not saved", async () => {
