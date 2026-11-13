@@ -473,6 +473,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (shown)
         withWatch((w) => changeStatus(w, shown.ref, shown.card, status));
     },
+    openHoverDetails() {
+      const shown = store.get().hover;
+      if (shown) cards.clickWord(shown.ref);
+    },
     selectStart: selection.start,
     selectWords: selection.select,
     saveSelection(status) {

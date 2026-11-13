@@ -1292,6 +1292,19 @@ describe("pausing while Lingo is in use", () => {
     await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
   });
 
+  it("the hover card's Details opens the hovered word's window, as a click on it", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    app.openHoverDetails();
+    expect(state().panel).toBeNull();
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.openHoverDetails();
+    await expect.poll(() => state().panel?.card.head).toBe("tangy");
+    expect(state().hover).toBeNull();
+  });
+
   it("pauses while words are selected and plays once the selection is dropped", async () => {
     const { state, app, video, site } = await start();
     await ready(state);

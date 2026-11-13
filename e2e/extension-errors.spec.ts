@@ -426,7 +426,9 @@ for (const build of ["production", "check"] as const)
       // Hover and click a word; save it.
       const word = inVideo(page).getByText("creativity", { exact: true });
       await word.hover();
-      await expect(page.getByText(en["hover.hint"])).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: en["hover.details"], exact: true }),
+      ).toBeVisible();
       await word.click();
       const window = page.getByRole("complementary", {
         name: en["dict.window"],
@@ -529,7 +531,9 @@ for (const build of ["production", "check"] as const)
         )
         .toBe(392);
       await word.hover();
-      await expect(page.getByText(en["hover.hint"])).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: en["hover.details"], exact: true }),
+      ).toBeVisible();
       await word.click();
       await expect(
         window.getByRole("heading", { name: "creativity" }),
@@ -621,7 +625,9 @@ for (const build of ["production", "check"] as const)
 
       const word = inVideo(page).getByText("EXTRAORDINARY", { exact: true });
       await word.hover();
-      await expect(page.getByText(en["hover.hint"])).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: en["hover.details"], exact: true }),
+      ).toBeVisible();
       await word.click();
       const window = page.getByRole("complementary", {
         name: en["dict.window"],
@@ -637,7 +643,9 @@ for (const build of ["production", "check"] as const)
       // The transcript stays in the sidebar beside the player.
       await expect(transcript(page)).toBeVisible();
       await word.hover();
-      await expect(page.getByText(en["hover.hint"])).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: en["hover.details"], exact: true }),
+      ).toBeVisible();
       await word.click();
       await expect(window).toBeVisible();
       await window.getByRole("button", { name: en["dict.close"] }).click();
@@ -837,7 +845,9 @@ for (const build of ["production", "check"] as const)
         await stop();
         const word = inVideo(video).getByText("creativity", { exact: true });
         await word.hover();
-        await expect(video.getByText(en["hover.hint"])).toBeVisible();
+        await expect(
+          video.getByRole("button", { name: en["hover.details"], exact: true }),
+        ).toBeVisible();
         await word.click();
         await expect(
           video.getByRole("complementary", { name: en["dict.window"] }),

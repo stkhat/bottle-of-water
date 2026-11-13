@@ -160,6 +160,8 @@ export interface VideoApp {
   clickWord(ref: WordRef): void;
   /** The hover card's "+ Learning" / "Known". */
   setHoverStatus(status: TermStatus): void;
+  /** The hover card's "Details": the dictionary window for the hovered word, as a click on it. */
+  openHoverDetails(): void;
   /** A press on the subtitle's or a transcript card's text began selecting words. */
   selectStart(from: WordPlace): void;
   /**

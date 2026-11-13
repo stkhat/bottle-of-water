@@ -583,6 +583,7 @@ export function PageUi(props: {
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}
             onKnown={() => app.setHoverStatus("known")}
+            onDetails={app.openHoverDetails}
           />
         </Floating>
       )}

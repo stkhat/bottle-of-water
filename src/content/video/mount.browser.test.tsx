@@ -387,6 +387,34 @@ describe("mountVideoUi", () => {
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
   });
 
+  it("the hover card's Details asks for the hovered word's window", async () => {
+    const { store, spy } = mount();
+    await expect
+      .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
+      .not.toBeNull();
+    const tangy = [
+      ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+        "[data-span]",
+      ),
+    ].find((el) => el.textContent === "tangy")!;
+    const r = tangy.getBoundingClientRect();
+    store.set({
+      hover: {
+        ref: { cue: 0, span: 1 },
+        from: "subtitle",
+        anchor: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+        card: TANGY,
+      },
+    });
+    await expect.poll(() => text("lingo-video")).toContain("Details");
+    expect(text("lingo-video")).not.toContain("Click the word for details");
+    const details = [...inside("lingo-video")!.querySelectorAll("button")].find(
+      (b) => b.textContent === "Details",
+    )!;
+    await userEvent.click(details);
+    expect(spy("openHoverDetails")).toHaveBeenCalledOnce();
+  });
+
   it("tells the app about hovered and clicked words in the transcript", async () => {
     const { spy } = mount();
     await expect

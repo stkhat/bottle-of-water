@@ -17,12 +17,13 @@ const figureOut: HoverCardProps = {
   nativeLang: "ja",
   onLearning: () => {},
   onKnown: () => {},
+  onDetails: () => {},
 };
 
 afterEach(cleanUpMounts);
 
 describe("HoverCard", () => {
-  test("shows kind, status, head, IPA, translation, notes and the hint", async () => {
+  test("shows kind, status, head, IPA, translation, notes and Details", async () => {
     const screen = await mountInShadowRoot(<HoverCard {...figureOut} />);
     await expect.element(screen.getByText("Phrase")).toBeVisible();
     await expect
@@ -37,7 +38,7 @@ describe("HoverCard", () => {
       .element(screen.getByText("figure — 数字、姿、人物"))
       .toBeVisible();
     await expect
-      .element(screen.getByText("Click the word for details"))
+      .element(screen.getByRole("button", { name: "Details" }))
       .toBeVisible();
   });
 
@@ -182,41 +183,39 @@ describe("HoverCard", () => {
     expect(onKnown).toHaveBeenCalledOnce();
   });
 
-  test("with onDetails, shows Details instead of the hint", async () => {
-    const onDetails = vi.fn();
-    const screen = await mountInShadowRoot(
-      <HoverCard {...figureOut} variant="article" onDetails={onDetails} />,
-    );
-    expect(screen.container.textContent).not.toContain(
-      "Click the word for details",
-    );
-    await screen.getByRole("button", { name: "Details" }).click();
-    expect(onDetails).toHaveBeenCalledOnce();
-  });
-
-  test("without onDetails, has no Details button", async () => {
-    const screen = await mountInShadowRoot(<HoverCard {...figureOut} />);
-    expect(screen.getByRole("button", { name: "Details" }).query()).toBeNull();
+  test("Details calls onDetails, over video and over articles", async () => {
+    for (const variant of ["video", "article"] as const) {
+      const onDetails = vi.fn();
+      const screen = await mountInShadowRoot(
+        <HoverCard {...figureOut} variant={variant} onDetails={onDetails} />,
+      );
+      await screen.getByRole("button", { name: "Details" }).click();
+      expect(onDetails).toHaveBeenCalledOnce();
+      cleanUpMounts();
+    }
   });
 
   test("buttons ignore clicks a page script makes", async () => {
     const onLearning = vi.fn();
     const onKnown = vi.fn();
+    const onDetails = vi.fn();
     const screen = await mountInShadowRoot(
       <HoverCard
         {...figureOut}
         status="new"
         onLearning={onLearning}
         onKnown={onKnown}
+        onDetails={onDetails}
       />,
     );
-    for (const name of ["+ Learning", "Known"]) {
+    for (const name of ["+ Learning", "Known", "Details"]) {
       const button = screen.getByRole("button", { name }).element();
       (button as HTMLElement).click();
       button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
     expect(onLearning).not.toHaveBeenCalled();
     expect(onKnown).not.toHaveBeenCalled();
+    expect(onDetails).not.toHaveBeenCalled();
   });
 
   test("is 300px wide over video and 290px over articles", async () => {
