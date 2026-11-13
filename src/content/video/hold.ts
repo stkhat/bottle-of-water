@@ -11,7 +11,7 @@ import type { VideoState } from "./state";
 export const RESUME_DELAY_MS = 200;
 
 /** A card or a selection is open over the words (spec: "Pausing while Lingo is in use"). */
-const inUse = (s: VideoState) =>
+export const inUse = (s: VideoState) =>
   s.hover !== null || s.panel !== null || s.phrase !== null || s.selecting;
 
 export interface PlaybackHold {

@@ -1,6 +1,7 @@
 import { render, type JSX } from "preact";
 import { boxOf } from "../lookup/geometry";
 import { createShadowHost } from "../shadow-host";
+import { inUse } from "./hold";
 import { createStore } from "../store";
 import {
   BelowVideoUi,
@@ -170,8 +171,14 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   });
   let observed: Element | null = null;
 
-  /** Keeps the in-video subtitle clear of the site's control bar while it shows. */
+  /**
+   * Keeps the in-video subtitle clear of the site's control bar while it shows. While
+   * Lingo is in use the subtitle stays where it is: Netflix takes its bar away a few
+   * seconds after the pointer stops on a word, and moving the word from under it would
+   * close the hover card (and play the video again).
+   */
   function liftSubtitle() {
+    if (inUse(app.store.get())) return;
     const barTop = adapter.controlBarTop?.() ?? null;
     const player = boxOf(adapter.playerElement());
     const subtitleBottom =

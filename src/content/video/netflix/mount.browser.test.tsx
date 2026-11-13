@@ -67,6 +67,7 @@ afterAll(async () => {
 
 let page: TestPage;
 let adapter: PlatformAdapter;
+let app: VideoApp;
 let unmount: () => void;
 
 function start(options: Parameters<typeof createTestPage>[0] = {}) {
@@ -75,7 +76,8 @@ function start(options: Parameters<typeof createTestPage>[0] = {}) {
     href: () => `https://www.netflix.com/watch/${MOVIE_ID}`,
     idleMs: 60_000,
   });
-  unmount = mountVideoUi({ adapter, app: fakeApp() });
+  app = fakeApp();
+  unmount = mountVideoUi({ adapter, app });
 }
 afterEach(async () => {
   if (document.fullscreenElement) await document.exitFullscreen();
@@ -237,6 +239,44 @@ describe("the subtitle over Netflix's video", () => {
 
     page.showControls(false);
     await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
+  });
+
+  // The bar goes a few seconds after the pointer stops on a word: the word must stay
+  // under it, or the hover card closes and the video plays again.
+  it("keeps its height while Lingo is in use, and follows the bar once it is not", async () => {
+    start();
+    page.showControls(true);
+    await expect.poll(() => subtitle()).not.toBeNull();
+    await settlesAbove(() => Math.min(barTop(), partsTop()));
+    const lifted = bottomOf();
+
+    app.store.set({ selecting: true });
+    page.showControls(false);
+    // Longer than the subtitle's 0.2s slide.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(bottomOf()).toBeCloseTo(lifted, 0);
+
+    app.store.set({ selecting: false });
+    const player = page.player.getBoundingClientRect();
+    await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
+  });
+
+  it("does not rise for the bar while Lingo is in use", async () => {
+    start();
+    page.showControls(false);
+    await expect.poll(() => subtitle()).not.toBeNull();
+    // Down from the bar shown at the start: the mount places on the next frame.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const player = page.player.getBoundingClientRect();
+    expect(bottomOf()).toBeCloseTo(player.bottom - 64, 0);
+
+    app.store.set({ selecting: true });
+    page.showControls(true);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(bottomOf()).toBeCloseTo(player.bottom - 64, 0);
+
+    app.store.set({ selecting: false });
+    await settlesAbove(() => Math.min(barTop(), partsTop()));
   });
 
   it("rises above the bar's buttons and title when the bar covers the whole player", async () => {
