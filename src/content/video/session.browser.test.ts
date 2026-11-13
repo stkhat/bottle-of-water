@@ -1182,6 +1182,29 @@ describe("selecting words", () => {
       .toEqual([["made up her mind"], [], ["made up\nhis mind"]]);
   });
 
+  it("after a save, gives new spans only to the cues that changed, at once", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    const before = state().spans;
+    const changes: VideoState["spans"][] = [];
+    const off = app.store.subscribe(() => {
+      const { spans } = state();
+      if (spans !== (changes.at(-1) ?? before)) changes.push(spans);
+    });
+    cleanups.push(off);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    app.saveSelection("learning");
+    await expect
+      .poll(() => phrases(state))
+      .toEqual([["made up her mind"], [], ["made up\nhis mind"]]);
+    expect(changes).toHaveLength(1);
+    // The cue without the phrase keeps its spans (its card does not render again).
+    expect(state().spans[1]).toBe(before[1]);
+  });
+
   it("Details opens the phrase's window, which saves it", async () => {
     const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
     await ready(state);

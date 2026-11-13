@@ -1,4 +1,9 @@
-import type { Category, Span, WordStatus } from "../../core/classify";
+import {
+  sameSpans,
+  type Category,
+  type Span,
+  type WordStatus,
+} from "../../core/classify";
 import type { DataNote } from "../../core/packs/state";
 import {
   hostBlocked,
@@ -92,7 +97,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     lang,
     url: () => adapter.url(),
     // Classify again, which also asks the meanings that could not be read.
-    packsReady: () => withWatch(analyzeAll),
+    packsReady: () => withWatch((w) => analyzeAll(w, true)),
   });
   const { run } = lookup;
   const data = followPackStatus(deps, (status) => {
@@ -281,7 +286,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         if (settings.unsavedAtEnd === "known") run(w.marks.markKnown);
       },
     ).catch(warn);
-    await analyzeAll(w);
+    await analyzeAll(w, true);
   }
 
   function update(w: Watch, video: HTMLVideoElement) {
@@ -344,33 +349,50 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     return pending;
   }
 
-  async function analyzeAll(w: Watch) {
-    const count = store.get().cues.length;
-    for (let from = 0; from < count; from += BATCH) {
+  /**
+   * Classifies every cue: batch by batch as the answers come (`progressive`, the first
+   * classification, so the first cards show their highlights early), else all of them
+   * shown at once.
+   */
+  async function analyzeAll(w: Watch, progressive = false) {
+    const all = store.get().cues.map((_, i) => i);
+    if (!progressive) return analyze(w, all);
+    for (let from = 0; from < all.length; from += BATCH) {
       if (watch !== w) return;
-      const batch = [];
-      for (let i = from; i < Math.min(count, from + BATCH); i++) batch.push(i);
-      await analyze(w, batch);
+      await analyze(w, all.slice(from, from + BATCH));
     }
   }
 
   /**
-   * Classifies the cues at `indices` (one request). While language data is missing (or
-   * once the request finds it missing), they stay unclassified until it is there.
+   * Classifies the cues at `indices` (a request per batch) and shows them at once: only
+   * the cues whose spans changed get new ones. While language data is missing (or once
+   * a request finds it missing), the cues not classified yet stay as they are until it
+   * is there.
    */
   async function analyze(w: Watch, indices: number[]) {
-    if (indices.length === 0) return;
-    const all = store.get().cues;
-    const result = await lookup.analyze(indices.map((i) => all[i]!.text));
-    if (!result || watch !== w) return;
-    for (const key of result.saved) w.recorder.saved.add(key);
-    const spans = [...store.get().spans];
-    indices.forEach((cue, i) => {
-      spans[cue] = result.spans[i] ?? [];
-    });
-    store.set({ spans });
-    w.recorder.encounters(indices);
-    w.summaries.classified(result.spans.flat(), new Set(result.saved));
+    const found = new Map<number, Span[]>();
+    const saved = new Set<string>();
+    for (let from = 0; from < indices.length; from += BATCH) {
+      const batch = indices.slice(from, from + BATCH);
+      const all = store.get().cues;
+      const result = await lookup.analyze(batch.map((i) => all[i]!.text));
+      if (watch !== w) return;
+      if (!result) break;
+      for (const key of result.saved) saved.add(key);
+      batch.forEach((cue, i) => found.set(cue, result.spans[i] ?? []));
+    }
+    if (found.size === 0) return;
+    for (const key of saved) w.recorder.saved.add(key);
+    const before = store.get().spans;
+    let spans: (Span[] | null)[] | undefined;
+    for (const [cue, list] of found) {
+      if (sameSpans(before[cue], list)) continue;
+      spans ??= [...before];
+      spans[cue] = list;
+    }
+    if (spans) store.set({ spans });
+    w.recorder.encounters([...found.keys()]);
+    w.summaries.classified([...found.values()].flat(), saved);
   }
 
   function unsavedKeys(): string[] {
@@ -382,16 +404,22 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   }
 
   function recategorize(change: (span: Span) => Category | undefined) {
-    const spans = store.get().spans.map(
-      (list) =>
-        list?.map((span) => {
-          const category = change(span);
-          return category === undefined || category === span.category
-            ? span
-            : { ...span, category };
-        }) ?? null,
-    );
-    store.set({ spans });
+    let changed = false;
+    const spans = store.get().spans.map((list) => {
+      if (!list) return list;
+      let next: Span[] | undefined;
+      list.forEach((span, i) => {
+        const category = change(span);
+        if (category === undefined || category === span.category) return;
+        next ??= [...list];
+        next[i] = { ...span, category };
+      });
+      // A cue without a change keeps its spans: its card does not render again.
+      if (!next) return list;
+      changed = true;
+      return next;
+    });
+    if (changed) store.set({ spans });
   }
 
   /** Saves, changes or removes the term at `ref`; every line with it follows. */

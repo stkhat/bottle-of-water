@@ -85,6 +85,42 @@ export interface Span {
   pos?: string;
 }
 
+/** Two values of a span's field are the same: equal, or objects with equal fields. */
+function sameField(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every(
+      (key) =>
+        (a as Record<string, unknown>)[key] ===
+        (b as Record<string, unknown>)[key],
+    )
+  );
+}
+
+function sameSpan(a: Span, b: Span): boolean {
+  const keys = Object.keys(a) as (keyof Span)[];
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => sameField(a[key], b[key]))
+  );
+}
+
+/**
+ * Two classifications of a text are the same, field by field: a text classified again
+ * keeps its highlights (and its rendered words) when nothing changed.
+ */
+export function sameSpans(
+  a: readonly Span[] | null | undefined,
+  b: readonly Span[] | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((span, i) => sameSpan(span, b[i]!));
+}
+
 export interface ClassifyOptions {
   terms: TermIndex;
   /** Unsaved words ranked at or above this are known. */

@@ -97,6 +97,28 @@ describe("selection card", () => {
       .toEqual(["rise and fall"]);
   });
 
+  it("highlights a saved phrase wherever it is, and leaves the other blocks' highlights alone", async () => {
+    const { root } = await setup(
+      `
+      <div style="height: 120px"></div>
+      <p>They knead the dough and bake loaves.</p>
+      <p>So you can trace each rise and fall back to its cause.</p>
+      <p>Prices rise and fall with the seasons.</p>`,
+      { settings: { highlight: { new: true, learning: true, known: true } } },
+    );
+    await expect.poll(() => highlighted("lingo-new")).toContain("knead");
+    const ranges = () =>
+      [...(CSS.highlights.get("lingo-new") ?? [])] as Range[];
+    const knead = ranges().find((r) => r.toString() === "knead");
+    selectText(root, "rise", 0, "fall", 4);
+    await (await cardButton("rise and fall", "+ Learning")).click();
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["rise and fall", "rise and fall"]);
+    // The first block, classified again unchanged, kept its ranges.
+    expect(ranges().find((r) => r.toString() === "knead")).toBe(knead);
+  });
+
   it("saves the phrase even when the selection is read again while saving", async () => {
     const { root, background } = await setup(ARTICLE, {
       // A slow save: the selection is read again before it is done.

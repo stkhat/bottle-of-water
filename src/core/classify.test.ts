@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createClassifier,
+  sameSpans,
   unsavedKeys,
   type ClassifyOptions,
   type Span,
@@ -508,6 +509,59 @@ describe("unsavedKeys", () => {
       knownLevel: 10,
     });
     expect(unsavedKeys(spans)).toEqual(["we", "give up", "tangy", "yeast"]);
+  });
+});
+
+describe("sameSpans", () => {
+  const classify = (text: string, saved: Record<string, TermStatus> = {}) =>
+    classifier.classify(pack.tokenize(text), {
+      terms: terms(saved),
+      knownLevel: 10,
+    });
+
+  it("is true for a text classified again with the same terms", () => {
+    expect(
+      sameSpans(
+        classify("We gave up tangy yeast"),
+        classify("We gave up tangy yeast"),
+      ),
+    ).toBe(true);
+    expect(sameSpans(null, null)).toBe(true);
+  });
+
+  it("is false when a category, a span or a field differs", () => {
+    const before = classify("We gave up tangy yeast");
+    expect(
+      sameSpans(
+        before,
+        classify("We gave up tangy yeast", { yeast: "learning" }),
+      ),
+    ).toBe(false);
+    expect(sameSpans(before, before.slice(1))).toBe(false);
+    expect(
+      sameSpans(
+        before,
+        before.map((s, i) => (i === 0 ? { ...s, pos: "noun" } : s)),
+      ),
+    ).toBe(false);
+    expect(sameSpans(null, [])).toBe(false);
+  });
+
+  it("compares a phrase part's fields, not its object", () => {
+    const span: Span = {
+      start: 0,
+      end: 6,
+      key: "figure out",
+      kind: "phrase",
+      category: "new",
+      part: { index: 0, count: 2, start: 0, end: 16 },
+    };
+    expect(sameSpans([span], [{ ...span, part: { ...span.part! } }])).toBe(
+      true,
+    );
+    expect(
+      sameSpans([span], [{ ...span, part: { ...span.part!, end: 17 } }]),
+    ).toBe(false);
   });
 });
 
