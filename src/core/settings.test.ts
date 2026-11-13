@@ -22,6 +22,7 @@ describe("DEFAULT_SETTINGS", () => {
       subtitleSize: 100,
       subtitleOpacity: 80,
       transcriptTranslation: true,
+      transcriptShown: true,
       sites: {
         youtube: true,
         youtubeComments: true,
@@ -39,6 +40,13 @@ describe("DEFAULT_SETTINGS", () => {
 });
 
 describe("mergeSettings", () => {
+  it("keeps the transcript closed once the user closed it, and open for anything but a boolean", () => {
+    expect(mergeSettings({ transcriptShown: false }).transcriptShown).toBe(
+      false,
+    );
+    expect(mergeSettings({ transcriptShown: "no" }).transcriptShown).toBe(true);
+  });
+
   it("fills missing keys from the defaults", () => {
     expect(mergeSettings({})).toEqual(DEFAULT_SETTINGS);
     expect(mergeSettings(undefined)).toEqual(DEFAULT_SETTINGS);

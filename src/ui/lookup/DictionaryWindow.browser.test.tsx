@@ -359,7 +359,12 @@ describe("DictionaryWindow", () => {
         {...figureOut}
         entry={{
           ...figureOut.entry,
-          senses: [{ pos: "noun", text: "パン生地；練り粉" }, { text: "お金" }],
+          // The last label was only taken from the senses around it.
+          senses: [
+            { pos: "noun", text: "パン生地；練り粉" },
+            { text: "お金" },
+            { pos: "noun", posBy: "gap", text: "生パン" },
+          ],
         }}
       />,
     );
@@ -371,6 +376,7 @@ describe("DictionaryWindow", () => {
       .element(screen.getByText("パン生地；練り粉"))
       .toHaveAttribute("lang", "ja");
     await expect.element(screen.getByText("お金")).toBeVisible();
+    await expect.element(screen.getByText("生パン")).toBeVisible();
     expect(screen.container.querySelectorAll("[data-pos]")).toHaveLength(1);
   });
 

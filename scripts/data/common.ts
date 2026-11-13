@@ -21,6 +21,13 @@ export const DOWNLOAD_PACKS_DIR = join(ROOT, "data", "packs");
 /** Word lists the quality gate reads; not part of any pack. */
 export const GATE_DIR = join(ROOT, "data", "gate");
 export const KAIKKI_PATH = join(RAW_DIR, "kaikki-en.jsonl");
+/**
+ * The words rule E adds to the English vocabulary (`kaikki.ts` writes it;
+ * `frequency.ts` ranks those its list lacks, the quality gate leaves them out).
+ */
+export const WIKTIONARY_WORDS_PATH = join(GATE_DIR, "en-wiktionary-words.json");
+/** How often the example corpus writes each English vocabulary word (`kaikki.ts`); not shipped. */
+export const EXAMPLE_COUNTS_PATH = join(RAW_DIR, "en-example-counts.json");
 /** Largest dictionary shard file. AMO's linter refuses text files over 5 MB. */
 const SHARD_MAX_BYTES = 2_000_000;
 
@@ -153,6 +160,7 @@ export interface KaikkiSense {
   glosses?: unknown[];
   tags?: string[];
   categories?: Categories;
+  topics?: unknown[];
   form_of?: { word?: unknown }[];
   alt_of?: unknown;
   translations?: KaikkiTranslation[];

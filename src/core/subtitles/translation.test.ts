@@ -106,12 +106,12 @@ describe("alignByOverlap", () => {
       expect(aligned).toHaveLength(en.length);
     });
 
-    it("gives each translated cue to the original cue it overlaps most", () => {
-      // ja 25000–32000 overlaps en[0] by 2575 ms, en[1] by 1403 ms, en[2] by 871 ms
-      expect(aligned[0]).toBe(
-        "おはようございます。気分はいかがですか？素晴らしいですね、ここは",
-      );
-      expect(aligned[1]).toBe("");
+    it("gives each translated cue to every original cue it covers at least half of", () => {
+      // ja 25000–32000 overlaps en[0] most (2575 ms) and covers all of en[1] (1403 ms)
+      // and half of en[2] (871 of 1668 ms), which its text translates too
+      const greeting =
+        "おはようございます。気分はいかがですか？素晴らしいですね、ここは";
+      expect(aligned.slice(0, 3)).toEqual([greeting, greeting, greeting]);
       expect(aligned[3]).toBe("すべてが驚嘆の連続です");
     });
 
@@ -162,18 +162,75 @@ describe("alignByOverlap", () => {
     expect(aligned).toEqual(["Hello, how are you? Fine."]);
   });
 
-  it("gives a tie to the earlier original cue", () => {
+  it("gives a tie to the earlier original cue when neither is half covered", () => {
     const aligned = alignByOverlap(
-      [cue(0, 2000, "a"), cue(2000, 4000, "b")],
-      [cue(1000, 3000, "x")],
+      [cue(0, 4000, "a"), cue(4000, 8000, "b")],
+      [cue(3000, 5000, "x")],
       { lang: "en" },
     );
     expect(aligned).toEqual(["x", ""]);
   });
 
+  it("shows a translated cue that spans two cards on both", () => {
+    const aligned = alignByOverlap(
+      [cue(0, 2000, "Whoa."), cue(2100, 4000, "Thai food too?")],
+      [cue(200, 4000, "うわ タイ料理も？")],
+      { lang: "ja" },
+    );
+    expect(aligned).toEqual(["うわ タイ料理も？", "うわ タイ料理も？"]);
+  });
+
+  it("joins every cue a card spans, in time order", () => {
+    const aligned = alignByOverlap(
+      [cue(0, 6000, "I told him, and then he left without a word.")],
+      [cue(3000, 6000, "彼は黙って出ていった"), cue(0, 3000, "話したら")],
+      { lang: "ja" },
+    );
+    expect(aligned).toEqual(["話したら彼は黙って出ていった"]);
+  });
+
+  it("does not give a card a cue that only grazes it", () => {
+    // The second cue covers 400 of the first card's 2000 ms and 400 of the second
+    // card's 2000 ms: each card keeps only its own line.
+    const aligned = alignByOverlap(
+      [cue(0, 2000, "a"), cue(2000, 4000, "b"), cue(4000, 6000, "c")],
+      [cue(0, 1900, "A"), cue(1600, 3600, "B"), cue(3800, 6000, "C")],
+      { lang: "en" },
+    );
+    expect(aligned).toEqual(["A", "B", "C"]);
+  });
+
+  it("orders unsorted and overlapping translated cues by start time", () => {
+    const aligned = alignByOverlap(
+      [cue(0, 4000, "Two people talk at once.")],
+      [
+        cue(2000, 4000, "second"),
+        cue(0, 3000, "first"),
+        cue(1000, 4000, "middle"),
+      ],
+      { lang: "en" },
+    );
+    expect(aligned).toEqual(["first middle second"]);
+  });
+
+  it("does not spread a sound label onto spoken cards, or a spoken line onto labels", () => {
+    const aligned = alignByOverlap(
+      [cue(0, 2000, "(Laughter)"), cue(2000, 4000, "Right.")],
+      [cue(0, 4000, "（笑）"), cue(1500, 4000, "そうだね")],
+      { lang: "ja" },
+    );
+    expect(aligned).toEqual(["（笑）", "そうだね"]);
+  });
+
   it("handles empty inputs", () => {
     expect(alignByOverlap([], [cue(0, 1, "x")], { lang: "en" })).toEqual([]);
     expect(alignByOverlap([cue(0, 1, "a")], [], { lang: "en" })).toEqual([""]);
+    expect(alignByOverlap([], [], { lang: "en" })).toEqual([]);
+    expect(
+      alignByOverlap([cue(0, 1000, "a")], [cue(5000, 6000, "x")], {
+        lang: "en",
+      }),
+    ).toEqual([""]);
   });
 });
 
@@ -233,7 +290,11 @@ describe("alignByOverlap on sentence cards", () => {
       "例えばディナーパーティーの席であなたが教育関係の仕事をしてると言ったとします" +
         "まあ実のところ、教育関係で働いている人はあまりディナーパーティーに行ったりしません",
     );
-    expect(of("If you work in education")).toBe("そんなに誘われませんよね");
+    // The dinner-party line also covers most of this sentence, which it translates in part.
+    expect(of("If you work in education")).toBe(
+      "まあ実のところ、教育関係で働いている人はあまりディナーパーティーに行ったりしません" +
+        "そんなに誘われませんよね",
+    );
     // The laughter gets no spoken line.
     cards.forEach((card, i) => {
       if (card.text === "(Laughter)") expect(aligned[i]).toBe("");

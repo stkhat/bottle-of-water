@@ -12,6 +12,7 @@ import {
 import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
+import { displayWidth } from "../lexicon/short-lines";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
 import type { DictPack, ShardIndex } from "./types";
@@ -28,7 +29,7 @@ const {
   vocab: vocabList,
   phrases,
 } = await loadPack("en");
-const { dict, phrases: jaPhrases } = await loadPack("en-ja");
+const { dict, phrases: jaPhrases, capital, sensePos } = await loadPack("en-ja");
 const { defs } = await loadPack("en-defs");
 const vocab = new Set(vocabList);
 
@@ -58,11 +59,42 @@ describe("generated dictionary shards", () => {
 });
 
 describe("generated vocabulary", () => {
-  it("is the dictionary's single-word headwords, sorted", () => {
-    const singleWords = Object.keys(dict)
-      .filter((key) => !key.includes(" "))
-      .sort(byCodeUnit);
-    expect(vocabList).toEqual(singleWords);
+  it("has the dictionary's single-word headwords and Wiktionary's words in use, sorted", () => {
+    const singleWords = Object.keys(dict).filter((key) => !key.includes(" "));
+    expect(singleWords.filter((word) => !vocab.has(word))).toEqual([]);
+    expect(vocabList).toEqual([...vocabList].sort(byCodeUnit));
+    // Rule E: words EJDict lacks, or writes only in another form ("any more").
+    for (const word of ["um", "wanna", "app", "website", "chemo", "anymore"])
+      expect(vocab.has(word) && !Object.hasOwn(dict, word), word).toBe(true);
+    // Not forms of other words, rare words or old spellings.
+    for (const word of ["years", "based", "zyzzyva", "clepe"])
+      expect(vocab.has(word), word).toBe(false);
+  });
+  it("ranks Wiktionary's words, from the frequency list or the example corpus", () => {
+    const rank = (word: string) => freq.indexOf(word) + 1 || Infinity;
+    // From the TV list, which had no vocabulary word for them.
+    expect(rank("um")).toBeLessThan(3000);
+    expect(rank("wanna")).toBeLessThan(3000);
+    // Placed by the example corpus: words of the 2010s.
+    expect(rank("selfie")).toBeLessThan(20000);
+    expect(rank("chemo")).toBeLessThan(20000);
+  });
+  it("gives Wiktionary's words their English definitions, to translate", () => {
+    const dictionary = createEnJaDictionary({
+      dict,
+      phrases: jaPhrases,
+      capital,
+      sensePos,
+      defs,
+      pos,
+      ipa,
+    });
+    for (const word of ["um", "wanna", "app", "website", "chemo", "anymore"])
+      expect(dictionary.entry(word), word).toMatchObject({
+        glossLang: "en",
+        short: expect.any(String),
+      });
+    expect(dictionary.entry("app")?.short).toMatch(/program|application/i);
   });
 });
 
@@ -92,8 +124,23 @@ describe("generated packs", () => {
     expect(lookup("figure of speech", dict, pos)).toBeDefined();
   });
   it("label senses with parts of speech", () => {
-    const labels = lookup("ferment", dict, pos)?.senses.map((s) => s.pos);
-    expect(labels).toContain("verb");
+    const labels = (word: string) =>
+      lookup(word, dict, pos, sensePos)?.senses.map((s) => s.pos);
+    expect(labels("ferment")).toEqual(expect.arrayContaining(["noun", "verb"]));
+    // fine: 罰金 (a noun), 〈人〉に罰金を科する (a verb), 『りっぱな』 (an adjective) …
+    expect(labels("fine")?.slice(0, 3)).toEqual(["noun", "verb", "adjective"]);
+    expect(labels("including")).toEqual(["preposition"]);
+  });
+  it("label most senses of words with several parts of speech", () => {
+    let senses = 0;
+    let labelled = 0;
+    for (const key of Object.keys(dict))
+      if ((pos[key]?.length ?? 0) > 1)
+        for (const sense of lookup(key, dict, pos, sensePos)!.senses) {
+          senses++;
+          if (sense.pos) labelled++;
+        }
+    expect(labelled / senses).toBeGreaterThan(0.8);
   });
   it("rank the most common words first", () => {
     const rank = (word: string) => freq.indexOf(word) + 1 || Infinity;
@@ -108,6 +155,8 @@ describe("generated phrases", () => {
   const dictionary = createEnJaDictionary({
     dict,
     phrases: jaPhrases,
+    capital,
+    sensePos,
     defs,
     pos,
     ipa,
@@ -163,6 +212,55 @@ describe("generated phrases", () => {
       (phrase) => !dictionary.entry(phrase)?.short,
     );
     expect(missing).toEqual([]);
+  });
+
+  const lines = (term: string) => dictionary.entry(term)?.lines ?? [];
+
+  it("give a capitalised word its capitalised senses first, and a lowercase one none", () => {
+    expect(dictionary.entry("japan", "capital")?.lines[0]).toBe("日本");
+    expect(dictionary.entry("japan", "lower")?.lines).not.toContain("日本");
+    expect(dictionary.entry("china", "capital")?.lines[0]).toMatch(/^中国/);
+    expect(dictionary.entry("china", "lower")?.lines[0]).toMatch(/^磁器/);
+    expect(dictionary.entry("june", "capital")?.lines[0]).toMatch(/^6月/);
+    expect(dictionary.entry("us", "upper")?.lines[0]).toMatch(/合衆国/);
+    expect(dictionary.entry("oh", "lower")?.lines.join()).not.toMatch(/Ohio/);
+    // The word list does not say how the word was written: every sense.
+    expect(dictionary.entry("japan")?.lines).toContain("日本");
+  });
+
+  it("say which capitalised meanings a name keeps", () => {
+    expect(dictionary.capitalMeaning("june")).toBe("word");
+    expect(dictionary.capitalMeaning("france")).toBeDefined();
+    expect(dictionary.capitalMeaning("mark")).toBeUndefined();
+    expect(dictionary.capitalMeaning("frank")).toBeUndefined();
+  });
+
+  it("follow a form or a cross-reference to the word it names for the hover card", () => {
+    const go = lines("go");
+    expect(lines("went")).toEqual(["goの過去", go[0], go[1]]);
+    expect(lines("found")).toEqual([
+      "findの過去・過去分詞",
+      lines("find")[0],
+      "…を創設する,設立する(establish)",
+    ]);
+    expect(lines("has")).toEqual([
+      "haveの三人称単数現在",
+      ...lines("have").slice(0, 2),
+    ]);
+    expect(lines("anyway")).toEqual(lines("anyhow"));
+    // The dictionary window and word lists keep the entry's own short meaning.
+    expect(dictionary.entry("went")?.short).toBe("goの過去");
+  });
+
+  it("give hover lines of one sense within 25 Japanese characters", () => {
+    expect(lines("of")[0]).toBe("…の,…のものである,…に属する");
+    expect(lines("so")[0]).toBe("そういうふうに,そのように");
+    expect(lines("should")[0]).toBe(
+      "すべきである,するのが当然である,しなくてはならない",
+    );
+    for (const term of ["went", "found", "anyway", "has", "of", "so", "should"])
+      for (const line of lines(term))
+        expect(displayWidth(line), line).toBeLessThanOrEqual(50);
   });
 
   it("take Japanese translations before English definitions", () => {

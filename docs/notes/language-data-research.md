@@ -1,6 +1,7 @@
 # Language data — research (2026-11-11)
 
 Why the language data is built and shipped the way [architecture.md](../specs/architecture.md) "Language data" describes.
+Follow-up measurements of more native languages and sources (OMW, Wikidata Lexemes, English pivots; 2026-11-13): [translation-data-expansion.md](translation-data-expansion.md).
 
 ## Problem
 - Before M9 every language pack was bundled: two learning languages and three dictionaries, 19.1 MB of pack files, a 5.5 MB Chrome zip.

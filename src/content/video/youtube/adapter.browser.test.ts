@@ -1,3 +1,4 @@
+import { userEvent } from "vitest/browser";
 import {
   afterAll,
   afterEach,
@@ -112,6 +113,59 @@ describe("the watch page", () => {
     expect(side?.before?.id).toBe("related");
   });
 
+  describe("in fullscreen", () => {
+    afterEach(async () => {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    });
+
+    /** Puts the page in fullscreen from the user's click, as YouTube's button does. */
+    async function fullscreen(element: Element) {
+      const button = document.createElement("button");
+      button.textContent = "Full screen";
+      button.style.cssText =
+        "position: fixed; top: 0; left: 0; z-index: 2147483647;";
+      button.onclick = () => void element.requestFullscreen();
+      document.body.append(button);
+      await userEvent.click(button);
+      button.remove();
+      await expect.poll(() => document.fullscreenElement).toBe(element);
+    }
+
+    it("fills the screen with the page in fullscreen and the player in the full-bleed row, not in theater mode", async () => {
+      expect(adapter.fillsWindow?.()).toBe(false);
+      const back = page.fullBleed();
+      // Theater mode: the same row, without fullscreen.
+      expect(adapter.fillsWindow?.()).toBe(false);
+      await fullscreen(document.documentElement);
+      expect(adapter.fillsWindow?.()).toBe(true);
+      back();
+      expect(adapter.fillsWindow?.()).toBe(false);
+    });
+
+    it("narrows the player for the sidebar and gives its width back, telling the player with a resize", async () => {
+      page.fullBleed();
+      await fullscreen(document.documentElement);
+      let resizes = 0;
+      const onResize = () => resizes++;
+      addEventListener("resize", onResize);
+      const width = () => page.player.getBoundingClientRect().width;
+      await expect.poll(width).toBe(innerWidth);
+      adapter.narrowPlayer?.(392);
+      expect(width()).toBe(innerWidth - 392);
+      expect(page.player.getBoundingClientRect().left).toBe(0);
+      expect(resizes).toBe(1);
+      adapter.narrowPlayer?.(392);
+      expect(resizes).toBe(1);
+      adapter.narrowPlayer?.(0);
+      expect(width()).toBe(innerWidth);
+      expect(resizes).toBe(2);
+      adapter.narrowPlayer?.(392);
+      adapter.dispose();
+      expect(width()).toBe(innerWidth);
+      removeEventListener("resize", onResize);
+    });
+  });
+
   it("puts the player buttons first in the right-hand controls without a settings button", () => {
     page.player.querySelector(".ytp-settings-button")!.remove();
     const controls = adapter.controlsPoint();
@@ -202,6 +256,7 @@ describe("a Short", () => {
     expect(controls?.before?.id).toBe("closed-captioning-button-container");
     expect(adapter.belowVideoElement()).toBeNull();
     expect(adapter.sideColumn()).toBeNull();
+    expect(adapter.fillsWindow?.()).toBe(false);
     expect(adapter.besidePlayer?.()).toBe(page.actionBar);
   });
 

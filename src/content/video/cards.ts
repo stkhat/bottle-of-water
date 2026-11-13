@@ -41,8 +41,16 @@ export function createCards(o: {
     const found = spanOf(ref);
     if (!found) return undefined;
     const { span, surface } = found;
+    const written = lookup.written(span, surface);
     return lookup.describe(
-      { key: span.key, kind: span.kind, surface, category: span.category },
+      {
+        key: span.key,
+        kind: span.kind,
+        surface,
+        category: span.category,
+        ...(written !== undefined && { written }),
+        ...(span.pos !== undefined && { pos: span.pos }),
+      },
       shownIn,
     );
   }

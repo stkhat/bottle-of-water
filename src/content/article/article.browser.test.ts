@@ -173,6 +173,8 @@ describe("startArticle", () => {
           "The loaves let time do the heavy lifting.",
           "The yeast gives a slightly tangy taste.",
         ],
+        // The page's casing: no word is capitalised inside a sentence.
+        casing: { mode: "lower", words: {} },
       },
     ]);
     expect(session!.spans.size).toBe(3);
@@ -259,6 +261,7 @@ describe("startArticle", () => {
         quote("The loaves let time do the heavy lifting."),
         quote("The yeast gives a slightly tangy taste."),
       ],
+      casing: { mode: "lower", words: {} },
     });
 
     // Analyzed again at another level: nothing new to keep.

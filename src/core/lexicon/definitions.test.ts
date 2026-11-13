@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanDefinition,
+  definitionPointer,
   definitionTexts,
+  isUsageNote,
   MAX_TRANSLATED_SENSES,
 } from "./definitions";
 
@@ -193,6 +195,47 @@ describe("cleanDefinition", () => {
   });
 });
 
+describe("definitionPointer", () => {
+  it("knows inflections as forms of the word they name", () => {
+    expect(definitionPointer("Plural of mouse.")).toEqual({
+      kind: "form",
+      target: "mouse",
+    });
+    expect(
+      definitionPointer("third-person singular preterite indicative of ir"),
+    ).toEqual({ kind: "form", target: "ir" });
+  });
+  it("knows synonyms, variants and the like as references", () => {
+    expect(definitionPointer("Synonym of look for")).toEqual({
+      kind: "reference",
+      target: "look for",
+    });
+    expect(definitionPointer("(informal) Alternative form of anyhow")).toEqual({
+      kind: "reference",
+      target: "anyhow",
+    });
+    expect(definitionPointer("Synonym of I can tell you")).toEqual({
+      kind: "reference",
+      target: "i can tell you",
+    });
+  });
+  it("names no term when the pointer glosses it: it means one of its senses", () => {
+    expect(
+      definitionPointer("Synonym of deal with (“to behave in a certain way”)"),
+    ).toEqual({ kind: "reference" });
+    expect(
+      definitionPointer("Synonym of in the zone, playing perfectly in time"),
+    ).toEqual({ kind: "reference" });
+  });
+  it("leaves definitions and pointers with a definition of their own", () => {
+    expect(definitionPointer("To reveal a secret.")).toBeUndefined();
+    expect(definitionPointer("A form of torture.")).toBeUndefined();
+    expect(
+      definitionPointer("Synonym of get someone's back up: to annoy someone."),
+    ).toBeUndefined();
+  });
+});
+
 describe("definitionTexts", () => {
   it("gives the cleaned short meaning and first senses, each once", () => {
     expect(MAX_TRANSLATED_SENSES).toBe(4);
@@ -208,5 +251,25 @@ describe("definitionTexts", () => {
         ],
       }),
     ).toEqual(["To reveal a secret", "To reveal a secret.", "To confess."]);
+  });
+});
+
+describe("isUsageNote", () => {
+  it("finds definitions that say how an expression is used", () => {
+    expect(isUsageNote("Used to express surprise.")).toBe(true);
+    expect(isUsageNote("(idiomatic) Said when leaving.")).toBe(true);
+    expect(
+      isUsageNote(
+        "(idiomatic) An apophasis used by a speaker to introduce, despite claiming not to address, a given point of discussion.",
+      ),
+    ).toBe(true);
+    expect(isUsageNote("A rhetorical question asked to show doubt.")).toBe(
+      true,
+    );
+  });
+  it("leaves definitions that mean something, an interjection's too", () => {
+    expect(isUsageNote("To reveal a secret.")).toBe(false);
+    expect(isUsageNote("An expression of surprise.")).toBe(false);
+    expect(isUsageNote("A user of a computer.")).toBe(false);
   });
 });

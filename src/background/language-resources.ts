@@ -57,13 +57,17 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
     LANGUAGE_PACKS.map((lang) => [
       lang,
       recipe([lang], (files) => {
-        const { lemmas, freq, ipa, vocab, phrases } = files[lang];
+        const pack = files[lang];
+        const { lemmas, freq, ipa, vocab, phrases } = pack;
         return createLanguagePack(lang, {
           lemmas,
           freq,
           ipa,
           vocab: new Set(vocab),
           patterns: phrases,
+          ...("pos" in pack && { pos: pack.pos }),
+          ...("names" in pack && { names: pack.names }),
+          ...("tagger" in pack && { tagger: pack.tagger }),
         });
       }),
     ]),

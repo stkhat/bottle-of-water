@@ -19,19 +19,31 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     kind: "word",
     ipa: "/loʊf/",
     short: "（パンの）ひと塊",
-    senses: [{ pos: "noun", text: "（パンなどの）ひと塊" }],
+    lines: ["（パンの）ひと塊", "（食品の）塊"],
+    senses: [
+      { pos: "noun", text: "（パンなどの）ひと塊" },
+      { pos: "noun", text: "（食品の）塊" },
+    ],
   },
   figure: {
     head: "figure",
     kind: "word",
     short: "数字、姿、人物",
+    lines: ["数字、姿、人物"],
     senses: [{ text: "数字；姿；人物" }],
   },
-  tangy: { head: "tangy", kind: "word", short: "ぴりっとした", senses: [] },
+  tangy: {
+    head: "tangy",
+    kind: "word",
+    short: "ぴりっとした",
+    lines: ["ぴりっとした"],
+    senses: [],
+  },
   "look into": {
     head: "look into",
     kind: "phrase",
     short: "To investigate",
+    lines: ["To investigate"],
     senses: [{ pos: "verb", text: "To investigate or examine." }],
     glossLang: "en",
   },
@@ -39,6 +51,7 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     head: "spill the beans",
     kind: "phrase",
     short: "(idiomatic) To reveal a secret.",
+    lines: ["(idiomatic) To reveal a secret."],
     senses: [
       {
         pos: "verb",
@@ -48,10 +61,27 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     ],
     glossLang: "en",
   },
+  "not to mention": {
+    head: "not to mention",
+    kind: "phrase",
+    short:
+      "An apophasis used by a speaker to introduce, despite claiming not to address, a given point of discussion",
+    lines: [
+      "An apophasis used by a speaker to introduce, despite claiming not to address, a given point of discussion",
+    ],
+    senses: [
+      {
+        pos: "conjunction",
+        text: "(idiomatic) An apophasis used by a speaker to introduce, despite claiming not to address, a given point of discussion.",
+      },
+    ],
+    glossLang: "en",
+  },
   "spill the bean": {
     head: "spill the bean",
     kind: "phrase",
     short: "Misspelling of spill the beans.",
+    lines: ["Misspelling of spill the beans."],
     senses: [{ text: "Misspelling of spill the beans." }],
     glossLang: "en",
   },
@@ -157,11 +187,19 @@ describe("describeTerm", () => {
       head: "loaf",
       ipa: "/loʊf/",
       short: "（パンの）ひと塊",
+      lines: ["（パンの）ひと塊", "（食品の）塊"],
       sub: "loaves → loaf",
       status: "learning",
       termId: "en:loaf",
-      senses: [{ pos: "noun", text: "（パンなどの）ひと塊" }],
+      senses: [
+        { pos: "noun", text: "（パンなどの）ひと塊" },
+        { pos: "noun", text: "（食品の）塊" },
+      ],
     });
+    expect(hoverView(card).meanings).toEqual([
+      "（パンの）ひと塊",
+      "（食品の）塊",
+    ]);
     expect(requests).toEqual([
       {
         type: "lookup",
@@ -170,6 +208,37 @@ describe("describeTerm", () => {
         sourceUrl: "https://example.com/a",
       },
     ]);
+  });
+
+  it("asks for the part of speech and the written case the page gives the word, and notes its base form", async () => {
+    const { send, requests } = fakeSend();
+    const card = await describeTerm(
+      {
+        key: "loaf",
+        kind: "word",
+        surface: "loaves",
+        written: "lower",
+        pos: "noun",
+      },
+      {
+        send,
+        lang: "en",
+        nativeLang: "ja",
+        sourceUrl: "https://example.com/a",
+        translator,
+      },
+    );
+    expect(requests).toEqual([
+      {
+        type: "lookup",
+        lang: "en",
+        key: "loaf",
+        sourceUrl: "https://example.com/a",
+        written: "lower",
+        pos: "noun",
+      },
+    ]);
+    expect(card.sub).toBe("loaves → loaf");
   });
 
   it("translates a phrase missing from the dictionary as it is written, and notes its main word", async () => {
@@ -194,6 +263,8 @@ describe("describeTerm", () => {
       machineTranslated: "literal",
     });
     expect(card.ipa).toBeUndefined();
+    expect(card.lines).toEqual(["訳(figured out)"]);
+    expect(hoverView(card).meanings).toEqual(["訳(figured out)"]);
   });
 
   it("notes the main word of a phrase with a slot, not the slot", async () => {
@@ -234,6 +305,7 @@ describe("describeTerm", () => {
     expect(card).toMatchObject({
       head: "look into",
       short: "To investigate",
+      lines: ["To investigate"],
       shortLang: "en",
       glossLang: "en",
       senses: [{ pos: "verb", text: "To investigate or examine." }],
@@ -354,6 +426,9 @@ describe("describeTerm with an English definition", () => {
     expect(card).not.toHaveProperty("shortLang");
     expect(card.senses[0]).not.toHaveProperty("translated");
     expect(calls).toEqual([["To reveal a secret.", "hover", EN_JA]]);
+    // One line: the other senses are not translated for the hover card.
+    expect(card.lines).toEqual(["訳(To reveal a secret.)"]);
+    expect(hoverView(card).meanings).toEqual(["訳(To reveal a secret.)"]);
     await expect.poll(cached).toEqual([
       {
         type: "cacheTranslations",
@@ -366,6 +441,34 @@ describe("describeTerm with an English definition", () => {
         ],
       },
     ]);
+  });
+
+  it("shows a long translated definition as one short line, the window keeping it whole", async () => {
+    const whole = "組み立て、構築、構築、または定式化。";
+    const { send } = fakeSend("new", { "To reveal a secret.": whole });
+    const { translator } = recordingTranslator();
+    const card = await describeTerm(BEANS, deps(send, translator));
+    expect(hoverView(card).meanings).toEqual(["組み立て、構築、または定式化"]);
+    expect(windowView(card).short).toBe(whole);
+  });
+
+  it("translates a phrase whose definition is only a usage note as it is written", async () => {
+    const { send } = fakeSend();
+    const { calls, translator } = recordingTranslator();
+    const card = await describeTerm(
+      { key: "not to mention", kind: "phrase", surface: "Not to mention" },
+      deps(send, translator),
+    );
+    expect(calls).toEqual([["Not to mention", "hover", EN_JA]]);
+    expect(card).toMatchObject({
+      short: "訳(Not to mention)",
+      machineTranslated: "literal",
+      glossLang: "en",
+    });
+    expect(card).not.toHaveProperty("shortLang");
+    expect(hoverView(card).meanings).toEqual(["訳(Not to mention)"]);
+    // The window keeps the definition, translated there.
+    expect(card.senses[0]?.text).toMatch(/apophasis/);
   });
 
   it("uses the cached translations without the translator", async () => {
@@ -626,7 +729,7 @@ describe("hoverView and windowView", () => {
 
   it("marks a translated definition on the hover card, and in the window on its senses only", () => {
     expect(hoverView(card)).toMatchObject({
-      short: "秘密を漏らす",
+      meanings: ["秘密を漏らす"],
       machineTranslated: true,
       shortLang: undefined,
     });
@@ -665,5 +768,24 @@ describe("hoverView and windowView", () => {
       shortLang: "en",
       machineTranslated: false,
     });
+  });
+
+  it("shows the card's lines on the hover card, else its short meaning alone, else nothing", () => {
+    const word: TermCard = {
+      ...card,
+      short: "（パンの）ひと塊",
+      lines: ["（パンの）ひと塊", "（食品の）塊"],
+    };
+    delete word.machineTranslated;
+    expect(hoverView(word).meanings).toEqual([
+      "（パンの）ひと塊",
+      "（食品の）塊",
+    ]);
+    // The dictionary window keeps the short meaning.
+    expect(windowView(word).short).toBe("（パンの）ひと塊");
+    delete word.lines;
+    expect(hoverView(word).meanings).toEqual(["（パンの）ひと塊"]);
+    delete word.short;
+    expect(hoverView(word).meanings).toEqual([]);
   });
 });

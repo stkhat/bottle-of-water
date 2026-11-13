@@ -63,4 +63,16 @@ export const ENGLISH_RULES: PhraseRules = {
     ...["he's", "he'll", "he'd", "she's", "she'll", "she'd"],
     ...["they're", "they'll", "they've", "they'd", "it's", "it'll"],
   ]),
+  particles: new Set([
+    ...["about", "above", "across", "after", "against", "along", "apart"],
+    ...["around", "as", "aside", "at", "away", "back", "before", "behind"],
+    ...["below", "beneath", "beside", "between", "beyond", "by", "down"],
+    ...["for", "forth", "from", "in", "into", "of", "off", "on", "onto", "out"],
+    ...["over", "past", "round", "through", "to", "together", "toward"],
+    ...["towards", "under", "up", "upon", "with", "within", "without"],
+  ]),
+  prepositions: new Set([
+    ...["at", "for", "from", "into", "of", "onto", "to", "toward", "towards"],
+    ...["upon", "with"],
+  ]),
 };

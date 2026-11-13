@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.ts";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
+import { createEnJaDictionary } from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { createPackLoader } from "./packs/load";
+import { blockCasing, documentCasing } from "./text/casing";
 
 const loadPack = createPackLoader(async (path) =>
   JSON.parse(readFileSync(packSourcePath(path), "utf8")),
@@ -62,15 +64,31 @@ describe("dictionary phrases over the generated packs", () => {
     expect(phrases.map((s) => s.key)).toEqual(["give up", "from scratch"]);
   });
 
-  it("does not detect pairs of common words that are meant literally", () => {
+  it("detects by meaning, not by the words' ranks: discourse markers and idioms of common words", () => {
     const text =
-      "I came to Tokyo. I'm going to live in Paris. Very well, let's find out.";
+      "You know, I kind of want it. Of course it makes sense. Thank you.";
     const spans = classifier.classify(pack.tokenize(text), {
       terms: new Map(),
       knownLevel: 3000,
     });
-    const phrases = spans.filter((s) => s.kind === "phrase");
-    expect(phrases.map((s) => s.key)).toEqual(["find out"]);
+    expect(spans.filter((s) => s.kind === "phrase").map((s) => s.key)).toEqual([
+      "you know",
+      "kind of",
+      "of course",
+      "make sense",
+      "thank you",
+    ]);
+  });
+
+  it("leaves transparent compounds, named entities and literal pairs to selections", () => {
+    const text = "A digital signature from New York. In the world of art.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    expect(spans.filter((s) => s.kind === "phrase")).toEqual([]);
+    for (const key of ["digital signature", "new york", "in the world"])
+      expect(pack.patterns.more).toContain(key);
   });
 
   it("still matches such a pair once it is saved", () => {
@@ -187,6 +205,155 @@ describe("classifier over the generated packs", () => {
   });
 });
 
+const ja = await loadPack("en-ja");
+const defs = await loadPack("en-defs");
+
+describe("names over the generated packs (rule D)", () => {
+  const withNames = createLanguagePack("en", {
+    lemmas: en.lemmas,
+    freq: en.freq,
+    ipa: en.ipa,
+    vocab: new Set(en.vocab),
+    patterns: en.phrases,
+    pos: en.pos,
+    names: en.names,
+  });
+  const names = createClassifier(withNames);
+  const dictionary = createEnJaDictionary({
+    ...ja,
+    defs: defs.defs,
+    pos: en.pos,
+    ipa: en.ipa,
+  });
+  const TEXT = [
+    "Yesterday Mark flew to Japan with Frank.",
+    "In June, Mark wrote about the Enlightenment. Yes, Frank said, the trip was long.",
+    "They saw a mark on the wall in France.",
+  ];
+  const casing = documentCasing(
+    TEXT.map((text) => blockCasing(withNames.tokenize(text), "en")),
+  );
+  const spans = TEXT.flatMap((text) =>
+    names
+      .classify(withNames.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        casing,
+        capitalMeaning: (key) => dictionary.capitalMeaning(key),
+      })
+      .map((s) => ({ ...s, text: text.slice(s.start, s.end) })),
+  );
+  const of = (text: string) => spans.filter((s) => s.text === text);
+
+  it("ignores a name the document always capitalises", () => {
+    expect(of("Frank").map((s) => [s.category, s.name])).toEqual([
+      ["ignored", true],
+      ["ignored", true],
+    ]);
+  });
+  it("keeps a name whose capitalised headword has a meaning, capitalised", () => {
+    for (const word of ["Japan", "June", "France"])
+      expect(of(word)[0], word).toMatchObject({ capital: true });
+    expect(of("Japan")[0]?.category).not.toBe("ignored");
+  });
+  it("reads a capitalised abbreviation as the word it stands for, not as a word Wiktionary adds (rule E)", () => {
+    const text = [
+      "Published On 12 Nov 2026",
+      "The vote was held on Nov 3, and the count ended on Mon after a recount.",
+    ];
+    const doc = documentCasing(
+      text.map((t) => blockCasing(withNames.tokenize(t), "en")),
+    );
+    const nov = text.flatMap((t) =>
+      names
+        .classify(withNames.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: doc,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .filter((s) => t.slice(s.start, s.end) === "Nov"),
+    );
+    expect(nov.map((s) => [s.key, s.name, s.capital])).toEqual([
+      ["nov", undefined, true],
+      ["nov", undefined, true],
+    ]);
+    // "nov" (a clipping of novice) joined the vocabulary with rule E.
+    expect(dictionary.entry("nov", "capital")?.lines[0]).toMatch(/^11月/);
+    expect(dictionary.entry("mon", "capital")?.lines[0]).toMatch(/^月曜日/);
+    expect(dictionary.entry("dec", "capital")?.lines[0]).toMatch(/^12月/);
+    expect(dictionary.entry("nov", "lower")?.glossLang).toBe("en");
+    // A word EJDict has keeps its own meaning: "the Sun" is no Sunday.
+    expect(dictionary.entry("sun", "capital")?.lines[0]).toMatch(/太陽/);
+  });
+  it("never takes an interjection, a word after a determiner or one written in lower case for a name", () => {
+    expect(of("Yes")[0]?.name).toBeUndefined();
+    expect(of("Enlightenment")[0]?.name).toBeUndefined();
+    // "mark" is in lower case in the document: "Mark" is no name there.
+    expect(of("Mark").every((s) => s.name === undefined)).toBe(true);
+  });
+  it("takes a common word Wiktionary adds for a name where the document capitalises it (rule E)", () => {
+    const text = [
+      "Um, Jake said the app was down.",
+      "We waited for Jake, um, an hour.",
+    ];
+    const doc = documentCasing(
+      text.map((t) => blockCasing(withNames.tokenize(t), "en")),
+    );
+    const spans = text.flatMap((t) =>
+      names
+        .classify(withNames.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: doc,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .map((s) => ({ ...s, text: t.slice(s.start, s.end) })),
+    );
+    const verdicts = (word: string) =>
+      spans
+        .filter((s) => s.text === word)
+        .map((s) => (s.name ? "name" : s.category));
+    // jake, a young male turkey, and a given name.
+    expect(en.vocab).toContain("jake");
+    expect(verdicts("Jake")).toEqual(["name", "name"]);
+    // An interjection is never a name; it is common enough to be known.
+    expect(verdicts("Um")).toEqual(["known"]);
+    expect(verdicts("um")).toEqual(["known"]);
+    expect(verdicts("app")).toEqual(["new"]);
+  });
+  it("reads a run of capitalised words as one name, titles and titled common nouns aside", () => {
+    const text = [
+      "I work for Harvey Specter at Pearson Specter Litt.",
+      "Specter, you're fired. President Harvey visited the Kennedy Center.",
+      "We sailed to the Persian Gulf.",
+    ];
+    const runs = documentCasing(
+      text.map((t) => blockCasing(withNames.tokenize(t), "en")),
+    );
+    const spans = text.flatMap((t) =>
+      names
+        .classify(withNames.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: runs,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .map((s) => ({ ...s, text: t.slice(s.start, s.end) })),
+    );
+    const named = (word: string) =>
+      spans.filter((s) => s.text === word).map((s) => s.name === true);
+    expect(named("Specter")).toEqual([true, true, true]);
+    // Harvey is no vocabulary word: no hover either way.
+    expect(
+      spans.filter((s) => s.text === "Harvey").map((s) => s.category),
+    ).toEqual(["ignored", "ignored"]);
+    expect(named("President")).toEqual([false]);
+    expect(named("Center")).toEqual([false]);
+    expect(named("Gulf")).toEqual([false]);
+  });
+});
+
 const es = await loadPack("es");
 
 describe("classifier over the generated Spanish pack", () => {
@@ -218,5 +385,253 @@ describe("classifier over the generated Spanish pack", () => {
         kind: "phrase",
       }),
     );
+  });
+
+  it("has no tagger: words keep their keys and get no part of speech", () => {
+    expect(esPack.tagger).toBeUndefined();
+    const text = "Estoy comiendo una manzana.";
+    const withOutlines = esClassifier.classify(esPack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+      outline: () => ({ firstMeaning: true, meaning: true, pos: ["verb"] }),
+    });
+    expect(withOutlines.some((s) => "pos" in s)).toBe(false);
+    expect(withOutlines.map((s) => s.key)).toEqual(
+      classify(text).map((s) => s.key),
+    );
+  });
+});
+
+describe("tags over the generated packs (rules A1 and A2)", () => {
+  const tagged = createLanguagePack("en", {
+    lemmas: en.lemmas,
+    freq: en.freq,
+    ipa: en.ipa,
+    vocab: new Set(en.vocab),
+    patterns: en.phrases,
+    pos: en.pos,
+    names: en.names,
+    tagger: en.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createEnJaDictionary({
+    ...ja,
+    defs: defs.defs,
+    pos: en.pos,
+    ipa: en.ipa,
+  });
+  /** The word's span in `text` with its hover lines. */
+  const hover = (text: string, word: string) => {
+    const span = classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .find((s) => text.slice(s.start, s.end) === word)!;
+    return {
+      key: span.key,
+      pos: span.pos,
+      lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+    };
+  };
+
+  it("looks an inflected verb up by its base", () => {
+    expect(hover("She decided to stay.", "decided")).toMatchObject({
+      key: "decide",
+      pos: "verb",
+    });
+    expect(hover("He was wearing a hat.", "wearing")).toMatchObject({
+      key: "wear",
+      pos: "verb",
+    });
+    expect(hover("I saw him yesterday.", "saw").key).toBe("see");
+  });
+  it("keeps an auxiliary's grammar pointer, and its verb's base", () => {
+    const has = hover("She has spent all her money.", "has");
+    expect(has.key).toBe("has");
+    expect(has.pos).toBeUndefined();
+    expect(has.lines[0]).toMatch(/^haveの/);
+    expect(hover("She has spent all her money.", "spent").key).toBe("spend");
+    expect(hover("The house is being built.", "being").key).toBe("be");
+  });
+  it("keeps a participle used otherwise than as a verb", () => {
+    const established = hover(
+      "The company was established in 1990.",
+      "established",
+    );
+    expect(established).toEqual({
+      key: "established",
+      pos: undefined,
+      lines: [expect.stringMatching(/^確立した/)],
+    });
+    expect(
+      hover("Including taxes, it costs ten dollars.", "Including"),
+    ).toEqual({
+      key: "including",
+      pos: undefined,
+      lines: ["…を含んで,入れて"],
+    });
+    expect(hover("It is a demanding job.", "demanding").key).toBe("demanding");
+  });
+  it("shows the senses of the tagged part of speech first", () => {
+    expect(hover("That's fine.", "fine")).toMatchObject({
+      pos: "adjective",
+      lines: [
+        expect.stringContaining("りっぱな"),
+        expect.anything(),
+        expect.anything(),
+      ],
+    });
+    expect(hover("It was just a joke.", "just").lines[0]).toMatch(/^単に/);
+    expect(hover("He looked like his father.", "like").lines[0]).toMatch(
+      /に似た/,
+    );
+    expect(hover("Their first attempt failed.", "attempt").lines[0]).toMatch(
+      /^企て/,
+    );
+  });
+});
+
+describe("phrase precision over the generated packs", () => {
+  const tagged = createLanguagePack("en", {
+    lemmas: en.lemmas,
+    freq: en.freq,
+    ipa: en.ipa,
+    vocab: new Set(en.vocab),
+    patterns: en.phrases,
+    pos: en.pos,
+    names: en.names,
+    tagger: en.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createEnJaDictionary({
+    ...ja,
+    defs: defs.defs,
+    pos: en.pos,
+    ipa: en.ipa,
+  });
+  const spansOf = (text: string) =>
+    classifier.classify(tagged.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+      outline: (key) => dictionary.outline(key),
+    });
+  /** The dictionary phrases highlighted in `text`, with a discourse marker's part of speech. */
+  const phrases = (text: string) =>
+    spansOf(text)
+      .filter((s) => s.kind === "phrase")
+      .map((s) => (s.pos ? `${s.key}/${s.pos}` : s.key));
+
+  it("shows a discourse marker's interjection senses at a clause start (C1, C2)", () => {
+    expect(phrases("You know, I like it.")).toEqual(["you know/interjection"]);
+    expect(phrases("All right, let's go.")).toEqual(["all right/interjection"]);
+    const plain = dictionary.entry("all right")!;
+    const marker = dictionary.entry("all right", undefined, "interjection")!;
+    expect(plain.senses[0]?.pos).toBe("adjective");
+    expect(marker.lines[0]).not.toBe(plain.lines[0]);
+    expect(marker.lines[0]).toBe(
+      plain.lines[plain.senses.findIndex((s) => s.pos === "interjection")],
+    );
+  });
+  it("shows a phrase's translation-table senses, the best first (C1)", () => {
+    expect(dictionary.entry("break up")?.lines[0]).toMatch(/別れる/);
+    expect(dictionary.entry("write down")?.lines[0]).toMatch(/書き留める/);
+    expect(dictionary.entry("break up")?.senses[0]?.text).toMatch(/^《/);
+  });
+
+  it("has parts of speech for most patterns and transitivity for some phrasal verbs", () => {
+    expect(tagged.phrasePos("give up")[0]).toBe("verb");
+    expect(tagged.phrasePos("kind of")).toEqual(["adv"]);
+    expect(tagged.phrasePos("to be honest")).toEqual(["phrase"]);
+    expect(tagged.phrasePos("come on")).toEqual(["verb", "intj"]);
+    expect(tagged.intransitive("act up")).toBe(true);
+    expect(tagged.intransitive("give up")).toBe(false);
+  });
+  it("does not highlight a whole utterance (P1), which a selection still finds", () => {
+    const text = "To be honest, I liked it.";
+    expect(phrases(text)).toEqual([]);
+    const input = tagged.matcher.prepare(tagged.tokenize(text));
+    expect(tagged.matcher.matchSelection(input, 0, 3)?.key).toBe(
+      "to be honest",
+    );
+  });
+  it("highlights a verb and particle only where the particle is adverbial (P2)", () => {
+    expect(phrases("She gave up.")).toEqual(["give up"]);
+    expect(phrases("Let's find out.")).toEqual(["find out"]);
+    expect(phrases("Do you think we can sneak out of here?")).toEqual([
+      "sneak out",
+    ]);
+    expect(phrases("They talked about her plans.")).toEqual([]);
+    expect(phrases("Fill in the form.")).toEqual([]);
+  });
+  it("classifies the words of a dropped phrase as words, with their tags", () => {
+    const text = "They talked about her plans.";
+    const words = spansOf(text).map((s) => [
+      text.slice(s.start, s.end),
+      s.kind,
+      s.key,
+    ]);
+    expect(words).toContainEqual(["talked", "word", "talk"]);
+    expect(words).toContainEqual(["about", "word", "about"]);
+  });
+  it("drops a verb and a particle that is only a preposition, read literally", () => {
+    expect(
+      phrases("I came to Tokyo. I'm going to live in Paris. Let's find out."),
+    ).toEqual(["find out"]);
+  });
+  it("drops an adverb with a noun in it after a determiner", () => {
+    expect(phrases("What kind of music do you like?")).toEqual([]);
+    expect(phrases("I kind of want it.")).toEqual(["kind of"]);
+  });
+  it("drops a prepositional phrase inside a clause before a noun phrase", () => {
+    expect(phrases("He is in general practice.")).toEqual([]);
+    expect(phrases("I like dogs in general.")).toEqual(["in general"]);
+    expect(phrases("Prices rose as a result of the storm.")).toEqual([
+      "as a result",
+    ]);
+  });
+  it("drops an interjection used as words of the sentence", () => {
+    expect(phrases("It was a good day.")).toEqual([]);
+    expect(phrases("We waited for so long.")).toEqual([]);
+    expect(phrases("So long, everyone!")).toEqual(["so long/interjection"]);
+  });
+  it("drops a whole clause with its object inside a longer sentence", () => {
+    expect(
+      phrases("Why don't you tell me what's really going on here?"),
+    ).toEqual([]);
+    expect(phrases("You told me that you didn't want it.")).toEqual([]);
+    expect(phrases("Where is he? You tell me!")).toEqual([
+      "you tell me/interjection",
+    ]);
+  });
+  it("drops an adverb ending in a preposition before a personal pronoun", () => {
+    expect(
+      phrases("This isn't just about you protecting your client's interests."),
+    ).toEqual([]);
+    expect(phrases("That's kind of you.")).toEqual([]);
+    expect(phrases("I'm just about done.")).toEqual(["just about"]);
+    expect(phrases("Just about everyone knows it.")).toEqual(["just about"]);
+  });
+  it("drops a verb phrase whose first word is a noun in a noun phrase, or a passive", () => {
+    expect(phrases("Take that mask off.")).toEqual([]);
+    expect(phrases("Why did your boyfriend break up with you?")).toEqual([
+      "break up",
+    ]);
+    expect(phrases("It is yet to be passed up the chain of command.")).toEqual([
+      "chain of command",
+    ]);
+    expect(phrases("He passed up the chance.")).toEqual(["pass up"]);
+  });
+  it("gives a discourse marker at a clause start its interjection senses", () => {
+    expect(phrases("Shut up, this has nothing to do with you.")).toEqual([
+      "shut up/interjection",
+    ]);
+    const [span] = spansOf("Come along, children.");
+    expect(span).toMatchObject({ key: "come along", pos: "interjection" });
+    expect(dictionary.entry("come along")?.lines[0]).toMatch(/accompany/i);
+    expect(
+      dictionary.entry("come along", undefined, span!.pos)?.lines[0],
+    ).toMatch(/encouragement/i);
   });
 });

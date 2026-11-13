@@ -5,7 +5,12 @@ import {
   type YouTubeCaptionInfo,
   type YouTubeTrack,
 } from "../../../core/subtitles/youtube-json3";
-import { firstTranslation, siteCaptionsHider, sleep } from "../adapter-kit";
+import {
+  firstTranslation,
+  playerNarrower,
+  siteCaptionsHider,
+  sleep,
+} from "../adapter-kit";
 import {
   createPageBridge,
   NETWORK_CALL_TIMEOUT_MS,
@@ -91,6 +96,29 @@ export function createYouTubeAdapter(
   // The watch page's player can stay in the DOM while a Short shows: go by the URL.
   const player = () =>
     document.getElementById(onShorts() ? "shorts-player" : "movie_player");
+  /**
+   * The player's box in the full-bleed row while the page is in fullscreen (YouTube
+   * puts `<html>` in fullscreen; theater mode uses the same row without it). Null
+   * elsewhere (docs/notes/youtube-captions.md).
+   */
+  const fullBleed = () => {
+    if (onShorts() || !document.fullscreenElement) return null;
+    const box = document.getElementById("player-full-bleed-container");
+    const view = player();
+    return box &&
+      view &&
+      box.contains(view) &&
+      !view.contains(document.fullscreenElement) &&
+      document.fullscreenElement.contains(box)
+      ? box
+      : null;
+  };
+  // A width on the growing flex item has no effect: a margin narrows it.
+  const narrowPlayer = playerNarrower(
+    fullBleed,
+    "margin-right",
+    (width) => `${width}px`,
+  );
   const adShowing = () => player()?.classList.contains("ad-showing") ?? false;
   /** Sends a call to the page script, for the player this page shows. */
   const call = <T extends PageCall["type"]>(
@@ -281,8 +309,11 @@ export function createYouTubeAdapter(
       document.addEventListener("yt-navigate-finish", handler);
       return () => document.removeEventListener("yt-navigate-finish", handler);
     },
+    fillsWindow: () => fullBleed() !== null,
+    narrowPlayer,
     hideSiteCaptions: hideCaptions,
     dispose() {
+      narrowPlayer(0);
       offTimedtext();
       captures.clear();
       hideCaptions(false);

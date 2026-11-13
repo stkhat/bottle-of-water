@@ -1,6 +1,6 @@
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { test, expect, openPopupFor } from "./fixtures";
-import { highlighted, openArticle, showNewWords } from "./page";
+import { COLD_LOAD, highlighted, openArticle, showNewWords } from "./page";
 
 test("the header icons open the settings and the word list", async ({
   context,
@@ -24,7 +24,10 @@ test("the header icons open the settings and the word list", async ({
     const page = await opened;
     await page.waitForLoadState();
     expect(page.url()).toBe(`chrome-extension://${extensionId}/${path}`);
-    await expect(page.getByRole(role, { name: en[name] })).toBeVisible();
+    // The word list shows once its rows are read, with meanings from the dictionary.
+    await expect(page.getByRole(role, { name: en[name] })).toBeVisible(
+      COLD_LOAD,
+    );
   }
 });
 

@@ -138,7 +138,7 @@ function main() {
   const ipa = en<Record<string, string>>("ipa.json");
   const { words, withIpa, ratio } = ipaCoverage(freq, ipa, 20000);
   console.log(
-    `Vocabulary (single-word headwords): ${en<Words>("vocab.json").length}`,
+    `Vocabulary (EJDict's single-word headwords and rule E's words): ${en<Words>("vocab.json").length}`,
   );
   console.log(`Dictionary headwords: ${Object.keys(dict).length}`);
   console.log(

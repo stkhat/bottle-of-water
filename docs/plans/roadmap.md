@@ -4,7 +4,7 @@ Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left
 
 ## Phase 3 ([design](../specs/design.md) "Phases")
 - "Ask AI" links (ChatGPT / Claude with the word and sentence)
-- LLM explanations: Chrome's Prompt API first, the user's own API key as fallback; cached per word + sentence
+- LLM explanations: Chrome's Prompt API first, the user's own API key as fallback; cached per word + sentence; user-initiated only, never automatic hovers ([design](../specs/design.md) "Phases")
 - Tatoeba example sentences (CC BY)
 - Anki / CSV export
 - More sites (each a `PlatformAdapter`)

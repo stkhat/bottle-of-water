@@ -2,6 +2,14 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, sendToBackground } from "./fixtures";
 
+/**
+ * For a wait on the first analysis or the first dictionary use after the service worker
+ * starts: it reads the language packs (about 50 MB). That takes about 0.4 s locally but
+ * has gone past Playwright's 5 s default on CI's runners, where four browsers load them
+ * at once. Only these waits get it; the rest keep the default.
+ */
+export const COLD_LOAD = { timeout: 20_000 };
+
 /** A transcript card's time, top left: the words in a card open the dictionary instead. */
 export const ON_TIME = { x: 16, y: 12 };
 
@@ -57,7 +65,7 @@ export async function openArticle(
   const page = await context.newPage();
   await page.goto(url);
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "lingo-new")).length, COLD_LOAD)
     .toBeGreaterThan(0);
   return page;
 }

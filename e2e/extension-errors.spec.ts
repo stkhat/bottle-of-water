@@ -17,6 +17,7 @@ import {
   sendToBackground,
 } from "./fixtures";
 import {
+  COLD_LOAD,
   highlighted,
   ON_TIME,
   openArticle,
@@ -38,9 +39,10 @@ const dictionary = (page: Page) =>
 async function useArticle(page: Page) {
   const tangy = await pointOn(page, "tangy");
   await page.mouse.move(tangy.x, tangy.y);
+  // The first hover waits for the dictionary.
   await expect(
     page.getByRole("button", { name: en["hover.details"] }),
-  ).toBeVisible();
+  ).toBeVisible(COLD_LOAD);
   await page.mouse.click(tangy.x, tangy.y);
   const panel = dictionary(page);
   await expect(panel.getByRole("heading", { name: "tangy" })).toBeVisible();
@@ -95,8 +97,9 @@ async function useArticle(page: Page) {
 async function useArticleBlindly(page: Page) {
   const tangy = await pointOn(page, "tangy");
   await page.mouse.move(tangy.x, tangy.y);
+  // The first hover waits for the dictionary.
   await expect
-    .poll(() => hostAt(page, tangy.x, tangy.y - 40))
+    .poll(() => hostAt(page, tangy.x, tangy.y - 40), COLD_LOAD)
     .toBe("lingo-article");
   await page.mouse.click(tangy.x, tangy.y);
   await page.keyboard.press("Escape");
@@ -443,7 +446,7 @@ for (const build of ["production", "check"] as const)
         .getByRole("button", { name: en["video.menu.belowVideo"] })
         .click();
       const translation = menu.getByRole("switch", {
-        name: en["subtitle.translation"],
+        name: en["video.menu.dualSubtitles"],
       });
       await translation.click();
       await translation.click();
@@ -511,10 +514,20 @@ for (const build of ["production", "check"] as const)
       await l.click();
       await expect(inVideo(page)).toContainText(YT_LINE);
 
-      // Fullscreen (YouTube's button makes ytd-app fullscreen): a word's card and
-      // window, the menu, and back.
+      // Fullscreen (YouTube's button makes <html> fullscreen): the transcript in the
+      // sidebar, a word's card and window, the menu, and back.
       await page.getByRole("button", { name: "Full screen (f)" }).click();
-      await expect(transcript(page)).toHaveCount(0);
+      await expect(transcript(page)).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              innerWidth -
+              document.getElementById("movie_player")!.getBoundingClientRect()
+                .right,
+          ),
+        )
+        .toBe(392);
       await word.hover();
       await expect(page.getByText(en["hover.hint"])).toBeVisible();
       await word.click();
@@ -614,7 +627,8 @@ for (const build of ["production", "check"] as const)
       await page
         .getByRole("button", { name: "Full screen", exact: true })
         .click();
-      await expect(transcript(page)).toHaveCount(0);
+      // The transcript stays in the sidebar beside the player.
+      await expect(transcript(page)).toBeVisible();
       await word.hover();
       await expect(page.getByText(en["hover.hint"])).toBeVisible();
       await word.click();
@@ -627,6 +641,19 @@ for (const build of ["production", "check"] as const)
         page.getByRole("button", { name: en["action.openSettings"] }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
+      // × closes the sidebar; the menu's switch brings it back.
+      await transcript(page)
+        .getByRole("button", { name: en["video.closeTranscript"] })
+        .click();
+      await expect(transcript(page)).toHaveCount(0);
+      await moveOverVideo();
+      await menuButton.click();
+      await page
+        .getByRole("switch", { name: en["video.menu.transcript"] })
+        .click();
+      await expect(transcript(page)).toBeVisible();
+      await page.keyboard.press("Escape");
+      await moveOverVideo();
       await page.getByRole("button", { name: "Exit full screen" }).click();
       await expect(videoCard(page, NF_LINE)).toBeVisible();
     }
@@ -727,7 +754,8 @@ for (const build of ["production", "check"] as const)
         const rows = list
           .getByRole("region", { name: en["wordlist.list"] })
           .getByRole("button");
-        await expect(rows).toHaveCount(4);
+        // The rows' meanings are the worker's first dictionary use.
+        await expect(rows).toHaveCount(4, COLD_LOAD);
         const status = list.getByRole("group", {
           name: en["wordlist.status"],
           exact: true,
@@ -818,7 +846,10 @@ for (const build of ["production", "check"] as const)
         const restart = Date.now();
         await article.reload();
         await expect
-          .poll(async () => (await highlighted(article, "lingo-new")).length)
+          .poll(
+            async () => (await highlighted(article, "lingo-new")).length,
+            COLD_LOAD,
+          )
           .toBeGreaterThan(0);
         // Load to first highlights: the packs are loaded again after a restart.
         const timings = { cold: coldMs, restart: Date.now() - restart };

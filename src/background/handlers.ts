@@ -1,6 +1,13 @@
-import { unsavedKeys, type Span, type TermStatus } from "../core/classify";
+import {
+  unsavedKeys,
+  type ClassifyOptions,
+  type Span,
+  type TermStatus,
+} from "../core/classify";
 import { cleanDefinition, definitionTexts } from "../core/lexicon/definitions";
 import type { DictionaryEntry } from "../core/lexicon/dictionary";
+import type { LanguagePack } from "../core/lexicon/language-pack";
+import { readCasing } from "../core/text/casing";
 import { learningLanguages } from "../core/languages";
 import { packBytes, type PackLock } from "../core/packs/lock";
 import { packsFor, pairsOfPack, translationPair } from "../core/packs/pairs";
@@ -76,6 +83,8 @@ type Handlers = {
     sender: MessageSender,
   ) => Promise<ResponseOf<T>>;
 };
+
+const WRITTEN: ReadonlySet<unknown> = new Set(["lower", "capital", "upper"]);
 
 /** Private (incognito) windows leave nothing behind: no history, no encounters. */
 const fromIncognito = (sender: MessageSender) => sender.tab?.incognito === true;
@@ -189,6 +198,50 @@ export function createHandlers({
     });
   }
 
+  /**
+   * The options a document's blocks are classified with: its casing, when the page
+   * sends one, and the dictionary into the native language when the classifier reads
+   * it: for a language whose capitals mark names (rule D), which names keep a
+   * capitalised meaning (only for a mixed-case document with capitalised words); with
+   * `bySense` and a language with a tagger, the outlines of headwords its tags choose
+   * between (rule A1). Names wait for a dictionary that is not on the device
+   * (`PacksUnavailableError`); tags alone do not hold the highlights back: the words
+   * then keep their keys.
+   */
+  async function documentOptions(
+    lang: string,
+    pack: LanguagePack,
+    casing: unknown,
+    options: ClassifyOptions,
+    bySense = false,
+  ): Promise<ClassifyOptions> {
+    const read = readCasing(casing);
+    const names =
+      read?.mode === "mixed" &&
+      pack.namesByCase &&
+      Object.keys(read.words).length > 0;
+    const tags = bySense && pack.tagger !== undefined;
+    const withCasing = read ? { ...options, casing: read } : options;
+    if (!names && !tags) return withCasing;
+    const { nativeLang } = await settings.get();
+    // A pair without a dictionary (the pair changed as the page was analyzed): the
+    // names keep no meaning and the tags choose nothing this time.
+    const dictionary = await resources
+      .dictionary(lang, nativeLang)
+      .catch((error: unknown) => {
+        if (names && error instanceof PacksUnavailableError) throw error;
+        return undefined;
+      });
+    if (!dictionary) return withCasing;
+    return {
+      ...withCasing,
+      ...(names && {
+        capitalMeaning: (key: string) => dictionary.capitalMeaning(key),
+      }),
+      ...(tags && { outline: (key: string) => dictionary.outline(key) }),
+    };
+  }
+
   const handlers: Handlers = {
     getSettings: () => settings.get(),
     setSettings: ({ patch }) => settings.set(patch),
@@ -197,19 +250,28 @@ export function createHandlers({
       return null;
     },
 
-    async analyze({ lang, blocks }) {
-      const [pack, classifier, terms, { knownLevel }] = await allOf([
+    async analyze({ lang, blocks, casing }) {
+      const [pack, classifier, terms, current] = await allOf([
         resources.pack(lang),
         resources.classifier(lang),
         store.termIndex(lang),
         settings.get(),
       ]);
+      const options = await documentOptions(
+        lang,
+        pack,
+        casing,
+        { terms, knownLevel: current.knownLevel },
+        true,
+      );
       const spans: Span[][] = blocks.map((block) =>
-        classifier.classify(pack.tokenize(block), { terms, knownLevel }),
+        classifier.classify(pack.tokenize(block), options),
       );
       const all = spans.flat();
       const saved = new Set(
-        all.filter((s) => terms.has(s.key)).map((s) => s.key),
+        all
+          .filter((s) => s.category !== "ignored" && terms.has(s.key))
+          .map((s) => s.key),
       );
       return { spans, unsaved: unsavedKeys(all), saved: [...saved] };
     },
@@ -233,7 +295,7 @@ export function createHandlers({
       return null;
     },
 
-    async lookup({ lang, key, sourceUrl }) {
+    async lookup({ lang, key, sourceUrl, written, pos }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
       const [dictionary, pack, terms, occurrences] = await allOf([
@@ -260,7 +322,11 @@ export function createHandlers({
           console.error("Lingo: could not read the sentence history", error);
         }
       }
-      const entry = dictionary.entry(key);
+      const entry = dictionary.entry(
+        key,
+        WRITTEN.has(written) ? written : undefined,
+        typeof pos === "string" ? pos : undefined,
+      );
       const ipa = pack.ipa(key);
       const translated = glossedInOtherLanguage(entry, nativeLang)
         ? await cachedTranslations(
@@ -374,7 +440,7 @@ export function createHandlers({
       return null;
     },
 
-    async recordHistory({ source, sentences }, sender) {
+    async recordHistory({ source, sentences, casing }, sender) {
       if (fromIncognito(sender)) return { kept: 0 };
       const current = await settings.get();
       const host = hostnameOf(source.url);
@@ -390,7 +456,10 @@ export function createHandlers({
         resources.classifier(source.lang),
         store.termIndex(source.lang),
       ]);
-      const options = { terms, knownLevel: current.knownLevel };
+      const options = await documentOptions(source.lang, pack, casing, {
+        terms,
+        knownLevel: current.knownLevel,
+      });
       const items = sentences.map((sentence) => ({
         ...sentence,
         keys: historyKeys(sentence.text, pack, classifier, options),

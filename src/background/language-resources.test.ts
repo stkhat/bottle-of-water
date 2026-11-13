@@ -55,6 +55,22 @@ describe("createLanguageResources", () => {
     });
   });
 
+  it("builds the English pack with its tagger, the Spanish one without", async () => {
+    const resources = createLanguageResources(stubLoader());
+    const tags = (await resources.pack("en")).tagger?.tag(["The", "rose"]);
+    expect(tags?.map((t) => t.tag)).toEqual(["DT", "VBD"]);
+    expect((await resources.pack("es")).tagger).toBeUndefined();
+  });
+
+  it("labels the senses of words with several parts of speech as the data build did", async () => {
+    const resources = createLanguageResources(stubLoader());
+    const dictionary = await resources.dictionary("en", "ja");
+    expect(dictionary.entry("rise")?.senses).toEqual([
+      { pos: "verb", text: "上がる" },
+      { pos: "noun", core: true, text: "上昇" },
+    ]);
+  });
+
   it("looks words up from English to Japanese", async () => {
     const resources = createLanguageResources(stubLoader());
     const dictionary = await resources.dictionary("en", "ja");
@@ -81,15 +97,19 @@ describe("createLanguageResources", () => {
     expect(filesRead(loadPack)).toEqual([
       "/packs/en-defs/dict-1.json",
       "/packs/en-defs/index.json",
+      "/packs/en-ja/capital.json",
       "/packs/en-ja/dict-1.json",
       "/packs/en-ja/dict-2.json",
       "/packs/en-ja/index.json",
       "/packs/en-ja/phrases.json",
+      "/packs/en-ja/pos.json",
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
+      "/packs/en/names.json",
       "/packs/en/phrases.json",
       "/packs/en/pos.json",
+      "/packs/en/tagger.json",
       "/packs/en/vocab.json",
     ]);
   });
@@ -102,8 +122,10 @@ describe("createLanguageResources", () => {
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
+      "/packs/en/names.json",
       "/packs/en/phrases.json",
       "/packs/en/pos.json",
+      "/packs/en/tagger.json",
       "/packs/en/vocab.json",
     ]);
   });
@@ -210,6 +232,7 @@ describe("createLanguageResources", () => {
       kind: "word",
       ipa: "/koˈmeɾ/",
       short: "to eat",
+      lines: ["to eat"],
       senses: [{ pos: "verb", text: "to eat" }],
     });
     expect(dictionary.entry("a escondidas")).toMatchObject({

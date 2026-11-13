@@ -10,10 +10,12 @@ const base: LingoMenuProps = {
   enabled: true,
   position: "inVideo",
   showTranslation: true,
+  transcriptShown: true,
   size: 100,
   opacity: 80,
   onPosition: () => {},
   onToggleTranslation: () => {},
+  onToggleTranscript: () => {},
   onPreview: () => {},
   onSize: () => {},
   onOpacity: () => {},
@@ -71,13 +73,16 @@ describe("LingoMenu", () => {
     await expect
       .element(screen.getByRole("dialog", { name: "Lingo menu" }))
       .toBeVisible();
-    expect(screen.container.textContent).not.toContain("Subtitles");
+    expect(screen.container.textContent).not.toContain("Subtitle position");
     expect(screen.container.querySelector("[role=group]")).toBeNull();
+    const dual = screen.getByRole("switch", { name: "Show dual subtitles" });
+    await expect.element(dual).toBeVisible();
+    // The last row there.
+    const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
+    expect(menu.lastElementChild!.contains(dual.element())).toBe(true);
     await expect
       .element(
-        screen.getByRole("switch", {
-          name: "Show translation under the subtitle",
-        }),
+        screen.getByRole("switch", { name: "Show transcript in sidebar" }),
       )
       .toBeVisible();
     await expect
@@ -92,14 +97,57 @@ describe("LingoMenu", () => {
       .toBeVisible();
   });
 
-  test("the translation switch", async () => {
+  test("the rows from the top, as in mock Main", async () => {
+    const screen = await mountInShadowRoot(<LingoMenu {...base} />);
+    const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
+    expect(
+      [...menu.children].map(
+        (row) =>
+          row
+            .querySelector("[aria-label]:not(a)")
+            ?.getAttribute("aria-label") ?? row.textContent,
+      ),
+    ).toEqual([
+      "Open settings",
+      "Show transcript in sidebar",
+      "Text size",
+      "Background",
+      "Show dual subtitles",
+      "Subtitle position",
+    ]);
+  });
+
+  test("the transcript switch", async () => {
+    const onToggleTranscript = vi.fn();
+    const screen = await mountInShadowRoot(
+      <LingoMenu {...base} onToggleTranscript={onToggleTranscript} />,
+    );
+    const sw = screen.getByRole("switch", {
+      name: "Show transcript in sidebar",
+    });
+    await expect.element(sw).toHaveAttribute("aria-checked", "true");
+    await sw.click();
+    expect(onToggleTranscript).toHaveBeenCalledTimes(1);
+    await screen.rerender(<LingoMenu {...base} transcriptShown={false} />);
+    await expect.element(sw).toHaveAttribute("aria-checked", "false");
+  });
+
+  test("over a Short: no transcript switch", async () => {
+    const screen = await mountInShadowRoot(
+      <LingoMenu {...base} transcriptShown={undefined} showPositions={false} />,
+    );
+    await expect
+      .element(screen.getByRole("switch", { name: "Show dual subtitles" }))
+      .toBeVisible();
+    expect(screen.container.textContent).not.toContain("transcript");
+  });
+
+  test("the dual subtitles switch", async () => {
     const onToggleTranslation = vi.fn();
     const screen = await mountInShadowRoot(
       <LingoMenu {...base} onToggleTranslation={onToggleTranslation} />,
     );
-    const sw = screen.getByRole("switch", {
-      name: "Show translation under the subtitle",
-    });
+    const sw = screen.getByRole("switch", { name: "Show dual subtitles" });
     await expect.element(sw).toHaveAttribute("aria-checked", "true");
     await sw.click();
     expect(onToggleTranslation).toHaveBeenCalledTimes(1);
@@ -122,24 +170,36 @@ describe("LingoMenu", () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
-  test("the subtitle position row is the last row, label and choice side by side", async () => {
+  test("the subtitle position is the last row: its label, then the choice under it at full width", async () => {
     const screen = await mountInShadowRoot(<LingoMenu {...base} />);
     const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
     const group = screen.getByRole("group", { name: "Subtitle position" });
     const row = group.element().parentElement!;
     expect(menu.lastElementChild).toBe(row);
-    expect(row.firstElementChild!.textContent).toBe("Subtitles");
-    const label = row.firstElementChild!.getBoundingClientRect();
+    const label = row.firstElementChild!;
+    expect(label.textContent).toBe("Subtitle position");
+    // The same 14px sentence-case text as "Text size".
+    expect(getComputedStyle(label).fontSize).toBe("14px");
+    expect(getComputedStyle(label).textTransform).toBe("none");
+    const labelBox = label.getBoundingClientRect();
     const choice = group.element().getBoundingClientRect();
-    expect(label.right).toBeLessThanOrEqual(choice.left);
-    expect(
-      Math.abs(label.top + label.height / 2 - (choice.top + choice.height / 2)),
-    ).toBeLessThan(2);
-    // Neither choice wraps onto a second line.
+    expect(labelBox.bottom).toBeLessThanOrEqual(choice.top);
+    const inner = row.getBoundingClientRect();
+    expect(choice.left).toBe(inner.left);
+    expect(choice.right).toBe(inner.right);
+    // An outlined box (mock Main): 1px border, 8px corners.
+    const box = getComputedStyle(group.element());
+    expect(box.borderTopWidth).toBe("1px");
+    expect(box.borderTopLeftRadius).toBe("8px");
+    // The chosen option is filled with the accent; neither wraps.
+    const inVideo = screen.getByRole("button", { name: "In video" }).element();
+    expect(getComputedStyle(inVideo).backgroundColor).toBe("rgb(11, 138, 108)");
+    expect(getComputedStyle(inVideo).color).toBe("rgb(255, 255, 255)");
     for (const name of ["In video", "Below video"]) {
       const button = screen.getByRole("button", { name }).element();
+      expect(getComputedStyle(button).fontSize).toBe("14px");
       expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth);
-      expect(button.getBoundingClientRect().height).toBe(32);
+      expect(button.getBoundingClientRect().height).toBe(30);
     }
   });
 

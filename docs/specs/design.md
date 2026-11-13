@@ -29,6 +29,7 @@ Development pair: learning language = English, native language = Japanese, sites
 2. **Phase 3**
    - "Ask AI" button (links that open ChatGPT / Claude with a prompt containing the word and sentence)
    - LLM explanations: embed "word + sentence + nearby subtitles + saved words" in a prompt, receive JSON, cache per word + sentence. Run on Chrome's built-in Prompt API (Gemini Nano) first, with the user's own API key as a fallback
+     - Only when the user asks for it ("Ask AI"). The model never picks or checks what hovers and highlights show on their own: measured on real videos and articles, Gemini Nano choosing the sense fit 72% of hovers against 70% for the dictionary rules, and as a yes/no checker it rejected 3 of 4 good meanings
    - Example sentences from Tatoeba (CC BY)
    - Anki / CSV export
    - More sites

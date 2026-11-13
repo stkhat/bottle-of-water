@@ -1,5 +1,7 @@
-import type { Category, TermKind, TermStatus } from "../../core/classify";
+import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
+import type { Written } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
+import type { DocumentCasing } from "../../core/text/casing";
 import { PacksUnavailableError } from "../../core/packs/unavailable";
 import type { Settings } from "../../core/settings";
 import type { send } from "../../messaging/client";
@@ -50,6 +52,10 @@ interface ShownTerm extends Term {
   /** As written: the whole phrase for a part of a phrase with a gap. */
   surface: string;
   category?: Category;
+  /** How the word was written, when the page says (`Lookup.written`). */
+  written?: Written;
+  /** The part of speech its tag gives it there (`Span.pos`). */
+  pos?: string;
 }
 
 /** The popup's requests about a page (see `page-protocol.ts`), as the page answers them. */
@@ -97,6 +103,8 @@ export function createLookup(
   );
   let queue: Promise<unknown> = Promise.resolve();
   let warmed = false;
+  /** The document's casing (rule D), which every analysis sends. */
+  let casing: DocumentCasing | undefined;
   /** An analysis found language data missing: none is asked for until it is there. */
   let waits = false;
   const packs = createPackWait(deps.watchPackState, () => {
@@ -133,6 +141,26 @@ export function createLookup(
     },
     describe: (term: ShownTerm, shownIn: "hover" | "window" = "hover") =>
       describeTerm(term, { ...translation(), sourceUrl: page.url(), shownIn }),
+    /** The casing of the document the page analyzes now (a video's captions, the article). */
+    get casing() {
+      return casing;
+    },
+    setCasing(next: DocumentCasing | undefined) {
+      casing = next;
+    },
+    /**
+     * How a word span was written, as its lookup says it (`Written`): capitalised in a
+     * way that counts (`Span.capital`), as an acronym when that is in capitals only,
+     * or in lower case in a mixed-case document; else not said (a caseless document, a
+     * capital at a sentence start, a phrase).
+     */
+    written(span: Span, surface: string): Written | undefined {
+      if (span.kind !== "word") return undefined;
+      if (span.capital) return /\p{Ll}/u.test(surface) ? "capital" : "upper";
+      return casing?.mode === "mixed" && /^\p{Ll}/u.test(surface)
+        ? "lower"
+        : undefined;
+    },
     dictionaries(head: string) {
       const settings = page.settings();
       return dictionaryLinks(head, settings.dictionaries, {
@@ -170,7 +198,12 @@ export function createLookup(
       const lang = page.lang();
       let result: AnalyzeResult;
       try {
-        result = await deps.send({ type: "analyze", lang, blocks: texts });
+        result = await deps.send({
+          type: "analyze",
+          lang,
+          blocks: texts,
+          ...(casing && { casing }),
+        });
       } catch (error) {
         if (!(error instanceof PacksUnavailableError)) throw error;
         waits = true;

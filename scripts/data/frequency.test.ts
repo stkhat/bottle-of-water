@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFrequency,
   isListPage,
+  rankByExamples,
   parseFrequencyWikitext,
 } from "./frequency.ts";
 
@@ -89,6 +90,48 @@ describe("buildFrequency", () => {
         ["good", "well"],
       ),
     ).toEqual(["good", "well"]);
+  });
+});
+
+describe("rankByExamples", () => {
+  // Blocks of two ranks: medians 100 (a, b), 50 (c, d), then the rest: 10 (e, f, g).
+  const freq = ["a", "b", "c", "d", "e", "f", "g"];
+  const counts = { a: 100, b: 90, c: 50, d: 40, e: 10, f: 8, g: 12 };
+  const rank = (extra: Record<string, number>) =>
+    rankByExamples(
+      freq,
+      [...freq, ...Object.keys(extra)],
+      { ...counts, ...extra },
+      2,
+    );
+
+  it("keeps the list's own order", () => {
+    expect(rank({})).toEqual(freq);
+  });
+  it("places a word the list lacks where the list's words are written about as often", () => {
+    // 70 is between the medians 100 (around rank 1) and 50 (around rank 3).
+    expect(rank({ x: 70 })).toEqual(["a", "b", "c", "x", "d", "e", "f", "g"]);
+    expect(rank({ y: 20 })).toEqual(["a", "b", "c", "d", "e", "y", "f", "g"]);
+  });
+  it("places a word written more often than the first block at the start, the more frequent first", () => {
+    expect(rank({ z: 500, w: 600 })).toEqual(["a", "w", "z", ...freq.slice(1)]);
+  });
+  it("leaves unranked a word written less often than the last block, or never", () => {
+    expect(rank({ rare: 9, never: 0 })).toEqual(freq);
+  });
+  it("orders words written as often by code unit", () => {
+    expect(rank({ q: 70, p: 70 }).slice(3, 5)).toEqual(["p", "q"]);
+  });
+  it("never ranks a block above an earlier one", () => {
+    // Medians 100, then 200 counted as 100: 150 goes to the start.
+    expect(
+      rankByExamples(
+        ["a", "b", "c", "d"],
+        ["a", "b", "c", "d", "x"],
+        { a: 100, b: 100, c: 200, d: 200, x: 150 },
+        2,
+      ),
+    ).toEqual(["a", "x", "b", "c", "d"]);
   });
 });
 
