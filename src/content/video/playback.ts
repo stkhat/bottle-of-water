@@ -37,13 +37,15 @@ export function playingAt(
 
 /**
  * Calls `tick` on every frame and playback event of the site's video, once there is
- * one, and `ended` when it ends (or, looping, starts over); until `signal` aborts.
+ * one, `ended` when it ends (or, looping, starts over) and `played` when it starts
+ * playing; until `signal` aborts.
  */
 export async function followPlayback(
   adapter: PlatformAdapter,
   signal: AbortSignal,
   tick: (video: HTMLVideoElement) => void,
   ended: () => void,
+  played: () => void,
 ) {
   let video = adapter.video();
   while (!video) {
@@ -69,6 +71,7 @@ export async function followPlayback(
   const events = ["timeupdate", "seeked", "play", "pause", "loadeddata"];
   for (const type of events) element.addEventListener(type, onTick);
   element.addEventListener("ended", ended);
+  element.addEventListener("play", played);
   let frame: number | undefined;
   const loop = () => {
     onTick();
@@ -79,6 +82,7 @@ export async function followPlayback(
   signal.addEventListener("abort", () => {
     for (const type of events) element.removeEventListener(type, onTick);
     element.removeEventListener("ended", ended);
+    element.removeEventListener("play", played);
     if (frame !== undefined) element.cancelVideoFrameCallback(frame);
   });
   onTick();

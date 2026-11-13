@@ -285,6 +285,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         w.endReached = true;
         if (settings.unsavedAtEnd === "known") run(w.marks.markKnown);
       },
+      () => {
+        if (watch === w) selection.played();
+      },
     ).catch(warn);
     await analyzeAll(w, true);
   }

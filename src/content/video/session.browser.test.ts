@@ -1205,6 +1205,59 @@ describe("selecting words", () => {
     expect(state().spans[1]).toBe(before[1]);
   });
 
+  it("drops the selection when its phrase cannot be looked up, and plays the video again", async () => {
+    let failing = false;
+    const { state, app, video, site } = await start(
+      { vid1: captionsOf(MIND) },
+      {
+        send: (send) =>
+          (async (request) => {
+            if (failing && request.type === "lookup")
+              throw new Error("lookup failed");
+            return send(request);
+          }) as typeof send,
+      },
+    );
+    await ready(state);
+    await classified(state);
+    await seekTo(video, 0);
+    video.playbackRate = 0.25;
+    await video.play();
+    failing = true;
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => {});
+    cleanups.push(() => warned.mockRestore());
+    app.selectStart("transcript");
+    expect(app.selectWords(madeUpHerMind(), boxOf)).toBeDefined();
+    await expect.poll(() => video.paused).toBe(true);
+    await expect.poll(() => state().selecting).toBe(false);
+    expect(state().phrase).toBeNull();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+    expect(warned).toHaveBeenCalled();
+  });
+
+  it("selects nothing where the card has nowhere to show", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    expect(app.selectWords(madeUpHerMind(), () => undefined)).toBe(undefined);
+    expect(state()).toMatchObject({ phrase: null, selecting: false });
+  });
+
+  it("drops words selected in the transcript when the video starts playing", async () => {
+    const { state, app, video } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    // A click on another card plays the video from there.
+    app.seekToCue(2);
+    await expect.poll(() => video.paused).toBe(false);
+    await expect.poll(() => state().phrase).toBeNull();
+    expect(state().selecting).toBe(false);
+  });
+
   it("Details opens the phrase's window, which saves it", async () => {
     const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
     await ready(state);
@@ -1272,6 +1325,23 @@ describe("selecting words", () => {
     expect(state().hover).toBeNull();
     app.clearSelection();
     expect(state()).toMatchObject({ phrase: null, selecting: false });
+  });
+
+  it("shows the card of a word the pointer rested on while words were selected, once they are dropped", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    const knead = refOf(state, 1, "knead");
+    app.enterWord(knead, BOX);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(state().hover).toBeNull();
+    app.clearSelection();
+    // The pointer moves on the same word.
+    app.enterWord(knead, BOX);
+    await expect.poll(() => state().hover?.ref).toEqual(knead);
   });
 });
 

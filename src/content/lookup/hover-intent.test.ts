@@ -6,11 +6,14 @@ afterEach(() => vi.useRealTimers());
 
 function setup() {
   const log: string[] = [];
+  /** No card shows while true (words are selected). */
+  const blocked = { now: false };
   const intent = createHoverIntent<string>({
     show: (word) => log.push(`show ${word}`),
     hide: () => log.push("hide"),
+    blocked: () => blocked.now,
   });
-  return { log, intent };
+  return { log, intent, blocked };
 }
 
 describe("createHoverIntent", () => {
@@ -65,6 +68,29 @@ describe("createHoverIntent", () => {
     intent.enter("dough");
     vi.advanceTimersByTime(250);
     expect(log).toEqual(["show bread", "show dough"]);
+  });
+
+  it("tries a word whose card could not show again when the pointer comes back", () => {
+    const { log, intent, blocked } = setup();
+    blocked.now = true;
+    intent.enter("bread");
+    vi.advanceTimersByTime(250);
+    expect(log).toEqual([]);
+    blocked.now = false;
+    // The pointer moves on the same word.
+    intent.enter("bread");
+    vi.advanceTimersByTime(250);
+    expect(log).toEqual(["show bread"]);
+  });
+
+  it("hides the card up when the next word's card cannot show", () => {
+    const { log, intent, blocked } = setup();
+    intent.enter("bread");
+    vi.advanceTimersByTime(250);
+    blocked.now = true;
+    intent.enter("dough");
+    vi.advanceTimersByTime(250);
+    expect(log).toEqual(["show bread", "hide"]);
   });
 
   it("coming back to the shown word keeps its card", () => {
