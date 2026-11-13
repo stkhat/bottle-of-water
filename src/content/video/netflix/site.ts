@@ -36,6 +36,8 @@ export const SELECTORS = {
   controlButton: ["[data-uia^='control-']"],
   /** The control bar while it shows (built on pointer movement, removed when idle). */
   controlBar: ["[data-uia='controls-standard']"],
+  /** The buttons shown with the bar at the player's top, outside the bar's element. */
+  topButtons: ["[data-uia='control-nav-back']", "[data-uia='control-flag']"],
   /**
    * What the bar shows at the bottom: its buttons, the title and the timeline. The
    * subtitle keeps clear of the topmost (the bar's own box can cover the whole player).
@@ -51,6 +53,33 @@ export const SELECTORS = {
 
 /** Hides Netflix's own subtitles while Lingo shows its own. */
 export const HIDE_CAPTIONS_CSS = `${SELECTORS.captions.join(", ")} { display: none !important; }`;
+
+/**
+ * Keeps Netflix's control bar and the back arrow and flag shown with it out of sight
+ * until Lingo lets them show (see `CONTROL_BAR_DELAY_MS`). Opacity cannot be undone by
+ * the children; hidden, they let clicks through to the video.
+ */
+export const HIDE_CONTROL_BAR_CSS = `${[...SELECTORS.controlBar, ...SELECTORS.topButtons].join(", ")} { opacity: 0 !important; visibility: hidden !important; }`;
+
+/**
+ * Netflix shows its control bar on any pointer move, and the subtitle rises above it.
+ * Moving to a word is short: the bar shows once the pointer has kept moving over the
+ * player this long (ms), or at once in the bar's area or the top strip.
+ */
+export const CONTROL_BAR_DELAY_MS = 1500;
+
+/** A pause in the pointer's moves this long (ms) starts a new run of moves. */
+export const POINTER_REST_MS = 300;
+
+/**
+ * The bar gone this long (ms) means the pointer rested and Netflix took it away: the
+ * next one is held back again. Netflix also builds the bar anew while the pointer moves
+ * (seen on 2026-11-14), with a gap of a frame or so.
+ */
+export const BAR_GONE_MS = 500;
+
+/** The strip at the player's top (px) where the back arrow is: the bar shows at once there. */
+export const TOP_STRIP = 80;
 
 /** Titles whose tracks are kept: the playing one, the next episode (prefetched), a few before. */
 export const KEEP_TITLES = 6;

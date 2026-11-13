@@ -11,6 +11,7 @@ import {
   PageUi,
   PlayerBarUi,
   SUBTITLE_BOTTOM,
+  subtitleOverVideo,
   TranscriptUi,
   VideoThemed,
   type VideoGeometry,
@@ -194,6 +195,21 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   }
 
   /**
+   * While Lingo's subtitle is over the video, the site's control bar shows only after a
+   * longer move (it lifts the subtitle), and never while Lingo is in use.
+   */
+  function holdBackControlBar() {
+    const state = app.store.get();
+    adapter.holdBackControlBar?.(
+      !subtitleOverVideo(state, layout.get().vertical)
+        ? "free"
+        : inUse(state)
+          ? "hidden"
+          : "delay",
+    );
+  }
+
+  /**
    * The sidebar shows while the transcript does beside a player that fills the window:
    * the player is narrowed for it, and given its width back otherwise.
    */
@@ -234,6 +250,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       if (++moves.count > MAX_MOVES_PER_SECOND) continue;
       at.parent.insertBefore(host, at.before);
     }
+    holdBackControlBar();
     liftSubtitle();
     const frame = layout.get().sidebar ? sidebar : adapter.playerElement();
     if (frame !== observed) {

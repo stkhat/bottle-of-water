@@ -1,11 +1,7 @@
 import { parseTtml } from "../../../core/subtitles/ttml";
 import type { Cue } from "../../../core/subtitles/types";
 import { parseWebVtt } from "../../../core/subtitles/webvtt";
-import {
-  firstTranslation,
-  playerNarrower,
-  siteCaptionsHider,
-} from "../adapter-kit";
+import { firstTranslation, playerNarrower, styleSwitch } from "../adapter-kit";
 import {
   createPageBridge,
   NETWORK_CALL_TIMEOUT_MS,
@@ -14,6 +10,7 @@ import {
 import { createRecent } from "../recent";
 import type {
   CaptionRequest,
+  ControlBarMode,
   InsertionPoint,
   PlatformAdapter,
   VideoCaptions,
@@ -28,13 +25,18 @@ import {
   type TracksMessage,
 } from "./messages";
 import {
+  CONTROL_BAR_DELAY_MS,
   CONTROL_BAR_HEIGHT,
   CONTROLS_STYLE,
   HIDE_CAPTIONS_CSS,
+  HIDE_CONTROL_BAR_CSS,
   KEEP_TITLES,
+  BAR_GONE_MS,
+  POINTER_REST_MS,
   query,
   SELECTORS,
   titleText,
+  TOP_STRIP,
 } from "./site";
 import { asTrack, pickOriginalTrack, translationTracks } from "./tracks";
 
@@ -47,6 +49,8 @@ export interface NetflixAdapterOptions {
   pollMs?: number;
   /** How long the floating player buttons stay after the pointer stops. */
   idleMs?: number;
+  /** How long the pointer keeps moving over the player before the control bar shows. */
+  controlBarDelayMs?: number;
   /** Default: the content script's `fetch`. */
   fetch?: typeof fetch;
   /** How long to wait for one download through the page script. */
@@ -74,13 +78,14 @@ export function createNetflixAdapter(
     channel: CHANNEL,
     isEvent: isTracksMessage,
   });
-  const hideCaptions = siteCaptionsHider(
+  const hideCaptions = styleSwitch(
     "lingo-hide-netflix-captions",
     HIDE_CAPTIONS_CSS,
   );
   const tracksTimeoutMs = options.tracksTimeoutMs ?? 15_000;
   const pollMs = options.pollMs ?? 500;
   const idleMs = options.idleMs ?? 3000;
+  const barDelayMs = options.controlBarDelayMs ?? CONTROL_BAR_DELAY_MS;
   const fetchTimeoutMs = options.fetchTimeoutMs ?? NETWORK_CALL_TIMEOUT_MS;
   const fetchText =
     options.fetch ?? ((url: string, init?: RequestInit) => fetch(url, init));
@@ -256,7 +261,7 @@ export function createNetflixAdapter(
     player,
   );
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  const onPointerMove = () => {
+  function showFloating() {
     const group = document.querySelector<HTMLElement>("lingo-netflix-controls");
     if (!group) return;
     group.style.visibility = "visible";
@@ -264,6 +269,58 @@ export function createNetflixAdapter(
     idleTimer = setTimeout(() => {
       group.style.visibility = "hidden";
     }, idleMs);
+  }
+
+  // Netflix's control bar is held back while Lingo's subtitle is over the video
+  // (docs/notes/netflix.md, "Layout decisions"): it shows once the pointer has kept
+  // moving over the player, or is in the bar's area or the top strip; never while Lingo
+  // is in use. Each new bar is held back again.
+  const hideBar = styleSwitch("lingo-hide-netflix-bar", HIDE_CONTROL_BAR_CSS);
+  let barMode: ControlBarMode = "free";
+  let revealed = false;
+  let barPresent = false;
+  /** The pointer's last move was in the bar's area or the top strip. */
+  let pointerAtEdge = false;
+  let barGoneTimer: ReturnType<typeof setTimeout> | undefined;
+  let runStart = -Infinity;
+  let lastMove = -Infinity;
+  const barHidden = () =>
+    barMode === "hidden" || (barMode === "delay" && !revealed);
+  cleanups.push(() => {
+    clearTimeout(barGoneTimer);
+    hideBar(false);
+  });
+
+  /** Shows the bar after a long enough run of moves over the player, or one at its edges. */
+  function watchBar(event: Event) {
+    const box = player()?.getBoundingClientRect();
+    const { clientX: x, clientY: y } = event as MouseEvent;
+    const over =
+      box !== undefined &&
+      x >= box.left &&
+      x <= box.right &&
+      y >= box.top &&
+      y <= box.bottom;
+    if (!over) {
+      lastMove = -Infinity;
+      pointerAtEdge = false;
+      return;
+    }
+    const now = performance.now();
+    if (now - lastMove >= POINTER_REST_MS) runStart = now;
+    lastMove = now;
+    pointerAtEdge =
+      y >= box.bottom - CONTROL_BAR_HEIGHT || y <= box.top + TOP_STRIP;
+    if (barMode !== "delay" || revealed) return;
+    if (pointerAtEdge || now - runStart >= barDelayMs) {
+      revealed = true;
+      hideBar(false);
+    }
+  }
+
+  const onPointerMove = (event: Event) => {
+    watchBar(event);
+    showFloating();
   };
   // On the window, capturing: the page cannot keep the moves from Lingo.
   const POINTER = ["pointermove", "mousemove"] as const;
@@ -329,7 +386,7 @@ export function createNetflixAdapter(
   function controlBarTop(): number | null {
     const bar = query(SELECTORS.controlBar);
     const view = player();
-    if (!bar || !view) return null;
+    if (!bar || !view || barHidden()) return null;
     const { top, bottom } = view.getBoundingClientRect();
     const middle = (top + bottom) / 2;
     const parts = [
@@ -375,6 +432,25 @@ export function createNetflixAdapter(
     },
     narrowPlayer,
     controlBarTop,
+    holdBackControlBar(mode) {
+      if (mode === "hidden") revealed = false;
+      // The move that ended Lingo's use (closing a card) went to the bar's area.
+      else if (mode === "delay" && barMode === "hidden" && pointerAtEdge)
+        revealed = true;
+      // The next bar after Netflix took one away (the pointer rested) is held back
+      // again; not a bar Netflix builds anew while the pointer moves.
+      const present = query(SELECTORS.controlBar) !== null;
+      if (present) clearTimeout(barGoneTimer);
+      else if (barPresent)
+        barGoneTimer = setTimeout(() => {
+          if (query(SELECTORS.controlBar)) return;
+          revealed = false;
+          hideBar(barHidden());
+        }, BAR_GONE_MS);
+      barPresent = present;
+      barMode = mode;
+      hideBar(barHidden());
+    },
     adShowing: () => false,
     async tracks() {
       const id = videoId();

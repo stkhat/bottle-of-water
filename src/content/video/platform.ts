@@ -46,6 +46,9 @@ export const isVideoSite = (hostname: string): boolean =>
   Object.values(VIDEO_SITES).some((site) => onHost(hostname, site));
 
 /** What the video UI needs from a video site. */
+/** See `PlatformAdapter.holdBackControlBar`. */
+export type ControlBarMode = "free" | "delay" | "hidden";
+
 export interface PlatformAdapter {
   readonly platform: VideoPlatform;
   /** The current video, undefined when the page shows none. */
@@ -91,6 +94,13 @@ export interface PlatformAdapter {
    * video (Netflix), so the subtitle can keep clear of it; null while it is hidden.
    */
   controlBarTop?(): number | null;
+  /**
+   * How the site's control bar may show (Netflix): "free" as the site shows it; "delay"
+   * held back until the pointer has kept moving over the player or reaches the bar's
+   * area, so short moves to a word do not move the subtitle; "hidden" while Lingo is in
+   * use. Called on every change to the page: does nothing when nothing changed.
+   */
+  holdBackControlBar?(mode: ControlBarMode): void;
   /** An ad plays instead of the video. */
   adShowing(): boolean;
   tracks(): Promise<Track[]>;

@@ -8,7 +8,7 @@ import {
 import {
   firstTranslation,
   playerNarrower,
-  siteCaptionsHider,
+  styleSwitch,
   sleep,
 } from "../adapter-kit";
 import {
@@ -72,7 +72,7 @@ export function createYouTubeAdapter(
     channel: CHANNEL,
     isEvent: isTimedtextMessage,
   });
-  const hideCaptions = siteCaptionsHider(
+  const hideCaptions = styleSwitch(
     "lingo-hide-site-captions",
     "#ytp-caption-window-container { display: none !important; }",
   );

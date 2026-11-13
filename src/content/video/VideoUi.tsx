@@ -79,6 +79,13 @@ const MIN_TRANSCRIPT_HEIGHT = 320;
 const showing = (state: VideoState) =>
   state.enabled && state.status === "ready";
 
+/** Lingo's subtitle is over the video (not in the box below it). */
+export const subtitleOverVideo = (state: VideoState, vertical: boolean) =>
+  showing(state) &&
+  (state.fullscreen ||
+    vertical ||
+    state.settings.subtitlePosition === "inVideo");
+
 /**
  * The playing line: its part of the card's text, and the card's spans in it (cut to the
  * line), with their indices in the card's spans.
@@ -204,11 +211,8 @@ export function InPlayerUi(props: {
   const { app } = props;
   const state = useStore(app.store);
   const { subtitleBottom, vertical } = useStore(props.layout);
-  const { settings, fullscreen } = state;
-  const inVideo =
-    showing(state) &&
-    (fullscreen || vertical || settings.subtitlePosition === "inVideo") &&
-    state.line >= 0;
+  const { fullscreen } = state;
+  const inVideo = subtitleOverVideo(state, vertical) && state.line >= 0;
   const inset = fullscreen
     ? FULLSCREEN_SUBTITLE_INSET
     : vertical
