@@ -59,6 +59,10 @@ export function useTextSelection<E extends HTMLElement>(
     if (!handlers.current.onSelect) return;
     onText.add(event);
     stop.current?.();
+    // A press inside selected words would drag them (the browser's text drag): drop
+    // the selection first, so the press selects anew. Shift extends it.
+    if (!event.shiftKey && selectedOffsets(el))
+      getSelection()?.removeAllRanges();
     let started = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onChange = () => {

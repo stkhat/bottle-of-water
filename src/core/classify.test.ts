@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createClassifier,
+  sameSpans,
   unsavedKeys,
   type ClassifyOptions,
   type Span,
@@ -241,7 +242,7 @@ describe("classify phrases", () => {
 });
 
 describe("classify phrases with slots and gaps", () => {
-  it("matches a saved phrase with a slot as one span", () => {
+  it("matches a saved phrase with a slot as one span, marked when another word fills the slot", () => {
     expect(
       classify("She made up his mind.", { "make up one's mind": "learning" }),
     ).toContainEqual({
@@ -250,8 +251,21 @@ describe("classify phrases with slots and gaps", () => {
       key: "make up one's mind",
       kind: "phrase",
       category: "learning",
+      slot: true,
       text: "made up his mind",
     });
+    expect(
+      classify("Make up one's mind.", { "make up one's mind": "learning" }),
+    ).toEqual([
+      {
+        start: 0,
+        end: 18,
+        key: "make up one's mind",
+        kind: "phrase",
+        category: "learning",
+        text: "Make up one's mind",
+      },
+    ]);
   });
 
   it("does not detect a pattern that is matched only when saved", () => {
@@ -430,6 +444,48 @@ describe("classify dictionary phrases", () => {
     );
   });
 
+  it("draws a saved phrase that starts inside an earlier dictionary phrase, not that phrase", () => {
+    expect(brief(classify("gave up on it", { "on it": "learning" }))).toEqual([
+      "gave up:give up:new",
+      "on it:on it:learning",
+    ]);
+    expect(
+      brief(classify("spilled the beans", { "the bean": "known" })),
+    ).toEqual(["spilled:spill:new", "the beans:the bean:known"]);
+  });
+
+  it("draws the longer of two overlapping saved phrases, the earlier on a tie", () => {
+    // A longer phrase saved over part of an earlier one.
+    expect(
+      brief(
+        classify("gave up on it", {
+          "give up": "learning",
+          "up on it": "known",
+        }),
+      ),
+    ).toEqual(["gave:give:new", "up on it:up on it:known"]);
+    expect(
+      brief(
+        classify("gave up on it", { "give up": "known", "up on": "known" }),
+      ),
+    ).toEqual(["gave up:give up:known", "on:on:known", "it:it:new"]);
+  });
+
+  it("counts the words in a gap toward a saved phrase's length", () => {
+    expect(
+      brief(
+        classify("figure it out", {
+          "figure out": "learning",
+          "it out": "known",
+        }),
+      ),
+    ).toEqual([
+      "figure:figure out:learning",
+      "it:it:new",
+      "out:figure out:learning",
+    ]);
+  });
+
   it("detects the longest dictionary phrase when no saved phrase matches", () => {
     expect(brief(classify("gave up on it"))).toEqual([
       "gave up on:give up on:new",
@@ -453,6 +509,59 @@ describe("unsavedKeys", () => {
       knownLevel: 10,
     });
     expect(unsavedKeys(spans)).toEqual(["we", "give up", "tangy", "yeast"]);
+  });
+});
+
+describe("sameSpans", () => {
+  const classify = (text: string, saved: Record<string, TermStatus> = {}) =>
+    classifier.classify(pack.tokenize(text), {
+      terms: terms(saved),
+      knownLevel: 10,
+    });
+
+  it("is true for a text classified again with the same terms", () => {
+    expect(
+      sameSpans(
+        classify("We gave up tangy yeast"),
+        classify("We gave up tangy yeast"),
+      ),
+    ).toBe(true);
+    expect(sameSpans(null, null)).toBe(true);
+  });
+
+  it("is false when a category, a span or a field differs", () => {
+    const before = classify("We gave up tangy yeast");
+    expect(
+      sameSpans(
+        before,
+        classify("We gave up tangy yeast", { yeast: "learning" }),
+      ),
+    ).toBe(false);
+    expect(sameSpans(before, before.slice(1))).toBe(false);
+    expect(
+      sameSpans(
+        before,
+        before.map((s, i) => (i === 0 ? { ...s, pos: "noun" } : s)),
+      ),
+    ).toBe(false);
+    expect(sameSpans(null, [])).toBe(false);
+  });
+
+  it("compares a phrase part's fields, not its object", () => {
+    const span: Span = {
+      start: 0,
+      end: 6,
+      key: "figure out",
+      kind: "phrase",
+      category: "new",
+      part: { index: 0, count: 2, start: 0, end: 16 },
+    };
+    expect(sameSpans([span], [{ ...span, part: { ...span.part! } }])).toBe(
+      true,
+    );
+    expect(
+      sameSpans([span], [{ ...span, part: { ...span.part!, end: 17 } }]),
+    ).toBe(false);
   });
 });
 

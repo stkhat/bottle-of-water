@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page, server, userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
 import {
   addPageStyle,
@@ -341,6 +341,33 @@ describe("SubtitleOverlay", () => {
       expect(box.right).toBeLessThanOrEqual(lineBox.right);
       expect(selectedOffsets(line(screen))).toEqual(whole);
     });
+
+    // Firefox still treats a press inside words selected in a shadow root as a press
+    // in the selection (it selects nothing, and the next test's drag fails too), though
+    // the press drops the selection first; on articles it selects anew (status.md).
+    test.skipIf(server.browser === "firefox")(
+      "a drag that starts inside the selected words selects anew instead of dragging them",
+      async () => {
+        const whole = { from: at("today"), to: at("bread") + "bread".length };
+        const onSelect = vi.fn((): typeof whole | undefined => whole);
+        const screen = await mountInShadowRoot(
+          <SubtitleOverlay {...base} onSelect={onSelect} />,
+        );
+        await drag(word(screen, "today"), word(screen, "bread"));
+        await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+        expect(selectedOffsets(line(screen))).toEqual(whole);
+
+        onSelect.mockImplementation(() => undefined);
+        await drag(word(screen, "figure out"), word(screen, "from scratch"));
+        await expect.poll(() => onSelect.mock.calls.length).toBe(2);
+        const selected = (onSelect.mock.calls[1] as unknown[])[0] as {
+          from: number;
+          to: number;
+        };
+        expect(selected.from).toBeGreaterThan(at("figure"));
+        expect(selected.to).toBeGreaterThan(at("from"));
+      },
+    );
 
     test("a drag inside a word opens nothing", async () => {
       const onSelect = vi.fn(() => undefined);

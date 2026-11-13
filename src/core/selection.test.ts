@@ -101,19 +101,80 @@ describe("snapWords", () => {
     ]);
   });
 
-  it("widens to a whole saved phrase", () => {
-    const start = TEXT.indexOf("fall back");
-    const spans: Span[] = [
-      ...wordSpans(TEXT).filter((s) => s.end <= start),
+  /** `text`'s word spans with `words` as one saved phrase span. */
+  function withPhrase(
+    text: string,
+    words: string,
+    phrase: Partial<Span> = {},
+  ): Span[] {
+    const start = text.indexOf(words);
+    const end = start + words.length;
+    const all = wordSpans(text);
+    return [
+      ...all.filter((s) => s.end <= start),
       {
         start,
-        end: start + "fall back".length,
-        key: "fall back",
+        end,
+        key: words,
         kind: "phrase",
         category: "learning",
+        ...phrase,
       },
+      ...all.filter((s) => s.start >= end),
     ];
-    const snapped = snapWords(TEXT, spans, TEXT.indexOf("rise") + 2, start + 2);
+  }
+  const withFallBack = (phrase: Partial<Span> = {}) =>
+    withPhrase(TEXT, "fall back", phrase);
+
+  it("snaps to the words of a saved phrase the selection only partly covers", () => {
+    const spans = withFallBack();
+    const fall = TEXT.indexOf("fall");
+    const fromRise = select(TEXT, spans, "rise", "fall");
+    expect(textOf(TEXT, fromRise)).toBe("rise and fall");
+    expect(selectionKey(TEXT, fromRise!.spans)).toBe("rise and fall");
+    const fromBack = snapWords(
+      TEXT,
+      spans,
+      fall + "fall b".length,
+      TEXT.indexOf("its") + 1,
+    );
+    expect(textOf(TEXT, fromBack)).toBe("back to its");
+    expect(selectionKey(TEXT, fromBack!.spans)).toBe("back to its");
+  });
+
+  it("keeps a saved phrase whole when the selection covers all of it", () => {
+    const snapped = select(TEXT, withFallBack(), "and", "back");
+    expect(textOf(TEXT, snapped)).toBe("and fall back");
+    expect(snapped!.spans.map((s) => s.key)).toEqual(["and", "fall back"]);
+  });
+
+  it("does not widen past 8 words for a long saved phrase it partly covers", () => {
+    const text = "one two three four five six seven eight nine ten";
+    const spans = withPhrase(text, "three four five six seven eight nine", {
+      category: "known",
+    });
+    const snapped = select(text, spans, "two", "four");
+    expect(textOf(text, snapped)).toBe("two three four");
+  });
+
+  it("widens to a whole saved phrase whose key has a slot filled by another word", () => {
+    const text = "So she made up her mind at last.";
+    const spans = withPhrase(text, "made up her mind", {
+      key: "make up one's mind",
+      slot: true,
+    });
+    const snapped = select(text, spans, "she", "made");
+    expect(textOf(text, snapped)).toBe("she made up her mind");
+    expect(selectionKey(text, snapped!.spans)).toBe("she make up one's mind");
+  });
+
+  it("widens to a whole saved phrase whose key has a word count other than its text's", () => {
+    const snapped = select(
+      TEXT,
+      withFallBack({ key: "fall back on" }),
+      "rise",
+      "fall",
+    );
     expect(textOf(TEXT, snapped)).toBe("rise and fall back");
   });
 

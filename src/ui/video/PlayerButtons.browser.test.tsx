@@ -38,11 +38,12 @@ describe("PlayerButtons", () => {
     expect(style.textDecorationLine).toBe("line-through");
   });
 
-  test("both buttons sit in one green outline", async () => {
+  test("both buttons sit in one translucent white outline", async () => {
     const screen = await mountInShadowRoot(<PlayerButtons {...base} />);
     const group = screen.getByRole("group", { name: "Lingo" });
     const style = getComputedStyle(group.element());
-    expect(style.borderTopColor).toBe("rgb(63, 199, 159)");
+    expect(style.borderTopColor).toBe("rgba(255, 255, 255, 0.55)");
+    expect(style.backgroundColor).toBe("rgba(255, 255, 255, 0.12)");
     expect(style.borderTopStyle).toBe("solid");
     expect(
       group

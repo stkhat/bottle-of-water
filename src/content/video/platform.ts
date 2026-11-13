@@ -60,6 +60,11 @@ export interface PlatformAdapter {
   playerElement(): HTMLElement | null;
   /** Where the L and ^ buttons go in the player bar's right-hand controls. */
   controlsPoint(): InsertionPoint | null;
+  /**
+   * CSS added to the L and ^ buttons' host, to line it up with the site's own buttons
+   * in that row (Netflix). Default: the host fills the row's height, the group centred.
+   */
+  readonly controlsStyle?: string;
   /** The area under the player (subtitle position "Below video"). */
   belowVideoElement(): HTMLElement | null;
   /** Where the transcript goes in the side column, or null without one. */

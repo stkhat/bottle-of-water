@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { NOMINAL_POS } from "../../src/core/lexicon/definitions.ts";
+import { posLabel } from "./common.ts";
 import {
   ENGLISH_PHRASES,
   glossTokens,
@@ -109,6 +111,14 @@ describe("idiomaticity (B2)", () => {
         ENGLISH_PHRASES,
       ),
     ).toBe(1);
+  });
+});
+
+describe("ENGLISH_PHRASES", () => {
+  it("names the nominal parts of speech the definitions' usage notes read (NOMINAL_POS)", () => {
+    expect(new Set([...ENGLISH_PHRASES.nominal].map(posLabel))).toEqual(
+      NOMINAL_POS,
+    );
   });
 });
 

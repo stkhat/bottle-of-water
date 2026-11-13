@@ -8,7 +8,12 @@ import {
   isUsageNote,
 } from "../../src/core/lexicon/definitions.ts";
 import type { SenseLabel } from "../../src/core/lexicon/sense-labels.ts";
-import type { KaikkiEntry, KaikkiSense, KaikkiTranslation } from "./common.ts";
+import {
+  posLabel,
+  type KaikkiEntry,
+  type KaikkiSense,
+  type KaikkiTranslation,
+} from "./common.ts";
 
 /** Tags that make a sense unusable: kept by the source for history or as a mistake. */
 const UNUSABLE_TAGS: ReadonlySet<string> = new Set([
@@ -203,7 +208,10 @@ export interface RankOptions {
   /**
    * The ranking of the definitions shown for a term (en-defs): any description of the
    * expression counts as a usage note (`isUsageNote`: "An apophasis used by a
-   * speaker…", "A rhetorical question…"), not only "Used…" and "Said…".
+   * speaker…", "A rhetorical question…", and for a phrase's sense that is not nominal
+   * a name for its function: "A mild intensifier", "A phrase used at parting"), not
+   * only "Used…" and "Said…". A word keeps its function label ("gon": "A modal used to
+   * express a future action"): its first sense is by convention its main one.
    */
   shown?: boolean;
 }
@@ -218,7 +226,11 @@ function labelPenalty(
   { shown = false }: RankOptions,
 ) {
   let penalty = 0;
-  if (shown ? isUsageNote(sense.gloss) : USAGE_NOTE.test(sense.gloss))
+  if (
+    shown
+      ? isUsageNote(sense.gloss, domains ? posLabel(sense.pos) : undefined)
+      : USAGE_NOTE.test(sense.gloss)
+  )
     penalty += 1;
   if (sense.tags.some((tag) => REGISTER.has(tag))) penalty += 1.5;
   if (domains && sense.topics.length > 0) penalty += 1.5;

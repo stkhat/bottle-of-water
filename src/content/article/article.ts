@@ -1,4 +1,9 @@
-import type { Category, Span, WordStatus } from "../../core/classify";
+import {
+  sameSpans,
+  type Category,
+  type Span,
+  type WordStatus,
+} from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import {
   blockCasing,
@@ -233,8 +238,12 @@ export async function startArticle(
     !settings.articleMainOnly || main.contains(block);
 
   function setSpans(block: TextBlock, blockSpans: readonly Span[]) {
-    spans.set(block, blockSpans);
     const on = inScope(block);
+    // Classified again with nothing changed (after a save elsewhere on the page): its
+    // highlights stay, so the page does not repaint every block.
+    if (on === shown.has(block) && sameSpans(spans.get(block), blockSpans))
+      return;
+    spans.set(block, blockSpans);
     highlighter.set(block, on ? blockSpans : []);
     if (on) shown.add(block);
     else shown.delete(block);
@@ -477,6 +486,7 @@ export async function startArticle(
     selection: selection.select,
     escape: closePanel,
     pressAway: closePanel,
+    selecting: selection.selecting,
     scroll() {
       cards.follow();
       selection.follow();

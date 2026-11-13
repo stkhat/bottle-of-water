@@ -33,10 +33,10 @@ export interface HoverCardProps {
   onLearning: () => void;
   onKnown: () => void;
   /**
-   * Opens the dictionary window (articles: a click on a word inside a link follows
-   * the link). Given, the card shows a "Details" button instead of the hint.
+   * The "Details" button: opens the dictionary window (articles: a click on a word
+   * inside a link follows the link, so the button is the way there).
    */
-  onDetails?: () => void;
+  onDetails: () => void;
 }
 
 const BOX = {
@@ -179,25 +179,18 @@ export function HoverCard(props: HoverCardProps) {
         >
           {t("status.known")}
         </button>
-        {props.onDetails && (
-          <button
-            type="button"
-            onClick={onlyFromUser(() => props.onDetails?.())}
-            style={{
-              ...BUTTON,
-              ...statusButton.known(false),
-              background: "transparent",
-            }}
-          >
-            {t("hover.details")}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onlyFromUser(() => props.onDetails())}
+          style={{
+            ...BUTTON,
+            ...statusButton.known(false),
+            background: "transparent",
+          }}
+        >
+          {t("hover.details")}
+        </button>
       </div>
-      {!props.onDetails && (
-        <div style={{ marginTop: "8px", fontSize: "12px", color: color.muted }}>
-          {t("hover.hint")}
-        </div>
-      )}
     </div>
   );
 }

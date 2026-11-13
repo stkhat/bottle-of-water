@@ -1279,6 +1279,18 @@ describe("handlers: machine translations of English definitions", () => {
     expect(loaf).not.toHaveProperty("machineTranslated");
   });
 
+  it("does not use a cached translation of a short meaning that is a usage note", async () => {
+    // Kept before the definition counted as a usage note: the hover now translates
+    // the phrase itself.
+    cache("en>ja", { "A mild intensifier": "マイルドなインテンシファイア" });
+    expect(
+      await value({ type: "termSummaries", lang: "en", keys: ["i mean"] }),
+    ).toEqual({
+      "i mean": { short: "A mild intensifier", glossLang: "en", status: "new" },
+    });
+    expect(translations.get).not.toHaveBeenCalled();
+  });
+
   it("does not read the cache for lists without English definitions", async () => {
     await value({
       type: "termSummaries",

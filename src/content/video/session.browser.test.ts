@@ -1182,6 +1182,82 @@ describe("selecting words", () => {
       .toEqual([["made up her mind"], [], ["made up\nhis mind"]]);
   });
 
+  it("after a save, gives new spans only to the cues that changed, at once", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    const before = state().spans;
+    const changes: VideoState["spans"][] = [];
+    const off = app.store.subscribe(() => {
+      const { spans } = state();
+      if (spans !== (changes.at(-1) ?? before)) changes.push(spans);
+    });
+    cleanups.push(off);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    app.saveSelection("learning");
+    await expect
+      .poll(() => phrases(state))
+      .toEqual([["made up her mind"], [], ["made up\nhis mind"]]);
+    expect(changes).toHaveLength(1);
+    // The cue without the phrase keeps its spans (its card does not render again).
+    expect(state().spans[1]).toBe(before[1]);
+  });
+
+  it("drops the selection when its phrase cannot be looked up, and plays the video again", async () => {
+    let failing = false;
+    const { state, app, video, site } = await start(
+      { vid1: captionsOf(MIND) },
+      {
+        send: (send) =>
+          (async (request) => {
+            if (failing && request.type === "lookup")
+              throw new Error("lookup failed");
+            return send(request);
+          }) as typeof send,
+      },
+    );
+    await ready(state);
+    await classified(state);
+    await seekTo(video, 0);
+    video.playbackRate = 0.25;
+    await video.play();
+    failing = true;
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => {});
+    cleanups.push(() => warned.mockRestore());
+    app.selectStart("transcript");
+    expect(app.selectWords(madeUpHerMind(), boxOf)).toBeDefined();
+    await expect.poll(() => video.paused).toBe(true);
+    await expect.poll(() => state().selecting).toBe(false);
+    expect(state().phrase).toBeNull();
+    await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+    expect(warned).toHaveBeenCalled();
+  });
+
+  it("selects nothing where the card has nowhere to show", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    expect(app.selectWords(madeUpHerMind(), () => undefined)).toBe(undefined);
+    expect(state()).toMatchObject({ phrase: null, selecting: false });
+  });
+
+  it("drops words selected in the transcript when the video starts playing", async () => {
+    const { state, app, video } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    // A click on another card plays the video from there.
+    app.seekToCue(2);
+    await expect.poll(() => video.paused).toBe(false);
+    await expect.poll(() => state().phrase).toBeNull();
+    expect(state().selecting).toBe(false);
+  });
+
   it("Details opens the phrase's window, which saves it", async () => {
     const { state, app, bg } = await start({ vid1: captionsOf(MIND) });
     await ready(state);
@@ -1250,6 +1326,131 @@ describe("selecting words", () => {
     app.clearSelection();
     expect(state()).toMatchObject({ phrase: null, selecting: false });
   });
+
+  it("shows the card of a word the pointer rested on while words were selected, once they are dropped", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords(madeUpHerMind(), boxOf);
+    await expect.poll(() => state().phrase).not.toBeNull();
+    const knead = refOf(state, 1, "knead");
+    app.enterWord(knead, BOX);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(state().hover).toBeNull();
+    app.clearSelection();
+    // The pointer moves on the same word.
+    app.enterWord(knead, BOX);
+    await expect.poll(() => state().hover?.ref).toEqual(knead);
+  });
+});
+
+describe("selecting words over a highlighted phrase", () => {
+  const CRUST: Cue[] = [
+    { startMs: 0, endMs: 2000, text: "She gave up the crust." },
+  ];
+  const TEXT = CRUST[0]!.text;
+  const at = (word: string) => TEXT.indexOf(word);
+  /** Words from inside "up" to inside "crust": "give up" is highlighted over "gave up". */
+  const upTheCrust = {
+    cue: 0,
+    start: at("up") + 1,
+    end: at("crust") + 2,
+    place: "transcript" as const,
+  };
+  const spansOf = (state: () => VideoState) =>
+    state().spans[0]!.map(
+      (s) => `${TEXT.slice(s.start, s.end)}:${s.key}:${s.category}`,
+    );
+
+  it("shows the selected words' card, saves them and highlights them instead of the detected phrase", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(CRUST) });
+    await ready(state);
+    await classified(state);
+    expect(spansOf(state)).toContain("gave up:give up:new");
+    app.selectStart("transcript");
+    expect(app.selectWords(upTheCrust, () => BOX)).toEqual({
+      start: at("up"),
+      end: at("crust") + "crust".length,
+    });
+    await expect.poll(() => state().phrase?.card.key).toBe("up the crust");
+    expect(state().phrase?.ref.selected).toEqual({
+      key: "up the crust",
+      start: at("up"),
+      end: at("crust") + "crust".length,
+    });
+    app.saveSelection("learning");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "up the crust",
+      display: "up the crust",
+      kind: "phrase",
+      status: "learning",
+    });
+    await expect
+      .poll(() => spansOf(state))
+      .toContain("up the crust:up the crust:learning");
+    expect(spansOf(state).some((s) => s.includes("give up"))).toBe(false);
+  });
+
+  it("saves words selected over a detected phrase and past it under their own keys", async () => {
+    const { state, app, bg } = await start({ vid1: captionsOf(CRUST) });
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    app.selectWords({ ...upTheCrust, start: at("gave") + 1 }, () => BOX);
+    await expect.poll(() => state().phrase?.card.key).toBe("give up the crust");
+    app.saveSelection("known");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "give up the crust",
+      display: "gave up the crust",
+    });
+    await expect
+      .poll(() => spansOf(state))
+      .toContain("gave up the crust:give up the crust:known");
+  });
+
+  it("snaps to the words of a saved phrase the selection only partly covers, and draws the longer phrase once saved", async () => {
+    const { state, app, bg } = await start(
+      { vid1: captionsOf(CRUST) },
+      {
+        before: (bg) =>
+          bg.send({
+            type: "saveTerm",
+            lang: "en",
+            key: "give up",
+            display: "gave up",
+            kind: "phrase",
+            status: "learning",
+            source: {
+              platform: "web",
+              url: "https://example.com/",
+              title: "",
+              lang: "en",
+            },
+            sentence: "They gave up.",
+            pos: { textQuote: "They gave up." },
+          }),
+      },
+    );
+    await ready(state);
+    await classified(state);
+    expect(spansOf(state)).toContain("gave up:give up:learning");
+    app.selectStart("transcript");
+    expect(app.selectWords(upTheCrust, () => BOX)).toEqual({
+      start: at("up"),
+      end: at("crust") + "crust".length,
+    });
+    await expect.poll(() => state().phrase?.card.key).toBe("up the crust");
+    app.saveSelection("known");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(2);
+    // The longer phrase is drawn in place of the saved one it overlaps.
+    await expect
+      .poll(() => spansOf(state))
+      .toContain("up the crust:up the crust:known");
+    expect(spansOf(state)).toContain("gave:give:new");
+  });
 });
 
 describe("pausing while Lingo is in use", () => {
@@ -1290,6 +1491,19 @@ describe("pausing while Lingo is in use", () => {
     expect(video.paused).toBe(true);
     app.closePanel();
     await expect.poll(() => site.log.playback).toEqual(["pause", "play"]);
+  });
+
+  it("the hover card's Details opens the hovered word's window, as a click on it", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    app.openHoverDetails();
+    expect(state().panel).toBeNull();
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover).not.toBeNull();
+    app.openHoverDetails();
+    await expect.poll(() => state().panel?.card.head).toBe("tangy");
+    expect(state().hover).toBeNull();
   });
 
   it("pauses while words are selected and plays once the selection is dropped", async () => {

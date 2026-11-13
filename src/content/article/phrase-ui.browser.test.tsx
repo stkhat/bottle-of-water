@@ -97,6 +97,28 @@ describe("selection card", () => {
       .toEqual(["rise and fall"]);
   });
 
+  it("highlights a saved phrase wherever it is, and leaves the other blocks' highlights alone", async () => {
+    const { root } = await setup(
+      `
+      <div style="height: 120px"></div>
+      <p>They knead the dough and bake loaves.</p>
+      <p>So you can trace each rise and fall back to its cause.</p>
+      <p>Prices rise and fall with the seasons.</p>`,
+      { settings: { highlight: { new: true, learning: true, known: true } } },
+    );
+    await expect.poll(() => highlighted("lingo-new")).toContain("knead");
+    const ranges = () =>
+      [...(CSS.highlights.get("lingo-new") ?? [])] as Range[];
+    const knead = ranges().find((r) => r.toString() === "knead");
+    selectText(root, "rise", 0, "fall", 4);
+    await (await cardButton("rise and fall", "+ Learning")).click();
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["rise and fall", "rise and fall"]);
+    // The first block, classified again unchanged, kept its ranges.
+    expect(ranges().find((r) => r.toString() === "knead")).toBe(knead);
+  });
+
   it("saves the phrase even when the selection is read again while saving", async () => {
     const { root, background } = await setup(ARTICLE, {
       // A slow save: the selection is read again before it is done.
@@ -234,6 +256,16 @@ describe("selection card", () => {
     expect(selectedStatus().query()).toBeNull();
     select("one", "eight");
     await cardButton("one two three four five six seven eight", "Known");
+  });
+
+  it("selects anew from a drag that starts inside the selected words", async () => {
+    const { root } = await setup(ARTICLE);
+    await dragSelect(root, "rise", 2, "fall", 2);
+    await cardButton("rise and fall", "+ Learning");
+    expect(getSelection()!.toString()).toBe("rise and fall");
+    await dragSelect(root, "and fall", 1, "back", 2);
+    await cardButton("and fall back", "+ Learning");
+    expect(getSelection()!.toString()).toBe("and fall back");
   });
 
   it("goes away when the selection does", async () => {
@@ -381,5 +413,79 @@ describe("selection card: the pattern a selection stands for", () => {
       .poll(() => highlighted("lingo-learning"))
       .toEqual(["made up her mind", "made up his mind"]);
     await expect.element(panel.getByText("On this page · 2")).toBeVisible();
+  });
+});
+
+describe("selection card: words partly over a highlighted phrase", () => {
+  const CRUST = `
+    <div style="height: 120px"></div>
+    <p>She gave up the crust.</p>`;
+
+  it("saves the selected words, not the phrase, and highlights them instead of it", async () => {
+    const { root, background } = await setup(CRUST, {
+      settings: { highlight: { new: true, learning: true, known: false } },
+    });
+    await expect.poll(() => highlighted("lingo-new")).toContain("gave up");
+    selectText(root, "up the", 0, "crust", 5);
+    await (await cardButton("up the crust", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "up the crust",
+      display: "up the crust",
+      kind: "phrase",
+      status: "learning",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["up the crust"]);
+    expect(highlighted("lingo-new")).not.toContain("gave up");
+  });
+
+  it("saves words partly over a saved phrase and draws them when they are longer", async () => {
+    const { root, background } = await setup(CRUST, {
+      before: async (bg) => {
+        await bg.send({
+          type: "saveTerm",
+          lang: "en",
+          key: "give up",
+          display: "gave up",
+          kind: "phrase",
+          status: "learning",
+          source: {
+            platform: "web",
+            url: "https://example.com/",
+            title: "",
+            lang: "en",
+          },
+          sentence: "They gave up.",
+          pos: { textQuote: "They gave up." },
+        });
+      },
+    });
+    await expect.poll(() => highlighted("lingo-learning")).toEqual(["gave up"]);
+    selectText(root, "up the", 0, "crust", 5);
+    expect(getSelection()!.toString()).toBe("up the crust");
+    await (await cardButton("up the crust", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(2);
+    expect(background.sent("saveTerm")[1]).toMatchObject({
+      key: "up the crust",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["up the crust"]);
+  });
+
+  it("saves words selected over the phrase and past it under their own keys", async () => {
+    const { root, background } = await setup(CRUST);
+    selectText(root, "gave", 0, "crust", 5);
+    await (await cardButton("gave up the crust", "+ Learning")).click();
+    await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
+    expect(background.sent("saveTerm")[0]).toMatchObject({
+      key: "give up the crust",
+      display: "gave up the crust",
+    });
+    await expect
+      .poll(() => highlighted("lingo-learning"))
+      .toEqual(["gave up the crust"]);
   });
 });

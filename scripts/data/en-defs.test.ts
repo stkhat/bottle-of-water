@@ -11,12 +11,12 @@ const packs = {
     ...["cool", "give", "gave", "colour", "color", "kinda", "light", "aka"],
     // The phrases' words, which the fixture does not define.
     ...["kind", "of", "knock", "on", "send", "out", "all", "right"],
-    ...["not", "to", "mention"],
+    ...["not", "to", "mention", "i", "mean"],
   ],
   lemmas: {},
   phrases: {
     detect: ["kind of", "knock on", "send out"],
-    more: ["all right", "not to mention"],
+    more: ["all right", "not to mention", "i mean"],
     gap: ["knock on", "send out"],
   },
 };
@@ -38,6 +38,7 @@ describe("buildEnDefs", () => {
       "colour",
       "cool",
       "give",
+      "i mean",
       "kind of",
       "kinda",
       "knock on",
@@ -104,6 +105,15 @@ describe("buildEnDefs", () => {
     it("moves a definition that describes the expression down", () => {
       expect(result.defs["not to mention"]![0]).toBe("And also");
     });
+    it("moves a phrase's definitions that only name its function down, as usage notes", () => {
+      // The intensifier and the indication have the bigger translation tables.
+      expect(result.defs["i mean"]![1].map(([, text]) => text)).toEqual([
+        "Used to correct an error or slip of the tongue.",
+        "A mild intensifier.",
+        "An indication of approximation or uncertainty.",
+        "A delaying filler.",
+      ]);
+    });
   });
 
   it("leaves out a term every pair dictionary has", async () => {
@@ -117,7 +127,7 @@ describe("buildEnDefs", () => {
     expect(pairs.stats.left).toBe(2);
   });
   it("counts the words and phrases", () => {
-    expect(result.stats).toMatchObject({ words: 6, phrases: 5, unparsable: 1 });
+    expect(result.stats).toMatchObject({ words: 6, phrases: 6, unparsable: 1 });
   });
   it("writes the shards and their index", () => {
     const dir = mkdtempSync(join(tmpdir(), "en-defs-"));

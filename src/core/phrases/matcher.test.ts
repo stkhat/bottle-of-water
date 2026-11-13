@@ -400,12 +400,26 @@ describe("matchSelection", () => {
     );
   });
 
-  it("picks the match covering the most selected words, gap words included", () => {
+  it("takes a pattern whose words span the whole selection, gap words included", () => {
     expect(select("She made it up.", "made it up")).toEqual({
       key: "make up",
       words: "made up",
     });
     expect(select("She made it up.", "made it")?.key).toBe("make it");
+  });
+
+  it("takes no pattern that only part of the selection is in", () => {
+    // Past the pattern's end, before its start, and around it.
+    expect(select("She gave up on it.", "gave up on it")).toBeUndefined();
+    expect(select("She gave up.", "She gave up")).toBeUndefined();
+    expect(select("We pick up the bean.", "We pick up the")).toBeUndefined();
+    // Across the end of one pattern and the start of another.
+    expect(select("Look up to them.", "Look up to")).toBeUndefined();
+  });
+
+  it("prefers the pattern with the most words among those spanning the selection", () => {
+    expect(select("She gave up on it.", "gave up")?.key).toBe("give up on");
+    expect(select("She gave up on it.", "gave up on")?.key).toBe("give up on");
   });
 
   it("needs two of the pattern's words inside the selection", () => {
@@ -417,7 +431,13 @@ describe("matchSelection", () => {
   });
 
   it("gives ties to the earliest start", () => {
-    expect(select("Look up to them.", "Look up to")?.key).toBe("look up");
+    const matcher = createPhraseMatcher({
+      rules: ENGLISH_RULES,
+      patterns: { detect: ["look up to", "up to you"], more: [], gap: [] },
+      lemmas,
+    });
+    const words = matcher.prepare(tokenize("Look up to you.", "en"));
+    expect(matcher.matchSelection(words, 1, 3)?.key).toBe("look up to");
   });
 
   it("needs two selected words of the pattern, not one next to the selection", () => {

@@ -1,6 +1,8 @@
 export interface HoverIntentCallbacks<T> {
   show(target: T): void;
   hide(): void;
+  /** No card shows now (words are selected): a target stays unshown, tried again later. */
+  blocked?(): boolean;
 }
 
 export interface HoverIntent<T> {
@@ -49,8 +51,16 @@ export function createHoverIntent<T>(
       if (shown && same(shown.target, target)) return;
       showTimer = setTimeout(() => {
         clearTimeout(hideTimer);
-        shown = { target };
-        cb.show(target);
+        if (!cb.blocked?.()) {
+          shown = { target };
+          cb.show(target);
+          return;
+        }
+        // Not shown: the card up goes, and entering the word again tries again.
+        if (shown) {
+          shown = undefined;
+          cb.hide();
+        }
       }, SHOW_DELAY_MS);
     },
     leave() {

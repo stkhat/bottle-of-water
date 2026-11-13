@@ -85,9 +85,9 @@ export function createCards(o: {
   /** The pointer is on the hover card. */
   let onCard = false;
   const hover = createHoverIntent<string>({
+    // The selection's card is the card for the words under the pointer.
+    blocked: () => store.get().selecting,
     show(id) {
-      // The selection's card is the card for the words under the pointer.
-      if (store.get().selecting) return;
       // The same word in the subtitle and the transcript are two targets.
       const [from, cue, span] = id.split(":") as [WordPlace, string, string];
       const ref = { cue: Number(cue), span: Number(span) };

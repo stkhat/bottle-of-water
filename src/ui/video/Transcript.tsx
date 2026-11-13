@@ -1,5 +1,5 @@
-import type { CSSProperties } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { Component, type CSSProperties } from "preact";
+import { useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import type { Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import type { Cue } from "../../core/subtitles/types";
@@ -109,11 +109,40 @@ export function TranscriptControls(props: TranscriptControlsProps) {
   );
 }
 
+/** What a card does with the user's actions: stable across renders (see `Card`). */
+type CardHandlers = Required<
+  Pick<
+    TranscriptProps,
+    | "onSeek"
+    | "onWordEnter"
+    | "onWordLeave"
+    | "onWordClick"
+    | "onSelectStart"
+    | "onSelect"
+  >
+>;
+
 /** The subtitle cards beside the video (mock Main's right column). */
 export function Transcript(props: TranscriptProps) {
   const list = useRef<HTMLDivElement>(null);
   const pausedUntil = useRef(0);
   const pauseMs = props.userScrollPauseMs ?? 4000;
+  // The cards call the latest handlers through these, so new handlers on each render
+  // do not render every card again.
+  const latest = useRef(props);
+  latest.current = props;
+  const handlers = useMemo<CardHandlers>(
+    () => ({
+      onSeek: (index) => latest.current.onSeek(index),
+      onWordEnter: (cue, span, element) =>
+        latest.current.onWordEnter(cue, span, element),
+      onWordLeave: () => latest.current.onWordLeave(),
+      onWordClick: (cue, span) => latest.current.onWordClick(cue, span),
+      onSelectStart: (cue) => latest.current.onSelectStart?.(cue),
+      onSelect: (cue, selected) => latest.current.onSelect?.(cue, selected),
+    }),
+    [],
+  );
 
   const userScrolled = () => {
     pausedUntil.current = Date.now() + pauseMs;
@@ -155,48 +184,94 @@ export function Transcript(props: TranscriptProps) {
           index={i}
           cue={cue}
           now={i === props.current}
-          {...props}
+          spans={props.spans[i] ?? null}
+          translation={props.translations[i] ?? ""}
+          showTranslation={props.showTranslation}
+          highlight={props.highlight}
+          learningLang={props.learningLang}
+          nativeLang={props.nativeLang}
+          selectable={props.onSelect !== undefined}
+          handlers={handlers}
         />
       ))}
     </div>
   );
 }
 
-function Card(
-  props: TranscriptProps & { index: number; cue: Cue; now: boolean },
-) {
-  const { index, cue, now } = props;
+interface CardProps {
+  index: number;
+  cue: Cue;
+  now: boolean;
+  spans: readonly Span[] | null;
+  translation: string;
+  showTranslation: boolean;
+  highlight: Settings["highlight"];
+  learningLang: string;
+  nativeLang: string;
+  /** Words can be selected in the card's original. */
+  selectable: boolean;
+  handlers: CardHandlers;
+}
+
+const sameHighlight = (a: Settings["highlight"], b: Settings["highlight"]) =>
+  a.new === b.new && a.learning === b.learning && a.known === b.known;
+
+const sameCard = (a: CardProps, b: CardProps) =>
+  a.index === b.index &&
+  a.cue === b.cue &&
+  a.now === b.now &&
+  a.spans === b.spans &&
+  a.translation === b.translation &&
+  a.showTranslation === b.showTranslation &&
+  sameHighlight(a.highlight, b.highlight) &&
+  a.learningLang === b.learningLang &&
+  a.nativeLang === b.nativeLang &&
+  a.selectable === b.selectable &&
+  a.handlers === b.handlers;
+
+/**
+ * A card renders again only when what it shows changes: a long transcript has hundreds,
+ * and the store changes on every hover, selection and line.
+ */
+class Card extends Component<CardProps> {
+  override shouldComponentUpdate(next: CardProps) {
+    return !sameCard(this.props, next);
+  }
+
+  override render() {
+    return <CardBody {...this.props} />;
+  }
+}
+
+function CardBody(props: CardProps) {
+  const { index, cue, now, handlers, translation } = props;
   const time = formatTime(cue.startMs);
-  const translation = props.translations[index] ?? "";
   const selection = useTextSelection<HTMLSpanElement>({
-    onSelectStart: () => props.onSelectStart?.(index),
-    onSelect:
-      props.onSelect && ((selected) => props.onSelect?.(index, selected)),
+    onSelectStart: () => handlers.onSelectStart(index),
+    onSelect: props.selectable
+      ? (selected) => handlers.onSelect(index, selected)
+      : undefined,
   });
-  const words = renderTerms(
-    cue.text,
-    props.spans[index] ?? null,
-    (span, i, text) => {
-      const style = termStyle(span.category, props.highlight, "ui");
-      return (
-        <TermSpan
-          key={`${span.start}`}
-          index={i}
-          onEnter={(element) => props.onWordEnter(index, i, element)}
-          onLeave={props.onWordLeave}
-          onClick={() => {
-            if (!selection.selected()) props.onWordClick(index, i);
-          }}
-          stopClick
-          style={{
-            ...(style && { ...style, padding: "0 2px", borderRadius: "4px" }),
-          }}
-        >
-          {text}
-        </TermSpan>
-      );
-    },
-  );
+  const words = renderTerms(cue.text, props.spans, (span, i, text) => {
+    const style = termStyle(span.category, props.highlight, "ui");
+    return (
+      <TermSpan
+        key={`${span.start}`}
+        index={i}
+        onEnter={(element) => handlers.onWordEnter(index, i, element)}
+        onLeave={handlers.onWordLeave}
+        onClick={() => {
+          if (!selection.selected()) handlers.onWordClick(index, i);
+        }}
+        stopClick
+        style={{
+          ...(style && { ...style, padding: "0 2px", borderRadius: "4px" }),
+        }}
+      >
+        {text}
+      </TermSpan>
+    );
+  });
   // A div acting as a button, not a <button>: Firefox selects no text inside a button.
   return (
     <div
@@ -206,13 +281,13 @@ function Card(
       aria-current={now ? "true" : undefined}
       onClick={() => {
         // A drag over the text selects words: no seek.
-        if (!selection.selected()) props.onSeek(index);
+        if (!selection.selected()) handlers.onSeek(index);
       }}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        props.onSeek(index);
+        handlers.onSeek(index);
       }}
       style={now ? CARD_NOW : CARD}
     >

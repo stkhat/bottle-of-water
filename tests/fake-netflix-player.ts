@@ -108,7 +108,10 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
 
   // The control bar as seen on netflix.com (2026-11-10): class names are hashed, so
   // only data-uia and the structure count. The right-hand buttons sit in one row,
-  // each in its own wrapper, with spacers between them.
+  // each in its own wrapper, with spacers between them. The layout measured on
+  // 2026-11-14 (docs/notes/netflix.md): the row is a flex row (align-items: normal),
+  // each wrapper a 5.2rem block, its button a 4.4rem inline-block at the wrapper's
+  // top, each spacer a 3rem flex box.
   let bar: HTMLElement | null = null;
   let idle: ReturnType<typeof setTimeout> | undefined;
   let over = false;
@@ -118,13 +121,28 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
     element.append(...children);
     return element;
   };
+  const styled = <E extends HTMLElement>(element: E, css: string) => {
+    element.style.cssText = css;
+    return element;
+  };
   const button = (uia: string, label: string) => {
-    const element = document.createElement("button");
+    const element = styled(
+      document.createElement("button"),
+      "display: inline-block; width: 4.4rem; height: 4.4rem; padding: 0; border: 0;",
+    );
     element.setAttribute("data-uia", uia);
     element.setAttribute("aria-label", label);
-    return div("default-ltr-iqcdef-cache-1bwyfo4 medium", element);
+    return styled(
+      div("default-ltr-iqcdef-cache-1bwyfo4 medium", element),
+      "display: block; width: 5.2rem; height: 5.2rem;",
+    );
   };
-  const spacer = () => div("default-ltr-iqcdef-cache-1npqywr");
+  const spacer = () =>
+    styled(
+      div("default-ltr-iqcdef-cache-1npqywr"),
+      "display: flex; min-width: 3rem;",
+    );
+  const ROW = "display: flex; flex-direction: row; justify-content: flex-end;";
   // The full screen button makes the player's page (.watch-video) fullscreen, and
   // turns into the exit button there.
   const fullscreenLabels = (): [uia: string, label: string] =>
@@ -152,29 +170,35 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
       span.textContent = part;
       heading.append(span);
     }
-    const left = div(
-      "default-ltr-iqcdef-cache-1e5rkfb",
-      button("control-play-pause-pause", "Pause"),
-      spacer(),
-      button("control-back10", "Back 10 seconds"),
-      spacer(),
-      button("control-forward10", "Forward 10 seconds"),
-      spacer(),
-      button("control-volume-high", "Volume"),
+    const left = styled(
+      div(
+        "default-ltr-iqcdef-cache-1e5rkfb",
+        button("control-play-pause-pause", "Pause"),
+        spacer(),
+        button("control-back10", "Back 10 seconds"),
+        spacer(),
+        button("control-forward10", "Forward 10 seconds"),
+        spacer(),
+        button("control-volume-high", "Volume"),
+      ),
+      ROW,
     );
-    const right = div(
-      "default-ltr-iqcdef-cache-1e5rkfb",
-      spacer(),
-      button("control-next", "Next Episode"),
-      spacer(),
-      button("control-episodes", "Episodes"),
-      spacer(),
-      spacer(),
-      button("control-audio-subtitle", "Audio & Subtitles"),
-      spacer(),
-      button("control-speed", "Playback Speed"),
-      spacer(),
-      fullscreenButton(),
+    const right = styled(
+      div(
+        "default-ltr-iqcdef-cache-1e5rkfb",
+        spacer(),
+        button("control-next", "Next Episode"),
+        spacer(),
+        button("control-episodes", "Episodes"),
+        spacer(),
+        spacer(),
+        button("control-audio-subtitle", "Audio & Subtitles"),
+        spacer(),
+        button("control-speed", "Playback Speed"),
+        spacer(),
+        fullscreenButton(),
+      ),
+      ROW,
     );
     const root = div(
       "default-ltr-iqcdef-cache-1h3nesh",
@@ -183,7 +207,10 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
         div(
           "default-ltr-iqcdef-cache-13pi6vt",
           div("default-ltr-iqcdef-cache-timeline"),
-          div("default-ltr-iqcdef-cache-1t0ry8m", left, heading, right),
+          styled(
+            div("default-ltr-iqcdef-cache-1t0ry8m", left, heading, right),
+            "display: flex;",
+          ),
         ),
       ),
     );

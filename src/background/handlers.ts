@@ -4,7 +4,11 @@ import {
   type Span,
   type TermStatus,
 } from "../core/classify";
-import { cleanDefinition, definitionTexts } from "../core/lexicon/definitions";
+import {
+  cleanDefinition,
+  definitionTexts,
+  isUsageNoteShort,
+} from "../core/lexicon/definitions";
 import type { DictionaryEntry } from "../core/lexicon/dictionary";
 import type { LanguagePack } from "../core/lexicon/language-pack";
 import { readCasing } from "../core/text/casing";
@@ -171,7 +175,8 @@ export function createHandlers({
   /**
    * The short meanings of entries, in order: a cached translation of an English
    * definition replaces it (never translated here), the others are as the dictionary
-   * has them.
+   * has them. A usage note ("A mild intensifier") is never one the hover translates, so
+   * an old translation of it in the cache is not used.
    */
   async function shortMeanings(
     lang: string,
@@ -179,7 +184,7 @@ export function createHandlers({
     entries: readonly (DictionaryEntry | undefined)[],
   ): Promise<ShortMeaning[]> {
     const cleaned = entries.map((entry) =>
-      glossedInOtherLanguage(entry, nativeLang)
+      glossedInOtherLanguage(entry, nativeLang) && !isUsageNoteShort(entry)
         ? cleanDefinition(entry.short)
         : undefined,
     );

@@ -61,6 +61,12 @@ export interface Span {
    */
   part?: SpanPart;
   /**
+   * Set on a phrase whose key has a slot that another word fills ("her" for one's in
+   * "made up her mind" under `make up one's mind`): its key's words are not all its
+   * words' keys.
+   */
+  slot?: true;
+  /**
    * A word capitalised on the page in a way that counts (`capitalHere`, or a name that
    * keeps its capitalised meaning): its lookup asks for the capitalised headword's
    * senses first.
@@ -77,6 +83,42 @@ export interface Span {
    * its lookup shows the senses of that part of speech first.
    */
   pos?: string;
+}
+
+/** Two values of a span's field are the same: equal, or objects with equal fields. */
+function sameField(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every(
+      (key) =>
+        (a as Record<string, unknown>)[key] ===
+        (b as Record<string, unknown>)[key],
+    )
+  );
+}
+
+function sameSpan(a: Span, b: Span): boolean {
+  const keys = Object.keys(a) as (keyof Span)[];
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => sameField(a[key], b[key]))
+  );
+}
+
+/**
+ * Two classifications of a text are the same, field by field: a text classified again
+ * keeps its highlights (and its rendered words) when nothing changed.
+ */
+export function sameSpans(
+  a: readonly Span[] | null | undefined,
+  b: readonly Span[] | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((span, i) => sameSpan(span, b[i]!));
 }
 
 export interface ClassifyOptions {
@@ -130,8 +172,10 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   phrases match in "saved" mode (slots: "made up his mind" is `make up one's mind`;
  *   a gap when the pack flags the phrase as one: "figure it out" is `figure out`);
  *   dictionary phrases in "detect" mode (contiguous, no slots). Saved phrases win:
- *   where any saved phrase matches, the longest saved one is used, even when a
- *   dictionary phrase is longer; otherwise the longest dictionary phrase. A saved
+ *   they are placed first, the longest first (words from first to last, gap words
+ *   included; on a tie the earlier one), each where it overlaps no phrase placed
+ *   before it, even where a dictionary phrase is longer or starts earlier;
+ *   dictionary phrases (the longest at each word) fill the words outside them. A saved
  *   phrase takes its status; an unsaved dictionary phrase is new (the known level
  *   applies to words only) and does not match over a word saved as learning, which
  *   keeps its own span.
@@ -213,21 +257,52 @@ export function createClassifier(pack: LanguagePack): Classifier {
       );
 
       /**
-       * The phrase starting at word i: the longest saved phrase, or when no saved
-       * phrase matches, the longest dictionary phrase without a word saved as learning,
+       * Saved phrases first, the longest first (the most words from first to last,
+       * gap words included, then the most pattern words, then the earliest start,
+       * then the key): each that overlaps no phrase placed before it is placed.
+       * `savedAt[i]`: the saved phrase starting at word i; `inSaved[i]`: word i is
+       * inside one.
+       */
+      const savedAt: (PhraseMatch | undefined)[] = [];
+      const inSaved: boolean[] = [];
+      const savedMatches: PhraseMatch[] = [];
+      for (let i = 0; i < words.length; i++)
+        savedMatches.push(...matcher.matchesAt(input, i, "saved", terms));
+      const first = (m: PhraseMatch) => m.words[0]!;
+      const last = (m: PhraseMatch) => m.words.at(-1)!;
+      savedMatches.sort(
+        (a, b) =>
+          last(b) - first(b) - (last(a) - first(a)) ||
+          b.words.length - a.words.length ||
+          first(a) - first(b) ||
+          (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+      );
+      for (const match of savedMatches) {
+        let free = true;
+        for (let j = first(match); j <= last(match) && free; j++)
+          free = !inSaved[j];
+        if (!free) continue;
+        savedAt[first(match)] = match;
+        for (let j = first(match); j <= last(match); j++) inSaved[j] = true;
+      }
+
+      /**
+       * The phrase starting at word i: the saved phrase there, or the longest
+       * dictionary phrase without a word saved as learning or inside a saved phrase,
        * when it is that phrase here (`phraseMisfit`; a shorter one does not stand in
        * for it: "so long as" is no "so long").
        */
       const phraseAt = (i: number): PhraseMatch | undefined => {
-        const saved = matcher.longestAt(input, i, "saved", terms);
-        if (saved || !detects) return saved;
+        const saved = savedAt[i];
+        if (saved || !detects || inSaved[i]) return saved;
         const matches = matcher.matchesAt(input, i, "detect");
         const longest =
           matches.length === 0
             ? undefined
             : longestMatch(
                 matches.filter(
-                  (match) => !match.words.some((j) => learning[j]),
+                  (match) =>
+                    !match.words.some((j) => learning[j] || inSaved[j]),
                 ),
               );
         return longest &&
@@ -283,6 +358,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const pos = markerPos(pack, match, readings, punctuated);
         const last = match.words.at(-1)!;
         const runs = runsOf(match.words);
+        const keyWords = key.split(" ").map(normalizeWord);
+        const slot = match.words.some(
+          (j, n) => !words[j]!.forms.includes(keyWords[n]!),
+        );
         const whole = {
           start: words[i]!.token.start,
           end: words[last]!.token.end,
@@ -298,6 +377,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             kind: "phrase",
             category,
             ...(pos !== undefined && { pos }),
+            ...(slot && { slot }),
             ...(runs.length > 1 && {
               part: { index, count: runs.length, ...whole },
             }),

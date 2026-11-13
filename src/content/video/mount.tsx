@@ -149,7 +149,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   );
   made.buttons = part(
     "lingo-player-buttons",
-    "display: inline-flex; align-items: center; height: 100%; vertical-align: top;",
+    "display: inline-flex; align-items: center; height: 100%; vertical-align: top;" +
+      (adapter.controlsStyle ?? ""),
     () => adapter.controlsPoint(),
     <PlayerBarUi app={app} />,
   );

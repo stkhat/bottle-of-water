@@ -27,7 +27,8 @@ interface Selected {
   end: number;
   spans: Span[];
   from: WordPlace;
-  anchor: Box | undefined;
+  /** Where the card goes: above the words. */
+  anchor: Box;
   /** The background's answer: undefined when no pattern matches. */
   match: Promise<PatternMatch | undefined>;
   /**
@@ -106,15 +107,14 @@ export function createSelection(o: {
       span: -1,
       selected: { start, end, key },
     };
-    if (selected.anchor)
-      store.set({
-        phrase: {
-          ref: selected.ref,
-          from: selected.from,
-          anchor: selected.anchor,
-          card,
-        },
-      });
+    store.set({
+      phrase: {
+        ref: selected.ref,
+        from: selected.from,
+        anchor: selected.anchor,
+        card,
+      },
+    });
   }
 
   /** The selection's card goes (the page's selection stays). */
@@ -189,6 +189,13 @@ export function createSelection(o: {
         phrase.end !== end ||
         phrase.from !== words.place
       ) {
+        const anchor = boxOf(start, end);
+        // Nowhere to show the card (the text is not laid out): no selection, so the
+        // video does not stay paused for a card that never shows.
+        if (!anchor) {
+          drop();
+          return undefined;
+        }
         o.dismissHover();
         const selected: Selected = {
           cue: words.cue,
@@ -196,13 +203,17 @@ export function createSelection(o: {
           end,
           spans: snapped.spans,
           from: words.place,
-          anchor: boxOf(start, end),
+          anchor,
           match: patternOf(words.cue, start, end),
         };
         phrase = selected;
         pressFrom = words.place;
         if (!state.selecting) store.set({ selecting: true });
-        void describe(selected).catch(warn);
+        describe(selected).catch((error: unknown) => {
+          warn(error);
+          // No card: the selection goes rather than holding the video and the hovers.
+          if (phrase === selected) drop();
+        });
       }
       return { start, end };
     },
@@ -222,8 +233,11 @@ export function createSelection(o: {
     lineChanged() {
       if (pressFrom === "subtitle") clear();
     },
-    /** The transcript scrolled: its selection's card would no longer be by the words. */
-    transcriptScrolled() {
+    /**
+     * The video started playing (the user's play, or a transcript card's): words
+     * selected in the transcript go, as Lingo paused the video for them.
+     */
+    played() {
       if (pressFrom === "transcript") clear();
     },
   };

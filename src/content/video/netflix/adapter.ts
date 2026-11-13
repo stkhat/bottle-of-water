@@ -27,6 +27,7 @@ import {
 import {
   CONTROL_BAR_DELAY_MS,
   CONTROL_BAR_HEIGHT,
+  CONTROLS_STYLE,
   HIDE_CAPTIONS_CSS,
   HIDE_CONTROL_BAR_CSS,
   KEEP_TITLES,
@@ -422,6 +423,7 @@ export function createNetflixAdapter(
       player()?.querySelector("video") ?? document.querySelector("video"),
     playerElement: player,
     controlsPoint,
+    controlsStyle: CONTROLS_STYLE,
     belowVideoElement: below,
     sideColumn: () => null,
     fillsWindow: () => {

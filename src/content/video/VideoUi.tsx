@@ -369,6 +369,34 @@ export function TranscriptUi(props: {
     () => videoWords(cues, spans, summaries),
     [cues, spans, summaries],
   );
+  const open = panel?.card;
+  const rows = useMemo(
+    () =>
+      filterRows(words, state.wordsFilter).map((word) => {
+        const brief = Object.hasOwn(summaries, word.key)
+          ? summaries[word.key]
+          : undefined;
+        return {
+          id: `${word.kind}\n${word.key}`,
+          head: word.head,
+          category: word.category,
+          count: word.count,
+          short: brief?.short,
+          shortLang: brief?.glossLang ?? settings.nativeLang,
+          selected: open?.kind === word.kind && open.key === word.key,
+          first: word.first,
+        };
+      }),
+    [
+      words,
+      state.wordsFilter,
+      summaries,
+      settings.nativeLang,
+      open?.kind,
+      open?.key,
+    ],
+  );
+  const counts = useMemo(() => filterCounts(words), [words]);
   if (
     !showing(state) ||
     !settings.transcriptShown ||
@@ -410,24 +438,9 @@ export function TranscriptUi(props: {
         if (fromTranscript) app.dismissHover();
         if (selectedInTranscript) app.clearSelection();
       }}
-      words={filterRows(words, state.wordsFilter).map((word) => {
-        const brief = Object.hasOwn(summaries, word.key)
-          ? summaries[word.key]
-          : undefined;
-        return {
-          id: `${word.kind}\n${word.key}`,
-          head: word.head,
-          category: word.category,
-          count: word.count,
-          short: brief?.short,
-          shortLang: brief?.glossLang ?? settings.nativeLang,
-          selected:
-            panel?.card.kind === word.kind && panel.card.key === word.key,
-          first: word.first,
-        };
-      })}
+      words={rows}
       wordsFilter={state.wordsFilter}
-      wordsCounts={filterCounts(words)}
+      wordsCounts={counts}
       onWordsFilter={app.setWordsFilter}
       onOpenWord={(row) => app.clickWord(row.first)}
       learningLang={settings.learningLang}
@@ -587,6 +600,7 @@ export function PageUi(props: {
             nativeLang={settings.nativeLang}
             onLearning={() => app.setHoverStatus("learning")}
             onKnown={() => app.setHoverStatus("known")}
+            onDetails={app.openHoverDetails}
           />
         </Floating>
       )}
