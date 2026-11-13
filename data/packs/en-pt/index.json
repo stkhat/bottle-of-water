@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"'s","last":"roly-poly"},{"file":"dict-2.json","first":"roman catholic","last":"éclair"}],
+"shards":[{"file":"dict-1.json","first":"'s","last":"mono"},{"file":"dict-2.json","first":"monochrome","last":"éclair"}],
 "sources":["ptwiktionary","enwiktionary-translations"]
 }

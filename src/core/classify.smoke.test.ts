@@ -64,15 +64,31 @@ describe("dictionary phrases over the generated packs", () => {
     expect(phrases.map((s) => s.key)).toEqual(["give up", "from scratch"]);
   });
 
-  it("does not detect pairs of common words that are meant literally", () => {
+  it("detects by meaning, not by the words' ranks: discourse markers and idioms of common words", () => {
     const text =
-      "I came to Tokyo. I'm going to live in Paris. Very well, let's find out.";
+      "You know, I kind of want it. Of course it makes sense. Thank you.";
     const spans = classifier.classify(pack.tokenize(text), {
       terms: new Map(),
       knownLevel: 3000,
     });
-    const phrases = spans.filter((s) => s.kind === "phrase");
-    expect(phrases.map((s) => s.key)).toEqual(["find out"]);
+    expect(spans.filter((s) => s.kind === "phrase").map((s) => s.key)).toEqual([
+      "you know",
+      "kind of",
+      "of course",
+      "make sense",
+      "thank you",
+    ]);
+  });
+
+  it("leaves transparent compounds, named entities and literal pairs to selections", () => {
+    const text = "A digital signature from New York. In the world of art.";
+    const spans = classifier.classify(pack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    expect(spans.filter((s) => s.kind === "phrase")).toEqual([]);
+    for (const key of ["digital signature", "new york", "in the world"])
+      expect(pack.patterns.more).toContain(key);
   });
 
   it("still matches such a pair once it is saved", () => {
@@ -246,6 +262,36 @@ describe("names over the generated packs (rule D)", () => {
     // "mark" is in lower case in the document: "Mark" is no name there.
     expect(of("Mark").every((s) => s.name === undefined)).toBe(true);
   });
+  it("reads a run of capitalised words as one name, titles and titled common nouns aside", () => {
+    const text = [
+      "I work for Harvey Specter at Pearson Specter Litt.",
+      "Specter, you're fired. President Harvey visited the Kennedy Center.",
+      "We sailed to the Persian Gulf.",
+    ];
+    const runs = documentCasing(
+      text.map((t) => blockCasing(withNames.tokenize(t), "en")),
+    );
+    const spans = text.flatMap((t) =>
+      names
+        .classify(withNames.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: runs,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .map((s) => ({ ...s, text: t.slice(s.start, s.end) })),
+    );
+    const named = (word: string) =>
+      spans.filter((s) => s.text === word).map((s) => s.name === true);
+    expect(named("Specter")).toEqual([true, true, true]);
+    // Harvey is no vocabulary word: no hover either way.
+    expect(
+      spans.filter((s) => s.text === "Harvey").map((s) => s.category),
+    ).toEqual(["ignored", "ignored"]);
+    expect(named("President")).toEqual([false]);
+    expect(named("Center")).toEqual([false]);
+    expect(named("Gulf")).toEqual([false]);
+  });
 });
 
 const es = await loadPack("es");
@@ -417,6 +463,23 @@ describe("phrase precision over the generated packs", () => {
       .filter((s) => s.kind === "phrase")
       .map((s) => (s.pos ? `${s.key}/${s.pos}` : s.key));
 
+  it("shows a discourse marker's interjection senses at a clause start (C1, C2)", () => {
+    expect(phrases("You know, I like it.")).toEqual(["you know/interjection"]);
+    expect(phrases("All right, let's go.")).toEqual(["all right/interjection"]);
+    const plain = dictionary.entry("all right")!;
+    const marker = dictionary.entry("all right", undefined, "interjection")!;
+    expect(plain.senses[0]?.pos).toBe("adjective");
+    expect(marker.lines[0]).not.toBe(plain.lines[0]);
+    expect(marker.lines[0]).toBe(
+      plain.lines[plain.senses.findIndex((s) => s.pos === "interjection")],
+    );
+  });
+  it("shows a phrase's translation-table senses, the best first (C1)", () => {
+    expect(dictionary.entry("break up")?.lines[0]).toMatch(/別れる/);
+    expect(dictionary.entry("write down")?.lines[0]).toMatch(/書き留める/);
+    expect(dictionary.entry("break up")?.senses[0]?.text).toMatch(/^《/);
+  });
+
   it("has parts of speech for most patterns and transitivity for some phrasal verbs", () => {
     expect(tagged.phrasePos("give up")[0]).toBe("verb");
     expect(tagged.phrasePos("kind of")).toEqual(["adv"]);
@@ -452,17 +515,18 @@ describe("phrase precision over the generated packs", () => {
     expect(words).toContainEqual(["talked", "word", "talk"]);
     expect(words).toContainEqual(["about", "word", "about"]);
   });
+  it("drops a verb and a particle that is only a preposition, read literally", () => {
+    expect(
+      phrases("I came to Tokyo. I'm going to live in Paris. Let's find out."),
+    ).toEqual(["find out"]);
+  });
   it("drops an adverb with a noun in it after a determiner", () => {
-    expect(phrases("The first thing we need is water.")).toEqual([]);
-    expect(phrases("I'll call you first thing tomorrow.")).toEqual([
-      "first thing",
-    ]);
+    expect(phrases("What kind of music do you like?")).toEqual([]);
+    expect(phrases("I kind of want it.")).toEqual(["kind of"]);
   });
   it("drops a prepositional phrase inside a clause before a noun phrase", () => {
-    expect(phrases("He is in advanced talks.")).toEqual([]);
-    expect(phrases("We booked the tickets in advance.")).toEqual([
-      "in advance",
-    ]);
+    expect(phrases("He is in general practice.")).toEqual([]);
+    expect(phrases("I like dogs in general.")).toEqual(["in general"]);
     expect(phrases("Prices rose as a result of the storm.")).toEqual([
       "as a result",
     ]);
@@ -477,9 +541,9 @@ describe("phrase precision over the generated packs", () => {
     expect(phrases("Why did your boyfriend break up with you?")).toEqual([
       "break up",
     ]);
-    expect(phrases("It is yet to be passed up the chain of command.")).toEqual(
-      [],
-    );
+    expect(phrases("It is yet to be passed up the chain of command.")).toEqual([
+      "chain of command",
+    ]);
     expect(phrases("He passed up the chance.")).toEqual(["pass up"]);
   });
   it("gives a discourse marker at a clause start its interjection senses", () => {

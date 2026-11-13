@@ -153,6 +153,7 @@ export interface KaikkiSense {
   glosses?: unknown[];
   tags?: string[];
   categories?: Categories;
+  topics?: unknown[];
   form_of?: { word?: unknown }[];
   alt_of?: unknown;
   translations?: KaikkiTranslation[];

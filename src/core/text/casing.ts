@@ -52,19 +52,36 @@ export interface DocumentCasing {
    * recognition, where punctuation says nothing of where a phrase ends.
    */
   unpunctuated?: true;
+  /**
+   * In mixed mode, each word the document writes capitalised right after another
+   * capitalised word, with only a space between them ("Specter" in "Harvey Specter"):
+   * those words, sorted. Names read whole runs from it (`runName`).
+   */
+  runs?: Readonly<Record<string, readonly string[]>>;
 }
 
 const MODES: ReadonlySet<unknown> = new Set(["upper", "lower", "mixed"]);
 
 /** A casing as a message carries it, or undefined when it is not one. */
 export function readCasing(value: unknown): DocumentCasing | undefined {
-  const { mode, words, unpunctuated } = (value ?? {}) as Record<
+  const { mode, words, unpunctuated, runs } = (value ?? {}) as Record<
     string,
     unknown
   >;
   if (!MODES.has(mode) || typeof words !== "object" || words === null)
     return undefined;
   if (unpunctuated !== undefined && unpunctuated !== true) return undefined;
+  if (
+    runs !== undefined &&
+    (typeof runs !== "object" ||
+      runs === null ||
+      !Object.values(runs).every(
+        (partners) =>
+          Array.isArray(partners) &&
+          partners.every((key) => typeof key === "string"),
+      ))
+  )
+    return undefined;
   const counts = Object.values(words);
   if (
     !counts.every(
@@ -95,6 +112,8 @@ export interface BlockCasing {
   /** Word tokens, and commas. */
   words: number;
   commas: number;
+  /** Each word capitalised right after a capitalised word: those words. */
+  runs: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 /** Share of ALL-CAPS words over which a document is "upper". */
@@ -171,6 +190,40 @@ const bump = (map: Map<string, number>, key: string) =>
 const pluralAcronym = (word: WordCase, text: string) =>
   /^\p{Lu}{2,}s$/u.test(text) && word.written === "capital";
 
+/**
+ * A capitalised word (not ALL CAPS, not inside brackets) as a run counts it: a name
+ * written in Title Case ("Harvey", "Specter").
+ */
+const inRun = (word: WordCase, text: string) =>
+  word.written === "capital" && !word.label && !pluralAcronym(word, text);
+
+/**
+ * The block's runs of capitalised words with only spaces between them, as each word's
+ * predecessors: the words written right before it in a run, not at a start.
+ */
+function capitalRuns(tokens: readonly Token[], cases: readonly WordCase[]) {
+  const runs = new Map<string, Set<string>>();
+  /** The previous word, when it is capitalised and only spaces have come since. */
+  let previous: string | undefined;
+  let i = 0;
+  for (const token of tokens) {
+    if (!token.isWord) {
+      if (!/^\s+$/.test(token.text)) previous = undefined;
+      continue;
+    }
+    const word = cases[i++]!;
+    const capital = inRun(word, token.text);
+    if (capital && previous !== undefined && previous !== word.key) {
+      let before = runs.get(word.key);
+      if (!before) runs.set(word.key, (before = new Set()));
+      before.add(previous);
+    }
+    // A capital at a start says nothing ("Yesterday Mark", "However Congress").
+    previous = capital && !word.atStart ? word.key : undefined;
+  }
+  return runs;
+}
+
 /** What a block's words say about the document's casing. */
 export function blockCasing(
   tokens: readonly Token[],
@@ -178,6 +231,7 @@ export function blockCasing(
 ): BlockCasing {
   const words = tokens.filter((token) => token.isWord);
   const cases = wordCases(tokens, lang);
+  const text = tokens.map((token) => token.text).join("");
   const counts = {
     letters: 0,
     upper: 0,
@@ -192,6 +246,9 @@ export function blockCasing(
         token.isWord ? n : n + (token.text.match(/[,，、]/g)?.length ?? 0),
       0,
     ),
+    runs: titleLike(text, words)
+      ? new Map<string, Set<string>>()
+      : capitalRuns(tokens, cases),
   };
   cases.forEach((word, i) => {
     if (word.written === undefined) return;
@@ -223,7 +280,13 @@ export function documentCasing(blocks: Iterable<BlockCasing>): DocumentCasing {
   let commas = 0;
   const capitalised = new Map<string, number>();
   const lower = new Map<string, number>();
+  const runs = new Map<string, Set<string>>();
   for (const block of blocks) {
+    for (const [key, partners] of block.runs) {
+      let all = runs.get(key);
+      if (!all) runs.set(key, (all = new Set()));
+      for (const partner of partners) all.add(partner);
+    }
     words += block.words;
     commas += block.commas;
     letters += block.letters;
@@ -252,6 +315,11 @@ export function documentCasing(blocks: Iterable<BlockCasing>): DocumentCasing {
       [...capitalised].map(([key, n]) => [key, [n, lower.get(key) ?? 0]]),
     ),
     ...punctuation,
+    ...(runs.size > 0 && {
+      runs: Object.fromEntries(
+        [...runs].map(([key, partners]) => [key, [...partners].sort()]),
+      ),
+    }),
   };
 }
 
@@ -307,5 +375,27 @@ export function casingChanges(
     ...Object.keys(after.words),
   ]))
     if (verdicts(before, key) !== verdicts(after, key)) changed.add(key);
+  // Names read whole runs: a word whose predecessors changed, or one of whose
+  // predecessors changed (down the run), may change with them.
+  const runOf = (casing: DocumentCasing, key: string) =>
+    (casing.runs && own(casing.runs, key)) ?? [];
+  const keys = new Set([
+    ...Object.keys(before.runs ?? {}),
+    ...Object.keys(after.runs ?? {}),
+  ]);
+  for (const key of keys)
+    if (runOf(before, key).join(" ") !== runOf(after, key).join(" "))
+      changed.add(key);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const key of keys)
+      if (
+        !changed.has(key) &&
+        runOf(after, key).some((previous) => changed.has(previous))
+      ) {
+        changed.add(key);
+        grew = true;
+      }
+  }
   return changed;
 }

@@ -27,6 +27,11 @@ export interface PhraseRules {
    * it as an adverb (rule P2). None for a language without phrasal verbs.
    */
   readonly particles?: ReadonlySet<string>;
+  /**
+   * The particles that are never adverbs, only prepositions or the infinitive marker
+   * ("at", "of", "to", "with"): P2 needs no tag to drop a verb pattern ending in one.
+   */
+  readonly prepositions?: ReadonlySet<string>;
 }
 
 /**

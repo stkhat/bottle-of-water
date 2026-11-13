@@ -17,8 +17,17 @@ describe("sense labels", () => {
     expect(decodeSenseLabels(encodeSenseLabels(labels))).toEqual(labels);
   });
   it("writes a part of speech it has no letter for as none", () => {
-    expect(encodeSenseLabels([{ pos: "phrase" }, { pos: "pronoun" }])).toBe(
+    expect(encodeSenseLabels([{ pos: "proverb" }, { pos: "pronoun" }])).toBe(
       "- o",
     );
+  });
+  it("has letters for a phrase's own parts of speech", () => {
+    const phrase = [
+      { pos: "phrase" },
+      { pos: "prepositional phrase" },
+      { pos: "interjection" },
+    ];
+    expect(encodeSenseLabels(phrase)).toBe("h P i");
+    expect(decodeSenseLabels("h P i")).toEqual(phrase);
   });
 });

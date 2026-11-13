@@ -591,6 +591,100 @@ describe("names by document casing (rule D)", () => {
   });
 });
 
+describe("names in runs of capitalised words (rule D, whole names)", () => {
+  // Ranks: center 1, president 2; every other word is rare.
+  const pack = createLanguagePack("en", {
+    lemmas: {},
+    freq: ["center", "president"],
+    ipa: {},
+    vocab: new Set([
+      ...["we", "met", "at", "and", "the", "come", "here", "sailed", "saw"],
+      ...["harvey", "specter", "pearson", "center", "president", "trump"],
+      ...["persian", "gulf", "recording", "academy", "jupiter", "monday"],
+    ]),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: { the: ["article"], we: ["pronoun"] },
+    names: {
+      harvey: "g",
+      pearson: "s",
+      trump: "s",
+      gulf: "p",
+      academy: "o",
+      monday: "x!",
+    },
+  });
+  const meanings: Record<string, CapitalMeaning> = {
+    persian: "word",
+    jupiter: "word",
+  };
+  const verdicts = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(pack.tokenize(b), "en")),
+    );
+    return blocks.flatMap((block) =>
+      createClassifier(pack)
+        .classify(pack.tokenize(block), {
+          terms: terms(),
+          knownLevel: 0,
+          casing,
+          capitalMeaning: (key) => meanings[key],
+        })
+        .map((s) => ({ ...s, text: block.slice(s.start, s.end) }))
+        .filter((s) => /^\p{Lu}/u.test(s.text) && s.text !== "We")
+        .map(
+          (s) =>
+            `${s.text}:${s.name ? "name" : s.capital ? "capital" : s.category}`,
+        ),
+    );
+  };
+
+  it("takes a word after a person's name for part of the name, down the run and in the whole document", () => {
+    expect(
+      verdicts(
+        "We met Harvey Specter at Pearson Specter.",
+        "Specter, come here.",
+      ),
+    ).toEqual([
+      "Harvey:name",
+      "Specter:name",
+      "Pearson:name",
+      "Specter:name",
+      "Specter:name",
+    ]);
+  });
+  it("keeps a common word, a title before a name, a capitalised common word and a capitalised meaning", () => {
+    expect(
+      verdicts(
+        "We met Harvey Center and President Trump at Harvey Monday.",
+        "We saw Harvey Jupiter.",
+      ),
+    ).toEqual([
+      "Harvey:name",
+      "Center:capital",
+      "President:capital",
+      "Trump:name",
+      "Harvey:name",
+      "Monday:capital",
+      "Harvey:name",
+      "Jupiter:capital",
+    ]);
+  });
+  it("keeps a place or an organisation written after a word that is no name: the head of a title", () => {
+    expect(
+      verdicts("We sailed the Persian Gulf.", "We met the Recording Academy."),
+    ).toEqual([
+      "Persian:capital",
+      "Gulf:capital",
+      "Recording:capital",
+      "Academy:capital",
+    ]);
+    expect(verdicts("We sailed at Gulf and met Academy.")).toEqual([
+      "Gulf:name",
+      "Academy:name",
+    ]);
+  });
+});
+
 describe("keys and parts of speech by tags (rules A1 and A2)", () => {
   // The tagger is sure of these words only: "decided" a past tense, "fine" an
   // adjective, "the" a determiner; "Mark" a proper noun.

@@ -15,7 +15,9 @@
 //   takes it (dictionaries group senses by part of speech) [any source]
 // A label is only one of the word's parts of speech in en/pos.json (or the nearest).
 // Words with one part of speech are left out: the extension labels their senses
-// with it. Run after ejdict.ts and kaikki.ts.
+// with it. EJDict's phrases are labelled the same way, with their patterns' parts of
+// speech in Wiktionary (en/phrases.json) when they have several. Run after ejdict.ts,
+// kaikki.ts and phrases.ts.
 // Usage: node scripts/data/sense-pos.ts
 import { join } from "node:path";
 import {
@@ -25,7 +27,10 @@ import {
 } from "../../src/core/lexicon/sense-labels.ts";
 import { japaneseForm } from "../../src/core/lexicon/short-lines.ts";
 import type { DictPack, PosPack } from "../../src/core/packs/types.ts";
+import { decodePhrasePos } from "../../src/core/phrases/phrase-pos.ts";
+import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
 import { PACKS_DIR, readDictPacks, readPack, writePack } from "./common.ts";
+import { senseLabelOf } from "./senses.ts";
 
 /** Text outside any bracket pair, without 『』 marks: what a gloss's ending is read from. */
 function outside(sense: string, open = "《〈(（[{", close = "》〉)）]}") {
@@ -227,13 +232,25 @@ export function labelSenses(
   );
 }
 
-/** en-ja/pos.json: the labels of every word with several parts of speech that gets one. */
-export function sensePos(dict: DictPack, pos: PosPack) {
+/**
+ * en-ja/pos.json: the labels of every word with several parts of speech that gets one,
+ * and of every phrase whose pattern has several (`phrasePos`, as sense labels name
+ * them).
+ */
+export function sensePos(
+  dict: DictPack,
+  pos: PosPack,
+  phrasePos: (key: string) => readonly string[] = () => [],
+) {
   const out: Record<string, string> = {};
   let senses = 0;
   let labelled = 0;
   for (const [key, [, texts]] of Object.entries(dict)) {
-    const candidates = Object.hasOwn(pos, key) ? pos[key]! : [];
+    const candidates = key.includes(" ")
+      ? phrasePos(key)
+      : Object.hasOwn(pos, key)
+        ? pos[key]!
+        : [];
     if (candidates.length < 2) continue;
     const labels = labelSenses(texts, candidates);
     senses += labels.length;
@@ -246,13 +263,26 @@ export function sensePos(dict: DictPack, pos: PosPack) {
 
 function main() {
   const dict = readDictPacks<DictPack[string]>(join(PACKS_DIR, "en-ja"));
+  const patterns = readPack<PhrasePatterns>("en/phrases.json");
+  const phrases = new Map<string, string[]>();
+  for (const list of ["detect", "more"] as const) {
+    const codes = patterns.pos?.[list].split(" ") ?? [];
+    patterns[list].forEach((key, i) =>
+      phrases.set(key, decodePhrasePos(codes[i] ?? "-")),
+    );
+  }
   const { labels, senses, labelled } = sensePos(
     dict,
     readPack<PosPack>("en/pos.json"),
+    (key) => [
+      ...new Set(
+        (phrases.get(key) ?? []).flatMap((pos) => senseLabelOf(pos).pos ?? []),
+      ),
+    ],
   );
   writePack("en-ja/pos.json", labels);
   console.log(
-    `en-ja/pos.json: ${Object.keys(labels).length} words with several parts of speech; ` +
+    `en-ja/pos.json: ${Object.keys(labels).length} words and phrases with several parts of speech; ` +
       `${labelled} of their ${senses} senses labelled (${((labelled / senses) * 100).toFixed(1)}%)`,
   );
 }

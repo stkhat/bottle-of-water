@@ -3,8 +3,11 @@
  * English definition is cleaned before it is translated, and its cleaned text is the
  * key of the translation cache, so the background and the UI clean it the same way.
  */
+/*
+ * The data scripts import this file under plain Node: it has no value imports.
+ */
 import type { DictionaryEntry } from "./dictionary";
-import { pointerTarget, type Pointer } from "./short-lines";
+import type { Pointer } from "./short-lines";
 
 /** The dictionary window translates up to this many senses (the hover card: the short meaning). */
 export const MAX_TRANSLATED_SENSES = 4;
@@ -139,7 +142,9 @@ export function definitionPointer(text: string): Pointer | undefined {
     const rest = cleaned.slice(match[0].length).replace(/\.\s*$/, "");
     if (rest.includes(":")) return undefined;
     const kind = i === 0 ? "form" : "reference";
-    const target = /[(“",;]/.test(rest) ? undefined : pointerTarget(rest);
+    // One term, as a key (short-lines' pointerTarget).
+    const term = rest.trim().toLowerCase().replace(/\s+/g, " ");
+    const target = /[(“",;]/.test(rest) || term === "" ? undefined : term;
     return target === undefined ? { kind } : { kind, target };
   }
   return undefined;

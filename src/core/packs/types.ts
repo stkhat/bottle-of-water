@@ -25,10 +25,15 @@ export type NamesPack = Readonly<Record<string, string>>;
 export type VocabPack = readonly string[];
 /**
  * en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. en-ja/phrases.json has
- * the same shape: Japanese translations of phrases EJDict lacks.
+ * the same shape: Japanese translations of phrases EJDict lacks, from Wiktionary's
+ * translation tables, each sense "《English sense》word,word", with its senses' parts
+ * of speech as a third item (`sense-labels.ts`, the source's own: "v v i").
  */
 export type DictPack = Readonly<
-  Record<string, readonly [short: string, senses: readonly string[]]>
+  Record<
+    string,
+    readonly [short: string, senses: readonly string[], labels?: string]
+  >
 >;
 /**
  * en-defs/dict-<n>.json, merged: word or phrase → [short definition, [part of speech,

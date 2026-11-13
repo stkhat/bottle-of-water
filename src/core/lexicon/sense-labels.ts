@@ -34,6 +34,8 @@ const LETTERS: Readonly<Record<string, string>> = {
   m: "numeral",
   t: "article",
   l: "particle",
+  P: "prepositional phrase",
+  h: "phrase",
 };
 const LETTER_OF: Readonly<Record<string, string>> = Object.fromEntries(
   Object.entries(LETTERS).map(([letter, pos]) => [pos, letter]),
