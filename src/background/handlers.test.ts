@@ -7,6 +7,7 @@ import type { PackState } from "../core/packs/state";
 import { blockCasing, documentCasing } from "../core/text/casing";
 import { tokenize } from "../core/text/tokenize";
 import type {
+  AnalyzeResult,
   Reply,
   Request,
   SourceInput,
@@ -419,6 +420,21 @@ describe("handlers: language data", () => {
     });
   });
 
+  it("classifies without the tags' choices while the dictionary is not on the device", async () => {
+    const handle = withMissing("en-ja");
+    const reply = await handle({
+      type: "analyze",
+      lang: "en",
+      blocks: ["The yeast rose."],
+    });
+    expect(reply).toMatchObject({ ok: true });
+    const { spans } = (reply as { value: AnalyzeResult }).value;
+    expect(spans[0]!.find((s) => s.start === 10)).toMatchObject({
+      key: "rose",
+    });
+    expect(spans[0]!.some((s) => "pos" in s)).toBe(false);
+  });
+
   it("lists the word list's rows without meanings, and without the dictionary, when asked", async () => {
     await setSettings({ learningLang: "es", nativeLang: "en" });
     const comer: TermRecord = {
@@ -571,11 +587,40 @@ describe("handlers: analyze", () => {
     expect(result.saved).toEqual(["the", "crust"]);
   });
 
-  it("does not load the dictionary", async () => {
-    await value({ type: "analyze", lang: "en", blocks: ["The loaf."] });
+  it("does not load the dictionary for a language without a tagger or names", async () => {
+    await setSettings({ learningLang: "es", nativeLang: "en" });
+    await value({ type: "analyze", lang: "es", blocks: ["Una casa."] });
     expect(
-      filesRead(loadPack).filter((p) => !p.startsWith("/packs/en/")),
+      filesRead(loadPack).filter((p) => !p.startsWith("/packs/es/")),
     ).toEqual([]);
+  });
+
+  it("chooses a word's key and part of speech by its tag (rules A1 and A2), with the dictionary", async () => {
+    // The test tagger knows "rose" as a past tense: its key is the verb it is a form
+    // of, and its lookup shows that verb's senses (its span's part of speech).
+    const blocks = ["The yeast rose."];
+    const result = await value({ type: "analyze", lang: "en", blocks });
+    const rose = result.spans[0]!.find((s) => s.start === 10);
+    expect(rose).toMatchObject({ key: "rise", pos: "verb", category: "new" });
+    expect(result.unsaved).toContain("rise");
+    expect(filesRead(loadPack)).toContain("/packs/en-ja/pos.json");
+    // A word the tagger is not sure of keeps its key and gets no part of speech.
+    const yeast = result.spans[0]!.find((s) => s.key === "yeast");
+    expect(yeast).not.toHaveProperty("pos");
+  });
+
+  it("keeps a saved word's key whatever its tag says", async () => {
+    store.termIndex.mockResolvedValue(new Map([["rose", "learning"]]));
+    const result = await value({
+      type: "analyze",
+      lang: "en",
+      blocks: ["The yeast rose."],
+    });
+    expect(result.spans[0]!.find((s) => s.start === 10)).toMatchObject({
+      key: "rose",
+      category: "learning",
+      pos: "verb",
+    });
   });
 
   it("takes a word the document always capitalises for a name: ignored, no dictionary meaning kept", async () => {
@@ -594,25 +639,6 @@ describe("handlers: analyze", () => {
       category: "known",
       capital: true,
     });
-  });
-
-  it("loads the dictionary only for a mixed-case document with capitalised words", async () => {
-    const blocks = ["the loaf rises. the crust browns."];
-    await value({
-      type: "analyze",
-      lang: "en",
-      blocks,
-      casing: casingOf(blocks),
-    });
-    expect(filesRead(loadPack)).not.toContain("/packs/en-ja/index.json");
-    const mixed = ["We met Crust in town."];
-    await value({
-      type: "analyze",
-      lang: "en",
-      blocks: mixed,
-      casing: casingOf(mixed),
-    });
-    expect(filesRead(loadPack)).toContain("/packs/en-ja/capital.json");
   });
 
   it("reads no names from a caseless document or a casing it cannot read", async () => {
@@ -944,6 +970,28 @@ describe("handlers: lookup", () => {
     });
   });
 
+  it("shows the senses of the part of speech the page's tag gives first (rule A2)", async () => {
+    store.occurrencesOf.mockResolvedValue([]);
+    // A part of speech that is not a string (a page's mistake) is left out.
+    const lookUp = async (pos?: string | number) =>
+      (
+        await value({
+          type: "lookup",
+          lang: "en",
+          key: "rise",
+          ...(pos !== undefined && { pos: pos as string }),
+        })
+      ).entry;
+    // "rise": 上がる (a verb), then 上昇 (a noun).
+    expect(await lookUp()).toMatchObject({ lines: ["上がる", "上昇"] });
+    expect(await lookUp("verb")).toMatchObject({ lines: ["上がる", "上昇"] });
+    const noun = await lookUp("noun");
+    expect(noun).toMatchObject({ short: "上がる", lines: ["上昇", "上がる"] });
+    // The senses keep the dictionary's order.
+    expect(noun?.senses.map((s) => s.text)).toEqual(["上がる", "上昇"]);
+    expect(await lookUp(3)).toMatchObject({ lines: ["上がる", "上昇"] });
+  });
+
   it("matches the video here whatever form its URL takes", async () => {
     const result = await value({
       type: "lookup",
@@ -1113,6 +1161,7 @@ describe("handlers: machine translations of English definitions", () => {
           to,
           short: () => SHORT,
           entry: (term) => ({ head: term, kind: "phrase", ...definition }),
+          outline: () => undefined,
           capitalMeaning: () => undefined,
         }),
       },

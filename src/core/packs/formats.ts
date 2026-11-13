@@ -10,8 +10,8 @@ import type { PackName } from "./load";
  * lock), which formats.test.ts checks.
  */
 export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
-  en: 2,
-  "en-ja": 2,
+  en: 3,
+  "en-ja": 3,
   "en-defs": 1,
   es: 1,
   "es-en": 1,

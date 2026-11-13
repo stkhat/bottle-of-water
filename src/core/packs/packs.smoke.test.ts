@@ -29,7 +29,7 @@ const {
   vocab: vocabList,
   phrases,
 } = await loadPack("en");
-const { dict, phrases: jaPhrases, capital } = await loadPack("en-ja");
+const { dict, phrases: jaPhrases, capital, sensePos } = await loadPack("en-ja");
 const { defs } = await loadPack("en-defs");
 const vocab = new Set(vocabList);
 
@@ -93,8 +93,23 @@ describe("generated packs", () => {
     expect(lookup("figure of speech", dict, pos)).toBeDefined();
   });
   it("label senses with parts of speech", () => {
-    const labels = lookup("ferment", dict, pos)?.senses.map((s) => s.pos);
-    expect(labels).toContain("verb");
+    const labels = (word: string) =>
+      lookup(word, dict, pos, sensePos)?.senses.map((s) => s.pos);
+    expect(labels("ferment")).toEqual(expect.arrayContaining(["noun", "verb"]));
+    // fine: 罰金 (a noun), 〈人〉に罰金を科する (a verb), 『りっぱな』 (an adjective) …
+    expect(labels("fine")?.slice(0, 3)).toEqual(["noun", "verb", "adjective"]);
+    expect(labels("including")).toEqual(["preposition"]);
+  });
+  it("label most senses of words with several parts of speech", () => {
+    let senses = 0;
+    let labelled = 0;
+    for (const key of Object.keys(dict))
+      if ((pos[key]?.length ?? 0) > 1)
+        for (const sense of lookup(key, dict, pos, sensePos)!.senses) {
+          senses++;
+          if (sense.pos) labelled++;
+        }
+    expect(labelled / senses).toBeGreaterThan(0.8);
   });
   it("rank the most common words first", () => {
     const rank = (word: string) => freq.indexOf(word) + 1 || Infinity;
@@ -110,6 +125,7 @@ describe("generated phrases", () => {
     dict,
     phrases: jaPhrases,
     capital,
+    sensePos,
     defs,
     pos,
     ipa,

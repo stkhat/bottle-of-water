@@ -1,8 +1,9 @@
 // Guard: addons.mozilla.org's linter (web-ext lint) rejects text files over 5 MB, so
 // every pack file that may be bundled (public/packs/, and data/packs/ while its lock
 // entry says bundled) must stay well under that.
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { DOWNLOAD_PACKS_DIR, PACKS_DIR, ROOT } from "./common.ts";
 
@@ -29,4 +30,16 @@ describe.each(
       expect(statSync(path).size).toBeLessThan(LIMIT_BYTES);
     },
   );
+});
+
+// Every English page loads these: the tagger with the language pack, the sense labels
+// with the dictionary (docs/notes/data-sizes.md).
+describe.each([
+  ["en/tagger.json", 150_000],
+  ["en-ja/pos.json", 100_000],
+])("%s", (file, budget) => {
+  it(`stays under ${budget / 1000} KB gzipped`, () => {
+    const bytes = gzipSync(readFileSync(join(PACKS_DIR, file))).length;
+    expect(bytes).toBeLessThan(budget);
+  });
 });

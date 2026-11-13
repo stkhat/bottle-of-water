@@ -10,6 +10,8 @@ import { createPhraseMatcher, type PhraseMatcher } from "../phrases/matcher";
 import type { PhrasePatterns, PhraseRules } from "../phrases/pattern";
 import { rulesFor } from "../phrases/rules";
 import { tokenize, type Token } from "../text/tokenize";
+import { englishTagger } from "../tagging/en";
+import type { Tagger, TaggerModel } from "../tagging/tagger";
 import { ipaFor } from "./ipa";
 import { lemmatize } from "./lemmatize";
 
@@ -18,6 +20,11 @@ import { lemmatize } from "./lemmatize";
  * or those that capitalise every noun (German): their capitals say nothing of names.
  */
 const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es"]);
+
+/** Each language's tagger over its pack's model. */
+const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
+  en: englishTagger,
+};
 
 export interface LanguagePack {
   readonly lang: string;
@@ -51,6 +58,11 @@ export interface LanguagePack {
   name(word: string): string | undefined;
   /** A word's parts of speech, its main one first; [] when the pack has none. */
   partsOfSpeech(word: string): readonly string[];
+  /**
+   * The language's part-of-speech tagger and grammar (rules A1 and A2,
+   * `word-sense.ts`), when the pack has a model for it (English so far).
+   */
+  readonly tagger?: Tagger;
 }
 
 export interface LanguagePackData {
@@ -63,6 +75,7 @@ export interface LanguagePackData {
   patterns: PhrasePatterns;
   pos?: PosPack;
   names?: NamesPack;
+  tagger?: TaggerModel;
 }
 
 export function createLanguagePack(
@@ -74,6 +87,8 @@ export function createLanguagePack(
   const lemmas = (word: string) => lemmatize(word, data.lemmas, data.vocab);
   let phrases: ReadonlySet<string> | undefined;
   let matcher: PhraseMatcher | undefined;
+  const makeTagger = own(TAGGERS, lang);
+  const tagger = data.tagger && makeTagger?.(data.tagger);
   return {
     lang,
     tokenize: (text) => tokenize(text, lang),
@@ -86,6 +101,7 @@ export function createLanguagePack(
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
     name: (word) => (data.names ? own(data.names, word) : undefined),
     partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
+    ...(tagger && { tagger }),
     get phrases() {
       return (phrases ??= new Set(data.patterns.detect));
     },

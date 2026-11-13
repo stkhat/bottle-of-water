@@ -38,14 +38,19 @@
           "size": 1037360
         },
         {
+          "path": "tagger.json",
+          "sha256": "5a33f86c30322a1c0d4947455e0d985a5638471d8d79099e0d35d7c689e77dea",
+          "size": 398705
+        },
+        {
           "path": "vocab.json",
           "sha256": "b4eb8878d874821bb46dfe7dd247d1252d6829b60868f5f833ca64ada1a59cc6",
           "size": 477631
         }
       ],
-      "format": 2,
+      "format": 3,
       "package": "@lingo-data/en",
-      "version": "2026.1113.0"
+      "version": "2026.1113.1"
     },
     "en-defs": {
       "bundled": true,
@@ -155,11 +160,16 @@
           "path": "phrases.json",
           "sha256": "e3264d59ffebc82d533b0bcca76b014ad764df5f85e7c965d0a84e59d22a4af3",
           "size": 63107
+        },
+        {
+          "path": "pos.json",
+          "sha256": "be5712b8aa5bd79e791e9c98997a30b88216ae1600de0082b0c2cc839baa0c85",
+          "size": 282729
         }
       ],
-      "format": 2,
+      "format": 3,
       "package": "@lingo-data/en-ja",
-      "version": "2026.1113.1"
+      "version": "2026.1113.4"
     },
     "en-pt": {
       "bundled": true,

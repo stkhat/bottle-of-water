@@ -280,6 +280,38 @@ export function japanesePointer(line: string): Pointer | undefined {
   return undefined;
 }
 
+/** A grammar word that makes "Xの…" a form of X. */
+const JA_FORM_WORD =
+  /過去|分詞|複数|単数|三人称|比較級|最上級|直説法|仮定法|現在形|短縮/;
+const JA_FORM_LEAD = new RegExp(
+  `^([A-Za-z][A-Za-z']*)\\s*の(${JA_GRAMMAR})(.*)$`,
+);
+const JA_FORM_NOTE =
+  /^[(（]\s*([A-Za-z][A-Za-z']*)\s*の([^()（）]*)[)）]\s*(.*)$/;
+
+/**
+ * The word a Japanese sense says this one is a form of, also when a meaning follows:
+ * "goの過去" (go), "haveの過去形・…していた" (have, then "…していた"),
+ * "(good の比較級;最上級は best)いっそうよい" (good, then "いっそうよい"), also in a
+ * note ("《be の仮定法過去》"). `grammar` is what it says of the form ("過去",
+ * "比較級;最上級は best").
+ */
+export function japaneseForm(
+  sense: string,
+): { target: string; grammar: string; rest: string } | undefined {
+  // A sense that is only a note says it there: "《be の仮定法過去》".
+  const text =
+    withoutEjdictMarks(withoutNotes(sense)).trim() ||
+    sense.replace(/[《》『』]/g, "").trim();
+  const found = JA_FORM_NOTE.exec(text) ?? JA_FORM_LEAD.exec(text);
+  if (!found || !JA_FORM_WORD.test(found[2]!)) return undefined;
+  return {
+    target: found[1]!.toLowerCase(),
+    grammar: found[2]!,
+    rest: trimItems(found[3]!.replace(/^[\s・;；]+/, "")),
+  };
+}
+
 function withTarget(kind: Pointer["kind"], term: string): Pointer {
   const target = pointerTarget(term);
   return target === undefined ? { kind } : { kind, target };

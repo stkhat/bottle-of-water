@@ -101,7 +101,9 @@ export type Request =
   /**
    * `sourceUrl` is the page or video the user is on; its occurrences come back as
    * `here`. `written`: how the word was written there, when the page says: in lower
-   * case, capitalised in a way that counts (`Span.capital`), or as an acronym.
+   * case, capitalised in a way that counts (`Span.capital`), or as an acronym. `pos`:
+   * the part of speech its tag gives it there (`Span.pos`): the hover card's lines
+   * show senses of it first (rule A2).
    */
   | {
       type: "lookup";
@@ -109,6 +111,7 @@ export type Request =
       key: string;
       sourceUrl?: string;
       written?: Written;
+      pos?: string;
     }
   | ({ type: "saveTerm" } & SaveTermInput)
   | { type: "setStatus"; id: string; status: TermStatus }

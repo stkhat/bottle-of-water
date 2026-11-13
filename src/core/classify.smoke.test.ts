@@ -280,4 +280,109 @@ describe("classifier over the generated Spanish pack", () => {
       }),
     );
   });
+
+  it("has no tagger: words keep their keys and get no part of speech", () => {
+    expect(esPack.tagger).toBeUndefined();
+    const text = "Estoy comiendo una manzana.";
+    const withOutlines = esClassifier.classify(esPack.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+      outline: () => ({ firstMeaning: true, meaning: true, pos: ["verb"] }),
+    });
+    expect(withOutlines.some((s) => "pos" in s)).toBe(false);
+    expect(withOutlines.map((s) => s.key)).toEqual(
+      classify(text).map((s) => s.key),
+    );
+  });
+});
+
+describe("tags over the generated packs (rules A1 and A2)", () => {
+  const tagged = createLanguagePack("en", {
+    lemmas: en.lemmas,
+    freq: en.freq,
+    ipa: en.ipa,
+    vocab: new Set(en.vocab),
+    patterns: en.phrases,
+    pos: en.pos,
+    names: en.names,
+    tagger: en.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createEnJaDictionary({
+    ...ja,
+    defs: defs.defs,
+    pos: en.pos,
+    ipa: en.ipa,
+  });
+  /** The word's span in `text` with its hover lines. */
+  const hover = (text: string, word: string) => {
+    const span = classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .find((s) => text.slice(s.start, s.end) === word)!;
+    return {
+      key: span.key,
+      pos: span.pos,
+      lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+    };
+  };
+
+  it("looks an inflected verb up by its base", () => {
+    expect(hover("She decided to stay.", "decided")).toMatchObject({
+      key: "decide",
+      pos: "verb",
+    });
+    expect(hover("He was wearing a hat.", "wearing")).toMatchObject({
+      key: "wear",
+      pos: "verb",
+    });
+    expect(hover("I saw him yesterday.", "saw").key).toBe("see");
+  });
+  it("keeps an auxiliary's grammar pointer, and its verb's base", () => {
+    const has = hover("She has spent all her money.", "has");
+    expect(has.key).toBe("has");
+    expect(has.pos).toBeUndefined();
+    expect(has.lines[0]).toMatch(/^haveの/);
+    expect(hover("She has spent all her money.", "spent").key).toBe("spend");
+    expect(hover("The house is being built.", "being").key).toBe("be");
+  });
+  it("keeps a participle used otherwise than as a verb", () => {
+    const established = hover(
+      "The company was established in 1990.",
+      "established",
+    );
+    expect(established).toEqual({
+      key: "established",
+      pos: undefined,
+      lines: [expect.stringMatching(/^確立した/)],
+    });
+    expect(
+      hover("Including taxes, it costs ten dollars.", "Including"),
+    ).toEqual({
+      key: "including",
+      pos: undefined,
+      lines: ["…を含んで,入れて"],
+    });
+    expect(hover("It is a demanding job.", "demanding").key).toBe("demanding");
+  });
+  it("shows the senses of the tagged part of speech first", () => {
+    expect(hover("That's fine.", "fine")).toMatchObject({
+      pos: "adjective",
+      lines: [
+        expect.stringContaining("りっぱな"),
+        expect.anything(),
+        expect.anything(),
+      ],
+    });
+    expect(hover("It was just a joke.", "just").lines[0]).toMatch(/^単に/);
+    expect(hover("He looked like his father.", "like").lines[0]).toMatch(
+      /に似た/,
+    );
+    expect(hover("Their first attempt failed.", "attempt").lines[0]).toMatch(
+      /^企て/,
+    );
+  });
 });

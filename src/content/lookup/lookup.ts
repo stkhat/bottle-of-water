@@ -54,6 +54,8 @@ interface ShownTerm extends Term {
   category?: Category;
   /** How the word was written, when the page says (`Lookup.written`). */
   written?: Written;
+  /** The part of speech its tag gives it there (`Span.pos`). */
+  pos?: string;
 }
 
 /** The popup's requests about a page (see `page-protocol.ts`), as the page answers them. */

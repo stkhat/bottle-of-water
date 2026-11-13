@@ -194,6 +194,37 @@ describe("describeTerm", () => {
     ]);
   });
 
+  it("asks for the part of speech and the written case the page gives the word, and notes its base form", async () => {
+    const { send, requests } = fakeSend();
+    const card = await describeTerm(
+      {
+        key: "loaf",
+        kind: "word",
+        surface: "loaves",
+        written: "lower",
+        pos: "noun",
+      },
+      {
+        send,
+        lang: "en",
+        nativeLang: "ja",
+        sourceUrl: "https://example.com/a",
+        translator,
+      },
+    );
+    expect(requests).toEqual([
+      {
+        type: "lookup",
+        lang: "en",
+        key: "loaf",
+        sourceUrl: "https://example.com/a",
+        written: "lower",
+        pos: "noun",
+      },
+    ]);
+    expect(card.sub).toBe("loaves → loaf");
+  });
+
   it("translates a phrase missing from the dictionary as it is written, and notes its main word", async () => {
     const { send } = fakeSend();
     const card = await describeTerm(

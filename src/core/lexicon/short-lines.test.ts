@@ -4,6 +4,7 @@ import {
   cleanShort,
   definitionLine,
   displayWidth,
+  japaneseForm,
   japanesePointer,
   shortLines,
   shortOfDefinition,
@@ -120,6 +121,44 @@ describe("definitionLine", () => {
     expect(
       definitionLine("To seek, to try to find, to look around for something."),
     ).toBe("To seek, to try to find");
+  });
+});
+
+describe("japaneseForm", () => {
+  it("names the word a sense says this one is a form of, and what follows", () => {
+    expect(japaneseForm("goの過去")).toEqual({
+      target: "go",
+      grammar: "過去",
+      rest: "",
+    });
+    expect(japaneseForm("tell の過去・過去分詞")).toMatchObject({
+      target: "tell",
+      rest: "",
+    });
+    expect(
+      japaneseForm(
+        "haveの過去形・《過去のある時における動作の完了・結果》…『して[しまって]いた』",
+      ),
+    ).toEqual({
+      target: "have",
+      grammar: "過去形・",
+      rest: "…して[しまって]いた",
+    });
+    expect(
+      japaneseForm(
+        "(『good』 の比較級;最上級は 『best』)『いっそうよい』,もっとすぐれた",
+      ),
+    ).toEqual({
+      target: "good",
+      grammar: "比較級;最上級は best",
+      rest: "いっそうよい,もっとすぐれた",
+    });
+  });
+  it("finds no form in a meaning, a reference or a pointer to several words", () => {
+    expect(japaneseForm("『明白な』,決定的な")).toBeUndefined();
+    expect(japaneseForm("=anyhow")).toBeUndefined();
+    expect(japaneseForm("silverの化学記号")).toBeUndefined();
+    expect(japaneseForm("am not, is notの短縮形")).toBeUndefined();
   });
 });
 

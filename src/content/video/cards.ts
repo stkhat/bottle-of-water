@@ -49,6 +49,7 @@ export function createCards(o: {
         surface,
         category: span.category,
         ...(written !== undefined && { written }),
+        ...(span.pos !== undefined && { pos: span.pos }),
       },
       shownIn,
     );

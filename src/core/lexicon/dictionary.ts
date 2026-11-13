@@ -4,17 +4,21 @@ import type {
   IpaPack,
   PairPack,
   PosPack,
+  SensePosPack,
 } from "../packs/types";
 import { kindOfKey } from "../term-id";
 import { own } from "../util";
 import { cleanDefinition, definitionPointer } from "./definitions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
+import { inOrder, senseOrder } from "./sense-order";
 import {
   cleanShort,
   definitionLine,
+  japaneseForm,
   japanesePointer,
   shortLines,
+  shortOfDefinition,
   type Pointer,
 } from "./short-lines";
 
@@ -48,6 +52,24 @@ export interface DictionaryEntry {
  */
 export type Written = "lower" | "capital" | "upper";
 
+/**
+ * What rule A1 needs to know of a headword to choose between a word's base forms
+ * (`chooseKey`), read from its senses in the gloss language's pointer syntax.
+ */
+export interface EntryOutline {
+  /**
+   * The word its first sense says this one is a form of: went ("goの過去") → go,
+   * better ("(good の比較級)いっそうよい") → good.
+   */
+  formOf?: string;
+  /** Its first sense means something: no pointer, or a form with a meaning after it (better). */
+  firstMeaning: boolean;
+  /** Some sense means something (not every sense is a pointer). */
+  meaning: boolean;
+  /** The parts of speech its senses are labelled with (not those taken from neighbours). */
+  pos: readonly string[];
+}
+
 export interface DictionaryProvider {
   /**
    * A dictionary with capitalised headwords apart (en-ja) gives, for a capitalised
@@ -55,8 +77,20 @@ export interface DictionaryProvider {
    * (`capitalMeaning`), and leaves the capitalised senses out otherwise; for a word in
    * lower case, the lowercase headword's senses alone; and when the page does not say,
    * the lowercase senses, then the capitalised ones.
+   *
+   * `pos` is the part of speech the word's tag gives it on the page (`Span.pos`): the
+   * hover card's lines then show the senses of that part of speech first when the
+   * first sense is labelled with another (rule A2, `senseOrder`); an entry shown by
+   * its short meaning alone (an English definition) takes that from the first of them.
+   * `senses` stay in the dictionary's order.
    */
-  entry(term: string, written?: Written): DictionaryEntry | undefined;
+  entry(
+    term: string,
+    written?: Written,
+    pos?: string,
+  ): DictionaryEntry | undefined;
+  /** What rule A1 reads of a headword; undefined when the dictionary does not have it. */
+  outline(term: string): EntryOutline | undefined;
   /**
    * What the word's capitalised headword means, when that is not about one person, a
    * people or a symbol (not Mark → 聖マルコ, Frank → フランク人): "word" when its gloss
@@ -72,6 +106,8 @@ export type CapitalMeaning = "word" | "name";
 export interface EnJaDictionaryData {
   /** en-ja/dict-<n>.json: EJDict */
   dict: DictPack;
+  /** en-ja/pos.json: the parts of speech of EJDict's senses, from the data build */
+  sensePos: SensePosPack;
   /** en-ja/capital.json: the senses of EJDict's capitalised headwords */
   capital: DictPack;
   /** en-ja/phrases.json: Japanese translations of phrases EJDict lacks */
@@ -94,17 +130,64 @@ const NO_POS: PosPack = {};
  */
 type Found = Entry & { lines?: string[]; glossLang?: string };
 
+/** What a sense is, as an outline counts it: the word it is a form of, and whether it means something. */
+type SenseReading = (text: string) => { formOf?: string; meaning: boolean };
+
+/** A Japanese sense: a form ("goの過去", "haveの過去形・…していた"), a reference ("=anyhow"), or a meaning. */
+const japaneseSense: SenseReading = (text) => {
+  const form = japaneseForm(text);
+  if (form) return { formOf: form.target, meaning: form.rest !== "" };
+  const line = cleanShort(text);
+  return { meaning: line !== "" && japanesePointer(line) === undefined };
+};
+
+/** An English definition: a form ("Simple past of decide"), another pointer, or a meaning. */
+const englishSense: SenseReading = (text) => {
+  const pointer = definitionPointerOf(text);
+  return pointer?.kind === "form" && pointer.target !== undefined
+    ? { formOf: pointer.target, meaning: false }
+    : { meaning: pointer === undefined };
+};
+
+function outlineOf(
+  senses: readonly Sense[],
+  read: SenseReading,
+): EntryOutline | undefined {
+  const [first, ...rest] = senses.map((sense) => read(sense.text));
+  if (!first) return undefined;
+  return {
+    ...(first.formOf !== undefined && { formOf: first.formOf }),
+    firstMeaning: first.meaning,
+    meaning: first.meaning || rest.some((sense) => sense.meaning),
+    pos: [
+      ...new Set(
+        senses.flatMap((sense) =>
+          sense.pos !== undefined && sense.posBy !== "gap" ? [sense.pos] : [],
+        ),
+      ),
+    ],
+  };
+}
+
 function dictionaryOver(
   ipa: IpaPack,
-  find: (head: string, written?: Written) => Found | undefined,
+  find: (head: string, written?: Written, pos?: string) => Found | undefined,
+  outline: (head: string) => EntryOutline | undefined,
   capitalMeaning: (head: string) => CapitalMeaning | undefined = () =>
     undefined,
 ): DictionaryProvider {
+  /** Outlines are read for every analyzed word with a tag: each headword's once. */
+  const outlines = new Map<string, EntryOutline | undefined>();
   return {
     capitalMeaning: (term) => capitalMeaning(normalize(term)),
-    entry: (term, written) => {
+    outline: (term) => {
       const head = normalize(term);
-      const found = find(head, written);
+      if (!outlines.has(head)) outlines.set(head, outline(head));
+      return outlines.get(head);
+    },
+    entry: (term, written, pos) => {
+      const head = normalize(term);
+      const found = find(head, written, pos);
       if (!found) return undefined;
       const headIpa = ipaFor(head, ipa);
       return {
@@ -129,7 +212,8 @@ export function createEnJaDictionary(
   data: EnJaDictionaryData,
 ): DictionaryProvider {
   const japanese = (head: string, pos: PosPack) =>
-    lookup(head, data.dict, pos) ?? lookup(head, data.phrases, NO_POS);
+    lookup(head, data.dict, pos, data.sensePos) ??
+    lookup(head, data.phrases, NO_POS);
   const linesOf = (entry: Entry) =>
     entry.senses.map((sense) => cleanShort(sense.text));
   /** A capitalised headword's senses: the word's (Japan), or the acronym's (US). */
@@ -170,21 +254,31 @@ export function createEnJaDictionary(
   };
   return dictionaryOver(
     data.ipa,
-    (head, written) => {
+    (head, written, pos) => {
       const found = asWritten(head, written);
-      if (found)
-        return {
-          ...found,
-          lines: shortLines(linesOf(found), found.short, {
-            head,
-            pointer: japanesePointer,
-            follow: (target) => {
-              const entry = japanese(target, NO_POS);
-              return entry && linesOf(entry);
-            },
-          }),
-        };
-      return definitionInEnglish(head, data.defs);
+      if (!found) return definitionInEnglish(head, data.defs, pos);
+      const lines = linesOf(found);
+      const order =
+        pos === undefined
+          ? undefined
+          : senseOrder(found.senses, pos, (i) => lines[i] !== "");
+      return {
+        ...found,
+        lines: shortLines(inOrder(lines, order), found.short, {
+          head,
+          pointer: japanesePointer,
+          follow: (target) => {
+            const entry = japanese(target, NO_POS);
+            return entry && linesOf(entry);
+          },
+        }),
+      };
+    },
+    (head) => {
+      const found = japanese(head, data.pos);
+      if (found) return outlineOf(found.senses, japaneseSense);
+      const definition = definitionOf(head, data.defs);
+      return definition && outlineOf(definition.senses, englishSense);
     },
     (head) => meaningOf(capitalOf(head)),
   );
@@ -234,11 +328,28 @@ const definitionPointerOf = (line: string): Pointer | undefined =>
   definitionPointer(line) ??
   (cleanDefinition(line) === undefined ? { kind: "form" } : undefined);
 
-/** An entry's definitions as the hover card's lines, pointers followed within `defs`. */
-function definitionLines(head: string, entry: Entry, defs: DefsPack) {
-  const linesOf = (senses: readonly Sense[]) =>
-    senses.map((sense) => definitionLine(sense.text, definitionPointerOf));
-  return shortLines(linesOf(entry.senses), entry.short, {
+const definitionLinesOf = (senses: readonly Sense[]) =>
+  senses.map((sense) => definitionLine(sense.text, definitionPointerOf));
+
+/** The order of an entry's definitions for a word tagged `pos` (rule A2). */
+function definitionOrder(senses: readonly Sense[], pos: string | undefined) {
+  if (pos === undefined) return undefined;
+  const lines = definitionLinesOf(senses);
+  return senseOrder(senses, pos, (i) => lines[i] !== "");
+}
+
+/**
+ * An entry's definitions as the hover card's lines, in `order` (rule A2), pointers
+ * followed within `defs`.
+ */
+function definitionLines(
+  head: string,
+  entry: Entry,
+  defs: DefsPack,
+  order?: readonly number[],
+) {
+  const linesOf = definitionLinesOf;
+  return shortLines(inOrder(linesOf(entry.senses), order), entry.short, {
     head,
     pointer: definitionPointerOf,
     follow: (target) => {
@@ -250,17 +361,28 @@ function definitionLines(head: string, entry: Entry, defs: DefsPack) {
 
 /**
  * An English definition from en-defs, translated at display time (`glossLang: "en"`):
- * its short meaning alone. A short meaning that only points to another term is not
- * translated, so the card shows it as written, with that term's definitions.
+ * its short meaning alone, from the sense rule A2 puts first for a word tagged `pos`.
+ * A short meaning that only points to another term is not translated, so the card
+ * shows it as written, with that term's definitions.
  */
-function definitionInEnglish(head: string, defs: DefsPack): Found | undefined {
+function definitionInEnglish(
+  head: string,
+  defs: DefsPack,
+  pos?: string,
+): Found | undefined {
   const found = definitionOf(head, defs);
   if (!found) return undefined;
+  const order = definitionOrder(found.senses, pos);
+  const short =
+    order === undefined
+      ? found.short
+      : shortOfDefinition(found.senses[order[0]!]!.text);
   return {
     ...found,
+    short,
     glossLang: "en",
-    ...(definitionPointer(found.short) !== undefined && {
-      lines: definitionLines(head, found, defs),
+    ...(definitionPointer(short) !== undefined && {
+      lines: definitionLines(head, found, defs, order),
     }),
   };
 }
@@ -273,10 +395,27 @@ export function createDefsDictionary({
   defs: DefsPack;
   ipa: IpaPack;
 }): DictionaryProvider {
-  return dictionaryOver(ipa, (head) => {
-    const found = definitionOf(head, defs);
-    return found && { ...found, lines: definitionLines(head, found, defs) };
-  });
+  return dictionaryOver(
+    ipa,
+    (head, _written, pos) => {
+      const found = definitionOf(head, defs);
+      return (
+        found && {
+          ...found,
+          lines: definitionLines(
+            head,
+            found,
+            defs,
+            definitionOrder(found.senses, pos),
+          ),
+        }
+      );
+    },
+    (head) => {
+      const found = definitionOf(head, defs);
+      return found && outlineOf(found.senses, englishSense);
+    },
+  );
 }
 
 /**
@@ -293,30 +432,36 @@ export function createPairDictionary({
   defs: DefsPack;
   ipa: IpaPack;
 }): DictionaryProvider {
-  return dictionaryOver(ipa, (head) => {
-    const found = own(dict, head);
-    if (found) {
-      const [short, senses] = found;
-      return {
-        short,
-        // A translation table's sense is a list of words: its line is the first one.
-        lines: shortLines(
-          senses.map(([, text, hint]) =>
-            hint === undefined
-              ? definitionLine(text)
-              : text.split(", ")[0]!.trim(),
-          ),
-          short,
-        ),
-        senses: senses.map(([pos, text, hint]) => ({
-          pos,
-          text,
-          ...(hint !== undefined && { hint }),
-        })),
-      };
-    }
-    return definitionInEnglish(head, defs);
-  });
+  const sensesOf = (senses: PairPack[string][1]): Sense[] =>
+    senses.map(([pos, text, hint]) => ({
+      pos,
+      text,
+      ...(hint !== undefined && { hint }),
+    }));
+  return dictionaryOver(
+    ipa,
+    (head, _written, pos) => {
+      const found = own(dict, head);
+      if (!found) return definitionInEnglish(head, defs, pos);
+      const [short, raw] = found;
+      const senses = sensesOf(raw);
+      // A translation table's sense is a list of words: its line is the first one.
+      const lines = raw.map(([, text, hint]) =>
+        hint === undefined ? definitionLine(text) : text.split(", ")[0]!.trim(),
+      );
+      const order =
+        pos === undefined
+          ? undefined
+          : senseOrder(senses, pos, (i) => lines[i] !== "");
+      return { short, lines: shortLines(inOrder(lines, order), short), senses };
+    },
+    (head) => {
+      const found = own(dict, head);
+      if (found) return outlineOf(sensesOf(found[1]), englishSense);
+      const definition = definitionOf(head, defs);
+      return definition && outlineOf(definition.senses, englishSense);
+    },
+  );
 }
 
 function definitionOf(head: string, defs: DefsPack): Entry | undefined {

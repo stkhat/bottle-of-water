@@ -195,6 +195,8 @@ export async function describeTerm(
     category?: Category;
     /** How the word was written on the page, when it says. */
     written?: Written;
+    /** The part of speech its tag gives it on the page (`Span.pos`). */
+    pos?: string;
   },
   {
     send,
@@ -206,15 +208,16 @@ export async function describeTerm(
     shownIn = "hover",
   }: DescribeDeps,
 ): Promise<TermCard> {
-  const lookup = (key: string, written?: Written) =>
+  const lookup = (key: string, written?: Written, pos?: string) =>
     send({
       type: "lookup",
       lang,
       key,
       sourceUrl,
       ...(written !== undefined && { written }),
+      ...(pos !== undefined && { pos }),
     });
-  const found = await lookup(term.key, term.written);
+  const found = await lookup(term.key, term.written, term.pos);
   const { entry } = found;
   const ipa = entry?.ipa ?? found.ipa;
   const pair = definitionPair(entry?.glossLang, nativeLang);

@@ -28,6 +28,7 @@ export function describeRef(
       surface,
       category: ref.span.category,
       ...(written !== undefined && { written }),
+      ...(ref.span.pos !== undefined && { pos: ref.span.pos }),
     },
     shownIn,
   );
