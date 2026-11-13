@@ -8,6 +8,7 @@ Last update: 2026-11-13. Merged work is in git history; data sizes are in [notes
 - Video subtitles and the transcript: selecting 2–8 words saves a phrase as on articles, and the video pauses while a card, the dictionary window or a selection is open; checked on YouTube and Netflix on 2026-11-13
 - Transcript sidebar: where the player fills the window or the screen (Netflix, YouTube in fullscreen) the player is narrowed and the transcript sits beside it; × and the menu's "Show transcript in sidebar" close and reopen the column everywhere. Checked on Netflix in the window and on the YouTube watch page on 2026-11-13
 - Hover card: up to three senses, one per line, all the same size (2026-11-13); machine-translated meanings keep one line. Not yet checked in the user's Chrome
+- Hover lines by rule (2026-11-13): a pointer sense ("goの過去", "=anyhow", "Plural of …") is followed to the word it names (went → goの過去 + go's meanings), and each line is one sense within 25 Japanese characters (40 for definitions). Over 153k hovers of the translation-quality corpus, hovers showing only a pointer went 11,764 → 4,905 (the rest are contractions) and lines wider than 25 Japanese characters 21,750 → 328 (pointers, kept whole). The tagger-dependent part (decided → decide, auxiliary "has been") waits for a part-of-speech tagger
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites) or the store release ([roadmap](plans/roadmap.md))
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanDefinition,
+  definitionPointer,
   definitionTexts,
   MAX_TRANSLATED_SENSES,
 } from "./definitions";
@@ -190,6 +191,47 @@ describe("cleanDefinition", () => {
     expect(cleanDefinition("   ")).toBeUndefined();
     expect(cleanDefinition("(idiomatic, informal) ")).toBeUndefined();
     expect(cleanDefinition("(of a person)")).toBeUndefined();
+  });
+});
+
+describe("definitionPointer", () => {
+  it("knows inflections as forms of the word they name", () => {
+    expect(definitionPointer("Plural of mouse.")).toEqual({
+      kind: "form",
+      target: "mouse",
+    });
+    expect(
+      definitionPointer("third-person singular preterite indicative of ir"),
+    ).toEqual({ kind: "form", target: "ir" });
+  });
+  it("knows synonyms, variants and the like as references", () => {
+    expect(definitionPointer("Synonym of look for")).toEqual({
+      kind: "reference",
+      target: "look for",
+    });
+    expect(definitionPointer("(informal) Alternative form of anyhow")).toEqual({
+      kind: "reference",
+      target: "anyhow",
+    });
+    expect(definitionPointer("Synonym of I can tell you")).toEqual({
+      kind: "reference",
+      target: "i can tell you",
+    });
+  });
+  it("names no term when the pointer glosses it: it means one of its senses", () => {
+    expect(
+      definitionPointer("Synonym of deal with (“to behave in a certain way”)"),
+    ).toEqual({ kind: "reference" });
+    expect(
+      definitionPointer("Synonym of in the zone, playing perfectly in time"),
+    ).toEqual({ kind: "reference" });
+  });
+  it("leaves definitions and pointers with a definition of their own", () => {
+    expect(definitionPointer("To reveal a secret.")).toBeUndefined();
+    expect(definitionPointer("A form of torture.")).toBeUndefined();
+    expect(
+      definitionPointer("Synonym of get someone's back up: to annoy someone."),
+    ).toBeUndefined();
   });
 });
 

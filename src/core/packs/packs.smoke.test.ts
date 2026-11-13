@@ -12,6 +12,7 @@ import {
 import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
+import { displayWidth } from "../lexicon/short-lines";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
 import type { DictPack, ShardIndex } from "./types";
@@ -163,6 +164,36 @@ describe("generated phrases", () => {
       (phrase) => !dictionary.entry(phrase)?.short,
     );
     expect(missing).toEqual([]);
+  });
+
+  const lines = (term: string) => dictionary.entry(term)?.lines ?? [];
+
+  it("follow a form or a cross-reference to the word it names for the hover card", () => {
+    const go = lines("go");
+    expect(lines("went")).toEqual(["goの過去", go[0], go[1]]);
+    expect(lines("found")).toEqual([
+      "findの過去・過去分詞",
+      lines("find")[0],
+      "…を創設する,設立する(establish)",
+    ]);
+    expect(lines("has")).toEqual([
+      "haveの三人称単数現在",
+      ...lines("have").slice(0, 2),
+    ]);
+    expect(lines("anyway")).toEqual(lines("anyhow"));
+    // The dictionary window and word lists keep the entry's own short meaning.
+    expect(dictionary.entry("went")?.short).toBe("goの過去");
+  });
+
+  it("give hover lines of one sense within 25 Japanese characters", () => {
+    expect(lines("of")[0]).toBe("…の,…のものである,…に属する");
+    expect(lines("so")[0]).toBe("そういうふうに,そのように");
+    expect(lines("should")[0]).toBe(
+      "すべきである,するのが当然である,しなくてはならない",
+    );
+    for (const term of ["went", "found", "anyway", "has", "of", "so", "should"])
+      for (const line of lines(term))
+        expect(displayWidth(line), line).toBeLessThanOrEqual(50);
   });
 
   it("take Japanese translations before English definitions", () => {

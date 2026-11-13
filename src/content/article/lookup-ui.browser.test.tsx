@@ -39,9 +39,10 @@ describe("hover card", () => {
 
     await expect.element(hoverCard()).toBeVisible();
     expect(performance.now() - started).toBeGreaterThanOrEqual(250);
-    // The hover card shows the senses (here one), the panel the short meaning.
+    // The hover card shows the senses (here one, cut at its first sense separator),
+    // the panel the short meaning.
     await expect
-      .element(page.getByText("退屈な；うんざりする；面倒な"))
+      .element(page.getByText("退屈な", { exact: true }))
       .toBeVisible();
     await expect.element(page.getByText("/ˈtiːdiəs/")).toBeVisible();
     await expect.element(page.getByText("New · not saved")).toBeVisible();
