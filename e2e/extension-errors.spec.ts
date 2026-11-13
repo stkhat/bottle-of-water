@@ -17,6 +17,7 @@ import {
   sendToBackground,
 } from "./fixtures";
 import {
+  COLD_LOAD,
   highlighted,
   ON_TIME,
   openArticle,
@@ -38,9 +39,10 @@ const dictionary = (page: Page) =>
 async function useArticle(page: Page) {
   const tangy = await pointOn(page, "tangy");
   await page.mouse.move(tangy.x, tangy.y);
+  // The first hover waits for the dictionary.
   await expect(
     page.getByRole("button", { name: en["hover.details"] }),
-  ).toBeVisible();
+  ).toBeVisible(COLD_LOAD);
   await page.mouse.click(tangy.x, tangy.y);
   const panel = dictionary(page);
   await expect(panel.getByRole("heading", { name: "tangy" })).toBeVisible();
@@ -95,8 +97,9 @@ async function useArticle(page: Page) {
 async function useArticleBlindly(page: Page) {
   const tangy = await pointOn(page, "tangy");
   await page.mouse.move(tangy.x, tangy.y);
+  // The first hover waits for the dictionary.
   await expect
-    .poll(() => hostAt(page, tangy.x, tangy.y - 40))
+    .poll(() => hostAt(page, tangy.x, tangy.y - 40), COLD_LOAD)
     .toBe("lingo-article");
   await page.mouse.click(tangy.x, tangy.y);
   await page.keyboard.press("Escape");
@@ -751,7 +754,8 @@ for (const build of ["production", "check"] as const)
         const rows = list
           .getByRole("region", { name: en["wordlist.list"] })
           .getByRole("button");
-        await expect(rows).toHaveCount(4);
+        // The rows' meanings are the worker's first dictionary use.
+        await expect(rows).toHaveCount(4, COLD_LOAD);
         const status = list.getByRole("group", {
           name: en["wordlist.status"],
           exact: true,
@@ -842,7 +846,10 @@ for (const build of ["production", "check"] as const)
         const restart = Date.now();
         await article.reload();
         await expect
-          .poll(async () => (await highlighted(article, "lingo-new")).length)
+          .poll(
+            async () => (await highlighted(article, "lingo-new")).length,
+            COLD_LOAD,
+          )
           .toBeGreaterThan(0);
         // Load to first highlights: the packs are loaded again after a restart.
         const timings = { cold: coldMs, restart: Date.now() - restart };
