@@ -88,7 +88,7 @@ test.describe("the production build", () => {
           (x) => document.elementFromPoint(x, 40)?.localName,
           width - 100,
         );
-      })
+      }, COLD_LOAD)
       .toBe("lingo-article");
     expect(await reach(page)).toEqual([
       { host: "lingo-article", shadowRoot: null },
