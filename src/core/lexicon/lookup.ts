@@ -35,7 +35,7 @@ function displayText(sense: string): string {
 /**
  * Dictionary entry for a word or phrase. Senses are labeled with the part of speech
  * when the word has only one, or as the data build labelled them (`labels`,
- * en-ja/pos.json) for a word with several.
+ * en-ja/pos.json, or the entry's own third item) for a term with several.
  */
 export function lookup(
   term: string,
@@ -46,9 +46,9 @@ export function lookup(
   const key = term.toLowerCase();
   const found = own(dict, key);
   if (!found) return undefined;
-  const [short, senses] = found;
+  const [short, senses, ownLabels] = found;
   const candidates = own(pos, key) ?? [];
-  const code = own(labels, key);
+  const code = own(labels, key) ?? ownLabels;
   const decoded = code === undefined ? [] : decodeSenseLabels(code);
   return {
     short,

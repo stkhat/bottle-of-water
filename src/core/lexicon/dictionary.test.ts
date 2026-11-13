@@ -68,6 +68,18 @@ const dictionary = createEnJaDictionary({
   phrases: {
     "figure out": ["（訳されない）", ["（訳されない）"]],
     "give up": ["諦める", ["諦める", "『やめる』"]],
+    // Several senses of a translation table, with their English sense and their
+    // parts of speech.
+    "break up": [
+      "別れる",
+      ["《to end a relationship》別れる,手を切る", "《to disintegrate》壊れる"],
+      "v v",
+    ],
+    "you know": [
+      "分かるでしょ",
+      ["《used to check understanding》分かるでしょ", "《pause》あのー,えーと"],
+      "h i",
+    ],
   },
   // English definitions of phrases neither has.
   defs: {
@@ -297,6 +309,27 @@ describe("createEnJaDictionary", () => {
       lines: ["諦める", "やめる"],
       senses: [{ text: "諦める" }, { text: "やめる" }],
     });
+  });
+
+  it("gives a translation table's senses one per line, the English sense as a hint (C1)", () => {
+    expect(dictionary.entry("break up")).toMatchObject({
+      short: "別れる",
+      lines: ["別れる,手を切る", "壊れる"],
+      senses: [
+        { pos: "verb", text: "《to end a relationship》別れる,手を切る" },
+        { pos: "verb", text: "《to disintegrate》壊れる" },
+      ],
+    });
+  });
+
+  it("reads a translation table's parts of speech, for a discourse marker's senses (C2)", () => {
+    expect(dictionary.entry("you know")?.lines).toEqual([
+      "分かるでしょ",
+      "あのー,えーと",
+    ]);
+    expect(
+      dictionary.entry("you know", undefined, "interjection")?.lines,
+    ).toEqual(["あのー,えーと", "分かるでしょ"]);
   });
 
   it("takes a phrase neither has from the English definitions, marked as English", () => {

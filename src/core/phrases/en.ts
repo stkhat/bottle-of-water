@@ -71,4 +71,8 @@ export const ENGLISH_RULES: PhraseRules = {
     ...["over", "past", "round", "through", "to", "together", "toward"],
     ...["towards", "under", "up", "upon", "with", "within", "without"],
   ]),
+  prepositions: new Set([
+    ...["at", "for", "from", "into", "of", "onto", "to", "toward", "towards"],
+    ...["upon", "with"],
+  ]),
 };

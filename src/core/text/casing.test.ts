@@ -144,6 +144,42 @@ describe("casingChanges", () => {
   });
 });
 
+describe("documentCasing: runs of capitalised words", () => {
+  it("gives each word written right after a capitalised word that word", () => {
+    expect(
+      casingOf(
+        "I met Harvey Specter at Pearson Specter Litt.",
+        "Ask Harvey's assistant.",
+      ).runs,
+    ).toEqual({ specter: ["harvey", "pearson"], litt: ["specter"] });
+  });
+  it("needs only spaces between them, and no start, label, title or ALL CAPS", () => {
+    expect(
+      casingOf(
+        "Yesterday Mark met Helen. He said: Harvey Specter is here.",
+        "It was Harvey, Specter said. We saw [Harvey] Specter and the NBA Finals.",
+        "Harvey Specter Joins New Firm",
+      ).runs,
+    ).toBeUndefined();
+  });
+  it("names the words whose runs changed, and the words after them", () => {
+    const before = casingOf("Then Harvey Specter Litt came.");
+    const after = casingOf(
+      "Then Harvey Specter Litt came.",
+      "A harvey wallbanger.",
+    );
+    expect(casingChanges(before, after)).toEqual(
+      new Set(["harvey", "specter", "litt"]),
+    );
+    expect(
+      casingChanges(
+        casingOf("We met Harvey."),
+        casingOf("We met Harvey Specter."),
+      ),
+    ).toEqual(new Set(["specter"]));
+  });
+});
+
 describe("readCasing", () => {
   it("reads a casing a message carries, and nothing else", () => {
     const casing = casingOf("Yesterday Mark met Helen.");
@@ -156,6 +192,11 @@ describe("readCasing", () => {
     ).toEqual({ mode: "lower", words: {}, unpunctuated: true });
     expect(
       readCasing({ mode: "lower", words: {}, unpunctuated: 1 }),
+    ).toBeUndefined();
+    const runs = casingOf("We met Harvey Specter.");
+    expect(readCasing(JSON.parse(JSON.stringify(runs)))).toEqual(runs);
+    expect(
+      readCasing({ mode: "mixed", words: {}, runs: { specter: "harvey" } }),
     ).toBeUndefined();
   });
 });

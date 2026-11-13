@@ -1,30 +1,45 @@
-{"pos": "verb", "word": "give", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To transfer the possession of something."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "head_templates": [{"name": "en-verb", "args": {"1": "give up"}}], "word": "give up", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To surrender (someone or something); to inform on (someone)."], "tags": ["transitive"], "categories": [{"name": "English phrasal verbs formed with \"up\"", "kind": "other"}]}, {"glosses": ["To yield."], "tags": ["archaic"]}, {"glosses": ["To stop or quit (an activity, etc.)."], "tags": ["transitive"], "translations": [{"lang": "French", "lang_code": "fr", "word": "abandonner"}]}]}
-{"pos": "adj", "word": "give up", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Become fully taken over by a certain quality."], "tags": ["US", "dialectal"]}, {"glosses": ["Exhausted", "Too tired to go on."]}, {"glosses": ["Defeated."]}]}
-{"pos": "prep_phrase", "word": "From scratch", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used other than figuratively or idiomatically: see from, scratch."]}, {"glosses": ["From the beginning; starting with no advantage or prior preparation."]}, {"glosses": ["From basic materials or raw ingredients."]}]}
-{"pos": "verb", "word": "figure out", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To come to understand; to discover or find a solution."], "tags": ["idiomatic", "informal"], "categories": [{"name": "English phrasal verbs formed with \"out\"", "kind": "other"}]}, {"glosses": ["To calculate."], "tags": ["informal"]}]}
-{"pos": "verb", "word": "thrown away", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["past participle of throw away"], "tags": ["form-of", "idiomatic", "participle", "past"], "form_of": [{"word": "throw away"}]}]}
-{"pos": "verb", "word": "make up one's mind", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To decide; to reach a conclusion."], "tags": ["idiomatic"]}]}
-{"pos": "noun", "word": "carbon copy", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A duplicate or lookalike."], "tags": ["broadly"]}]}
-{"pos": "verb", "word": "carbon copy", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To create a carbon copy of."], "tags": ["transitive"]}]}
-{"pos": "prep_phrase", "word": "by heart", "lang": "English", "lang_code": "en", "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "暗記して"}, {"lang": "German", "lang_code": "de", "word": "auswendig"}], "senses": [{"glosses": ["From memory."], "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "そらで"}, {"lang": "Japanese", "lang_code": "ja", "word": "暗記して"}, {"lang": "Japanese", "lang_code": "ja", "sense": "no word"}]}]}
-{"pos": "verb", "word": "zonk out", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To fall asleep."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "word": "look forward to", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To anticipate with pleasure."], "tags": ["idiomatic"], "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "楽しみにする"}]}]}
-{"pos": "phrase", "word": "See you later", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Goodbye."]}]}
-{"pos": "noun", "word": "x-ray machine", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A machine for taking X-rays."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "word": "cut out", "lang": "English", "lang_code": "en", "senses": [{"tags": ["idiomatic"]}, {"glosses": ["Alternative form of cut-out"], "tags": ["alt-of", "idiomatic"], "alt_of": [{"word": "cut-out"}]}]}
-{"pos": "verb", "word": "give out", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To stop working."], "categories": [{"name": "English phrasal verbs formed with \"out\"", "kind": "other"}]}, {"glosses": ["Used to hand out."], "categories": [{"name": "English non-constituents", "kind": "other"}]}]}
-{"pos": "prep_phrase", "categories": [{"name": "English Non-Constituents", "kind": "other"}], "word": "from the heart", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Sincerely."]}]}
-{"pos": "adj", "word": "in it", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["In trouble."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "word": "cut in", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used other than figuratively or idiomatically: see cut, in."], "tags": ["idiomatic"]}]}
+{"pos": "verb", "word": "give", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To transfer the possession of a thing to another person."], "examples": [{"text": "They give up easily, you know.", "bold_text_offsets": [[5, 9]]}]}]}
+{"pos": "adv", "word": "up", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Toward a higher position."], "examples": [{"text": "Please give up; you know it is over.", "bold_text_offsets": [[12, 14]]}]}]}
+{"pos": "verb", "word": "come", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To move from further away to nearer; to return."], "examples": [{"text": "Do come back soon, you know we miss you.", "bold_text_offsets": [[3, 7]]}]}]}
+{"pos": "adv", "word": "back", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To or toward a former place; returning."]}]}
+{"pos": "pron", "word": "you", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["The person spoken to."], "examples": [{"text": "You know, it was kind of odd.", "bold_text_offsets": [[0, 3]]}]}]}
+{"pos": "verb", "word": "know", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be certain or sure about something."], "examples": [{"text": "Well, you know, I kind of like it.", "bold_text_offsets": [[10, 14]]}]}]}
+{"pos": "noun", "word": "kind", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A type, race or category."], "examples": [{"text": "It was kind of strange, you know.", "bold_text_offsets": [[7, 11]]}]}]}
+{"pos": "adj", "word": "digital", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Having to do with digits or with computer technology."]}]}
+{"pos": "noun", "word": "signature", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A person's name written by themselves, or a mark that identifies something."]}]}
+{"pos": "adj", "word": "instant", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Occurring immediately."]}]}
+{"pos": "noun", "word": "coffee", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A drink made from roasted seeds."]}]}
+{"pos": "adj", "word": "red", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Having the colour of blood."]}]}
+{"pos": "noun", "word": "tape", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A long narrow strip of material."]}]}
+{"pos": "adj", "word": "new", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Recently made."]}]}
+{"pos": "noun", "word": "york", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A city in England."]}]}
+{"pos": "name", "word": "Mike", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A male given name."]}]}
+{"pos": "noun", "word": "god", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A deity."], "examples": [{"text": "She moved to New York and cut the red tape."}]}]}
+{"pos": "noun", "word": "sake", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Benefit or interest."], "examples": [{"text": "We will come back tomorrow, you know."}]}]}
+{"pos": "verb", "word": "kick", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To strike with the foot."]}]}
+{"pos": "article", "word": "the", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Definite article."]}]}
+{"pos": "prep", "word": "in", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Contained by."]}]}
+{"pos": "prep", "word": "of", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Belonging to."]}]}
+{"pos": "verb", "word": "give up", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To surrender (someone or something)."], "tags": ["transitive"], "categories": [{"name": "English phrasal verbs formed with \"up\"", "kind": "other"}], "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "降参する"}, {"lang": "French", "lang_code": "fr", "word": "se rendre"}]}, {"glosses": ["To yield."], "tags": ["archaic"]}, {"glosses": ["To stop or quit an activity."], "tags": ["transitive"], "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "やめる"}, {"lang": "Japanese", "lang_code": "ja", "word": "降参する"}, {"lang": "Japanese", "lang_code": "ja", "word": "諦める"}, {"lang": "French", "lang_code": "fr", "word": "abandonner"}]}]}
+{"pos": "intj", "word": "you know", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Expression of a pause or hesitation."], "tags": ["informal"]}], "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "あのね", "sense": "pause or hesitation"}]}
+{"pos": "phrase", "word": "you know", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used to check that the listener follows."]}]}
+{"pos": "adv", "word": "kind of", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Slightly; somewhat."], "tags": ["informal"]}]}
+{"pos": "verb", "word": "come back", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To return to a place."], "tags": ["intransitive"]}]}
+{"pos": "noun", "word": "digital signature", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A signature made with digital technology."], "translations": [{"lang": "French", "lang_code": "fr", "word": "signature numérique"}]}]}
+{"pos": "noun", "word": "instant coffee", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A drink of dried coffee extract."], "translations": [{"lang": "Japanese", "lang_code": "ja", "word": "インスタントコーヒー"}]}]}
+{"pos": "name", "word": "New York", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A state of the United States."]}]}
+{"pos": "noun", "word": "carbon copy", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A duplicate or lookalike."]}]}
+{"pos": "noun", "word": "red tape", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Bureaucratic procedure that slows things down."], "tags": ["idiomatic"]}]}
+{"pos": "prep_phrase", "word": "from the heart", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Sincerely."]}], "categories": [{"name": "English Non-Constituents", "kind": "other"}]}
+{"pos": "verb", "word": "thrown away", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["past participle of throw away"], "tags": ["form-of", "participle", "past"], "form_of": [{"word": "throw away"}]}]}
+{"pos": "verb", "word": "cut in", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used other than figuratively or idiomatically: see cut, in."]}]}
+{"pos": "verb", "word": "make up one's mind", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To decide."], "tags": ["idiomatic"]}]}
+{"pos": "verb", "word": "pull somebody's leg", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To tease someone with an untrue story."], "tags": ["idiomatic"]}]}
 {"pos": "verb", "word": "be on", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be wearing."], "categories": [{"name": "English phrasal verbs formed with \"on\"", "kind": "other"}]}]}
-{"pos": "verb", "word": "have it in for", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To be very angry with."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "word": "pull somebody's leg", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To tease someone by telling them something untrue."], "tags": ["idiomatic"]}]}
 {"pos": "verb", "word": "spill the beans", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To reveal a secret."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "word": "be all ears", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To listen attentively."], "tags": ["idiomatic"]}]}
-{"pos": "adj", "word": "given to", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Inclined to."], "tags": ["idiomatic"]}]}
-{"pos": "verb", "word": "see to", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To take care of."], "categories": [{"name": "English phrasal verbs formed with \"to\"", "kind": "other"}]}]}
-{"pos": "adv", "word": "very well", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Used to express agreement."], "tags": ["idiomatic"]}]}
-{"pos": "adv", "word": "later back", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Some time ago."], "tags": ["idiomatic"]}]}
+{"pos": "intj", "word": "for God's sake", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["An exclamation of annoyance."]}]}
 {"pos": "verb", "word": "kick in", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To start to have an effect."], "tags": ["intransitive"], "categories": [{"name": "English phrasal verbs formed with \"in\"", "kind": "other"}]}]}
+{"pos": "adj", "word": "in it", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["In trouble."], "tags": ["idiomatic"]}]}
+{"pos": "noun", "word": "x-ray machine", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["A machine for taking pictures of bones."]}]}
+{"pos": "verb", "word": "zonk out", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["To fall asleep."], "tags": ["idiomatic"]}]}
 {"word": "broken line

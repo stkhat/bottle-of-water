@@ -32,7 +32,7 @@
     "postinstall": "wxt prepare",
     "check:claude-md": "node scripts/check-claude-md.ts",
     "test:mutation": "stryker run",
-    "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq && npm run data:phrases && npm run data:en-defs && npm run data:sense-pos && npm run data:tagger",
+    "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq && npm run data:phrases && npm run data:sense-pos && npm run data:tagger && npm run data:native -- es pt && npm run data:en-defs",
     "data:ejdict": "node scripts/data/ejdict.ts",
     "data:kaikki": "node scripts/data/kaikki.ts",
     "data:phrases": "node scripts/data/phrases.ts",

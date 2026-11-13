@@ -132,6 +132,34 @@ export function capitalizedOnly(text: string) {
   return [...capitalized].filter((key) => !lower.has(key)).sort(byCodeUnit);
 }
 
+/**
+ * Multi-word headwords EJDict writes only in Title Case, every word capitalised (New
+ * York, American Revolution): named entities, lowercase.
+ */
+export function titleCasePhrases(text: string): Set<string> {
+  const lower = new Set<string>();
+  const title = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    for (const variant of line.slice(0, tab).split(",")) {
+      const headword = variant.trim();
+      if (!/\s/.test(headword)) continue;
+      const key = headword.toLowerCase().split(/\s+/).join(" ");
+      if (headword.split(/\s+/).every((word) => /^\p{Lu}/u.test(word)))
+        title.add(key);
+      else lower.add(key);
+    }
+  }
+  return new Set([...title].filter((key) => !lower.has(key)));
+}
+
+/** EJDict's raw files (data/raw/ejdict/), one after the other. */
+export const readEjdictText = () =>
+  LETTERS.map((letter) =>
+    readFileSync(join(EJDICT_DIR, `${letter}.txt`), "utf8"),
+  ).join("\n");
+
 /** The words Lingo knows: single-word headwords, sorted by code unit. */
 export function vocabularyOf(dict: DictPack) {
   return Object.keys(dict)
@@ -151,9 +179,7 @@ async function download() {
 
 async function main() {
   await download();
-  const text = LETTERS.map((letter) =>
-    readFileSync(join(EJDICT_DIR, `${letter}.txt`), "utf8"),
-  ).join("\n");
+  const text = readEjdictText();
   const { dict, capital } = parseEjdict(text);
   const index = writeShards("en-ja", dict, PACKS_DIR);
   writePack("en-ja/capital.json", capital);

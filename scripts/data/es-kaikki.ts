@@ -19,16 +19,34 @@ import {
 } from "./common.ts";
 import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.ts";
 import { buildFrequency } from "./frequency.ts";
-import {
-  glossOf,
-  isNonConstituent,
-  isUsable,
-  PHRASE_COMMON_RANK,
-  PHRASE_POS,
-  rankOfWord,
-} from "./phrases.ts";
+import { glossOf, isNonConstituent, isUsable } from "./phrases.ts";
 
 const KAIKKI_ES_PATH = join(RAW_DIR, "kaikki-es.jsonl");
+/** kaikki parts of speech whose entries are phrases. */
+const PHRASE_POS: ReadonlySet<string> = new Set(["phrase", "prep_phrase"]);
+/**
+ * A phrase or prepositional-phrase entry counts only when a literal word is rarer than
+ * this rank ("de la" does not). English decides by its idiomaticity score instead
+ * (`idiomaticity.ts`); Spanish keeps the rank rule until its example corpus is larger.
+ */
+const PHRASE_COMMON_RANK = 1000;
+
+/** The rank of a word as its most common base when it is not a vocabulary word. */
+function rankOfWord(
+  ranks: ReadonlyMap<string, number>,
+  vocab: ReadonlySet<string>,
+  lemmas: Readonly<Record<string, string | readonly string[]>>,
+) {
+  return (word: string) =>
+    ranks.get(word) ??
+    (vocab.has(word)
+      ? Infinity
+      : Math.min(
+          ...[Object.hasOwn(lemmas, word) ? lemmas[word]! : []]
+            .flat()
+            .map((b) => ranks.get(b) ?? Infinity),
+        ));
+}
 /** Wiktionary's slot words ("tomar el pelo a alguien"). */
 const SLOT_WORDS: ReadonlySet<string> = new Set(SPANISH_RULES.slots.keys());
 const WORD = /^\p{L}+$/u;

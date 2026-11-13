@@ -1,261 +1,197 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { decodeSenseLabels } from "../../src/core/lexicon/sense-labels.ts";
 import { phrasePosIndex } from "../../src/core/phrases/pattern.ts";
 import { importPhrases, patternKey, type PhrasesResult } from "./phrases.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-phrases.jsonl");
 const vocab = [
-  "give",
-  "up",
-  "from",
-  "scratch",
-  "figure",
-  "out",
-  "thrown",
-  "away",
-  "make",
-  "one's",
-  "mind",
-  "carbon",
-  "copy",
-  "by",
-  "heart",
-  "look",
-  "forward",
-  "to",
-  "see",
-  "you",
-  "later",
-  "x-ray",
-  "machine",
-  "cut",
-  "in",
-  "spite",
-  "of",
-  "way",
-  "kick",
-  "the",
-  "it",
-  "be",
-  "on",
-  "have",
-  "do",
-  "with",
-  "for",
-  "pull",
-  "leg",
-  "spill",
-  "all",
-  "very",
-  "well",
-  "back",
+  ...["give", "up", "come", "back", "you", "know", "kind", "of", "digital"],
+  ...["signature", "instant", "coffee", "red", "tape", "new", "york", "god"],
+  ...["sake", "kick", "in", "the", "it", "from", "heart", "make", "one's"],
+  ...["mind", "pull", "leg", "be", "on", "spill", "for", "carbon", "copy"],
+  ...["cut", "machine", "away", "look", "forward", "to", "x-ray"],
 ];
 // Inflected forms outside the vocabulary, with their base forms.
-const lemmas = { beans: ["bean"], ears: "ear", given: "give" };
-// Frequency ranks: the first words are in the top 100, "later" and "figure" in the top
-// 1000 but not the top 100 (as are "very", "well" and "back"); "scratch", "heart", "kick" and
-// "bean" are outside the list.
-const freq = [
-  "the",
-  "you",
-  "to",
-  "it",
-  "in",
-  "give",
-  "up",
-  "see",
-  "out",
-  "from",
-  "by",
-  ...Array.from({ length: 100 }, (_, i) => `filler${i}`),
-  "later",
-  "figure",
-  "very",
-  "well",
-  "back",
-];
-// EJDict multi-word headwords (and one single word).
+const lemmas = { beans: ["bean"], thrown: "throw" };
+// EJDict: a multi-word headword kaikki lacks, and a single word.
 const dict = {
   give: ["与える", ["与える"]],
   "look forward to": ["…を楽しみに待つ", ["…を楽しみに待つ"]],
-  "in spite of": ["…にもかかわらず", ["…にもかかわらず"]],
-  "make one's way": ["進む", ["進む"]],
-  "kick the bucket": ["死ぬ", ["死ぬ"]],
-  "do away with": ["…を廃止する", ["…を廃止する"]],
-  "x-ray machine": ["X線装置", ["X線装置"]],
-  "up to": ["…まで", ["…まで"]],
 } satisfies Record<string, [string, string[]]>;
 
 describe("importPhrases", () => {
   let result: PhrasesResult;
   beforeAll(async () => {
-    result = await importPhrases(fixture, vocab, dict, freq, lemmas);
-  });
-  const all = () => [...result.phrases.detect, ...result.phrases.more];
-
-  it("detects kaikki phrases with an idiomatic, phrasal-verb, phrase or prepositional-phrase sense", () => {
-    expect(result.phrases.detect).toContain("give up");
-    expect(result.phrases.detect).toContain("figure out");
-    expect(result.phrases.detect).toContain("from scratch");
-    expect(result.phrases.detect).toContain("by heart");
-  });
-  it("lowercases the pattern key", () => {
-    expect(result.phrases.detect).toContain("from scratch");
-  });
-  it("keeps phrasal verbs made of very common words", () => {
-    expect(result.phrases.detect).toContain("give up");
-  });
-  it("does not detect two-word phrasal verbs of common words ending in a preposition, but keeps them for selections", () => {
-    expect(result.phrases.more).toContain("see to");
-    expect(result.phrases.detect).not.toContain("see to");
-    expect(result.phrases.gap).toContain("see to");
-  });
-  it("does not detect two-word idioms of common words that do not end in an adverb particle", () => {
-    expect(result.phrases.more).toContain("very well");
-    expect(result.phrases.detect).not.toContain("very well");
-  });
-  it("detects two-word idioms of common words ending in an adverb particle, phrasal verbs or not", () => {
-    expect(result.phrases.detect).toContain("later back");
-    expect(result.phrases.gap).not.toContain("later back");
-  });
-  it("detects two-word phrasal verbs ending in a preposition when a word is rarer", () => {
-    expect(result.phrases.detect).toContain("kick in");
-  });
-  it("detects two-word EJDict headwords of common words", () => {
-    expect(result.phrases.detect).toContain("up to");
-  });
-  it("leaves out idiomatic entries whose words are all in the top 100", () => {
-    expect(all()).not.toContain("in it");
-  });
-  it("leaves out phrase entries whose words are all in the top 1000", () => {
-    expect(all()).not.toContain("see you later");
-  });
-  it("leaves out entries in a non-constituents category, at entry or sense level", () => {
-    expect(all()).not.toContain("give out");
-    expect(all()).not.toContain("from the heart");
-    expect(result.phrases.gap).not.toContain("give out");
-  });
-  it("does not detect kaikki patterns that start with an auxiliary, but keeps them for selections", () => {
-    expect(result.phrases.more).toContain("be on");
-    expect(result.phrases.more).toContain("have it in for");
-    expect(result.phrases.more).toContain("be all ears");
-    expect(result.phrases.detect).not.toContain("be on");
-  });
-  it("detects EJDict multi-word headwords without a slot, even when they start with an auxiliary", () => {
-    expect(result.phrases.detect).toContain("do away with");
-    expect(result.phrases.detect).toContain("in spite of");
-    expect(result.phrases.detect).toContain("look forward to");
-  });
-  it("does not count literal-use glosses as senses", () => {
-    expect(all()).not.toContain("cut in");
-  });
-  it("keeps slot patterns, from kaikki and EJDict, for selections only", () => {
-    expect(result.phrases.more).toContain("make up one's mind");
-    expect(result.phrases.more).toContain("make one's way");
-    expect(result.phrases.detect).not.toContain("make up one's mind");
-  });
-  it("writes Wiktionary's somebody / sb / sth as the slots someone / something", () => {
-    expect(result.phrases.more).toContain("pull someone's leg");
-    expect(all()).not.toContain("pull somebody's leg");
-  });
-  it("accepts inflected forms of vocabulary words as pattern words", () => {
-    expect(result.phrases.detect).toContain("spill the beans");
-    expect(result.phrases.more).toContain("be all ears");
-  });
-  it("ranks an inflected word as its base form", () => {
-    // "given" ranks as "give" (6) and "to" is 3: both in the top 100.
-    expect(all()).not.toContain("given to");
-  });
-  it("sorts the detected and the other patterns by code unit, apart, without single words", () => {
-    expect(result.phrases.detect).toEqual([
-      "by heart",
-      "do away with",
-      "figure out",
-      "from scratch",
-      "give up",
-      "in spite of",
-      "kick in",
-      "later back",
-      "look forward to",
-      "spill the beans",
-      "up to",
-    ]);
-    expect(result.phrases.more).toEqual([
-      "be all ears",
-      "be on",
-      "have it in for",
-      "make one's way",
-      "make up one's mind",
-      "pull someone's leg",
-      "see to",
-      "very well",
-    ]);
-  });
-  it("flags the phrasal verbs, which may have a gap, among both", () => {
-    expect(result.phrases.gap).toEqual([
-      "be on",
-      "figure out",
-      "give up",
-      "kick in",
-      "see to",
-    ]);
-  });
-  it("leaves out entries whose only senses are form-of, alt-of or have no glosses", () => {
-    expect(all()).not.toContain("thrown away");
-    expect(all()).not.toContain("cut out");
-  });
-  it("leaves out entries without an idiomatic or phrase sense", () => {
-    expect(all()).not.toContain("carbon copy");
-  });
-  it("leaves out patterns with a word outside the vocabulary and its forms, or not made of letters", () => {
-    expect(all()).not.toContain("zonk out");
-    expect(all()).not.toContain("kick the bucket");
-    expect(all()).not.toContain("x-ray machine");
-  });
-
-  it("collects distinct Japanese translations for phrases EJDict lacks, senses first", () => {
-    expect(result.ja).toEqual({
-      "by heart": ["そらで", ["そらで", "暗記して"]],
+    // The fixture's gloss vocabulary is small: its few most frequent tokens are its
+    // stopwords.
+    result = await importPhrases(fixture, {
+      vocab,
+      lemmas,
+      dict,
+      stopwords: { gloss: 6, function: 3 },
     });
   });
-  it("gives each pattern the source's parts of speech, the one with the most usable senses first", () => {
-    const pos = phrasePosIndex(result.phrases);
-    // give up: three adjective senses, two usable verb senses (one is archaic).
-    expect(pos.get("give up")).toEqual(["adj", "verb"]);
-    expect(pos.get("from scratch")).toEqual(["prep_phrase"]);
-    expect(pos.get("very well")).toEqual(["adv"]);
-    expect(pos.get("make up one's mind")).toEqual(["verb"]);
-    // EJDict's alone.
-    expect(pos.has("up to")).toBe(false);
-    expect(result.phrases.pos?.detect.split(" ")).toHaveLength(
-      result.phrases.detect.length,
-    );
+  const all = () => [...result.phrases.detect, ...result.phrases.more];
+  const verdict = (key: string) => result.verdicts.find((v) => v.key === key)!;
+
+  describe("B1: every multi-word entry", () => {
+    it("imports entries of any part of speech, whatever their words' ranks", () => {
+      for (const key of ["you know", "kind of", "in it", "come back"])
+        expect(all()).toContain(key);
+    });
+    it("accepts inflected forms and possessives of vocabulary words", () => {
+      expect(all()).toContain("spill the beans");
+      expect(all()).toContain("for god's sake");
+    });
+    it("keeps a multi-word noun or name with a translation table or an example", () => {
+      expect(all()).toContain("digital signature");
+      expect(all()).toContain("red tape");
+      expect(all()).toContain("new york");
+      expect(all()).not.toContain("carbon copy");
+      expect(result.stats.unattested).toBe(1);
+    });
+    it("leaves out non-constituents, pointers, literal notes and words outside the vocabulary", () => {
+      for (const key of [
+        "from the heart",
+        "thrown away",
+        "cut in",
+        "x-ray machine",
+        "zonk out",
+      ])
+        expect(all()).not.toContain(key);
+    });
+    it("keeps EJDict's multi-word headwords", () => {
+      expect(all()).toContain("look forward to");
+    });
+    it("sorts both lists by code unit, apart", () => {
+      expect(result.phrases.detect).toEqual([...result.phrases.detect].sort());
+      expect(result.phrases.more).toEqual([...result.phrases.more].sort());
+      expect(
+        result.phrases.detect.filter((key) =>
+          result.phrases.more.includes(key),
+        ),
+      ).toEqual([]);
+    });
   });
-  it("lists the verb patterns whose senses are intransitive and never transitive", () => {
-    expect(result.phrases.intransitive).toEqual(["kick in"]);
+
+  describe("B2: highlighting by idiomaticity", () => {
+    it("detects a pattern whose meaning is not its words' (an idiom, a discourse marker)", () => {
+      for (const key of ["red tape", "spill the beans", "you know", "kind of"])
+        expect(result.phrases.detect).toContain(key);
+    });
+    it("leaves a pattern whose definition says what its words say to selections", () => {
+      expect(verdict("come back").score).toBeLessThan(
+        verdict("come back").threshold,
+      );
+      expect(result.phrases.more).toContain("come back");
+    });
+    it("detects the source's phrasal verbs whatever their score", () => {
+      expect(result.phrases.detect).toContain("give up");
+      expect(result.phrases.detect).toContain("kick in");
+    });
+    it("raises the threshold with a pattern's count in the example corpus", () => {
+      expect(verdict("you know").evidence.count).toBe(5);
+      expect(verdict("you know").threshold).toBeGreaterThan(
+        verdict("spill the beans").threshold,
+      );
+    });
+    it("never detects a slot pattern or one starting with an auxiliary", () => {
+      for (const key of ["make up one's mind", "pull someone's leg", "be on"])
+        expect(result.phrases.more).toContain(key);
+    });
   });
-  it("counts multi-word entries, unparsable lines and patterns", () => {
-    expect(result.stats).toEqual({
-      entries: 28,
+
+  describe("B2b and B4: transparent compounds and named entities", () => {
+    it("leaves a compound whose definition names every content word to selections", () => {
+      expect(verdict("digital signature")).toMatchObject({
+        transparent: true,
+        detect: false,
+      });
+    });
+    it("leaves a compound glossed by a loanword to selections", () => {
+      expect(verdict("instant coffee")).toMatchObject({
+        transparent: true,
+        detect: false,
+      });
+      expect(verdict("instant coffee").evidence.loanword).toBe(true);
+    });
+    it("leaves a proper noun to selections", () => {
+      expect(verdict("new york")).toMatchObject({ named: true, detect: false });
+    });
+    it("leaves an EJDict headword written in Title Case to selections", async () => {
+      const titled = await importPhrases(fixture, {
+        vocab,
+        lemmas,
+        dict,
+        titleCase: new Set(["look forward to"]),
+        stopwords: { gloss: 6, function: 3 },
+      });
+      expect(titled.phrases.more).toContain("look forward to");
+    });
+  });
+
+  describe("pattern data", () => {
+    it("flags the phrasal verbs, which may have a gap", () => {
+      expect(result.phrases.gap).toEqual(["be on", "give up", "kick in"]);
+    });
+    it("gives each pattern the source's parts of speech, the one with the most senses first", () => {
+      const pos = phrasePosIndex(result.phrases);
+      expect(pos.get("you know")).toEqual(["intj", "phrase"]);
+      expect(pos.get("give up")).toEqual(["verb"]);
+      expect(pos.has("look forward to")).toBe(false);
+    });
+    it("lists the verb patterns whose senses are intransitive and never transitive", () => {
+      expect(result.phrases.intransitive).toEqual(["come back", "kick in"]);
+    });
+  });
+
+  describe("C1: Japanese meanings from the translation tables", () => {
+    it("keeps the senses with their English hint, best first, each word once", () => {
+      expect(result.ja["give up"]).toEqual([
+        "降参する",
+        [
+          "《To surrender (someone or something)》降参する",
+          "《To stop or quit an activity》やめる,諦める",
+        ],
+        "v v",
+      ]);
+    });
+    it("files an entry-level table under its label, with the sense's part of speech", () => {
+      const [short, senses, labels] = result.ja["you know"]!;
+      expect([short, senses]).toEqual([
+        "あのね",
+        ["《pause or hesitation》あのね"],
+      ]);
+      expect(decodeSenseLabels(labels)).toEqual([{ pos: "interjection" }]);
+    });
+    it("leaves EJDict's phrases to EJDict", () => {
+      expect(result.ja).not.toHaveProperty("look forward to");
+    });
+  });
+
+  it("counts entries, unparsable lines and patterns", () => {
+    expect(result.stats).toMatchObject({
+      entries: 22,
       unparsable: 1,
-      detect: 11,
-      more: 8,
-      trivial: 2,
-      withPos: 15,
-      gap: 5,
-      fromEjdict: 5,
-      fromKaikki: 15,
-      ja: 1,
+      detect: 9,
+      more: 7,
+      named: 1,
+      transparent: 2,
+      gap: 3,
+      fromEjdict: 1,
+      ja: 3,
     });
   });
 });
 
 describe("patternKey", () => {
   const isWord = (word: string) =>
-    ["take", "up", "with", "pull", "leg", "x-ray"].includes(word);
+    ["take", "up", "with", "pull", "leg", "x-ray", "god's"].includes(word);
 
   it("lowercases the words and joins them with single spaces", () => {
     expect(patternKey(" Take  up ", isWord)).toBe("take up");
+    expect(patternKey("God’s leg", isWord)).toBe("god's leg");
   });
   it("writes Wiktionary's other slot spellings as the slots", () => {
     expect(patternKey("take sth up with SB", isWord)).toBe(

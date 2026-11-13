@@ -138,7 +138,7 @@ export interface Pointer {
 const keyOf = (term: string) => term.trim().toLowerCase().replace(/\s+/g, " ");
 
 /** A pointer's target when it names one term ("am not, is not" names two). */
-export const pointerTarget = (term: string) =>
+const pointerTarget = (term: string) =>
   term.includes(",") || term.trim() === "" ? undefined : keyOf(term);
 
 export interface ShortLineOptions {

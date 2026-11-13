@@ -116,4 +116,15 @@ describe("sensePos", () => {
     expect(labels).toEqual({ fine: "n~ v a*" });
     expect({ senses, labelled }).toEqual({ senses: 4, labelled: 3 });
   });
+  it("labels a phrase's senses with its pattern's parts of speech when it has several", () => {
+    const { labels } = sensePos(
+      {
+        "come on": ["さあ来い", ["さあ来い,がんばれ", "〈病気などが〉起こる"]],
+        "give up": ["諦める", ["諦める"]],
+      },
+      {},
+      (key) => (key === "come on" ? ["verb", "interjection"] : ["verb"]),
+    );
+    expect(Object.keys(labels)).toEqual(["come on"]);
+  });
 });

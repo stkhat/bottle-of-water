@@ -10,6 +10,7 @@ const PHRASE_POS: Record<string, string[]> = {
   "you see": ["intj", "phrase"],
   "find out": ["verb"],
   "come to": ["verb"],
+  "go to": ["verb", "noun"],
   "kind of": ["adv"],
   "after all": ["prep_phrase"],
   "by the name of": ["prep_phrase"],
@@ -23,6 +24,8 @@ const PHRASE_POS: Record<string, string[]> = {
   "hold on": ["verb"],
   "fly in": ["verb"],
   "come from below": ["verb"],
+  "to go": ["adj"],
+  "break up": ["noun", "verb"],
 };
 /** Words' main parts of speech. */
 const WORD_POS: Record<string, string[]> = {
@@ -43,6 +46,7 @@ const pack = {
   rules: {
     ...NO_RULES,
     particles: new Set(["out", "to", "in", "off", "on", "of", "below"]),
+    prepositions: new Set(["to", "of"]),
   },
 };
 
@@ -143,7 +147,21 @@ describe("phraseMisfit: P2, the particle must be adverbial", () => {
     ).toBeUndefined();
   });
   it("keeps it when the particle's tag is not trusted", () => {
-    expect(misfit("come to", "come/verb to/?", 0)).toBeUndefined();
+    expect(misfit("find out", "find/verb out/?", 0)).toBeUndefined();
+  });
+  it("drops it, trusted tag or not, when the particle is never an adverb", () => {
+    expect(misfit("come to", "come/verb to/?", 0)).toBe("particle");
+    expect(misfit("go to", "go/verb to/? bed/noun", 0)).toBe("particle");
+  });
+});
+
+describe("phraseMisfit: adjectives and nouns", () => {
+  it("drops one with a word tagged as a bare verb", () => {
+    expect(misfit("to go", "have/verb to/? go/verb", 1)).toBe("nominal");
+    expect(misfit("to go", "coffee/noun to/? go/adjective", 1)).toBeUndefined();
+  });
+  it("keeps one the source also has as a verb", () => {
+    expect(misfit("break up", "break/verb up/adverb", 0)).toBeUndefined();
   });
 });
 

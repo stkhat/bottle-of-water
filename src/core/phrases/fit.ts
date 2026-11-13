@@ -26,7 +26,9 @@ export type PhraseRule =
   /** A passive participle whose particle opens a noun phrase ("was held on Dec. 7"). */
   | "passive"
   /** An intransitive verb pattern whose particle takes a noun phrase ("fly in the morning"). */
-  | "intransitive";
+  | "intransitive"
+  /** An adjective or noun pattern with a word read as a bare verb ("have to go"). */
+  | "nominal";
 
 type FitPack = Pick<
   LanguagePack,
@@ -119,7 +121,8 @@ const takesObject = (c: Context, punctuated: boolean) =>
  * - P2: a two-word verb pattern ending in a particle needs the particle read as an
  *   adverb ("find out", "give up"; not "come to" + a place, "look at"), or followed by
  *   a preposition, which a preposition does not take ("sneak out of here"); an
- *   untrusted tag keeps the match.
+ *   untrusted tag keeps the match, unless the particle is one the language never uses
+ *   as an adverb (`PhraseRules.prepositions`: "going to try", "went to Broadway").
  * - By the phrase's main part of speech, punctuation between the phrase and a
  *   neighbour cutting the link:
  *   - adverb: not after a determiner when a word of it is mainly a noun, unless a
@@ -139,7 +142,9 @@ const takesObject = (c: Context, punctuated: boolean) =>
  *     often the tagger's mistake: "boyfriend break up"); not a passive participle
  *     right after "be" whose particle opens a noun phrase ("will be held on Dec. 7");
  *     not an intransitive one whose particle is tagged as a preposition before a
- *     determiner or a number.
+ *     determiner or a number;
+ *   - adjective or noun, with no verb among the pattern's parts of speech: not where a
+ *     word of it is tagged as a bare verb ("I have to go" is no "to go": 持ち帰り).
  */
 export function phraseMisfit(
   pack: FitPack,
@@ -157,12 +162,21 @@ export function phraseMisfit(
     pattern.length === 2 &&
     pos.includes("verb") &&
     particles?.has(pattern[1]!) === true &&
-    tail.tag !== undefined &&
-    tail.tag.label !== "adverb" &&
+    ((tail.tag !== undefined && tail.tag.label !== "adverb") ||
+      pack.rules.prepositions?.has(pattern[1]!) === true) &&
     after?.role?.preposition !== true
   )
     return "particle";
   switch (pos[0]) {
+    case "adj":
+    case "noun":
+      return !pos.includes("verb") &&
+        match.words.some((i) => {
+          const tag = readings[i]?.tag;
+          return tag?.label === "verb" && !tag.inflected;
+        })
+        ? "nominal"
+        : undefined;
     case "adv":
       return before?.role?.determiner &&
         pattern.some((word) => c.main(word) === "noun") &&

@@ -1,6 +1,6 @@
 import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
-import { nameVerdict } from "./names";
+import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
 import { markerPos, phraseMisfit } from "./phrases/fit";
 import { longestMatch, type PhraseMatch } from "./phrases/matcher";
@@ -171,6 +171,11 @@ export function createClassifier(pack: LanguagePack): Classifier {
         casing?.mode === "mixed" && pack.namesByCase
           ? wordCases(tokens, pack.lang)
           : undefined;
+      /** Rule D over the document's runs of capitalised words. */
+      const names =
+        cases && casing
+          ? documentNames(casing, pack, (key) => capitalMeaning?.(key))
+          : undefined;
 
       /** For each word, the word before it when only spaces come between them. */
       const before: (string | undefined)[] = [];
@@ -193,10 +198,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
         word: { key: string; category: Category },
       ): Partial<Span> => {
         const written: WordCase | undefined = cases?.[i];
-        if (!casing || !written || word.category === "ignored") return {};
-        const name = nameVerdict(written, casing, pack, before[i], () =>
-          capitalMeaning?.(word.key),
-        );
+        if (!casing || !written || !names || word.category === "ignored")
+          return {};
+        const name = names(written, before[i]);
         if (name === "name") return { category: "ignored", name: true };
         return name === "kept" || capitalHere(casing, written)
           ? { capital: true }
