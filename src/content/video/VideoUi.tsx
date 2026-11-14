@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useReducer } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useReducer } from "preact/hooks";
 import { fromUser } from "../../ui/from-user";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { keptOpen } from "../../ui/keep-open";
@@ -491,9 +491,11 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
  * are marked by them (`keepOpen`): a word's click opens it in the same window. Escape
  * closes it wherever the focus is: after a click on a word it stays in the subtitle or
  * the transcript, whose shadow host keeps keys from the page (read here, capturing).
+ * Listening from the render that opens it, not after a paint: an Escape or a press
+ * right after it opens still closes it.
  */
 function useClosedByPressAway(app: VideoApp, open: boolean) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onPress = (event: PointerEvent) => {
@@ -519,10 +521,11 @@ function useClosedByPressAway(app: VideoApp, open: boolean) {
 /**
  * While words are selected, Escape or a press anywhere else drops the selection and its
  * card. Presses on Lingo's cards and windows (`keepOpen`) keep it, and a press on a
- * text words are selected in makes a new selection.
+ * text words are selected in makes a new selection. Listening from the render that
+ * shows the selection, as for the dictionary window.
  */
 function useSelectionDroppedByPressAway(app: VideoApp, selecting: boolean) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!selecting) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onPress = (event: PointerEvent) => {
