@@ -395,37 +395,24 @@ export function createPackStore({
     },
 
     async states(packs) {
-      const found = await Promise.all(
-        downloadable(packs).map(
-          async ([pack, entry]) =>
-            [
-              pack,
-              states.get(pack) ?? (await storedState(pack, entry)).state,
-            ] as const,
-        ),
-      );
-      return Object.fromEntries(found);
+      const result: Record<string, PackState> = {};
+      for (const [pack, entry] of downloadable(packs))
+        result[pack] =
+          states.get(pack) ?? (await storedState(pack, entry)).state;
+      return result;
     },
 
     async markFailed(packs, error) {
-      const marked = downloadable(packs).filter(
-        ([pack]) => !inflight.peek(pack),
-      );
-      // Read side by side; set in order, up to the first that could not be read.
-      const read = await Promise.allSettled(
-        marked.map(([pack, entry]) => storedState(pack, entry)),
-      );
-      marked.forEach(([pack], i) => {
-        const outcome = read[i]!;
-        if (outcome.status === "rejected") throw outcome.reason;
-        const { state } = outcome.value;
+      for (const [pack, entry] of downloadable(packs)) {
+        if (inflight.peek(pack)) continue;
+        const { state } = await storedState(pack, entry);
         states.set(
           pack,
           state.state === "ready"
             ? state
             : { ...state, state: "failed", error },
         );
-      });
+      }
       publish(true);
       await writes.idle;
     },

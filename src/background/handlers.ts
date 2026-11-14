@@ -213,8 +213,7 @@ export function createHandlers({
 
   /**
    * The options a document's blocks are classified with: its casing, when the page
-   * sends one, and the dictionary into `nativeLang` (from the settings the caller
-   * read) when the classifier reads
+   * sends one, and the dictionary into the native language when the classifier reads
    * it: for a language whose capitals mark names (rule D), which names keep a
    * capitalised meaning (only for a mixed-case document with capitalised words); with
    * `bySense` and a language with a tagger, the outlines of headwords its tags choose
@@ -224,7 +223,6 @@ export function createHandlers({
    */
   async function documentOptions(
     lang: string,
-    nativeLang: string,
     pack: LanguagePack,
     casing: unknown,
     options: ClassifyOptions,
@@ -238,6 +236,7 @@ export function createHandlers({
     const tags = bySense && pack.tagger !== undefined;
     const withCasing = read ? { ...options, casing: read } : options;
     if (!names && !tags) return withCasing;
+    const { nativeLang } = await settings.get();
     // A pair without a dictionary (the pair changed as the page was analyzed): the
     // names keep no meaning and the tags choose nothing this time.
     const dictionary = await resources
@@ -273,7 +272,6 @@ export function createHandlers({
       ]);
       const options = await documentOptions(
         lang,
-        current.nativeLang,
         pack,
         casing,
         { terms, knownLevel: current.knownLevel },
@@ -471,13 +469,10 @@ export function createHandlers({
         resources.classifier(source.lang),
         store.termIndex(source.lang),
       ]);
-      const options = await documentOptions(
-        source.lang,
-        current.nativeLang,
-        pack,
-        casing,
-        { terms, knownLevel: current.knownLevel },
-      );
+      const options = await documentOptions(source.lang, pack, casing, {
+        terms,
+        knownLevel: current.knownLevel,
+      });
       const items = sentences.map((sentence) => ({
         ...sentence,
         keys: historyKeys(sentence.text, pack, classifier, options),
