@@ -3,10 +3,14 @@ name: CI
 # Tests run locally first (`npm run verify` before every push). GitHub runs them once a
 # pull request is ready to merge: not on drafts, not on pushes to main (merged pull
 # requests were already tested). Mark a pull request "Ready for review" to run this, or
-# start it by hand.
+# start it by hand. Pull requests that change only docs/ do not run it: no check, test
+# or build reads those files (Prettier skips docs/; CLAUDE.md is outside docs/, so its
+# line limit is still checked).
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "docs/**"
   workflow_dispatch:
 
 concurrency:
