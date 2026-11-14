@@ -35,6 +35,8 @@ export interface SubtitleOverlayProps extends TextSelectionProps {
   onWordEnter: (index: number, element: HTMLElement) => void;
   onWordLeave: () => void;
   onWordClick: (index: number) => void;
+  /** The pointer came onto the subtitle's text (true) or left it (false). */
+  onHover?: (on: boolean) => void;
 }
 
 type Style = CSSProperties;
@@ -240,6 +242,9 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
       role="region"
       aria-label={t("video.subtitle")}
       style={root(look.box as Style)}
+      // Over the video only the lines take the pointer: the gaps around them do not count.
+      onPointerEnter={() => props.onHover?.(true)}
+      onPointerLeave={() => props.onHover?.(false)}
     >
       <p
         ref={selection.ref}

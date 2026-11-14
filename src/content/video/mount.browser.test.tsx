@@ -63,6 +63,7 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     panel: null,
     phrase: null,
     selecting: false,
+    subtitleHover: false,
     menuOpen: false,
     fullscreen: false,
     panelTab: "transcript",
@@ -435,6 +436,45 @@ describe("mountVideoUi", () => {
     await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
     expect(spy("seekToCue")).not.toHaveBeenCalled();
+  });
+
+  it("tells the app while the pointer is on the subtitle, over the video or below it, but not on the transcript", async () => {
+    const { store, spy } = mount();
+    const lines = () =>
+      inside("lingo-video-player")?.querySelectorAll<HTMLElement>(
+        "[role='region'] p",
+      ) ?? [];
+    await expect.poll(() => lines().length).toBe(2);
+    const enters = () => spy("enterSubtitle").mock.calls.length;
+    const leaves = () => spy("leaveSubtitle").mock.calls.length;
+    const [original, translation] = lines();
+    await userEvent.hover(original!);
+    expect(enters()).toBe(1);
+    // The translation line counts too (the pointer goes straight to it).
+    await userEvent.hover(translation!);
+    expect([enters(), leaves()]).toEqual([1, 0]);
+    await userEvent.hover(
+      inside("lingo-transcript")!.querySelector<HTMLElement>("[data-span]")!,
+    );
+    expect([enters(), leaves()]).toEqual([1, 1]);
+    await userEvent.hover(translation!);
+    expect(enters()).toBe(2);
+
+    // The subtitle going from under the pointer (between lines) leaves it too.
+    store.set({ line: -1 });
+    await expect.poll(leaves).toBe(2);
+
+    store.set({
+      line: 0,
+      settings: { ...store.get().settings, subtitlePosition: "belowVideo" },
+    });
+    const box = () =>
+      inside("lingo-video-below")?.querySelector<HTMLElement>(
+        "[role='region']",
+      ) ?? null;
+    await expect.poll(box).not.toBeNull();
+    await userEvent.hover(box()!);
+    expect(enters()).toBe(3);
   });
 
   it("selects words in the subtitle over the player, shows their card, and drops it on a press elsewhere or Escape", async () => {

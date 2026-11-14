@@ -119,7 +119,8 @@ test("× closes the transcript sidebar for good, the player takes the whole wind
   await expect.poll(playerWidth).toBe(windowWidth);
 
   // Netflix shows its control bar, with the L and ^ buttons, while the pointer moves;
-  // Lingo lets it show at once in the bar's area at the bottom.
+  // Lingo lets it show once the pointer has stayed 1 s in the bar's area at the bottom
+  // (the click waits for the L menu button to show).
   const height = page.viewportSize()!.height;
   await page.mouse.move(200, height - 60);
   await page.mouse.move(220, height - 50);

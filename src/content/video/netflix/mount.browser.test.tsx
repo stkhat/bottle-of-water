@@ -31,6 +31,7 @@ const STATE: VideoState = {
   panel: null,
   phrase: null,
   selecting: false,
+  subtitleHover: false,
   menuOpen: false,
   fullscreen: false,
   panelTab: "transcript",
@@ -70,10 +71,13 @@ let adapter: PlatformAdapter;
 let app: VideoApp;
 let unmount: () => void;
 
+/** Short, so tests that only need the bar get it soon (the real delay is 1 s). */
+const BAR_DELAY_MS = 100;
+
 function start(
   options: Parameters<typeof createTestPage>[0] = {},
   state: Partial<VideoState> = {},
-  controlBarDelayMs?: number,
+  controlBarDelayMs = BAR_DELAY_MS,
 ) {
   page = createTestPage(options);
   adapter = createNetflixAdapter({
@@ -88,15 +92,22 @@ function start(
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The pointer moves over the player: at its bottom (the bar's area) or its middle. */
-function moveOver(where: "bottom" | "middle") {
+/**
+ * The pointer moves over the player: at its bottom (the bar's area), its middle or its
+ * top (the back arrow's strip).
+ */
+function moveOver(where: "bottom" | "middle" | "top") {
   const box = page.player.getBoundingClientRect();
   page.video.dispatchEvent(
     new PointerEvent("pointermove", {
       bubbles: true,
       clientX: (box.left + box.right) / 2,
       clientY:
-        where === "bottom" ? box.bottom - 40 : (box.top + box.bottom) / 2,
+        where === "bottom"
+          ? box.bottom - 40
+          : where === "top"
+            ? box.top + 40
+            : (box.top + box.bottom) / 2,
     }),
   );
 }
@@ -363,34 +374,68 @@ describe("Netflix's control bar while Lingo's subtitle is over the video", () =>
     expect(subtitleBottom()).toBeCloseTo(down(), 0);
   });
 
-  it("shows once the pointer keeps moving over the video", async () => {
+  it("stays out of sight however long the pointer keeps moving over the middle", async () => {
     start({}, {}, 200);
     page.showControls(false);
     await wait(100);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       moveOver("middle");
       await wait(50);
     }
+    expect(shown()).toBe(false);
+    expect(subtitleBottom()).toBeCloseTo(down(), 0);
+  });
+
+  it("shows once the pointer has stayed in the bar's area for the delay, moving or not", async () => {
+    start({}, {}, 300);
+    page.showControls(false);
+    await wait(100);
+    moveOver("bottom");
+    await wait(150);
+    moveOver("bottom");
+    await wait(100);
+    expect(shown()).toBe(false);
+    expect(subtitleBottom()).toBeCloseTo(down(), 0);
+    // No more moves: it shows when the delay is up.
     await expect.poll(shown).toBe(true);
     await expect.poll(subtitleBottom).toBeLessThan(down() - 20);
   });
 
-  it("counts moves apart by a rest as separate short moves", async () => {
-    start({}, {}, 200);
-    page.showControls(false);
-    await wait(100);
-    for (let i = 0; i < 3; i++) {
-      moveOver("middle");
-      await wait(350);
-    }
-    expect(shown()).toBe(false);
-  });
-
-  it("shows at once when the pointer is in the bar's area", async () => {
-    start();
+  it("starts over when the pointer leaves the bar's area or the window before the delay", async () => {
+    start({}, {}, 300);
     page.showControls(false);
     await wait(100);
     moveOver("bottom");
+    await wait(200);
+    moveOver("middle");
+    moveOver("bottom");
+    await wait(200);
+    // Out of the window over its bottom edge.
+    window.dispatchEvent(new MouseEvent("mouseout", { relatedTarget: null }));
+    await wait(300);
+    expect(shown()).toBe(false);
+  });
+
+  it("shows at once when the pointer is in the back arrow's strip at the top", async () => {
+    start({}, {}, 60_000);
+    page.showControls(false);
+    await wait(100);
+    moveOver("top");
+    await expect.poll(shown).toBe(true);
+  });
+
+  it("stays out of sight while the pointer is on the subtitle, also in the bar's area", async () => {
+    start({}, {}, 200);
+    page.showControls(false);
+    await wait(100);
+    app.store.set({ subtitleHover: true });
+    moveOver("bottom");
+    await wait(400);
+    expect(shown()).toBe(false);
+    // Off the subtitle, into the bar's area: the delay starts then.
+    app.store.set({ subtitleHover: false });
+    await wait(100);
+    expect(shown()).toBe(false);
     await expect.poll(shown).toBe(true);
   });
 
@@ -447,14 +492,16 @@ describe("Netflix's control bar while Lingo's subtitle is over the video", () =>
     expect(shown()).toBe(false);
   });
 
-  it("shows when Lingo's use ends with the pointer in the bar's area", async () => {
-    start();
+  it("shows after the delay when Lingo's use ends with the pointer in the bar's area", async () => {
+    start({}, {}, 200);
     app.store.set({ selecting: true });
     moveOver("bottom");
-    await wait(100);
+    await wait(300);
     expect(shown()).toBe(false);
     // The move to the bar closed the card.
     app.store.set({ selecting: false });
+    await wait(100);
+    expect(shown()).toBe(false);
     await expect.poll(shown).toBe(true);
   });
 

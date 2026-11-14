@@ -122,6 +122,8 @@ export interface VideoState {
    * press until the selection goes (the phrase card shows meanwhile, once looked up).
    */
   selecting: boolean;
+  /** The pointer is on the subtitle (over the video or in the box below it). */
+  subtitleHover: boolean;
   /** The Lingo menu above the ^ button. */
   menuOpen: boolean;
   /** The player is in fullscreen: no transcript, the subtitle always in the video. */
@@ -156,6 +158,10 @@ export interface VideoApp {
   /** The pointer left the hover card: hide it soon. */
   releaseHover(): void;
   dismissHover(): void;
+  /** The pointer came onto the subtitle (over the video or in the box below it). */
+  enterSubtitle(): void;
+  /** The pointer left the subtitle, or the subtitle went from under it. */
+  leaveSubtitle(): void;
   /** A word of the subtitle or the transcript was clicked: its dictionary window opens. */
   clickWord(ref: WordRef): void;
   /** The hover card's "+ Learning" / "Known". */
@@ -239,6 +245,7 @@ export function freshState(
     panel: null,
     phrase: null,
     selecting: false,
+    subtitleHover: false,
     menuOpen: false,
     fullscreen,
     panelTab: "transcript",

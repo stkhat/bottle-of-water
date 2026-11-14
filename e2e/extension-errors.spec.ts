@@ -601,7 +601,7 @@ for (const build of ["production", "check"] as const)
       await expect(inVideo(page)).toContainText(NF_LINE);
 
       const controlBar = page.locator("[data-uia='controls-standard']");
-      // In the bar's area: Lingo lets Netflix's bar show there at once.
+      // In the bar's area: Lingo lets Netflix's bar show once the pointer stayed 1 s there.
       const moveOverVideo = async () => {
         const viewport = page.viewportSize()!;
         await page.mouse.move(viewport.width / 3, viewport.height - 60);
