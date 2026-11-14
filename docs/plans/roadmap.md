@@ -10,6 +10,9 @@ Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left
 - More sites (each a `PlatformAdapter`)
 - New screens go into the mock first and are built after the user reviews them
 
+## Sync to the user's own cloud storage
+Designed, not built: [architecture](../specs/architecture.md) "Sync to the user's own cloud storage" (its "Checks before building" come first).
+
 ## Pack hosting
 Needs the user: a public data repository and an npm scope (placeholder `@lingo-data`). Then `npm run data:publish -- --download es,es-en`, `npm publish` each `data/publish/<pack>/`, a release, and a check of the real CDN download in the user's Chrome.
 

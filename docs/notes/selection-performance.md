@@ -1,6 +1,6 @@
 # Selecting words: main-thread cost
 
-Measured on 2026-11-14 for the report "selecting words sometimes freezes: the whole page gets heavy and stops responding" (plan `docs/plans/highlight-fixes.md`, step E). Dev Mac (Apple Silicon), the user's Chrome, the check build, videos muted.
+Measured on 2026-11-14 for the report "selecting words sometimes freezes: the whole page gets heavy and stops responding" (PR #68). Dev Mac (Apple Silicon), the user's Chrome, the check build, videos muted.
 
 ## How
 - Real pages, in the page through Claude in Chrome: a `PerformanceObserver` for `longtask` (50 ms and more), and a 4 ms `setInterval` that records every gap over 14 ms (a busy main thread, Lingo's or the site's). Flow: drag-select 2–3 words in a transcript card or the subtitle, wait for the card, press "+ Learning", then remove the phrase from the dictionary window. Hovers over words.
