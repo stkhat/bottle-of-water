@@ -131,14 +131,14 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - **Lingo off** (the header's switch; mock `Opening Lingo from the browser toolbar`, 2026-11-15): switches Lingo off everywhere, by hand, until it is switched on again. Nothing runs on videos (YouTube, Netflix, YouTube comments) or articles, open pages give their page back at once, and nothing is recorded (encounters, sentence history). The popup then shows only the header and the sync status, and the toolbar icon turns gray (`#9AA0B0`, drawn from the same SVG). It is a setting like the others, so it follows browser sync to the user's other devices. Saved words, settings and the per-site lists are kept as they are
 - **While the chosen pair's data is downloading or failed** (mock `LanguageData`): one line under the header, "Downloading Spanish data · 45%" over a bar, or "Couldn't download Spanish data" with Retry. None once the data can be used (an older version in use while an update downloads counts)
 - "On this site": on/off for this site
-- "Highlight": category toggles
-- Word counts: Learning / Known / Phrases
-- "This page" ("This video" on a video site): save every unsaved word at once
+- "This page" ("This video" on a video site; right under "On this site", above "Highlight" and the counts, 2026-11-15): save every unsaved word at once
   - **"Show words on this page"** (articles only; video pages have the Words tab; mock `Opening Lingo from the browser toolbar`, 2026-11-14): a full-width outlined button (40 px high, 8 px corners, the list icon) right under the heading line, above the Mark all buttons; it opens the "Words on this page" panel (Article UI)
   - Target: New words on the page/video that are **not saved yet** (the same words as "Unsaved New words at the end"; saved words keep their status, words within the frequency level are not New). The line beside the heading says how many ("46 words not saved yet", "Every word is saved")
   - Actions: "Mark all as Learning", "Mark all as Known" (hidden when nothing is unsaved). Afterwards show the count ("46 words marked as Learning") and **Undo**
-  - The explanation is not shown by default; **only when the (i) button is pressed**
+  - The explanation ("Words you have already saved keep their status. …") is the tooltip of both Mark all buttons (2026-11-15): it shows after hovering one for a moment. There is no (i) button
   - Mark all is only in the popup: nothing appears on the page itself
+- "Highlight": category toggles
+- Word counts: Learning / Known / Phrases
 - Sync status: last saved time and usage (e.g. "Saved to Chrome sync · 2 min ago", "41 KB of 100 KB used")
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)

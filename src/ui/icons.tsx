@@ -96,16 +96,6 @@ export function SearchIcon() {
   );
 }
 
-export function InfoIcon() {
-  return (
-    <Outline size={16} stroke={2} cap>
-      <circle cx="12" cy="12" r="9"></circle>
-      <path d="M12 11v5"></path>
-      <path d="M12 7.5v.5"></path>
-    </Outline>
-  );
-}
-
 /** The ^ of the Lingo menu button. */
 export function ChevronUpIcon() {
   return (

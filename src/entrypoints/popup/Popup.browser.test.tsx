@@ -337,6 +337,28 @@ describe("Popup", () => {
       expect(f.asked).toContainEqual({ type: "pageUndo" });
     });
 
+    it("sits between On this site and the highlight chips", async () => {
+      const f = fake({ page: ARTICLE });
+      const screen = await render(<Popup deps={f.deps} />);
+      const heading = screen.getByText("This page");
+      await expect.element(heading).toBeVisible();
+      const chips = screen.getByRole("button", {
+        name: "Learning",
+        exact: true,
+      });
+      await expect.element(chips).toBeVisible();
+      expect(
+        siteSwitch(screen)
+          .element()
+          .compareDocumentPosition(heading.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        heading.element().compareDocumentPosition(chips.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
     it("says This video on a video page", async () => {
       const f = fake({ page: { ...ARTICLE, scope: "video" } });
       const screen = await render(<Popup deps={f.deps} />);
