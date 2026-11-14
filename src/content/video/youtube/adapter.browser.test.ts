@@ -311,6 +311,29 @@ describe("loading captions", () => {
     expect(fetched[1]?.searchParams.get("pot")).toBe("FAKE-PO-TOKEN");
   });
 
+  it("fetches the English track by its own variant when the player asked for another track", async () => {
+    // Shorts (2026-11-14): the player may ask for the user's caption language, and each
+    // track's baseUrl names its own variant (the fake server's: its language).
+    const response = structuredClone(captionTracks);
+    const renderer = response.captions.playerCaptionsTracklistRenderer;
+    for (const t of renderer.captionTracks)
+      t.baseUrl += `&variant=${t.languageCode}${t.kind === "asr" ? "-asr" : ""}`;
+    renderer.captionTracks.sort((a, b) =>
+      a.vssId === ".ja" ? -1 : b.vssId === ".ja" ? 1 : 0,
+    );
+    start({ captionsOn: true, playerResponse: response });
+    await page.video.play();
+    await expect.poll(() => page.player.fake.requests.length).toBe(1);
+
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.track.id).toBe(".en");
+    expect(captions?.cues).toEqual(parseYouTubeJson3(en));
+    expect(captions?.translation.cues).toEqual(parseYouTubeJson3(ja));
+    expect(
+      timedtextRequests().map((u) => u.searchParams.get("variant")),
+    ).toEqual(["ja", "en"]);
+  });
+
   it("asks the player for the original track when it has not requested one, then restores it", async () => {
     start();
     const captions = await adapter.loadCaptions(REQUEST);

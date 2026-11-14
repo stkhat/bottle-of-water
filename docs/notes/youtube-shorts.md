@@ -22,6 +22,9 @@ Shorts: `mzYMZGrIml4` ("Money Idioms in English - Part 2", English ASR), `9JQ8ZT
 ## Captions
 - English Shorts had `en` ASR plus ASR tracks in many other languages, and 150+ translation languages: the watch page's capture / auto-translate path applies.
 - With captions off (the default), the player makes no `/api/timedtext` request; the CC button or `setOption("captions", "track", …)` makes one.
+- **Each track's `baseUrl` names its own `variant`** (2026-11-14, `mzYMZGrIml4`, Japanese UI): `a.en` has `variant=gemini`, the other 20 auto-generated tracks (`a.ja`, `a.fr`…, YouTube's translations of the speech) `variant=timing-optimized`. A request with another track's `variant` gets `200` with an empty body (`lang=en&kind=asr&variant=timing-optimized`: 0 bytes; without `variant`: the track). The token, signature and client params are the same for every track. So a track's URL is its own `baseUrl` plus the token and client params the player added to its request (`trackUrl`); copying the captured request and changing `lang` gave an empty body whenever the player had asked for another language (the user's caption language, `yt-player-caption-sticky-language`).
+- `getOption("captions", "tracklist")` is `[]` on the Shorts player; `setOption("captions", "track", { languageCode, kind })` still loads that track.
+- Once (a full load with the sticky language `ja` and captions off) the player made no timedtext request at all, also not after Lingo's `setOption`; it did not happen again in four more loads.
 
 ## Loop
 - `video.loop` is true (attribute set): at the end the browser seeks to 0 (`seeking`/`seeked` at 0.00, `currentTime` 20.85 → 0) and `ended` never fires.

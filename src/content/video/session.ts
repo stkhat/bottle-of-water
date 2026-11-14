@@ -163,11 +163,19 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
 
   const hold = holdPlayback({ store, adapter });
 
-  /** Our subtitles replace the site's while there are some and Lingo is on (fullscreen too). */
-  function syncSiteCaptions() {
+  /**
+   * Our subtitles replace the site's exactly while there are some and Lingo is on
+   * (fullscreen too): a video without captions, or the next one while it loads, shows the
+   * site's own again.
+   */
+  let siteHidden = false;
+  const offSiteCaptions = store.subscribe(() => {
     const { status, enabled } = store.get();
-    adapter.hideSiteCaptions(status === "ready" && enabled);
-  }
+    const hidden = status === "ready" && enabled;
+    if (hidden === siteHidden) return;
+    siteHidden = hidden;
+    adapter.hideSiteCaptions(hidden);
+  });
 
   function open() {
     const id = siteOn() ? (adapter.videoId() ?? null) : null;
@@ -188,10 +196,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       ),
     );
     hold.reset();
-    if (!id) {
-      adapter.hideSiteCaptions(false);
-      return;
-    }
+    if (!id) return;
     const active = () => watch === w;
     const recorder = createRecorder({
       send: deps.send,
@@ -239,10 +244,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     watch = w;
     load(w).catch((error: unknown) => {
       warn(error);
-      if (watch === w) {
-        store.set({ status: "unavailable" });
-        adapter.hideSiteCaptions(false);
-      }
+      if (watch === w) store.set({ status: "unavailable" });
     });
   }
 
@@ -275,7 +277,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     store.set({ status: "ready", ...state });
     if (state.translationSource === "builtIn")
       subtitlePair = { from: lang(), to: settings.nativeLang };
-    if (store.get().enabled) adapter.hideSiteCaptions(true);
     followPlayback(
       adapter,
       signal,
@@ -479,7 +480,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       store.set({ enabled: on, ...(!on && { panel: null }) });
       if (settings.videoOn[platform] !== on)
         changeSettings({ videoOn: { [platform]: on } });
-      if (store.get().status === "ready") syncSiteCaptions();
       const video = adapter.video();
       if (watch && video) update(watch, video);
     },
@@ -549,7 +549,6 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       cards.dismissHover();
       selection.clear();
       store.set({ fullscreen: on });
-      if (store.get().status === "ready") syncSiteCaptions();
     },
     setPanelTab(tab) {
       if (store.get().panelTab !== tab) store.set({ panelTab: tab });
@@ -610,6 +609,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       hold.stop();
       watch?.controller.abort();
       watch = undefined;
+      offSiteCaptions();
+      siteHidden = false;
       adapter.hideSiteCaptions(false);
     },
   };

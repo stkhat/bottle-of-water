@@ -365,6 +365,94 @@ describe("alignAsrSentences", () => {
     ]);
   });
 
+  it("ends sentences inside a long quotation and after a bracket that never closes", () => {
+    // YouTube's translation often loses a closing bracket: it must not hide every later end.
+    const said = [
+      [0, "he"],
+      [300, " said"],
+      [600, " I"],
+      [900, " worked"],
+      [1200, " for"],
+      [1500, " years."],
+      [3000, " and"],
+      [3300, " then"],
+      [3600, " I"],
+      [3900, " quit."],
+      [6000, " Wow."],
+    ] as [number, string][];
+    const result = alignAsrSentences(
+      [words(0, 7000, said)],
+      [
+        words(0, 7000, [
+          [0, "彼は言った。「私は何年も働いた。"],
+          [3000, "そして辞めた。"],
+          [6000, "すごい。"],
+        ]),
+      ],
+      { translationJoiner: "" },
+    );
+    expect(result && pairs(result)).toEqual([
+      ["he said I worked for years.", "彼は言った。「私は何年も働いた。"],
+      ["and then I quit.", "そして辞めた。"],
+      ["Wow.", "すごい。"],
+    ]);
+  });
+
+  describe("a sentence longer than MAX_CARD_WORDS", () => {
+    /** `count` words a quarter second apart, from `startMs`. */
+    const run = (startMs: number, count: number, word = "word") =>
+      Array.from(
+        { length: count },
+        (_, i) =>
+          [startMs + i * 250, `${i ? " " : ""}${word}${i}`] as [number, string],
+      );
+
+    it("is split into even cards, its translation at the clause end said there", () => {
+      const english = [...run(0, 25, "a"), ...run(6250, 25, "b")];
+      const result = alignAsrSentences(
+        [words(0, 13000, english), words(13000, 14000, [[0, "Next."]])],
+        [
+          words(0, 13000, [
+            [0, "前半の訳、"],
+            [6300, "後半の"],
+            [12400, "訳。"],
+          ]),
+          words(13000, 14000, [[0, "次。"]]),
+        ],
+        { translationJoiner: "", lang: "en" },
+      );
+      const cards = result!.cards.map((c) => c.text.split(" ").length);
+      expect(cards).toEqual([25, 25, 1]);
+      expect(result!.translations).toEqual([
+        "前半の訳、",
+        "後半の訳。",
+        "次。",
+      ]);
+      expectWellFormed(result!);
+    });
+
+    it("keeps the whole translation on each part when it has no clause end there", () => {
+      const result = alignAsrSentences(
+        // No period in the English: a track without punctuation.
+        [words(0, 13000, run(0, 40)), words(13000, 14000, [[0, "next"]])],
+        [
+          words(0, 13000, [
+            [0, "長い訳"],
+            [12000, "です。"],
+          ]),
+          words(13000, 14000, [[0, "次"]]),
+        ],
+        { translationJoiner: "", lang: "en" },
+      );
+      expect(result!.cards).toHaveLength(3);
+      expect(result!.translations).toEqual([
+        "長い訳です。",
+        "長い訳です。",
+        "次",
+      ]);
+    });
+  });
+
   it("ends a translated sentence at a period only before a space", () => {
     const result = alignAsrSentences(
       [

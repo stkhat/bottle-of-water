@@ -1,4 +1,4 @@
-import type { Cue } from "../../../core/subtitles/types";
+import type { Cue, Track } from "../../../core/subtitles/types";
 import {
   parseYouTubeJson3,
   youtubeCaptionInfo,
@@ -49,6 +49,13 @@ const PLAYER_RESPONSE_TIMEOUT_MS = 30_000;
 const KEEP_CAPTURES = 4;
 /** A Short's path and its video id. */
 const SHORTS_PATH = /^\/shorts\/([^/]+)/;
+
+/** The YouTube track `chooseTranslation` picked (it hands back one of `info.tracks`). */
+function siteTrack(info: YouTubeCaptionInfo, track: Track): YouTubeTrack {
+  const found = info.tracks.find((t) => t.id === track.id);
+  if (!found) throw new Error(`Unknown track ${track.id}`);
+  return found;
+}
 
 /** The URL shows a Short (`/shorts/<id>`; docs/notes/youtube-shorts.md). */
 export const isShortsUrl = (href: string) =>
@@ -181,17 +188,22 @@ export function createYouTubeAdapter(
     }
   }
 
+  /** The cues of `track` (or of its auto-translation into `tlang`), from the capture or fetched. */
   async function cuesOf(
     capture: TimedtextMessage,
-    track: { lang: string; asr: boolean; tlang?: string },
+    info: YouTubeCaptionInfo,
+    track: YouTubeTrack,
+    tlang?: string,
   ): Promise<Cue[]> {
     const same =
       capture.lang === track.lang &&
-      (capture.kind === "asr") === track.asr &&
-      (capture.tlang ?? undefined) === track.tlang;
+      (capture.kind === "asr") === (track.kind === "asr") &&
+      (capture.tlang ?? undefined) === tlang;
     const body = same
       ? capture.body
-      : await fetchTimedtext(trackUrl(capture.url, track));
+      : await fetchTimedtext(
+          trackUrl(capture.url, info.tracks, { track, tlang }),
+        );
     return parseYouTubeJson3(body);
   }
 
@@ -206,8 +218,7 @@ export function createYouTubeAdapter(
     if (!original) return undefined;
     const capture = await captureFor(id, original, signal);
     if (!capture) return undefined;
-    const asr = original.kind === "asr";
-    const cues = await cuesOf(capture, { lang: original.lang, asr });
+    const cues = await cuesOf(capture, info, original);
     if (cues.length === 0) return undefined;
     const tlang = autoTranslateCode(info, original, request.nativeLang);
     const translation = await firstTranslation(
@@ -218,8 +229,8 @@ export function createYouTubeAdapter(
       },
       (choice) =>
         choice.source === "siteTrack"
-          ? cuesOf(capture, { lang: choice.track.lang, asr: false })
-          : cuesOf(capture, { lang: original.lang, asr, tlang }),
+          ? cuesOf(capture, info, siteTrack(info, choice.track))
+          : cuesOf(capture, info, original, tlang),
     );
     return { track: original, cues, translation };
   }
