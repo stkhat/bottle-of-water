@@ -1,6 +1,6 @@
 # UI spec (follows the mock)
 
-The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: when it and this file disagree, the mock wins, and this file is updated to match. Artboards: `YouTube — extension ON`, `YouTube — comments`, `Web article — highlights and phrase saving`, `Opening Lingo from the browser toolbar`, `Settings page`, `Word list page`, `Phase 2 — …` (words in this video, fullscreen, past occurrences), `LanguageData`.
+The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: when it and this file disagree, the mock wins, and this file is updated to match. Artboards: `YouTube — extension ON`, `YouTube — comments`, `Web article — highlights and phrase saving`, `Opening Lingo from the browser toolbar`, `Settings page`, `Word list page`, `Phase 2 — …` (words in this video, fullscreen, past occurrences), `Words on this page (article)` (`ArticleWords`), `LanguageData`.
 
 ## Shared: highlights
 - Categories and looks: **Learning** = pale green background + green underline, **New** = pale blue background + blue underline, **Known** = gray underline
@@ -114,6 +114,10 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
   - Left out inside it: `nav`, `aside`, `footer` and their ARIA roles; elements whose class or id names related stories, sharing, comments, newsletters, promos, ads, references, footnotes and the like (unless they hold the best-scored element, so a wrapper class does not drop the body); blocks with 60% or more of their text in links ("Read more: …", "See also" lists)
   - The title: the container's first `h1`, else an `h1` whose text the page's `<title>` contains, even when it sits outside the container
   - When nothing reads as prose, the whole page counts
+- **Words on this page** (mock `Words on this page (article)`, 2026-11-14): the toolbar popup's "Show words on this page" opens a panel at the page's right: 360 px wide, 16 px from the top, right and bottom edges, 1 px border, 12 px corners, the panel shadow. Header: L, "Words on this page", × "Close words" (closes it). Under it the video Words tab's filter chips, Sort, rows and chips (see "Words in this video"), over the whole main content: every in-scope block is analyzed when the panel opens, not only what came near the viewport
+  - Chips are numbered by place (`1 2 3`, 28 px wide at least; the chips that fit one line, 7 in the mock, then `+N`, "Show N more"). Accessible names: row "ferment, go to the first one", chip "Go to ferment, 2 of 3", the chips' group "Places of ferment"
+  - Jump: a row or chip scrolls its occurrence to the middle of the view (smooth) and outlines the word with the clicked word's green outline for ~1.5 s. Rows do not open the dictionary panel
+  - While the panel is open, the dictionary panel opens left of it
 - **When the reader scrolls to the end of the article** (the last block of the main content above), nothing is shown; unsaved New words are handled as Settings say (below)
 
 ## Unsaved New words at the end (no UI on the page)
@@ -129,10 +133,11 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - "Highlight": category toggles
 - Word counts: Learning / Known / Phrases
 - "This page" ("This video" on a video site): save every unsaved word at once
+  - **"Show words on this page"** (articles only; video pages have the Words tab; mock `Opening Lingo from the browser toolbar`, 2026-11-14): a full-width outlined button (40 px high, 8 px corners, the list icon) right under the heading line, above the Mark all buttons; it opens the "Words on this page" panel (Article UI)
   - Target: New words on the page/video that are **not saved yet** (the same words as "Unsaved New words at the end"; saved words keep their status, words within the frequency level are not New). The line beside the heading says how many ("46 words not saved yet", "Every word is saved")
   - Actions: "Mark all as Learning", "Mark all as Known" (hidden when nothing is unsaved). Afterwards show the count ("46 words marked as Learning") and **Undo**
   - The explanation is not shown by default; **only when the (i) button is pressed**
-  - Only in the popup: nothing appears on the page itself
+  - Mark all is only in the popup: nothing appears on the page itself
 - Sync status: last saved time and usage (e.g. "Saved to Chrome sync · 2 min ago", "41 KB of 100 KB used")
   - The extension cannot tell whether data reached other devices, so it never says "synced"
   - The "Chrome sync" part follows the browser ("Firefox Sync" in Firefox)
@@ -169,6 +174,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - List columns: Word (with a Phrase tag), Meaning, Status, Seen (number of occurrences), Last seen
 - Selecting a row shows a details panel on the right: headword, kind, pronunciation playback, IPA, short translation, status buttons (Learning / Known / Remove), and "Where you saw it · N" (each occurrence with its source, time or date, the sentence, and a link back to the spot; the occurrence where it was saved is marked "Saved here")
 - Details decided while building (2026-11-10):
+  - Meanings: in the native language, translated with the page's own translator as in the Words lists ("Meanings in lists", 2026-11-14)
   - Search matches the base form and the short meaning, ignoring case and surrounding spaces. Words without a dictionary entry (phrasal verbs such as "figure out" are not in EJDict) show no meaning
   - Sorting: Recently seen = newest occurrence first (a word without occurrences counts from when it was saved); Most seen = most occurrences first, then recently seen; ties go A–Z
   - Last seen and the occurrence dates: "Today", "Nov 6" within this year, "Nov 6, 2025" before it. An occurrence's line reads site (or host) · "at m:ss" for video times · the date unless it is today · "Saved here"
@@ -178,8 +184,12 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
   - While the language's dictionary is not on the device (downloaded packs), the list shows without meanings and the details wait; both are read again once the data is there
 
 ## Words, fullscreen and past occurrences (mock, approved 2026-11-10)
-- **Words in this video** (mock `Phase 2 — words in this video`): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video in order of first appearance, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts. Selecting a word opens the dictionary window with its "In this video" list
-  - Listed: New (unsaved), Learning and saved Known words and phrases; words known only by the frequency level and ignored tokens are left out. Short meanings come from the dictionary and from definitions already translated on the device; a list never starts a new translation. The tab and filter are per video (Transcript and All by default). The Transcript tab keeps the Highlight chips and the Translation switch under the tabs. The column's accessible name is "Lingo"
+- **Words in this video** (mock `Phase 2 — words in this video`; sort, jump and chips 2026-11-14): the right column gets two tabs, Transcript / Words. Words lists the words and phrases in the video, each with its highlight, short translation and how many times it occurs (e.g. 3×). Filter chips All / New / Learning / Known with counts; under them a "Sort" label and select: In order (first appearance, the default) / A–Z / Most seen (most occurrences first, ties in order)
+  - **Jump** (2026-11-14): clicking a row jumps to the term's first occurrence: the video seeks to the start of that transcript card and plays, as clicking the card does. Rows do not open the dictionary window
+  - **Occurrence chips**: a term in two or more cards gets one chip per card under its meaning, showing the card's start time (`1:09`); a chip jumps to that card. Chips are 26 px high with 6 px corners, 12 px semibold tabular figures, grey `#F1F2F5` with green text `#0B7F65`; the pressed chip (the last jump) is filled green (`#0B8A6C`, white text), and the row of the last jump gets the selected row style (`#E6F6F0`, 1 px `#8FD3BC` border). When a row's chips do not fit one line, the chips that fit (5 in the mock) and a dashed `+N` (1 px `#C9CDD6`, "Show N more times") show; `+N` shows the rest of that row
+  - Accessible names: row "dough, jump to 1:09", chip "Jump to 1:09", the chips' group "Times of dough"
+  - Listed: New (unsaved), Learning and saved Known words and phrases; words known only by the frequency level and ignored tokens are left out. The tab, filter and sort are per video (Transcript, All and In order by default). The Transcript tab keeps the Highlight chips and the Translation switch under the tabs. The column's accessible name is "Lingo"
+  - **Meanings in lists** (2026-11-14; this tab, "Words on this page" and the word list page): always in the native language. A term with only an English definition gets it translated on the device as in the hover card (a usage note: the term's literal translation), at the lowest priority, and a translation the hover card or the dictionary window makes shows in the list too. Without a translator the English shows
 - **Fullscreen** (mock `Phase 2 — fullscreen video`): in the player's fullscreen the subtitle and translation stay over the video (larger), hover cards and the dictionary window work, and the L button and ^ menu stay in the player bar. The transcript shows in the sidebar beside the narrowed player (see "Transcript sidebar" under Video UI) unless the column is closed. The subtitle position choice does not apply (always in the video), so the ^ menu has no "Subtitle position" row: Show dual subtitles is its last row
   - The site's captions stay hidden in fullscreen. The subtitle uses a larger look (34 px line, 24 px translation, 120 px above the bottom edge, or higher above Netflix's control bar). The dictionary window (360 × 420, darker shadow) opens with its right edge at the sidebar's left edge, 72 px from the top, as in the full-window sidebar layout; with the column closed, at the top right (32 px in). It is placed again when fullscreen starts or ends, or the sidebar opens or closes. Everything Lingo draws on the page moves into the fullscreen element while fullscreen lasts (its parent when that is a `<video>`)
 - **Past occurrences of unsaved words** (mock `Phase 2 — past occurrences of unsaved words`)
