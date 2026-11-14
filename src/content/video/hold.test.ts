@@ -24,6 +24,7 @@ function setup(options: { playing?: boolean } = {}) {
     panel: null,
     phrase: null,
     selecting: false,
+    subtitleHover: false,
   } as unknown as VideoState);
   let video = new FakeVideo();
   video.paused = options.playing === false;
@@ -88,6 +89,20 @@ describe("holdPlayback", () => {
     await later(1);
     expect(t.calls).toEqual(["pause", "play"]);
     expect(t.video().paused).toBe(false);
+  });
+
+  it("pauses while the pointer is on the subtitle, and through a card shown from it", async () => {
+    const t = setup();
+    t.store.set({ subtitleHover: true });
+    expect(t.calls).toEqual(["pause"]);
+    // Onto a word, then up into its card.
+    t.store.set({ hover: SHOWN });
+    t.store.set({ subtitleHover: false });
+    await later();
+    expect(t.calls).toEqual(["pause"]);
+    t.store.set({ hover: null });
+    await later();
+    expect(t.calls).toEqual(["pause", "play"]);
   });
 
   it("does not play and pause again when a card shows within the delay", async () => {

@@ -131,6 +131,8 @@ function Subtitle(props: {
     cue: line?.card ?? -1,
     span: line?.index[span] ?? -1,
   });
+  // A subtitle that goes (between lines, Lingo off) is no longer under the pointer.
+  useEffect(() => app.leaveSubtitle, [app]);
   const selected =
     line && panel?.ref.cue === line.card
       ? line.index.indexOf(panel.ref.span)
@@ -154,6 +156,7 @@ function Subtitle(props: {
       }
       onWordLeave={app.leaveWord}
       onWordClick={(span) => app.clickWord(ref(span))}
+      onHover={(on) => (on ? app.enterSubtitle() : app.leaveSubtitle())}
       onSelectStart={() => app.selectStart("subtitle")}
       onSelect={(selected) =>
         selectIn(

@@ -10,9 +10,16 @@ import type { VideoState } from "./state";
  */
 export const RESUME_DELAY_MS = 200;
 
-/** A card or a selection is open over the words (spec: "Pausing while Lingo is in use"). */
+/**
+ * The pointer is on the subtitle, or a card or a selection is open over the words (spec:
+ * "Pausing while Lingo is in use").
+ */
 export const inUse = (s: VideoState) =>
-  s.hover !== null || s.panel !== null || s.phrase !== null || s.selecting;
+  s.subtitleHover ||
+  s.hover !== null ||
+  s.panel !== null ||
+  s.phrase !== null ||
+  s.selecting;
 
 export interface PlaybackHold {
   /** Forgets Lingo's pause: another video is not Lingo's to play. */
@@ -21,8 +28,8 @@ export interface PlaybackHold {
 }
 
 /**
- * Pauses the playing video while the hover card, the dictionary window, the selection
- * card or a selection is open, and plays it again once the last one closed, only if
+ * Pauses the playing video while the pointer is on the subtitle, or the hover card, the
+ * dictionary window, the selection card or a selection is open, and plays it again once the last one closed, only if
  * Lingo paused it and the user has not pressed play since. Lingo plays the video only
  * after it stops tracking its pause, so a `play` event while it tracks one is the
  * user's: they took over, and Lingo leaves playback alone (pausing again stays theirs).

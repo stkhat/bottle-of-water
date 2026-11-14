@@ -498,6 +498,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     keepHover: cards.keepHover,
     releaseHover: cards.releaseHover,
     dismissHover: cards.dismissHover,
+    enterSubtitle() {
+      if (!store.get().subtitleHover) store.set({ subtitleHover: true });
+    },
+    leaveSubtitle() {
+      if (store.get().subtitleHover) store.set({ subtitleHover: false });
+    },
     clickWord: cards.clickWord,
     setHoverStatus(status) {
       const shown = store.get().hover;

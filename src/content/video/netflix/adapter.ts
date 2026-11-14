@@ -32,7 +32,6 @@ import {
   HIDE_CONTROL_BAR_CSS,
   KEEP_TITLES,
   BAR_GONE_MS,
-  POINTER_REST_MS,
   query,
   SELECTORS,
   titleText,
@@ -49,7 +48,7 @@ export interface NetflixAdapterOptions {
   pollMs?: number;
   /** How long the floating player buttons stay after the pointer stops. */
   idleMs?: number;
-  /** How long the pointer keeps moving over the player before the control bar shows. */
+  /** How long the pointer stays in the control bar's area before the bar shows. */
   controlBarDelayMs?: number;
   /** Default: the content script's `fetch`. */
   fetch?: typeof fetch;
@@ -272,26 +271,46 @@ export function createNetflixAdapter(
   }
 
   // Netflix's control bar is held back while Lingo's subtitle is over the video
-  // (docs/notes/netflix.md, "Layout decisions"): it shows once the pointer has kept
-  // moving over the player, or is in the bar's area or the top strip; never while Lingo
-  // is in use. Each new bar is held back again.
+  // (docs/notes/netflix.md, "Layout decisions"): it shows once the pointer has stayed in
+  // the bar's area for a while, or at once in the top strip; never while Lingo is in use.
+  // Each new bar is held back again.
   const hideBar = styleSwitch("lingo-hide-netflix-bar", HIDE_CONTROL_BAR_CSS);
   let barMode: ControlBarMode = "free";
   let revealed = false;
   let barPresent = false;
-  /** The pointer's last move was in the bar's area or the top strip. */
-  let pointerAtEdge = false;
+  /** Where the pointer's last move over the player was: the bar's area, the top strip. */
+  let pointerAt: "bottom" | "top" | null = null;
   let barGoneTimer: ReturnType<typeof setTimeout> | undefined;
-  let runStart = -Infinity;
-  let lastMove = -Infinity;
+  /** Runs while the pointer stays in the bar's area; shows the bar when it ends. */
+  let bottomTimer: ReturnType<typeof setTimeout> | undefined;
   const barHidden = () =>
     barMode === "hidden" || (barMode === "delay" && !revealed);
+  function cancelBottom() {
+    clearTimeout(bottomTimer);
+    bottomTimer = undefined;
+  }
+  function reveal() {
+    cancelBottom();
+    revealed = true;
+    hideBar(false);
+  }
   cleanups.push(() => {
     clearTimeout(barGoneTimer);
+    cancelBottom();
     hideBar(false);
   });
 
-  /** Shows the bar after a long enough run of moves over the player, or one at its edges. */
+  /** The bar shows at once in the top strip, after `barDelayMs` in the bar's area. */
+  function revealForPointer() {
+    if (barMode !== "delay" || revealed) return cancelBottom();
+    if (pointerAt === "top") return reveal();
+    if (pointerAt !== "bottom") return cancelBottom();
+    bottomTimer ??= setTimeout(() => {
+      bottomTimer = undefined;
+      if (pointerAt === "bottom" && barMode === "delay") reveal();
+    }, barDelayMs);
+  }
+
   function watchBar(event: Event) {
     const box = player()?.getBoundingClientRect();
     const { clientX: x, clientY: y } = event as MouseEvent;
@@ -301,22 +320,22 @@ export function createNetflixAdapter(
       x <= box.right &&
       y >= box.top &&
       y <= box.bottom;
-    if (!over) {
-      lastMove = -Infinity;
-      pointerAtEdge = false;
-      return;
-    }
-    const now = performance.now();
-    if (now - lastMove >= POINTER_REST_MS) runStart = now;
-    lastMove = now;
-    pointerAtEdge =
-      y >= box.bottom - CONTROL_BAR_HEIGHT || y <= box.top + TOP_STRIP;
-    if (barMode !== "delay" || revealed) return;
-    if (pointerAtEdge || now - runStart >= barDelayMs) {
-      revealed = true;
-      hideBar(false);
-    }
+    pointerAt = !over
+      ? null
+      : y >= box.bottom - CONTROL_BAR_HEIGHT
+        ? "bottom"
+        : y <= box.top + TOP_STRIP
+          ? "top"
+          : null;
+    revealForPointer();
   }
+
+  /** The pointer left the window (over its bottom edge, say): it is in no area. */
+  const onPointerOut = (event: Event) => {
+    if ((event as MouseEvent).relatedTarget !== null) return;
+    pointerAt = null;
+    cancelBottom();
+  };
 
   const onPointerMove = (event: Event) => {
     watchBar(event);
@@ -329,9 +348,14 @@ export function createNetflixAdapter(
       capture: true,
       passive: true,
     });
+  window.addEventListener("mouseout", onPointerOut, {
+    capture: true,
+    passive: true,
+  });
   cleanups.push(() => {
     for (const type of POINTER)
       window.removeEventListener(type, onPointerMove, { capture: true });
+    window.removeEventListener("mouseout", onPointerOut, { capture: true });
     clearTimeout(idleTimer);
   });
 
@@ -434,9 +458,6 @@ export function createNetflixAdapter(
     controlBarTop,
     holdBackControlBar(mode) {
       if (mode === "hidden") revealed = false;
-      // The move that ended Lingo's use (closing a card) went to the bar's area.
-      else if (mode === "delay" && barMode === "hidden" && pointerAtEdge)
-        revealed = true;
       // The next bar after Netflix took one away (the pointer rested) is held back
       // again; not a bar Netflix builds anew while the pointer moves.
       const present = query(SELECTORS.controlBar) !== null;
@@ -449,6 +470,8 @@ export function createNetflixAdapter(
         }, BAR_GONE_MS);
       barPresent = present;
       barMode = mode;
+      // The pointer may already be in an area (the move that ended Lingo's use, say).
+      revealForPointer();
       hideBar(barHidden());
     },
     adShowing: () => false,

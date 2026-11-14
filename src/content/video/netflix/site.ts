@@ -63,13 +63,10 @@ export const HIDE_CONTROL_BAR_CSS = `${[...SELECTORS.controlBar, ...SELECTORS.to
 
 /**
  * Netflix shows its control bar on any pointer move, and the subtitle rises above it.
- * Moving to a word is short: the bar shows once the pointer has kept moving over the
- * player this long (ms), or at once in the bar's area or the top strip.
+ * The bar shows only once the pointer has stayed in its area (the bottom
+ * `CONTROL_BAR_HEIGHT` px) this long (ms), moving or not, or at once in the top strip.
  */
-export const CONTROL_BAR_DELAY_MS = 1500;
-
-/** A pause in the pointer's moves this long (ms) starts a new run of moves. */
-export const POINTER_REST_MS = 300;
+export const CONTROL_BAR_DELAY_MS = 1000;
 
 /**
  * The bar gone this long (ms) means the pointer rested and Netflix took it away: the
