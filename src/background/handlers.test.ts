@@ -845,9 +845,11 @@ describe("handlers: listTermsWithStats", () => {
     expect(figureOut).toMatchObject({
       short: "To come to understand",
       glossLang: "en",
+      definition: "To come to understand",
     });
     expect(giveUp).toMatchObject({ short: "諦める" });
     expect(giveUp).not.toHaveProperty("glossLang");
+    expect(giveUp).not.toHaveProperty("definition");
   });
 });
 
@@ -868,9 +870,11 @@ describe("handlers: termSummaries", () => {
     ).toEqual({
       loaf: { short: "パンのひと塊", status: "learning" },
       "give up": { short: "諦める", status: "known" },
+      // An English definition: lists translate its cleaned text.
       "figure out": {
         short: "To come to understand",
         glossLang: "en",
+        definition: "To come to understand",
         status: "new",
       },
       // No dictionary entry: no short meaning.
@@ -1286,7 +1290,13 @@ describe("handlers: machine translations of English definitions", () => {
     expect(
       await value({ type: "termSummaries", lang: "en", keys: ["i mean"] }),
     ).toEqual({
-      "i mean": { short: "A mild intensifier", glossLang: "en", status: "new" },
+      // Lists show the phrase's literal translation instead.
+      "i mean": {
+        short: "A mild intensifier",
+        glossLang: "en",
+        usageNote: true,
+        status: "new",
+      },
     });
     expect(translations.get).not.toHaveBeenCalled();
   });

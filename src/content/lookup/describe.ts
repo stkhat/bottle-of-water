@@ -131,7 +131,7 @@ export interface DescribeDeps {
   nativeLang: string;
   /** The page the term is on, so its occurrences here are told apart. */
   sourceUrl: string;
-  translator: TranslationQueue;
+  translator: Pick<TranslationQueue, "translate">;
   /**
    * How long the card waits for the translator (default 1.5 s): its model may still be
    * downloading. Later, the translation is not shown (a definition's is still kept).
@@ -165,7 +165,7 @@ function definitionPair(
 }
 
 /** Keeps translations of definitions in the background's cache (best effort). */
-function keepTranslations(
+export function keepTranslations(
   send: typeof sendFn,
   lang: string,
   items: { text: string; translated: string }[],

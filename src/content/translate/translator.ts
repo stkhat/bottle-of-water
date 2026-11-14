@@ -1,9 +1,10 @@
 export interface TranslationProvider {
   /**
-   * Gets the translator ready, which may mean downloading its model: true once it can
-   * translate, false when it cannot (now). Without it, the provider is always ready.
+   * Gets the translator ready, which may mean downloading its model (not with
+   * `download: false`): true once it can translate, false when it cannot (now).
+   * Without it, the provider is always ready.
    */
-  open?(): Promise<boolean>;
+  open?(options?: { download?: boolean }): Promise<boolean>;
   /** Undefined when no translation is available. */
   translate(text: string): Promise<string | undefined>;
 }
@@ -32,7 +33,8 @@ export interface TranslatorGlobal {
  * opened or the first translation. A pair whose model must be downloaded first is
  * only created inside a user activation (a click), as the API requires; `open` waits
  * for the download. Until then, and wherever the API or the pair is unavailable, it is
- * not ready and translations come back undefined. Content scripts use it through
+ * not ready and translations come back undefined. Opened with `download: false` (the
+ * lists), it is ready only once its model is there. Content scripts use it through
  * their queue (`queue.ts`), which keeps the translations.
  */
 export function createBuiltInTranslator(
@@ -65,8 +67,18 @@ export function createBuiltInTranslator(
     }
   }
 
+  /** The model is on the device: creating the translator downloads nothing. */
+  async function modelThere(): Promise<boolean> {
+    try {
+      return (await g.Translator?.availability(pair)) === "available";
+    } catch {
+      return false;
+    }
+  }
+
   return {
-    async open() {
+    async open({ download = true } = {}) {
+      if (!download && !ready && !(await modelThere())) return false;
       return (await translator()) !== undefined;
     },
     async translate(text) {

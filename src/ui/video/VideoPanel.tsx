@@ -32,6 +32,8 @@ export interface VideoPanelProps<R extends WordRow>
   wordsCounts: Record<WordsFilter, number>;
   onWordsFilter: (filter: WordsFilter) => void;
   onOpenWord: (row: R) => void;
+  /** Rows of the Words tab came into view. */
+  onWordsShown?: (rows: R[]) => void;
   height: number;
   /**
    * The chosen pair's language data while some of it is not on the device: a line at
@@ -155,6 +157,7 @@ function TabBody<R extends WordRow>(props: VideoPanelProps<R>) {
           rows={props.words}
           learningLang={props.learningLang}
           onOpen={props.onOpenWord}
+          {...(props.onWordsShown && { onShown: props.onWordsShown })}
         />
       ) : (
         <Transcript {...props} />

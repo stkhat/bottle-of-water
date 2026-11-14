@@ -206,6 +206,8 @@ export interface VideoApp {
   setFullscreen(on: boolean): void;
   setPanelTab(tab: PanelTab): void;
   setWordsFilter(filter: WordsFilter): void;
+  /** Rows of the Words tab came into view: their meanings get translated when needed. */
+  wordsShown(rows: readonly { key: string; head: string }[]): void;
   /** The download line's Retry: the background tries the language data again. */
   retryPacks(): void;
 }

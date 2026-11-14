@@ -175,16 +175,22 @@ export function createHandlers({
   /**
    * The short meanings of entries, in order: a cached translation of an English
    * definition replaces it (never translated here), the others are as the dictionary
-   * has them. A usage note ("A mild intensifier") is never one the hover translates, so
-   * an old translation of it in the cache is not used.
+   * has them, an English definition still to translate with its cleaned text
+   * (`definition`) and a usage note marked (`usageNote`) for the lists to translate.
+   * A usage note ("A mild intensifier") is never one the hover translates, so an old
+   * translation of it in the cache is not used.
    */
   async function shortMeanings(
     lang: string,
     nativeLang: string,
     entries: readonly (DictionaryEntry | undefined)[],
   ): Promise<ShortMeaning[]> {
-    const cleaned = entries.map((entry) =>
-      glossedInOtherLanguage(entry, nativeLang) && !isUsageNoteShort(entry)
+    const notes = entries.map(
+      (entry) =>
+        glossedInOtherLanguage(entry, nativeLang) && isUsageNoteShort(entry),
+    );
+    const cleaned = entries.map((entry, i) =>
+      glossedInOtherLanguage(entry, nativeLang) && !notes[i]
         ? cleanDefinition(entry.short)
         : undefined,
     );
@@ -199,6 +205,8 @@ export function createHandlers({
       return {
         short: entry.short,
         ...(entry.glossLang !== undefined && { glossLang: entry.glossLang }),
+        ...(text !== undefined && { definition: text }),
+        ...(notes[i] && { usageNote: true as const }),
       };
     });
   }

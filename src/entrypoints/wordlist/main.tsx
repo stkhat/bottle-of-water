@@ -2,6 +2,7 @@ import "@fontsource-variable/inter";
 import { render } from "preact";
 import { startPageErrorLog } from "../../check/start";
 import { speak } from "../../content/lookup/speak";
+import { createBuiltInTranslator } from "../../content/translate/translator";
 import { send } from "../../messaging/client";
 import { watchPackState, watchSettings } from "../../messaging/storage";
 import { download } from "../../ui/backup/download";
@@ -17,6 +18,7 @@ const deps: WordListDeps = {
   download,
   watchPackState,
   speak,
+  createTranslator: createBuiltInTranslator,
 };
 
 followTheme({ send, watchSettings });

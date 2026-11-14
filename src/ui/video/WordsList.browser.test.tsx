@@ -194,6 +194,34 @@ describe("WordsList", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  test("tells which rows come into view, as the list scrolls", async () => {
+    const rows: WordRow[] = Array.from({ length: 40 }, (_, i) => ({
+      id: `word\nw${i}`,
+      head: `w${i}`,
+      category: "new",
+      count: 1,
+      short: "A definition",
+      shortLang: "en",
+      selected: false,
+    }));
+    const shown: string[] = [];
+    const screen = await mountInShadowRoot(
+      <div style={{ height: "200px", display: "flex" }}>
+        <WordsList
+          {...base}
+          rows={rows}
+          onShown={(seen) => shown.push(...seen.map((row) => row.head))}
+        />
+      </div>,
+    );
+    await expect.poll(() => shown.length).toBeGreaterThan(0);
+    expect(shown).toContain("w0");
+    expect(shown).not.toContain("w39");
+    const scroller = rowNamed(screen, "w0").element().parentElement!;
+    scroller.scrollTop = scroller.scrollHeight;
+    await expect.poll(() => shown).toContain("w39");
+  });
+
   test("says so when there are no words", async () => {
     const screen = await mountInShadowRoot(<WordsList {...base} rows={[]} />);
     const empty = screen.getByText("No words here yet.");

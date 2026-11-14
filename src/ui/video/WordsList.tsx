@@ -3,6 +3,7 @@ import type { WordStatus } from "../../core/classify";
 import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
 import { keepOpen } from "../keep-open";
+import { useRowsInView } from "../rows-in-view";
 import { color, toggleChip } from "../styles";
 import { termStyle } from "./terms";
 
@@ -74,6 +75,8 @@ export interface WordsListProps<R extends WordRow> {
   rows: readonly R[];
   learningLang: string;
   onOpen: (row: R) => void;
+  /** Rows came into view (their meanings may need translating). */
+  onShown?: (rows: R[]) => void;
 }
 
 /** Every category highlighted: the list is about the words, not the page's highlights. */
@@ -109,8 +112,17 @@ const HOVER = `[data-word-row][aria-pressed="false"]:hover{background:${color.so
 
 /** The words of the video: head with its highlight, count and short meaning. */
 export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
+  const byId = new Map(props.rows.map((row) => [row.id, row]));
+  const scroller = useRowsInView<HTMLDivElement>(
+    props.onShown &&
+      ((ids) =>
+        props.onShown?.(
+          ids.map((id) => byId.get(id)).filter((row) => row !== undefined),
+        )),
+  );
   return (
     <div
+      ref={scroller}
       style={{
         flex: 1,
         minHeight: 0,
@@ -146,6 +158,7 @@ function Row<R extends WordRow>(props: WordsListProps<R> & { row: R }) {
     <button
       type="button"
       data-word-row
+      data-row-id={row.id}
       aria-pressed={row.selected}
       onPointerDown={keepOpen}
       onClick={onlyFromUser(() => props.onOpen(row))}

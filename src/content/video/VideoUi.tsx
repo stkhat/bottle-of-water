@@ -381,6 +381,7 @@ export function TranscriptUi(props: {
           : undefined;
         return {
           id: `${word.kind}\n${word.key}`,
+          key: word.key,
           head: word.head,
           category: word.category,
           count: word.count,
@@ -446,6 +447,9 @@ export function TranscriptUi(props: {
       wordsCounts={counts}
       onWordsFilter={app.setWordsFilter}
       onOpenWord={(row) => app.clickWord(row.first)}
+      onWordsShown={(shown) =>
+        app.wordsShown(shown.map(({ key, head }) => ({ key, head })))
+      }
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}

@@ -1981,6 +1981,72 @@ describe("translating English definitions", () => {
       });
   });
 
+  it("translates the Words tab's English meanings as their rows show, and keeps them", async () => {
+    const { state, app, bg } = await start(
+      { vid1: captionsOf(FIGURE) },
+      { translator: { translate: async (text) => `ja(${text})` } },
+    );
+    await ready(state);
+    await classified(state);
+    await expect
+      .poll(() => state().summaries["figure out"])
+      .toMatchObject({ short: "To come to understand", glossLang: "en" });
+    app.wordsShown([{ key: "figure out", head: "figure out" }]);
+    await expect
+      .poll(() => state().summaries["figure out"])
+      .toEqual({
+        short: "ja(To come to understand)",
+        machineTranslated: true,
+        status: "new",
+      });
+    await expect
+      .poll(() => bg.sent("cacheTranslations"))
+      .toEqual([
+        {
+          type: "cacheTranslations",
+          lang: "en",
+          items: [
+            {
+              text: "To come to understand",
+              translated: "ja(To come to understand)",
+            },
+          ],
+        },
+      ]);
+    // In the cache once it is written (before the test's database goes).
+    await expect
+      .poll(
+        async () =>
+          (await bg.send({ type: "lookup", lang: "en", key: "figure out" }))
+            .translations,
+      )
+      .toEqual({ "To come to understand": "ja(To come to understand)" });
+  });
+
+  it("shows the hover card's translation in the Words tab", async () => {
+    const { state, app, bg } = await start(
+      { vid1: captionsOf(FIGURE) },
+      { translator: { translate: async (text) => `ja(${text})` } },
+    );
+    await ready(state);
+    await classified(state);
+    await expect
+      .poll(() => state().summaries["figure out"]?.glossLang)
+      .toBe("en");
+    app.enterWord(refOf(state, 0, "figure out"), BOX);
+    await expect
+      .poll(() => state().summaries["figure out"]?.short)
+      .toBe("ja(To come to understand)");
+    // The hover card's translation in the cache (before the test's database goes).
+    await expect
+      .poll(
+        async () =>
+          (await bg.send({ type: "lookup", lang: "en", key: "figure out" }))
+            .translations,
+      )
+      .toEqual({ "To come to understand": "ja(To come to understand)" });
+  });
+
   it("does not hold the window back for a translator that does not answer", async () => {
     const { state, app } = await start(
       { vid1: captionsOf(FIGURE) },
