@@ -151,6 +151,17 @@ export async function startArticle(
   const shown = new Set<TextBlock>();
   /** Saved terms the analyses found on the page. */
   const savedKeys = new Set<string>();
+  /**
+   * Blocks the Words list had analyzed before they came near the view: their sentences
+   * and saved terms are recorded only once they do (the reader may never get there).
+   */
+  const unread = new WeakSet<TextBlock>();
+  /** Records analyzed blocks in scope for the history and the encounters, once read. */
+  function record(blocks: readonly TextBlock[], saved: ReadonlySet<string>) {
+    const read = blocks.filter((block) => !unread.has(block));
+    recorder.encounters(read, saved);
+    recorder.history(read);
+  }
   /** Blocks whose analysis waits for language data that is not on the device. */
   const waiting = new Set<TextBlock>();
   const lookup = createLookup(deps, {
@@ -288,8 +299,7 @@ export async function startArticle(
         entered.push(block);
       } else shown.delete(block);
     }
-    recorder.encounters(entered, savedKeys);
-    recorder.history(entered);
+    record(entered, savedKeys);
     wordsChanged();
     analyzeForWords();
   }
@@ -343,8 +353,7 @@ export async function startArticle(
     });
     for (const key of result.saved) savedKeys.add(key);
     const counted = fresh.filter(inScope);
-    recorder.encounters(counted, new Set(result.saved));
-    recorder.history(counted);
+    record(counted, new Set(result.saved));
     if (store.get().words) classifiedForWords(counted);
   }
 
@@ -377,9 +386,10 @@ export async function startArticle(
   /** While the Words list is open, every block in scope is analyzed, near the view or not. */
   function analyzeForWords() {
     if (!store.get().words) return;
-    visible.now(
+    const early = visible.now(
       pageText.blocks().filter((block) => inScope(block) && !spans.has(block)),
     );
+    for (const block of early) unread.add(block);
   }
 
   /** Analyzes blocks again (all analyzed ones by default), in batches. */
@@ -546,7 +556,16 @@ export async function startArticle(
 
   const unmountUi = await deps.mountUi(app);
 
-  const visible = watchVisibleBlocks(analyze);
+  const visible = watchVisibleBlocks(analyze, {
+    reached(blocks) {
+      for (const block of blocks) unread.delete(block);
+      // Not analyzed yet: `analyze` records them.
+      record(
+        blocks.filter((block) => shown.has(block)),
+        savedKeys,
+      );
+    },
+  });
   const end = watchEndOfArticle(() => {
     if (settings.unsavedAtEnd !== "known") return;
     // The end can show before the visible blocks are queued: the last paragraph is

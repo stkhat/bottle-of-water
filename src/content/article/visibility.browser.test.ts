@@ -65,22 +65,33 @@ describe("watchVisibleBlocks", () => {
   it("analyzes the blocks it is told to now, near the viewport or not, each once", async () => {
     const root = fixture(paragraphs(60, "height: 200px; margin: 0"));
     const blocks = collectBlocks(root);
-    const { batches, watcher } = watch();
+    const reached: TextBlock[] = [];
+    const { batches, watcher } = watch({
+      reached: (near) => reached.push(...near),
+    });
     watcher.add(blocks);
     await expect.poll(() => batches.length).toBeGreaterThan(0);
     await watcher.idle();
+    const first = batches.flat();
 
-    watcher.now(blocks);
+    // Only the blocks not analyzed yet are taken early.
+    const early = watcher.now(blocks);
+    expect(early).toEqual(blocks.filter((block) => !first.includes(block)));
     await watcher.idle();
+    expect(reached).toEqual([]);
     const all = batches.flat();
     expect(new Set(all)).toEqual(new Set(blocks));
     expect(all).toHaveLength(blocks.length);
     // Batches stay within the limits.
     for (const batch of batches) expect(batch.length).toBeLessThanOrEqual(20);
-    // Scrolled into view later: nothing again.
+    // Scrolled into view later: not analyzed again, but reported as reached.
     window.scrollTo(0, document.documentElement.scrollHeight);
+    await expect.poll(() => reached.includes(blocks.at(-1)!)).toBe(true);
     await frames(3);
     expect(batches.flat()).toHaveLength(blocks.length);
+    expect(reached.every((block) => early.includes(block))).toBe(true);
+    expect(reached.includes(blocks[10]!)).toBe(false);
+    expect(new Set(reached).size).toBe(reached.length);
   });
 
   it("sends at most 20 blocks per batch, in document order", async () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
+import type { Request } from "../../messaging/protocol";
 import {
   cleanUp,
   clickOn,
@@ -204,6 +205,55 @@ describe("Words on this page", () => {
     await expect
       .element(panel().getByRole("button", { name: "Go to knead, 4 of 4" }))
       .toBeVisible();
+  });
+
+  it("records the parts it analyzes early only once the reader gets there", async () => {
+    const requests: Request[] = [];
+    const { session } = await setup(ARTICLE, {
+      settings: { highlight: SHOW_ALL },
+      beforeRequest: async (request) => {
+        requests.push(request);
+      },
+      before: async (bg) => {
+        await bg.send({
+          type: "saveTerm",
+          lang: "en",
+          key: "tangy",
+          display: "tangy",
+          kind: "word",
+          status: "learning",
+          source: {
+            platform: "web",
+            url: "https://example.com/",
+            title: "",
+            lang: "en",
+          },
+          sentence: "It tastes tangy.",
+          pos: { textQuote: "It tastes tangy." },
+        });
+      },
+    });
+    const FAR = "Knead the dough again until tangy.";
+    const history = () =>
+      requests.flatMap((r) =>
+        r.type === "recordHistory" ? r.sentences.map((s) => s.text) : [],
+      );
+    const encounters = () =>
+      requests.flatMap((r) =>
+        r.type === "recordEncounters" ? r.items.map((i) => i.sentence) : [],
+      );
+    await expect.poll(history).toContain("Then knead it slowly.");
+
+    await session.handlePageRequest({ type: "pageShowWords" });
+    await expect.poll(heads).toContain("tangy");
+    // Analyzed for the list, but not read yet: nothing recorded.
+    expect(history()).not.toContain(FAR);
+    expect(encounters()).not.toContain(FAR);
+
+    document.getElementById("far")!.scrollIntoView({ block: "center" });
+    await expect.poll(history).toContain(FAR);
+    await expect.poll(encounters).toContain(FAR);
+    expect(history().filter((text) => text === FAR)).toHaveLength(1);
   });
 
   it("closes with ×", async () => {
