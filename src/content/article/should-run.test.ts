@@ -41,6 +41,12 @@ describe("articlesAllowedOn", () => {
     ).toBe(false);
   });
 
+  it("stays off everywhere while Lingo is switched off", () => {
+    const s = settings({ enabled: false });
+    expect(articlesAllowedOn("example.com", s)).toBe(false);
+    expect(articlesAllowedOn("example.org", s)).toBe(false);
+  });
+
   it.each(["neverRunOn", "disabledSites"])(
     "stays off on hosts in %s, including their subdomains",
     (list) => {

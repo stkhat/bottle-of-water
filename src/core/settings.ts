@@ -4,6 +4,8 @@ import { onHost } from "./url";
 export const SETTINGS_KEY = "settings";
 
 export interface Settings {
+  /** Lingo runs at all: the popup header's switch turns it off everywhere for a while. */
+  enabled: boolean;
   learningLang: string;
   nativeLang: string;
   uiLocale: string;
@@ -80,6 +82,7 @@ export const SUBTITLE_OPACITY_MAX = 100;
 export const SUBTITLE_OPACITY_STEP = 5;
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
+  enabled: true,
   learningLang: "en",
   nativeLang: "ja",
   uiLocale: "en",
@@ -184,6 +187,7 @@ export function mergeSettings(
 ): Settings {
   const v = isDict(input) ? input : {};
   return {
+    enabled: bool(v.enabled, base.enabled),
     learningLang: nonEmptyString(v.learningLang, base.learningLang),
     nativeLang: nonEmptyString(v.nativeLang, base.nativeLang),
     uiLocale: nonEmptyString(v.uiLocale, base.uiLocale),
@@ -218,8 +222,12 @@ export function mergeSettings(
   };
 }
 
-/** The host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too). */
+/**
+ * Lingo must not run on the host: it is switched off everywhere (`enabled`), or the
+ * host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too).
+ */
 export function hostBlocked(hostname: string, settings: Settings): boolean {
+  if (!settings.enabled) return true;
   return [...settings.neverRunOn, ...settings.disabledSites].some((entry) =>
     onHost(hostname, entry),
   );

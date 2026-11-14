@@ -103,6 +103,7 @@ function SyncLine(props: {
 
 /** The header's icon buttons (word list, settings). */
 const headerButton = {
+  flex: "none",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -117,8 +118,9 @@ const headerButton = {
 } as const;
 
 /**
- * The toolbar popup (mock Toolbar): the language data while it is missing (mock
- * LanguageData), this site, highlights, counts, this page, sync.
+ * The toolbar popup (mock Toolbar): the header's switch for Lingo as a whole, the
+ * language data while it is missing (mock LanguageData), this site, highlights,
+ * counts, this page, sync. While Lingo is switched off, only the header and sync.
  */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
@@ -170,6 +172,16 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     deps.send({ type: "setSettings", patch: change }).then(setSettings, warn);
   }
 
+  /** Lingo runs at all (the header's switch); while off only the header and sync show. */
+  const lingoOn = settings?.enabled !== false;
+
+  function toggleLingo() {
+    if (!settings) return;
+    const enabled = !settings.enabled;
+    setSettings({ ...settings, enabled });
+    patch({ enabled });
+  }
+
   const siteOn =
     settings && summary
       ? !settings.disabledSites.some((e) => onHost(summary.hostname, e))
@@ -216,6 +228,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       >
         <BrandHeader
           size="popup"
+          stacked
           title={t("app.name")}
           pair={
             settings
@@ -242,6 +255,16 @@ export function Popup({ deps }: { deps: PopupDeps }) {
         >
           <GearIcon size={20} />
         </button>
+        {settings && (
+          <span style={{ display: "flex", padding: "0 8px 0 4px" }}>
+            <Switch
+              size="large"
+              checked={lingoOn}
+              label={t("popup.lingoSwitch")}
+              onToggle={toggleLingo}
+            />
+          </span>
+        )}
       </div>
 
       <div
@@ -252,7 +275,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           gap: "16px",
         }}
       >
-        {data && settings && (
+        {lingoOn && data && settings && (
           <LanguageDataNote
             note={data}
             language={languageName(settings.learningLang)}
@@ -262,7 +285,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           />
         )}
 
-        {summary && (
+        {lingoOn && summary && (
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div
               style={{
@@ -297,7 +320,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           </div>
         )}
 
-        {settings && (
+        {lingoOn && settings && (
           <HighlightChips
             look="popup"
             highlight={settings.highlight}
@@ -312,7 +335,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           />
         )}
 
-        {counts && (
+        {lingoOn && counts && (
           <div
             style={{
               display: "grid",
@@ -330,7 +353,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           </div>
         )}
 
-        {summary?.supported && siteOn && (
+        {lingoOn && summary?.supported && siteOn && (
           <SaveAll
             scope={summary.scope}
             unsavedCount={summary.unsaved}

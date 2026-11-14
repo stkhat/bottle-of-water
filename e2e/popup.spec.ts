@@ -114,3 +114,38 @@ test("Show words on this page opens the article's Words panel and closes the pop
   ).toBeVisible();
   await expect(panel.locator("[data-word-row]").first()).toBeVisible();
 });
+
+test("the header's switch turns Lingo off on the page, leaving only the header and sync, and back on", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  await expect
+    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .toBeGreaterThan(0);
+  const newWords = (await highlighted(page, "lingo-new")).length;
+  const popup = await openPopupFor(context, extensionId, page);
+  const lingo = popup.getByRole("switch", {
+    name: en["popup.lingoSwitch"],
+    exact: true,
+  });
+  const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
+  await expect(site).toBeVisible();
+
+  await lingo.click();
+  await expect(lingo).not.toBeChecked();
+  await expect(page.locator("lingo-article")).toHaveCount(0);
+  expect(await highlighted(page, "lingo-new")).toEqual([]);
+  await expect(site).toHaveCount(0);
+  await expect(
+    popup.getByText(en["saveAll.scope.page"], { exact: true }),
+  ).toHaveCount(0);
+
+  await lingo.click();
+  await expect(lingo).toBeChecked();
+  await expect
+    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .toBe(newWords);
+  await expect(site).toBeVisible();
+});

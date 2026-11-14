@@ -16,10 +16,12 @@ import { watchBuild } from "../background/self-reload";
 import { isCheckLogMessage, startWorkerErrorLog } from "../check/start";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import { createTermStore } from "../background/term-store";
+import { followToolbarIcon } from "../background/toolbar-icon";
 import { createTranslationCache } from "../background/translation-cache";
 import { createPackLoader } from "../core/packs/load";
 import { readLock } from "../core/packs/lock";
 import { PACK_STATE_KEY } from "../core/packs/state";
+import { watchSettings } from "../messaging/storage";
 
 /**
  * Runs each time the service worker starts. Everything is created again on a restart:
@@ -81,6 +83,14 @@ export default defineBackground(() => {
 
   // Registered synchronously too, so a change that wakes the worker is heard.
   forgetNeverRunOnHosts(history);
+
+  // Gray while Lingo is switched off (the popup header's switch).
+  followToolbarIcon({
+    setIcon: (path) => browser.action.setIcon({ path }),
+    getSettings,
+    watchSettings,
+    onStartup: browser.runtime.onStartup,
+  });
 
   sync.start().catch((error: unknown) => console.error(error));
 

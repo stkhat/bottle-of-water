@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, hostBlocked, mergeSettings } from "./settings";
 describe("DEFAULT_SETTINGS", () => {
   it("match the spec and the mock", () => {
     expect(DEFAULT_SETTINGS).toEqual({
+      enabled: true,
       learningLang: "en",
       nativeLang: "ja",
       uiLocale: "en",
@@ -185,5 +186,12 @@ describe("hostBlocked", () => {
     expect(hostBlocked("www.example.org", settings)).toBe(true);
     expect(hostBlocked("notexample.com", settings)).toBe(false);
     expect(hostBlocked("example.net", settings)).toBe(false);
+  });
+
+  it("blocks every host while Lingo is switched off", () => {
+    const settings = mergeSettings({ enabled: false });
+    expect(hostBlocked("example.com", settings)).toBe(true);
+    expect(hostBlocked("www.youtube.com", settings)).toBe(true);
+    expect(mergeSettings({ enabled: "no" }).enabled).toBe(true);
   });
 });

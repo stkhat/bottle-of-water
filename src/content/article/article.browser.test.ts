@@ -475,31 +475,37 @@ describe("runArticle", () => {
     done: null,
   });
 
-  it("removes Lingo when the site is switched off and brings it back when switched on", async () => {
-    const on = settings({ highlight: { new: true } });
-    const fake = fakeDeps(on);
-    const runner = run(fake);
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
-    expect(fake.mounted()).toBe(1);
+  it.each([
+    ["the site is", { disabledSites: ["www.example.com"] }],
+    ["Lingo is", { enabled: false }],
+  ])(
+    "removes Lingo when %s switched off and brings it back when switched on",
+    async (_, offPatch) => {
+      const on = settings({ highlight: { new: true } });
+      const fake = fakeDeps(on);
+      const runner = run(fake);
+      await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+      expect(fake.mounted()).toBe(1);
 
-    fake.changeSettings({ ...on, disabledSites: ["www.example.com"] });
-    await expect.poll(() => fake.mounted()).toBe(0);
-    expect(CSS.highlights.has("lingo-new")).toBe(false);
-    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
-      off(),
-    );
+      fake.changeSettings({ ...on, ...offPatch });
+      await expect.poll(() => fake.mounted()).toBe(0);
+      expect(CSS.highlights.has("lingo-new")).toBe(false);
+      expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
+        off(),
+      );
 
-    fake.changeSettings(on);
-    await expect.poll(() => fake.mounted()).toBe(1);
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
-    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual({
-      supported: true,
-      hostname: "www.example.com",
-      scope: "page",
-      unsaved: 2,
-      done: null,
-    });
-  });
+      fake.changeSettings(on);
+      await expect.poll(() => fake.mounted()).toBe(1);
+      await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+      expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual({
+        supported: true,
+        hostname: "www.example.com",
+        scope: "page",
+        unsaved: 2,
+        done: null,
+      });
+    },
+  );
 
   it("starts once the site is switched on when the page loaded with it off", async () => {
     const fake = fakeDeps(settings({ disabledSites: ["example.com"] }));
