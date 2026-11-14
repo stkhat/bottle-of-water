@@ -53,6 +53,10 @@ Setup: the Claude desktop app's built-in browser (Chromium, not automated, `navi
    - Google Play: new personal developer accounts need a closed test with 12 testers for 14 days before production.
    - Fees: Apple Developer Program $99/year (required for TestFlight and the App Store; lapsing removes the app), Google Play $25 once.
 8. **Maintenance.** When undocumented YouTube internals change, a fix waits for store review (slower than an extension update).
+9. **On-device LLM (phase 3 "Ask AI" explanations).** No Chrome Prompt API (`LanguageModel`) in WKWebView, GeckoView or Android WebView, so `builtInAi` is false there. Like translation, call the platform model through the native bridge: Apple's Foundation Models framework (iOS 26+) and the ML Kit GenAI Prompt API (Gemini Nano through AICore; alpha/beta as of 2026-11). The AI part then has three providers: Chrome Prompt API, native bridge, the user's own API key.
+   - Our app is in the foreground while it runs. Foundation Models' strict rate limit was reported for app extensions running in the background (a Safari extension calling through native messaging), and ML Kit allows inference only from the top foreground app, so neither is expected to bite. Unverified.
+   - Device coverage is narrow: Apple Intelligence devices with it turned on (about iPhone 15 Pro and later); on Android a set of recent high-end phones, with different Nano versions per device. The API-key fallback stays required.
+   - Three different models (Nano in Chrome, Apple's, Nano on Android). The measurements in the design ("Phases") were made on Chrome only; JSON output and Japanese explanations must be checked per model.
 
 ## Tooling needed for the prototype
 - **iOS: full Xcode** (Xcode.app; Command Line Tools have no iOS SDK or Simulator). Builds and Simulator can be driven from the command line (`xcodebuild`, `simctl`); the IDE itself need not be used. Roughly 10+ GB plus about 8 GB for the iOS Simulator runtime (`xcodebuild -downloadPlatform iOS`). After install: `sudo xcode-select -s /Applications/Xcode.app` and `sudo xcodebuild -license accept`.
