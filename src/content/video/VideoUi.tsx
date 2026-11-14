@@ -1,8 +1,8 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useLayoutEffect, useMemo, useReducer } from "preact/hooks";
-import { fromUser } from "../../ui/from-user";
+import { useEffect, useMemo, useReducer } from "preact/hooks";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { keptOpen } from "../../ui/keep-open";
+import { usePressAway } from "../../ui/press-away";
 import type { SelectedOffsets } from "../../ui/selection-in-root";
 import {
   pressedOnText,
@@ -25,10 +25,10 @@ import {
   verticalDictionaryFrame,
 } from "./placement";
 import type { VideoApp, VideoState, WordPlace } from "./state";
-import { filterCounts, filterRows, sortRows, wordId } from "../words/words";
-import { videoWords } from "./words";
-import { Floating, TOP_LAYER } from "../lookup/Floating";
-import { useStore, type Store } from "../store";
+import { filterCounts, toWordRows } from "../words/words";
+import { videoWords, type VideoWord } from "./words";
+import { Floating, keepSelection, TOP_LAYER } from "../lookup/Floating";
+import { shallowEqual, useStore, useStoreSelect, type Store } from "../store";
 
 /** Where the parts of the page are, read when needed. */
 export interface VideoGeometry {
@@ -73,6 +73,9 @@ const VERTICAL_SUBTITLE_BOTTOM = 132;
 const VERTICAL_SUBTITLE_INSET = "12px";
 /** The gap kept between the in-video subtitle and the site's control bar (px). */
 export const CONTROL_BAR_GAP = 12;
+
+/** The Words tab's words while it does not show. */
+const NO_WORDS: readonly VideoWord[] = [];
 
 /** The transcript is never shorter than this (px). */
 const MIN_TRANSCRIPT_HEIGHT = 320;
@@ -200,8 +203,8 @@ export function VideoThemed(props: {
   app: VideoApp;
   children: ComponentChildren;
 }) {
-  const { settings } = useStore(props.app.store);
-  return <ThemeScope theme={settings.theme}>{props.children}</ThemeScope>;
+  const theme = useStoreSelect(props.app.store, (s) => s.settings.theme);
+  return <ThemeScope theme={theme}>{props.children}</ThemeScope>;
 }
 
 /**
@@ -369,30 +372,29 @@ export function TranscriptUi(props: {
   const state = useStore(app.store);
   const { frameHeight, sidebar } = useStore(props.layout);
   const { cues, lines, spans, summaries, settings } = state;
+  const shown =
+    showing(state) &&
+    settings.transcriptShown &&
+    !(state.fullscreen && !sidebar);
+  // Only the Words tab shows the words.
+  const listed = shown && state.panelTab === "words";
   const words = useMemo(
-    () => videoWords(cues, lines, spans, summaries),
-    [cues, lines, spans, summaries],
+    () => (listed ? videoWords(cues, lines, spans, summaries) : NO_WORDS),
+    [listed, cues, lines, spans, summaries],
   );
   const jump = state.wordsJump;
   const rows = useMemo(
     () =>
-      sortRows(
-        filterRows(words, state.wordsFilter),
-        state.wordsSort,
-        settings.learningLang,
-      ).map((word) => {
-        const id = wordId(word);
-        const brief = Object.hasOwn(summaries, word.key)
-          ? summaries[word.key]
-          : undefined;
-        return {
-          id,
-          key: word.key,
-          head: word.head,
-          category: word.category,
-          count: word.count,
-          short: brief?.short,
-          shortLang: brief?.glossLang ?? settings.nativeLang,
+      toWordRows(
+        words,
+        {
+          filter: state.wordsFilter,
+          sort: state.wordsSort,
+          summaries,
+          learningLang: settings.learningLang,
+          nativeLang: settings.nativeLang,
+        },
+        (word, id) => ({
           places: word.places.map((place) => formatTime(place.startMs)),
           pressed:
             jump?.id === id
@@ -402,8 +404,8 @@ export function TranscriptUi(props: {
                 )
               : -1,
           at: word.places,
-        };
-      }),
+        }),
+      ),
     [
       words,
       state.wordsFilter,
@@ -415,12 +417,7 @@ export function TranscriptUi(props: {
     ],
   );
   const counts = useMemo(() => filterCounts(words), [words]);
-  if (
-    !showing(state) ||
-    !settings.transcriptShown ||
-    (state.fullscreen && !sidebar)
-  )
-    return null;
+  if (!shown) return null;
   const fromTranscript = state.hover?.from === "transcript";
   const selectedInTranscript = state.phrase?.from === "transcript";
   return (
@@ -478,7 +475,11 @@ export function TranscriptUi(props: {
 
 /** In the player bar: the L and ^ buttons, while the video has subtitles to show. */
 export function PlayerBarUi({ app }: { app: VideoApp }) {
-  const state = useStore(app.store);
+  const state = useStoreSelect(
+    app.store,
+    ({ status, enabled, menuOpen }) => ({ status, enabled, menuOpen }),
+    shallowEqual,
+  );
   if (state.status !== "ready" && state.status !== "loading") return null;
   return (
     <PlayerButtons
@@ -496,62 +497,21 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
  * are marked by them (`keepOpen`): a word's click opens it in the same window. Escape
  * closes it wherever the focus is: after a click on a word it stays in the subtitle or
  * the transcript, whose shadow host keeps keys from the page (read here, capturing).
- * Listening from the render that opens it, not after a paint: an Escape or a press
- * right after it opens still closes it.
  */
-function useClosedByPressAway(app: VideoApp, open: boolean) {
-  useLayoutEffect(() => {
-    if (!open) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const onPress = (event: PointerEvent) => {
-      if (!fromUser(event)) return;
-      // Decided once the press has reached every part, which mark theirs.
-      timer = setTimeout(() => {
-        if (!keptOpen(event)) app.closePanel();
-      });
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (fromUser(event) && event.key === "Escape") app.closePanel();
-    };
-    addEventListener("pointerdown", onPress, true);
-    addEventListener("keydown", onKeyDown, true);
-    return () => {
-      removeEventListener("pointerdown", onPress, true);
-      removeEventListener("keydown", onKeyDown, true);
-      clearTimeout(timer);
-    };
-  }, [open]);
-}
+const useClosedByPressAway = (app: VideoApp, open: boolean) =>
+  usePressAway(open, () => app.closePanel(), keptOpen);
 
 /**
  * While words are selected, Escape or a press anywhere else drops the selection and its
  * card. Presses on Lingo's cards and windows (`keepOpen`) keep it, and a press on a
- * text words are selected in makes a new selection. Listening from the render that
- * shows the selection, as for the dictionary window.
+ * text words are selected in makes a new selection.
  */
-function useSelectionDroppedByPressAway(app: VideoApp, selecting: boolean) {
-  useLayoutEffect(() => {
-    if (!selecting) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const onPress = (event: PointerEvent) => {
-      if (!fromUser(event)) return;
-      // Decided once the press has reached every part, which mark theirs.
-      timer = setTimeout(() => {
-        if (!keptOpen(event) && !pressedOnText(event)) app.clearSelection();
-      });
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (fromUser(event) && event.key === "Escape") app.clearSelection();
-    };
-    addEventListener("pointerdown", onPress, true);
-    addEventListener("keydown", onKeyDown, true);
-    return () => {
-      removeEventListener("pointerdown", onPress, true);
-      removeEventListener("keydown", onKeyDown, true);
-      clearTimeout(timer);
-    };
-  }, [selecting]);
-}
+const useSelectionDroppedByPressAway = (app: VideoApp, selecting: boolean) =>
+  usePressAway(
+    selecting,
+    () => app.clearSelection(),
+    (event) => keptOpen(event) || pressedOnText(event),
+  );
 
 /**
  * Over the page: the hover card, the selection's card and the dictionary window (in
@@ -647,5 +607,3 @@ export function PageUi(props: {
     </>
   );
 }
-
-const keepSelection = (event: MouseEvent) => event.preventDefault();

@@ -4,20 +4,11 @@ import type { send } from "../../messaging/client";
 import type { SaveTermInput } from "../../messaging/protocol";
 import type { Box } from "../lookup/geometry";
 import type { Lookup } from "../lookup/lookup";
+import { matchPattern, type PatternMatch } from "../lookup/pattern";
 import { warn } from "../lookup/warn";
 import type { Store } from "../store";
+import { lineBreaksAsSpaces } from "../../ui/video/terms";
 import type { SelectedWords, VideoState, WordPlace, WordRef } from "./state";
-
-/**
- * The pattern selected words stand for, and where its words are in the cue: from its
- * first word to its last, gap included. The cue may complete the selection ("made up"
- * → "made up her mind").
- */
-interface PatternMatch {
-  key: string;
-  start: number;
-  end: number;
-}
 
 /** The selected words, and the phrase they stand for. */
 interface Selected {
@@ -38,8 +29,8 @@ interface Selected {
   ref?: WordRef;
 }
 
-/** A cue's text as the subtitle and the transcript show it: line breaks are spaces. */
-const shown = (text: string) => text.replaceAll("\n", " ");
+/** A cue's text as the subtitle and the transcript show it. */
+const shown = lineBreaksAsSpaces;
 
 /**
  * The card over words selected in the subtitle or the transcript, which saves them as a
@@ -69,20 +60,7 @@ export function createSelection(o: {
 
   function patternOf(cue: number, start: number, end: number) {
     const text = shown(store.get().cues[cue]?.text ?? "");
-    return o
-      .send({ type: "matchSelection", lang: o.lang(), text, start, end })
-      .then(
-        (match): PatternMatch | undefined =>
-          match.key !== undefined &&
-          match.start !== undefined &&
-          match.end !== undefined
-            ? { key: match.key, start: match.start, end: match.end }
-            : undefined,
-        (error: unknown) => {
-          warn(error);
-          return undefined;
-        },
-      );
+    return matchPattern(o.send, o.lang(), text, start, end);
   }
 
   /**

@@ -7,6 +7,9 @@ type Style = CSSProperties;
 /** The theme's colors as variables (`./theme`). `white` stays white: text on green, the switch knob. */
 export const color = { ...tokens, white: "#FFFFFF" } as const;
 
+/** The extension pages' plain button (`class="btn"`), for their style sheets. */
+export const PAGE_BUTTON_CSS = `.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:${color.card};color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}`;
+
 export const FONT =
   "'Inter Variable', 'Inter', 'Noto Sans JP', system-ui, sans-serif";
 /**

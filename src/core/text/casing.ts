@@ -5,8 +5,8 @@
  * language pack says whether its language reads names from case at all.
  */
 import { own } from "../util";
-import { sentenceSegments } from "./sentences";
-import { normalizeWord, type Token } from "./tokenize";
+import { blockText, type BlockText } from "./sentences";
+import { normalizeWord, tokenize, type Token } from "./tokenize";
 
 /**
  * "upper": most words are ALL CAPS (some captions); "lower": almost no word inside a
@@ -153,32 +153,50 @@ function titleLike(text: string, words: readonly Token[]) {
   );
 }
 
-/** Each word token of a block (in order) as the casing rules see it. */
-export function wordCases(tokens: readonly Token[], lang: string): WordCase[] {
-  const text = tokens.map((token) => token.text).join("");
+/**
+ * Each word token of a block (in order) as the casing rules see it. `block`: the tokens'
+ * text and sentences; `forms`: each word normalized (`normalizeWord`), when the caller
+ * has them already.
+ */
+export function wordCases(
+  tokens: readonly Token[],
+  lang: string,
+  block: BlockText = blockText(tokens, lang),
+  forms?: readonly string[],
+): WordCase[] {
   const words = tokens.filter((token) => token.isWord);
+  return casesOf(words, block, titleLike(block.text, words), forms);
+}
+
+/** `wordCases` of a block's word tokens, `title` when the block reads like a title. */
+function casesOf(
+  words: readonly Token[],
+  { text, sentences }: BlockText,
+  title: boolean,
+  forms?: readonly string[],
+): WordCase[] {
   // The first word of each sentence the segmenter finds.
   const firsts = new Set<number>();
   let next = 0;
-  for (const { start } of sentenceSegments(text, lang)) {
+  for (const { start } of sentences) {
     while (next < words.length && words[next]!.start < start) next++;
     firsts.add(next);
   }
-  const title = titleLike(text, words);
-  const upper = words.map((token) => writtenOf(token.text) === "upper");
+  const written = words.map((token) => writtenOf(token.text));
+  const upper = (i: number) => written[i] === "upper";
   let depth = 0;
   return words.map((token, i) => {
     const between = text.slice(i === 0 ? 0 : words[i - 1]!.end, token.start);
     for (const ch of between)
       if (ch === "(" || ch === "[") depth++;
       else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
-    const written = writtenOf(token.text);
+    const how = written[i];
     return {
-      key: normalizeWord(token.text).replace(/'s$/, ""),
-      ...(written !== undefined && { written }),
+      key: (forms?.[i] ?? normalizeWord(token.text)).replace(/'s$/, ""),
+      ...(how !== undefined && { written: how }),
       atStart: title || firsts.has(i) || START_BREAK.test(between),
       label: depth > 0,
-      capsRun: upper[i]! && (upper[i - 1] === true || upper[i + 1] === true),
+      capsRun: upper(i) && (upper(i - 1) || upper(i + 1)),
     };
   });
 }
@@ -230,8 +248,9 @@ export function blockCasing(
   lang: string,
 ): BlockCasing {
   const words = tokens.filter((token) => token.isWord);
-  const cases = wordCases(tokens, lang);
-  const text = tokens.map((token) => token.text).join("");
+  const block = blockText(tokens, lang);
+  const title = titleLike(block.text, words);
+  const cases = casesOf(words, block, title);
   const counts = {
     letters: 0,
     upper: 0,
@@ -246,9 +265,7 @@ export function blockCasing(
         token.isWord ? n : n + (token.text.match(/[,，、]/g)?.length ?? 0),
       0,
     ),
-    runs: titleLike(text, words)
-      ? new Map<string, Set<string>>()
-      : capitalRuns(tokens, cases),
+    runs: title ? new Map<string, Set<string>>() : capitalRuns(tokens, cases),
   };
   cases.forEach((word, i) => {
     if (word.written === undefined) return;
@@ -269,6 +286,10 @@ export function blockCasing(
   });
   return counts;
 }
+
+/** What a text's words say about the document's casing (`blockCasing` of its tokens). */
+export const textCasing = (text: string, lang: string): BlockCasing =>
+  blockCasing(tokenize(text, lang), lang);
 
 /** The casing of a document made of `blocks`. */
 export function documentCasing(blocks: Iterable<BlockCasing>): DocumentCasing {

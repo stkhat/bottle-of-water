@@ -84,6 +84,27 @@ export function latest() {
 
 export type Lookup = ReturnType<typeof createLookup>;
 
+/** The card of `span`'s term, written as `surface` where it shows. */
+export function describeSpan(
+  lookup: Lookup,
+  span: Span,
+  surface: string,
+  shownIn: "hover" | "window" = "hover",
+): Promise<TermCard> {
+  const written = lookup.written(span, surface);
+  return lookup.describe(
+    {
+      key: span.key,
+      kind: span.kind,
+      surface,
+      category: span.category,
+      ...(written !== undefined && { written }),
+      ...(span.pos !== undefined && { pos: span.pos }),
+    },
+    shownIn,
+  );
+}
+
 /**
  * What the article and video sessions share: one translator queue (subtitles, hover
  * cards and windows in that order), the term lookups, the dictionary panel, the

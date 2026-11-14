@@ -3,7 +3,13 @@ import { warn } from "../lookup/warn";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import { createHoverIntent } from "../lookup/hover-intent";
-import { latest, sameTerm, type Lookup, type Term } from "../lookup/lookup";
+import {
+  describeSpan,
+  latest,
+  sameTerm,
+  type Lookup,
+  type Term,
+} from "../lookup/lookup";
 import type { Store } from "../store";
 import type { VideoLine, VideoState, WordPlace, WordRef } from "./state";
 import { placeOf } from "./words";
@@ -41,19 +47,7 @@ export function createCards(o: {
   ): Promise<TermCard | undefined> {
     const found = spanOf(ref);
     if (!found) return undefined;
-    const { span, surface } = found;
-    const written = lookup.written(span, surface);
-    return lookup.describe(
-      {
-        key: span.key,
-        kind: span.kind,
-        surface,
-        category: span.category,
-        ...(written !== undefined && { written }),
-        ...(span.pos !== undefined && { pos: span.pos }),
-      },
-      shownIn,
-    );
+    return describeSpan(lookup, found.span, found.surface, shownIn);
   }
 
   /**

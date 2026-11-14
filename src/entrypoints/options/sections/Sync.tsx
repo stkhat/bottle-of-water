@@ -8,7 +8,8 @@ import {
   type BackupDeps,
   type BackupNote,
 } from "../../../ui/backup/BackupButtons";
-import { kilobytes, relativeTime } from "../../../ui/format/format";
+import { relativeTime } from "../../../ui/format/format";
+import { syncSavedLine, syncSpace } from "../../../ui/format/sync";
 import { Meter } from "../../../ui/Meter";
 import { RowLabel } from "../../../ui/RowLabel";
 import { color } from "../../../ui/styles";
@@ -16,12 +17,9 @@ import { LaterRow, Section, SwitchRow, type SectionProps } from "../rows";
 
 function syncLine(sync: SyncStatus | undefined, now: number): string {
   if (!sync) return "";
-  if (!sync.enabled) return t("sync.off");
-  return sync.lastSavedAt !== undefined
-    ? t("settings.sync.lastSaved", {
-        when: relativeTime(sync.lastSavedAt, now),
-      })
-    : t("sync.notSaved");
+  return syncSavedLine(sync, (lastSavedAt) =>
+    t("settings.sync.lastSaved", { when: relativeTime(lastSavedAt, now) }),
+  );
 }
 
 export function SyncSection(
@@ -43,8 +41,7 @@ export function SyncSection(
       .then(setLastExport, (error: unknown) => console.warn("Lingo:", error));
   useEffect(() => void refreshLastExport(), []);
 
-  const used = sync ? kilobytes(sync.bytesUsed) : 0;
-  const quota = sync ? kilobytes(sync.quotaBytes) : 0;
+  const { used, quota, share } = syncSpace(sync);
   return (
     <Section
       id="sync"
@@ -78,10 +75,7 @@ export function SyncSection(
           <span style={{ fontWeight: 600 }}>{t("settings.sync.space")}</span>
           <span>{t("settings.sync.spaceUsed", { used, quota })}</span>
         </div>
-        <Meter
-          share={quota > 0 ? Math.min(100, (used / quota) * 100) : 0}
-          height={8}
-        />
+        <Meter share={share} height={8} />
         <span style={{ fontSize: "12px", color: color.muted }}>
           {syncLine(sync, props.now)}
         </span>

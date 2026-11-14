@@ -12,7 +12,8 @@ import {
 } from "../../messaging/pack-status";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import { BrandHeader } from "../../ui/BrandHeader";
-import { fmt, kilobytes, relativeTime } from "../../ui/format/format";
+import { fmt, relativeTime } from "../../ui/format/format";
+import { syncSavedLine, syncSpace } from "../../ui/format/sync";
 import { CheckIcon, GearIcon, WordListIcon } from "../../ui/icons";
 import { HighlightChips } from "../../ui/lookup/HighlightChips";
 import { Meter } from "../../ui/Meter";
@@ -68,11 +69,14 @@ function SyncLine(props: {
   now: number;
 }) {
   const { status } = props;
-  if (!status.enabled)
-    return <span style={{ fontSize: "13px" }}>{t("sync.off")}</span>;
-  const used = kilobytes(status.bytesUsed);
-  const quota = kilobytes(status.quotaBytes);
-  const share = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+  const line = syncSavedLine(status, (lastSavedAt) =>
+    t("popup.sync.saved", {
+      syncName: props.syncName,
+      when: relativeTime(lastSavedAt, props.now),
+    }),
+  );
+  if (!status.enabled) return <span style={{ fontSize: "13px" }}>{line}</span>;
+  const { used, quota, share } = syncSpace(status);
   return (
     <>
       <div
@@ -84,14 +88,7 @@ function SyncLine(props: {
         }}
       >
         {status.lastSavedAt !== undefined && <CheckIcon />}
-        <span>
-          {status.lastSavedAt !== undefined
-            ? t("popup.sync.saved", {
-                syncName: props.syncName,
-                when: relativeTime(status.lastSavedAt, props.now),
-              })
-            : t("sync.notSaved")}
-        </span>
+        <span>{line}</span>
       </div>
       <Meter share={share} />
       <span style={{ fontSize: "12px", color: color.muted }}>
@@ -172,14 +169,20 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     deps.send({ type: "setSettings", patch: change }).then(setSettings, warn);
   }
 
+  /** Shows `local` at once and stores `change` (the same change, as a patch). */
+  function update(local: Partial<Settings>, change: SettingsPatch) {
+    if (!settings) return;
+    setSettings({ ...settings, ...local });
+    patch(change);
+  }
+
   /** Lingo runs at all (the header's switch); while off only the header and sync show. */
   const lingoOn = settings?.enabled !== false;
 
   function toggleLingo() {
     if (!settings) return;
     const enabled = !settings.enabled;
-    setSettings({ ...settings, enabled });
-    patch({ enabled });
+    update({ enabled }, { enabled });
   }
 
   const siteOn =
@@ -193,8 +196,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     const disabledSites = siteOn
       ? [...settings.disabledSites, hostname]
       : settings.disabledSites.filter((e) => !onHost(hostname, e));
-    setSettings({ ...settings, disabledSites });
-    patch({ disabledSites });
+    update({ disabledSites }, { disabledSites });
   }
 
   function pageAction(request: PageRequest) {
@@ -349,11 +351,10 @@ export function Popup({ deps }: { deps: PopupDeps }) {
             highlight={settings.highlight}
             onToggle={(category) => {
               const on = !settings.highlight[category];
-              setSettings({
-                ...settings,
-                highlight: { ...settings.highlight, [category]: on },
-              });
-              patch({ highlight: { [category]: on } });
+              update(
+                { highlight: { ...settings.highlight, [category]: on } },
+                { highlight: { [category]: on } },
+              );
             }}
           />
         )}

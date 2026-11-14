@@ -1,5 +1,6 @@
 import type { Span } from "../../core/classify";
 import { PacksUnavailableError } from "../../core/packs/unavailable";
+import { own } from "../../core/util";
 import type { send } from "../../messaging/client";
 import type { TermBrief } from "../../messaging/protocol";
 import { warn } from "../lookup/warn";
@@ -39,10 +40,7 @@ export function createSummaries(o: {
 }) {
   const asked = new Set<string>();
   const statuses = new Map<string, TermBrief["status"]>();
-  const own = (key: string) => {
-    const current = o.store.get().summaries;
-    return Object.hasOwn(current, key) ? current[key] : undefined;
-  };
+  const briefOf = (key: string) => own(o.store.get().summaries, key);
 
   const meanings = createListMeanings({
     send: o.send,
@@ -50,7 +48,7 @@ export function createSummaries(o: {
     lang: o.lang,
     nativeLang: o.nativeLang,
     meanings: () => Object.entries(o.store.get().summaries),
-    meaning: own,
+    meaning: briefOf,
     translated(changes) {
       if (!o.active()) return;
       const summaries = { ...o.store.get().summaries };
@@ -68,7 +66,7 @@ export function createSummaries(o: {
     let summaries: Record<string, TermBrief> | undefined;
     for (const [key, status] of changes) {
       statuses.set(key, status);
-      const brief = own(key);
+      const brief = briefOf(key);
       if (!brief || brief.status === status) continue;
       summaries ??= { ...current };
       summaries[key] = { ...brief, status };

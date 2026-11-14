@@ -5,6 +5,7 @@ import {
   type YouTubeCaptionInfo,
   type YouTubeTrack,
 } from "../../../core/subtitles/youtube-json3";
+import { isAbortError } from "../../abort";
 import {
   firstTranslation,
   playerNarrower,
@@ -83,13 +84,7 @@ export function createYouTubeAdapter(
     "lingo-hide-site-captions",
     "#ytp-caption-window-container { display: none !important; }",
   );
-
-  const captures = createRecent<TimedtextMessage>(KEEP_CAPTURES);
-  const offTimedtext = bridge.onEvent((message) => {
-    // Ads make their own requests: they are kept under their own video id.
-    if (message.videoId && message.body.trim() !== "")
-      captures.set(message.videoId, message);
-  });
+  const cleanups: (() => void)[] = [];
 
   const onShorts = () => isShortsUrl(href());
 
@@ -126,6 +121,15 @@ export function createYouTubeAdapter(
     "margin-right",
     (width) => `${width}px`,
   );
+  cleanups.push(() => narrowPlayer(0));
+
+  const captures = createRecent<TimedtextMessage>(KEEP_CAPTURES);
+  const offTimedtext = bridge.onEvent((message) => {
+    // Ads make their own requests: they are kept under their own video id.
+    if (message.videoId && message.body.trim() !== "")
+      captures.set(message.videoId, message);
+  });
+  cleanups.push(offTimedtext, () => captures.clear());
   const adShowing = () => player()?.classList.contains("ad-showing") ?? false;
   /** Sends a call to the page script, for the player this page shows. */
   const call = <T extends PageCall["type"]>(
@@ -181,8 +185,7 @@ export function createYouTubeAdapter(
       await call({ type: "restoreCaptions", previous }).catch(
         (error: unknown) => {
           // Aborted when Lingo leaves the page: nothing to put back.
-          if (!(error instanceof DOMException && error.name === "AbortError"))
-            console.warn("Lingo:", error);
+          if (!isAbortError(error)) console.warn("Lingo:", error);
         },
       );
     }
@@ -324,9 +327,7 @@ export function createYouTubeAdapter(
     narrowPlayer,
     hideSiteCaptions: hideCaptions,
     dispose() {
-      narrowPlayer(0);
-      offTimedtext();
-      captures.clear();
+      for (const cleanup of cleanups.splice(0)) cleanup();
       hideCaptions(false);
       bridge.dispose();
     },

@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef } from "preact/hooks";
+import { useId } from "preact/hooks";
 import {
   SUBTITLE_OPACITY_MAX,
   SUBTITLE_OPACITY_MIN,
@@ -9,8 +9,9 @@ import {
   type Settings,
 } from "../../core/settings";
 import { t } from "../../i18n/t";
-import { fromUser } from "../from-user";
 import { GearIcon } from "../icons";
+import { isLingoHost } from "../lingo-host";
+import { usePressAway } from "../press-away";
 import { Segmented } from "../Segmented";
 import { badge, color, root } from "../styles";
 import { Switch } from "../Switch";
@@ -106,9 +107,16 @@ function MenuSlider(props: {
 const isMenuElement = (n: EventTarget) =>
   n instanceof HTMLElement && n.dataset.lingoMenu !== undefined;
 
-/** A host of Lingo's UI (`lingo-*`). */
-const isLingoHost = (n: EventTarget) =>
-  n instanceof Element && n.localName.startsWith("lingo-");
+/**
+ * A press on the menu or its buttons keeps it, one outside Lingo's UI closes it at once;
+ * in Lingo's UI behind a closed shadow root it is known once the press reached it.
+ */
+const pressedNow = (event: PointerEvent) => {
+  const path = event.composedPath();
+  if (path.some(isMenuElement)) return true;
+  if (!path.some(isLingoHost)) return false;
+  return undefined;
+};
 
 /** Presses that reached the menu or one of its buttons (`keepMenuOpen`). */
 const pressesInside = new WeakSet<Event>();
@@ -124,40 +132,10 @@ export function keepMenuOpen(event: Event) {
 
 /** The menu above the ^ button (mock Main). The caller positions it. */
 export function LingoMenu(props: LingoMenuProps) {
-  const close = useRef(props.onClose);
-  close.current = props.onClose;
-
-  // Listening from the render that opens it, not after a paint: an Escape or a press
-  // right after opening still closes it.
-  useLayoutEffect(() => {
-    const timers = new Set<ReturnType<typeof setTimeout>>();
-    // A page script's events do not close it (`fromUser`).
-    const onPointerDown = (event: PointerEvent) => {
-      if (!fromUser(event)) return;
-      const path = event.composedPath();
-      if (path.some(isMenuElement)) return;
-      if (!path.some(isLingoHost)) {
-        close.current();
-        return;
-      }
-      // In Lingo's UI behind a closed shadow root: known once the press reached it.
-      const timer = setTimeout(() => {
-        timers.delete(timer);
-        if (!pressesInside.has(event)) close.current();
-      });
-      timers.add(timer);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (fromUser(event) && event.key === "Escape") close.current();
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-      timers.forEach(clearTimeout);
-    };
-  }, []);
+  usePressAway(true, props.onClose, (event) => pressesInside.has(event), {
+    target: document,
+    now: pressedNow,
+  });
 
   return (
     <div

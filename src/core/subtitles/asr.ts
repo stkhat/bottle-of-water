@@ -20,6 +20,10 @@ interface Token {
   /** As the site sent it, with the space before it ("" or the joiner for a cue's first word). */
   text: string;
   cueEndMs: number;
+  /** `text` cleaned (`clean`): as shown. */
+  clean: string;
+  /** `text` starts with a space: shown text puts one before it. */
+  spaceBefore: boolean;
 }
 
 export interface AsrOptions {
@@ -62,10 +66,17 @@ function tokensOf(cues: readonly Cue[], joiner: string): Token[] {
       ? cue.words
       : [{ startMs: cue.startMs, text: cue.text }];
     words.forEach((word, i) => {
-      if (clean(word.text) === "") return;
+      const cleaned = clean(word.text);
+      if (cleaned === "") return;
       const text =
         i === 0 && !/^\s/.test(word.text) ? joiner + word.text : word.text;
-      tokens.push({ startMs: word.startMs, text, cueEndMs: cue.endMs });
+      tokens.push({
+        startMs: word.startMs,
+        text,
+        cueEndMs: cue.endMs,
+        clean: text === word.text ? cleaned : clean(text),
+        spaceBefore: /^\s/.test(text),
+      });
     });
   }
   return tokens;
@@ -84,9 +95,7 @@ function gapBefore(tokens: readonly Token[], i: number): number {
   const previous = tokens[i - 1] as Token;
   const current = tokens[i] as Token;
   return (
-    current.startMs -
-    previous.startMs -
-    clean(previous.text).length * MS_PER_CHAR
+    current.startMs - previous.startMs - previous.clean.length * MS_PER_CHAR
   );
 }
 
@@ -150,12 +159,23 @@ function largestGap(run: readonly Token[], minWords: number): number {
 /** Text of `tokens` as shown: cleaned, a space only where the site put one. */
 function textOf(tokens: readonly Token[]): string {
   let text = "";
-  for (const token of tokens) {
-    const piece = clean(token.text);
+  for (const { clean: piece, spaceBefore } of tokens) {
     if (piece === "") continue;
-    text += text !== "" && /^\s/.test(token.text) ? ` ${piece}` : piece;
+    text += text !== "" && spaceBefore ? ` ${piece}` : piece;
   }
   return text;
+}
+
+/** The length of `textOf(tokens.slice(0, k))`, for each k from 0 to `tokens.length`. */
+function textLengths(tokens: readonly Token[]): number[] {
+  const lengths = [0];
+  let length = 0;
+  for (const { clean: piece, spaceBefore } of tokens) {
+    if (piece !== "")
+      length += (length > 0 && spaceBefore ? 1 : 0) + piece.length;
+    lengths.push(length);
+  }
+  return lengths;
 }
 
 const SPLIT_AFTER = /[,;:.!?、。！？…]["”'’)\]]*$/;
@@ -165,12 +185,14 @@ const SPLIT_AFTER = /[,;:.!?、。！？…]["”'’)\]]*$/;
  * best balances the two halves, preferring pauses, punctuation, sound labels and speaker changes.
  */
 function splitLines(tokens: Token[], maxChars: number): Token[][] {
-  if (tokens.length < 4 || textOf(tokens).length <= maxChars) return [tokens];
-  const total = textOf(tokens).length;
+  if (tokens.length < 4) return [tokens];
+  const lengths = textLengths(tokens);
+  const total = lengths[tokens.length]!;
+  if (total <= maxChars) return [tokens];
   let best = 2;
   let bestScore = -Infinity;
   for (let k = 2; k <= tokens.length - 2; k++) {
-    const left = textOf(tokens.slice(0, k)).length;
+    const left = lengths[k]!;
     const previous = (tokens[k - 1] as Token).text.trim();
     const next = tokens[k] as Token;
     const pause = Math.min(Math.max(gapBefore(tokens, k), 0), 1500) / 1000;
@@ -213,7 +235,7 @@ function cardsOf(
     let text = "";
     parts.forEach((part, p) => {
       const partText = textOf(part);
-      if (text !== "") text += /^\s/.test((part[0] as Token).text) ? " " : "";
+      if (text !== "") text += (part[0] as Token).spaceBefore ? " " : "";
       lines.push({
         startMs: (part[0] as Token).startMs,
         endMs: parts[p + 1]?.[0]?.startMs ?? endMs,
@@ -301,7 +323,7 @@ function candidatesOf(tokens: readonly Token[], lang: string): Candidate[] {
         .replace(/[^\p{L}']/gu, "");
       prior = 1.2 - 0.5 * gap - (starters.has(word) ? 0.8 : 0);
     }
-    const said = token.startMs + clean(token.text).length * MS_PER_CHAR;
+    const said = token.startMs + token.clean.length * MS_PER_CHAR;
     candidates.push({
       after: i,
       fromMs: Math.min(said, next.startMs),
@@ -398,8 +420,8 @@ function translatedSentences(
   for (let p = 0; p < stream.length; p++) {
     const c = stream[p] as string;
     if (inside[p]) continue;
-    if (CJK_END.test(c) || WESTERN_END.test(c)) {
-      const cjk = CJK_END.test(c);
+    const cjk = CJK_END.test(c);
+    if (cjk || WESTERN_END.test(c)) {
       let end = p + 1;
       while (
         end < stream.length &&
@@ -431,6 +453,10 @@ function translatedSentences(
 
 const firstEndingAtOrAfter = (candidates: readonly Candidate[], ms: number) =>
   lowerBound(candidates.length, (i) => candidates[i]!.toMs < ms);
+
+/** How far (ms) a time is from a candidate boundary's span: 0 inside it. */
+const distanceMs = (ms: number, c: Candidate) =>
+  ms < c.fromMs ? c.fromMs - ms : ms > c.toMs ? ms - c.toMs : 0;
 
 interface Row {
   lo: number;
@@ -479,13 +505,7 @@ function matchEnds(
     };
     for (let k = 0; k < size; k++) {
       const c = candidates[lo + k] as Candidate;
-      const distance =
-        endMs < c.fromMs
-          ? c.fromMs - endMs
-          : endMs > c.toMs
-            ? endMs - c.toMs
-            : 0;
-      const own = distance / 1000 + c.prior;
+      const own = distanceMs(endMs, c) / 1000 + c.prior;
       let best = j <= MAX_SKIPS ? j * SKIP_COST : Infinity;
       let from = -1;
       for (let back = 1; back <= MAX_SKIPS + 1 && j - back >= 0; back++) {
@@ -577,13 +597,7 @@ function capCard(
     let unit = -1;
     let distance = CLAUSE_WINDOW_S;
     for (let u = 1; u < units.length; u++) {
-      const ms = (units[u - 1] as Unit).ms;
-      const d =
-        (ms < candidate.fromMs
-          ? candidate.fromMs - ms
-          : ms > candidate.toMs
-            ? ms - candidate.toMs
-            : 0) / 1000;
+      const d = distanceMs((units[u - 1] as Unit).ms, candidate) / 1000;
       if (d < distance) {
         distance = d;
         unit = u;
@@ -597,6 +611,45 @@ function capCard(
   capCard(candidates, from, at, unit < 0 ? units : units.slice(0, unit), push);
   capCard(candidates, at, to, unit < 0 ? units : units.slice(unit), push);
 }
+
+/**
+ * The translation of a card's `units`: each translated sentence it has whole as the
+ * sentence, a part of one as its clauses, joined by `joiner`.
+ */
+function textOfUnits(
+  units: readonly Unit[],
+  translation: TranslatedSentences,
+  joiner: string,
+): string {
+  const parts: string[] = [];
+  for (let i = 0; i < units.length;) {
+    const { sentence } = units[i] as Unit;
+    let j = i;
+    while (j < units.length && (units[j] as Unit).sentence === sentence) j++;
+    const whole = j - i === (translation.clauses[sentence] as Clause[]).length;
+    parts.push(
+      whole
+        ? (translation.texts[sentence] as string)
+        : clean(
+            units
+              .slice(i, j)
+              .map((u) => u.raw)
+              .join(""),
+          ),
+    );
+    i = j;
+  }
+  return parts.filter((p) => p !== "").join(joiner);
+}
+
+/** The clauses of translated sentences `list`, as units. */
+const unitsOf = (list: readonly number[], translation: TranslatedSentences) =>
+  list.flatMap((sentence) =>
+    (translation.clauses[sentence] as Clause[]).map((clause): Unit => ({
+      ...clause,
+      sentence,
+    })),
+  );
 
 /**
  * Transcript cards from an auto-generated track and the site's machine translation of it
@@ -613,10 +666,8 @@ export function alignAsrSentences(
 ): TranslatedCards | undefined {
   const tokens = tokensOf(cues, options.joiner ?? " ");
   if (tokens.length === 0) return undefined;
-  const translation = translatedSentences(
-    translated,
-    options.translationJoiner ?? " ",
-  );
+  const joiner = options.translationJoiner ?? " ";
+  const translation = translatedSentences(translated, joiner);
   // The last end mark usually closes the whole text: it marks no boundary inside it.
   const inner =
     translation.texts.length === translation.endsMs.length
@@ -629,42 +680,12 @@ export function alignAsrSentences(
 
   const sentences: Token[][] = [];
   const translations: string[] = [];
-  const joiner = options.translationJoiner ?? " ";
-  const textOfUnits = (units: readonly Unit[]) => {
-    const parts: string[] = [];
-    for (let i = 0; i < units.length;) {
-      const { sentence } = units[i] as Unit;
-      let j = i;
-      while (j < units.length && (units[j] as Unit).sentence === sentence) j++;
-      const whole =
-        j - i === (translation.clauses[sentence] as Clause[]).length;
-      parts.push(
-        whole
-          ? (translation.texts[sentence] as string)
-          : clean(
-              units
-                .slice(i, j)
-                .map((u) => u.raw)
-                .join(""),
-            ),
-      );
-      i = j;
-    }
-    return parts.filter((p) => p !== "").join(joiner);
-  };
   const push = (from: number, to: number, units: readonly Unit[]) => {
     sentences.push(tokens.slice(from, to));
-    translations.push(textOfUnits(units));
+    translations.push(textOfUnits(units, translation, joiner));
   };
-  const unitsOf = (list: readonly number[]) =>
-    list.flatMap((sentence) =>
-      (translation.clauses[sentence] as Clause[]).map((clause) => ({
-        ...clause,
-        sentence,
-      })),
-    );
   const capped = (from: number, to: number, list: number[]) =>
-    capCard(candidates, from, to, unitsOf(list), push);
+    capCard(candidates, from, to, unitsOf(list, translation), push);
 
   let start = 0;
   let pending: number[] = [];

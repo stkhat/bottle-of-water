@@ -2,7 +2,7 @@ import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
-import { markerPos, phraseMisfit } from "./phrases/fit";
+import { fitContext, markerPos, phraseMisfit } from "./phrases/fit";
 import { longestMatch, type PhraseMatch } from "./phrases/matcher";
 import {
   capitalHere,
@@ -10,6 +10,7 @@ import {
   type DocumentCasing,
   type WordCase,
 } from "./text/casing";
+import { blockText } from "./text/sentences";
 import { normalizeWord, type Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
@@ -205,36 +206,41 @@ export function createClassifier(pack: LanguagePack): Classifier {
   return {
     classify(tokens, { terms, knownLevel, casing, capitalMeaning, outline }) {
       const input = matcher.prepare(tokens);
-      const { words } = input;
+      const { words, joined } = input;
       const spans: Span[] = [];
+      const withCases = casing?.mode === "mixed" && pack.namesByCase;
+      /** The block's text and sentences, read once for the tagger and the casing rules. */
+      const block =
+        (pack.tagger && words.length > 0) || withCases
+          ? blockText(tokens, pack.lang)
+          : undefined;
       /** With a tagger, each word's tag and use: the phrase rules, A1 and A2 read them. */
-      const readings = readWords(pack, tokens, words, casing?.mode === "upper");
+      const readings = readWords(
+        pack,
+        tokens,
+        words,
+        casing?.mode === "upper",
+        block,
+      );
       const punctuated = casing?.unpunctuated !== true;
       /** Rule D and written case, in a mixed-case document only. */
-      const cases =
-        casing?.mode === "mixed" && pack.namesByCase
-          ? wordCases(tokens, pack.lang)
-          : undefined;
+      const cases = withCases
+        ? wordCases(
+            tokens,
+            pack.lang,
+            block,
+            words.map((word) => word.form),
+          )
+        : undefined;
       /** Rule D over the document's runs of capitalised words. */
       const names =
         cases && casing
           ? documentNames(casing, pack, (key) => capitalMeaning?.(key))
           : undefined;
 
-      /** For each word, the word before it when only spaces come between them. */
-      const before: (string | undefined)[] = [];
-      if (cases) {
-        let previous: string | undefined;
-        /** Only whitespace since the previous word. */
-        let spaces = true;
-        for (const token of tokens) {
-          if (token.isWord) {
-            before.push(spaces ? previous : undefined);
-            previous = normalizeWord(token.text);
-            spaces = true;
-          } else spaces &&= /^\s+$/.test(token.text);
-        }
-      }
+      /** The word before word i when only spaces come between them. */
+      const before = (i: number) =>
+        i > 0 && joined[i - 1] ? words[i - 1]!.form : undefined;
 
       /** A word span's casing marks: a name, or capitalised in a way that counts. */
       const casingOf = (
@@ -244,7 +250,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const written: WordCase | undefined = cases?.[i];
         if (!casing || !written || !names || word.category === "ignored")
           return {};
-        const name = names(written, before[i]);
+        const name = names(written, before(i));
         if (name === "name") return { category: "ignored", name: true };
         return name === "kept" || capitalHere(casing, written)
           ? { capital: true }
@@ -287,14 +293,17 @@ export function createClassifier(pack: LanguagePack): Classifier {
       }
 
       /**
-       * The phrase starting at word i: the saved phrase there, or the longest
-       * dictionary phrase without a word saved as learning or inside a saved phrase,
-       * when it is that phrase here (`phraseMisfit`; a shorter one does not stand in
-       * for it: "so long as" is no "so long").
+       * The phrase starting at word i, with its context in its sentence (`fitContext`):
+       * the saved phrase there, or the longest dictionary phrase without a word saved
+       * as learning or inside a saved phrase, when it is that phrase here
+       * (`phraseMisfit`; a shorter one does not stand in for it: "so long as" is no
+       * "so long").
        */
-      const phraseAt = (i: number): PhraseMatch | undefined => {
+      const phraseAt = (i: number) => {
         const saved = savedAt[i];
-        if (saved || !detects || inSaved[i]) return saved;
+        if (saved)
+          return { match: saved, context: fitContext(pack, saved, readings) };
+        if (!detects || inSaved[i]) return undefined;
         const matches = matcher.matchesAt(input, i, "detect");
         const longest =
           matches.length === 0
@@ -305,9 +314,11 @@ export function createClassifier(pack: LanguagePack): Classifier {
                     !match.words.some((j) => learning[j] || inSaved[j]),
                 ),
               );
-        return longest &&
-          phraseMisfit(pack, longest, readings, punctuated) === undefined
-          ? longest
+        if (!longest) return undefined;
+        const context = fitContext(pack, longest, readings);
+        return phraseMisfit(pack, longest, readings, punctuated, context) ===
+          undefined
+          ? { match: longest, context }
           : undefined;
       };
 
@@ -324,8 +335,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const reading = readings[i];
         if (!reading || !outline || word.category === "ignored") return {};
         if (marks.capital || marks.name) return {};
-        const { token, bases } = words[i]!;
-        const form = normalizeWord(token.text);
+        const { form, bases } = words[i]!;
         const key = terms.has(word.key)
           ? word.key
           : (chooseKey(form, bases, reading, outline, pack) ?? word.key);
@@ -334,8 +344,15 @@ export function createClassifier(pack: LanguagePack): Classifier {
       };
 
       const pushWord = (i: number) => {
-        const { token, bases } = words[i]!;
-        const word = classifyWord(token.text, bases, terms, knownLevel, pack);
+        const { token, form, bases } = words[i]!;
+        const word = classifyWord(
+          token.text,
+          form,
+          bases,
+          terms,
+          knownLevel,
+          pack,
+        );
         const marks = casingOf(i, word);
         spans.push({
           start: token.start,
@@ -348,14 +365,15 @@ export function createClassifier(pack: LanguagePack): Classifier {
       };
 
       for (let i = 0; i < words.length; i++) {
-        const match = phraseAt(i);
-        if (!match) {
+        const found = phraseAt(i);
+        if (!found) {
           pushWord(i);
           continue;
         }
+        const { match, context } = found;
         const { key } = match;
         const category = terms.get(key) ?? "new";
-        const pos = markerPos(pack, match, readings, punctuated);
+        const pos = markerPos(pack, match, readings, punctuated, context);
         const last = match.words.at(-1)!;
         const runs = runsOf(match.words);
         const keyWords = key.split(" ").map(normalizeWord);
@@ -390,15 +408,17 @@ export function createClassifier(pack: LanguagePack): Classifier {
   };
 }
 
+/** `form`: `text` normalized (`normalizeWord`). */
 function classifyWord(
   text: string,
+  form: string,
   bases: readonly string[],
   terms: TermIndex,
   knownLevel: number,
   pack: LanguagePack,
 ): { key: string; category: Category } {
   if (isIgnorable(text) || bases.length === 0)
-    return { key: normalizeWord(text), category: "ignored" };
+    return { key: form, category: "ignored" };
   const saved = bases.filter((base) => terms.has(base));
   if (saved.length > 0) {
     const key =

@@ -9,7 +9,9 @@ import type { LingoDb, MtCacheRecord } from "./db";
 export interface TranslationCache {
   /**
    * The cached translations of `texts`, keyed by text; texts without one are left out.
-   * The ones found are marked as used now.
+   * The ones last used more than a day ago are marked as used now; the others keep
+   * their time, so reading writes a row at most once a day (and a read that finds
+   * only recent rows writes nothing). Eviction by `usedAt` is then exact to a day.
    */
   get(pair: string, texts: readonly string[]): Promise<Record<string, string>>;
   /**
@@ -31,6 +33,9 @@ const TRANSLATION_CACHE_LIMIT = 20_000;
 
 const keyOf = (pair: string, text: string) => `${pair}:${text}`;
 
+/** A row read again within this long of its last use keeps its `usedAt` (one day). */
+const USED_AT_STEP_MS = 24 * 60 * 60 * 1000;
+
 export function createTranslationCache(
   db: LingoDb,
   {
@@ -42,16 +47,21 @@ export function createTranslationCache(
     async get(pair, texts) {
       const keys = [...new Set(texts)].map((text) => keyOf(pair, text));
       if (keys.length === 0) return {};
-      const found = await db.transaction("rw", db.mtCache, async () => {
-        const rows = (await db.mtCache.bulkGet(keys)).filter(
-          (row): row is MtCacheRecord => row !== undefined,
-        );
-        if (rows.length > 0) {
-          const usedAt = now();
-          await db.mtCache.bulkPut(rows.map((row) => ({ ...row, usedAt })));
-        }
-        return rows;
-      });
+      const found = (await db.mtCache.bulkGet(keys)).filter(
+        (row): row is MtCacheRecord => row !== undefined,
+      );
+      const usedAt = now();
+      const stale = found.filter(
+        (row) => usedAt - row.usedAt > USED_AT_STEP_MS,
+      );
+      // Only `usedAt` changes, and only forward: a row put since the read keeps its own.
+      if (stale.length > 0)
+        await db.mtCache
+          .where("key")
+          .anyOf(stale.map((row) => row.key))
+          .modify((row) => {
+            if (row.usedAt < usedAt) row.usedAt = usedAt;
+          });
       // fromEntries: any text is an own property, "__proto__" included.
       return Object.fromEntries(found.map((row) => [row.text, row.translated]));
     },

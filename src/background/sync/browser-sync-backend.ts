@@ -27,7 +27,7 @@ import {
   metaKey,
   type SyncMeta,
 } from "../../core/sync/layout";
-import { errorText } from "../../core/util";
+import { errorText, serial } from "../../core/util";
 import type { SyncStatus, TermRecord } from "../../messaging/protocol";
 import {
   watchStorage,
@@ -104,14 +104,33 @@ const isMeta = (value: unknown): value is SyncMeta => {
 
 interface Remote {
   meta?: SyncMeta;
-  records: SyncRecord[];
+  /** Shared with later reads of the same chunks: never changed. */
+  records: readonly SyncRecord[];
   /** Why the records are empty though data is there. */
   problem?: string;
+}
+
+/**
+ * Decodes chunks, reusing the last result of each language while its chunks read the
+ * same: the popup asks for the status every second, and decoding is most of it.
+ */
+function remoteDecoder() {
+  const last = new Map<string, { text: string; records: SyncRecord[] }>();
+  return async (lang: string, chunks: string[]) => {
+    if (chunks.length === 0) return decode(chunks);
+    const text = chunks.join("");
+    const kept = last.get(lang);
+    if (kept?.text === text) return kept.records;
+    const records = await decode(chunks);
+    last.set(lang, { text, records });
+    return records;
+  };
 }
 
 async function readRemote(
   lang: string,
   all: Record<string, unknown>,
+  decodeChunks: (lang: string, chunks: string[]) => Promise<SyncRecord[]>,
 ): Promise<Remote> {
   const meta = all[metaKey(lang)];
   if (meta === undefined) return { records: [] };
@@ -126,7 +145,7 @@ async function readRemote(
     chunks.push(chunk);
   }
   try {
-    return { meta, records: await decode(chunks) };
+    return { meta, records: await decodeChunks(lang, chunks) };
   } catch {
     return { meta, records: [], problem: UNREADABLE };
   }
@@ -138,7 +157,7 @@ const toRecord = (term: TermRecord): SyncRecord => ({
   updatedMinutes: toMinutes(term.updatedAt),
 });
 
-const sameRecords = (a: SyncRecord[], b: SyncRecord[]) =>
+const sameRecords = (a: readonly SyncRecord[], b: readonly SyncRecord[]) =>
   a.length === b.length &&
   a.every(
     (r, i) =>
@@ -179,12 +198,9 @@ export function createBrowserSyncBackend({
   let started = false;
   let unsubscribe: (() => void) | undefined;
 
-  let queue: Promise<void> = Promise.resolve();
-  function enqueue(op: () => Promise<void>): Promise<void> {
-    const run = queue.then(op);
-    queue = run.catch((error: unknown) => console.error(error));
-    return run;
-  }
+  const decodeChunks = remoteDecoder();
+  const queue = serial((error: unknown) => console.error(error));
+  const enqueue = (op: () => Promise<void>) => queue.run(op);
 
   const isEnabled = (all: Record<string, unknown>) =>
     mergeSettings(all[SETTINGS_KEY]).syncEnabled;
@@ -311,14 +327,31 @@ export function createBrowserSyncBackend({
     if (stale.length > 0) await area.remove(stale);
   }
 
-  async function pushNow(lang: string) {
+  /** Everything in `storage.sync` and the synced copy of `lang`; none while sync is off. */
+  async function readSynced(lang: string) {
     const all = await area.get(null);
-    if (!isEnabled(all)) return;
-    const remote = await readRemote(lang, all);
+    if (!isEnabled(all)) return undefined;
+    return { all, remote: await readRemote(lang, all, decodeChunks) };
+  }
+
+  /** This device's terms of `lang` (tombstones included), merged with the synced copy. */
+  async function readAndMerge(lang: string, remote: Remote) {
+    const local = await store.listTerms(lang, { includeRemoved: true });
+    return { local, ...merge(local.map(toRecord), remote.records) };
+  }
+
+  async function pushNow(lang: string) {
+    const synced = await readSynced(lang);
+    if (!synced) return;
+    const { all, remote } = synced;
     if (remote.problem === NEWER_VERSION) throw new Error(NEWER_VERSION);
 
-    let local = await store.listTerms(lang, { includeRemoved: true });
-    const { merged, changedLocal } = merge(local.map(toRecord), remote.records);
+    const {
+      local: read,
+      merged,
+      changedLocal,
+    } = await readAndMerge(lang, remote);
+    let local = read;
     if (changedLocal.length > 0) {
       await store.applySynced(lang, changedLocal);
       local = await store.listTerms(lang, { includeRemoved: true });
@@ -347,15 +380,14 @@ export function createBrowserSyncBackend({
   }
 
   async function pullNow(lang: string) {
-    const all = await area.get(null);
-    if (!isEnabled(all)) return;
-    const remote = await readRemote(lang, all);
+    const synced = await readSynced(lang);
+    if (!synced) return;
+    const { remote } = synced;
     if (remote.problem) {
       pullError = remote.problem;
       return;
     }
-    const local = await store.listTerms(lang, { includeRemoved: true });
-    const { changedLocal } = merge(local.map(toRecord), remote.records);
+    const { local, changedLocal } = await readAndMerge(lang, remote);
     if (changedLocal.length > 0) await store.applySynced(lang, changedLocal);
     pullError = undefined;
 
@@ -390,27 +422,26 @@ export function createBrowserSyncBackend({
     });
   }
 
+  /** A pull whose failure is kept as the status's error. */
+  async function pullSafely(lang: string) {
+    try {
+      await pullNow(lang);
+    } catch (error) {
+      pullError = errorText(error);
+    }
+  }
+
   function pull(lang: string) {
-    return enqueue(async () => {
-      try {
-        await pullNow(lang);
-      } catch (error) {
-        pullError = errorText(error);
-      }
-    });
+    return enqueue(() => pullSafely(lang));
   }
 
   /** Pulls `lang` once, however many changes come in before it runs. */
   function requestPull(lang: string) {
     if (queuedPulls.has(lang)) return;
     queuedPulls.add(lang);
-    void enqueue(async () => {
+    void enqueue(() => {
       queuedPulls.delete(lang);
-      try {
-        await pullNow(lang);
-      } catch (error) {
-        pullError = errorText(error);
-      }
+      return pullSafely(lang);
     });
   }
 
@@ -489,14 +520,15 @@ export function createBrowserSyncBackend({
       let syncedCount = 0;
       let localOnlyCount = 0;
       for (const lang of await store.languages()) {
-        const remote = await readRemote(lang, all);
+        const remote = await readRemote(lang, all, decodeChunks);
         const synced = new Set(
           remote.records
             .filter((r) => r.status !== "removed")
             .map((r) => r.key),
         );
-        for (const term of await store.listTerms(lang)) {
-          if (synced.has(term.key)) syncedCount++;
+        // The live terms' keys: the index stays the same map until they change.
+        for (const key of (await store.termIndex(lang)).keys()) {
+          if (synced.has(key)) syncedCount++;
           else if (!remote.problem) localOnlyCount++;
         }
       }
@@ -543,11 +575,11 @@ export function createBrowserSyncBackend({
     },
 
     async whenIdle() {
-      let current: Promise<void>;
+      let current: Promise<unknown>;
       do {
-        current = queue;
+        current = queue.idle;
         await current;
-      } while (current !== queue);
+      } while (current !== queue.idle);
     },
   };
 }

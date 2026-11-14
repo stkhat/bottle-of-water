@@ -5,6 +5,7 @@ import type { SourceInput } from "../../messaging/protocol";
 import type { TermCard } from "../lookup/describe";
 import { wordBoxes } from "../lookup/geometry";
 import type { Lookup } from "../lookup/lookup";
+import { matchPattern, type PatternMatch } from "../lookup/pattern";
 import { warn } from "../lookup/warn";
 import type { Store } from "../store";
 import { describeRef } from "./cards";
@@ -19,17 +20,6 @@ import {
 import { rangeOf } from "./page-text";
 import { sentenceAt } from "./sentence";
 import type { ArticleState } from "./state";
-
-/**
- * The pattern selected words stand for, and where its words are in the block: from
- * its first word to its last, gap included. The sentence may complete the selection
- * ("made up" → "made up her mind").
- */
-interface PatternMatch {
-  key: string;
-  start: number;
-  end: number;
-}
 
 /** The selected words, and the phrase they stand for. */
 interface Selected {
@@ -73,26 +63,8 @@ export function createSelection(o: {
   let phrase: Selected | undefined;
 
   /** The pattern snapped words stand for; undefined when none matches or on failure. */
-  function patternOf({
-    block,
-    start,
-    end,
-  }: Snapped): Promise<PatternMatch | undefined> {
-    return o
-      .send({ type: "matchSelection", lang, text: block.text, start, end })
-      .then(
-        (match) =>
-          match.key !== undefined &&
-          match.start !== undefined &&
-          match.end !== undefined
-            ? { key: match.key, start: match.start, end: match.end }
-            : undefined,
-        (error: unknown) => {
-          warn(error);
-          return undefined;
-        },
-      );
-  }
+  const patternOf = ({ block, start, end }: Snapped) =>
+    matchPattern(o.send, lang, block.text, start, end);
 
   /** Shows the card of the selected words once it is looked up, above them. */
   function show(selected: Selected) {

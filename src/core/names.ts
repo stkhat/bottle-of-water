@@ -32,6 +32,10 @@ const NEVER_NAMES: ReadonlySet<string> = new Set([
   "interjection",
 ]);
 
+/** The word's main part of speech makes it a function word or an interjection (`NEVER_NAMES`). */
+const neverName = (pack: LanguagePack, word: string) =>
+  NEVER_NAMES.has(pack.partsOfSpeech(word)[0] ?? "");
+
 /** Parts of speech of a word that marks the next one as a common noun ("the Enlightenment"). */
 const DETERMINERS: ReadonlySet<string> = new Set(["article", "determiner"]);
 
@@ -57,10 +61,8 @@ const personName = (kinds: string) =>
   /[gs]/.test(kinds) && !/^[po]/.test(kinds);
 
 /**
- * Whether a vocabulary word is a name in its document, and what then becomes of it.
- * `before` is the word right before it when only spaces come between them: after a
- * determiner, a word with a meaning is a titled common noun ("the Enlightenment"), not
- * a name. `meaning` is what the dictionary's capitalised headword means
+ * Whether a vocabulary word is a name in its document by itself, and what then becomes
+ * of it. `meaning` is what the dictionary's capitalised headword means
  * (`DictionaryProvider.capitalMeaning`).
  *
  * - "kept": a name with a meaning of its own stays a word and shows it: a gloss that
@@ -74,7 +76,6 @@ function nameVerdict(
   word: WordCase,
   casing: DocumentCasing,
   pack: LanguagePack,
-  before: string | undefined,
   meaning: () => CapitalMeaning | undefined,
 ): "kept" | "name" | false {
   if (!pack.namesByCase || !alwaysCapitalised(casing, word.key)) return false;
@@ -85,13 +86,7 @@ function nameVerdict(
     !nameKinds(kinds, pack.rank(word.key))
   )
     return false;
-  const main = pack.partsOfSpeech(word.key)[0];
-  if (main !== undefined && NEVER_NAMES.has(main)) return false;
-  if (
-    before !== undefined &&
-    pack.partsOfSpeech(before).some((pos) => DETERMINERS.has(pos))
-  )
-    return false;
+  if (neverName(pack, word.key)) return false;
   return keptOrName(kinds, meaning());
 }
 
@@ -107,7 +102,8 @@ export type NameVerdict = "kept" | "name" | false;
  * Rule D over a document's runs of capitalised words (`DocumentCasing.runs`): a name
  * is read whole, a given name or a surname and the capitalised words after it, and a
  * titled common noun stays a word. For a word as written on the page, with the word
- * right before it (`before`, as for `nameVerdict`):
+ * right before it when only spaces come between them (`before`; after a determiner, a
+ * word with a meaning is a titled common noun, "the Enlightenment", not a name):
  * - a vocabulary word the document always capitalises and rule D does not take for a
  *   name by itself (the names lexicon lacks it) is one when the document writes it
  *   right after a person's name, or after another word of one ("Harvey Specter",
@@ -143,7 +139,7 @@ export function documentNames(
     if (known !== undefined) return known;
     if (seen.has(key)) return false;
     const deeper = new Set([...seen, key]);
-    const byItself = nameVerdict(asWritten(key), casing, pack, undefined, () =>
+    const byItself = nameVerdict(asWritten(key), casing, pack, () =>
       meaning(key),
     );
     const kinds = pack.name(key) ?? "";
@@ -153,7 +149,7 @@ export function documentNames(
         runOf(key).some(
           (previous) =>
             pack.lemmas(previous).length > 0 &&
-            !NEVER_NAMES.has(pack.partsOfSpeech(previous)[0] ?? "") &&
+            !neverName(pack, previous) &&
             verdictOf(previous, deeper) !== "name",
         )
       )
@@ -163,7 +159,7 @@ export function documentNames(
       alwaysCapitalised(casing, key) &&
       !kinds.endsWith("!") &&
       (kinds.includes("g") || pack.rank(key) > COMMON_RANK) &&
-      !NEVER_NAMES.has(pack.partsOfSpeech(key)[0] ?? "") &&
+      !neverName(pack, key) &&
       runOf(key).some(
         (previous) =>
           verdictOf(previous, deeper) === "name" &&

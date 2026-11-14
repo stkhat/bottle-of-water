@@ -497,6 +497,26 @@ describe("status", () => {
     });
   });
 
+  it("counts against the synced copy as it is at each read", async () => {
+    const area = createFakeSyncArea();
+    const a = device(area);
+    const b = device(area);
+    await save(a.store, "dough");
+    await a.backend.push("en");
+    await save(a.store, "bread");
+    const counts = async () => {
+      const { syncedCount, localOnlyCount } = await a.backend.status();
+      return [syncedCount, localOnlyCount];
+    };
+    expect(await counts()).toEqual([1, 1]);
+    expect(await counts()).toEqual([1, 1]);
+    await save(b.store, "bread");
+    await b.backend.push("en");
+    expect(await counts()).toEqual([2, 0]);
+    area.data.set(chunkKey("en", 0), "not gzip");
+    expect(await counts()).toEqual([0, 0]);
+  });
+
   it("computes the bytes in use and the quota when the browser does not say", async () => {
     const area = createFakeSyncArea({
       noBytesInUse: true,

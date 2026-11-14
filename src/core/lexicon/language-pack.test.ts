@@ -66,6 +66,14 @@ describe("createLanguagePack (en)", () => {
     expect(pack.lemmas("zzyzx")).toEqual([]);
   });
 
+  it("gives the same base forms however often and among however many words it is asked", () => {
+    expect(pack.lemmas("Better")).toEqual(["better", "good", "well"]);
+    for (let i = 0; i < 25_000; i++) pack.lemmas(`word${i}`);
+    expect(pack.lemmas("Better")).toEqual(["better", "good", "well"]);
+    expect(pack.lemmas("loaves")).toEqual(["loaf"]);
+    expect(pack.lemmas("Loaves")).toEqual(["loaf"]);
+  });
+
   it("ranks base forms by frequency, Infinity when not listed", () => {
     expect(pack.rank("the")).toBe(1);
     expect(pack.rank("figure")).toBe(4);

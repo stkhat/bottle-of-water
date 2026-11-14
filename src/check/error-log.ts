@@ -7,6 +7,7 @@
  * page reads and clears them through the content script (`answerPageRequests`).
  * Production builds leave all of this out (`npm run test:manifest` checks it).
  */
+import { serial } from "../core/util";
 
 /** One entry, as the Errors page would list it. */
 export interface CheckError {
@@ -61,15 +62,10 @@ export interface ErrorLog {
 
 /** The log in `storage`. Changes run one after another, so none is lost. */
 export function createErrorLog(storage: LogStorage): ErrorLog {
-  let queue: Promise<unknown> = Promise.resolve();
+  const { run } = serial();
   const read = async () =>
     ((await storage.get(ERROR_LOG_KEY))[ERROR_LOG_KEY] as
       CheckError[] | undefined) ?? [];
-  const run = <T>(task: () => Promise<T>): Promise<T> => {
-    const result = queue.then(task);
-    queue = result.catch(() => undefined);
-    return result;
-  };
   return {
     append: (entries) =>
       run(async () => {

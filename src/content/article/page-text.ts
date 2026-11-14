@@ -1,3 +1,5 @@
+import { isLingoHost } from "../../ui/lingo-host";
+
 /**
  * The page's prose as blocks of text: the text nodes under one block-level element,
  * joined, with a map back to the nodes so a span of a block becomes a `Range`.
@@ -30,10 +32,6 @@ export interface BlockChange {
 const SKIPPED =
   "script, style, noscript, template, textarea, input, select, code, pre, [contenteditable], svg, math";
 
-/** Lingo's own hosts (`lingo-article`, …). Their UI lives in shadow roots. */
-const isLingoElement = (node: Node): boolean =>
-  node instanceof Element && node.localName.startsWith("lingo-");
-
 const isInlineDisplay = (display: string) =>
   display.startsWith("inline") ||
   display === "contents" ||
@@ -50,9 +48,7 @@ const isDropCap = (element: Element, style: CSSStyleDeclaration) =>
 
 function isSkipped(element: Element, style: CSSStyleDeclaration): boolean {
   return (
-    isLingoElement(element) ||
-    element.matches(SKIPPED) ||
-    style.display === "none"
+    isLingoHost(element) || element.matches(SKIPPED) || style.display === "none"
   );
 }
 
@@ -202,7 +198,19 @@ const sameBlock = (a: TextBlock, b: TextBlock) =>
   a.pieces.length === b.pieces.length &&
   a.pieces.every((p, i) => p.node === b.pieces[i]!.node);
 
-const byDocumentOrder = (a: TextBlock, b: TextBlock) =>
+/** The blocks of each element, in their order. */
+function byElement(blocks: readonly TextBlock[]) {
+  const map = new Map<Element, TextBlock[]>();
+  for (const block of blocks) {
+    const group = map.get(block.element);
+    if (group) group.push(block);
+    else map.set(block.element, [block]);
+  }
+  return map;
+}
+
+/** Sorts blocks in document order (by their elements). */
+export const byDocumentOrder = (a: TextBlock, b: TextBlock) =>
   a.element === b.element
     ? 0
     : a.element.compareDocumentPosition(b.element) &
@@ -256,10 +264,15 @@ export function createPageText(
     const old = blocks.filter(stale);
     const kept = blocks.filter((b) => !stale(b));
 
-    const removed = old.filter((o) => !fresh.some((f) => sameBlock(o, f)));
+    // The same block has the same element: each is looked for among those.
+    const freshAt = byElement(fresh);
+    const oldAt = byElement(old);
+    const removed = old.filter(
+      (o) => !freshAt.get(o.element)?.some((f) => sameBlock(o, f)),
+    );
     const added: TextBlock[] = [];
     for (const f of fresh) {
-      const same = old.find((o) => sameBlock(o, f));
+      const same = oldAt.get(f.element)?.find((o) => sameBlock(o, f));
       if (same) kept.push(same);
       else {
         kept.push(f);
@@ -275,7 +288,7 @@ export function createPageText(
     for (const record of records) {
       if (record.type === "childList") {
         const nodes = [...record.addedNodes, ...record.removedNodes];
-        if (nodes.length > 0 && nodes.every(isLingoElement)) continue;
+        if (nodes.length > 0 && nodes.every(isLingoHost)) continue;
       }
       if (!root.contains(record.target)) continue;
       dirty.add(nearestBlock(record.target, root));

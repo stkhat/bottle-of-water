@@ -1,9 +1,9 @@
-import type { CSSProperties } from "preact";
-import { useState } from "preact/hooks";
+import { Component, type CSSProperties } from "preact";
+import { useMemo, useRef, useState } from "preact/hooks";
 import type { WordStatus } from "../../core/classify";
 import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
-import { useRowsInView } from "../rows-in-view";
+import { useShownRows } from "../rows-in-view";
 import { color, toggleChip } from "../styles";
 import { termStyle } from "../video/terms";
 
@@ -259,18 +259,37 @@ const VARIANTS: Record<
 /** Inline styles cannot hover; the shadow root keeps this rule to the list. */
 const HOVER = `[data-word-row][data-selected="false"]:hover{background:${color.soft} !important}`;
 
+/** What a row does with the user's presses: stable across renders (see `Row`). */
+interface RowHandlers<R extends WordRow> {
+  onJump: (row: R, place: number) => void;
+  /** The row's "+N" was pressed. */
+  onMore: (id: string) => void;
+}
+
+interface RowProps<R extends WordRow> {
+  row: R;
+  opened: boolean;
+  variant: WordsVariant | undefined;
+  learningLang: string;
+  handlers: RowHandlers<R>;
+}
+
 /** The words of a video or page: head with its highlight, count, short meaning and places. */
 export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
-  const byId = new Map(props.rows.map((row) => [row.id, row]));
-  const scroller = useRowsInView<HTMLDivElement>(
-    props.onShown &&
-      ((ids) =>
-        props.onShown?.(
-          ids.map((id) => byId.get(id)).filter((row) => row !== undefined),
-        )),
-  );
+  const scroller = useShownRows<HTMLDivElement, R>(props.rows, props.onShown);
   /** The rows whose "+N" was pressed. */
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  // The rows call the latest handlers through these, so new handlers on each render
+  // do not render every row again.
+  const latest = useRef({ onJump: props.onJump, opened });
+  latest.current = { onJump: props.onJump, opened };
+  const handlers = useMemo<RowHandlers<R>>(
+    () => ({
+      onJump: (row, place) => latest.current.onJump(row, place),
+      onMore: (id) => setOpened(new Set(latest.current.opened).add(id)),
+    }),
+    [],
+  );
   return (
     <div
       ref={scroller}
@@ -302,8 +321,9 @@ export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
             key={row.id}
             row={row}
             opened={opened.has(row.id)}
-            onMore={() => setOpened(new Set(opened).add(row.id))}
-            {...props}
+            variant={props.variant}
+            learningLang={props.learningLang}
+            handlers={handlers}
           />
         ))
       )}
@@ -311,10 +331,26 @@ export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
   );
 }
 
-function Row<R extends WordRow>(
-  props: WordsListProps<R> & { row: R; opened: boolean; onMore: () => void },
-) {
-  const { row } = props;
+/** A row; rendered again only when its props change (its handlers stay the same). */
+class Row<R extends WordRow> extends Component<RowProps<R>> {
+  override shouldComponentUpdate(next: RowProps<R>) {
+    const now = this.props;
+    return !(
+      now.row === next.row &&
+      now.opened === next.opened &&
+      now.variant === next.variant &&
+      now.learningLang === next.learningLang &&
+      now.handlers === next.handlers
+    );
+  }
+
+  override render() {
+    return <RowBody {...this.props} />;
+  }
+}
+
+function RowBody<R extends WordRow>(props: RowProps<R>) {
+  const { row, handlers } = props;
   const look = VARIANTS[props.variant ?? "video"];
   const selected = row.pressed >= 0;
   const first = row.places[0];
@@ -330,7 +366,7 @@ function Row<R extends WordRow>(
         aria-label={
           first === undefined ? undefined : look.rowLabel(row.head, first)
         }
-        onClick={onlyFromUser(() => props.onJump(row, 0))}
+        onClick={onlyFromUser(() => handlers.onJump(row, 0))}
         style={ROW_BUTTON}
       >
         <span
@@ -383,10 +419,8 @@ function Row<R extends WordRow>(
 }
 
 /** A chip per place, the first ones and "+N" until that is pressed. */
-function Places<R extends WordRow>(
-  props: WordsListProps<R> & { row: R; opened: boolean; onMore: () => void },
-) {
-  const { row } = props;
+function Places<R extends WordRow>(props: RowProps<R>) {
+  const { row, handlers } = props;
   const look = VARIANTS[props.variant ?? "video"];
   // A pressed chip past the first ones shows them all.
   const all = props.opened || row.pressed >= look.chipsShown;
@@ -411,7 +445,7 @@ function Places<R extends WordRow>(
             type="button"
             aria-label={look.chipLabel(row.head, place, row.places)}
             aria-pressed={pressed}
-            onClick={onlyFromUser(() => props.onJump(row, place))}
+            onClick={onlyFromUser(() => handlers.onJump(row, place))}
             style={{ ...(pressed ? CHIP_ON : CHIP_OFF), ...look.chip }}
           >
             {text}
@@ -422,7 +456,7 @@ function Places<R extends WordRow>(
         <button
           type="button"
           aria-label={look.moreLabel(rest)}
-          onClick={onlyFromUser(props.onMore)}
+          onClick={onlyFromUser(() => handlers.onMore(row.id))}
           style={MORE}
         >
           {t("words.moreText", { count: rest })}

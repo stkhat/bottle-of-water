@@ -1,4 +1,4 @@
-import type { TextBlock } from "./page-text";
+import { byDocumentOrder, type TextBlock } from "./page-text";
 
 export interface VisibleBlocks {
   /** Watches blocks; each is analyzed once, when it first comes near the viewport. */
@@ -27,14 +27,6 @@ export interface VisibleBlocksOptions {
   /** Blocks analyzed early (`now`) that have now come near the viewport. */
   reached?: (blocks: TextBlock[]) => void;
 }
-
-const byDocumentOrder = (a: TextBlock, b: TextBlock) =>
-  a.element === b.element
-    ? 0
-    : a.element.compareDocumentPosition(b.element) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-      ? -1
-      : 1;
 
 /** Takes the first batch off `queue` (in place) within the limits. */
 function takeBatch(

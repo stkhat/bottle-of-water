@@ -1,4 +1,5 @@
 import { fromUser } from "../../ui/from-user";
+import { isLingoHost } from "../../ui/lingo-host";
 import { createHoverIntent } from "../lookup/hover-intent";
 import type { SpanRef } from "./locate";
 
@@ -39,9 +40,7 @@ const INTERACTIVE =
 
 /** True when the event happened inside Lingo's own UI (a `lingo-*` shadow host). */
 function inLingoUi(event: Event): boolean {
-  return event
-    .composedPath()
-    .some((n) => n instanceof Element && n.localName.startsWith("lingo-"));
+  return event.composedPath().some(isLingoHost);
 }
 
 /** How long the selection must stay unchanged before it is read (ms). */

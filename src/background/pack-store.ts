@@ -9,7 +9,7 @@ import {
 } from "../core/packs/lock";
 import type { PackState, PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
-import { errorText, listeners, own, promiseCache } from "../core/util";
+import { errorText, listeners, own, promiseCache, serial } from "../core/util";
 import type { LingoDb, PackVersionRecord } from "./db";
 
 /** What `ensure` did: the packs now at their lock version, and those that failed. */
@@ -150,9 +150,16 @@ export function createPackStore({
   const inflight = promiseCache<boolean>({ keep: false });
   const switched = listeners<[string]>();
   let lastWrite = -Infinity;
-  let writes: Promise<void> = Promise.resolve();
+  const writes = serial();
 
   const lockEntry = (pack: string) => own<PackLockEntry>(lock.packs, pack);
+
+  /** The packs (each once, in order) that are downloaded rather than bundled. */
+  const downloadable = (packs: readonly string[]) =>
+    [...new Set(packs)].flatMap((pack) => {
+      const entry = lockEntry(pack);
+      return entry && !entry.bundled ? [[pack, entry] as const] : [];
+    });
 
   /**
    * Writes the states (in order, one write at a time). Progress (`force` false) is
@@ -163,8 +170,8 @@ export function createPackStore({
     if (!force && time - lastWrite < PROGRESS_INTERVAL_MS) return;
     lastWrite = time;
     const snapshot: PackStates = Object.fromEntries(states);
-    writes = writes
-      .then(() => setState(snapshot))
+    writes
+      .run(() => setState(snapshot))
       .catch((error: unknown) =>
         console.error("Lingo: could not write the pack state", error),
       );
@@ -329,7 +336,7 @@ export function createPackStore({
       const done = await Promise.all(
         names.map((pack) => inflight.get(pack, () => bring(pack))),
       );
-      await writes;
+      await writes.idle;
       return {
         ready: names.filter((_, i) => done[i]),
         failed: names.filter((_, i) => !done[i]),
@@ -365,7 +372,7 @@ export function createPackStore({
       });
       states.delete(pack);
       publish(true);
-      await writes;
+      await writes.idle;
       switched.emit(pack);
     },
 
@@ -389,19 +396,15 @@ export function createPackStore({
 
     async states(packs) {
       const result: Record<string, PackState> = {};
-      for (const pack of new Set(packs)) {
-        const entry = lockEntry(pack);
-        if (!entry || entry.bundled) continue;
+      for (const [pack, entry] of downloadable(packs))
         result[pack] =
           states.get(pack) ?? (await storedState(pack, entry)).state;
-      }
       return result;
     },
 
     async markFailed(packs, error) {
-      for (const pack of new Set(packs)) {
-        const entry = lockEntry(pack);
-        if (!entry || entry.bundled || inflight.peek(pack)) continue;
+      for (const [pack, entry] of downloadable(packs)) {
+        if (inflight.peek(pack)) continue;
         const { state } = await storedState(pack, entry);
         states.set(
           pack,
@@ -411,7 +414,7 @@ export function createPackStore({
         );
       }
       publish(true);
-      await writes;
+      await writes.idle;
     },
 
     onSwitch: switched.add,

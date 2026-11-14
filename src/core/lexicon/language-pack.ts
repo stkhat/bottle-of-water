@@ -30,14 +30,18 @@ const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
   en: englishTagger,
 };
 
+/** How many words' base forms a pack keeps (`lemmas`), as written; then it starts over. */
+const LEMMA_CACHE_SIZE = 20_000;
+
 export interface LanguagePack {
   readonly lang: string;
   tokenize(text: string): Token[];
   /**
    * Base forms of a word as it appears in text, in vocabulary order: the word itself
    * when it is in the vocabulary, then its bases. [] when the word is not known.
+   * Shared between calls: not to be changed.
    */
-  lemmas(word: string): string[];
+  lemmas(word: string): readonly string[];
   /** 1-based frequency rank of a base form; Infinity when it is not ranked. */
   rank(base: string): number;
   /** IPA of a word, or of a phrase's words inside one pair of slashes. */
@@ -95,7 +99,17 @@ export function createLanguagePack(
 ): LanguagePack {
   const ranks = new Map(data.freq.map((word, i) => [word, i + 1]));
   const rules = rulesFor(lang);
-  const lemmas = (word: string) => lemmatize(word, data.lemmas, data.vocab);
+  /** Every block's words are lemmatized, most of them common: each written form once. */
+  const lemmaCache = new Map<string, readonly string[]>();
+  const lemmas = (word: string): readonly string[] => {
+    let found = lemmaCache.get(word);
+    if (!found) {
+      if (lemmaCache.size >= LEMMA_CACHE_SIZE) lemmaCache.clear();
+      found = lemmatize(word, data.lemmas, data.vocab);
+      lemmaCache.set(word, found);
+    }
+    return found;
+  };
   let phrases: ReadonlySet<string> | undefined;
   let matcher: PhraseMatcher | undefined;
   let phrasePos: ReadonlyMap<string, readonly string[]> | undefined;

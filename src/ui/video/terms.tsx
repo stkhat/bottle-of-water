@@ -33,6 +33,9 @@ export function visibleSpans(spans: readonly Span[]): [Span, number][] {
   return out;
 }
 
+/** A cue's text as Lingo shows it: line breaks become spaces. */
+export const lineBreaksAsSpaces = (text: string) => text.replaceAll("\n", " ");
+
 /**
  * The text of a cue with its terms rendered by `term` and the text between them as
  * is. Line breaks inside the cue become spaces.
@@ -42,7 +45,7 @@ export function renderTerms(
   spans: readonly Span[] | null,
   term: (span: Span, index: number, text: string) => JSX.Element,
 ): (string | JSX.Element)[] {
-  const flat = (s: string) => s.replaceAll("\n", " ");
+  const flat = lineBreaksAsSpaces;
   if (!spans) return [flat(text)];
   const out: (string | JSX.Element)[] = [];
   let at = 0;

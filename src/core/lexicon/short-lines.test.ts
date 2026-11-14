@@ -94,6 +94,7 @@ describe("capLine", () => {
   it("cuts hard with an ellipsis, at a space in Latin text", () => {
     expect(capLine("ちんぷんかんぷんの言葉", 10)).toBe("ちんぷん…");
     expect(capLine("A person who studies languages", 20)).toBe("A person who…");
+    expect(capLine("ab日本語の言葉です", 9)).toBe("ab日本語…");
   });
 });
 

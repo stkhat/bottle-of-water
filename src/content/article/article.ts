@@ -1,17 +1,5 @@
-import {
-  sameSpans,
-  type Category,
-  type Span,
-  type WordStatus,
-} from "../../core/classify";
+import type { Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
-import {
-  blockCasing,
-  casingChanges,
-  documentCasing,
-  type BlockCasing,
-} from "../../core/text/casing";
-import { tokenize } from "../../core/text/tokenize";
 import {
   unsupportedPage,
   type PageRequest,
@@ -19,7 +7,6 @@ import {
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
 import type { TermCard } from "../lookup/describe";
-import { wordBoxes } from "../lookup/geometry";
 import {
   createLookup,
   createMarkAll,
@@ -27,42 +14,36 @@ import {
   type LookupDeps,
   type Term,
 } from "../lookup/lookup";
+import { newKeys } from "../lookup/spans";
 import { sendStatus } from "../lookup/status";
 import { warn } from "../lookup/warn";
-import { inOtherLanguage } from "../page-language";
 import { createStore } from "../store";
 import { createSummaries } from "../words/summaries";
+import { createAnalysis, type Analysis } from "./analysis";
+import { createBlocks } from "./blocks";
 import { createCards, writtenOf } from "./cards";
 import { watchEndOfArticle } from "./end-of-article";
-import { createHighlighter } from "./highlighter";
-import { watchInteractions } from "./interactions";
-import {
-  createBlockIndex,
-  spanAtPoint,
-  type SpanMap,
-  type SpanRef,
-} from "./locate";
+import { watchInteractions, type Interactions } from "./interactions";
+import { spanAtPoint, type SpanRef } from "./locate";
 import type { MainContent } from "./main-content";
+import { createPageCasing } from "./page-casing";
 import {
   collectBlocks,
   createPageText,
-  rangeOf,
+  type PageText,
   type TextBlock,
 } from "./page-text";
 import { createRecorder } from "./recorder";
-import { scrollToMiddle } from "./scroll";
 import { createSelection } from "./selection";
 import { sentenceAt } from "./sentence";
 import type { DetectLanguage } from "./should-run";
 import type { ArticleApp, ArticleState } from "./state";
 import { articleSurface, type PageSurface } from "./surface";
-import { batches, watchVisibleBlocks } from "./visibility";
+import { watchVisibleBlocks, type VisibleBlocks } from "./visibility";
+import { createWordsPanel, type ArticleWords } from "./words-panel";
 
 /** The longest text sample the page language is detected on. */
 const DETECT_SAMPLE = 2000;
-
-/** How long a place the Words list went to stays outlined (ms). */
-const FLASH_MS = 1500;
 
 export interface ArticleDeps extends LookupDeps {
   detectLanguage: DetectLanguage;
@@ -111,6 +92,27 @@ export interface ArticleSession {
 }
 
 /**
+ * A part made further down than a part that calls it. `startArticle` makes its parts
+ * in the order their side effects must run (the UI is mounted before the page is
+ * read, the page is read before the pointer is watched), so a few calls go back up:
+ * each such part is set right after it is made, and a call before that throws (none
+ * comes that early).
+ */
+function late<T>(name: string) {
+  let part: T | undefined;
+  return {
+    set(value: T) {
+      part = value;
+      return value;
+    },
+    get(): T {
+      if (part === undefined) throw new ReferenceError(`${name} not made yet`);
+      return part;
+    },
+  };
+}
+
+/**
  * Runs the article UI on the page when it qualifies (`shouldRunArticle`): mounts the
  * UI, analyzes blocks as they come near the viewport, highlights their spans, follows
  * page changes and the settings, and answers hovers, clicks and the UI's controls.
@@ -138,40 +140,45 @@ export async function startArticle(
   if (!runs) return undefined;
 
   const lang = settings.learningLang;
-  const highlighter = createHighlighter(settings.highlight);
-  const spans: SpanMap = new Map();
-  const live = new Set<TextBlock>();
-  const index = createBlockIndex();
-  /** The latest analysis or local change of each block; older results are dropped. */
-  const versions = new Map<TextBlock, number>();
-  let version = 0;
   /** The part that counts (the article's title and body), found again after page changes. */
   let main: MainContent = surface.mainContent(root, []);
-  /** Analyzed blocks whose spans are highlighted (in scope). */
-  const shown = new Set<TextBlock>();
+  /**
+   * The block gets highlights and counts for the end-of-article save, the history and
+   * the encounters: always, or only in the title and body (`articleMainOnly`). Every
+   * block still answers hovers and clicks.
+   */
+  const inScope = (block: TextBlock) =>
+    !settings.articleMainOnly || main.contains(block);
+
+  // Parts called by parts made before them. The blocks tell the Words list of changes,
+  // and the Words list reads the blocks; the lookup starts the analysis once language
+  // data is ready, and the analysis asks the lookup. The page is read, and the visible
+  // blocks and the pointer watched, only once the UI is mounted, but the UI's parts
+  // (cards, selection, Words list) are made before it.
+  const later = {
+    words: late<ArticleWords>("words"),
+    analysis: late<Analysis>("analysis"),
+    visible: late<VisibleBlocks>("visible"),
+    pageText: late<PageText>("pageText"),
+    interactions: late<Interactions>("interactions"),
+  };
+  const pageBlocks = () => later.pageText.get().blocks();
+
+  const blocks = createBlocks({
+    highlight: settings.highlight,
+    inScope,
+    changed: () => later.words.get().changed(),
+  });
+  const { spans } = blocks;
   /** Saved terms the analyses found on the page. */
   const savedKeys = new Set<string>();
-  /**
-   * Blocks the Words list had analyzed before they came near the view: their sentences
-   * and saved terms are recorded only once they do (the reader may never get there).
-   */
-  const unread = new WeakSet<TextBlock>();
-  /** Records analyzed blocks in scope for the history and the encounters, once read. */
-  function record(blocks: readonly TextBlock[], saved: ReadonlySet<string>) {
-    const read = blocks.filter((block) => !unread.has(block));
-    recorder.encounters(read, saved);
-    recorder.history(read);
-  }
-  /** Blocks whose analysis waits for language data that is not on the device. */
-  const waiting = new Set<TextBlock>();
   const lookup = createLookup(deps, {
     settings: () => settings,
     lang: () => lang,
     url: () => surface.url(),
     packsReady() {
-      const blocks = [...waiting].filter((block) => live.has(block));
-      waiting.clear();
-      void reanalyze(blocks).catch(warn);
+      const waited = blocks.takeWaiting();
+      void later.analysis.get().reanalyze(waited).catch(warn);
     },
   });
   const { run } = lookup;
@@ -205,222 +212,96 @@ export async function startArticle(
     spans,
     casing: () => lookup.casing,
   });
+  const casing = createPageCasing({ lang, lookup });
+  const words = later.words.set(
+    createWordsPanel({
+      store,
+      summaries,
+      blocks,
+      savedKeys,
+      inScope,
+      pageBlocks,
+      visible: () => later.visible.get(),
+    }),
+  );
 
-  /** What each block says about the page's casing (rule D). */
-  const blockCasings = new WeakMap<TextBlock, BlockCasing>();
-  function casingOf(block: TextBlock) {
-    let found = blockCasings.get(block);
-    if (!found) {
-      found = blockCasing(tokenize(block.text, lang), lang);
-      blockCasings.set(block, found);
-    }
-    return found;
+  /** Records analyzed blocks in scope for the history and the encounters, once read. */
+  function record(list: readonly TextBlock[], saved: ReadonlySet<string>) {
+    const read = list.filter((block) => !words.isUnread(block));
+    recorder.encounters(read, saved);
+    recorder.history(read);
   }
 
+  const analysis = later.analysis.set(
+    createAnalysis({
+      lookup,
+      blocks,
+      surface,
+      detectLanguage: deps.detectLanguage,
+      lang,
+      analyzed(fresh, saved) {
+        for (const key of saved) savedKeys.add(key);
+        const counted = fresh.filter(inScope);
+        record(counted, new Set(saved));
+        if (store.get().words) words.classified(counted);
+      },
+    }),
+  );
+  const { analyze, reanalyze } = analysis;
+
   /**
-   * Takes the casing of the page's main content as it is now (menus and Title Case
-   * links outside it say nothing about names), and classifies again the analyzed
-   * blocks with a word whose verdict changed.
+   * Takes the casing of the page's main content as it is now, and classifies again the
+   * analyzed blocks with a word whose verdict changed.
    */
-  function updateCasing() {
-    const before = lookup.casing;
-    const after = documentCasing(
-      pageText
-        .blocks()
-        .filter((block) => main.contains(block))
-        .map(casingOf),
+  function updateCasing(pageNow: readonly TextBlock[]) {
+    const affected = casing.update(
+      pageNow.filter((block) => main.contains(block)),
     );
-    lookup.setCasing(after);
-    if (!before) return;
-    const changed = casingChanges(before, after);
-    if (changed !== "all" && changed.size === 0) return;
+    if (!affected) return;
     const stale = [...spans.keys()].filter(
-      (block) =>
-        live.has(block) &&
-        (changed === "all" ||
-          [...changed].some((key) => casingOf(block).keys.has(key))),
+      (block) => blocks.isLive(block) && affected(block),
     );
     if (stale.length > 0) run(() => reanalyze(stale));
   }
-  const cards = createCards({
-    store,
-    lookup,
-    lang,
-    spans,
-    blocks: () => pageText.blocks(),
-    selecting: () => selection.selecting(),
-    onPanelOpen: deps.onPanelOpen,
-  });
+
+  /** Highlights blocks that came into scope and drops those that left it. */
+  function rescope() {
+    record(blocks.rescope(), savedKeys);
+    words.changed();
+    words.analyzeEarly();
+  }
+
   const selection = createSelection({
     send: deps.send,
     store,
     lookup,
     lang,
     source,
-    index,
+    index: blocks.index,
     spans,
-    dismissHover: () => interactions.dismissHover(),
+    dismissHover: () => later.interactions.get().dismissHover(),
     async saved() {
       deps.onTermsChanged?.();
       await reanalyze();
     },
   });
-
-  /**
-   * The block gets highlights and counts for the end-of-article save, the history and
-   * the encounters: always, or only in the title and body (`articleMainOnly`). Every
-   * block still answers hovers and clicks.
-   */
-  const inScope = (block: TextBlock) =>
-    !settings.articleMainOnly || main.contains(block);
-
-  function setSpans(block: TextBlock, blockSpans: readonly Span[]) {
-    const on = inScope(block);
-    // Classified again with nothing changed (after a save elsewhere on the page): its
-    // highlights stay, so the page does not repaint every block.
-    if (on === shown.has(block) && sameSpans(spans.get(block), blockSpans))
-      return;
-    spans.set(block, blockSpans);
-    highlighter.set(block, on ? blockSpans : []);
-    if (on) shown.add(block);
-    else shown.delete(block);
-    wordsChanged();
-  }
-
-  /** Highlights blocks that came into scope and drops those that left it. */
-  function rescope() {
-    const entered: TextBlock[] = [];
-    for (const [block, list] of spans) {
-      const on = inScope(block);
-      if (on === shown.has(block)) continue;
-      highlighter.set(block, on ? list : []);
-      if (on) {
-        shown.add(block);
-        entered.push(block);
-      } else shown.delete(block);
-    }
-    record(entered, savedKeys);
-    wordsChanged();
-    analyzeForWords();
-  }
-
-  /** Whether each block is in the learning language, once detected (`perBlockLanguage`). */
-  const learning = new WeakMap<TextBlock, boolean>();
-
-  /** The blocks to analyze: those not in another language, when the surface checks. */
-  async function inLearningLanguage(batch: TextBlock[]) {
-    if (!surface.perBlockLanguage) return batch;
-    const keep = await Promise.all(
-      batch.map(async (block) => {
-        let ok = learning.get(block);
-        if (ok === undefined) {
-          ok = await deps
-            .detectLanguage(block.text)
-            .then((detected) => !inOtherLanguage(detected, lang))
-            .catch(() => true);
-          learning.set(block, ok);
-        }
-        return ok;
-      }),
-    );
-    return batch.filter((_, i) => keep[i]);
-  }
-
-  /**
-   * Classifies blocks and highlights them. While language data is missing (or once a
-   * request finds it missing), the blocks wait for it instead. Blocks in another
-   * language (`perBlockLanguage`) are left alone.
-   */
-  async function analyze(blocks: TextBlock[]) {
-    const batch = await inLearningLanguage(blocks);
-    if (batch.length === 0) return;
-    const stamps = lookup.waiting
-      ? []
-      : batch.map((block) => {
-          versions.set(block, ++version);
-          return version;
-        });
-    const result = await lookup.analyze(batch.map((b) => b.text));
-    if (!result) {
-      for (const block of batch) waiting.add(block);
-      return;
-    }
-    const fresh: TextBlock[] = [];
-    batch.forEach((block, i) => {
-      if (!live.has(block) || versions.get(block) !== stamps[i]) return;
-      setSpans(block, result.spans[i] ?? []);
-      fresh.push(block);
-    });
-    for (const key of result.saved) savedKeys.add(key);
-    const counted = fresh.filter(inScope);
-    record(counted, new Set(result.saved));
-    if (store.get().words) classifiedForWords(counted);
-  }
-
-  /** The Words list's summaries of these blocks' terms (asked once each). */
-  function classifiedForWords(blocks: readonly TextBlock[]) {
-    summaries.classified(
-      blocks.flatMap((block) => [...(spans.get(block) ?? [])]),
-      savedKeys,
-    );
-  }
-
-  /** The blocks the Words list shows: analyzed, in scope, in page order. */
-  let wordsQueued = false;
-  function wordsChanged() {
-    if (wordsQueued || !store.get().words) return;
-    wordsQueued = true;
-    // Once per batch of changes, not per block.
-    queueMicrotask(() => {
-      wordsQueued = false;
-      const words = store.get().words;
-      if (!words) return;
-      const blocks = pageText
-        .blocks()
-        .filter((block) => shown.has(block))
-        .map((block) => ({ block, spans: spans.get(block)! }));
-      store.set({ words: { ...words, blocks } });
-    });
-  }
-
-  /** While the Words list is open, every block in scope is analyzed, near the view or not. */
-  function analyzeForWords() {
-    if (!store.get().words) return;
-    const early = visible.now(
-      pageText.blocks().filter((block) => inScope(block) && !spans.has(block)),
-    );
-    for (const block of early) unread.add(block);
-  }
-
-  /** Analyzes blocks again (all analyzed ones by default), in batches. */
-  async function reanalyze(blocks: readonly TextBlock[] = [...spans.keys()]) {
-    for (const batch of batches(blocks)) await analyze(batch);
-  }
-
-  /** Gives spans a new category where `change` returns one, and highlights them. */
-  function recategorize(change: (span: Span) => Category | undefined) {
-    for (const [block, list] of spans) {
-      let changed = false;
-      const next = list.map((span) => {
-        const category = change(span);
-        if (category === undefined || category === span.category) return span;
-        changed = true;
-        return { ...span, category };
-      });
-      if (!changed) continue;
-      versions.set(block, ++version);
-      setSpans(block, next);
-    }
-  }
+  const cards = createCards({
+    store,
+    lookup,
+    lang,
+    spans,
+    blocks: pageBlocks,
+    selecting: () => selection.selecting(),
+    onPanelOpen: deps.onPanelOpen,
+  });
 
   /** Distinct keys of unsaved new words on the analyzed part of the page, in page order. */
-  function unsavedOnPage(): string[] {
-    const keys = new Set<string>();
-    for (const block of pageText.blocks().filter(inScope))
-      for (const span of spans.get(block) ?? [])
-        if (span.category === "new") keys.add(span.key);
-    return [...keys];
-  }
+  const unsavedOnPage = () =>
+    newKeys(
+      pageBlocks()
+        .filter(inScope)
+        .map((block) => spans.get(block)),
+    );
 
   const marks = createMarkAll({
     send: deps.send,
@@ -429,7 +310,7 @@ export async function startArticle(
     unsaved: unsavedOnPage,
     async marked(keys, from, to) {
       noteStatus(keys, to);
-      recategorize((s) =>
+      blocks.recategorize((s) =>
         s.category === from && keys.has(s.key) ? to : undefined,
       );
       await cards.refreshOpen();
@@ -477,24 +358,10 @@ export async function startArticle(
     if (to === "new") await reanalyze(blocksWith(card));
     // A selected phrase may be anywhere on the page: classify again to find it.
     else if (card.status === "new" && !onPage(ref)) await reanalyze();
-    else recategorize((s) => (sameTerm(s, card) ? to : undefined));
+    else blocks.recategorize((s) => (sameTerm(s, card) ? to : undefined));
     deps.onTermsChanged?.();
     await cards.refresh(card);
   }
-
-  /** The place the Words list went to, outlined until the timer ends. */
-  let flash: { range: Range; timer: ReturnType<typeof setTimeout> } | undefined;
-  function endFlash() {
-    if (!flash) return;
-    clearTimeout(flash.timer);
-    flash = undefined;
-    store.set({ flash: null });
-  }
-
-  const setWords = (patch: Partial<NonNullable<ArticleState["words"]>>) => {
-    const words = store.get().words;
-    if (words) store.set({ words: { ...words, ...patch } });
-  };
 
   const app: ArticleApp = {
     store,
@@ -503,12 +370,12 @@ export async function startArticle(
       const card = store.get().hover?.card;
       if (ref && card) run(() => changeStatus(ref, card, status));
     },
-    keepHover: () => interactions.keepHover(),
-    releaseHover: () => interactions.releaseHover(),
+    keepHover: () => later.interactions.get().keepHover(),
+    releaseHover: () => later.interactions.get().releaseHover(),
     openDetails() {
       const ref = cards.hoverRef();
       if (!ref) return;
-      interactions.dismissHover();
+      later.interactions.get().dismissHover();
       void cards.openPanel(ref).catch(warn);
     },
     setPanelStatus(status) {
@@ -527,115 +394,93 @@ export async function startArticle(
       const ref = selection.takeForDetails();
       if (ref) void cards.openPanel(ref).catch(warn);
     },
-    showWords() {
-      if (!store.get().words)
-        store.set({
-          words: { blocks: [], filter: "all", sort: "order", jump: null },
-        });
-      wordsChanged();
-      classifiedForWords([...shown]);
-      analyzeForWords();
-    },
-    closeWords() {
-      endFlash();
-      store.set({ words: null });
-    },
-    setWordsFilter: (filter) => setWords({ filter }),
-    setWordsSort: (sort) => setWords({ sort }),
-    jumpToWord(id, place, { unit: block, start, end }) {
-      if (!live.has(block)) return;
-      setWords({ jump: { id, place } });
-      const range = rangeOf(block, start, end);
-      scrollToMiddle(range);
-      endFlash();
-      flash = { range, timer: setTimeout(endFlash, FLASH_MS) };
-      store.set({ flash: wordBoxes(range) });
-    },
+    showWords: words.show,
+    closeWords: words.close,
+    setWordsFilter: (filter) => words.setWords({ filter }),
+    setWordsSort: (sort) => words.setWords({ sort }),
+    jumpToWord: words.jump,
     wordsShown: (rows) => summaries.shown(rows),
   };
 
   const unmountUi = await deps.mountUi(app);
 
-  const visible = watchVisibleBlocks(analyze, {
-    reached(blocks) {
-      for (const block of blocks) unread.delete(block);
-      // Not analyzed yet: `analyze` records them.
-      record(
-        blocks.filter((block) => shown.has(block)),
-        savedKeys,
-      );
-    },
-  });
+  const visible = later.visible.set(
+    watchVisibleBlocks(analyze, {
+      reached(list) {
+        words.reached(list);
+        // Not analyzed yet: `analyze` records them.
+        record(
+          list.filter((block) => blocks.shown.has(block)),
+          savedKeys,
+        );
+      },
+    }),
+  );
   const end = watchEndOfArticle(() => {
     if (settings.unsavedAtEnd !== "known") return;
     // The end can show before the visible blocks are queued: the last paragraph is
     // analyzed first, and blocks waiting for analysis are waited for.
     run(async () => {
       const last = main.last;
-      if (last && live.has(last) && !spans.has(last)) await analyze([last]);
+      if (last && blocks.isLive(last) && !spans.has(last))
+        await analyze([last]);
       await visible.idle();
       await marks.markKnown();
     });
   });
 
-  const pageText = createPageText(root, {
-    acceptText: surface.acceptText,
-    onChange({ removed, added }) {
-      for (const block of removed) {
-        live.delete(block);
-        waiting.delete(block);
-        spans.delete(block);
-        versions.delete(block);
-        highlighter.remove(block);
-        shown.delete(block);
-      }
-      index.remove(removed);
-      visible.remove(removed);
-      for (const block of added) live.add(block);
-      index.add(added);
-      visible.add(added);
-      main = surface.mainContent(root, pageText.blocks());
-      end.update(main.last);
-      rescope();
-      updateCasing();
-      if (removed.length > 0) wordsChanged();
-    },
-  });
+  const pageText = later.pageText.set(
+    createPageText(root, {
+      acceptText: surface.acceptText,
+      onChange({ removed, added }) {
+        blocks.remove(removed);
+        visible.remove(removed);
+        blocks.add(added);
+        visible.add(added);
+        main = surface.mainContent(root, pageText.blocks());
+        end.update(main.last);
+        rescope();
+        updateCasing(pageText.blocks());
+        if (removed.length > 0) words.changed();
+      },
+    }),
+  );
   main = surface.mainContent(root, pageText.blocks());
-  updateCasing();
-  for (const block of pageText.blocks()) live.add(block);
-  index.add(pageText.blocks());
+  updateCasing(pageText.blocks());
+  blocks.add(pageText.blocks());
   visible.add(pageText.blocks());
   end.update(main.last);
 
   const closePanel = () => {
     if (store.get().panel) cards.closePanel();
   };
-  const interactions = watchInteractions({
-    spanAt(x, y) {
-      const ref = spanAtPoint(x, y, index, spans);
-      return ref && ref.span.category !== "ignored" ? ref : undefined;
-    },
-    showHover: (ref) => void cards.showHover(ref).catch(warn),
-    hideHover: cards.hideHover,
-    click: (ref) => void cards.openPanel(ref).catch(warn),
-    selection: selection.select,
-    escape: closePanel,
-    pressAway: closePanel,
-    selecting: selection.selecting,
-    scroll() {
-      cards.follow();
-      selection.follow();
-      if (flash) store.set({ flash: wordBoxes(flash.range) });
-    },
-  });
+  const interactions = later.interactions.set(
+    watchInteractions({
+      spanAt(x, y) {
+        const ref = spanAtPoint(x, y, blocks.index, spans);
+        return ref && ref.span.category !== "ignored" ? ref : undefined;
+      },
+      showHover: (ref) => void cards.showHover(ref).catch(warn),
+      hideHover: cards.hideHover,
+      click: (ref) => void cards.openPanel(ref).catch(warn),
+      selection: selection.select,
+      escape: closePanel,
+      pressAway: closePanel,
+      selecting: selection.selecting,
+      scroll() {
+        cards.follow();
+        selection.follow();
+        words.follow();
+      },
+    }),
+  );
 
   const unwatch = deps.watchSettings((next) => {
     const levelChanged = next.knownLevel !== settings.knownLevel;
     const scopeChanged = next.articleMainOnly !== settings.articleMainOnly;
     settings = next;
     store.set({ settings });
-    highlighter.setEnabled(next.highlight);
+    blocks.setHighlight(next.highlight);
     if (scopeChanged) rescope();
     if (levelChanged) run(() => reanalyze());
   });
@@ -661,17 +506,13 @@ export async function startArticle(
     stop() {
       unwatch();
       controller.abort();
-      endFlash();
+      words.stop();
       lookup.stop();
       interactions.stop();
       end.disconnect();
       pageText.disconnect();
       visible.disconnect();
-      highlighter.destroy();
-      spans.clear();
-      shown.clear();
-      live.clear();
-      waiting.clear();
+      blocks.destroy();
       unmountUi();
     },
   };

@@ -11,8 +11,7 @@ import {
   type SettingsPatch,
 } from "../../core/settings";
 import { joinerFor } from "../../core/subtitles/translation";
-import { blockCasing, documentCasing } from "../../core/text/casing";
-import { tokenize } from "../../core/text/tokenize";
+import { documentCasing, textCasing } from "../../core/text/casing";
 import { hostnameOf } from "../../core/url";
 import { followPackStatus, pairNote } from "../../messaging/pack-status";
 import {
@@ -27,6 +26,7 @@ import {
   sameTerm,
   type LookupDeps,
 } from "../lookup/lookup";
+import { newKeys, recategorized } from "../lookup/spans";
 import { sendStatus } from "../lookup/status";
 import { warn } from "../lookup/warn";
 import { createStore } from "../store";
@@ -272,11 +272,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     w.timed = timed;
     // The whole track is the document whose capitals tell names (rule D).
     lookup.setCasing(
-      documentCasing(
-        state.cues.map((cue) =>
-          blockCasing(tokenize(cue.text, lang()), lang()),
-        ),
-      ),
+      documentCasing(state.cues.map((cue) => textCasing(cue.text, lang()))),
     );
     store.set({ status: "ready", ...state });
     if (state.translationSource === "builtIn")
@@ -403,25 +399,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     w.summaries.classified([...found.values()].flat(), saved);
   }
 
-  function unsavedKeys(): string[] {
-    const keys = new Set<string>();
-    for (const list of store.get().spans)
-      for (const span of list ?? [])
-        if (span.category === "new") keys.add(span.key);
-    return [...keys];
-  }
+  const unsavedKeys = () => newKeys(store.get().spans);
 
   function recategorize(change: (span: Span) => Category | undefined) {
     let changed = false;
     const spans = store.get().spans.map((list) => {
-      if (!list) return list;
-      let next: Span[] | undefined;
-      list.forEach((span, i) => {
-        const category = change(span);
-        if (category === undefined || category === span.category) return;
-        next ??= [...list];
-        next[i] = { ...span, category };
-      });
+      const next = list && recategorized(list, change);
       // A cue without a change keeps its spans: its card does not render again.
       if (!next) return list;
       changed = true;
@@ -483,6 +466,12 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       .catch(warn);
   };
 
+  /** Sets one field of the state, only when it changes (nothing renders again otherwise). */
+  const setIf = <K extends keyof VideoState>(key: K, value: VideoState[K]) => {
+    if (store.get()[key] !== value)
+      store.set({ [key]: value } as Partial<VideoState>);
+  };
+
   const app: VideoApp = {
     store,
     setEnabled(on) {
@@ -506,12 +495,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     keepHover: cards.keepHover,
     releaseHover: cards.releaseHover,
     dismissHover: cards.dismissHover,
-    enterSubtitle() {
-      if (!store.get().subtitleHover) store.set({ subtitleHover: true });
-    },
-    leaveSubtitle() {
-      if (store.get().subtitleHover) store.set({ subtitleHover: false });
-    },
+    enterSubtitle: () => setIf("subtitleHover", true),
+    leaveSubtitle: () => setIf("subtitleHover", false),
     clickWord: cards.clickWord,
     setHoverStatus(status) {
       const shown = store.get().hover;
@@ -555,25 +540,16 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     openSettings() {
       deps.send({ type: "openOptions" }).catch(warn);
     },
-    setMenuOpen(open) {
-      if (store.get().menuOpen !== open) store.set({ menuOpen: open });
-    },
+    setMenuOpen: (open) => setIf("menuOpen", open),
     setFullscreen(on) {
       if (store.get().fullscreen === on) return;
       cards.dismissHover();
       selection.clear();
       store.set({ fullscreen: on });
     },
-    setPanelTab(tab) {
-      if (store.get().panelTab !== tab) store.set({ panelTab: tab });
-    },
-    setWordsFilter(filter) {
-      if (store.get().wordsFilter !== filter)
-        store.set({ wordsFilter: filter });
-    },
-    setWordsSort(sort) {
-      if (store.get().wordsSort !== sort) store.set({ wordsSort: sort });
-    },
+    setPanelTab: (tab) => setIf("panelTab", tab),
+    setWordsFilter: (filter) => setIf("wordsFilter", filter),
+    setWordsSort: (sort) => setIf("wordsSort", sort),
     jumpToWord(id, { card, line, startMs }) {
       if (!store.get().cues[card]) return;
       store.set({ wordsJump: { id, card, line } });

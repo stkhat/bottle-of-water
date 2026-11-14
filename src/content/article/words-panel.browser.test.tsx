@@ -207,6 +207,31 @@ describe("Words on this page", () => {
       .toBeVisible();
   });
 
+  it("follows the title-and-body switch and blocks that go away", async () => {
+    const { background } = await open(`
+      <article>
+        <h1>Patient bakers</h1>
+        <p>They knead the dough and wait.</p>
+        <p id="tangy">Then knead it until tangy.</p>
+      </article>
+      <div style="height: 2400px"></div>
+      <aside><p>Trace each rise and fall back to its cause.</p></aside>`);
+    await expect.poll(heads).toContain("tangy");
+    expect(heads()).not.toContain("rise");
+
+    // Far below and never analyzed: the list analyzes it once it counts.
+    background.changeSettings({ articleMainOnly: false });
+    await expect.poll(heads).toContain("rise");
+
+    background.changeSettings({ articleMainOnly: true });
+    await expect.poll(heads).not.toContain("rise");
+    expect(heads()).toContain("tangy");
+
+    document.getElementById("tangy")!.remove();
+    await expect.poll(heads).not.toContain("tangy");
+    expect(heads()).toContain("knead");
+  });
+
   it("records the parts it analyzes early only once the reader gets there", async () => {
     const requests: Request[] = [];
     const { session } = await setup(ARTICLE, {

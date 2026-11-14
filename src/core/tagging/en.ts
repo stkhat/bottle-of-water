@@ -93,16 +93,25 @@ function tokenTag(tag: string, confidence: number): TokenTag {
 const formOf = (word: TaggedWord, verb: string) =>
   word.form === verb || word.bases.includes(verb);
 
+/** A form of "be", also in a contraction: "we're", "it's", "I'm". */
+const isBe = (word: TaggedWord) =>
+  formOf(word, "be") || /'(s|re|m)$/.test(word.form);
+
+const AFTER_HAVE = /^(VBN|TO)$/;
+const AFTER_BE = /^(VBG|VBN)$/;
+const AFTER_DO = /^(VB|VBP)$/;
+const AFTER_GET = /^VBN$/;
+
 /**
  * What an auxiliary takes after it: have a past participle (has spent) or "to" right
  * after it (had to), be a participle or an -ing form (is going, was taken), do a bare
  * verb (did go), get a past participle (got hurt).
  */
 function takes(word: TaggedWord): RegExp | undefined {
-  if (formOf(word, "have")) return /^(VBN|TO)$/;
-  if (formOf(word, "be")) return /^(VBG|VBN)$/;
-  if (formOf(word, "do")) return /^(VB|VBP)$/;
-  if (formOf(word, "get")) return /^VBN$/;
+  if (formOf(word, "have")) return AFTER_HAVE;
+  if (formOf(word, "be")) return AFTER_BE;
+  if (formOf(word, "do")) return AFTER_DO;
+  if (formOf(word, "get")) return AFTER_GET;
   return undefined;
 }
 
@@ -164,13 +173,11 @@ function verbal(words: readonly TaggedWord[], i: number): WordUse["verbal"] {
   if (/^(VBD|VBN|VBG)$/.test(tag.tag) && prenominal) return false;
   if (tag.tag === "VBD" || tag.tag === "VBZ") return "finite";
   const before = words.slice(Math.max(0, i - 3), i);
-  /** be, also in a contraction: "we're", "it's", "I'm". */
-  const be = (w: TaggedWord) => formOf(w, "be") || /'(s|re|m)$/.test(w.form);
   if (tag.tag === "VBN" && before.some((w) => formOf(w, "have"))) return "aux";
-  if (tag.tag === "VBG" && before.some(be)) return "aux";
+  if (tag.tag === "VBG" && before.some(isBe)) return "aux";
   // be + a past participle without an agent may be a state: "growth was subdued",
   // "is rooted in", "we're doomed".
-  if (tag.tag === "VBN" && before.slice(-2).some(be) && next?.form !== "by")
+  if (tag.tag === "VBN" && before.slice(-2).some(isBe) && next?.form !== "by")
     return false;
   return "other";
 }
@@ -237,7 +244,7 @@ function role(word: TaggedWord): WordRole {
     preposition: tag?.label === "preposition",
     subject: tag?.label === "pronoun" || tag?.label === "noun",
     partitive: form === "of",
-    be: formOf(word, "be") || /'(s|re|m)$/.test(form),
+    be: isBe(word),
     pastParticiple: raw === "VBN",
   };
 }

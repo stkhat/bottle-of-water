@@ -10,7 +10,6 @@ import {
 import { createRecent } from "../recent";
 import type {
   CaptionRequest,
-  ControlBarMode,
   InsertionPoint,
   PlatformAdapter,
   VideoCaptions,
@@ -24,18 +23,16 @@ import {
   type PageCallResults,
   type TracksMessage,
 } from "./messages";
+import { createControlBar } from "./control-bar";
 import {
   CONTROL_BAR_DELAY_MS,
   CONTROL_BAR_HEIGHT,
   CONTROLS_STYLE,
   HIDE_CAPTIONS_CSS,
-  HIDE_CONTROL_BAR_CSS,
   KEEP_TITLES,
-  BAR_GONE_MS,
   query,
   SELECTORS,
   titleText,
-  TOP_STRIP,
 } from "./site";
 import { asTrack, pickOriginalTrack, translationTracks } from "./tracks";
 
@@ -57,6 +54,8 @@ export interface NetflixAdapterOptions {
 }
 
 const WATCH = /^\/watch\/(\d+)/;
+const CONTROL_BUTTONS = SELECTORS.controlButton.join(", ");
+const CONTROL_BAR_PARTS = SELECTORS.controlBarParts.join(", ");
 
 /**
  * Netflix's watch page. Subtitles come from the manifest the player parses, observed by
@@ -213,24 +212,31 @@ export function createNetflixAdapter(
   }
 
   const player = () => query(SELECTORS.player);
+  /** The player view while it fills the window, not the screen. */
+  const windowedPlayer = () => {
+    const view = player();
+    return view && view !== document.fullscreenElement ? view : null;
+  };
 
-  /** One element of Lingo's own, made once and put back where it belongs when the page re-renders. */
-  function own(
-    name: string,
-    style: string,
-    parent: () => Element | null,
-  ): () => HTMLElement | null {
+  /**
+   * One element of Lingo's own, made once: `place` puts it back where it belongs when
+   * the page re-renders; `shown` is it while it is on the page.
+   */
+  function own(name: string, style: string, parent: () => Element | null) {
     let element: HTMLElement | undefined;
     cleanups.push(() => element?.remove());
-    return () => {
-      const at = parent();
-      if (!at) return null;
-      if (!element) {
-        element = document.createElement(name);
-        element.style.cssText = style;
-      }
-      if (element.parentElement !== at) at.append(element);
-      return element;
+    return {
+      place(): HTMLElement | null {
+        const at = parent();
+        if (!at) return null;
+        if (!element) {
+          element = document.createElement(name);
+          element.style.cssText = style;
+        }
+        if (element.parentElement !== at) at.append(element);
+        return element;
+      },
+      shown: () => (element?.isConnected ? element : null),
     };
   }
 
@@ -244,10 +250,7 @@ export function createNetflixAdapter(
   // The player view holds the control bar, the back arrow and the video; inside
   // `.watch-video`, which is the element in fullscreen (docs/notes/netflix.md).
   const narrowPlayer = playerNarrower(
-    () => {
-      const view = player();
-      return view && view !== document.fullscreenElement ? view : null;
-    },
+    windowedPlayer,
     "width",
     (width) => `calc(100% - ${width}px)`,
   );
@@ -261,7 +264,7 @@ export function createNetflixAdapter(
   );
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   function showFloating() {
-    const group = document.querySelector<HTMLElement>("lingo-netflix-controls");
+    const group = floating.shown();
     if (!group) return;
     group.style.visibility = "visible";
     clearTimeout(idleTimer);
@@ -270,77 +273,14 @@ export function createNetflixAdapter(
     }, idleMs);
   }
 
-  // Netflix's control bar is held back while Lingo's subtitle is over the video
-  // (docs/notes/netflix.md, "Layout decisions"): it shows once the pointer has stayed in
-  // the bar's area for a while, or at once in the top strip; never while Lingo is in use.
-  // Each new bar is held back again.
-  const hideBar = styleSwitch("lingo-hide-netflix-bar", HIDE_CONTROL_BAR_CSS);
-  let barMode: ControlBarMode = "free";
-  let revealed = false;
-  let barPresent = false;
-  /** Where the pointer's last move over the player was: the bar's area, the top strip. */
-  let pointerAt: "bottom" | "top" | null = null;
-  let barGoneTimer: ReturnType<typeof setTimeout> | undefined;
-  /** Runs while the pointer stays in the bar's area; shows the bar when it ends. */
-  let bottomTimer: ReturnType<typeof setTimeout> | undefined;
-  const barHidden = () =>
-    barMode === "hidden" || (barMode === "delay" && !revealed);
-  function cancelBottom() {
-    clearTimeout(bottomTimer);
-    bottomTimer = undefined;
-  }
-  function reveal() {
-    cancelBottom();
-    revealed = true;
-    hideBar(false);
-  }
-  cleanups.push(() => {
-    clearTimeout(barGoneTimer);
-    cancelBottom();
-    hideBar(false);
-  });
-
-  /** The bar shows at once in the top strip, after `barDelayMs` in the bar's area. */
-  function revealForPointer() {
-    if (barMode !== "delay" || revealed) return cancelBottom();
-    if (pointerAt === "top") return reveal();
-    if (pointerAt !== "bottom") return cancelBottom();
-    bottomTimer ??= setTimeout(() => {
-      bottomTimer = undefined;
-      if (pointerAt === "bottom" && barMode === "delay") reveal();
-    }, barDelayMs);
-  }
-
-  function watchBar(event: Event) {
-    const box = player()?.getBoundingClientRect();
-    const { clientX: x, clientY: y } = event as MouseEvent;
-    const over =
-      box !== undefined &&
-      x >= box.left &&
-      x <= box.right &&
-      y >= box.top &&
-      y <= box.bottom;
-    pointerAt = !over
-      ? null
-      : y >= box.bottom - CONTROL_BAR_HEIGHT
-        ? "bottom"
-        : y <= box.top + TOP_STRIP
-          ? "top"
-          : null;
-    revealForPointer();
-  }
-
-  /** The pointer left the window (over its bottom edge, say): it is in no area. */
-  const onPointerOut = (event: Event) => {
-    if ((event as MouseEvent).relatedTarget !== null) return;
-    pointerAt = null;
-    cancelBottom();
-  };
+  const controlBar = createControlBar({ player, delayMs: barDelayMs });
+  cleanups.push(controlBar.dispose);
 
   const onPointerMove = (event: Event) => {
-    watchBar(event);
+    controlBar.watch(event);
     showFloating();
   };
+  const onPointerOut = (event: Event) => controlBar.pointerOut(event);
   // On the window, capturing: the page cannot keep the moves from Lingo.
   const POINTER = ["pointermove", "mousemove"] as const;
   for (const type of POINTER)
@@ -374,7 +314,7 @@ export function createNetflixAdapter(
       row && row !== document.body;
       slot = row, row = row.parentElement
     ) {
-      const others = row.querySelectorAll(SELECTORS.controlButton.join(", "));
+      const others = row.querySelectorAll(CONTROL_BUTTONS);
       if ([...others].some((button) => !slot.contains(button)))
         return { parent: row, before: slot };
     }
@@ -393,12 +333,12 @@ export function createNetflixAdapter(
       if (!barSeen) {
         barSeen = true;
         // The buttons live in the bar from now on.
-        document.querySelector("lingo-netflix-controls")?.remove();
+        floating.shown()?.remove();
       }
       return before(anchor);
     }
     if (barSeen) return null;
-    const group = floating();
+    const group = floating.place();
     return group ? { parent: group, before: null } : null;
   }
 
@@ -410,13 +350,10 @@ export function createNetflixAdapter(
   function controlBarTop(): number | null {
     const bar = query(SELECTORS.controlBar);
     const view = player();
-    if (!bar || !view || barHidden()) return null;
+    if (!bar || !view || controlBar.hidden()) return null;
     const { top, bottom } = view.getBoundingClientRect();
     const middle = (top + bottom) / 2;
-    const parts = [
-      bar,
-      ...bar.querySelectorAll(SELECTORS.controlBarParts.join(", ")),
-    ];
+    const parts = [bar, ...bar.querySelectorAll(CONTROL_BAR_PARTS)];
     let highest: number | null = null;
     for (const part of parts) {
       const box = part.getBoundingClientRect();
@@ -448,32 +385,12 @@ export function createNetflixAdapter(
     playerElement: player,
     controlsPoint,
     controlsStyle: CONTROLS_STYLE,
-    belowVideoElement: below,
+    belowVideoElement: below.place,
     sideColumn: () => null,
-    fillsWindow: () => {
-      const view = player();
-      return view !== null && view !== document.fullscreenElement;
-    },
+    fillsWindow: () => windowedPlayer() !== null,
     narrowPlayer,
     controlBarTop,
-    holdBackControlBar(mode) {
-      if (mode === "hidden") revealed = false;
-      // The next bar after Netflix took one away (the pointer rested) is held back
-      // again; not a bar Netflix builds anew while the pointer moves.
-      const present = query(SELECTORS.controlBar) !== null;
-      if (present) clearTimeout(barGoneTimer);
-      else if (barPresent)
-        barGoneTimer = setTimeout(() => {
-          if (query(SELECTORS.controlBar)) return;
-          revealed = false;
-          hideBar(barHidden());
-        }, BAR_GONE_MS);
-      barPresent = present;
-      barMode = mode;
-      // The pointer may already be in an area (the move that ended Lingo's use, say).
-      revealForPointer();
-      hideBar(barHidden());
-    },
+    holdBackControlBar: controlBar.holdBack,
     adShowing: () => false,
     async tracks() {
       const id = videoId();
