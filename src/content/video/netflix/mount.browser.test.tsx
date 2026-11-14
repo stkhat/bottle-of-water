@@ -12,6 +12,7 @@ import {
 } from "../../../testing/netflix-page";
 import type { VideoApp, VideoState } from "../state";
 import type { PlatformAdapter } from "../platform";
+import { enterFullscreen } from "../../../testing/fullscreen";
 
 const STATE: VideoState = {
   settings: DEFAULT_SETTINGS,
@@ -570,15 +571,7 @@ describe("the transcript sidebar on Netflix", () => {
     start();
     await expect.poll(() => lingo()?.parentElement).toBe(document.body);
     await expect.poll(() => sidebar()?.parentElement).toBe(document.body);
-    const button = document.createElement("button");
-    button.textContent = "Full screen";
-    button.style.cssText =
-      "position: fixed; top: 0; left: 0; z-index: 2147483647;";
-    button.onclick = () => void page.root.requestFullscreen();
-    document.body.append(button);
-    await userEvent.click(button);
-    button.remove();
-    await expect.poll(() => document.fullscreenElement).toBe(page.root);
+    await enterFullscreen(page.root);
 
     await expect.poll(() => lingo()?.parentElement).toBe(page.root);
     await expect.poll(() => sidebar()?.parentElement).toBe(page.root);

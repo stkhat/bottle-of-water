@@ -14,6 +14,7 @@ import {
   type TestPage,
 } from "../../testing/youtube-page";
 import type { PlatformAdapter } from "./platform";
+import { enterFullscreen } from "../../testing/fullscreen";
 
 const CUES: Cue[] = [
   { startMs: 0, endMs: 1000, text: "The yeast smells tangy." },
@@ -170,19 +171,6 @@ async function button(part: string, name: string) {
     ) ?? null;
   await expect.poll(find).not.toBeNull();
   return find()!;
-}
-
-/** Enters fullscreen on `element` from the user's click, as the site's button does. */
-async function enterFullscreen(element: Element) {
-  const button = document.createElement("button");
-  button.textContent = "Full screen";
-  button.style.cssText =
-    "position: fixed; top: 0; left: 0; z-index: 2147483647;";
-  button.onclick = () => void element.requestFullscreen();
-  document.body.append(button);
-  await userEvent.click(button);
-  button.remove();
-  await expect.poll(() => document.fullscreenElement).toBe(element);
 }
 
 describe("mountVideoUi", () => {

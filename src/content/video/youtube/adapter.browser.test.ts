@@ -1,4 +1,3 @@
-import { userEvent } from "vitest/browser";
 import {
   afterAll,
   afterEach,
@@ -22,6 +21,7 @@ import {
   VIDEO_ID,
   type TestPage,
 } from "../../../testing/youtube-page";
+import { enterFullscreen } from "../../../testing/fullscreen";
 import { holdBackPageCalls, type HeldCalls } from "../../../testing/page-calls";
 import type { PlatformAdapter } from "../platform";
 
@@ -119,17 +119,7 @@ describe("the watch page", () => {
     });
 
     /** Puts the page in fullscreen from the user's click, as YouTube's button does. */
-    async function fullscreen(element: Element) {
-      const button = document.createElement("button");
-      button.textContent = "Full screen";
-      button.style.cssText =
-        "position: fixed; top: 0; left: 0; z-index: 2147483647;";
-      button.onclick = () => void element.requestFullscreen();
-      document.body.append(button);
-      await userEvent.click(button);
-      button.remove();
-      await expect.poll(() => document.fullscreenElement).toBe(element);
-    }
+    const fullscreen = enterFullscreen;
 
     it("fills the screen with the page in fullscreen and the player in the full-bleed row, not in theater mode", async () => {
       expect(adapter.fillsWindow?.()).toBe(false);
