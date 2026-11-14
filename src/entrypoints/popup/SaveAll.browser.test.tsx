@@ -72,19 +72,16 @@ describe("SaveAll", () => {
       .not.toBeInTheDocument();
   });
 
-  test("the (i) button toggles the explanation, closed at first", async () => {
+  test("explains Mark all on hover, with no (i) button", async () => {
     const screen = await mountInShadowRoot(<SaveAll {...popup} />);
-    const info = screen.getByRole("button", {
-      name: "About marking all words",
-    });
-    await expect.element(info).toHaveAttribute("aria-expanded", "false");
-    await expect.element(screen.getByRole("note")).not.toBeInTheDocument();
-    await info.click();
-    await expect.element(info).toHaveAttribute("aria-expanded", "true");
-    await expect.element(screen.getByRole("note")).toHaveTextContent(BASE_NOTE);
-    expect(screen.getByRole("note").element().textContent).toBe(BASE_NOTE);
-    await info.click();
-    await expect.element(screen.getByRole("note")).not.toBeInTheDocument();
+    await expect
+      .element(screen.getByRole("button", { name: "About marking all words" }))
+      .not.toBeInTheDocument();
+    for (const name of ["Mark all as Learning", "Mark all as Known"]) {
+      await expect
+        .element(screen.getByRole("button", { name }))
+        .toHaveAttribute("title", BASE_NOTE);
+    }
   });
 
   test("after saving, shows what was done and offers Undo", async () => {

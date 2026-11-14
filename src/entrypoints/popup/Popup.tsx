@@ -119,8 +119,8 @@ const headerButton = {
 
 /**
  * The toolbar popup (mock Toolbar): the header's switch for Lingo as a whole, the
- * language data while it is missing (mock LanguageData), this site, highlights,
- * counts, this page, sync. While Lingo is switched off, only the header and sync.
+ * language data while it is missing (mock LanguageData), this site, this page,
+ * highlights, counts, sync. While Lingo is switched off, only the header and sync.
  */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
@@ -320,6 +320,29 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           </div>
         )}
 
+        {lingoOn && summary?.supported && siteOn && (
+          <SaveAll
+            scope={summary.scope}
+            unsavedCount={summary.unsaved}
+            done={summary.done}
+            onAddLearning={() =>
+              pageAction({ type: "pageSaveAll", status: "learning" })
+            }
+            onMarkKnown={() =>
+              pageAction({ type: "pageSaveAll", status: "known" })
+            }
+            onUndo={() => pageAction({ type: "pageUndo" })}
+            {...(summary.scope === "page" && {
+              onShowWords() {
+                void deps
+                  .askPage({ type: "pageShowWords" })
+                  .catch(warn)
+                  .finally(deps.close);
+              },
+            })}
+          />
+        )}
+
         {lingoOn && settings && (
           <HighlightChips
             look="popup"
@@ -351,29 +374,6 @@ export function Popup({ deps }: { deps: PopupDeps }) {
             <CountTile value={counts.known} label={t("status.known")} />
             <CountTile value={counts.phrases} label={t("kind.phrases")} />
           </div>
-        )}
-
-        {lingoOn && summary?.supported && siteOn && (
-          <SaveAll
-            scope={summary.scope}
-            unsavedCount={summary.unsaved}
-            done={summary.done}
-            onAddLearning={() =>
-              pageAction({ type: "pageSaveAll", status: "learning" })
-            }
-            onMarkKnown={() =>
-              pageAction({ type: "pageSaveAll", status: "known" })
-            }
-            onUndo={() => pageAction({ type: "pageUndo" })}
-            {...(summary.scope === "page" && {
-              onShowWords() {
-                void deps
-                  .askPage({ type: "pageShowWords" })
-                  .catch(warn)
-                  .finally(deps.close);
-              },
-            })}
-          />
         )}
 
         {sync && (

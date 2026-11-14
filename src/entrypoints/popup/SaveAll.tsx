@@ -1,7 +1,6 @@
-import { useState } from "preact/hooks";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../../ui/from-user";
-import { CheckIcon, InfoIcon, WordListIcon } from "../../ui/icons";
+import { CheckIcon, WordListIcon } from "../../ui/icons";
 import { color, root, sectionHeading, statusButton } from "../../ui/styles";
 
 export interface SaveAllProps {
@@ -43,8 +42,6 @@ function doneLine(done: NonNullable<SaveAllProps["done"]>): string {
 
 /** Save every unsaved word at once (mock Toolbar "This page"). */
 export function SaveAll(props: SaveAllProps) {
-  const [infoOpen, setInfoOpen] = useState(false);
-
   return (
     <div
       style={root({ display: "flex", flexDirection: "column", gap: "10px" })}
@@ -57,31 +54,7 @@ export function SaveAll(props: SaveAllProps) {
           gap: "8px",
         }}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-          <span style={sectionHeading}>{t(SCOPE[props.scope])}</span>
-          <button
-            type="button"
-            aria-label={t("saveAll.about")}
-            aria-expanded={infoOpen}
-            onClick={() => setInfoOpen((open) => !open)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "32px",
-              height: "32px",
-              border: 0,
-              borderRadius: "16px",
-              padding: 0,
-              cursor: "pointer",
-              ...(infoOpen
-                ? { background: color.greenPale, color: color.greenDark }
-                : { background: "transparent", color: color.muted }),
-            }}
-          >
-            <InfoIcon />
-          </button>
-        </span>
+        <span style={sectionHeading}>{t(SCOPE[props.scope])}</span>
         <span style={{ fontSize: "13px", color: color.ink3 }}>
           {unsavedLine(props.unsavedCount)}
         </span>
@@ -122,6 +95,7 @@ export function SaveAll(props: SaveAllProps) {
         >
           <button
             type="button"
+            title={t("saveAll.note")}
             onClick={onlyFromUser(() => props.onAddLearning())}
             style={{
               height: "40px",
@@ -137,6 +111,7 @@ export function SaveAll(props: SaveAllProps) {
           </button>
           <button
             type="button"
+            title={t("saveAll.note")}
             onClick={onlyFromUser(() => props.onMarkKnown())}
             style={{
               height: "40px",
@@ -185,22 +160,6 @@ export function SaveAll(props: SaveAllProps) {
             {t("saveAll.undo")}
           </button>
         </div>
-      )}
-      {infoOpen && (
-        <p
-          role="note"
-          style={{
-            margin: 0,
-            padding: "10px 12px",
-            borderRadius: "8px",
-            background: color.surface,
-            fontSize: "12px",
-            lineHeight: 1.5,
-            color: color.ink3,
-          }}
-        >
-          {t("saveAll.note")}
-        </p>
       )}
     </div>
   );
