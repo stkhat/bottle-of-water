@@ -62,6 +62,8 @@ interface ShownTerm extends Term {
 export interface PageAnswers {
   saveAll(status: TermStatus): Promise<unknown>;
   undoSaveAll(): Promise<unknown>;
+  /** Opens the page's Words list; none on a video page (its Words tab is there). */
+  showWords?(): void;
   summary(): PageSummary;
 }
 
@@ -137,6 +139,7 @@ export function createLookup(
       if (request.type === "pageSaveAll")
         run(() => answers.saveAll(request.status));
       else if (request.type === "pageUndo") run(answers.undoSaveAll);
+      else if (request.type === "pageShowWords") answers.showWords?.();
       return queue.then(answers.summary);
     },
     describe: (term: ShownTerm, shownIn: "hover" | "window" = "hover") =>

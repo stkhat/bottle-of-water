@@ -10,7 +10,9 @@ export type PageRequest =
   /** Saves every unsaved new word of the page. */
   | { type: "pageSaveAll"; status: TermStatus }
   /** Undoes the last save-all of the page. */
-  | { type: "pageUndo" };
+  | { type: "pageUndo" }
+  /** Opens "Words on this page" (an article; a video page has its Words tab). */
+  | { type: "pageShowWords" };
 
 export interface PageSummary {
   /** False when Lingo does not run on this page (another language, switched off). */
@@ -33,7 +35,12 @@ export function unsupportedPage(
   return { supported: false, hostname, scope, unsaved: 0, done: null };
 }
 
-const PAGE_TYPES = new Set(["pageSummary", "pageSaveAll", "pageUndo"]);
+const PAGE_TYPES = new Set([
+  "pageSummary",
+  "pageSaveAll",
+  "pageUndo",
+  "pageShowWords",
+]);
 const STATUSES = new Set(["learning", "known"]);
 
 export function isPageRequest(message: unknown): message is PageRequest {

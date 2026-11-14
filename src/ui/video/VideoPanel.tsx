@@ -19,7 +19,7 @@ import {
   type WordRow,
   type WordsFilter,
   type WordsSort,
-} from "./WordsList";
+} from "../words/WordsList";
 
 export type PanelTab = "transcript" | "words";
 

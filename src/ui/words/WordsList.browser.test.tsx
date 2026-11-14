@@ -429,3 +429,70 @@ describe("WordsList", () => {
     expect(screen.container.querySelectorAll("button")).toHaveLength(0);
   });
 });
+
+describe("WordsList on a page (mock ArticleWords)", () => {
+  const numbered = (count: number, pressed = -1): WordRow => ({
+    ...ROWS[1]!,
+    places: Array.from({ length: count }, (_, i) => String(i + 1)),
+    pressed,
+  });
+
+  test("rows and chips are named for the places they go to", async () => {
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} variant="page" rows={[numbered(3)]} />,
+    );
+    await expect
+      .element(
+        screen.getByRole("button", { name: "dough, go to the first one" }),
+      )
+      .toBeVisible();
+    const chips = screen.getByRole("group", { name: "Places of dough" });
+    expect(
+      [...chips.element().querySelectorAll("button")].map((b) => [
+        b.textContent,
+        b.getAttribute("aria-label"),
+      ]),
+    ).toEqual([
+      ["1", "Go to dough, 1 of 3"],
+      ["2", "Go to dough, 2 of 3"],
+      ["3", "Go to dough, 3 of 3"],
+    ]);
+  });
+
+  test("number chips are 28 px wide at least, as the mock's", async () => {
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} variant="page" rows={[numbered(2)]} />,
+    );
+    const chip = getComputedStyle(
+      screen.getByRole("button", { name: "Go to dough, 1 of 2" }).element(),
+    );
+    expect(chip.minWidth).toBe("28px");
+    expect(chip.paddingLeft).toBe("6px");
+    expect(chip.height).toBe("26px");
+  });
+
+  test("shows the first 7 chips and +N", async () => {
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} variant="page" rows={[numbered(9)]} />,
+    );
+    const chips = () =>
+      [
+        ...screen
+          .getByRole("group", { name: "Places of dough" })
+          .element()
+          .querySelectorAll("button"),
+      ].map((b) => b.textContent);
+    expect(chips()).toEqual(["1", "2", "3", "4", "5", "6", "7", "+2"]);
+    await screen.getByRole("button", { name: "Show 2 more" }).click();
+    expect(chips()).toHaveLength(9);
+  });
+
+  test("+N for one more", async () => {
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} variant="page" rows={[numbered(8)]} />,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: "Show 1 more" }))
+      .toHaveTextContent("+1");
+  });
+});

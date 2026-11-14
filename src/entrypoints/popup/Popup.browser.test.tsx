@@ -113,6 +113,7 @@ function fake(options: FakeOptions = {}) {
     syncName: "Chrome sync",
     openOptions: vi.fn(),
     openWordList: vi.fn(),
+    close: vi.fn(),
     now: () => NOW,
     refreshMs: options.refreshMs ?? 60_000,
   };
@@ -265,6 +266,41 @@ describe("Popup", () => {
       const f = fake({ page: { ...ARTICLE, scope: "video" } });
       const screen = await render(<Popup deps={f.deps} />);
       await expect.element(screen.getByText("This video")).toBeVisible();
+    });
+
+    it("Show words on this page opens the page's Words list and closes the popup", async () => {
+      const f = fake({ page: ARTICLE });
+      const screen = await render(<Popup deps={f.deps} />);
+      const show = screen.getByRole("button", {
+        name: "Show words on this page",
+      });
+      await expect.element(show).toBeVisible();
+      // Right under the heading line, above Mark all (mock Toolbar).
+      const buttons = [...screen.container.querySelectorAll("button")].map(
+        (b) => b.textContent,
+      );
+      expect(buttons.indexOf("Show words on this page")).toBe(
+        buttons.indexOf("Mark all as Learning") - 1,
+      );
+      const style = getComputedStyle(show.element());
+      expect(style.height).toBe("40px");
+      expect(style.borderTopLeftRadius).toBe("8px");
+      expect(style.borderTopColor).toBe("rgb(213, 216, 224)");
+      expect(style.fontWeight).toBe("600");
+      expect(show.element().querySelector("svg")).not.toBeNull();
+
+      await show.click();
+      expect(f.asked).toContainEqual({ type: "pageShowWords" });
+      await vi.waitFor(() => expect(f.deps.close).toHaveBeenCalled());
+    });
+
+    it("has no Show words on a video page (its Words tab is there)", async () => {
+      const f = fake({ page: { ...ARTICLE, scope: "video" } });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(screen.getByText("This video")).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: "Show words on this page" }).query(),
+      ).toBeNull();
     });
 
     it("is hidden where Lingo does not run, until it does", async () => {

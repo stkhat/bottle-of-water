@@ -9,7 +9,7 @@ import {
 } from "../../testing/shadow-root";
 import { selectedOffsets } from "../selection-in-root";
 import { VideoPanel, type VideoPanelProps } from "./VideoPanel";
-import type { WordRow } from "./WordsList";
+import type { WordRow } from "../words/WordsList";
 
 const CUES: Cue[] = [
   {

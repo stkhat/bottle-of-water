@@ -29,6 +29,8 @@ export interface PopupDeps extends PackStatusDeps {
   syncName: string;
   openOptions(): void;
   openWordList(): void;
+  /** Closes the popup. */
+  close(): void;
   now(): number;
   /** How often the tab, the counts and the sync status are asked again while open. */
   refreshMs: number;
@@ -340,6 +342,14 @@ export function Popup({ deps }: { deps: PopupDeps }) {
               pageAction({ type: "pageSaveAll", status: "known" })
             }
             onUndo={() => pageAction({ type: "pageUndo" })}
+            {...(summary.scope === "page" && {
+              onShowWords() {
+                void deps
+                  .askPage({ type: "pageShowWords" })
+                  .catch(warn)
+                  .finally(deps.close);
+              },
+            })}
           />
         )}
 

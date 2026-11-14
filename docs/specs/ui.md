@@ -117,7 +117,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - **Words on this page** (mock `Words on this page (article)`, 2026-11-14): the toolbar popup's "Show words on this page" opens a panel at the page's right: 360 px wide, 16 px from the top, right and bottom edges, 1 px border, 12 px corners, the panel shadow. Header: L, "Words on this page", × "Close words" (closes it). Under it the video Words tab's filter chips, Sort, rows and chips (see "Words in this video"), over the whole main content: every in-scope block is analyzed when the panel opens, not only what came near the viewport
   - Chips are numbered by place (`1 2 3`, 28 px wide at least; the chips that fit one line, 7 in the mock, then `+N`, "Show N more"). Accessible names: row "ferment, go to the first one", chip "Go to ferment, 2 of 3", the chips' group "Places of ferment"
   - Jump: a row or chip scrolls its occurrence to the middle of the view (smooth) and outlines the word with the clicked word's green outline for ~1.5 s. Rows do not open the dictionary panel
-  - While the panel is open, the dictionary panel opens left of it
+  - While the panel is open, the dictionary panel opens left of it (16 px between them)
 - **When the reader scrolls to the end of the article** (the last block of the main content above), nothing is shown; unsaved New words are handled as Settings say (below)
 
 ## Unsaved New words at the end (no UI on the page)

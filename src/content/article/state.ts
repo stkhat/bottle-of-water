@@ -1,9 +1,25 @@
-import type { TermStatus, WordStatus } from "../../core/classify";
+import type { Span, TermStatus, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
+import type { TermBrief } from "../../messaging/protocol";
 import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
+import type { Occurrence, WordsFilter, WordsSort } from "../words/words";
+import type { TextBlock } from "./page-text";
+
+/** "Words on this page" while it is open. */
+export interface WordsPanel {
+  /** The analyzed blocks in scope, in page order, with their spans. */
+  blocks: readonly { block: TextBlock; spans: readonly Span[] }[];
+  filter: WordsFilter;
+  sort: WordsSort;
+  /**
+   * The last jump: the row (`wordId`) and the place it went to (an index in the row's
+   * places). Its row shows selected, its chip pressed.
+   */
+  jump: { id: string; place: number } | null;
+}
 
 /** What the UI shows. */
 export interface ArticleState {
@@ -24,6 +40,12 @@ export interface ArticleState {
    * they stand for ("make up one's mind" for "made up her mind"), else the words.
    */
   phrase: { anchor: Box; card: TermCard } | null;
+  /** "Words on this page"; null while closed. */
+  words: WordsPanel | null;
+  /** Short meanings and statuses of the page's terms, for the Words list. */
+  summaries: Record<string, TermBrief>;
+  /** The boxes of the place the Words list just went to, outlined for a moment. */
+  flash: Box[] | null;
 }
 
 /** The UI's view of the page: its state and what its controls do. */
@@ -47,4 +69,16 @@ export interface ArticleApp {
   savePhrase(status: TermStatus): void;
   /** The selection card's "Details": opens the panel for its phrase. */
   openPhraseDetails(): void;
+  /** Opens "Words on this page" (the popup's button), analyzing the whole article. */
+  showWords(): void;
+  closeWords(): void;
+  setWordsFilter(filter: WordsFilter): void;
+  setWordsSort(sort: WordsSort): void;
+  /**
+   * A Words row or one of its chips: scrolls the place to the middle of the view and
+   * outlines it for a moment (`id` and `place` are kept for the pressed styles).
+   */
+  jumpToWord(id: string, place: number, at: Occurrence<TextBlock>): void;
+  /** Rows of the Words list came into view: their meanings get translated when needed. */
+  wordsShown(rows: readonly { key: string; head: string }[]): void;
 }

@@ -2,13 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Span } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
-import {
-  filterCounts,
-  filterRows,
-  sortRows,
-  videoWords,
-  type VideoWord,
-} from "./words";
+import { filterCounts, filterRows, sortRows } from "../words/words";
+import { videoWords, type VideoWord } from "./words";
 
 const cue = (text: string): Cue => ({ startMs: 0, endMs: 1000, text });
 const span = (

@@ -5,7 +5,7 @@ import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
 import { useRowsInView } from "../rows-in-view";
 import { color, toggleChip } from "../styles";
-import { termStyle } from "./terms";
+import { termStyle } from "../video/terms";
 
 type Style = CSSProperties;
 
@@ -20,12 +20,15 @@ export interface WordRow {
   id: string;
   head: string;
   category: WordStatus;
-  /** How many times the video shows it. */
+  /** How many times the page or the video shows it. */
   count: number;
   /** The dictionary's short meaning, when it has one. */
   short?: string;
   shortLang: string;
-  /** Where it shows, in order (the cards' start times): a chip each when 2 or more. */
+  /**
+   * Where it shows, in order, as its chips read (a video's card start times, a page's
+   * place numbers): a chip each when 2 or more.
+   */
   places: readonly string[];
   /** The place of the last jump, when it was to this row (its chip shows pressed); else -1. */
   pressed: number;
@@ -49,7 +52,7 @@ export function WordsFilterChips(props: WordsFilterChipsProps) {
   return (
     <div
       role="group"
-      aria-label={t("video.words.filter")}
+      aria-label={t("words.filter")}
       style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
     >
       {FILTERS.map(({ id, label }) => {
@@ -81,9 +84,9 @@ export interface WordsSortProps {
 }
 
 const SORTS: readonly { id: WordsSort; label: MessageKey }[] = [
-  { id: "order", label: "video.words.sort.order" },
-  { id: "az", label: "video.words.sort.az" },
-  { id: "count", label: "video.words.sort.count" },
+  { id: "order", label: "words.sort.order" },
+  { id: "az", label: "words.sort.az" },
+  { id: "count", label: "words.sort.count" },
 ];
 
 /** "Sort" and its select, under the filter chips. */
@@ -94,7 +97,7 @@ export function WordsSortSelect(props: WordsSortProps) {
         for="lingo-words-sort"
         style={{ fontSize: "13px", color: color.muted }}
       >
-        {t("video.words.sort")}
+        {t("words.sort")}
       </label>
       <select
         id="lingo-words-sort"
@@ -125,9 +128,17 @@ export function WordsSortSelect(props: WordsSortProps) {
   );
 }
 
+/**
+ * What the places are: a video's cards (chips show their times) or a page's
+ * occurrences (chips show their numbers).
+ */
+type WordsVariant = "video" | "page";
+
 export interface WordsListProps<R extends WordRow> {
   /** The rows the filter shows, in the sort's order. */
   rows: readonly R[];
+  /** Default "video". */
+  variant?: WordsVariant;
   learningLang: string;
   /** A row (its first place) or one of its chips was clicked: jump to that place. */
   onJump: (row: R, place: number) => void;
@@ -137,9 +148,6 @@ export interface WordsListProps<R extends WordRow> {
 
 /** Every category highlighted: the list is about the words, not the page's highlights. */
 const ALL_ON = { new: true, learning: true, known: true };
-
-/** The chips a row shows before its "+N". */
-const CHIPS_SHOWN = 5;
 
 const ROW: Style = {
   display: "flex",
@@ -175,7 +183,6 @@ const ROW_BUTTON: Style = {
 };
 const CHIP: Style = {
   height: "26px",
-  padding: "0 8px",
   margin: 0,
   borderRadius: "6px",
   font: "inherit",
@@ -186,28 +193,69 @@ const CHIP: Style = {
 };
 const CHIP_OFF: Style = {
   ...CHIP,
+  padding: "0 8px",
   background: color.surfaceGray,
   color: color.greenText,
   border: "1px solid transparent",
 };
 const CHIP_ON: Style = {
   ...CHIP,
+  padding: "0 8px",
   background: color.green,
   color: color.white,
   border: `1px solid ${color.green}`,
 };
 const MORE: Style = {
   ...CHIP,
+  padding: "0 8px",
   fontWeight: "inherit",
   background: "transparent",
   color: color.ink3,
   border: `1px dashed ${color.track}`,
 };
 
+/** What differs between a video's list and a page's (mocks VideoWords, ArticleWords). */
+const VARIANTS: Record<
+  WordsVariant,
+  {
+    /** The chips a row shows before its "+N" (the ones that fit one line). */
+    chipsShown: number;
+    chip: Style;
+    rowLabel(head: string, first: string): string;
+    chipLabel(head: string, place: number, places: readonly string[]): string;
+    groupLabel(head: string): string;
+    moreLabel(count: number): string;
+  }
+> = {
+  video: {
+    chipsShown: 5,
+    chip: {},
+    rowLabel: (head, time) => t("video.words.jumpRow", { head, time }),
+    chipLabel: (_head, place, places) =>
+      t("video.words.jump", { time: places[place]! }),
+    groupLabel: (head) => t("video.words.places", { head }),
+    moreLabel: (count) =>
+      count === 1
+        ? t("video.words.more.one")
+        : t("video.words.more", { count }),
+  },
+  page: {
+    chipsShown: 7,
+    // Numbers are narrow: a minimum width keeps 1–9 square-ish.
+    chip: { minWidth: "28px", padding: "0 6px" },
+    rowLabel: (head) => t("page.words.jumpRow", { head }),
+    chipLabel: (head, place, places) =>
+      t("page.words.jump", { head, n: place + 1, count: places.length }),
+    groupLabel: (head) => t("page.words.places", { head }),
+    moreLabel: (count) =>
+      count === 1 ? t("page.words.more.one") : t("page.words.more", { count }),
+  },
+};
+
 /** Inline styles cannot hover; the shadow root keeps this rule to the list. */
 const HOVER = `[data-word-row][data-selected="false"]:hover{background:${color.soft} !important}`;
 
-/** The words of the video: head with its highlight, count, short meaning and places. */
+/** The words of a video or page: head with its highlight, count, short meaning and places. */
 export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
   const byId = new Map(props.rows.map((row) => [row.id, row]));
   const scroller = useRowsInView<HTMLDivElement>(
@@ -242,7 +290,7 @@ export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
             color: color.muted,
           }}
         >
-          {t("video.words.empty")}
+          {t("words.empty")}
         </p>
       ) : (
         props.rows.map((row) => (
@@ -277,7 +325,7 @@ function Row<R extends WordRow>(
         aria-label={
           first === undefined
             ? undefined
-            : t("video.words.jumpRow", { head: row.head, time: first })
+            : VARIANTS[props.variant ?? "video"].rowLabel(row.head, first)
         }
         onClick={onlyFromUser(() => props.onJump(row, 0))}
         style={ROW_BUTTON}
@@ -311,7 +359,7 @@ function Row<R extends WordRow>(
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {t("video.words.times", { count: row.count })}
+            {t("words.times", { count: row.count })}
           </span>
         </span>
         {row.short && (
@@ -341,14 +389,15 @@ function Places<R extends WordRow>(
   props: WordsListProps<R> & { row: R; opened: boolean; onMore: () => void },
 ) {
   const { row } = props;
+  const look = VARIANTS[props.variant ?? "video"];
   // A pressed chip past the first ones shows them all.
-  const all = props.opened || row.pressed >= CHIPS_SHOWN;
-  const shown = all ? row.places : row.places.slice(0, CHIPS_SHOWN);
+  const all = props.opened || row.pressed >= look.chipsShown;
+  const shown = all ? row.places : row.places.slice(0, look.chipsShown);
   const rest = row.places.length - shown.length;
   return (
     <div
       role="group"
-      aria-label={t("video.words.places", { head: row.head })}
+      aria-label={look.groupLabel(row.head)}
       style={{
         display: "flex",
         flexWrap: "wrap",
@@ -356,33 +405,29 @@ function Places<R extends WordRow>(
         marginTop: "4px",
       }}
     >
-      {shown.map((time, place) => {
+      {shown.map((text, place) => {
         const pressed = row.pressed === place;
         return (
           <button
             key={place}
             type="button"
-            aria-label={t("video.words.jump", { time })}
+            aria-label={look.chipLabel(row.head, place, row.places)}
             aria-pressed={pressed}
             onClick={onlyFromUser(() => props.onJump(row, place))}
-            style={pressed ? CHIP_ON : CHIP_OFF}
+            style={{ ...(pressed ? CHIP_ON : CHIP_OFF), ...look.chip }}
           >
-            {time}
+            {text}
           </button>
         );
       })}
       {rest > 0 && (
         <button
           type="button"
-          aria-label={
-            rest === 1
-              ? t("video.words.more.one")
-              : t("video.words.more", { count: rest })
-          }
+          aria-label={look.moreLabel(rest)}
           onClick={onlyFromUser(props.onMore)}
           style={MORE}
         >
-          {t("video.words.moreText", { count: rest })}
+          {t("words.moreText", { count: rest })}
         </button>
       )}
     </div>

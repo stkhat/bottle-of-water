@@ -25,7 +25,8 @@ import {
   verticalDictionaryFrame,
 } from "./placement";
 import type { VideoApp, VideoState, WordPlace } from "./state";
-import { filterCounts, filterRows, sortRows, videoWords } from "./words";
+import { filterCounts, filterRows, sortRows, wordId } from "../words/words";
+import { videoWords } from "./words";
 import { Floating, TOP_LAYER } from "../lookup/Floating";
 import { useStore, type Store } from "../store";
 
@@ -380,7 +381,7 @@ export function TranscriptUi(props: {
         state.wordsSort,
         settings.learningLang,
       ).map((word) => {
-        const id = `${word.kind}\n${word.key}`;
+        const id = wordId(word);
         const brief = Object.hasOwn(summaries, word.key)
           ? summaries[word.key]
           : undefined;
