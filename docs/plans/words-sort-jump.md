@@ -5,7 +5,7 @@ Progress (one subagent per step, one branch `claude/sidebar-words-sort-jump-0e9a
 - [x] B. Lists translate English definitions (root-cause fix)
 - [x] C. Video Words tab: sort, occurrence chips, jump
 - [x] D. Article Words panel + popup "Show words on this page"
-- [ ] E. Real-site check, verify, PR, merge
+- [x] E. Real-site check, verify, PR, merge
 
 ## Context
 User requests (2026-11-14), mock approved the same day (canvas `VideoWords.dc.html`, new `ArticleWords.dc.html`, `Toolbar.dc.html`, sticky note `wordsJump`):
