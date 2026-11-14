@@ -16,9 +16,9 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 ## Commands
 - `npm run dev`: dev build with reload
 - `npm run check`: typecheck, lint, format, dead code (knip), CLAUDE.md line limit (150)
-- `npm test`: unit tests; `npm run test:browser`: real-browser tests (`VITEST_BROWSERS=chromium` locally)
+- `npm test`: unit tests; `npm run test:browser`: real-browser tests (`VITEST_BROWSERS=chromium` locally); `npm run test:browser:firefox`: the same on Firefox, in CI's Docker image (Colima)
 - `npm run build`: production build; `npm run test:e2e:build`: build + Playwright E2E
-- `npm run verify`: everything above, terse (~1.5 min). While iterating, run only the touched test files; run `verify` before every push (it must pass). GitHub CI adds Firefox only
+- `npm run verify`: everything above, Firefox included, terse (~3 min). While iterating, run only the touched test files (on Firefox too when the change touches the DOM); run `verify` before every push (it must pass)
 
 ## Constraints
 - **The developer runs no servers** (the extension will be public). Data lives only on the device (IndexedDB) and in the user's own browser sync (`storage.sync`: a Google account in Chrome, a Mozilla account in Firefox)

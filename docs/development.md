@@ -23,13 +23,14 @@
 | `npm run check:dead` | knip: unused files, exports and dependencies |
 | `npm test` | unit tests |
 | `npm run test:browser` | browser-mode tests (set `VITEST_BROWSERS=chromium` to skip Firefox) |
+| `npm run test:browser:firefox` | browser-mode tests on Firefox in CI's Playwright image (Docker; see "Firefox in Docker"); takes Vitest arguments, e.g. a test file |
 | `npm run build` / `npm run build:firefox` | build to `.output/chrome-mv3` / `.output/firefox-mv3` |
 | `npm run build:check` | self-reloading Chrome build in `.output/lingo-check` (see below) |
 | `npm run build:check-download` | check build that downloads its Spanish data from the E2E server's mirror, in `.output/chrome-mv3-check-download` (see "Language data downloads in E2E") |
 | `npm run test:manifest` | check both built manifests |
 | `npm run test:e2e:build` | production, check and check-download builds, then run E2E |
 | `npm run test:e2e:real` | E2E error checks on real sites (Wikipedia, BBC, YouTube); needs the network |
-| `npm run verify` | check, unit, browser (Chromium), builds and E2E, with terse output |
+| `npm run verify` | check, unit, browser (Chromium, then Firefox in Docker), builds and E2E, with terse output |
 | `npm run zip` / `npm run zip:firefox` | store-ready zips in `.output/` |
 | `npm run test:mutation` | Stryker report in `reports/mutation/` |
 
@@ -85,6 +86,11 @@ Limits:
 - Open pages keep the old content scripts until they are reloaded.
 - A build that breaks the service worker cannot reload itself again: fix it and click reload.
 - Check builds include WXT's debug logging (`[wxt]` in the console).
+
+## Firefox in Docker
+- Playwright's Firefox does not launch on the dev Mac (macOS 27), so `npm run test:browser:firefox` runs the browser tests in the image CI uses (`mcr.microsoft.com/playwright:v<@playwright/test version>-noble`, from `scripts/playwright-image.ts`, which `scripts/check-playwright-image.ts` also checks CI against). Install once: `brew install colima docker`.
+- When Docker is not running, the script starts Colima with 4 CPUs and 4 GB (about 20 s) and stops it after, unless another container still runs in it; an already running Colima or Docker Desktop is used as it is. The first run pulls the image (about 1 GB to download, 3.6 GB on disk).
+- The checkout is mounted at the same path (failures name files you can open), and `node_modules` (Linux builds) lives in a Docker volume named after the `package-lock.json` hash, filled by `npm ci --ignore-scripts` on first use; volumes of older lockfiles are removed. The run has no `CI` variable, so a failing test is not retried.
 
 ## Checking the Firefox build
 ```

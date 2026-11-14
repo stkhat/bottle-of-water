@@ -70,8 +70,7 @@ Last update: 2026-11-14. Merged work is in git history; data sizes are in [notes
 
 ### Hosting and Firefox
 - Pack hosting is pending: npm scope, public data repository, `npm publish`, then `npm run data:publish -- --download es,es-en` and a release. The real CDN download is checked only after that
-- Firefox (not released): `data_collection_permissions` missing in the manifest; highlight-underline support not detected; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; the Firefox build is only built, not run (Playwright's Firefox does not launch on the dev Mac; CI runs Firefox browser tests)
-- Firefox: a press inside words selected in Lingo's subtitle or transcript (a shadow root) does not select anew as in Chrome: Firefox still takes it as a press in the selection, though Lingo drops the selection on the press (CI browser test; on articles it selects anew). The test is skipped in Firefox
+- Firefox (not released): `data_collection_permissions` missing in the manifest; highlight-underline support not detected; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; the Firefox build is only built, not run as an extension (the browser tests run on Firefox: CI, and locally in Docker)
 
 ## Before publishing (Chrome Web Store)
 - Privacy policy page on a public URL (this repo is private)
