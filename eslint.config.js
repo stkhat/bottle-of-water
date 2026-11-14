@@ -20,6 +20,8 @@ export default tseslint.config(
       "data/publish",
       ".stryker-tmp",
       ".vitest",
+      // Claude Code worktrees: whole checkouts that would be linted again.
+      ".claude",
     ],
   },
   js.configs.recommended,

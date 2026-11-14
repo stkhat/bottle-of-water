@@ -185,7 +185,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
-- Sentence history (device only: never synced, not in the JSON export)
+- Sentence history (never in browser sync or the JSON export; synced only to the user's own cloud, see "Sync to the user's own cloud storage")
   - `historyPages`: `{id (= source id), platform, url (normalized), host, title, lang, firstSeen, lastSeen, bytes}`
   - `historySentences`: `{pageId, text, translation?, pos, keys: termId[], seenAt}`, unique per page and text, indexed by `keys` (every base form of each word outside the 300 most common, plus the phrases found in the sentence)
   - Articles keep the sentences of the blocks Lingo analyzes as they come near the view (blocks "Words on this page" analyzed earlier are kept, and their saved words recorded as encounters, only once they come near: 2026-11-14); videos keep **played lines only**. Not kept while the switch is off, while Lingo is switched off in the popup header, or on hosts in "Never run on" / switched off in the popup; adding a host to "Never run on" removes its pages. Size is counted by Lingo (UTF-16 size of the strings plus a fixed overhead); over 50 MB, the oldest pages (`lastSeen`) are removed until under 45 MB
@@ -196,7 +196,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), subtitle text size and background, what to do with unsaved New words at the end, per-site on/off and the exclusion list, and the L button's on/off per video platform
 
 ## Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
-- `BrowserSyncBackend` (background) owns it. A backend for the user's own cloud (future) would sit beside it; no interface is kept for it until then
+- `BrowserSyncBackend` (background) owns it. `CloudSyncBackend` (designed, not built: "Sync to the user's own cloud storage") takes over terms while connected; no shared interface is kept until it is built
 - The limits are the same in Chrome and Firefox. Use the `storage.sync` constants (`QUOTA_BYTES` etc.) when readable at runtime, otherwise the values above
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
 - **Rough capacity**
@@ -227,13 +227,103 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 
 - The sync name ("Chrome sync", "Firefox Sync") comes from `BrowserEnv`. Saving and merging do not differ by browser
 
-### (Future TODO) Sync to the user's own cloud storage: possible, no developer server needed
-- A second backend storing all data (including sources and occurrences) as one JSON file per language, merged by per-word update time like `storage.sync`
-- Auth: `identity.launchWebAuthFlow` + PKCE, available in every browser (`chrome.identity.getAuthToken` exists only in Chromium browsers, so do not depend on it). Redirect URLs differ per browser, so register one per browser with each service
-- **Google Drive**: store in the app-only folder with the `drive.appdata` scope. Needs an OAuth client registered in Google Cloud. To check: whether `launchWebAuthFlow` works without a client secret, and whether publishing needs OAuth consent screen review (if not workable, use `getAuthToken` in Chrome only)
-- **Dropbox / OneDrive**: PKCE auth, no client secret or server. Store in the app folder
-- **Local folder**: write into a folder such as iCloud Drive via the File System Access API and let that folder sync. **Offered only in browsers that have the API (Chromium)**
-- **WebDAV** (Nextcloud etc.): the user enters a URL and credentials
+## Sync to the user's own cloud storage (designed 2026-11-15, not built)
+Google Drive, Dropbox and OneDrive, with no developer server. Built later; the steps before building are under "Checks before building". The mobile app ([notes](../notes/mobile.md)) cannot read browser sync, so this is also how it gets data and settings: the file format is a contract, and the mobile app reads and writes the same files. Reviewed by an independent agent on 2026-11-15; its findings are folded in.
+
+### What is synced
+| Data | File |
+|---|---|
+| Terms (words and phrases): key, display, kind, status, `bulk`, note, created / updated / cleared times. Tombstones are kept for good | `main` |
+| Sources that still have an occurrence | `main` |
+| Settings (everything in `storage.sync` today) with a time per field | `main` |
+| `historyClearedAt` (the last "Clear") and `historyForgotten` (host → when it was added to "Never run on") | `main` |
+| Occurrences, saved and encountered ("Seen elsewhere"), with the sources they use | `occurrences-YYYY-MM` |
+| Sentence history (pages and sentences), unless "Also save to <provider>" is off; the newest 50 MB over all devices | `history-YYYY-MM` |
+
+- Not synced: sign-in tokens, the device id, `lastSavedAt` / `lastExportAt` / `historyBytes`, downloaded packs, the translation cache
+
+### Browser sync while connected
+- A connected device stops reading and writing **terms** in `storage.sync` (no quota and no demotion), and the browser-sync switch for terms is hidden. Settings stay in `storage.sync` as well, so desktops still get them at once
+- Connecting first pulls `storage.sync` into IndexedDB, then writes the cloud files. Every term in browser sync moves to the cloud; local tombstones (kept for good while connected) beat stale copies there
+- Terms left in `storage.sync` are not removed: devices not connected yet keep using them, and merge when they connect
+- The chosen provider is a synced setting (`cloudProvider`). A device that gets it but is not connected shows "Connect <provider> on this device too" in Settings and the popup (sign-in is per device)
+- Disconnecting resumes browser sync for terms; the usual merge brings it up to date
+- **Switching provider**: the device that switches writes its whole copy to the new provider. Devices still connected to the old one show "Reconnect to <new provider>" and keep syncing with the old one until they do. Files at the old provider are left as they are
+
+### Data model changes (Dexie version 5)
+- `occurrences` and `historySentences` gain `deviceId` (the device that first recorded the row) and `addedAt` (when it did). Rows taken in from other devices keep theirs. Existing rows get this device and the upgrade time
+- `terms` gain `clearedAt`: the last time the term was removed. Saving it again keeps it, so the occurrences it had before the removal never come back
+- Local tombstones are no longer pruned while connected (the 90-day limit stays for `storage.sync` only)
+
+### Files
+- In the provider's app-only space (Drive `appDataFolder`, Dropbox app folder, OneDrive `approot`): `devices/<deviceId>/main.json.gz`, `devices/<deviceId>/occurrences-YYYY-MM.json.gz`, `devices/<deviceId>/history-YYYY-MM.json.gz`
+- `deviceId`: random, made at install, kept in `storage.local`. If this device's `main` turns out to have been written by someone else since its last write (a copied browser profile), it makes a new id and starts a new folder
+- Every file is gzipped JSON `{format: "lingo-cloud", v: 1, kind: "main"|"occurrences"|"history", deviceId, writtenAt, …}`
+  - `main`: terms (tombstones included), sources still in use, settings with field times, `historyClearedAt`, `historyForgotten`
+  - A month file: the rows **this device recorded** (`deviceId` = its own) whose `addedAt` falls in that month, plus the header of every source or page they refer to, with the times this device has for it. A page or source seen again without new rows still goes into the current month's file, so its later `lastSeen` spreads
+- **A device writes only its own files.** No two devices write the same file, so no locking or conditional writes are needed with any provider. Other devices' files are never removed automatically
+- Writing: `main` only after a **local** change (not after taking in other devices' changes, which would make every device rewrite on every change). Month files: every month that has rows not sent yet, past months included (a row imported with an old time, a write left over at the turn of a month). Unsent months are remembered in `storage.local`
+- History limit in the cloud: after merging, every device knows the same oldest page it keeps under 50 MB; each device removes **its own** history month files that hold only older pages. Occurrence month files stay (occurrences are already capped at 50 per term)
+- Size (estimate, measure when building): 10,000 terms → `main` well under 1 MB gzipped; occurrences of a heavy user up to ~200 MB raw over all months, which is why they live in month files
+
+### Merge (shared with JSON import, which moves to the same rules)
+- **Order of reading**: every `main` first, then month files. A month file counts as read only when each row was taken in or dropped for good; rows for a term not known yet leave it to be read again next time
+- **Terms**: the newer `updatedAt` wins; tombstones count like any version; `clearedAt` takes the later of the two
+- **Occurrences**: taken in only if the term is live and `addedAt` ≥ its `clearedAt`. Rows are matched by (term, source, sentence); when two copies differ, one fixed order decides: `saved` beats `encountered`, then the earlier `seenAt`, then the earlier `addedAt`, then `deviceId`. The trim (50 per term, oldest encounters first, saved sentences stay) breaks ties the same way, not by the local auto-increment id
+- **Sources and history pages**: ids come from the URL; first/last seen times only widen; equal `lastSeen` → the lexically smaller title
+- **History sentences**: matched by (page, text), the same fixed order for differing copies; dropped if `addedAt` < `historyClearedAt` or the page's host is in `historyForgotten` with a later time. Then the 50 MB limit (oldest pages go until under 45 MB). "Seen elsewhere" lists order by `seenAt`, not the auto-increment id
+- **Settings**: per field, the newer field time wins; defaults count as time 0, so a fresh install or the mobile app changing one field does not overwrite the rest. A settings item written by an older Lingo (no field times) counts its differing fields as changed when it arrives. Taking in `historyForgotten` from the cloud runs the same removal as adding a host locally
+- The result does not depend on which device reads which file first. Known limit: a device whose clock runs ahead wins every "newer" comparison, as with browser sync today
+
+### Parts
+- `CloudSyncBackend` (background): reads, merges and writes the files; knows no provider
+- `CloudProvider`, in two halves
+  - **Files**: `list()`, `read(path)`, `write(path, bytes)`, `remove(path)` over `fetch`, shared by the extension and the mobile app
+  - **Auth**: only returns an access token. Desktop: `identity.launchWebAuthFlow`; for Google, `identity.getAuthToken` where it exists (Chromium; detected, not by browser name: Chrome renews the token itself, but only for the Google account signed in to the browser). Mobile: the system sign-in (`ASWebAuthenticationSession` / Custom Tabs) through the app's bridge
+- Tokens live in `storage.local`, never synced
+- Permissions: `identity` shows no install warning in Chrome; whether Firefox accepts it as an optional permission, and whether the providers' APIs need host permissions at all (all three allow cross-origin requests), are checks before building
+- One app registration per provider, reused by the mobile app (adding its redirect URIs / client types): the app-only space belongs to the registration (Drive: to the Cloud project, which also holds the Chrome-extension client for `getAuthToken`)
+
+### Providers (researched 2026-11-15, to confirm by the checks below)
+| | Dropbox | Google Drive | OneDrive |
+|---|---|---|---|
+| Space | app folder | `drive.appdata` (listed as non-sensitive) | app folder, `Files.ReadWrite.AppFolder`: **personal accounts only** (the registration's audience is consumer accounts; work or school accounts cannot connect, and Settings says so) |
+| Desktop sign-in | PKCE, no secret, offline refresh token | Chromium: `getAuthToken`. Elsewhere: no refresh token without a secret, so 1-hour tokens renewed by a non-interactive `launchWebAuthFlow`, which needs the user signed in to Google in that browser (expect "Reconnect needed" in Firefox) | an extension redirect counts as a single-page app: refresh tokens last 24 h, then a non-interactive `launchWebAuthFlow`. Token requests from an extension origin may be refused (AADSTS9002326 / 9002327) |
+| Review | production approval within 2 weeks of the 51st linked user | possibly none for non-sensitive scopes | Entra app registration; unverified publisher may show a warning |
+
+### Timing
+- Write 30 s after the last local change. Pending writes are remembered in `storage.local` and done at the next start
+- Read: at start, every 5 minutes (`alarms`), and when the popup or Word list opens. List first, then download only files whose modified time changed
+
+### Status and errors
+- Shown like browser sync, never "synced": "Saved to Dropbox · 2 min ago", total file size and number of devices, and "Last checked other devices: …" (the extension really reads them)
+- Network errors and 429: retry with backoff (up to 10 minutes)
+- 401: renew without a window; if that fails, "Reconnect needed". Changes keep collecting in IndexedDB
+- Storage full: shown in the status, writing stops, nothing is lost on the device
+- Another device's file unreadable or of a newer `v`: skip that file and show "Update Lingo on this device"
+
+### UI (details mock-first when building)
+- Settings "Your own cloud storage": provider choice, Connect / Disconnect, status
+- Settings "Sentence history": "Also save to <provider>" (shown only while connected, on by default, synced). Off stops sending and receiving history on every device; each device removes its own `history-*` files (nobody removes another device's). Turning it back on sends each device's whole kept history again
+- "Connect <provider> on this device too" / "Reconnect to <provider>" on devices not connected to the synced provider
+
+### Tests
+- Unit (`core/`): file encoding (other `v`, broken, newer), every merge rule, `clearedAt`, `historyClearedAt` and `historyForgotten`, settings field times, the history limit, and a **property test**: random devices, changes and file read orders reach the same final state
+- Browser: `CloudSyncBackend` against an in-memory fake `CloudProvider`, two devices: merge, reading month files before their `main`, a copied device id, disconnect back to browser sync, switching provider, 401 → "Reconnect needed", 429 → retry
+- Providers' files halves: recorded HTTP responses, no live API in tests
+- Last: in the user's Chrome and Firefox with real accounts, per provider: connect, sync two devices, disconnect. The user signs in
+
+### Checks before building
+A throwaway build that only signs in and reads/writes one file, in Chrome and Firefox:
+1. Google: `getAuthToken` with `drive.appdata` in Chrome; which `launchWebAuthFlow` flow keeps working without a window in Firefox; that both clients in one Cloud project see the same `appDataFolder`; whether `drive.appdata` shows as non-sensitive in the Cloud Console and whether publishing needs review
+2. OneDrive: whether token requests from the extension are accepted (AADSTS9002326 / 9002327), whether silent renewal keeps working after 24 h, how the unverified-publisher warning looks
+3. Dropbox: registering the Firefox redirect (`*.extensions.allizom.org`); the production approval steps
+4. Permissions: whether host permissions are needed (CORS) and whether Firefox takes `identity` as optional
+5. All: adding mobile redirects / client types to the same registration shows the same app-only space
+6. Measure `main` and month-file sizes on the user's real data
+7. The user registers the apps (Google Cloud, Dropbox, Microsoft Entra) with their own accounts
+
+- Later, not designed: a local folder via the File System Access API (Chromium only), WebDAV, and a "Forget this device" action for folders of devices no longer used
 
 ## Interface language
 - The extension `i18n` API follows the browser's language and cannot be chosen by the user, so use a small custom mechanism: every UI string goes through `t("key")` with one file per language (`locales/en.json`). Switch with the `uiLocale` setting, default `en`
@@ -270,7 +360,7 @@ Only the Chrome version is published, but the structure must not need rewriting 
 | Reading a selection inside Lingo's shadow roots (words selected in the video subtitle and transcript) | `Selection.getComposedRanges`; older versions only `ShadowRoot.getSelection` (non-standard) | `getComposedRanges` in recent versions | `ui/selection-in-root.ts` uses the first that exists. With neither, those words cannot be selected (no phrase card); everything else works |
 | Page (MAIN world) scripts | available | from 128 | decide the minimum version |
 | Saving to a folder (File System Access API) | available | none | not offered |
-| OAuth (future cloud sync) | `getAuthToken` / `launchWebAuthFlow` | `launchWebAuthFlow` only | standardize on `launchWebAuthFlow` |
+| OAuth (cloud sync, not built) | `getAuthToken` / `launchWebAuthFlow` | `launchWebAuthFlow` only | standardize on `launchWebAuthFlow` |
 
 - `Intl.Segmenter`, `caretPositionFromPoint`, `requestVideoFrameCallback`, `CompressionStream` and `speechSynthesis` exist in recent Firefox too. Confirm minimum versions during implementation
 - To confirm: whether Firefox MV3 grants host permissions listed in the manifest at install time or requires user consent
