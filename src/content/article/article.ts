@@ -19,6 +19,7 @@ import {
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
 import type { TermCard } from "../lookup/describe";
+import { wordBoxes } from "../lookup/geometry";
 import {
   createLookup,
   createMarkAll,
@@ -30,6 +31,7 @@ import { sendStatus } from "../lookup/status";
 import { warn } from "../lookup/warn";
 import { inOtherLanguage } from "../page-language";
 import { createStore } from "../store";
+import { createSummaries } from "../words/summaries";
 import { createCards, writtenOf } from "./cards";
 import { watchEndOfArticle } from "./end-of-article";
 import { createHighlighter } from "./highlighter";
@@ -41,8 +43,14 @@ import {
   type SpanRef,
 } from "./locate";
 import type { MainContent } from "./main-content";
-import { collectBlocks, createPageText, type TextBlock } from "./page-text";
+import {
+  collectBlocks,
+  createPageText,
+  rangeOf,
+  type TextBlock,
+} from "./page-text";
 import { createRecorder } from "./recorder";
+import { scrollToMiddle } from "./scroll";
 import { createSelection } from "./selection";
 import { sentenceAt } from "./sentence";
 import type { DetectLanguage } from "./should-run";
@@ -52,6 +60,9 @@ import { batches, watchVisibleBlocks } from "./visibility";
 
 /** The longest text sample the page language is detected on. */
 const DETECT_SAMPLE = 2000;
+
+/** How long a place the Words list went to stays outlined (ms). */
+const FLASH_MS = 1500;
 
 export interface ArticleDeps extends LookupDeps {
   detectLanguage: DetectLanguage;
@@ -158,6 +169,21 @@ export async function startArticle(
     hover: null,
     panel: null,
     phrase: null,
+    words: null,
+    summaries: {},
+    flash: null,
+  });
+  /** Stops the Words list's requests and translations with the page. */
+  const controller = new AbortController();
+  const summaries = createSummaries({
+    send: deps.send,
+    store,
+    translator: lookup.translator,
+    lang: () => lang,
+    nativeLang: () => settings.nativeLang,
+    active: () => !controller.signal.aborted,
+    waitFor: lookup.waitFor,
+    signal: controller.signal,
   });
   const source = (): SourceInput => ({ ...surface.source(), lang });
   const recorder = createRecorder({
@@ -247,6 +273,7 @@ export async function startArticle(
     highlighter.set(block, on ? blockSpans : []);
     if (on) shown.add(block);
     else shown.delete(block);
+    wordsChanged();
   }
 
   /** Highlights blocks that came into scope and drops those that left it. */
@@ -263,6 +290,8 @@ export async function startArticle(
     }
     recorder.encounters(entered, savedKeys);
     recorder.history(entered);
+    wordsChanged();
+    analyzeForWords();
   }
 
   /** Whether each block is in the learning language, once detected (`perBlockLanguage`). */
@@ -316,6 +345,41 @@ export async function startArticle(
     const counted = fresh.filter(inScope);
     recorder.encounters(counted, new Set(result.saved));
     recorder.history(counted);
+    if (store.get().words) classifiedForWords(counted);
+  }
+
+  /** The Words list's summaries of these blocks' terms (asked once each). */
+  function classifiedForWords(blocks: readonly TextBlock[]) {
+    summaries.classified(
+      blocks.flatMap((block) => [...(spans.get(block) ?? [])]),
+      savedKeys,
+    );
+  }
+
+  /** The blocks the Words list shows: analyzed, in scope, in page order. */
+  let wordsQueued = false;
+  function wordsChanged() {
+    if (wordsQueued || !store.get().words) return;
+    wordsQueued = true;
+    // Once per batch of changes, not per block.
+    queueMicrotask(() => {
+      wordsQueued = false;
+      const words = store.get().words;
+      if (!words) return;
+      const blocks = pageText
+        .blocks()
+        .filter((block) => shown.has(block))
+        .map((block) => ({ block, spans: spans.get(block)! }));
+      store.set({ words: { ...words, blocks } });
+    });
+  }
+
+  /** While the Words list is open, every block in scope is analyzed, near the view or not. */
+  function analyzeForWords() {
+    if (!store.get().words) return;
+    visible.now(
+      pageText.blocks().filter((block) => inScope(block) && !spans.has(block)),
+    );
   }
 
   /** Analyzes blocks again (all analyzed ones by default), in batches. */
@@ -354,6 +418,7 @@ export async function startArticle(
     source,
     unsaved: unsavedOnPage,
     async marked(keys, from, to) {
+      noteStatus(keys, to);
       recategorize((s) =>
         s.category === from && keys.has(s.key) ? to : undefined,
       );
@@ -369,6 +434,17 @@ export async function startArticle(
   /** True when `ref` is one of the page's spans (not a selection's phrase). */
   const onPage = ({ block, span }: SpanRef) =>
     spans.get(block)?.includes(span) ?? false;
+
+  /** Keeps the Words list's statuses and the page's saved terms with a status change. */
+  function noteStatus(keys: Iterable<string>, to: WordStatus) {
+    const changes: [string, WordStatus][] = [];
+    for (const key of keys) {
+      if (to === "new") savedKeys.delete(key);
+      else savedKeys.add(key);
+      changes.push([key, to]);
+    }
+    summaries.note(changes);
+  }
 
   /** Saves, changes or removes the term `ref` points at. */
   async function changeStatus(ref: SpanRef, card: TermCard, to: WordStatus) {
@@ -386,6 +462,7 @@ export async function startArticle(
       };
     });
     if (!sent) return;
+    noteStatus([card.key], to);
     // Unsaved, each occurrence is new or known again by the page's level.
     if (to === "new") await reanalyze(blocksWith(card));
     // A selected phrase may be anywhere on the page: classify again to find it.
@@ -394,6 +471,20 @@ export async function startArticle(
     deps.onTermsChanged?.();
     await cards.refresh(card);
   }
+
+  /** The place the Words list went to, outlined until the timer ends. */
+  let flash: { range: Range; timer: ReturnType<typeof setTimeout> } | undefined;
+  function endFlash() {
+    if (!flash) return;
+    clearTimeout(flash.timer);
+    flash = undefined;
+    store.set({ flash: null });
+  }
+
+  const setWords = (patch: Partial<NonNullable<ArticleState["words"]>>) => {
+    const words = store.get().words;
+    if (words) store.set({ words: { ...words, ...patch } });
+  };
 
   const app: ArticleApp = {
     store,
@@ -426,6 +517,31 @@ export async function startArticle(
       const ref = selection.takeForDetails();
       if (ref) void cards.openPanel(ref).catch(warn);
     },
+    showWords() {
+      if (!store.get().words)
+        store.set({
+          words: { blocks: [], filter: "all", sort: "order", jump: null },
+        });
+      wordsChanged();
+      classifiedForWords([...shown]);
+      analyzeForWords();
+    },
+    closeWords() {
+      endFlash();
+      store.set({ words: null });
+    },
+    setWordsFilter: (filter) => setWords({ filter }),
+    setWordsSort: (sort) => setWords({ sort }),
+    jumpToWord(id, place, { unit: block, start, end }) {
+      if (!live.has(block)) return;
+      setWords({ jump: { id, place } });
+      const range = rangeOf(block, start, end);
+      scrollToMiddle(range);
+      endFlash();
+      flash = { range, timer: setTimeout(endFlash, FLASH_MS) };
+      store.set({ flash: wordBoxes(range) });
+    },
+    wordsShown: (rows) => summaries.shown(rows),
   };
 
   const unmountUi = await deps.mountUi(app);
@@ -463,6 +579,7 @@ export async function startArticle(
       end.update(main.last);
       rescope();
       updateCasing();
+      if (removed.length > 0) wordsChanged();
     },
   });
   main = surface.mainContent(root, pageText.blocks());
@@ -490,6 +607,7 @@ export async function startArticle(
     scroll() {
       cards.follow();
       selection.follow();
+      if (flash) store.set({ flash: wordBoxes(flash.range) });
     },
   });
 
@@ -512,6 +630,7 @@ export async function startArticle(
       lookup.answer(request, {
         saveAll: marks.saveAll,
         undoSaveAll: marks.undoSaveAll,
+        showWords: app.showWords,
         summary: () => ({
           supported: true,
           hostname,
@@ -522,6 +641,8 @@ export async function startArticle(
       }),
     stop() {
       unwatch();
+      controller.abort();
+      endFlash();
       lookup.stop();
       interactions.stop();
       end.disconnect();

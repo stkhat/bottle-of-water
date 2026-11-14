@@ -43,6 +43,7 @@ const deps: PopupDeps = {
       })
       .finally(() => window.close());
   },
+  close: () => window.close(),
   now: Date.now,
   refreshMs: 1000,
 };

@@ -14,6 +14,7 @@ import {
   type TestPage,
 } from "../../testing/youtube-page";
 import type { PlatformAdapter } from "./platform";
+import { enterFullscreen } from "../../testing/fullscreen";
 
 const CUES: Cue[] = [
   { startMs: 0, endMs: 1000, text: "The yeast smells tangy." },
@@ -68,6 +69,8 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     fullscreen: false,
     panelTab: "transcript",
     wordsFilter: "all",
+    wordsSort: "order",
+    wordsJump: null,
     summaries: {},
     dataNote: null,
     ...patch,
@@ -168,19 +171,6 @@ async function button(part: string, name: string) {
     ) ?? null;
   await expect.poll(find).not.toBeNull();
   return find()!;
-}
-
-/** Enters fullscreen on `element` from the user's click, as the site's button does. */
-async function enterFullscreen(element: Element) {
-  const button = document.createElement("button");
-  button.textContent = "Full screen";
-  button.style.cssText =
-    "position: fixed; top: 0; left: 0; z-index: 2147483647;";
-  button.onclick = () => void element.requestFullscreen();
-  document.body.append(button);
-  await userEvent.click(button);
-  button.remove();
-  await expect.poll(() => document.fullscreenElement).toBe(element);
 }
 
 describe("mountVideoUi", () => {
@@ -436,6 +426,56 @@ describe("mountVideoUi", () => {
     await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
     expect(spy("seekToCue")).not.toHaveBeenCalled();
+  });
+
+  it("the Words tab sorts its rows, jumps from rows and chips, and presses the last jump", async () => {
+    const cues: Cue[] = [
+      CUES[0]!,
+      { startMs: 65_000, endMs: 66_000, text: "Knead the yeast." },
+    ];
+    const { store, spy } = mount(
+      readyState({
+        cues,
+        spans: [SPANS[0]!, [span(cues[1]!.text, "yeast", "new")]],
+        panelTab: "words",
+      }),
+    );
+    const heads = () =>
+      [
+        ...(inside("lingo-transcript")?.querySelectorAll("[data-word-row]") ??
+          []),
+      ].map((row) => row.querySelector("[lang=en]")?.textContent);
+    await expect.poll(heads).toEqual(["yeast", "tangy"]);
+    (await button("lingo-transcript", "yeast, jump to 0:00")).click();
+    await userEvent.click(
+      await button("lingo-transcript", "yeast, jump to 0:00"),
+    );
+    // A page script's click does nothing; the user's jumps to the first card.
+    expect(spy("jumpToWord").mock.calls).toEqual([["word\nyeast", 0]]);
+    await userEvent.click(await button("lingo-transcript", "Jump to 1:05"));
+    expect(spy("jumpToWord")).toHaveBeenLastCalledWith("word\nyeast", 1);
+    expect(spy("clickWord")).not.toHaveBeenCalled();
+
+    store.set({ wordsJump: { id: "word\nyeast", card: 1 } });
+    await expect
+      .poll(async () =>
+        (await button("lingo-transcript", "Jump to 1:05")).getAttribute(
+          "aria-pressed",
+        ),
+      )
+      .toBe("true");
+    expect(
+      (await button("lingo-transcript", "Jump to 0:00")).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("false");
+
+    // The user's keys pick an option (a script's change is dropped).
+    inside("lingo-transcript")!.querySelector("select")!.focus();
+    await userEvent.keyboard("a");
+    expect(spy("setWordsSort")).toHaveBeenCalledWith("az");
+    store.set({ wordsSort: "az" });
+    await expect.poll(heads).toEqual(["tangy", "yeast"]);
   });
 
   it("tells the app while the pointer is on the subtitle, over the video or below it, but not on the transcript", async () => {
@@ -744,9 +784,16 @@ describe("mountVideoUi", () => {
         .poll(() => host("lingo-transcript").parentElement?.id)
         .toBe("secondary-inner");
       await fullscreen();
+      // The sidebar is made on the fullscreen change, after the fullscreen element is
+      // set in some engines: compare with it once it is there.
       await expect
-        .poll(() => host("lingo-transcript").parentElement)
-        .toBe(sidebar());
+        .poll(() => {
+          const made = sidebar();
+          return (
+            made !== null && host("lingo-transcript").parentElement === made
+          );
+        })
+        .toBe(true);
       // 360px wide, 16px in from the top, right and bottom edges; the player beside it.
       const box = sidebar()!.getBoundingClientRect();
       expect([

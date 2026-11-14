@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../../ui/from-user";
-import { CheckIcon, InfoIcon } from "../../ui/icons";
+import { CheckIcon, InfoIcon, WordListIcon } from "../../ui/icons";
 import { color, root, sectionHeading, statusButton } from "../../ui/styles";
 
 export interface SaveAllProps {
@@ -14,6 +14,8 @@ export interface SaveAllProps {
   onAddLearning: () => void;
   onMarkKnown: () => void;
   onUndo: () => void;
+  /** "Show words on this page" (articles only): opens the page's Words list. None without it. */
+  onShowWords?: () => void;
 }
 
 const SCOPE = {
@@ -84,6 +86,32 @@ export function SaveAll(props: SaveAllProps) {
           {unsavedLine(props.unsavedCount)}
         </span>
       </div>
+      {props.onShowWords && (
+        <button
+          type="button"
+          onClick={onlyFromUser(() => props.onShowWords?.())}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            height: "40px",
+            margin: 0,
+            padding: 0,
+            borderRadius: "8px",
+            border: `1px solid ${color.lineStrong}`,
+            background: color.card,
+            color: color.ink,
+            font: "inherit",
+            fontSize: "13px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          <WordListIcon size={18} />
+          {t("popup.showWords")}
+        </button>
+      )}
       {props.unsavedCount > 0 && (
         <div
           style={{

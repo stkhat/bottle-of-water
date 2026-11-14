@@ -76,6 +76,64 @@ describe("createTranslationQueue", () => {
     ]);
   });
 
+  it("takes the lists last, after the hover card", async () => {
+    const t = heldTranslator();
+    const queue = createTranslationQueue(() => t.provider);
+    const first = queue.translate("first", "list", EN_JA);
+    await flush();
+    const all = [
+      first,
+      queue.translate("list 1", "list", EN_JA),
+      queue.translate("hover 1", "hover", EN_JA),
+      queue.translate("list 2", "list", EN_JA),
+      queue.translate("window 1", "window", EN_JA),
+      queue.translate("subtitle 1", "subtitle", EN_JA),
+    ];
+    await flush();
+    await t.releaseAll();
+    await Promise.all(all);
+    expect(t.started).toEqual([
+      "first",
+      "subtitle 1",
+      "window 1",
+      "hover 1",
+      "list 1",
+      "list 2",
+    ]);
+  });
+
+  it("tells its listeners about every new translation, whoever asked", async () => {
+    const queue = createTranslationQueue(() => ({
+      translate: async (text) => (text === "none" ? undefined : `ja(${text})`),
+    }));
+    const heard: [string, string, string][] = [];
+    const stop = queue.onTranslated((text, pair, translated) =>
+      heard.push([text, `${pair.from}>${pair.to}`, translated]),
+    );
+    await queue.translate("A cat.", "hover", EN_JA);
+    await queue.translate("none", "hover", EN_JA);
+    await queue.translate("Hola.", "list", { from: "es", to: "ja" });
+    // Kept: not translated again, nothing new to tell.
+    await queue.translate("A cat.", "list", EN_JA);
+    stop();
+    await queue.translate("A dog.", "window", EN_JA);
+    expect(heard).toEqual([
+      ["A cat.", "en>ja", "ja(A cat.)"],
+      ["Hola.", "es>ja", "ja(Hola.)"],
+    ]);
+  });
+
+  it("opens a translator for the lists only when it needs no download", async () => {
+    const open = vi.fn(async () => true);
+    const queue = createTranslationQueue(() => ({
+      open,
+      translate: async (text) => `ja(${text})`,
+    }));
+    await queue.translate("A cat.", "list", EN_JA);
+    await queue.translate("A dog.", "hover", EN_JA);
+    expect(open.mock.calls).toEqual([[{ download: false }], [{}]]);
+  });
+
   it("shares one translation between requests for the same text", async () => {
     const t = heldTranslator();
     const queue = createTranslationQueue(() => t.provider);

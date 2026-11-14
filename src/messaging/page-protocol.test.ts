@@ -9,6 +9,7 @@ describe("isPageRequest", () => {
     );
     expect(isPageRequest({ type: "pageSaveAll", status: "known" })).toBe(true);
     expect(isPageRequest({ type: "pageUndo" })).toBe(true);
+    expect(isPageRequest({ type: "pageShowWords" })).toBe(true);
   });
 
   it("rejects everything else", () => {

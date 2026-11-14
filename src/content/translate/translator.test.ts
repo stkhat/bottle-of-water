@@ -63,6 +63,28 @@ describe("createBuiltInTranslator", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it("does not download the model when opened without downloads, even inside a user activation", async () => {
+    const { g, create } = fakeGlobal("downloadable", { active: true });
+    const translator = createBuiltInTranslator("en", "ja", g);
+    expect(await translator.open!({ download: false })).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+    // Opened by a click (the dictionary window), it is ready for every request.
+    expect(await translator.open!()).toBe(true);
+    expect(await translator.open!({ download: false })).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens without downloads when the model is there", async () => {
+    const { g, create } = fakeGlobal("available");
+    const translator = createBuiltInTranslator("en", "ja", g);
+    expect(await translator.open!({ download: false })).toBe(true);
+    expect(await translator.translate("figure out")).toBe("ja(figure out)");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(
+      await createBuiltInTranslator("en", "ja", {}).open!({ download: false }),
+    ).toBe(false);
+  });
+
   it("gives nothing when translating fails", async () => {
     const { g } = fakeGlobal("available", {
       translate: () => {

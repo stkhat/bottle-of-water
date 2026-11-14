@@ -2,6 +2,12 @@ import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { sendStatus } from "../../content/lookup/status";
 import { warn } from "../../content/lookup/warn";
+import { createTranslationQueue } from "../../content/translate/queue";
+import type { TranslationProvider } from "../../content/translate/translator";
+import {
+  createListMeanings,
+  withTranslation,
+} from "../../content/words/list-meanings";
 import type { WordStatus } from "../../core/classify";
 import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
@@ -23,6 +29,7 @@ import { occurrenceItem } from "../../ui/lookup/elsewhere";
 import { ElsewhereRow } from "../../ui/lookup/ElsewhereRow";
 import { EntryHeader } from "../../ui/lookup/EntryHeader";
 import { StatusButtons } from "../../ui/lookup/StatusButtons";
+import { useRowsInView } from "../../ui/rows-in-view";
 import { Segmented } from "../../ui/Segmented";
 import { color, FONT, iconButton, sectionHeading } from "../../ui/styles";
 
@@ -31,6 +38,8 @@ export interface WordListDeps extends BackupDeps {
   speak(text: string, lang: string): void;
   /** The background's pack states now and after every change (`watchPackState`). */
   watchPackState(listener: (states: PackStates) => void): () => void;
+  /** The page's translator for a pair (the browser's built-in one). */
+  createTranslator(from: string, to: string): TranslationProvider;
 }
 
 type Style = CSSProperties;
@@ -150,6 +159,7 @@ function Row(props: {
     <button
       type="button"
       class={selected ? undefined : "rowb"}
+      data-row-id={term.id}
       aria-pressed={selected}
       onClick={props.onPick}
       style={{
@@ -242,8 +252,15 @@ function Rows(props: {
   now: number;
   empty: string | null;
   onPick: (term: TermSummary) => void;
+  /** Rows came into view (their meanings may need translating). */
+  onShown: (terms: TermSummary[]) => void;
 }) {
-  const scroller = useRef<HTMLDivElement>(null);
+  const byId = new Map(props.rows.map((term) => [term.id, term]));
+  const scroller = useRowsInView<HTMLDivElement>((ids) =>
+    props.onShown(
+      ids.map((id) => byId.get(id)).filter((term) => term !== undefined),
+    ),
+  );
   const [view, setView] = useState({ top: 0, height: 0 });
   const windowed = props.rows.length > WINDOW_ABOVE;
 
@@ -336,6 +353,8 @@ const savedFrom = (occurrences: readonly OccurrenceView[]) =>
 
 function DetailsPanel(props: {
   details: Details;
+  /** The selected term's row now: its meaning may have been translated since. */
+  row: TermSummary | undefined;
   nativeLang: string;
   /** The language of the term and its sentences. */
   learningLang: string;
@@ -383,8 +402,12 @@ function DetailsPanel(props: {
           head={head}
           kind={term.kind}
           ipa={entry?.ipa ?? details.ipa}
-          short={entry?.short}
-          shortLang={entry?.glossLang ?? props.nativeLang}
+          {...(props.row?.machineTranslated
+            ? { short: props.row.short, shortLang: props.nativeLang }
+            : {
+                short: entry?.short,
+                shortLang: entry?.glossLang ?? props.nativeLang,
+              })}
           onSpeak={() => props.onSpeak(head)}
           speakStyle={iconButton}
           speakClass="ib"
@@ -414,6 +437,39 @@ function DetailsPanel(props: {
 export function WordList({ deps }: { deps: WordListDeps }) {
   const [langs, setLangs] = useState<{ learning: string; native: string }>();
   const [terms, setTerms] = useState<TermSummary[]>();
+  /** The rows as last set (state updates come with the next render). */
+  const termsNow = useRef<TermSummary[]>(undefined);
+  termsNow.current = terms;
+  const langsNow = useRef(langs);
+  langsNow.current = langs;
+  /** English meanings translated with the page's translator, as the rows come into view. */
+  const meanings = useRef<ReturnType<typeof createListMeanings>>(undefined);
+  meanings.current ??= createListMeanings({
+    send: deps.send,
+    translator: createTranslationQueue(deps.createTranslator),
+    lang: () => langsNow.current?.learning ?? "",
+    nativeLang: () => langsNow.current?.native ?? "",
+    meanings: () =>
+      (termsNow.current ?? []).map((term): [string, TermSummary] => [
+        term.id,
+        term,
+      ]),
+    meaning: (id) => termsNow.current?.find((term) => term.id === id),
+    translated(changes) {
+      const list = termsNow.current?.map((term) => {
+        const translated = changes.get(term.id);
+        return translated === undefined
+          ? term
+          : withTranslation(term, translated);
+      });
+      show(list);
+    },
+  });
+
+  function show(list: TermSummary[] | undefined) {
+    termsNow.current = list;
+    setTerms(list);
+  }
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [kind, setKind] = useState<KindFilter>("all");
@@ -444,7 +500,8 @@ export function WordList({ deps }: { deps: WordListDeps }) {
     if (!wait.waiting) {
       try {
         const list = await deps.send({ type: "listTermsWithStats", lang });
-        setTerms(list);
+        show(list);
+        meanings.current!.refresh();
         return list;
       } catch (error) {
         if (!(error instanceof PacksUnavailableError)) throw error;
@@ -456,7 +513,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
       lang,
       meanings: false,
     });
-    setTerms(list);
+    show(list);
     return list;
   }
 
@@ -471,7 +528,13 @@ export function WordList({ deps }: { deps: WordListDeps }) {
       .catch(warn);
   };
 
-  useEffect(() => () => packs.current?.stop(), []);
+  useEffect(
+    () => () => {
+      packs.current?.stop();
+      meanings.current?.stop();
+    },
+    [],
+  );
 
   useEffect(() => {
     deps.send({ type: "getSettings" }).then((settings) => {
@@ -724,11 +787,17 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             now={now}
             empty={empty}
             onPick={select}
+            onShown={(shown) =>
+              meanings.current!.shown(
+                shown.map((term) => ({ key: term.id, head: term.display })),
+              )
+            }
           />
         </section>
         {details && (
           <DetailsPanel
             details={details}
+            row={terms?.find((term) => term.id === details.term.id)}
             nativeLang={langs.native}
             learningLang={langs.learning}
             now={now}

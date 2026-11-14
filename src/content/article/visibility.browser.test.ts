@@ -62,6 +62,27 @@ describe("watchVisibleBlocks", () => {
     expect(new Set(batches.flat()).size).toBe(batches.flat().length);
   });
 
+  it("analyzes the blocks it is told to now, near the viewport or not, each once", async () => {
+    const root = fixture(paragraphs(60, "height: 200px; margin: 0"));
+    const blocks = collectBlocks(root);
+    const { batches, watcher } = watch();
+    watcher.add(blocks);
+    await expect.poll(() => batches.length).toBeGreaterThan(0);
+    await watcher.idle();
+
+    watcher.now(blocks);
+    await watcher.idle();
+    const all = batches.flat();
+    expect(new Set(all)).toEqual(new Set(blocks));
+    expect(all).toHaveLength(blocks.length);
+    // Batches stay within the limits.
+    for (const batch of batches) expect(batch.length).toBeLessThanOrEqual(20);
+    // Scrolled into view later: nothing again.
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    await frames(3);
+    expect(batches.flat()).toHaveLength(blocks.length);
+  });
+
   it("sends at most 20 blocks per batch, in document order", async () => {
     const root = fixture(
       paragraphs(45, "height: 2px; margin: 0; overflow: hidden"),

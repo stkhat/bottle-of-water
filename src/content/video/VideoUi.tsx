@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useReducer } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useReducer } from "preact/hooks";
 import { fromUser } from "../../ui/from-user";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { keptOpen } from "../../ui/keep-open";
@@ -25,7 +25,8 @@ import {
   verticalDictionaryFrame,
 } from "./placement";
 import type { VideoApp, VideoState, WordPlace } from "./state";
-import { filterCounts, filterRows, videoWords } from "./words";
+import { filterCounts, filterRows, sortRows, wordId } from "../words/words";
+import { videoWords } from "./words";
 import { Floating, TOP_LAYER } from "../lookup/Floating";
 import { useStore, type Store } from "../store";
 
@@ -367,36 +368,45 @@ export function TranscriptUi(props: {
   const { app } = props;
   const state = useStore(app.store);
   const { frameHeight, sidebar } = useStore(props.layout);
-  const { cues, spans, summaries, settings, panel } = state;
+  const { cues, spans, summaries, settings } = state;
   const words = useMemo(
     () => videoWords(cues, spans, summaries),
     [cues, spans, summaries],
   );
-  const open = panel?.card;
+  const jump = state.wordsJump;
   const rows = useMemo(
     () =>
-      filterRows(words, state.wordsFilter).map((word) => {
+      sortRows(
+        filterRows(words, state.wordsFilter),
+        state.wordsSort,
+        settings.learningLang,
+      ).map((word) => {
+        const id = wordId(word);
         const brief = Object.hasOwn(summaries, word.key)
           ? summaries[word.key]
           : undefined;
         return {
-          id: `${word.kind}\n${word.key}`,
+          id,
+          key: word.key,
           head: word.head,
           category: word.category,
           count: word.count,
           short: brief?.short,
           shortLang: brief?.glossLang ?? settings.nativeLang,
-          selected: open?.kind === word.kind && open.key === word.key,
-          first: word.first,
+          places: word.cards.map((card) => formatTime(cues[card]!.startMs)),
+          pressed: jump?.id === id ? word.cards.indexOf(jump.card) : -1,
+          cards: word.cards,
         };
       }),
     [
       words,
+      cues,
       state.wordsFilter,
+      state.wordsSort,
       summaries,
+      settings.learningLang,
       settings.nativeLang,
-      open?.kind,
-      open?.key,
+      jump,
     ],
   );
   const counts = useMemo(() => filterCounts(words), [words]);
@@ -445,7 +455,12 @@ export function TranscriptUi(props: {
       wordsFilter={state.wordsFilter}
       wordsCounts={counts}
       onWordsFilter={app.setWordsFilter}
-      onOpenWord={(row) => app.clickWord(row.first)}
+      wordsSort={state.wordsSort}
+      onWordsSort={app.setWordsSort}
+      onJumpWord={(row, place) => app.jumpToWord(row.id, row.cards[place]!)}
+      onWordsShown={(shown) =>
+        app.wordsShown(shown.map(({ key, head }) => ({ key, head })))
+      }
       learningLang={settings.learningLang}
       nativeLang={settings.nativeLang}
       height={Math.max(MIN_TRANSCRIPT_HEIGHT, Math.round(frameHeight))}
@@ -476,9 +491,11 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
  * are marked by them (`keepOpen`): a word's click opens it in the same window. Escape
  * closes it wherever the focus is: after a click on a word it stays in the subtitle or
  * the transcript, whose shadow host keeps keys from the page (read here, capturing).
+ * Listening from the render that opens it, not after a paint: an Escape or a press
+ * right after it opens still closes it.
  */
 function useClosedByPressAway(app: VideoApp, open: boolean) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onPress = (event: PointerEvent) => {
@@ -504,10 +521,11 @@ function useClosedByPressAway(app: VideoApp, open: boolean) {
 /**
  * While words are selected, Escape or a press anywhere else drops the selection and its
  * card. Presses on Lingo's cards and windows (`keepOpen`) keep it, and a press on a
- * text words are selected in makes a new selection.
+ * text words are selected in makes a new selection. Listening from the render that
+ * shows the selection, as for the dictionary window.
  */
 function useSelectionDroppedByPressAway(app: VideoApp, selecting: boolean) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!selecting) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onPress = (event: PointerEvent) => {

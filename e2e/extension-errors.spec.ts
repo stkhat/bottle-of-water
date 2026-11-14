@@ -110,6 +110,40 @@ async function useArticleBlindly(page: Page) {
   );
 }
 
+/**
+ * "Words on this page" from the popup; with the UI reachable, a row's jump, a filter,
+ * the sort, and ×.
+ */
+async function useArticleWords(
+  context: BrowserContext,
+  extensionId: string,
+  page: Page,
+  reachesUi: boolean,
+) {
+  const popup = await openPopupFor(context, extensionId, page);
+  const closed = popup.waitForEvent("close");
+  await popup.getByRole("button", { name: en["popup.showWords"] }).click();
+  await closed;
+  if (!reachesUi) return;
+  const panel = page.getByRole("complementary", {
+    name: en["page.words.panel"],
+  });
+  const row = panel.locator("[data-word-row]").first();
+  await expect(row).toBeVisible();
+  await row.getByRole("button").first().click();
+  await expect(row).toHaveAttribute("data-selected", "true");
+  await panel
+    .getByRole("group", { name: en["words.filter"] })
+    .getByRole("button")
+    .nth(1)
+    .click();
+  await panel
+    .getByRole("combobox", { name: en["words.sort"] })
+    .selectOption("count");
+  await panel.getByRole("button", { name: en["page.words.close"] }).click();
+  await expect(panel).toHaveCount(0);
+}
+
 /** The local name of the element a page script finds at a viewport point. */
 function hostAt(page: Page, x: number, y: number) {
   return page.evaluate(
@@ -299,6 +333,7 @@ for (const build of ["production", "check"] as const)
       await expect
         .poll(async () => (await highlighted(page, "lingo-new")).length)
         .toBeGreaterThan(0);
+      await useArticleWords(context, extensionId, page, reachesUi);
 
       // A page in another language: Lingo stays out, quietly.
       const ja = await context.newPage();
@@ -466,18 +501,26 @@ for (const build of ["production", "check"] as const)
       await ownSwitch.click();
       await videoCard(page, YT_LINE).click({ position: ON_TIME });
 
-      // The Words tab: a filter, a row's dictionary window, back to the transcript.
+      // The Words tab: a filter, the sort, a row's jump, back to the transcript.
       const panel = transcript(page);
       await panel.getByRole("tab", { name: en["kind.words"] }).click();
       await panel
-        .getByRole("group", { name: en["video.words.filter"] })
+        .getByRole("group", { name: en["words.filter"] })
         .getByRole("button", { name: /^Learning \d+$/ })
         .click();
-      await panel.getByRole("button", { name: /^creativity\s*\d+×/ }).click();
+      const sort = panel.getByRole("combobox", {
+        name: en["words.sort"],
+      });
+      await sort.focus();
+      await page.keyboard.press("m");
+      await expect(sort).toHaveValue("count");
+      const row = panel.getByRole("button", { name: /^creativity, jump to / });
+      await row.click();
       await expect(
-        window.getByRole("heading", { name: "creativity" }),
-      ).toBeVisible();
-      await window.getByRole("button", { name: en["dict.close"] }).click();
+        panel.locator("[data-word-row][data-selected=true]"),
+      ).toContainText("creativity");
+      // A jump only plays: no dictionary window.
+      await expect(window).toHaveCount(0);
       await panel.getByRole("tab", { name: en["video.transcript"] }).click();
       await expect(videoCard(page, YT_LINE)).toBeVisible();
 

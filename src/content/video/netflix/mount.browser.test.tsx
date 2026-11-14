@@ -12,6 +12,7 @@ import {
 } from "../../../testing/netflix-page";
 import type { VideoApp, VideoState } from "../state";
 import type { PlatformAdapter } from "../platform";
+import { enterFullscreen } from "../../../testing/fullscreen";
 
 const STATE: VideoState = {
   settings: DEFAULT_SETTINGS,
@@ -36,6 +37,8 @@ const STATE: VideoState = {
   fullscreen: false,
   panelTab: "transcript",
   wordsFilter: "all",
+  wordsSort: "order",
+  wordsJump: null,
   summaries: {},
   dataNote: null,
 };
@@ -536,7 +539,13 @@ describe("the transcript sidebar on Netflix", () => {
 
   it("narrows the player for the sidebar beside it, covering nothing of the video", async () => {
     start();
-    await expect.poll(() => transcript()?.parentElement).toBe(sidebar());
+    // The sidebar may be made after the first look: compare with it once it is there.
+    await expect
+      .poll(() => {
+        const made = sidebar();
+        return made !== null && transcript()?.parentElement === made;
+      })
+      .toBe(true);
     const box = sidebar()!.getBoundingClientRect();
     expect([box.top, box.right, box.bottom, box.width]).toEqual([
       16,
@@ -562,15 +571,7 @@ describe("the transcript sidebar on Netflix", () => {
     start();
     await expect.poll(() => lingo()?.parentElement).toBe(document.body);
     await expect.poll(() => sidebar()?.parentElement).toBe(document.body);
-    const button = document.createElement("button");
-    button.textContent = "Full screen";
-    button.style.cssText =
-      "position: fixed; top: 0; left: 0; z-index: 2147483647;";
-    button.onclick = () => void page.root.requestFullscreen();
-    document.body.append(button);
-    await userEvent.click(button);
-    button.remove();
-    await expect.poll(() => document.fullscreenElement).toBe(page.root);
+    await enterFullscreen(page.root);
 
     await expect.poll(() => lingo()?.parentElement).toBe(page.root);
     await expect.poll(() => sidebar()?.parentElement).toBe(page.root);

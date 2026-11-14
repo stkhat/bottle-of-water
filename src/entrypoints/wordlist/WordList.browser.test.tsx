@@ -10,6 +10,8 @@ import type {
   Request,
   TermSummary,
 } from "../../messaging/protocol";
+import type { TranslationProvider } from "../../content/translate/translator";
+import { noTranslation } from "../../testing/stubs";
 import { WordList, type WordListDeps } from "./WordList";
 
 const NOW = new Date(2026, 10, 10, 12, 0, 0).getTime();
@@ -100,6 +102,8 @@ interface FakeOptions {
   importError?: Error;
   /** Packs not on the device: the dictionary's ("en-ja") fails meanings and lookups. */
   missing?: string[];
+  /** The page's translator (default: none). */
+  translator?: TranslationProvider;
 }
 
 /** A background behind the word list: terms, lookups, status changes, backups. */
@@ -166,6 +170,8 @@ function fake(options: FakeOptions = {}) {
           terms = [...terms, { ...back, status: request.status, seen: 1 }];
           return {};
         }
+        case "cacheTranslations":
+          return null;
         case "exportJson":
           return '{"format":"lingo-export"}';
         case "importJson":
@@ -179,6 +185,7 @@ function fake(options: FakeOptions = {}) {
     now: () => NOW,
     download: (name, text) => downloads.push({ name, text }),
     speak: (text) => spoken.push(text),
+    createTranslator: () => options.translator ?? noTranslation,
     watchPackState(listener) {
       packListeners.add(listener);
       listener({});
@@ -262,12 +269,13 @@ describe("WordList", () => {
       .toMatch(/Known5Dec 28, 2025$/);
   });
 
-  it("marks English definitions as English, in the list and the details", async () => {
-    const { details, row } = await open({
+  it("marks English definitions as English, in the list and the details, without a translator", async () => {
+    const { details, row, sent } = await open({
       terms: [
         {
           ...term("look into", "learning", 1, NOW - HOUR, "To investigate"),
           glossLang: "en",
+          definition: "To investigate",
         },
         term("tedious", "learning", 2, NOW - 2 * HOUR, "退屈な、面倒な"),
       ],
@@ -285,6 +293,68 @@ describe("WordList", () => {
     await expect
       .element(details.getByText("short of tedious"))
       .toHaveAttribute("lang", "ja");
+    expect(sent.some((r) => r.type === "cacheTranslations")).toBe(false);
+  });
+
+  it("translates English meanings with the page's translator, as the hover card does, and keeps them", async () => {
+    const asked: string[] = [];
+    const { details, row, sent } = await open({
+      translator: {
+        async translate(text) {
+          asked.push(text);
+          return `ja(${text})`;
+        },
+      },
+      terms: [
+        {
+          ...term(
+            "look into",
+            "learning",
+            1,
+            NOW - HOUR,
+            "(transitive) To investigate",
+          ),
+          glossLang: "en",
+          definition: "To investigate",
+        },
+        {
+          ...term(
+            "i mean",
+            "learning",
+            1,
+            NOW - 2 * HOUR,
+            "A mild intensifier",
+          ),
+          display: "I mean",
+          glossLang: "en",
+          usageNote: true,
+        },
+        term("tedious", "learning", 2, NOW - 3 * HOUR, "退屈な、面倒な"),
+      ],
+    });
+    // The cleaned definition; a usage note: the term as saved, translated.
+    await expect
+      .element(row("look into").getByText("ja(To investigate)"))
+      .toHaveAttribute("lang", "ja");
+    await expect
+      .element(row("i mean").getByText("ja(I mean)"))
+      .toHaveAttribute("lang", "ja");
+    await expect
+      .element(row("tedious").getByText("退屈な、面倒な"))
+      .toBeVisible();
+    expect(asked.sort()).toEqual(["I mean", "To investigate"]);
+    // The selected row's details show its translation too.
+    await expect
+      .element(details.getByText("ja(To investigate)"))
+      .toHaveAttribute("lang", "ja");
+    // Only definitions go to the cache.
+    expect(sent.filter((r) => r.type === "cacheTranslations")).toEqual([
+      {
+        type: "cacheTranslations",
+        lang: "en",
+        items: [{ text: "To investigate", translated: "ja(To investigate)" }],
+      },
+    ]);
   });
 
   it("shows the IPA of a saved phrase no dictionary has", async () => {

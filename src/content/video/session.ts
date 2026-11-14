@@ -46,7 +46,7 @@ import {
   type VideoState,
   type WordRef,
 } from "./state";
-import { createSummaries } from "./summaries";
+import { createSummaries } from "../words/summaries";
 
 /** Cues classified per `analyze` request. */
 const BATCH = 50;
@@ -208,16 +208,20 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       active,
       casing: () => lookup.casing,
     });
+    const controller = new AbortController();
     const summaries = createSummaries({
       send: deps.send,
       store,
+      translator: lookup.translator,
       lang,
+      nativeLang: () => settings.nativeLang,
       active,
       waitFor: lookup.waitFor,
+      signal: controller.signal,
     });
     const w: Watch = {
       id,
-      controller: new AbortController(),
+      controller,
       timed: null,
       recorder,
       summaries,
@@ -562,6 +566,17 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     setWordsFilter(filter) {
       if (store.get().wordsFilter !== filter)
         store.set({ wordsFilter: filter });
+    },
+    setWordsSort(sort) {
+      if (store.get().wordsSort !== sort) store.set({ wordsSort: sort });
+    },
+    jumpToWord(id, card) {
+      if (!store.get().cues[card]) return;
+      store.set({ wordsJump: { id, card } });
+      app.seekToCue(card);
+    },
+    wordsShown(rows) {
+      watch?.summaries.shown(rows);
     },
     retryPacks() {
       deps.send({ type: "retryPacks" }).catch(warn);

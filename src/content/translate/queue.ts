@@ -2,14 +2,16 @@ import type { TranslationProvider } from "./translator";
 
 /**
  * Who waits for a translation, the most urgent first: the playing subtitle line, the
- * dictionary window, the hover card (architecture.md: "Definitions translated at display time").
+ * dictionary window, the hover card, the lists' rows (architecture.md: "Definitions
+ * translated at display time").
  */
-export type TranslationPriority = "subtitle" | "window" | "hover";
+export type TranslationPriority = "subtitle" | "window" | "hover" | "list";
 
 const RANK: Readonly<Record<TranslationPriority, number>> = {
   subtitle: 0,
   window: 1,
   hover: 2,
+  list: 3,
 };
 
 export interface TranslationPair {
@@ -25,7 +27,18 @@ export interface TranslationQueue {
     priority: TranslationPriority,
     pair: TranslationPair,
   ): Promise<string | undefined>;
+  /**
+   * Calls `listener` with every new translation (not one kept from before), whoever
+   * asked for it; returns an unsubscribe.
+   */
+  onTranslated(listener: TranslationListener): () => void;
 }
+
+type TranslationListener = (
+  text: string,
+  pair: TranslationPair,
+  translated: string,
+) => void;
 
 /** How many translations the queue keeps for texts asked for again. */
 const KEPT = 500;
@@ -51,6 +64,8 @@ interface Job {
  * text that is waiting or being translated share its translation; the latest
  * translations are kept, so a text asked for again is not translated again. A text
  * that got no translation (the model not there yet) is asked for again next time.
+ * The lists' requests never start a model download (a request of theirs waits for
+ * another to start it); every new translation is told to the listeners.
  */
 export function createTranslationQueue(
   translatorFor: (from: string, to: string) => TranslationProvider,
@@ -60,6 +75,7 @@ export function createTranslationQueue(
   /** Jobs waiting or being translated, by key. */
   const jobs = new Map<string, Job>();
   const waiting: Job[] = [];
+  const listeners = new Set<TranslationListener>();
   let order = 0;
   let running = false;
 
@@ -100,6 +116,13 @@ export function createTranslationQueue(
     jobs.delete(job.key);
     if (translated) keep(job.key, translated);
     job.resolve(translated || undefined);
+    if (translated)
+      for (const listener of [...listeners])
+        try {
+          listener(job.text, job.pair, translated);
+        } catch (error) {
+          console.warn("Lingo: a translation listener failed", error);
+        }
   }
 
   async function run() {
@@ -122,7 +145,9 @@ export function createTranslationQueue(
     const provider = translator(job.pair);
     let ready: boolean;
     try {
-      ready = provider.open ? await provider.open() : true;
+      ready = provider.open
+        ? await provider.open(job.rank === RANK.list ? { download: false } : {})
+        : true;
     } catch {
       ready = false;
     }
@@ -133,6 +158,12 @@ export function createTranslationQueue(
   }
 
   return {
+    onTranslated(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
     translate(text, priority, pair) {
       const key = `${pairKey(pair)}:${text}`;
       const done = kept.get(key);

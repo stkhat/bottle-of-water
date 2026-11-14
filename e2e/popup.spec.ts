@@ -47,7 +47,9 @@ test("the page's unsaved words: Mark all, Undo, and On this site off and on", as
   const popup = await openPopupFor(context, extensionId, page);
 
   await expect(popup.getByText("localhost", { exact: true })).toBeVisible();
-  await expect(popup.getByText(en["saveAll.scope.page"])).toBeVisible();
+  await expect(
+    popup.getByText(en["saveAll.scope.page"], { exact: true }),
+  ).toBeVisible();
   const line = await popup.getByText(/^\d+ words not saved yet$/).textContent();
   const unsaved = Number(/\d+/.exec(line!)![0]);
   expect(unsaved).toBeGreaterThan(5);
@@ -76,12 +78,39 @@ test("the page's unsaved words: Mark all, Undo, and On this site off and on", as
   await expect(site).not.toBeChecked();
   await expect(page.locator("lingo-article")).toHaveCount(0);
   expect(await highlighted(page, "lingo-new")).toEqual([]);
-  await expect(popup.getByText(en["saveAll.scope.page"])).toHaveCount(0);
+  await expect(
+    popup.getByText(en["saveAll.scope.page"], { exact: true }),
+  ).toHaveCount(0);
 
   await site.click();
   await expect(site).toBeChecked();
   await expect
     .poll(async () => (await highlighted(page, "lingo-new")).length)
     .toBe(newWords);
-  await expect(popup.getByText(en["saveAll.scope.page"])).toBeVisible();
+  await expect(
+    popup.getByText(en["saveAll.scope.page"], { exact: true }),
+  ).toBeVisible();
+});
+
+test("Show words on this page opens the article's Words panel and closes the popup", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  const page = await openArticle(context);
+  await expect
+    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .toBeGreaterThan(0);
+  const popup = await openPopupFor(context, extensionId, page);
+  const closed = popup.waitForEvent("close");
+  await popup.getByRole("button", { name: en["popup.showWords"] }).click();
+  await closed;
+  const panel = page.getByRole("complementary", {
+    name: en["page.words.panel"],
+  });
+  await expect(panel).toBeVisible();
+  await expect(
+    panel.getByRole("heading", { name: en["page.words.title"] }),
+  ).toBeVisible();
+  await expect(panel.locator("[data-word-row]").first()).toBeVisible();
 });

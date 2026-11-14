@@ -3,6 +3,11 @@ import type { TextBlock } from "./page-text";
 export interface VisibleBlocks {
   /** Watches blocks; each is analyzed once, when it first comes near the viewport. */
   add(blocks: readonly TextBlock[]): void;
+  /**
+   * Queues watched blocks for analysis now, near the viewport or not (the page's Words
+   * list covers them all); blocks already queued or analyzed are left as they are.
+   */
+  now(blocks: readonly TextBlock[]): void;
   /** Stops watching blocks (and drops them if they wait for analysis). */
   remove(blocks: readonly TextBlock[]): void;
   /** Resolves once every block handed over so far has been analyzed (or dropped). */
@@ -128,6 +133,15 @@ export function watchVisibleBlocks(
         if (previous) observer.unobserve(block.element);
         observer.observe(block.element);
       }
+    },
+    now(blocks) {
+      for (const block of blocks) {
+        if (watched.get(block.element) !== block) continue;
+        watched.delete(block.element);
+        observer.unobserve(block.element);
+        queue.push(block);
+      }
+      void pump();
     },
     remove(blocks) {
       for (const block of blocks) {

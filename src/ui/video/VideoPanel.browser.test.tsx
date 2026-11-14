@@ -9,7 +9,7 @@ import {
 } from "../../testing/shadow-root";
 import { selectedOffsets } from "../selection-in-root";
 import { VideoPanel, type VideoPanelProps } from "./VideoPanel";
-import type { WordRow } from "./WordsList";
+import type { WordRow } from "../words/WordsList";
 
 const CUES: Cue[] = [
   {
@@ -52,10 +52,11 @@ const ROWS: WordRow[] = [
     id: "word\nfigure out",
     head: "figure out",
     category: "learning",
-    count: 1,
+    count: 2,
     short: "見つけ出す",
     shortLang: "ja",
-    selected: false,
+    places: ["0:56", "1:20"],
+    pressed: -1,
   },
   {
     id: "word\nbunch",
@@ -64,7 +65,8 @@ const ROWS: WordRow[] = [
     count: 1,
     short: "束",
     shortLang: "ja",
-    selected: false,
+    places: ["1:03"],
+    pressed: -1,
   },
 ];
 
@@ -75,7 +77,9 @@ const base: VideoPanelProps<WordRow> = {
   wordsFilter: "all",
   wordsCounts: { all: 2, new: 1, learning: 1, known: 0 },
   onWordsFilter: () => {},
-  onOpenWord: () => {},
+  wordsSort: "order",
+  onWordsSort: () => {},
+  onJumpWord: () => {},
   cues: CUES,
   spans: SPANS,
   translations: [
@@ -104,6 +108,23 @@ afterEach(cleanUpMounts);
 const cards = (screen: { container: HTMLElement }) => [
   ...screen.container.querySelectorAll<HTMLElement>("[data-cue]"),
 ];
+
+/**
+ * Waits until the list stops scrolling: it scrolls smoothly to the playing card once
+ * mounted, and a drag made meanwhile presses where the words were (slow runners).
+ */
+async function listAtRest(screen: { container: HTMLElement }) {
+  const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+  let last = Number.NaN;
+  await expect
+    .poll(async () => {
+      await new Promise(requestAnimationFrame);
+      const same = list.scrollTop === last;
+      last = list.scrollTop;
+      return same;
+    })
+    .toBe(true);
+}
 
 describe("the Transcript tab", () => {
   test("has the header: L badge, the tabs, Translation switch and Highlight chips", async () => {
@@ -296,6 +317,7 @@ describe("the Transcript tab", () => {
     );
     const line = cards(screen)[2]!.querySelector<HTMLElement>("[lang=en]")!;
     const bunch = screen.getByText("bunch").element() as HTMLElement;
+    await listAtRest(screen);
     const { height } = line.getBoundingClientRect();
     // From inside "I've" to the middle of "bunch".
     await userEvent.dragAndDrop(
@@ -332,6 +354,7 @@ describe("the Transcript tab", () => {
         onSeek={onSeek}
       />,
     );
+    await listAtRest(screen);
     const bunch = screen.getByText("bunch").element() as HTMLElement;
     const { width, height } = bunch.getBoundingClientRect();
     await userEvent.dragAndDrop(
@@ -547,16 +570,19 @@ describe("the tabs", () => {
     expect(onTab).toHaveBeenLastCalledWith("words");
   });
 
-  test("the Words tab shows the filter chips and the rows instead of the transcript", async () => {
+  test("the Words tab shows the filter chips, the sort and the rows instead of the transcript", async () => {
     const onWordsFilter = vi.fn();
-    const onOpenWord = vi.fn();
+    const onWordsSort = vi.fn();
+    const onJumpWord = vi.fn();
     const screen = await mountInShadowRoot(
       <VideoPanel
         {...base}
         tab="words"
         wordsFilter="learning"
         onWordsFilter={onWordsFilter}
-        onOpenWord={onOpenWord}
+        wordsSort="az"
+        onWordsSort={onWordsSort}
+        onJumpWord={onJumpWord}
       />,
     );
     await expect
@@ -576,9 +602,24 @@ describe("the tabs", () => {
       .toHaveAttribute("aria-pressed", "true");
     await screen.getByRole("button", { name: "New 1" }).click();
     expect(onWordsFilter).toHaveBeenCalledWith("new");
-    await screen.getByRole("button", { name: /^bunch/ }).click();
-    expect(onOpenWord).toHaveBeenCalledWith(
+    const sort = screen.getByRole("combobox", { name: "Sort" });
+    await expect.element(sort).toHaveValue("az");
+    // Under the filter chips.
+    const chips = screen.getByRole("group", { name: "Show words" }).element();
+    expect(sort.element().getBoundingClientRect().top).toBeGreaterThan(
+      chips.getBoundingClientRect().bottom,
+    );
+    await userEvent.selectOptions(sort, "count");
+    expect(onWordsSort).toHaveBeenCalledWith("count");
+    await screen.getByRole("button", { name: "bunch, jump to 1:03" }).click();
+    expect(onJumpWord).toHaveBeenCalledWith(
       expect.objectContaining({ head: "bunch" }),
+      0,
+    );
+    await screen.getByRole("button", { name: "Jump to 1:20" }).click();
+    expect(onJumpWord).toHaveBeenLastCalledWith(
+      expect.objectContaining({ head: "figure out" }),
+      1,
     );
   });
 });

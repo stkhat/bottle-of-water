@@ -217,8 +217,22 @@ export interface ShortMeaning {
   short?: string;
   /** Language of `short` when it is not the native language (`DictionaryEntry.glossLang`). */
   glossLang?: string;
-  /** `short` is a cached machine translation of the English definition (no `glossLang`). */
+  /**
+   * `short` is a machine translation (no `glossLang`): of its English definition, or,
+   * for a usage note, of the term itself.
+   */
   machineTranslated?: true;
+  /**
+   * `short` is a definition in another language (`glossLang`) that lists translate on
+   * the device: its cleaned text (`cleanDefinition`), which the translation cache is
+   * keyed by.
+   */
+  definition?: string;
+  /**
+   * `short` (in `glossLang`) only says how the term is used (`isUsageNoteShort`): lists
+   * show the term's literal translation instead, as the hover card does.
+   */
+  usageNote?: true;
 }
 
 /** One row of the word list. */

@@ -15,9 +15,11 @@ import {
 import {
   WordsFilterChips,
   WordsList,
+  WordsSortSelect,
   type WordRow,
   type WordsFilter,
-} from "./WordsList";
+  type WordsSort,
+} from "../words/WordsList";
 
 export type PanelTab = "transcript" | "words";
 
@@ -25,13 +27,18 @@ export interface VideoPanelProps<R extends WordRow>
   extends TranscriptProps, TranscriptControlsProps {
   tab: PanelTab;
   onTab: (tab: PanelTab) => void;
-  /** The Words tab's rows the filter shows. */
+  /** The Words tab's rows the filter shows, in the sort's order. */
   words: readonly R[];
   wordsFilter: WordsFilter;
   /** How many rows each filter chip shows. */
   wordsCounts: Record<WordsFilter, number>;
   onWordsFilter: (filter: WordsFilter) => void;
-  onOpenWord: (row: R) => void;
+  wordsSort: WordsSort;
+  onWordsSort: (sort: WordsSort) => void;
+  /** A row or one of its chips: jump to that place of the term. */
+  onJumpWord: (row: R, place: number) => void;
+  /** Rows of the Words tab came into view. */
+  onWordsShown?: (rows: R[]) => void;
   height: number;
   /**
    * The chosen pair's language data while some of it is not on the device: a line at
@@ -141,11 +148,17 @@ function TabBody<R extends WordRow>(props: VideoPanelProps<R>) {
         }}
       >
         {props.tab === "words" ? (
-          <WordsFilterChips
-            filter={props.wordsFilter}
-            counts={props.wordsCounts}
-            onFilter={props.onWordsFilter}
-          />
+          <>
+            <WordsFilterChips
+              filter={props.wordsFilter}
+              counts={props.wordsCounts}
+              onFilter={props.onWordsFilter}
+            />
+            <WordsSortSelect
+              sort={props.wordsSort}
+              onSort={props.onWordsSort}
+            />
+          </>
         ) : (
           <TranscriptControls {...props} />
         )}
@@ -154,7 +167,8 @@ function TabBody<R extends WordRow>(props: VideoPanelProps<R>) {
         <WordsList
           rows={props.words}
           learningLang={props.learningLang}
-          onOpen={props.onOpenWord}
+          onJump={props.onJumpWord}
+          {...(props.onWordsShown && { onShown: props.onWordsShown })}
         />
       ) : (
         <Transcript {...props} />
