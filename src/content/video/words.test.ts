@@ -3,7 +3,8 @@ import type { Span } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
 import { filterCounts, filterRows, sortRows } from "../words/words";
-import { videoWords, type VideoWord } from "./words";
+import type { SubtitleLine } from "../../core/subtitles/cues";
+import { placeOf, videoWords, type VideoPlace, type VideoWord } from "./words";
 
 const cue = (text: string): Cue => ({ startMs: 0, endMs: 1000, text });
 const span = (
@@ -55,10 +56,14 @@ const SUMMARIES: Record<string, TermBrief> = {
   // "on" and "tangy": not answered yet.
 };
 
-const rows = () => videoWords(CUES, SPANS, SUMMARIES);
+/** Places in cards without lines: each at its card's start. */
+const on = (...cards: number[]): VideoPlace[] =>
+  cards.map((card) => ({ card, line: -1, startMs: 0 }));
+
+const rows = () => videoWords(CUES, [], SPANS, SUMMARIES);
 
 describe("videoWords", () => {
-  it("lists each word and phrase once, in order of first appearance, with its count and cards", () => {
+  it("lists each word and phrase once, in order of first appearance, with its count and places", () => {
     expect(rows()).toEqual<VideoWord[]>([
       {
         key: "give up",
@@ -66,7 +71,7 @@ describe("videoWords", () => {
         head: "Give up",
         category: "new",
         count: 2,
-        cards: [0, 3],
+        places: on(0, 3),
       },
       {
         key: "loaf",
@@ -74,7 +79,7 @@ describe("videoWords", () => {
         head: "loaf",
         category: "learning",
         count: 3,
-        cards: [0, 1],
+        places: on(0, 1),
       },
       {
         key: "rise",
@@ -82,7 +87,7 @@ describe("videoWords", () => {
         head: "rise",
         category: "known",
         count: 1,
-        cards: [1],
+        places: on(1),
       },
       {
         key: "tangy",
@@ -90,7 +95,7 @@ describe("videoWords", () => {
         head: "tangy",
         category: "new",
         count: 1,
-        cards: [3],
+        places: on(3),
       },
       {
         key: "rise",
@@ -98,7 +103,7 @@ describe("videoWords", () => {
         head: "Rise again",
         category: "new",
         count: 1,
-        cards: [4],
+        places: on(4),
       },
     ]);
   });
@@ -109,7 +114,7 @@ describe("videoWords", () => {
   });
 
   it("lists a level-known word once it is saved as known", () => {
-    const saved = videoWords(CUES, SPANS, {
+    const saved = videoWords(CUES, [], SPANS, {
       ...SUMMARIES,
       the: { status: "known" },
     });
@@ -119,7 +124,7 @@ describe("videoWords", () => {
       head: "the",
       category: "known",
       count: 2,
-      cards: [0, 1],
+      places: on(0, 1),
     });
   });
 
@@ -128,7 +133,7 @@ describe("videoWords", () => {
       [span(0, 4, "loaf", "new"), span(0, 9, "loaf rose", "new", "phrase")],
     ];
     expect(
-      videoWords([cue("Loaf rose.")], overlapping, {}).map((r) => [
+      videoWords([cue("Loaf rose.")], [], overlapping, {}).map((r) => [
         r.key,
         r.count,
       ]),
@@ -159,14 +164,14 @@ describe("videoWords", () => {
         part(32, 35, 1, second),
       ],
     ];
-    expect(videoWords([cue(text)], spans, {})).toEqual<VideoWord[]>([
+    expect(videoWords([cue(text)], [], spans, {})).toEqual<VideoWord[]>([
       {
         key: "figure out",
         kind: "phrase",
         head: "Figure it out",
         category: "learning",
         count: 2,
-        cards: [0],
+        places: on(0),
       },
       {
         key: "it",
@@ -174,7 +179,7 @@ describe("videoWords", () => {
         head: "it",
         category: "new",
         count: 1,
-        cards: [0],
+        places: on(0),
       },
       {
         key: "them",
@@ -182,7 +187,7 @@ describe("videoWords", () => {
         head: "them",
         category: "new",
         count: 1,
-        cards: [0],
+        places: on(0),
       },
     ]);
   });
@@ -191,6 +196,7 @@ describe("videoWords", () => {
     expect(
       videoWords(
         CUES,
+        [],
         CUES.map(() => null),
         {},
       ),
@@ -286,7 +292,7 @@ describe("sortRows", () => {
   });
 });
 
-describe("cards", () => {
+describe("places", () => {
   it("lists each card a term shows in once, in order, with the count of every occurrence", () => {
     const spans: (Span[] | null)[] = [
       [span(0, 4, "loaf", "new"), span(5, 9, "loaf", "new")],
@@ -295,9 +301,85 @@ describe("cards", () => {
     ];
     const [loaf] = videoWords(
       [cue("loaf loaf"), cue("…"), cue("loaf")],
+      [],
       spans,
       {},
     );
-    expect(loaf).toMatchObject({ count: 3, cards: [0, 2] });
+    expect(loaf).toMatchObject({ count: 3, places: on(0, 2) });
+  });
+});
+
+describe("places in subtitle lines", () => {
+  // One long card said as two lines, then a card of one line.
+  const text = "It is an open question whether he will succeed in turning";
+  const second = text.indexOf("whether");
+  const cues: Cue[] = [
+    { startMs: 296_000, endMs: 301_000, text },
+    { startMs: 301_000, endMs: 303_000, text: "Argentina around." },
+  ];
+  const lines: SubtitleLine[] = [
+    { startMs: 296_000, endMs: 298_500, card: 0, start: 0, end: second - 1 },
+    {
+      startMs: 298_500,
+      endMs: 301_000,
+      card: 0,
+      start: second,
+      end: text.length,
+    },
+    { startMs: 301_000, endMs: 303_000, card: 1, start: 0, end: 17 },
+  ];
+  const at = (word: string) => text.indexOf(word);
+
+  it("puts a term in the line it starts in, at that line's start", () => {
+    expect(placeOf(cues, lines, 0, at("open"))).toEqual({
+      card: 0,
+      line: 0,
+      startMs: 296_000,
+    });
+    expect(placeOf(cues, lines, 0, at("in turning"))).toEqual({
+      card: 0,
+      line: 1,
+      startMs: 298_500,
+    });
+    expect(placeOf(cues, lines, 1, 0)).toEqual({
+      card: 1,
+      line: 2,
+      startMs: 301_000,
+    });
+  });
+
+  it("falls back to the card's start where the card has no lines", () => {
+    expect(placeOf(cues, [], 1, 5)).toEqual({
+      card: 1,
+      line: -1,
+      startMs: 301_000,
+    });
+  });
+
+  it("lists a term once per line: twice in a line is one place, two lines of a card two", () => {
+    const spans: Span[][] = [
+      [
+        span(at("is"), at("is") + 2, "be", "new"),
+        span(at("will"), at("will") + 4, "will", "new"),
+        span(
+          at("in turning"),
+          at("in turning") + 10,
+          "in turn",
+          "new",
+          "phrase",
+        ),
+        span(at("an"), at("an") + 2, "an", "new"),
+        span(at("whether"), at("whether") + 7, "whether", "new"),
+        span(at("he"), at("he") + 2, "he", "new"),
+        span(at("succeed"), at("succeed") + 7, "be", "new"),
+      ],
+      [span(0, 9, "argentina", "new")],
+    ];
+    const words = videoWords(cues, lines, spans, {});
+    const placesOf = (key: string) =>
+      words.find((word) => word.key === key)!.places.map((p) => p.startMs);
+    expect(placesOf("in turn")).toEqual([298_500]);
+    expect(placesOf("be")).toEqual([296_000, 298_500]);
+    expect(placesOf("argentina")).toEqual([301_000]);
   });
 });

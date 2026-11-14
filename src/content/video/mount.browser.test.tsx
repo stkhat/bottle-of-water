@@ -436,6 +436,13 @@ describe("mountVideoUi", () => {
     const { store, spy } = mount(
       readyState({
         cues,
+        lines: cues.map((cue, card) => ({
+          startMs: cue.startMs,
+          endMs: cue.endMs,
+          card,
+          start: 0,
+          end: cue.text.length,
+        })),
         spans: [SPANS[0]!, [span(cues[1]!.text, "yeast", "new")]],
         panelTab: "words",
       }),
@@ -451,12 +458,18 @@ describe("mountVideoUi", () => {
       await button("lingo-transcript", "yeast, jump to 0:00"),
     );
     // A page script's click does nothing; the user's jumps to the first card.
-    expect(spy("jumpToWord").mock.calls).toEqual([["word\nyeast", 0]]);
+    expect(spy("jumpToWord").mock.calls).toEqual([
+      ["word\nyeast", { card: 0, line: 0, startMs: 0 }],
+    ]);
     await userEvent.click(await button("lingo-transcript", "Jump to 1:05"));
-    expect(spy("jumpToWord")).toHaveBeenLastCalledWith("word\nyeast", 1);
+    expect(spy("jumpToWord")).toHaveBeenLastCalledWith("word\nyeast", {
+      card: 1,
+      line: 1,
+      startMs: 65_000,
+    });
     expect(spy("clickWord")).not.toHaveBeenCalled();
 
-    store.set({ wordsJump: { id: "word\nyeast", card: 1 } });
+    store.set({ wordsJump: { id: "word\nyeast", card: 1, line: 1 } });
     await expect
       .poll(async () =>
         (await button("lingo-transcript", "Jump to 1:05")).getAttribute(

@@ -26,8 +26,8 @@ export interface WordRow {
   short?: string;
   shortLang: string;
   /**
-   * Where it shows, in order, as its chips read (a video's card start times, a page's
-   * place numbers): a chip each when 2 or more.
+   * Where it shows, in order, as its chips read (the start times of a video's subtitle
+   * lines, a page's place numbers): a chip each (on a page only when 2 or more).
    */
   places: readonly string[];
   /** The place of the last jump, when it was to this row (its chip shows pressed); else -1. */
@@ -165,11 +165,11 @@ const ROW_ON: Style = {
   background: color.greenPale,
   border: `1px solid ${color.greenLine}`,
 };
-/** The row's button: the head, the count and the meaning (mock `.rb`). */
+/** The row's button: the head, the meaning and the count on one line (mock `.rb`). */
 const ROW_BUTTON: Style = {
   display: "flex",
-  flexDirection: "column",
-  gap: "3px",
+  alignItems: "center",
+  gap: "8px",
   width: "100%",
   boxSizing: "border-box",
   textAlign: "left",
@@ -220,6 +220,8 @@ const VARIANTS: Record<
   {
     /** The chips a row shows before its "+N" (the ones that fit one line). */
     chipsShown: number;
+    /** A row gets chips from this many places (a lone time still says when). */
+    chipsFrom: number;
     chip: Style;
     rowLabel(head: string, first: string): string;
     chipLabel(head: string, place: number, places: readonly string[]): string;
@@ -229,6 +231,7 @@ const VARIANTS: Record<
 > = {
   video: {
     chipsShown: 5,
+    chipsFrom: 1,
     chip: {},
     rowLabel: (head, time) => t("video.words.jumpRow", { head, time }),
     chipLabel: (_head, place, places) =>
@@ -241,6 +244,7 @@ const VARIANTS: Record<
   },
   page: {
     chipsShown: 7,
+    chipsFrom: 2,
     // Numbers are narrow: a minimum width keeps 1–9 square-ish.
     chip: { minWidth: "28px", padding: "0 6px" },
     rowLabel: (head) => t("page.words.jumpRow", { head }),
@@ -311,6 +315,7 @@ function Row<R extends WordRow>(
   props: WordsListProps<R> & { row: R; opened: boolean; onMore: () => void },
 ) {
   const { row } = props;
+  const look = VARIANTS[props.variant ?? "video"];
   const selected = row.pressed >= 0;
   const first = row.places[0];
   return (
@@ -323,63 +328,56 @@ function Row<R extends WordRow>(
       <button
         type="button"
         aria-label={
-          first === undefined
-            ? undefined
-            : VARIANTS[props.variant ?? "video"].rowLabel(row.head, first)
+          first === undefined ? undefined : look.rowLabel(row.head, first)
         }
         onClick={onlyFromUser(() => props.onJump(row, 0))}
         style={ROW_BUTTON}
       >
         <span
+          lang={props.learningLang}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            minWidth: 0,
-            width: "100%",
+            ...termStyle(row.category, ALL_ON, "ui"),
+            flexShrink: 0,
+            maxWidth: "70%",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            fontSize: "15px",
+            fontWeight: 600,
+            padding: "0 3px",
+            borderRadius: "4px",
           }}
         >
-          <span
-            lang={props.learningLang}
-            style={{
-              ...termStyle(row.category, ALL_ON, "ui"),
-              fontSize: "15px",
-              fontWeight: 600,
-              padding: "0 3px",
-              borderRadius: "4px",
-            }}
-          >
-            {row.head}
-          </span>
-          <span style={{ flex: 1 }}></span>
-          <span
-            style={{
-              fontSize: "12px",
-              color: color.muted,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {t("words.times", { count: row.count })}
-          </span>
+          {row.head}
         </span>
-        {row.short && (
-          <span
-            lang={row.shortLang}
-            style={{
-              fontSize: "13px",
-              lineHeight: 1.45,
-              color: color.ink3,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: "100%",
-            }}
-          >
-            {row.short}
-          </span>
-        )}
+        {/* The meaning takes the rest of the line, cut with an ellipsis. */}
+        <span
+          lang={row.short ? row.shortLang : undefined}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: "13px",
+            lineHeight: 1.45,
+            color: color.ink3,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {row.short}
+        </span>
+        <span
+          style={{
+            flexShrink: 0,
+            fontSize: "12px",
+            color: color.muted,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {t("words.times", { count: row.count })}
+        </span>
       </button>
-      {row.places.length > 1 && <Places {...props} />}
+      {row.places.length >= look.chipsFrom && <Places {...props} />}
     </div>
   );
 }

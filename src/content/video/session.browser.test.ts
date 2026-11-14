@@ -917,7 +917,9 @@ describe("words in the subtitles", () => {
     expect(mark).toMatchObject({ category: "ignored", name: true });
     expect(state().spans[2]!.find((s) => s.key === "mark")?.name).toBe(true);
     expect(
-      videoWords(state().cues, state().spans, {}).map((w) => w.key),
+      videoWords(state().cues, state().lines, state().spans, {}).map(
+        (w) => w.key,
+      ),
     ).not.toContain("mark");
 
     app.enterWord(refOf(state, 1, "japan"), BOX);
@@ -1562,9 +1564,9 @@ describe("pausing while Lingo is in use", () => {
 
 /** The Words tab's rows, as key → category ("give up/phrase" for phrases). */
 function rowsOf(state: () => VideoState) {
-  const { cues, spans, summaries } = state();
+  const { cues, lines, spans, summaries } = state();
   return Object.fromEntries(
-    videoWords(cues, spans, summaries).map((row) => [
+    videoWords(cues, lines, spans, summaries).map((row) => [
       row.kind === "phrase" ? `${row.key}/phrase` : row.key,
       `${row.category} ${row.count}`,
     ]),
@@ -1690,28 +1692,38 @@ describe("words in this video", () => {
     expect(rowsOf(state).tangy).toBe("learning 2");
   });
 
-  it("lists the cards each term shows in", async () => {
+  /** The places of a term in the Words tab. */
+  const placesOf = (state: () => VideoState, key: string) => {
+    const { cues, lines, spans, summaries } = state();
+    return videoWords(cues, lines, spans, summaries).find((r) => r.key === key)!
+      .places;
+  };
+
+  it("lists the lines each term shows in", async () => {
     const { state } = await start();
     await ready(state);
     await classified(state);
     await expect.poll(() => rowsOf(state).tangy).toBe("new 2");
-    const { cues, spans, summaries } = state();
-    const tangy = videoWords(cues, spans, summaries).find(
-      (r) => r.key === "tangy",
-    )!;
-    expect(tangy.cards).toEqual([0, 2]);
-    expect(tangy.cards.map((card) => cues[card]!.text)).toEqual([
+    const places = placesOf(state, "tangy");
+    expect(places.map((place) => place.startMs)).toEqual([0, 2500]);
+    expect(places.map(({ card }) => state().cues[card]!.text)).toEqual([
       "The yeast smells tangy.",
       "It is a tangy\nloaf.",
     ]);
   });
 
-  it("jumps to a row's card: the video plays from its start, the jump kept for the row", async () => {
+  it("jumps to a row's line: the video plays from its start, the jump kept for the row", async () => {
     const { state, app, video, site } = await start();
     await ready(state);
+    await classified(state);
     expect(state().wordsJump).toBeNull();
-    app.jumpToWord("word\ntangy", 2);
-    expect(state().wordsJump).toEqual({ id: "word\ntangy", card: 2 });
+    const place = placesOf(state, "tangy")[1]!;
+    app.jumpToWord("word\ntangy", place);
+    expect(state().wordsJump).toEqual({
+      id: "word\ntangy",
+      card: 2,
+      line: place.line,
+    });
     expect(site.log.seeks).toEqual([2500]);
     await expect.poll(() => video.paused).toBe(false);
     await expect.poll(() => state().current).toBe(2);
@@ -1719,9 +1731,34 @@ describe("words in this video", () => {
     expect(state().panel).toBeNull();
 
     // A card that is not there: nothing happens.
-    app.jumpToWord("word\ntangy", 99);
-    expect(state().wordsJump).toEqual({ id: "word\ntangy", card: 2 });
+    app.jumpToWord("word\ntangy", { card: 99, line: -1, startMs: 0 });
+    expect(state().wordsJump).toMatchObject({ card: 2 });
     expect(site.log.seeks).toEqual([2500]);
+  });
+
+  it("jumps to the line of a long card the term is said in, not the card's start", async () => {
+    // Two subtitles of one sentence: one card, two lines.
+    const { state, app, site } = await start({
+      vid1: captionsOf(
+        [
+          { startMs: 0, endMs: 1500, text: "The yeast smells sour" },
+          { startMs: 1500, endMs: 3000, text: "and a little tangy." },
+        ],
+        { source: "none", lang: "ja", cues: [] },
+      ),
+    });
+    await ready(state);
+    await classified(state);
+    expect(state().cues).toHaveLength(1);
+    const [place] = placesOf(state, "tangy");
+    expect(place).toEqual({ card: 0, line: 1, startMs: 1500 });
+    app.jumpToWord("word\ntangy", place!);
+    expect(site.log.seeks).toEqual([1500]);
+
+    // The dictionary window's "In this video" says the same time.
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.head).toBe("tangy");
+    expect(state().panel!.here.map((line) => line.timeMs)).toEqual([1500]);
   });
 
   it("switches the tab, the filter and the sort, and starts over for the next video", async () => {
@@ -1739,12 +1776,12 @@ describe("words in this video", () => {
     app.setPanelTab("words");
     app.setWordsFilter("learning");
     app.setWordsSort("count");
-    app.jumpToWord("word\nloaf", 1);
+    app.jumpToWord("word\nloaf", { card: 1, line: 1, startMs: 1000 });
     expect(state()).toMatchObject({
       panelTab: "words",
       wordsFilter: "learning",
       wordsSort: "count",
-      wordsJump: { id: "word\nloaf", card: 1 },
+      wordsJump: { id: "word\nloaf", card: 1, line: 1 },
     });
     await expect.poll(() => state().summaries.loaf).toBeDefined();
 

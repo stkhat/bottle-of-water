@@ -1,4 +1,4 @@
-import type { Span } from "../../core/classify";
+import type { Span, WordStatus } from "../../core/classify";
 import { warn } from "../lookup/warn";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
@@ -6,6 +6,7 @@ import { createHoverIntent } from "../lookup/hover-intent";
 import { latest, sameTerm, type Lookup, type Term } from "../lookup/lookup";
 import type { Store } from "../store";
 import type { VideoLine, VideoState, WordPlace, WordRef } from "./state";
+import { placeOf } from "./words";
 
 /**
  * The hover card and the dictionary window over the words of the subtitle and the
@@ -55,27 +56,31 @@ export function createCards(o: {
     );
   }
 
-  /** Every line with the term, in order. */
+  /**
+   * Every card with the term, in order, timed from the subtitle line its first mark is
+   * in (where a long card says it).
+   */
   function linesWith(term: Term): VideoLine[] {
-    const { cues, spans } = store.get();
+    const { cues, lines: subtitleLines, spans } = store.get();
     const lines: VideoLine[] = [];
     spans.forEach((list, cue) => {
       const raw = cues[cue]!.text;
       // Offsets in the flattened text (a line break may become nothing).
       const at = (i: number) => flat(raw.slice(0, i)).length;
-      const marks = (list ?? []).flatMap((span) =>
-        sameTerm(span, term) && span.category !== "ignored"
-          ? [
-              {
-                start: at(span.start),
-                end: at(span.end),
-                category: span.category,
-              },
-            ]
-          : [],
+      const found = (list ?? []).filter(
+        (span): span is Span & { category: WordStatus } =>
+          sameTerm(span, term) && span.category !== "ignored",
       );
-      if (marks.length === 0) return;
-      lines.push({ cue, timeMs: cues[cue]!.startMs, text: flat(raw), marks });
+      if (found.length === 0) return;
+      const marks = found.map((span) => ({
+        start: at(span.start),
+        end: at(span.end),
+        category: span.category,
+      }));
+      // Spans are not always in text order.
+      const first = Math.min(...found.map((span) => span.start));
+      const { startMs } = placeOf(cues, subtitleLines, cue, first);
+      lines.push({ cue, timeMs: startMs, text: flat(raw), marks });
     });
     return lines;
   }

@@ -11,6 +11,7 @@ import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
 import type { WordsFilter, WordsSort } from "../words/words";
+import type { VideoPlace } from "./words";
 
 /** The tabs of the column beside the video. */
 type PanelTab = "transcript" | "words";
@@ -133,13 +134,14 @@ export interface VideoState {
   wordsFilter: WordsFilter;
   wordsSort: WordsSort;
   /**
-   * The Words tab's last jump: the row (`kind\nkey`) and the card it went to. Its row
-   * and chip show pressed; null until a row or chip of this video is clicked.
+   * The Words tab's last jump: the row (`kind\nkey`) and the place it went to (its card
+   * and line, as in `VideoPlace`). Its row and chip show pressed; null until a row or
+   * chip of this video is clicked.
    */
-  wordsJump: { id: string; card: number } | null;
+  wordsJump: { id: string; card: number; line: number } | null;
   /**
    * Short meaning and saved status of the video's terms by key, as they arrive (the
-   * Words tab: `videoWords(cues, spans, summaries)`).
+   * Words tab: `videoWords(cues, lines, spans, summaries)`).
    */
   summaries: Record<string, TermBrief>;
   /**
@@ -213,8 +215,8 @@ export interface VideoApp {
   setPanelTab(tab: PanelTab): void;
   setWordsFilter(filter: WordsFilter): void;
   setWordsSort(sort: WordsSort): void;
-  /** A Words row or one of its chips: the video plays from the card's start. */
-  jumpToWord(id: string, card: number): void;
+  /** A Words row or one of its chips: the video plays from the start of the place's line. */
+  jumpToWord(id: string, place: VideoPlace): void;
   /** Rows of the Words tab came into view: their meanings get translated when needed. */
   wordsShown(rows: readonly { key: string; head: string }[]): void;
   /** The download line's Retry: the background tries the language data again. */
