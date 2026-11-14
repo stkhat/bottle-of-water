@@ -6,6 +6,9 @@ import { visibleSpans } from "../../ui/video/terms";
 /** The Words tab's filter chips: every row, or one status. */
 export type WordsFilter = "all" | WordStatus;
 
+/** The Words tab's sort: first appearance, A–Z by head, or most occurrences first. */
+export type WordsSort = "order" | "az" | "count";
+
 /** A word or phrase of the video, in the Words tab. */
 export interface VideoWord {
   key: string;
@@ -15,8 +18,8 @@ export interface VideoWord {
   category: WordStatus;
   /** How many times the transcript shows it. */
   count: number;
-  /** Its first occurrence: the cue and the index of its span in that cue's spans. */
-  first: { cue: number; span: number };
+  /** The transcript cards (indexes in the cues) it shows in, each once, in order. */
+  cards: number[];
 }
 
 /**
@@ -33,7 +36,7 @@ export function videoWords(
   const rows = new Map<string, VideoWord>();
   spans.forEach((list, cue) => {
     if (!list) return;
-    for (const [span, index] of visibleSpans(list)) {
+    for (const [span] of visibleSpans(list)) {
       const { key, kind, category } = span;
       if (category === "ignored" || (span.part && span.part.index > 0))
         continue;
@@ -46,6 +49,7 @@ export function videoWords(
       const row = rows.get(id);
       if (row) {
         row.count++;
+        if (row.cards.at(-1) !== cue) row.cards.push(cue);
         continue;
       }
       const text = cues[cue]?.text ?? "";
@@ -60,7 +64,7 @@ export function videoWords(
             : key,
         category,
         count: 1,
-        first: { cue, span: index },
+        cards: [cue],
       });
     }
   });
@@ -84,4 +88,21 @@ export function filterRows(
   return filter === "all"
     ? [...rows]
     : rows.filter((row) => row.category === filter);
+}
+
+/**
+ * The rows in a sort's order: as they are (first appearance), A–Z by head in the
+ * learning language, or most occurrences first. Ties keep their order.
+ */
+export function sortRows<R extends { head: string; count: number }>(
+  rows: readonly R[],
+  sort: WordsSort,
+  lang: string,
+): R[] {
+  const sorted = [...rows];
+  if (sort === "az") {
+    const collator = new Intl.Collator(lang);
+    sorted.sort((a, b) => collator.compare(a.head, b.head));
+  } else if (sort === "count") sorted.sort((a, b) => b.count - a.count);
+  return sorted;
 }

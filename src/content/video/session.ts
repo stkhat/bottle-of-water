@@ -567,6 +567,14 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (store.get().wordsFilter !== filter)
         store.set({ wordsFilter: filter });
     },
+    setWordsSort(sort) {
+      if (store.get().wordsSort !== sort) store.set({ wordsSort: sort });
+    },
+    jumpToWord(id, card) {
+      if (!store.get().cues[card]) return;
+      store.set({ wordsJump: { id, card } });
+      app.seekToCue(card);
+    },
     wordsShown(rows) {
       watch?.summaries.shown(rows);
     },

@@ -36,6 +36,8 @@ const STATE: VideoState = {
   fullscreen: false,
   panelTab: "transcript",
   wordsFilter: "all",
+  wordsSort: "order",
+  wordsJump: null,
   summaries: {},
   dataNote: null,
 };

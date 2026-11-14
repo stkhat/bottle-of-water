@@ -3,7 +3,7 @@
 Progress (one subagent per step, one branch `claude/sidebar-words-sort-jump-0e9acb`, one PR):
 - [x] A. Spec (ui.md, architecture.md) from the approved mock
 - [x] B. Lists translate English definitions (root-cause fix)
-- [ ] C. Video Words tab: sort, occurrence chips, jump
+- [x] C. Video Words tab: sort, occurrence chips, jump
 - [ ] D. Article Words panel + popup "Show words on this page"
 - [ ] E. Real-site check, verify, PR, merge
 

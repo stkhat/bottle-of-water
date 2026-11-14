@@ -1690,27 +1690,41 @@ describe("words in this video", () => {
     expect(rowsOf(state).tangy).toBe("learning 2");
   });
 
-  it("opens a row's dictionary window at its first occurrence", async () => {
-    const { state, app } = await start();
+  it("lists the cards each term shows in", async () => {
+    const { state } = await start();
     await ready(state);
     await classified(state);
     await expect.poll(() => rowsOf(state).tangy).toBe("new 2");
     const { cues, spans, summaries } = state();
-    const row = videoWords(cues, spans, summaries).find(
+    const tangy = videoWords(cues, spans, summaries).find(
       (r) => r.key === "tangy",
     )!;
-    app.clickWord(row.first);
-    await expect.poll(() => state().panel?.card.head).toBe("tangy");
-    expect(state().panel).toMatchObject({
-      ref: refOf(state, 0, "tangy"),
-      here: [
-        { cue: 0, timeMs: 0, text: "The yeast smells tangy." },
-        { cue: 2, timeMs: 2500, text: "It is a tangy loaf." },
-      ],
-    });
+    expect(tangy.cards).toEqual([0, 2]);
+    expect(tangy.cards.map((card) => cues[card]!.text)).toEqual([
+      "The yeast smells tangy.",
+      "It is a tangy\nloaf.",
+    ]);
   });
 
-  it("switches the tab and the filter, and starts on the transcript for the next video", async () => {
+  it("jumps to a row's card: the video plays from its start, the jump kept for the row", async () => {
+    const { state, app, video, site } = await start();
+    await ready(state);
+    expect(state().wordsJump).toBeNull();
+    app.jumpToWord("word\ntangy", 2);
+    expect(state().wordsJump).toEqual({ id: "word\ntangy", card: 2 });
+    expect(site.log.seeks).toEqual([2500]);
+    await expect.poll(() => video.paused).toBe(false);
+    await expect.poll(() => state().current).toBe(2);
+    // No dictionary window: a jump only plays.
+    expect(state().panel).toBeNull();
+
+    // A card that is not there: nothing happens.
+    app.jumpToWord("word\ntangy", 99);
+    expect(state().wordsJump).toEqual({ id: "word\ntangy", card: 2 });
+    expect(site.log.seeks).toEqual([2500]);
+  });
+
+  it("switches the tab, the filter and the sort, and starts over for the next video", async () => {
     const { state, app, site, bg } = await start({
       vid1: captionsOf(CUES),
       vid2: captionsOf([{ startMs: 0, endMs: 4000, text: "A new loaf." }]),
@@ -1719,12 +1733,18 @@ describe("words in this video", () => {
     expect(state()).toMatchObject({
       panelTab: "transcript",
       wordsFilter: "all",
+      wordsSort: "order",
+      wordsJump: null,
     });
     app.setPanelTab("words");
     app.setWordsFilter("learning");
+    app.setWordsSort("count");
+    app.jumpToWord("word\nloaf", 1);
     expect(state()).toMatchObject({
       panelTab: "words",
       wordsFilter: "learning",
+      wordsSort: "count",
+      wordsJump: { id: "word\nloaf", card: 1 },
     });
     await expect.poll(() => state().summaries.loaf).toBeDefined();
 
@@ -1732,6 +1752,8 @@ describe("words in this video", () => {
     expect(state()).toMatchObject({
       panelTab: "transcript",
       wordsFilter: "all",
+      wordsSort: "order",
+      wordsJump: null,
       summaries: {},
     });
     await ready(state);

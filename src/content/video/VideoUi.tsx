@@ -25,7 +25,7 @@ import {
   verticalDictionaryFrame,
 } from "./placement";
 import type { VideoApp, VideoState, WordPlace } from "./state";
-import { filterCounts, filterRows, videoWords } from "./words";
+import { filterCounts, filterRows, sortRows, videoWords } from "./words";
 import { Floating, TOP_LAYER } from "../lookup/Floating";
 import { useStore, type Store } from "../store";
 
@@ -367,37 +367,45 @@ export function TranscriptUi(props: {
   const { app } = props;
   const state = useStore(app.store);
   const { frameHeight, sidebar } = useStore(props.layout);
-  const { cues, spans, summaries, settings, panel } = state;
+  const { cues, spans, summaries, settings } = state;
   const words = useMemo(
     () => videoWords(cues, spans, summaries),
     [cues, spans, summaries],
   );
-  const open = panel?.card;
+  const jump = state.wordsJump;
   const rows = useMemo(
     () =>
-      filterRows(words, state.wordsFilter).map((word) => {
+      sortRows(
+        filterRows(words, state.wordsFilter),
+        state.wordsSort,
+        settings.learningLang,
+      ).map((word) => {
+        const id = `${word.kind}\n${word.key}`;
         const brief = Object.hasOwn(summaries, word.key)
           ? summaries[word.key]
           : undefined;
         return {
-          id: `${word.kind}\n${word.key}`,
+          id,
           key: word.key,
           head: word.head,
           category: word.category,
           count: word.count,
           short: brief?.short,
           shortLang: brief?.glossLang ?? settings.nativeLang,
-          selected: open?.kind === word.kind && open.key === word.key,
-          first: word.first,
+          places: word.cards.map((card) => formatTime(cues[card]!.startMs)),
+          pressed: jump?.id === id ? word.cards.indexOf(jump.card) : -1,
+          cards: word.cards,
         };
       }),
     [
       words,
+      cues,
       state.wordsFilter,
+      state.wordsSort,
       summaries,
+      settings.learningLang,
       settings.nativeLang,
-      open?.kind,
-      open?.key,
+      jump,
     ],
   );
   const counts = useMemo(() => filterCounts(words), [words]);
@@ -446,7 +454,9 @@ export function TranscriptUi(props: {
       wordsFilter={state.wordsFilter}
       wordsCounts={counts}
       onWordsFilter={app.setWordsFilter}
-      onOpenWord={(row) => app.clickWord(row.first)}
+      wordsSort={state.wordsSort}
+      onWordsSort={app.setWordsSort}
+      onJumpWord={(row, place) => app.jumpToWord(row.id, row.cards[place]!)}
       onWordsShown={(shown) =>
         app.wordsShown(shown.map(({ key, head }) => ({ key, head })))
       }

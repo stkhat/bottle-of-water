@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Span } from "../../core/classify";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
-import { filterCounts, filterRows, videoWords, type VideoWord } from "./words";
+import {
+  filterCounts,
+  filterRows,
+  sortRows,
+  videoWords,
+  type VideoWord,
+} from "./words";
 
 const cue = (text: string): Cue => ({ startMs: 0, endMs: 1000, text });
 const span = (
@@ -57,7 +63,7 @@ const SUMMARIES: Record<string, TermBrief> = {
 const rows = () => videoWords(CUES, SPANS, SUMMARIES);
 
 describe("videoWords", () => {
-  it("lists each word and phrase once, in order of first appearance, with its count", () => {
+  it("lists each word and phrase once, in order of first appearance, with its count and cards", () => {
     expect(rows()).toEqual<VideoWord[]>([
       {
         key: "give up",
@@ -65,7 +71,7 @@ describe("videoWords", () => {
         head: "Give up",
         category: "new",
         count: 2,
-        first: { cue: 0, span: 0 },
+        cards: [0, 3],
       },
       {
         key: "loaf",
@@ -73,7 +79,7 @@ describe("videoWords", () => {
         head: "loaf",
         category: "learning",
         count: 3,
-        first: { cue: 0, span: 2 },
+        cards: [0, 1],
       },
       {
         key: "rise",
@@ -81,7 +87,7 @@ describe("videoWords", () => {
         head: "rise",
         category: "known",
         count: 1,
-        first: { cue: 1, span: 2 },
+        cards: [1],
       },
       {
         key: "tangy",
@@ -89,7 +95,7 @@ describe("videoWords", () => {
         head: "tangy",
         category: "new",
         count: 1,
-        first: { cue: 3, span: 0 },
+        cards: [3],
       },
       {
         key: "rise",
@@ -97,7 +103,7 @@ describe("videoWords", () => {
         head: "Rise again",
         category: "new",
         count: 1,
-        first: { cue: 4, span: 0 },
+        cards: [4],
       },
     ]);
   });
@@ -118,7 +124,7 @@ describe("videoWords", () => {
       head: "the",
       category: "known",
       count: 2,
-      first: { cue: 0, span: 1 },
+      cards: [0, 1],
     });
   });
 
@@ -165,7 +171,7 @@ describe("videoWords", () => {
         head: "Figure it out",
         category: "learning",
         count: 2,
-        first: { cue: 0, span: 0 },
+        cards: [0],
       },
       {
         key: "it",
@@ -173,7 +179,7 @@ describe("videoWords", () => {
         head: "it",
         category: "new",
         count: 1,
-        first: { cue: 0, span: 1 },
+        cards: [0],
       },
       {
         key: "them",
@@ -181,7 +187,7 @@ describe("videoWords", () => {
         head: "them",
         category: "new",
         count: 1,
-        first: { cue: 0, span: 4 },
+        cards: [0],
       },
     ]);
   });
@@ -224,5 +230,79 @@ describe("filterCounts and filterRows", () => {
     ]);
     expect(keys("learning")).toEqual(["loaf/word"]);
     expect(keys("known")).toEqual(["rise/word"]);
+  });
+});
+
+describe("sortRows", () => {
+  const row = (head: string, count: number) => ({ head, count });
+  const ROWS = [
+    row("figure out", 2),
+    row("Dough", 7),
+    row("bunch", 1),
+    row("proof", 3),
+    row("éclair", 3),
+    row("channel", 1),
+  ];
+  const heads = (sort: Parameters<typeof sortRows>[1], lang = "en") =>
+    sortRows(ROWS, sort, lang).map((r) => r.head);
+
+  it("keeps first appearance for In order", () => {
+    expect(heads("order")).toEqual(ROWS.map((r) => r.head));
+  });
+
+  it("sorts A–Z by head in the learning language, ignoring case and accents first", () => {
+    expect(heads("az")).toEqual([
+      "bunch",
+      "channel",
+      "Dough",
+      "éclair",
+      "figure out",
+      "proof",
+    ]);
+    // Swedish puts "ä" after "z"; English next to "a".
+    const words = [row("zon", 1), row("äpple", 1), row("apa", 1)];
+    expect(sortRows(words, "az", "sv").map((r) => r.head)).toEqual([
+      "apa",
+      "zon",
+      "äpple",
+    ]);
+    expect(sortRows(words, "az", "en").map((r) => r.head)).toEqual([
+      "apa",
+      "äpple",
+      "zon",
+    ]);
+  });
+
+  it("puts the most seen first, ties in order of first appearance", () => {
+    expect(heads("count")).toEqual([
+      "Dough",
+      "proof",
+      "éclair",
+      "figure out",
+      "bunch",
+      "channel",
+    ]);
+  });
+
+  it("leaves the rows it is given as they are", () => {
+    const before = ROWS.map((r) => r.head);
+    sortRows(ROWS, "az", "en");
+    expect(ROWS.map((r) => r.head)).toEqual(before);
+  });
+});
+
+describe("cards", () => {
+  it("lists each card a term shows in once, in order, with the count of every occurrence", () => {
+    const spans: (Span[] | null)[] = [
+      [span(0, 4, "loaf", "new"), span(5, 9, "loaf", "new")],
+      null,
+      [span(0, 4, "loaf", "new")],
+    ];
+    const [loaf] = videoWords(
+      [cue("loaf loaf"), cue("…"), cue("loaf")],
+      spans,
+      {},
+    );
+    expect(loaf).toMatchObject({ count: 3, cards: [0, 2] });
   });
 });

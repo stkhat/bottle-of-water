@@ -466,18 +466,26 @@ for (const build of ["production", "check"] as const)
       await ownSwitch.click();
       await videoCard(page, YT_LINE).click({ position: ON_TIME });
 
-      // The Words tab: a filter, a row's dictionary window, back to the transcript.
+      // The Words tab: a filter, the sort, a row's jump, back to the transcript.
       const panel = transcript(page);
       await panel.getByRole("tab", { name: en["kind.words"] }).click();
       await panel
         .getByRole("group", { name: en["video.words.filter"] })
         .getByRole("button", { name: /^Learning \d+$/ })
         .click();
-      await panel.getByRole("button", { name: /^creativity\s*\d+×/ }).click();
+      const sort = panel.getByRole("combobox", {
+        name: en["video.words.sort"],
+      });
+      await sort.focus();
+      await page.keyboard.press("m");
+      await expect(sort).toHaveValue("count");
+      const row = panel.getByRole("button", { name: /^creativity, jump to / });
+      await row.click();
       await expect(
-        window.getByRole("heading", { name: "creativity" }),
-      ).toBeVisible();
-      await window.getByRole("button", { name: en["dict.close"] }).click();
+        panel.locator("[data-word-row][data-selected=true]"),
+      ).toContainText("creativity");
+      // A jump only plays: no dictionary window.
+      await expect(window).toHaveCount(0);
       await panel.getByRole("tab", { name: en["video.transcript"] }).click();
       await expect(videoCard(page, YT_LINE)).toBeVisible();
 

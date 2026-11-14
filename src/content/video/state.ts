@@ -10,7 +10,7 @@ import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
-import type { WordsFilter } from "./words";
+import type { WordsFilter, WordsSort } from "./words";
 
 /** The tabs of the column beside the video. */
 type PanelTab = "transcript" | "words";
@@ -131,6 +131,12 @@ export interface VideoState {
   /** The right column's tab; each video starts on the transcript. */
   panelTab: PanelTab;
   wordsFilter: WordsFilter;
+  wordsSort: WordsSort;
+  /**
+   * The Words tab's last jump: the row (`kind\nkey`) and the card it went to. Its row
+   * and chip show pressed; null until a row or chip of this video is clicked.
+   */
+  wordsJump: { id: string; card: number } | null;
   /**
    * Short meaning and saved status of the video's terms by key, as they arrive (the
    * Words tab: `videoWords(cues, spans, summaries)`).
@@ -206,6 +212,9 @@ export interface VideoApp {
   setFullscreen(on: boolean): void;
   setPanelTab(tab: PanelTab): void;
   setWordsFilter(filter: WordsFilter): void;
+  setWordsSort(sort: WordsSort): void;
+  /** A Words row or one of its chips: the video plays from the card's start. */
+  jumpToWord(id: string, card: number): void;
   /** Rows of the Words tab came into view: their meanings get translated when needed. */
   wordsShown(rows: readonly { key: string; head: string }[]): void;
   /** The download line's Retry: the background tries the language data again. */
@@ -252,6 +261,8 @@ export function freshState(
     fullscreen,
     panelTab: "transcript",
     wordsFilter: "all",
+    wordsSort: "order",
+    wordsJump: null,
     summaries: {},
     dataNote,
   };
