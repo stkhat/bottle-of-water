@@ -172,17 +172,23 @@ export function createHistoryStore(
         const title = source.title || existing?.title || "";
         let added = existing ? 0 : pageSize({ url, title });
 
+        // The first item of each text, then those the page does not keep yet.
         const seen = new Set<string>();
-        let count = 0;
-        for (const item of keyed) {
-          if (seen.has(item.text)) continue;
+        const firsts = keyed.filter((item) => {
+          if (seen.has(item.text)) return false;
           seen.add(item.text);
-          const kept = await db.historySentences
-            .where("[pageId+text]")
-            .equals([id, item.text])
-            .count();
-          if (kept > 0) continue;
-          const sentence: HistorySentenceRecord = {
+          return true;
+        });
+        const keptKeys = await db.historySentences
+          .where("[pageId+text]")
+          .anyOf(firsts.map((item) => [id, item.text]))
+          .keys();
+        const kept = new Set(
+          keptKeys.map((key) => (key as unknown as [string, string])[1]),
+        );
+        const sentences = firsts
+          .filter((item) => !kept.has(item.text))
+          .map((item): HistorySentenceRecord => ({
             pageId: id,
             text: item.text,
             ...(item.translation !== undefined && {
@@ -191,11 +197,11 @@ export function createHistoryStore(
             pos: item.pos,
             keys: [...new Set(item.keys)],
             seenAt: at,
-          };
-          await db.historySentences.add(sentence);
-          added += sentenceSize(sentence);
-          count++;
-        }
+          }));
+        // In order: ids grow as sentences are added (`find` reads newest first).
+        await db.historySentences.bulkAdd(sentences);
+        for (const sentence of sentences) added += sentenceSize(sentence);
+        const count = sentences.length;
 
         await db.historyPages.put({
           id,

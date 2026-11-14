@@ -247,6 +247,29 @@ describe("recordEncounters", () => {
     expect(await store.occurrencesOf("en:dough")).toHaveLength(2);
   });
 
+  it("records a sentence given twice in one batch once, among other terms", async () => {
+    await store.saveTerm(dough());
+    await store.saveTerm(figureOut());
+    const item = {
+      termId: "en:dough",
+      sentence: "The dough rises.",
+      pos: { textQuote: "dough rises" },
+    };
+    const added = await store.recordEncounters(ARTICLE, [
+      item,
+      { termId: "en:bread", sentence: "Bread.", pos: { textQuote: "Bread" } },
+      {
+        termId: "en:figure out",
+        sentence: "The dough rises.",
+        pos: { textQuote: "rises" },
+      },
+      item,
+    ]);
+    expect(added).toBe(2);
+    expect(await store.occurrencesOf("en:dough")).toHaveLength(2);
+    expect(await store.occurrencesOf("en:figure out")).toHaveLength(2);
+  });
+
   it("does not record the sentence the term was saved from again", async () => {
     await store.saveTerm(dough());
     const added = await store.recordEncounters(VIDEO, [
@@ -309,6 +332,38 @@ describe("recordEncounters", () => {
     const occurrences = await store.occurrencesOf("en:dough");
     expect(occurrences).toHaveLength(51);
     expect(occurrences.every((o) => o.origin === "saved")).toBe(true);
+  });
+});
+
+describe("importOccurrences", () => {
+  const row = (title: string, sentence: string, seenAt: number) => ({
+    source: { ...ARTICLE, title },
+    sentence,
+    pos: { textQuote: sentence },
+    seenAt,
+  });
+
+  it("brings rows of one source in turn: its times widen, the newest title wins", async () => {
+    await store.saveTerm(dough());
+    const at = clock.time;
+    const added = await store.importOccurrences("en:dough", [
+      row("Old title", "First.", at - 5000),
+      row("Newer title", "Second.", at - 1000),
+      row("", "Third.", at - 3000),
+      row("Oldest title", "First.", at - 9000),
+    ]);
+    expect(added).toBe(3);
+    const [source] = await db.sources
+      .filter((s) => s.platform === "web")
+      .toArray();
+    expect(source).toMatchObject({
+      title: "Newer title",
+      firstSeen: at - 9000,
+      lastSeen: at - 1000,
+    });
+    expect(
+      (await store.occurrencesOf("en:dough")).map((o) => o.sentence),
+    ).toEqual(["Knead the dough.", "Second.", "Third.", "First."]);
   });
 });
 
@@ -394,6 +449,23 @@ describe("saveAll", () => {
     clock.tick();
     const term = await store.saveTerm(dough());
     expect(term.bulk).toBeUndefined();
+  });
+
+  it("saves a removed term again as a bulk term", async () => {
+    await store.saveTerm(dough());
+    await store.removeTerm("en:dough");
+    clock.tick();
+    const { count } = await store.saveAll(
+      "en",
+      ["dough", "crust"],
+      "known",
+      ARTICLE,
+    );
+    expect(count).toBe(2);
+    expect(await store.listTerms("en")).toMatchObject([
+      { key: "crust", status: "known", bulk: true, createdAt: clock.time },
+      { key: "dough", status: "known", bulk: true, createdAt: clock.time },
+    ]);
   });
 
   it("counts a key given twice once", async () => {
@@ -671,6 +743,30 @@ describe("applySynced", () => {
     expect(term).not.toHaveProperty("batchId");
   });
 
+  it("applies several records of one key in turn", async () => {
+    clock.time = 100 * MIN;
+    await store.saveTerm(dough());
+    const count = await store.applySynced("en", [
+      synced("dough", "removed", 101),
+      synced("dough", "learning", 103),
+      synced("dough", "known", 102),
+    ]);
+    expect(count).toBe(2);
+    expect(await store.listTerms("en")).toEqual([
+      {
+        id: "en:dough",
+        lang: "en",
+        key: "dough",
+        display: "dough",
+        kind: "word",
+        status: "learning",
+        createdAt: 103 * MIN,
+        updatedAt: 103 * MIN,
+      },
+    ]);
+    expect(await store.occurrencesOf("en:dough")).toEqual([]);
+  });
+
   it("tells listeners the change came from sync", async () => {
     const listener = vi.fn();
     store.onChange(listener);
@@ -825,6 +921,80 @@ describe("importJson", () => {
       );
       expect(sentences.sort()).toEqual(["Knead the dough.", "Other."]);
     });
+  });
+
+  it("takes the terms and sources of a file in turn when one comes twice", async () => {
+    clock.time = 100;
+    await store.saveTerm(dough());
+    const source = (await db.sources.toArray())[0]!;
+    const term = (await store.listTerms("en"))[0]!;
+    const file: LingoExport = {
+      format: "lingo-export",
+      version: 1,
+      exportedAt: 1000,
+      terms: [
+        { ...term, status: "removed", updatedAt: 200 },
+        { ...term, status: "known", updatedAt: 300 },
+        { ...term, status: "learning", updatedAt: 250 },
+        { ...term, id: "en:crust", key: "crust", display: "crust" },
+      ],
+      sources: [
+        { ...source, id: "web:x", title: "Old", firstSeen: 50, lastSeen: 60 },
+        { ...source, id: "web:x", title: "New", firstSeen: 40, lastSeen: 90 },
+        { ...source, id: "web:x", title: "Older", firstSeen: 70, lastSeen: 80 },
+        { ...source, title: "Renamed", lastSeen: 500 },
+      ],
+      occurrences: [
+        {
+          termId: "en:dough",
+          sourceId: "web:x",
+          sentence: "From the file.",
+          pos: { textQuote: "file" },
+          seenAt: 400,
+          origin: "encountered",
+        },
+        {
+          termId: "en:dough",
+          sourceId: "web:x",
+          sentence: "From the file.",
+          pos: { textQuote: "file" },
+          seenAt: 450,
+          origin: "encountered",
+        },
+        {
+          termId: "en:crust",
+          sourceId: "web:missing",
+          sentence: "No source.",
+          pos: { textQuote: "x" },
+          seenAt: 400,
+          origin: "encountered",
+        },
+      ],
+    };
+    expect(await store.importJson(JSON.stringify(file))).toEqual({
+      terms: 3,
+      sources: 1,
+      occurrences: 1,
+    });
+    expect(
+      (await store.listTerms("en")).map((t) => [t.key, t.status, t.updatedAt]),
+    ).toEqual([
+      ["crust", "learning", 100],
+      ["dough", "known", 300],
+    ]);
+    expect(await db.sources.get("web:x")).toMatchObject({
+      title: "New",
+      firstSeen: 40,
+      lastSeen: 90,
+    });
+    expect(await db.sources.get(source.id)).toMatchObject({
+      title: "Renamed",
+      lastSeen: 500,
+    });
+    // The removal in between took the term's occurrences.
+    expect(
+      (await store.occurrencesOf("en:dough")).map((o) => o.sentence),
+    ).toEqual(["From the file."]);
   });
 
   it("does not record an export", async () => {

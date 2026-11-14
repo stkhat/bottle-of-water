@@ -156,6 +156,42 @@ class Changes {
   }
 }
 
+/** The source after a sight at `at`: times only widen; an older sight keeps the newer title. */
+function widenSource(
+  existing: SourceRecord | undefined,
+  input: SourceInput,
+  { id, url }: { id: string; url: string },
+  at: number,
+): SourceRecord {
+  const newest = !existing || at >= existing.lastSeen;
+  return {
+    id,
+    platform: input.platform,
+    url,
+    title: newest
+      ? input.title || existing?.title || ""
+      : existing.title || input.title,
+    lang: newest ? input.lang : existing.lang,
+    firstSeen: Math.min(existing?.firstSeen ?? at, at),
+    lastSeen: Math.max(existing?.lastSeen ?? at, at),
+  };
+}
+
+function sourceKey(input: SourceInput) {
+  const url = normalizeUrl(input.url);
+  return { id: sourceId(input.platform, url), url };
+}
+
+/** The term as a tombstone removed at `at`. */
+const tombstoned = (term: TermRecord, at: number): TermRecord => ({
+  ...deliberate(term),
+  status: "removed",
+  updatedAt: at,
+});
+
+/** Distinct values, in order. */
+const distinct = <T>(values: Iterable<T>) => [...new Set(values)];
+
 function makeOccurrence(
   termId: string,
   sourceId: string,
@@ -204,22 +240,33 @@ export function createTermStore(
    * (an imported sentence) keeps the newer title.
    */
   async function upsertSource(input: SourceInput, at: number) {
-    const url = normalizeUrl(input.url);
-    const id = sourceId(input.platform, url);
-    const existing = await db.sources.get(id);
-    const newest = !existing || at >= existing.lastSeen;
-    await db.sources.put({
-      id,
-      platform: input.platform,
-      url,
-      title: newest
-        ? input.title || existing?.title || ""
-        : existing.title || input.title,
-      lang: newest ? input.lang : existing.lang,
-      firstSeen: Math.min(existing?.firstSeen ?? at, at),
-      lastSeen: Math.max(existing?.lastSeen ?? at, at),
+    const key = sourceKey(input);
+    const existing = await db.sources.get(key.id);
+    await db.sources.put(widenSource(existing, input, key, at));
+    return key.id;
+  }
+
+  /** `upsertSource` for each sight in turn, with one read and one write. Returns the ids. */
+  async function upsertSources(
+    sights: readonly { input: SourceInput; at: number }[],
+  ) {
+    const keys = sights.map(({ input }) => sourceKey(input));
+    const ids = distinct(keys.map((key) => key.id));
+    const stored = await db.sources.bulkGet(ids);
+    const sources = new Map(ids.map((id, i) => [id, stored[i]]));
+    sights.forEach(({ input, at }, i) => {
+      const key = keys[i]!;
+      sources.set(key.id, widenSource(sources.get(key.id), input, key, at));
     });
-    return id;
+    await db.sources.bulkPut([...sources.values()] as SourceRecord[]);
+    return keys.map((key) => key.id);
+  }
+
+  /** The stored terms with `ids`, by id (undefined for those not stored). */
+  async function termsById(ids: Iterable<string>) {
+    const keys = distinct(ids);
+    const stored = await db.terms.bulkGet(keys);
+    return new Map(keys.map((id, i) => [id, stored[i]]));
   }
 
   const findOccurrence = (
@@ -260,11 +307,7 @@ export function createTermStore(
     db.occurrences.where("termId").equals(id).delete();
 
   async function tombstone(term: TermRecord, at: number) {
-    await db.terms.put({
-      ...deliberate(term),
-      status: "removed",
-      updatedAt: at,
-    });
+    await db.terms.put(tombstoned(term, at));
     await deleteOccurrences(term.id);
   }
 
@@ -335,15 +378,16 @@ export function createTermStore(
     recordEncounters(source, items) {
       return mutate(async (changes) => {
         const at = now();
-        let sourceKey: string | undefined;
+        const terms = await termsById(items.map((item) => item.termId));
+        let seenIn: string | undefined;
         let added = 0;
         for (const item of items) {
-          const term = await db.terms.get(item.termId);
+          const term = terms.get(item.termId);
           if (!isLive(term)) continue;
-          sourceKey ??= await upsertSource(source, at);
+          seenIn ??= await upsertSource(source, at);
           const occurrence = makeOccurrence(
             item.termId,
-            sourceKey,
+            seenIn,
             item,
             at,
             "encountered",
@@ -362,11 +406,14 @@ export function createTermStore(
       return mutate(async (changes) => {
         const term = await db.terms.get(id);
         if (!isLive(term)) return 0;
+        const sources = await upsertSources(
+          rows.map((row) => ({ input: row.source, at: row.seenAt })),
+        );
         let added = 0;
-        for (const row of rows) {
+        for (const [i, row] of rows.entries()) {
           const occurrence = makeOccurrence(
             id,
-            await upsertSource(row.source, row.seenAt),
+            sources[i]!,
             row,
             row.seenAt,
             "encountered",
@@ -386,12 +433,14 @@ export function createTermStore(
       return mutate(async (changes) => {
         const at = now();
         const batchId = newBatchId();
-        let count = 0;
-        for (const key of new Set(keys)) {
-          const id = termId(lang, key);
-          if (isLive(await db.terms.get(id))) continue;
-          await db.terms.put({
-            id,
+        const unique = distinct(keys);
+        const stored = await db.terms.bulkGet(
+          unique.map((key) => termId(lang, key)),
+        );
+        const created = unique
+          .filter((_, i) => !isLive(stored[i]))
+          .map((key): TermRecord => ({
+            id: termId(lang, key),
             lang,
             key,
             display: key,
@@ -401,9 +450,9 @@ export function createTermStore(
             batchId,
             createdAt: at,
             updatedAt: at,
-          });
-          count++;
-        }
+          }));
+        await db.terms.bulkPut(created);
+        const count = created.length;
         if (count > 0) {
           await upsertSource(source, at);
           changes.add(lang, "terms");
@@ -509,36 +558,66 @@ export function createTermStore(
       return mutate(async (changes) => {
         const result: ImportResult = { terms: 0, sources: 0, occurrences: 0 };
 
+        // Each table is read once and written once; the file's entries are taken in
+        // turn, so an id that comes twice is compared with what the first one left.
+        const terms = await termsById(data.terms.map((term) => term.id));
+        const takenTerms = new Set<string>();
+        const removed = new Set<string>();
         for (const incoming of data.terms) {
-          const local = await db.terms.get(incoming.id);
+          const local = terms.get(incoming.id);
           if (local && incoming.updatedAt <= local.updatedAt) continue;
-          await db.terms.put(omit(incoming, "batchId"));
-          if (incoming.status === "removed")
-            await deleteOccurrences(incoming.id);
+          terms.set(incoming.id, omit(incoming, "batchId"));
+          takenTerms.add(incoming.id);
+          if (incoming.status === "removed") removed.add(incoming.id);
           changes.add(incoming.lang, "terms");
           result.terms++;
         }
+        await db.terms.bulkPut([...takenTerms].map((id) => terms.get(id)!));
+        if (removed.size > 0)
+          await db.occurrences
+            .where("termId")
+            .anyOf([...removed])
+            .delete();
 
+        const sourceIds = distinct(data.sources.map((source) => source.id));
+        const storedSources = await db.sources.bulkGet(sourceIds);
+        const sources = new Map(
+          sourceIds.map((id, i) => [id, storedSources[i]]),
+        );
+        const takenSources = new Set<string>();
         for (const incoming of data.sources) {
-          const local = await db.sources.get(incoming.id);
+          const local = sources.get(incoming.id);
+          takenSources.add(incoming.id);
           if (!local) {
-            await db.sources.put(incoming);
+            sources.set(incoming.id, incoming);
             result.sources++;
             continue;
           }
           const newer = incoming.lastSeen > local.lastSeen ? incoming : local;
-          await db.sources.put({
+          sources.set(incoming.id, {
             ...newer,
             firstSeen: Math.min(local.firstSeen, incoming.firstSeen),
             lastSeen: Math.max(local.lastSeen, incoming.lastSeen),
           });
         }
+        await db.sources.bulkPut(
+          [...takenSources].map((id) => sources.get(id)!),
+        );
 
+        const owners = await termsById(data.occurrences.map((o) => o.termId));
+        const occurrenceSources = distinct(
+          data.occurrences.map((o) => o.sourceId),
+        );
+        const known = new Set(
+          (await db.sources.bulkGet(occurrenceSources)).flatMap((source) =>
+            source ? [source.id] : [],
+          ),
+        );
         const touched = new Set<string>();
         for (const incoming of data.occurrences) {
-          const term = await db.terms.get(incoming.termId);
+          const term = owners.get(incoming.termId);
           if (!isLive(term)) continue;
-          if (!(await db.sources.get(incoming.sourceId))) continue;
+          if (!known.has(incoming.sourceId)) continue;
           if (!(await addOccurrence({ ...incoming }))) continue;
           touched.add(term.id);
           changes.add(term.lang, "occurrences");
@@ -552,10 +631,17 @@ export function createTermStore(
 
     applySynced(lang, records) {
       return mutate(async (changes) => {
+        // Records are taken in turn (a key that comes twice meets what the first left),
+        // then written at once.
+        const terms = await termsById(
+          records.map((record) => termId(lang, record.key)),
+        );
+        const taken = new Set<string>();
+        const removed = new Set<string>();
         let applied = 0;
         for (const record of records) {
           const id = termId(lang, record.key);
-          const existing = await db.terms.get(id);
+          const existing = terms.get(id);
           if (
             existing &&
             toMinutes(existing.updatedAt) >= record.updatedMinutes
@@ -563,10 +649,11 @@ export function createTermStore(
             continue;
           const at = fromMinutes(record.updatedMinutes);
           if (record.status === "removed" && isLive(existing)) {
-            await tombstone(existing, at);
+            terms.set(id, tombstoned(existing, at));
+            removed.add(id);
           } else {
             const kept = isLive(existing) && record.status !== "removed";
-            await db.terms.put({
+            terms.set(id, {
               ...(existing ? deliberate(existing) : {}),
               id,
               lang,
@@ -578,9 +665,16 @@ export function createTermStore(
               updatedAt: at,
             });
           }
+          taken.add(id);
           changes.add(lang, "terms");
           applied++;
         }
+        await db.terms.bulkPut([...taken].map((id) => terms.get(id)!));
+        if (removed.size > 0)
+          await db.occurrences
+            .where("termId")
+            .anyOf([...removed])
+            .delete();
         return applied;
       }, "sync");
     },

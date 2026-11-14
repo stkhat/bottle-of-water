@@ -63,3 +63,23 @@ export function listeners<A extends unknown[]>() {
     },
   };
 }
+
+/**
+ * A queue that runs tasks one after another, each once the one before has settled. A
+ * task that fails rejects its own promise only; `onError` sees the failure too (by
+ * default it is dropped) and the queue goes on.
+ */
+export function serial(onError: (error: unknown) => void = () => undefined) {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    run<T>(task: () => T | PromiseLike<T>): Promise<T> {
+      const result = tail.then(task);
+      tail = result.catch(onError);
+      return result;
+    },
+    /** Settles (never rejects) once the tasks queued so far have. */
+    get idle(): Promise<unknown> {
+      return tail;
+    },
+  };
+}

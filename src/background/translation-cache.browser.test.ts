@@ -8,6 +8,7 @@ import {
 import { fakeClock } from "../testing/clock";
 import { freshDb } from "../testing/db";
 
+const DAY = 24 * 60 * 60 * 1000;
 const EN_JA = translationPair("en", "ja");
 const ES_JA = translationPair("es", "ja");
 
@@ -79,25 +80,58 @@ describe("translation cache", () => {
     expect(found["__proto__"]).toBe("プロト");
   });
 
-  it("marks the translations it gives back as used now", async () => {
+  /** How many rows of the cache were written since it was called. */
+  function countUpdates() {
+    let updates = 0;
+    db.mtCache.hook("updating", () => {
+      updates++;
+    });
+    return () => updates;
+  }
+
+  it("marks the translations it gives back as used now when last used over a day ago", async () => {
     await cache.put(EN_JA, [
       { text: "a", translated: "あ" },
       { text: "b", translated: "び" },
     ]);
     const putAt = clock.time;
-    clock.tick(5_000);
+    clock.tick(DAY + 5_000);
     await cache.get(EN_JA, ["a", "missing"]);
-    expect((await db.mtCache.get("en>ja:a"))?.usedAt).toBe(putAt + 5_000);
+    expect((await db.mtCache.get("en>ja:a"))?.usedAt).toBe(putAt + DAY + 5_000);
     expect((await db.mtCache.get("en>ja:b"))?.usedAt).toBe(putAt);
     expect(await db.mtCache.get("en>ja:missing")).toBeUndefined();
+  });
+
+  it("writes a row read again within a day once: its time stays", async () => {
+    await cache.put(EN_JA, [{ text: "a", translated: "あ" }]);
+    clock.tick(DAY + 1);
+    const updates = countUpdates();
+    await cache.get(EN_JA, ["a"]);
+    const refreshedAt = clock.time;
+    clock.tick(DAY - 1);
+    expect(await cache.get(EN_JA, ["a"])).toEqual({ a: "あ" });
+    expect(updates()).toBe(1);
+    expect((await db.mtCache.get("en>ja:a"))?.usedAt).toBe(refreshedAt);
+  });
+
+  it("writes nothing for a read of rows used within the day", async () => {
+    await cache.put(EN_JA, [
+      { text: "a", translated: "あ" },
+      { text: "b", translated: "び" },
+    ]);
+    clock.tick(DAY);
+    const updates = countUpdates();
+    expect(await cache.get(EN_JA, ["a", "b"])).toEqual({ a: "あ", b: "び" });
+    expect(updates()).toBe(0);
   });
 
   it("removes the least recently used rows when a write goes over the limit", async () => {
     const small = cacheWithLimit(3);
     for (const text of ["a", "b", "c"]) {
       await small.put(EN_JA, [{ text, translated: text.toUpperCase() }]);
-      clock.tick();
+      clock.tick(DAY);
     }
+    clock.tick(1);
     // "a" is read again, so "b" is now the least recently used.
     await small.get(EN_JA, ["a"]);
     clock.tick();

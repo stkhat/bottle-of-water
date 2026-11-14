@@ -87,6 +87,27 @@ describe("record", () => {
     expect(await db.historySentences.count()).toBe(3);
   });
 
+  it("keeps the first of the same text in a batch, in order, after those already kept", async () => {
+    await history.record(ARTICLE, [rest]);
+    clock.tick();
+    const kneadAgain: HistoryItem = { ...knead, pos: { textQuote: "again" } };
+    const shape: HistoryItem = {
+      text: "Shape the loaf.",
+      pos: { textQuote: "Shape the loaf." },
+      keys: ["en:shape", "en:loaf", "en:shape"],
+    };
+    expect(
+      await history.record(ARTICLE, [knead, rest, kneadAgain, shape, rest]),
+    ).toBe(2);
+    expect(
+      (await db.historySentences.toArray()).map((s) => [s.text, s.pos, s.keys]),
+    ).toEqual([
+      [rest.text, rest.pos, rest.keys],
+      [knead.text, knead.pos, knead.keys],
+      [shape.text, shape.pos, ["en:shape", "en:loaf"]],
+    ]);
+  });
+
   it("updates the last visit and title and keeps the first visit", async () => {
     await history.record(ARTICLE, [knead]);
     clock.tick(5000);
