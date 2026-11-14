@@ -35,7 +35,7 @@ Development pair: learning language = English, native language = Japanese, sites
    - More sites
 3. **Future**
    - Firefox version (alternative to highlight underlines, publishing on AMO), then Edge and others
-   - Sync to the user's own cloud storage (Google Drive / Dropbox / OneDrive / local folder / WebDAV)
+   - Sync to the user's own cloud storage: Google Drive / Dropbox / OneDrive designed ([architecture](architecture.md) "Sync to the user's own cloud storage"; required by the mobile app), local folder / WebDAV later
    - More interface languages and switching between them
    - A standalone web app (only if needed)
 
