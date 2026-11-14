@@ -53,6 +53,11 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
       expect(existsSync(`.output/${dir}/${file}`)).toBe(true);
   });
 
+  test("ships the gray toolbar icon shown while Lingo is off, in every size", () => {
+    for (const size of [16, 32, 48, 128])
+      expect(existsSync(`.output/${dir}/icon-off/${size}.png`)).toBe(true);
+  });
+
   test("requests no host permissions", () => {
     expect(manifest().host_permissions).toBeUndefined();
   });

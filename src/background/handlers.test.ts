@@ -1431,8 +1431,9 @@ describe("handlers: recordHistory", () => {
     { neverRunOn: ["news.example.com"] },
     { neverRunOn: ["Example.com"] },
     { disabledSites: ["example.com"] },
+    { enabled: false },
   ])(
-    "keeps nothing from a blocked host ($neverRunOn $disabledSites)",
+    "keeps nothing from a blocked host ($neverRunOn $disabledSites $enabled)",
     async (patch) => {
       await setSettings(patch);
       expect(

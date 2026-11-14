@@ -126,8 +126,9 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - Settings → Highlighting → "New words you didn't save": **Keep as New** (default; nothing happens, they show as New next time) or **Mark as Known** (they are saved as Known at once, silently, as `bulk` terms)
 
 ## Toolbar popup (click the extension icon)
-- Toolbar icon: the green rounded square with a white "L" (`#0B8A6C`, as in the mock), 16/32/48/128 px, drawn from `scripts/icons/icon.svg`
-- Header: Lingo, language pair (English → Japanese), then at the right a word list button (a list icon, "Word list") and a gear for settings (the same gear as in the player menu)
+- Toolbar icon: the green rounded square with a white "L" (`#0B8A6C`, as in the mock), 16/32/48/128 px, drawn from `scripts/icons/icon.svg`; gray while Lingo is off
+- Header: Lingo with the language pair (English → Japanese) under it, then at the right a word list button (a list icon, "Word list"), a gear for settings (the same gear as in the player menu) and a switch for Lingo as a whole ("Use Lingo", on by default)
+- **Lingo off** (the header's switch; mock `Opening Lingo from the browser toolbar`, 2026-11-15): switches Lingo off everywhere, by hand, until it is switched on again. Nothing runs on videos (YouTube, Netflix, YouTube comments) or articles, open pages give their page back at once, and nothing is recorded (encounters, sentence history). The popup then shows only the header and the sync status, and the toolbar icon turns gray (`#9AA0B0`, drawn from the same SVG). It is a setting like the others, so it follows browser sync to the user's other devices. Saved words, settings and the per-site lists are kept as they are
 - **While the chosen pair's data is downloading or failed** (mock `LanguageData`): one line under the header, "Downloading Spanish data · 45%" over a bar, or "Couldn't download Spanish data" with Retry. None once the data can be used (an older version in use while an update downloads counts)
 - "On this site": on/off for this site
 - "Highlight": category toggles

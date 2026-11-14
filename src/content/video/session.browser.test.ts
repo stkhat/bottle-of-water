@@ -1831,6 +1831,17 @@ describe("where Lingo runs", () => {
     expect(state().status).toBe("idle");
     expect(site.log.hidden.at(-1)).toBe(false);
   });
+
+  it("not while Lingo is switched off, and again once it is back on", async () => {
+    const { state, site, bg } = await start();
+    await ready(state);
+    bg.changeSettings({ enabled: false });
+    expect(state().status).toBe("idle");
+    expect(site.log.hidden.at(-1)).toBe(false);
+    bg.changeSettings({ enabled: true });
+    await ready(state);
+    expect(site.log.hidden.at(-1)).toBe(true);
+  });
 });
 
 describe("fullscreen", () => {

@@ -194,6 +194,81 @@ describe("Popup", () => {
       .toHaveAttribute("aria-pressed", "true");
   });
 
+  describe("Lingo switch", () => {
+    const lingoSwitch = (screen: Awaited<ReturnType<typeof render>>) =>
+      screen.getByRole("switch", { name: "Use Lingo", exact: true });
+
+    it("sits in the header, after the settings button", async () => {
+      const f = fake({ page: ARTICLE });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(lingoSwitch(screen)).toBeChecked();
+      const gear = screen.getByRole("button", { name: "Open settings" });
+      expect(
+        gear.element().compareDocumentPosition(lingoSwitch(screen).element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        lingoSwitch(screen)
+          .element()
+          .compareDocumentPosition(siteSwitch(screen).element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("switches Lingo off everywhere, leaving only the header and sync, and back on", async () => {
+      const f = fake({ page: ARTICLE });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(screen.getByText("2,341")).toBeVisible();
+
+      await lingoSwitch(screen).click();
+      await expect.element(lingoSwitch(screen)).not.toBeChecked();
+      expect(f.settings().enabled).toBe(false);
+      await expect.element(siteSwitch(screen)).not.toBeInTheDocument();
+      await expect
+        .element(screen.getByRole("button", { name: "Learning" }))
+        .not.toBeInTheDocument();
+      await expect.element(screen.getByText("2,341")).not.toBeInTheDocument();
+      await expect
+        .element(screen.getByText("This page"))
+        .not.toBeInTheDocument();
+      await expect
+        .element(screen.getByText("Saved to Chrome sync · 2 minutes ago"))
+        .toBeVisible();
+      await expect
+        .element(screen.getByText("English → Japanese"))
+        .toBeVisible();
+
+      await lingoSwitch(screen).click();
+      await expect.element(lingoSwitch(screen)).toBeChecked();
+      expect(f.settings().enabled).toBe(true);
+      await expect.element(siteSwitch(screen)).toBeVisible();
+      await expect.element(screen.getByText("2,341")).toBeVisible();
+    });
+
+    it("hides the language data line while off", async () => {
+      const f = fake({
+        settings: { learningLang: "es", nativeLang: "en", enabled: false },
+        packStatus: () =>
+          spanish(
+            { state: "downloading", received: 0, total: 3_000_000 },
+            { state: "downloading", received: 0, total: 3_500_000 },
+          ),
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(lingoSwitch(screen)).not.toBeChecked();
+      await expect.element(screen.getByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("follows a switch made elsewhere", async () => {
+      const f = fake({ page: ARTICLE });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect.element(lingoSwitch(screen)).toBeChecked();
+      f.changeSettings({ enabled: false });
+      await expect.element(lingoSwitch(screen)).not.toBeChecked();
+      await expect.element(siteSwitch(screen)).not.toBeInTheDocument();
+    });
+  });
+
   describe("On this site", () => {
     it("shows the tab's host and switches Lingo off and on for it", async () => {
       const f = fake({ page: ARTICLE });

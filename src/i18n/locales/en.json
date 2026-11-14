@@ -16,6 +16,7 @@
   "subtitle.position": "Subtitle position",
   "subtitle.translation": "Show translation under the subtitle",
   "transcript.translation": "Show translation in the transcript",
+  "popup.lingoSwitch": "Use Lingo",
   "popup.site": "On this site",
   "popup.siteSwitch": "Use Lingo on this site",
   "popup.sync.saved": "Saved to {syncName} · {when}",
