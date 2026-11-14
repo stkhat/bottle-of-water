@@ -6,8 +6,10 @@ export interface VisibleBlocks {
   /**
    * Queues watched blocks for analysis now, near the viewport or not (the page's Words
    * list covers them all); blocks already queued or analyzed are left as they are.
+   * Returns the blocks taken before they came near: `reached` gets each of them when
+   * it does.
    */
-  now(blocks: readonly TextBlock[]): void;
+  now(blocks: readonly TextBlock[]): TextBlock[];
   /** Stops watching blocks (and drops them if they wait for analysis). */
   remove(blocks: readonly TextBlock[]): void;
   /** Resolves once every block handed over so far has been analyzed (or dropped). */
@@ -22,6 +24,8 @@ export interface VisibleBlocksOptions {
   maxChars?: number;
   /** How far around the viewport counts as near (IntersectionObserver rootMargin). */
   rootMargin?: string;
+  /** Blocks analyzed early (`now`) that have now come near the viewport. */
+  reached?: (blocks: TextBlock[]) => void;
 }
 
 const byDocumentOrder = (a: TextBlock, b: TextBlock) =>
@@ -76,8 +80,11 @@ export function watchVisibleBlocks(
     maxBlocks = 20,
     maxChars = 20_000,
     rootMargin = "50% 0px 50% 0px",
+    reached,
   } = options;
   const watched = new Map<Element, TextBlock>();
+  /** Blocks `now` took before they came near, still watched for when they do. */
+  const early = new Map<Element, TextBlock>();
   const queue: TextBlock[] = [];
   let running = false;
   let stopped = false;
@@ -111,14 +118,23 @@ export function watchVisibleBlocks(
 
   const observer = new IntersectionObserver(
     (entries) => {
+      const near: TextBlock[] = [];
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
+        const ahead = early.get(entry.target);
+        if (ahead) {
+          observer.unobserve(entry.target);
+          early.delete(entry.target);
+          near.push(ahead);
+          continue;
+        }
         const block = watched.get(entry.target);
         if (!block) continue;
         observer.unobserve(entry.target);
         watched.delete(entry.target);
         queue.push(block);
       }
+      if (near.length > 0) reached?.(near);
       void pump();
     },
     { rootMargin },
@@ -128,25 +144,34 @@ export function watchVisibleBlocks(
     add(blocks) {
       for (const block of blocks) {
         const previous = watched.get(block.element);
-        if (previous === block) continue;
+        if (previous === block || early.get(block.element) === block) continue;
+        if (early.delete(block.element)) observer.unobserve(block.element);
         watched.set(block.element, block);
         if (previous) observer.unobserve(block.element);
         observer.observe(block.element);
       }
     },
     now(blocks) {
+      const taken: TextBlock[] = [];
       for (const block of blocks) {
         if (watched.get(block.element) !== block) continue;
         watched.delete(block.element);
-        observer.unobserve(block.element);
+        // Still observed, now for when it comes near.
+        early.set(block.element, block);
         queue.push(block);
+        taken.push(block);
       }
       void pump();
+      return taken;
     },
     remove(blocks) {
       for (const block of blocks) {
         if (watched.get(block.element) === block) {
           watched.delete(block.element);
+          observer.unobserve(block.element);
+        }
+        if (early.get(block.element) === block) {
+          early.delete(block.element);
           observer.unobserve(block.element);
         }
         const i = queue.indexOf(block);
@@ -162,6 +187,7 @@ export function watchVisibleBlocks(
       stopped = true;
       observer.disconnect();
       watched.clear();
+      early.clear();
       queue.length = 0;
       settle();
     },
