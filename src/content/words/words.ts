@@ -1,13 +1,9 @@
 import type { Span, TermKind, WordStatus } from "../../core/classify";
 import { collapseSpaces } from "../../core/text/sentences";
+import { own } from "../../core/util";
 import type { TermBrief } from "../../messaging/protocol";
 import { visibleSpans } from "../../ui/video/terms";
-
-/** A Words list's filter chips: every row, or one status. */
-export type WordsFilter = "all" | WordStatus;
-
-/** A Words list's sort: first appearance, A–Z by head, or most occurrences first. */
-export type WordsSort = "order" | "az" | "count";
+import type { WordsFilter, WordsSort } from "../../ui/words/WordsList";
 
 /** A piece of text a list reads its terms from: a transcript card, an article's block. */
 export interface WordsUnit<U> {
@@ -57,10 +53,7 @@ export function listWords<U>(
       const { key, kind, category } = span;
       if (category === "ignored" || (span.part && span.part.index > 0))
         continue;
-      if (
-        category === "known" &&
-        (!Object.hasOwn(summaries, key) || summaries[key]!.status !== "known")
-      )
+      if (category === "known" && own(summaries, key)?.status !== "known")
         continue;
       // A phrase with a gap as a whole.
       const { start, end } = span.part ?? span;
@@ -117,4 +110,46 @@ export function sortRows<R extends { head: string; count: number }>(
     sorted.sort((a, b) => collator.compare(a.head, b.head));
   } else if (sort === "count") sorted.sort((a, b) => b.count - a.count);
   return sorted;
+}
+
+/**
+ * A Words list's rows: the words the filter shows, in the sort's order, each with its
+ * short meaning from the summaries and what `more` adds (its places).
+ */
+export function toWordRows<
+  W extends {
+    key: string;
+    kind: TermKind;
+    head: string;
+    category: WordStatus;
+    count: number;
+  },
+  X,
+>(
+  words: readonly W[],
+  o: {
+    filter: WordsFilter;
+    sort: WordsSort;
+    summaries: Readonly<Record<string, TermBrief>>;
+    learningLang: string;
+    nativeLang: string;
+  },
+  more: (word: W, id: string) => X,
+) {
+  return sortRows(filterRows(words, o.filter), o.sort, o.learningLang).map(
+    (word) => {
+      const id = wordId(word);
+      const brief = own(o.summaries, word.key);
+      return {
+        id,
+        key: word.key,
+        head: word.head,
+        category: word.category,
+        count: word.count,
+        short: brief?.short,
+        shortLang: brief?.glossLang ?? o.nativeLang,
+        ...more(word, id),
+      };
+    },
+  );
 }

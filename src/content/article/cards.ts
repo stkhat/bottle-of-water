@@ -1,7 +1,13 @@
 import { collapseSpaces } from "../../core/text/sentences";
 import type { TermCard } from "../lookup/describe";
 import { wordBoxes } from "../lookup/geometry";
-import { latest, sameTerm, type Lookup, type Term } from "../lookup/lookup";
+import {
+  describeSpan,
+  latest,
+  sameTerm,
+  type Lookup,
+  type Term,
+} from "../lookup/lookup";
 import type { Store } from "../store";
 import type { SpanMap, SpanRef } from "./locate";
 import { rangeOf, type TextBlock } from "./page-text";
@@ -14,25 +20,11 @@ export const writtenOf = ({ block, span }: SpanRef) => {
   return collapseSpaces(block.text.slice(start, end));
 };
 
-export function describeRef(
+export const describeRef = (
   lookup: Lookup,
   ref: SpanRef,
   shownIn: "hover" | "window" = "hover",
-) {
-  const surface = writtenOf(ref);
-  const written = lookup.written(ref.span, surface);
-  return lookup.describe(
-    {
-      key: ref.span.key,
-      kind: ref.span.kind,
-      surface,
-      category: ref.span.category,
-      ...(written !== undefined && { written }),
-      ...(ref.span.pos !== undefined && { pos: ref.span.pos }),
-    },
-    shownIn,
-  );
-}
+) => describeSpan(lookup, ref.span, writtenOf(ref), shownIn);
 
 const boxesOf = ({ block, span }: SpanRef) =>
   wordBoxes(rangeOf(block, span.start, span.end));

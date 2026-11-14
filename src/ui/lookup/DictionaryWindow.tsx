@@ -244,9 +244,6 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
 
 function Content(props: DictionaryWindowProps & { icon: Style }) {
   const { entry, status } = props;
-  const glossLang = entry.glossLang ?? props.nativeLang;
-  const translated = entry.senses.some((sense) => sense.translated);
-  const meanings = <h3 style={sectionHeading}>{t("dict.meanings")}</h3>;
 
   return (
     <>
@@ -271,165 +268,247 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
       />
 
       {entry.senses.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            // Mock TranslatedSenses: a translated sense takes two lines.
-            gap: translated ? "12px" : "10px",
-          }}
-        >
-          {translated ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-              }}
-            >
-              {meanings}
-              <MachineTranslationMark />
-            </div>
-          ) : (
-            meanings
-          )}
-          {entry.senses.map((sense, i) => (
-            <div
-              key={i}
-              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
-            >
-              {sense.pos && sense.posBy !== "gap" && (
-                <span
-                  data-pos
-                  style={{
-                    fontSize: "13px",
-                    fontStyle: "italic",
-                    color: color.greenText,
-                  }}
-                >
-                  {sense.pos}
-                </span>
-              )}
-              {sense.translated ? (
-                <>
-                  <span
-                    lang={props.nativeLang}
-                    style={{ fontSize: "15px", lineHeight: 1.55 }}
-                  >
-                    {sense.translated}
-                  </span>
-                  <span
-                    lang={glossLang}
-                    style={{
-                      fontSize: "13px",
-                      lineHeight: 1.5,
-                      color: color.muted,
-                    }}
-                  >
-                    {sense.text}
-                  </span>
-                </>
-              ) : (
-                <>
-                  {sense.hint && (
-                    // Mock TranslatedSenses: a translation table's English sense
-                    // above its words in the native language.
-                    <span
-                      lang="en"
-                      style={{
-                        fontSize: "13px",
-                        lineHeight: 1.5,
-                        color: color.muted,
-                      }}
-                    >
-                      {sense.hint}
-                    </span>
-                  )}
-                  <span
-                    lang={glossLang}
-                    style={{ fontSize: "15px", lineHeight: 1.55 }}
-                  >
-                    {sense.text}
-                  </span>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+        <SenseList entry={entry} nativeLang={props.nativeLang} />
       )}
 
       {props.dictionaries.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <h3 style={sectionHeading}>{t("dict.dictionaries")}</h3>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {props.dictionaries.map((d) => (
-              <a
-                key={d.href}
-                href={d.href}
-                target="_blank"
-                rel="noopener"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  height: "32px",
-                  padding: "0 10px",
-                  borderRadius: "6px",
-                  background: color.surface,
-                  border: `1px solid ${color.line}`,
-                  color: color.ink2,
-                  textDecoration: "none",
-                  fontSize: "13px",
-                }}
-              >
-                {d.label}
-              </a>
-            ))}
-          </div>
-        </div>
+        <DictionaryLinks dictionaries={props.dictionaries} />
       )}
 
       {props.here.items.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <h3 style={sectionHeading}>
-            {t(props.here.source === "video" ? "dict.inVideo" : "dict.onPage", {
-              count: props.here.items.length,
-            })}
-          </h3>
-          {props.here.items.map((item, i) => (
-            <HereRow
-              key={i}
-              item={item}
-              source={props.here.source}
-              lang={props.learningLang}
-            />
-          ))}
-        </div>
+        <HereSection here={props.here} learningLang={props.learningLang} />
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        <h3 style={sectionHeading}>
-          {t("dict.elsewhere", { count: props.elsewhere.length })}
-        </h3>
-        {props.elsewhere.map((item, i) => (
-          <ElsewhereRow key={i} item={item} lang={props.learningLang} />
-        ))}
-        {props.status === "new" && props.elsewhere.length === 0 && (
-          <p
-            style={{
-              margin: 0,
-              fontSize: "13px",
-              lineHeight: 1.5,
-              color: color.muted,
-            }}
-          >
-            {t("dict.notSavedNote")}
-          </p>
-        )}
-      </div>
+      <ElsewhereSection
+        elsewhere={props.elsewhere}
+        status={status}
+        learningLang={props.learningLang}
+      />
     </>
   );
 }
+
+/** "Meanings": the entry's senses. */
+function SenseList(props: { entry: DictionaryEntryView; nativeLang: string }) {
+  const { entry } = props;
+  const glossLang = entry.glossLang ?? props.nativeLang;
+  const translated = entry.senses.some((sense) => sense.translated);
+  const meanings = <h3 style={sectionHeading}>{t("dict.meanings")}</h3>;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        // Mock TranslatedSenses: a translated sense takes two lines.
+        gap: translated ? "12px" : "10px",
+      }}
+    >
+      {translated ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+          }}
+        >
+          {meanings}
+          <MachineTranslationMark />
+        </div>
+      ) : (
+        meanings
+      )}
+      {entry.senses.map((sense, i) => (
+        <div
+          key={i}
+          style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+        >
+          {sense.pos && sense.posBy !== "gap" && (
+            <span
+              data-pos
+              style={{
+                fontSize: "13px",
+                fontStyle: "italic",
+                color: color.greenText,
+              }}
+            >
+              {sense.pos}
+            </span>
+          )}
+          {sense.translated ? (
+            <>
+              <span
+                lang={props.nativeLang}
+                style={{ fontSize: "15px", lineHeight: 1.55 }}
+              >
+                {sense.translated}
+              </span>
+              <span
+                lang={glossLang}
+                style={{
+                  fontSize: "13px",
+                  lineHeight: 1.5,
+                  color: color.muted,
+                }}
+              >
+                {sense.text}
+              </span>
+            </>
+          ) : (
+            <>
+              {sense.hint && (
+                // Mock TranslatedSenses: a translation table's English sense
+                // above its words in the native language.
+                <span
+                  lang="en"
+                  style={{
+                    fontSize: "13px",
+                    lineHeight: 1.5,
+                    color: color.muted,
+                  }}
+                >
+                  {sense.hint}
+                </span>
+              )}
+              <span
+                lang={glossLang}
+                style={{ fontSize: "15px", lineHeight: 1.55 }}
+              >
+                {sense.text}
+              </span>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** "Dictionaries": links to the external dictionaries. */
+function DictionaryLinks(props: Pick<CommonProps, "dictionaries">) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <h3 style={sectionHeading}>{t("dict.dictionaries")}</h3>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+        {props.dictionaries.map((d) => (
+          <a
+            key={d.href}
+            href={d.href}
+            target="_blank"
+            rel="noopener"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: "32px",
+              padding: "0 10px",
+              borderRadius: "6px",
+              background: color.surface,
+              border: `1px solid ${color.line}`,
+              color: color.ink2,
+              textDecoration: "none",
+              fontSize: "13px",
+            }}
+          >
+            {d.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** "In this video" or "On this page": the entry's other occurrences here. */
+function HereSection(props: Pick<CommonProps, "here" | "learningLang">) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <h3 style={sectionHeading}>
+        {t(props.here.source === "video" ? "dict.inVideo" : "dict.onPage", {
+          count: props.here.items.length,
+        })}
+      </h3>
+      {props.here.items.map((item, i) => (
+        <HereRow
+          key={i}
+          item={item}
+          source={props.here.source}
+          lang={props.learningLang}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** "Elsewhere": other sources it was met in, or the note that saving starts recording. */
+function ElsewhereSection(
+  props: Pick<CommonProps, "elsewhere" | "status" | "learningLang">,
+) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <h3 style={sectionHeading}>
+        {t("dict.elsewhere", { count: props.elsewhere.length })}
+      </h3>
+      {props.elsewhere.map((item, i) => (
+        <ElsewhereRow key={i} item={item} lang={props.learningLang} />
+      ))}
+      {props.status === "new" && props.elsewhere.length === 0 && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: "13px",
+            lineHeight: 1.5,
+            color: color.muted,
+          }}
+        >
+          {t("dict.notSavedNote")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A line of "In this video" (a button that seeks) or "On this page". */
+const HERE_ROW: Record<"video" | "page", Style> = {
+  video: {
+    display: "flex",
+    gap: "10px",
+    alignItems: "flex-start",
+    width: "100%",
+    boxSizing: "border-box",
+    textAlign: "left",
+    padding: "8px 10px",
+    margin: 0,
+    border: 0,
+    borderRadius: "8px",
+    background: color.surface,
+    color: color.ink,
+    font: "inherit",
+    fontSize: "13px",
+    lineHeight: 1.5,
+  },
+  page: {
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    textAlign: "left",
+    padding: "8px 10px",
+    margin: 0,
+    border: 0,
+    borderRadius: "8px",
+    background: color.surface,
+    fontFamily: SERIF_FONT,
+    fontSize: "14px",
+    lineHeight: 1.55,
+    color: color.ink2,
+  },
+};
+
+/** The line's time in the video. */
+const HERE_TIME: Style = {
+  flex: "none",
+  fontVariantNumeric: "tabular-nums",
+  color: color.greenText,
+  fontWeight: 600,
+};
 
 function HereRow(props: {
   item: HereItem;
@@ -438,54 +517,10 @@ function HereRow(props: {
   lang: string;
 }) {
   const { item } = props;
-  const style: Style =
-    props.source === "video"
-      ? {
-          display: "flex",
-          gap: "10px",
-          alignItems: "flex-start",
-          width: "100%",
-          boxSizing: "border-box",
-          textAlign: "left",
-          padding: "8px 10px",
-          margin: 0,
-          border: 0,
-          borderRadius: "8px",
-          background: color.surface,
-          color: color.ink,
-          font: "inherit",
-          fontSize: "13px",
-          lineHeight: 1.5,
-        }
-      : {
-          display: "block",
-          width: "100%",
-          boxSizing: "border-box",
-          textAlign: "left",
-          padding: "8px 10px",
-          margin: 0,
-          border: 0,
-          borderRadius: "8px",
-          background: color.surface,
-          fontFamily: SERIF_FONT,
-          fontSize: "14px",
-          lineHeight: 1.55,
-          color: color.ink2,
-        };
+  const style = HERE_ROW[props.source];
   const children = (
     <>
-      {item.time && (
-        <span
-          style={{
-            flex: "none",
-            fontVariantNumeric: "tabular-nums",
-            color: color.greenText,
-            fontWeight: 600,
-          }}
-        >
-          {item.time}
-        </span>
-      )}
+      {item.time && <span style={HERE_TIME}>{item.time}</span>}
       <span lang={props.lang}>{marked(item)}</span>
     </>
   );

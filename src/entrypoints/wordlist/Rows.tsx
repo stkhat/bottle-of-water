@@ -1,9 +1,9 @@
 import type { CSSProperties } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { t } from "../../i18n/t";
 import type { TermSummary } from "../../messaging/protocol";
 import { shortDate } from "../../ui/format/format";
-import { useRowsInView } from "../../ui/rows-in-view";
+import { useShownRows } from "../../ui/rows-in-view";
 import { color } from "../../ui/styles";
 
 type Style = CSSProperties;
@@ -155,14 +155,9 @@ export function Rows(props: {
   /** Rows came into view (their meanings may need translating). */
   onShown: (terms: TermSummary[]) => void;
 }) {
-  const byId = useMemo(
-    () => new Map(props.rows.map((term) => [term.id, term])),
-    [props.rows],
-  );
-  const scroller = useRowsInView<HTMLDivElement>((ids) =>
-    props.onShown(
-      ids.map((id) => byId.get(id)).filter((term) => term !== undefined),
-    ),
+  const scroller = useShownRows<HTMLDivElement, TermSummary>(
+    props.rows,
+    props.onShown,
   );
   const [view, setView] = useState({ top: 0, height: 0 });
   const windowed = props.rows.length > WINDOW_ABOVE;

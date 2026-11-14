@@ -399,6 +399,40 @@ describe("WordsList", () => {
     );
   });
 
+  test("rendered again, rows follow the new rows and handlers; opened rows stay open", async () => {
+    const first = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} onJump={first} />,
+    );
+    const chips = () =>
+      screen
+        .getByRole("group", { name: "Times of dough" })
+        .element()
+        .querySelectorAll("button").length;
+    await screen.getByRole("button", { name: "Show 2 more times" }).click();
+    expect(chips()).toBe(7);
+    const second = vi.fn();
+    await screen.rerender(<WordsList {...base} onJump={second} />);
+    await rowNamed(screen, "figure out").click();
+    expect(second).toHaveBeenLastCalledWith(ROWS[0], 0);
+    expect(first).not.toHaveBeenCalled();
+    expect(chips()).toBe(7);
+    const pressed = { ...ROWS[0]!, pressed: 1 };
+    await screen.rerender(
+      <WordsList
+        {...base}
+        rows={[pressed, ROWS[1]!, ROWS[2]!]}
+        onJump={second}
+      />,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: "Jump to 1:20" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await screen.getByRole("button", { name: "Jump to 0:56" }).click();
+    expect(second).toHaveBeenLastCalledWith(pressed, 0);
+    expect(chips()).toBe(7);
+  });
+
   test("a click a page script makes jumps nowhere", async () => {
     const onJump = vi.fn();
     const screen = await mountInShadowRoot(

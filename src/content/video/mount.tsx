@@ -27,8 +27,11 @@ export interface MountOptions {
 
 interface Part {
   host: HTMLElement;
-  /** Where the host belongs now; null when its place is not on the page. */
-  point(): InsertionPoint | null;
+  /**
+   * Where the host belongs now (`player`: the adapter's player element, read once per
+   * placing); null when its place is not on the page.
+   */
+  point(player: HTMLElement | null): InsertionPoint | null;
   /**
    * Moves back into the same parent in the current second, so a site that keeps taking
    * the host out cannot start a loop. A new parent (a control bar the site built again)
@@ -97,7 +100,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   function part(
     name: string,
     style: string,
-    point: () => InsertionPoint | null,
+    point: Part["point"],
     ui: JSX.Element,
   ): HTMLElement {
     const { host, root } = createShadowHost(name, style);
@@ -122,10 +125,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   part(
     "lingo-video-player",
     "position: absolute; inset: 0; pointer-events: none; z-index: 60;",
-    () => {
-      const player = adapter.playerElement();
-      return player ? { parent: player, before: null } : null;
-    },
+    (player) => (player ? { parent: player, before: null } : null),
     <InPlayerUi app={app} layout={layout} />,
   );
   part(
@@ -179,10 +179,10 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
    * seconds after the pointer stops on a word, and moving the word from under it would
    * close the hover card (and play the video again).
    */
-  function liftSubtitle() {
+  function liftSubtitle(playerElement: HTMLElement | null) {
     if (inUse(app.store.get())) return;
     const barTop = adapter.controlBarTop?.() ?? null;
-    const player = boxOf(adapter.playerElement());
+    const player = boxOf(playerElement);
     const subtitleBottom =
       barTop === null || !player
         ? SUBTITLE_BOTTOM
@@ -234,9 +234,11 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     const vertical = adapter.vertical?.() ?? false;
     if (vertical !== layout.get().vertical) layout.set({ vertical });
     arrangeSidebar();
+    // Not before: narrowing the player tells the site, which may render it again.
+    const player = adapter.playerElement();
     const second = Math.floor(performance.now() / 1000);
     for (const { host, point, moves } of parts) {
-      const at = point();
+      const at = point(player);
       if (!at) continue;
       // At the end (before: null), anywhere in the parent will do.
       const placed =
@@ -251,8 +253,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
       at.parent.insertBefore(host, at.before);
     }
     holdBackControlBar();
-    liftSubtitle();
-    const frame = layout.get().sidebar ? sidebar : adapter.playerElement();
+    liftSubtitle(player);
+    const frame = layout.get().sidebar ? sidebar : player;
     if (frame !== observed) {
       if (observed) resize.unobserve(observed);
       if (frame) resize.observe(frame);

@@ -1,11 +1,11 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef } from "preact/hooks";
 
 /**
  * Calls `onInView` with the ids of the rows that come into view in a scrolling list,
  * each time some do: rows are the elements with a `data-row-id` inside the element
  * the returned ref is set on (the scroller). Rows added later are watched too.
  */
-export function useRowsInView<E extends HTMLElement>(
+function useRowsInView<E extends HTMLElement>(
   onInView: ((ids: string[]) => void) | undefined,
 ) {
   const scroller = useRef<E>(null);
@@ -50,4 +50,22 @@ export function useRowsInView<E extends HTMLElement>(
   });
 
   return scroller;
+}
+
+/**
+ * `useRowsInView` for a list of `rows` (each rendered with its `id` as `data-row-id`):
+ * calls `onShown` with the rows that come into view.
+ */
+export function useShownRows<E extends HTMLElement, R extends { id: string }>(
+  rows: readonly R[],
+  onShown: ((rows: R[]) => void) | undefined,
+) {
+  const byId = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+  return useRowsInView<E>(
+    onShown &&
+      ((ids) =>
+        onShown(
+          ids.map((id) => byId.get(id)).filter((row) => row !== undefined),
+        )),
+  );
 }

@@ -6,7 +6,7 @@
  */
 import { own } from "../util";
 import { blockText, type BlockText } from "./sentences";
-import { normalizeWord, type Token } from "./tokenize";
+import { normalizeWord, tokenize, type Token } from "./tokenize";
 
 /**
  * "upper": most words are ALL CAPS (some captions); "lower": almost no word inside a
@@ -286,6 +286,10 @@ export function blockCasing(
   });
   return counts;
 }
+
+/** What a text's words say about the document's casing (`blockCasing` of its tokens). */
+export const textCasing = (text: string, lang: string): BlockCasing =>
+  blockCasing(tokenize(text, lang), lang);
 
 /** The casing of a document made of `blocks`. */
 export function documentCasing(blocks: Iterable<BlockCasing>): DocumentCasing {

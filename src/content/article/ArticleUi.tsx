@@ -12,15 +12,9 @@ import {
   WORDS_PANEL_INSET,
   WORDS_PANEL_WIDTH,
 } from "../../ui/words/PageWordsPanel";
-import { Floating, TOP_LAYER } from "../lookup/Floating";
+import { Floating, keepSelection, TOP_LAYER } from "../lookup/Floating";
 import { useStore } from "../store";
-import {
-  filterCounts,
-  filterRows,
-  listWords,
-  sortRows,
-  wordId,
-} from "../words/words";
+import { filterCounts, listWords, toWordRows } from "../words/words";
 
 /** Mock Article: the dictionary panel sits 16px in from the top right. */
 const CARD_INSET = 16;
@@ -144,8 +138,6 @@ export function ArticleUi({
   );
 }
 
-const keepSelection = (event: MouseEvent) => event.preventDefault();
-
 /** "Words on this page": the rows of the analyzed article, as the filter and sort say. */
 function Words(props: {
   app: ArticleApp;
@@ -169,31 +161,21 @@ function Words(props: {
   const { jump } = words;
   const rows = useMemo(
     () =>
-      sortRows(
-        filterRows(
-          all.map((word) => ({ ...word, count: word.places.length })),
-          words.filter,
-        ),
-        words.sort,
-        settings.learningLang,
-      ).map((word) => {
-        const id = wordId(word);
-        const brief = Object.hasOwn(summaries, word.key)
-          ? summaries[word.key]
-          : undefined;
-        return {
-          id,
-          key: word.key,
-          head: word.head,
-          category: word.category,
-          count: word.count,
-          short: brief?.short,
-          shortLang: brief?.glossLang ?? settings.nativeLang,
+      toWordRows(
+        all.map((word) => ({ ...word, count: word.places.length })),
+        {
+          filter: words.filter,
+          sort: words.sort,
+          summaries,
+          learningLang: settings.learningLang,
+          nativeLang: settings.nativeLang,
+        },
+        (word, id) => ({
           places: word.places.map((_, i) => String(i + 1)),
           pressed: jump?.id === id ? jump.place : -1,
           occurrences: word.places,
-        };
-      }),
+        }),
+      ),
     [
       all,
       words.filter,

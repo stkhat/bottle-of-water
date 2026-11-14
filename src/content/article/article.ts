@@ -6,12 +6,11 @@ import {
 } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import {
-  blockCasing,
   casingChanges,
   documentCasing,
+  textCasing,
   type BlockCasing,
 } from "../../core/text/casing";
-import { tokenize } from "../../core/text/tokenize";
 import {
   unsupportedPage,
   type PageRequest,
@@ -27,6 +26,7 @@ import {
   type LookupDeps,
   type Term,
 } from "../lookup/lookup";
+import { newKeys, recategorized } from "../lookup/spans";
 import { sendStatus } from "../lookup/status";
 import { warn } from "../lookup/warn";
 import { inOtherLanguage } from "../page-language";
@@ -211,7 +211,7 @@ export async function startArticle(
   function casingOf(block: TextBlock) {
     let found = blockCasings.get(block);
     if (!found) {
-      found = blockCasing(tokenize(block.text, lang), lang);
+      found = textCasing(block.text, lang);
       blockCasings.set(block, found);
     }
     return found;
@@ -234,11 +234,12 @@ export async function startArticle(
     if (!before) return;
     const changed = casingChanges(before, after);
     if (changed !== "all" && changed.size === 0) return;
+    const keys = changed === "all" ? undefined : [...changed];
     const stale = [...spans.keys()].filter(
       (block) =>
         live.has(block) &&
-        (changed === "all" ||
-          [...changed].some((key) => casingOf(block).keys.has(key))),
+        (keys === undefined ||
+          keys.some((key) => casingOf(block).keys.has(key))),
     );
     if (stale.length > 0) run(() => reanalyze(stale));
   }
@@ -400,27 +401,21 @@ export async function startArticle(
   /** Gives spans a new category where `change` returns one, and highlights them. */
   function recategorize(change: (span: Span) => Category | undefined) {
     for (const [block, list] of spans) {
-      let changed = false;
-      const next = list.map((span) => {
-        const category = change(span);
-        if (category === undefined || category === span.category) return span;
-        changed = true;
-        return { ...span, category };
-      });
-      if (!changed) continue;
+      const next = recategorized(list, change);
+      if (!next) continue;
       versions.set(block, ++version);
       setSpans(block, next);
     }
   }
 
   /** Distinct keys of unsaved new words on the analyzed part of the page, in page order. */
-  function unsavedOnPage(): string[] {
-    const keys = new Set<string>();
-    for (const block of pageText.blocks().filter(inScope))
-      for (const span of spans.get(block) ?? [])
-        if (span.category === "new") keys.add(span.key);
-    return [...keys];
-  }
+  const unsavedOnPage = () =>
+    newKeys(
+      pageText
+        .blocks()
+        .filter(inScope)
+        .map((block) => spans.get(block)),
+    );
 
   const marks = createMarkAll({
     send: deps.send,

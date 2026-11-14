@@ -10,7 +10,7 @@ import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
-import type { WordsFilter, WordsSort } from "../words/words";
+import type { WordsFilter, WordsSort } from "../../ui/words/WordsList";
 import type { VideoPlace } from "./words";
 
 /** The tabs of the column beside the video. */

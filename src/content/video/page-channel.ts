@@ -2,8 +2,10 @@
  * The channel between Lingo's page script on a video site (MAIN world) and its content
  * script (isolated world): `window.postMessage` to the page's own origin. The page can
  * read and forge these messages, so both sides check the shape of what they receive.
- * Imported by the page scripts: no dependencies.
+ * Imported by the page scripts: depends only on modules without dependencies.
  */
+
+import { isAbortError } from "../abort";
 
 /** The `source` of each direction's messages. */
 export interface PageChannel {
@@ -151,9 +153,11 @@ export async function retryNetworkCall<T>(
     try {
       return await call();
     } catch (error) {
-      const aborted =
-        error instanceof DOMException && error.name === "AbortError";
-      if (aborted || signal?.aborted || attempt >= NETWORK_CALL_ATTEMPTS)
+      if (
+        isAbortError(error) ||
+        signal?.aborted ||
+        attempt >= NETWORK_CALL_ATTEMPTS
+      )
         throw error;
     }
   }

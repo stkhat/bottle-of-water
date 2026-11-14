@@ -6,6 +6,9 @@ import type { Box } from "./geometry";
 /** Above everything the page can stack. */
 export const TOP_LAYER = 2147483647;
 
+/** A card's `onMouseDown` over selected words: pressing its buttons keeps the selection. */
+export const keepSelection = (event: MouseEvent) => event.preventDefault();
+
 /** Gap between a word and the card or bar above it (mock `.pop`). */
 const GAP = 10;
 /** Closest a floating card comes to the viewport's edges. */
