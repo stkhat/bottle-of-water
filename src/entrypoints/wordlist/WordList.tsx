@@ -1,21 +1,13 @@
-import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { sendStatus } from "../../content/lookup/status";
 import { warn } from "../../content/lookup/warn";
-import { createTranslationQueue } from "../../content/translate/queue";
 import type { TranslationProvider } from "../../content/translate/translator";
-import {
-  createListMeanings,
-  withTranslation,
-} from "../../content/words/list-meanings";
 import type { WordStatus } from "../../core/classify";
-import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
 import { PacksUnavailableError } from "../../core/packs/unavailable";
-import { createPackWait, type PackWait } from "../../messaging/pack-wait";
 import { languagePair } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
-import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
+import type { TermSummary } from "../../messaging/protocol";
 import {
   BackupButtons,
   BackupStatus,
@@ -23,15 +15,12 @@ import {
   type BackupNote,
 } from "../../ui/backup/BackupButtons";
 import { BrandHeader } from "../../ui/BrandHeader";
-import { sameDay, shortDate } from "../../ui/format/format";
 import { SearchIcon } from "../../ui/icons";
-import { occurrenceItem } from "../../ui/lookup/elsewhere";
-import { ElsewhereRow } from "../../ui/lookup/ElsewhereRow";
-import { EntryHeader } from "../../ui/lookup/EntryHeader";
-import { StatusButtons } from "../../ui/lookup/StatusButtons";
-import { useRowsInView } from "../../ui/rows-in-view";
 import { Segmented } from "../../ui/Segmented";
-import { color, FONT, iconButton, sectionHeading } from "../../ui/styles";
+import { color, FONT, PAGE_BUTTON_CSS } from "../../ui/styles";
+import { DetailsPanel, savedFrom, type Details } from "./DetailsPanel";
+import { COLUMNS, Rows } from "./Rows";
+import { useWordListData } from "./useWordListData";
 
 /** What the word list works with; `main.tsx` passes the browser's, tests pass fakes. */
 export interface WordListDeps extends BackupDeps {
@@ -42,37 +31,18 @@ export interface WordListDeps extends BackupDeps {
   createTranslator(from: string, to: string): TranslationProvider;
 }
 
-type Style = CSSProperties;
 type StatusFilter = "all" | "learning" | "known";
 type KindFilter = "all" | "word" | "phrase";
 type Sort = "recent" | "az" | "seen";
 
-/** The selected word: its row, its status now, and what `lookup` gave. */
-interface Details {
-  term: TermSummary;
-  status: WordStatus;
-  entry?: DictionaryEntry;
-  /** The pack's IPA, also for a phrase no dictionary has (`LookupResult.ipa`). */
-  ipa?: string;
-  occurrences: OccurrenceView[];
-}
-
 const CSS = `
 body{margin:0;background:${color.surface}}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:${color.card};color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+${PAGE_BUTTON_CSS}
 .sel{height:40px;padding:0 12px;border:1px solid ${color.lineStrong};border-radius:8px;background:${color.card};color:${color.ink};font:inherit;font-size:14px}
 .th{font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:${color.muted};font-weight:600;text-align:left;padding:0 12px 10px}
 .rowb:hover{background:${color.surface} !important}
 .ib:hover{background:${color.surfaceGray} !important}
 `;
-
-const COLUMNS = "220px minmax(0, 1fr) 110px 70px 110px";
-/** A row's height plus the gap under it (px). */
-const ROW_STRIDE = 50;
-/** Above this many rows, only the rows in view are rendered. */
-const WINDOW_ABOVE = 500;
-/** Rows rendered beyond the view on each side while windowing. */
-const OVERSCAN = 6;
 
 const STATUS_TABS: readonly { id: StatusFilter; label: MessageKey }[] = [
   { id: "all", label: "filter.all" },
@@ -116,360 +86,10 @@ function FilterTabs<T extends string>(props: {
   );
 }
 
-function StatusBadge(props: { status: TermSummary["status"] }) {
-  const learning = props.status === "learning";
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        height: "24px",
-        padding: "0 9px",
-        borderRadius: "999px",
-        fontSize: "12px",
-        fontWeight: 600,
-        background: learning ? color.hlLearning : color.surfaceGray,
-        color: learning ? color.greenDark : color.ink2,
-      }}
-    >
-      {t(learning ? "status.learning" : "status.known")}
-    </span>
-  );
-}
-
-const phraseTag: Style = {
-  fontSize: "11px",
-  fontWeight: 600,
-  color: color.greenDark,
-  background: color.greenPale,
-  borderRadius: "999px",
-  padding: "2px 7px",
-};
-
-function Row(props: {
-  term: TermSummary;
-  selected: boolean;
-  nativeLang: string;
-  now: number;
-  onPick: () => void;
-  style?: Style;
-}) {
-  const { term, selected } = props;
-  return (
-    <button
-      type="button"
-      class={selected ? undefined : "rowb"}
-      data-row-id={term.id}
-      aria-pressed={selected}
-      onClick={props.onPick}
-      style={{
-        display: "grid",
-        gridTemplateColumns: COLUMNS,
-        alignItems: "center",
-        width: "100%",
-        height: "48px",
-        flex: "none",
-        boxSizing: "border-box",
-        textAlign: "left",
-        borderRadius: "8px",
-        font: "inherit",
-        color: color.ink,
-        cursor: "pointer",
-        padding: 0,
-        margin: 0,
-        ...(selected
-          ? {
-              background: color.greenPale,
-              border: `1px solid ${color.greenLine}`,
-            }
-          : { background: "transparent", border: "1px solid transparent" }),
-        ...props.style,
-      }}
-    >
-      <span
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          padding: "0 12px",
-          minWidth: 0,
-        }}
-      >
-        <span
-          data-head
-          style={{
-            fontSize: "15px",
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {term.key}
-        </span>
-        {term.kind === "phrase" && (
-          <span style={phraseTag}>{t("kind.phrase")}</span>
-        )}
-      </span>
-      <span
-        lang={term.glossLang ?? props.nativeLang}
-        style={{
-          padding: "0 12px",
-          fontSize: "14px",
-          color: color.ink2,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {term.short ?? ""}
-      </span>
-      <span style={{ padding: "0 12px" }}>
-        <StatusBadge status={term.status} />
-      </span>
-      <span
-        style={{
-          padding: "0 12px",
-          fontSize: "14px",
-          color: color.ink3,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {term.seen}
-      </span>
-      <span style={{ padding: "0 12px", fontSize: "13px", color: color.muted }}>
-        {shortDate(term.lastSeen, props.now)}
-      </span>
-    </button>
-  );
-}
-
-/** The rows, all of them, or only those in view above `WINDOW_ABOVE`. */
-function Rows(props: {
-  rows: TermSummary[];
-  selectedId: string | null;
-  nativeLang: string;
-  now: number;
-  empty: string | null;
-  onPick: (term: TermSummary) => void;
-  /** Rows came into view (their meanings may need translating). */
-  onShown: (terms: TermSummary[]) => void;
-}) {
-  const byId = new Map(props.rows.map((term) => [term.id, term]));
-  const scroller = useRowsInView<HTMLDivElement>((ids) =>
-    props.onShown(
-      ids.map((id) => byId.get(id)).filter((term) => term !== undefined),
-    ),
-  );
-  const [view, setView] = useState({ top: 0, height: 0 });
-  const windowed = props.rows.length > WINDOW_ABOVE;
-
-  useEffect(() => {
-    const element = scroller.current;
-    if (!element || !windowed) return;
-    const measure = () =>
-      setView({ top: element.scrollTop, height: element.clientHeight });
-    measure();
-    const resize = new ResizeObserver(measure);
-    resize.observe(element);
-    element.addEventListener("scroll", measure, { passive: true });
-    return () => {
-      resize.disconnect();
-      element.removeEventListener("scroll", measure);
-    };
-  }, [windowed]);
-
-  const row = (term: TermSummary, style?: Style) => (
-    <Row
-      key={term.id}
-      term={term}
-      selected={term.id === props.selectedId}
-      nativeLang={props.nativeLang}
-      now={props.now}
-      onPick={() => props.onPick(term)}
-      {...(style && { style })}
-    />
-  );
-
-  let content;
-  if (windowed) {
-    const first = Math.max(0, Math.floor(view.top / ROW_STRIDE) - OVERSCAN);
-    const last = Math.min(
-      props.rows.length,
-      Math.ceil((view.top + view.height) / ROW_STRIDE) + OVERSCAN,
-    );
-    content = (
-      <div
-        style={{
-          position: "relative",
-          flex: "none",
-          height: `${props.rows.length * ROW_STRIDE - 2}px`,
-        }}
-      >
-        {props.rows.slice(first, last).map((term, i) =>
-          row(term, {
-            position: "absolute",
-            left: 0,
-            top: `${(first + i) * ROW_STRIDE}px`,
-          }),
-        )}
-      </div>
-    );
-  } else content = props.rows.map((term) => row(term));
-
-  return (
-    <div
-      ref={scroller}
-      data-rows
-      style={{
-        flex: 1,
-        minHeight: 0,
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: "2px",
-      }}
-    >
-      {content}
-      {props.empty && (
-        <p
-          style={{
-            margin: 0,
-            padding: "24px 12px",
-            fontSize: "14px",
-            color: color.muted,
-          }}
-        >
-          {props.empty}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** The occurrence a removed word is saved again from: where it was saved, else the newest. */
-const savedFrom = (occurrences: readonly OccurrenceView[]) =>
-  occurrences.find((o) => o.origin === "saved") ?? occurrences[0];
-
-function DetailsPanel(props: {
-  details: Details;
-  /** The selected term's row now: its meaning may have been translated since. */
-  row: TermSummary | undefined;
-  nativeLang: string;
-  /** The language of the term and its sentences. */
-  learningLang: string;
-  now: number;
-  onStatus: (status: WordStatus) => void;
-  onSpeak: (head: string) => void;
-}) {
-  const { details, now } = props;
-  const { entry, term, occurrences } = details;
-  const head = entry?.head ?? term.key;
-  const items = occurrences.map((o) => {
-    const item = occurrenceItem(o);
-    const parts = [item.meta];
-    if (!sameDay(o.seenAt, now)) parts.push(shortDate(o.seenAt, now));
-    if (o.origin === "saved") parts.push(t("wordlist.savedHere"));
-    return { ...item, meta: parts.join(" · ") };
-  });
-  return (
-    <aside
-      aria-label={t("wordlist.details")}
-      style={{
-        width: "400px",
-        flex: "none",
-        background: color.card,
-        border: `1px solid ${color.line}`,
-        borderRadius: "14px",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 0,
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          padding: "20px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "18px",
-        }}
-      >
-        <EntryHeader
-          head={head}
-          kind={term.kind}
-          ipa={entry?.ipa ?? details.ipa}
-          {...(props.row?.machineTranslated
-            ? { short: props.row.short, shortLang: props.nativeLang }
-            : {
-                short: entry?.short,
-                shortLang: entry?.glossLang ?? props.nativeLang,
-              })}
-          onSpeak={() => props.onSpeak(head)}
-          speakStyle={iconButton}
-          speakClass="ib"
-        />
-
-        <StatusButtons
-          status={details.status}
-          onStatus={props.onStatus}
-          removeBorder={color.chipLine}
-          saveDisabled={!savedFrom(occurrences)}
-        />
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <h3 style={sectionHeading}>
-            {t("wordlist.seenIn", { count: items.length })}
-          </h3>
-          {items.map((item, i) => (
-            <ElsewhereRow key={i} item={item} lang={props.learningLang} />
-          ))}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 /** The word list page (mock WordList): saved words, filters, and the selected word's details. */
 export function WordList({ deps }: { deps: WordListDeps }) {
-  const [langs, setLangs] = useState<{ learning: string; native: string }>();
-  const [terms, setTerms] = useState<TermSummary[]>();
-  /** The rows as last set (state updates come with the next render). */
-  const termsNow = useRef<TermSummary[]>(undefined);
-  termsNow.current = terms;
-  const langsNow = useRef(langs);
-  langsNow.current = langs;
-  /** English meanings translated with the page's translator, as the rows come into view. */
-  const meanings = useRef<ReturnType<typeof createListMeanings>>(undefined);
-  meanings.current ??= createListMeanings({
-    send: deps.send,
-    translator: createTranslationQueue(deps.createTranslator),
-    lang: () => langsNow.current?.learning ?? "",
-    nativeLang: () => langsNow.current?.native ?? "",
-    meanings: () =>
-      (termsNow.current ?? []).map((term): [string, TermSummary] => [
-        term.id,
-        term,
-      ]),
-    meaning: (id) => termsNow.current?.find((term) => term.id === id),
-    translated(changes) {
-      const list = termsNow.current?.map((term) => {
-        const translated = changes.get(term.id);
-        return translated === undefined
-          ? term
-          : withTranslation(term, translated);
-      });
-      show(list);
-    },
-  });
-
-  function show(list: TermSummary[] | undefined) {
-    termsNow.current = list;
-    setTerms(list);
-  }
+  const data = useWordListData(deps);
+  const { langs, terms, reload, findTerm, packs, meanings } = data;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [kind, setKind] = useState<KindFilter>("all");
@@ -481,43 +101,9 @@ export function WordList({ deps }: { deps: WordListDeps }) {
   const looking = useRef<string | null>(null);
   /** The selected term whose lookup waits for language data. */
   const lookupWaiting = useRef<TermSummary | null>(null);
-  /** Runs once the language data waited for can be used (set on every render). */
-  const onPacksReady = useRef(() => {});
-  /** Waits for language data a request did not find on the device. */
-  const packs = useRef<PackWait>(undefined);
-  packs.current ??= createPackWait(deps.watchPackState, () =>
-    onPacksReady.current(),
-  );
   const now = deps.now();
 
-  /**
-   * Reads the rows again. While the language's dictionary is not on the device they
-   * come without meanings, and are read again once it is.
-   */
-  async function reload(lang = langs?.learning) {
-    if (!lang) return;
-    const wait = packs.current!;
-    if (!wait.waiting) {
-      try {
-        const list = await deps.send({ type: "listTermsWithStats", lang });
-        show(list);
-        meanings.current!.refresh();
-        return list;
-      } catch (error) {
-        if (!(error instanceof PacksUnavailableError)) throw error;
-        wait.add(error.packs);
-      }
-    }
-    const list = await deps.send({
-      type: "listTermsWithStats",
-      lang,
-      meanings: false,
-    });
-    show(list);
-    return list;
-  }
-
-  onPacksReady.current = () => {
+  data.onPacksReady.current = () => {
     const waiting = lookupWaiting.current;
     lookupWaiting.current = null;
     reload()
@@ -527,33 +113,6 @@ export function WordList({ deps }: { deps: WordListDeps }) {
       })
       .catch(warn);
   };
-
-  useEffect(
-    () => () => {
-      packs.current?.stop();
-      meanings.current?.stop();
-    },
-    [],
-  );
-
-  useEffect(() => {
-    deps.send({ type: "getSettings" }).then((settings) => {
-      setLangs({
-        learning: settings.learningLang,
-        native: settings.nativeLang,
-      });
-      return reload(settings.learningLang);
-    }, warn);
-  }, []);
-
-  useEffect(() => {
-    if (!langs) return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") reload().catch(warn);
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [langs]);
 
   const rows = useMemo(() => {
     if (!terms) return [];
@@ -602,7 +161,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
         ) {
           // Looked up again once the data is on the device.
           lookupWaiting.current = term;
-          packs.current!.add(error.packs);
+          packs.add(error.packs);
         }
         warn(error);
       });
@@ -788,7 +347,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             empty={empty}
             onPick={select}
             onShown={(shown) =>
-              meanings.current!.shown(
+              meanings.shown(
                 shown.map((term) => ({ key: term.id, head: term.display })),
               )
             }
@@ -797,7 +356,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
         {details && (
           <DetailsPanel
             details={details}
-            row={terms?.find((term) => term.id === details.term.id)}
+            row={findTerm(details.term.id)}
             nativeLang={langs.native}
             learningLang={langs.learning}
             now={now}

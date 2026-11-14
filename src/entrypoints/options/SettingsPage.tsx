@@ -19,7 +19,7 @@ import type {
 } from "../../messaging/protocol";
 import type { BackupDeps } from "../../ui/backup/BackupButtons";
 import { BrandHeader } from "../../ui/BrandHeader";
-import { color, FONT } from "../../ui/styles";
+import { color, FONT, PAGE_BUTTON_CSS } from "../../ui/styles";
 import { AboutSection } from "./sections/About";
 import { AppearanceSection } from "./sections/Appearance";
 import { ArticlesSection } from "./sections/Articles";
@@ -66,7 +66,7 @@ a{color:${color.greenText}}a:hover{color:${color.greenDark}}
 .lead{margin:-10px 0 0;font-size:14px;line-height:1.5;color:${color.muted}}
 .row{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid ${color.soft}}
 .sel{height:40px;min-width:220px;padding:0 12px;border:1px solid ${color.lineStrong};border-radius:8px;background:${color.card};color:${color.ink};font:inherit;font-size:14px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;border:1px solid ${color.lineStrong};background:${color.card};color:${color.ink};font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+${PAGE_BUTTON_CSS}
 .nav{display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:${color.ink2};text-decoration:none;font-size:14px}
 .nav:hover{background:${color.soft};color:${color.ink}}
 .nav[aria-current="true"]{background:${color.greenPale};color:${color.greenDark};font-weight:600}
