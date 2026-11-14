@@ -807,7 +807,7 @@ describe("mountVideoUi", () => {
         .toBe(innerWidth - 392);
       await expect
         .poll(() => aside()?.getBoundingClientRect().height)
-        .toBe(768);
+        .toBe(innerHeight - 32);
       expect(text("lingo-transcript")).toContain("Knead the dough.");
       // The subtitle stays in the narrowed player.
       const region = inside("lingo-video-player")!

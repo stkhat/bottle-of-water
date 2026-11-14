@@ -72,7 +72,14 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright(),
-            instances: browsers.map((browser) => ({ browser })),
+            // Each test file runs in a window of its own. Firefox has one active window,
+            // and a window that becomes active (another file's click or focus) ends the
+            // drag selection and the fullscreen in the one that was: Firefox runs its
+            // files one at a time. Chromium keeps every page active, so its run side by side.
+            instances: browsers.map((browser) => ({
+              browser,
+              fileParallelism: browser !== "firefox",
+            })),
             commands: { emulateMedia },
           },
         },
