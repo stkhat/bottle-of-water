@@ -1837,6 +1837,17 @@ describe("fullscreen", () => {
     expect(site.log.hidden.at(-1)).toBe(true);
   });
 
+  it("gives the site's captions back for the next video while it loads and when it has none", async () => {
+    // A Short after a Short with captions: YouTube's own must not stay hidden.
+    const { state, site } = await start({ vid1: captionsOf(CUES) });
+    await ready(state);
+    expect(site.log.hidden).toEqual([true]);
+    site.navigate("vid2");
+    expect(site.log.hidden).toEqual([true, false]);
+    await expect.poll(() => state().status).toBe("unavailable");
+    expect(site.log.hidden).toEqual([true, false]);
+  });
+
   it("gives the site's captions back when Lingo is turned off in fullscreen", async () => {
     const { state, app, site } = await start();
     await ready(state);

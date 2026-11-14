@@ -11,6 +11,7 @@ Tools: Playwright Chromium (headless and headed) and, because of the token probl
 - In a regular browser the player's request works (`en` 59 KB, `ja` 44 KB, `en&tlang=ja` 51 KB, `a.en` 379 KB as json3).
 - **Once one player request is captured, we can fetch the other tracks ourselves**: take that URL, change `lang`, add `tlang=ja`, or add `kind=asr`, and `fetch` it from the page — all returned full bodies. Removing `pot`/`potc` or the client params (`c`, `cver`, `cplayer`, `cbr`, …) gives an empty body again.
 - The token is **bound to the video**: the same `pot` + client params on another video's `baseUrl` returns an empty body. Capture one player request per video.
+- A track's own parameters (`lang`, `kind`, and `variant` where its `baseUrl` has one) must stay that track's: another track's `variant` gets an empty body (seen on Shorts, [youtube-shorts.md](youtube-shorts.md)). Build each track's URL from its `baseUrl` plus what the player added (`trackUrl`).
 - Answer to the spec's open question: yes, the extension can get the Japanese track and `tlang=ja`, but only after the player has made one timedtext request for that video (either on its own or because we asked it to load a track).
 
 ## Caption track list

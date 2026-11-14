@@ -34,7 +34,7 @@ export interface AsrOptions {
 export interface MergeOptions extends AsrOptions {
   /** A silence at least this long ends a sentence (ms). Ignored in punctuated tracks. */
   pauseMs?: number;
-  /** A sentence longer than this is split at its largest gap (default 20, 40 in punctuated tracks). */
+  /** A sentence longer than this is split at its largest gap (default 20, MAX_CARD_WORDS in punctuated tracks). */
   maxWords?: number;
   /** A pause does not end a sentence shorter than this. */
   minWords?: number;
@@ -45,6 +45,8 @@ export interface TranslatedCards extends SentenceCards {
   translations: string[];
 }
 
+/** The most words in one transcript card of an auto-generated track. */
+const MAX_CARD_WORDS = 30;
 /** Rough time to say a character, to estimate where a word ends from where it starts. */
 const MS_PER_CHAR = 70;
 /** A track counts as punctuated when this share of its words end a sentence. */
@@ -99,7 +101,7 @@ function sentencesByPauses(
 ): Token[][] {
   const punctuated = isPunctuated(tokens);
   const pauseMs = punctuated ? Infinity : (options.pauseMs ?? 800);
-  const maxWords = options.maxWords ?? (punctuated ? 40 : 20);
+  const maxWords = options.maxWords ?? (punctuated ? MAX_CARD_WORDS : 20);
   const minWords = options.minWords ?? 2;
 
   const sentences: Token[][] = [];
@@ -310,16 +312,54 @@ function candidatesOf(tokens: readonly Token[], lang: string): Candidate[] {
   return candidates;
 }
 
+/** A piece of a translated sentence up to a clause mark (、 , ;) or the sentence's end. */
+interface Clause {
+  /** As in the stream, not cleaned. */
+  raw: string;
+  /** When its last character has been said (ms), spread over the cue's time. */
+  ms: number;
+}
+
 interface TranslatedSentences {
   /** Each translated sentence; the last may have no end mark. */
   texts: string[];
   /** When each sentence's end mark is said (ms), for every sentence that has one. */
   endsMs: number[];
+  /** Each sentence cut at its clause marks, in order: a long card's translation may be cut there. */
+  clauses: Clause[][];
 }
 
 /**
+ * A bracket that closes within this many characters holds a short quotation or a label
+ * (「いいね！」, （音楽）): the marks inside it end nothing. A longer quotation is speech of its
+ * own whose sentences end inside it, and an opening that never closes (YouTube's translation
+ * often loses the closing one) must not swallow every sentence end after it.
+ */
+const SHORT_BRACKET_CHARS = 20;
+
+/** Which characters of `stream` are inside a short bracket pair (SHORT_BRACKET_CHARS). */
+function inShortBrackets(stream: string): boolean[] {
+  const inside = new Array<boolean>(stream.length).fill(false);
+  const open: number[] = [];
+  for (let p = 0; p < stream.length; p++) {
+    const c = stream[p] as string;
+    if (OPENING.test(c)) open.push(p);
+    else if (CLOSING.test(c) && open.length > 0) {
+      const from = open.pop() as number;
+      if (p - from <= SHORT_BRACKET_CHARS)
+        for (let q = from + 1; q < p; q++) inside[q] = true;
+    }
+  }
+  return inside;
+}
+
+/** A mark that ends a clause: 、，；, or a comma or semicolon before a space. */
+const CLAUSE_END = /[、，；]/;
+const WESTERN_CLAUSE_END = /[,;]/;
+
+/**
  * Splits a translation into sentences: after 。！？ anywhere, after . ! ? … before a space or
- * the end, but not inside brackets (「いいね！」を押して… goes on).
+ * the end, but not inside a short bracket pair (「いいね！」を押して… goes on).
  */
 function translatedSentences(
   cues: readonly Cue[],
@@ -327,19 +367,38 @@ function translatedSentences(
 ): TranslatedSentences {
   let stream = "";
   const timeAt: number[] = [];
-  for (const token of tokensOf(cues, joiner)) {
+  /** When each character has been said: spread over its piece's time (clause ends only). */
+  const saidAt: number[] = [];
+  const tokens = tokensOf(cues, joiner);
+  tokens.forEach((token, i) => {
     stream += token.text;
-    for (let k = 0; k < token.text.length; k++) timeAt.push(token.startMs);
-  }
+    const next = tokens[i + 1]?.startMs ?? token.cueEndMs;
+    const until = Math.max(token.startMs, Math.min(next, token.cueEndMs));
+    for (let k = 0; k < token.text.length; k++) {
+      timeAt.push(token.startMs);
+      saidAt.push(
+        token.startMs + ((k + 1) / token.text.length) * (until - token.startMs),
+      );
+    }
+  });
+  const inside = inShortBrackets(stream);
+  const spaceAt = (p: number) =>
+    p >= stream.length || /\s/.test(stream[p] as string);
   const texts: string[] = [];
   const endsMs: number[] = [];
-  let depth = 0;
+  const clauses: Clause[][] = [];
   let start = 0;
+  let clauseStart = 0;
+  let current: Clause[] = [];
+  const cut = (end: number, ms: number) => {
+    if (clean(stream.slice(clauseStart, end)) !== "")
+      current.push({ raw: stream.slice(clauseStart, end), ms });
+    clauseStart = end;
+  };
   for (let p = 0; p < stream.length; p++) {
     const c = stream[p] as string;
-    if (OPENING.test(c)) depth++;
-    else if (CLOSING.test(c)) depth = Math.max(0, depth - 1);
-    else if (depth === 0 && (CJK_END.test(c) || WESTERN_END.test(c))) {
+    if (inside[p]) continue;
+    if (CJK_END.test(c) || WESTERN_END.test(c)) {
       const cjk = CJK_END.test(c);
       let end = p + 1;
       while (
@@ -347,17 +406,27 @@ function translatedSentences(
         /[。！？.!?…"”'’]/.test(stream[end] as string)
       )
         end++;
-      if (!cjk && end < stream.length && !/\s/.test(stream[end] as string))
-        continue;
+      if (!cjk && !spaceAt(end)) continue;
       texts.push(clean(stream.slice(start, end)));
       endsMs.push(timeAt[p] as number);
+      cut(end, saidAt[p] as number);
+      clauses.push(current);
+      current = [];
       start = end;
       p = end - 1;
-    }
+    } else if (
+      CLAUSE_END.test(c) ||
+      (WESTERN_CLAUSE_END.test(c) && spaceAt(p + 1))
+    )
+      cut(p + 1, saidAt[p] as number);
   }
   const rest = clean(stream.slice(start));
-  if (rest !== "") texts.push(rest);
-  return { texts, endsMs };
+  if (rest !== "") {
+    texts.push(rest);
+    cut(stream.length, saidAt[stream.length - 1] as number);
+    clauses.push(current);
+  }
+  return { texts, endsMs, clauses };
 }
 
 const firstEndingAtOrAfter = (candidates: readonly Candidate[], ms: number) =>
@@ -468,6 +537,67 @@ function matchEnds(
   return matches;
 }
 
+/** Neither part of a split card is shorter than this (words). */
+const MIN_PART_WORDS = 4;
+/** How much an uneven split costs (per share of the card away from an even one). */
+const BALANCE_COST = 10;
+/** A translated clause end further than this (s) from a split marks nothing there. */
+const CLAUSE_WINDOW_S = 3;
+
+/** A clause of the translation of a card, and which translated sentence it is part of. */
+interface Unit extends Clause {
+  sentence: number;
+}
+
+/**
+ * Puts `tokens[from, to)` and its translation `units` into cards of at most MAX_CARD_WORDS
+ * words: a longer one (YouTube translates a run-on as one long sentence) is split into as
+ * few even parts as that takes, each split at the likeliest boundary (by the same priors as
+ * sentence ends) near an even share, and its translation at the clause end said closest to
+ * it. Without such a clause end there, both parts keep the whole translation, as a
+ * translated line shows on every card it covers (rule G).
+ */
+function capCard(
+  candidates: readonly Candidate[],
+  from: number,
+  to: number,
+  units: readonly Unit[],
+  push: (from: number, to: number, units: readonly Unit[]) => void,
+): void {
+  const words = to - from;
+  if (words <= MAX_CARD_WORDS) return push(from, to, units);
+  const parts = Math.ceil(words / MAX_CARD_WORDS);
+  let best: { at: number; unit: number; cost: number } | undefined;
+  for (let at = from + MIN_PART_WORDS; at <= to - MIN_PART_WORDS; at++) {
+    const candidate = candidates[at - 1] as Candidate;
+    const share = (at - from) / words;
+    let balance = Infinity;
+    for (let k = 1; k < parts; k++)
+      balance = Math.min(balance, Math.abs(share - k / parts));
+    let unit = -1;
+    let distance = CLAUSE_WINDOW_S;
+    for (let u = 1; u < units.length; u++) {
+      const ms = (units[u - 1] as Unit).ms;
+      const d =
+        (ms < candidate.fromMs
+          ? candidate.fromMs - ms
+          : ms > candidate.toMs
+            ? ms - candidate.toMs
+            : 0) / 1000;
+      if (d < distance) {
+        distance = d;
+        unit = u;
+      }
+    }
+    const cost = candidate.prior + BALANCE_COST * balance + distance;
+    if (!best || cost < best.cost) best = { at, unit, cost };
+  }
+  if (!best) return push(from, to, units);
+  const { at, unit } = best;
+  capCard(candidates, from, at, unit < 0 ? units : units.slice(0, unit), push);
+  capCard(candidates, at, to, unit < 0 ? units : units.slice(unit), push);
+}
+
 /**
  * Transcript cards from an auto-generated track and the site's machine translation of it
  * (YouTube `tlang`). YouTube translates whole sentences, punctuating them even when the track
@@ -500,19 +630,54 @@ export function alignAsrSentences(
   const sentences: Token[][] = [];
   const translations: string[] = [];
   const joiner = options.translationJoiner ?? " ";
+  const textOfUnits = (units: readonly Unit[]) => {
+    const parts: string[] = [];
+    for (let i = 0; i < units.length;) {
+      const { sentence } = units[i] as Unit;
+      let j = i;
+      while (j < units.length && (units[j] as Unit).sentence === sentence) j++;
+      const whole =
+        j - i === (translation.clauses[sentence] as Clause[]).length;
+      parts.push(
+        whole
+          ? (translation.texts[sentence] as string)
+          : clean(
+              units
+                .slice(i, j)
+                .map((u) => u.raw)
+                .join(""),
+            ),
+      );
+      i = j;
+    }
+    return parts.filter((p) => p !== "").join(joiner);
+  };
+  const push = (from: number, to: number, units: readonly Unit[]) => {
+    sentences.push(tokens.slice(from, to));
+    translations.push(textOfUnits(units));
+  };
+  const unitsOf = (list: readonly number[]) =>
+    list.flatMap((sentence) =>
+      (translation.clauses[sentence] as Clause[]).map((clause) => ({
+        ...clause,
+        sentence,
+      })),
+    );
+  const capped = (from: number, to: number, list: number[]) =>
+    capCard(candidates, from, to, unitsOf(list), push);
+
   let start = 0;
-  let pending: string[] = [];
+  let pending: number[] = [];
   matches.forEach((candidate, j) => {
-    pending.push(translation.texts[j] as string);
+    pending.push(j);
     if (candidate < 0) return;
     const after = (candidates[candidate] as Candidate).after;
-    sentences.push(tokens.slice(start, after + 1));
-    translations.push(pending.join(joiner));
+    capped(start, after + 1, pending);
     start = after + 1;
     pending = [];
   });
-  pending.push(...translation.texts.slice(matches.length));
-  sentences.push(tokens.slice(start));
-  translations.push(pending.join(joiner));
+  for (let j = matches.length; j < translation.texts.length; j++)
+    pending.push(j);
+  capped(start, tokens.length, pending);
   return { ...cardsOf(sentences, options), translations };
 }

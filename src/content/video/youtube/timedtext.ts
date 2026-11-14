@@ -5,23 +5,43 @@ import type {
   YouTubeTrack,
 } from "../../../core/subtitles/youtube-json3";
 
+/** Parameters that name a track: they come from the track's own `baseUrl`, never from another track's request. */
+const TRACK_PARAMS = new Set(["lang", "kind", "tlang", "variant", "name"]);
+
 /**
- * The URL of another track of the same video, made from a timedtext URL the player
- * requested: its PO token and client params stay, `lang`, `kind` and `tlang` change,
- * and the format is json3. (A bare `baseUrl` without the token gets an empty body.)
+ * The URL of a track of the same video (or of its auto-translation with `tlang`), made from
+ * the track's own `baseUrl` and a timedtext URL the player requested: the request's PO
+ * token and client params, which the `baseUrl` lacks, are added, and the format is json3.
+ * Parameters that name a track (`lang`, `kind`, `variant`…) stay the `baseUrl`'s: YouTube
+ * answers a request with another track's `variant` with an empty body (seen on Shorts,
+ * docs/notes/youtube-shorts.md). A bare `baseUrl` without the token gets an empty body too.
  */
 export function trackUrl(
   captured: string,
-  track: { lang: string; asr: boolean; tlang?: string },
+  tracks: readonly YouTubeTrack[],
+  target: { track: YouTubeTrack; tlang?: string },
 ): string {
-  const url = new URL(captured);
-  const q = url.searchParams;
-  q.set("lang", track.lang);
-  if (track.asr) q.set("kind", "asr");
-  else q.delete("kind");
-  if (track.tlang) q.set("tlang", track.tlang);
-  else q.delete("tlang");
-  q.set("fmt", "json3");
+  const request = new URL(captured);
+  const q = request.searchParams;
+  // What the player added to its track's baseUrl, when that track is known.
+  const own = tracks.find(
+    (t) =>
+      t.lang === q.get("lang") &&
+      (t.kind === "asr") === (q.get("kind") === "asr"),
+  );
+  const ownBase = own && new URL(own.baseUrl, captured).searchParams;
+  // On the request's origin, which the page script fetches from.
+  const base = new URL(target.track.baseUrl, captured);
+  const url = new URL(base.pathname + base.search, request.origin);
+  const params = url.searchParams;
+  for (const [key, value] of q) {
+    if (key === "tlang" || params.has(key)) continue;
+    if (ownBase ? ownBase.has(key) : TRACK_PARAMS.has(key)) continue;
+    params.set(key, value);
+  }
+  if (target.tlang) params.set("tlang", target.tlang);
+  else params.delete("tlang");
+  params.set("fmt", "json3");
   return url.href;
 }
 
