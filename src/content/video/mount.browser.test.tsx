@@ -796,9 +796,16 @@ describe("mountVideoUi", () => {
         .poll(() => host("lingo-transcript").parentElement?.id)
         .toBe("secondary-inner");
       await fullscreen();
+      // The sidebar is made on the fullscreen change, after the fullscreen element is
+      // set in some engines: compare with it once it is there.
       await expect
-        .poll(() => host("lingo-transcript").parentElement)
-        .toBe(sidebar());
+        .poll(() => {
+          const made = sidebar();
+          return (
+            made !== null && host("lingo-transcript").parentElement === made
+          );
+        })
+        .toBe(true);
       // 360px wide, 16px in from the top, right and bottom edges; the player beside it.
       const box = sidebar()!.getBoundingClientRect();
       expect([

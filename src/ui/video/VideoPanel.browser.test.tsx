@@ -109,6 +109,23 @@ const cards = (screen: { container: HTMLElement }) => [
   ...screen.container.querySelectorAll<HTMLElement>("[data-cue]"),
 ];
 
+/**
+ * Waits until the list stops scrolling: it scrolls smoothly to the playing card once
+ * mounted, and a drag made meanwhile presses where the words were (slow runners).
+ */
+async function listAtRest(screen: { container: HTMLElement }) {
+  const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+  let last = Number.NaN;
+  await expect
+    .poll(async () => {
+      await new Promise(requestAnimationFrame);
+      const same = list.scrollTop === last;
+      last = list.scrollTop;
+      return same;
+    })
+    .toBe(true);
+}
+
 describe("the Transcript tab", () => {
   test("has the header: L badge, the tabs, Translation switch and Highlight chips", async () => {
     const screen = await mountInShadowRoot(<VideoPanel {...base} />);
@@ -300,6 +317,7 @@ describe("the Transcript tab", () => {
     );
     const line = cards(screen)[2]!.querySelector<HTMLElement>("[lang=en]")!;
     const bunch = screen.getByText("bunch").element() as HTMLElement;
+    await listAtRest(screen);
     const { height } = line.getBoundingClientRect();
     // From inside "I've" to the middle of "bunch".
     await userEvent.dragAndDrop(
@@ -336,6 +354,7 @@ describe("the Transcript tab", () => {
         onSeek={onSeek}
       />,
     );
+    await listAtRest(screen);
     const bunch = screen.getByText("bunch").element() as HTMLElement;
     const { width, height } = bunch.getBoundingClientRect();
     await userEvent.dragAndDrop(

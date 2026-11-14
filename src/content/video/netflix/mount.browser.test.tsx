@@ -538,7 +538,13 @@ describe("the transcript sidebar on Netflix", () => {
 
   it("narrows the player for the sidebar beside it, covering nothing of the video", async () => {
     start();
-    await expect.poll(() => transcript()?.parentElement).toBe(sidebar());
+    // The sidebar may be made after the first look: compare with it once it is there.
+    await expect
+      .poll(() => {
+        const made = sidebar();
+        return made !== null && transcript()?.parentElement === made;
+      })
+      .toBe(true);
     const box = sidebar()!.getBoundingClientRect();
     expect([box.top, box.right, box.bottom, box.width]).toEqual([
       16,
