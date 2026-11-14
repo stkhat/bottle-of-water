@@ -16,8 +16,8 @@ import {
   type WordRole,
   type WordUse,
 } from "./tagging/tagger";
-import { sentenceSegments } from "./text/sentences";
-import { normalizeWord, type Token } from "./text/tokenize";
+import { blockText, type BlockText } from "./text/sentences";
+import type { Token } from "./text/tokenize";
 
 /** A word as its sentence's tags read it. */
 export interface WordReading {
@@ -42,24 +42,26 @@ const PAUSE = /[,.;:!?…"“”()[\]—–]|\s-\s|--|>>/;
 /**
  * Tags a block's tokens sentence by sentence, and reads how each of its words (`words`,
  * the phrase matcher's) is used. In an ALL-CAPS document (`upper`) the tagger reads the
- * text in lower case, closer to what it learned from. Empty without a tagger.
+ * text in lower case, closer to what it learned from. Empty without a tagger. `block`:
+ * the tokens' text and sentences, when the caller has read them already.
  */
 export function readWords(
   pack: LanguagePack,
   tokens: readonly Token[],
   words: readonly MatchWord[],
   upper: boolean,
+  block?: BlockText,
 ): WordReading[] {
   const { tagger } = pack;
   if (!tagger || words.length === 0) return [];
-  const text = tokens.map((token) => token.text).join("");
+  const { text, sentences } = block ?? blockText(tokens, pack.lang);
   const tagAt = new Map<number, TokenTag>();
   /** Each word's sentence, by its index. */
   const sentenceOf: number[] = [];
   let t = 0;
   let w = 0;
   let sentence = 0;
-  for (const { end } of sentenceSegments(text, pack.lang)) {
+  for (const { end } of sentences) {
     const parts: Token[] = [];
     for (; t < tokens.length && tokens[t]!.start < end; t++)
       if (tokens[t]!.text.trim() !== "") parts.push(tokens[t]!);
@@ -80,18 +82,19 @@ export function readWords(
       PAUSE.test(text.slice(previous.token.end, token.start))
     );
   });
-  const tagged = words.map(({ token, bases }, i): TaggedWord | undefined => {
-    const tag = tagAt.get(token.start);
-    if (!tag) return undefined;
-    const form = normalizeWord(token.text);
-    return {
-      form,
-      bases,
-      tag,
-      trusted: trustedTag(tag, tagger.threshold, form, bases),
-      pauseBefore: pauses[i]!,
-    };
-  });
+  const tagged = words.map(
+    ({ token, form, bases }, i): TaggedWord | undefined => {
+      const tag = tagAt.get(token.start);
+      if (!tag) return undefined;
+      return {
+        form,
+        bases,
+        tag,
+        trusted: trustedTag(tag, tagger.threshold, form, bases),
+        pauseBefore: pauses[i]!,
+      };
+    },
+  );
 
   const readings: WordReading[] = [];
   let from = 0;

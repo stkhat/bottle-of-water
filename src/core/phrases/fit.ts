@@ -44,7 +44,8 @@ interface Match {
   words: readonly number[];
 }
 
-interface Context {
+/** A match in its sentence, as the fit rules read it (`fitContext`). */
+export interface FitContext {
   /** The pattern's own parts of speech. */
   pos: readonly string[];
   /** The pattern's words. */
@@ -58,11 +59,15 @@ interface Context {
   after?: WordReading;
 }
 
-function contextOf(
+/**
+ * A match's context: undefined when its first or last word has no reading (no tagger).
+ * Built once per match for `phraseMisfit` and `markerPos`.
+ */
+export function fitContext(
   pack: FitPack,
   { key, words }: Match,
   readings: readonly WordReading[],
-): Context | undefined {
+): FitContext | undefined {
   const first = words[0]!;
   const last = words.at(-1)!;
   const head = readings[first];
@@ -110,7 +115,7 @@ const ADVERB_FOLLOWERS: ReadonlySet<string> = new Set([
 ]);
 
 /** A verb-final interjection before an object is the verb ("you know the guy"). */
-const takesObject = (c: Context, punctuated: boolean) =>
+const takesObject = (c: FitContext, punctuated: boolean) =>
   punctuated &&
   c.main(c.pattern.at(-1)) === "verb" &&
   c.after?.role?.object === true;
@@ -120,7 +125,7 @@ const takesObject = (c: Context, punctuated: boolean) =>
  * personal pronoun ("you tell me", "you hear me"), inside a longer sentence: a word right before or after it, in a
  * punctuated document ("why don't you tell me what's going on").
  */
-const insideClause = (c: Context, punctuated: boolean) =>
+const insideClause = (c: FitContext, punctuated: boolean) =>
   punctuated &&
   c.head.role?.personal === true &&
   c.head.role.subject &&
@@ -163,16 +168,19 @@ const insideClause = (c: Context, punctuated: boolean) =>
  *     determiner or a number;
  *   - adjective or noun, with no verb among the pattern's parts of speech: not where a
  *     word of it is tagged as a bare verb ("I have to go" is no "to go": 持ち帰り).
+ *
+ * `context`: the match's `fitContext`, when the caller has it already.
  */
 export function phraseMisfit(
   pack: FitPack,
   match: Match,
   readings: readonly WordReading[],
   punctuated: boolean,
+  context?: FitContext,
 ): PhraseRule | undefined {
   const own = pack.phrasePos(match.key);
   if (own.length === 1 && own[0] === UTTERANCE) return "utterance";
-  const c = contextOf(pack, match, readings);
+  const c = context ?? fitContext(pack, match, readings);
   if (!c) return undefined;
   const { pos, pattern, head, tail, before, after } = c;
   const particles = pack.rules.particles;
@@ -217,13 +225,14 @@ export function phraseMisfit(
     case "intj":
     case "particle": {
       const role = before?.role;
-      const clause = c.main(pattern[0]) === "pronoun";
+      const first = c.main(pattern[0]);
+      const clause = first === "pronoun";
       if (
         role &&
         (role.modal ||
           (!clause &&
             (role.determiner || role.infinitive || role.preposition)) ||
-          (c.main(pattern[0]) === "verb" && role.subject))
+          (first === "verb" && role.subject))
       )
         return "interjection";
       return takesObject(c, punctuated) || insideClause(c, punctuated)
@@ -262,15 +271,17 @@ export function phraseMisfit(
  * A discourse marker's part of speech (`Span.pos`): a phrase the source also has as an
  * interjection or a particle ("you know", "I mean", "come on"), at the start of a
  * clause (the block's start, or after punctuation) and not before an object when it
- * ends in a verb, takes its interjection senses first. Undefined elsewhere.
+ * ends in a verb, takes its interjection senses first. Undefined elsewhere. `context`:
+ * the match's `fitContext`, when the caller has it already.
  */
 export function markerPos(
   pack: FitPack,
   match: Match,
   readings: readonly WordReading[],
   punctuated: boolean,
+  context?: FitContext,
 ): string | undefined {
-  const c = contextOf(pack, match, readings);
+  const c = context ?? fitContext(pack, match, readings);
   if (!c || c.before) return undefined;
   if (!c.pos.some((pos) => pos === "intj" || pos === "particle"))
     return undefined;

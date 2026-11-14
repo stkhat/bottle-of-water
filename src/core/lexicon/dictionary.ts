@@ -17,6 +17,7 @@ import {
   definitionLine,
   japaneseForm,
   japanesePointer,
+  keyOf,
   shortLines,
   shortOfDefinition,
   type Pointer,
@@ -118,10 +119,6 @@ export interface EnJaDictionaryData {
   ipa: IpaPack;
 }
 
-/** A term key: lowercase words separated by single spaces. */
-const normalize = (term: string) =>
-  term.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
-
 const NO_POS: PosPack = {};
 
 /**
@@ -179,14 +176,14 @@ function dictionaryOver(
   /** Outlines are read for every analyzed word with a tag: each headword's once. */
   const outlines = new Map<string, EntryOutline | undefined>();
   return {
-    capitalMeaning: (term) => capitalMeaning(normalize(term)),
+    capitalMeaning: (term) => capitalMeaning(keyOf(term)),
     outline: (term) => {
-      const head = normalize(term);
+      const head = keyOf(term);
       if (!outlines.has(head)) outlines.set(head, outline(head));
       return outlines.get(head);
     },
     entry: (term, written, pos) => {
-      const head = normalize(term);
+      const head = keyOf(term);
       const found = find(head, written, pos);
       if (!found) return undefined;
       const headIpa = ipaFor(head, ipa);
@@ -298,9 +295,9 @@ export function createEnJaDictionary(
     },
     (head) => {
       const found = japanese(head, data.pos);
-      if (found) return outlineOf(found.senses, japaneseSense);
-      const definition = definitionOf(head, data.defs);
-      return definition && outlineOf(definition.senses, englishSense);
+      return found
+        ? outlineOf(found.senses, japaneseSense)
+        : definitionOutline(head, data.defs);
     },
     (head) => meaningOf(capitalOf(head)),
   );
@@ -356,30 +353,37 @@ const definitionPointerOf = (line: string): Pointer | undefined =>
 const definitionLinesOf = (senses: readonly Sense[]) =>
   senses.map((sense) => definitionLine(sense.text, definitionPointerOf));
 
-/** The order of an entry's definitions for a word tagged `pos` (rule A2). */
-function definitionOrder(senses: readonly Sense[], pos: string | undefined) {
+/**
+ * The order of an entry's definitions for a word tagged `pos` (rule A2). `lines`: its
+ * definitions' lines (`definitionLinesOf`), read only with a `pos`.
+ */
+function definitionOrder(
+  senses: readonly Sense[],
+  pos: string | undefined,
+  lines: () => readonly string[],
+) {
   if (pos === undefined) return undefined;
-  const lines = definitionLinesOf(senses);
-  return senseOrder(senses, pos, (i) => lines[i] !== "");
+  const found = lines();
+  return senseOrder(senses, pos, (i) => found[i] !== "");
 }
 
 /**
- * An entry's definitions as the hover card's lines, in `order` (rule A2), pointers
- * followed within `defs`.
+ * An entry's definitions as the hover card's lines (`lines`, its definitions' lines),
+ * in `order` (rule A2), pointers followed within `defs`.
  */
 function definitionLines(
   head: string,
   entry: Entry,
+  lines: readonly string[],
   defs: DefsPack,
   order?: readonly number[],
 ) {
-  const linesOf = definitionLinesOf;
-  return shortLines(inOrder(linesOf(entry.senses), order), entry.short, {
+  return shortLines(inOrder(lines, order), entry.short, {
     head,
     pointer: definitionPointerOf,
     follow: (target) => {
       const found = definitionOf(target, defs);
-      return found && linesOf(found.senses);
+      return found && definitionLinesOf(found.senses);
     },
   });
 }
@@ -397,7 +401,9 @@ function definitionInEnglish(
 ): Found | undefined {
   const found = definitionOf(head, defs);
   if (!found) return undefined;
-  const order = definitionOrder(found.senses, pos);
+  let lines: readonly string[] | undefined;
+  const linesOf = () => (lines ??= definitionLinesOf(found.senses));
+  const order = definitionOrder(found.senses, pos, linesOf);
   const short =
     order === undefined
       ? found.short
@@ -407,7 +413,7 @@ function definitionInEnglish(
     short,
     glossLang: "en",
     ...(definitionPointer(short) !== undefined && {
-      lines: definitionLines(head, found, defs, order),
+      lines: definitionLines(head, found, linesOf(), defs, order),
     }),
   };
 }
@@ -424,22 +430,20 @@ export function createDefsDictionary({
     ipa,
     (head, _written, pos) => {
       const found = definitionOf(head, defs);
-      return (
-        found && {
-          ...found,
-          lines: definitionLines(
-            head,
-            found,
-            defs,
-            definitionOrder(found.senses, pos),
-          ),
-        }
-      );
+      if (!found) return undefined;
+      const lines = definitionLinesOf(found.senses);
+      return {
+        ...found,
+        lines: definitionLines(
+          head,
+          found,
+          lines,
+          defs,
+          definitionOrder(found.senses, pos, () => lines),
+        ),
+      };
     },
-    (head) => {
-      const found = definitionOf(head, defs);
-      return found && outlineOf(found.senses, englishSense);
-    },
+    (head) => definitionOutline(head, defs),
   );
 }
 
@@ -482,11 +486,20 @@ export function createPairDictionary({
     },
     (head) => {
       const found = own(dict, head);
-      if (found) return outlineOf(sensesOf(found[1]), englishSense);
-      const definition = definitionOf(head, defs);
-      return definition && outlineOf(definition.senses, englishSense);
+      return found
+        ? outlineOf(sensesOf(found[1]), englishSense)
+        : definitionOutline(head, defs);
     },
   );
+}
+
+/** The outline of a headword's English definitions, when it has some. */
+function definitionOutline(
+  head: string,
+  defs: DefsPack,
+): EntryOutline | undefined {
+  const definition = definitionOf(head, defs);
+  return definition && outlineOf(definition.senses, englishSense);
 }
 
 function definitionOf(head: string, defs: DefsPack): Entry | undefined {

@@ -114,8 +114,11 @@ export function capLine(text: string, cap: number): string {
   );
   if (commas.length > 0) return text.slice(0, commas.at(-1)).trimEnd();
   let head = "";
+  // Display width adds up character by character.
+  let width = 0;
   for (const ch of text) {
-    if (displayWidth(head + ch) > cap - 1) break;
+    width += displayWidth(ch);
+    if (width > cap - 1) break;
     head += ch;
   }
   const space = head.lastIndexOf(" ");
@@ -135,7 +138,8 @@ export interface Pointer {
 }
 
 /** A term as a key: lowercase, single spaces. */
-const keyOf = (term: string) => term.trim().toLowerCase().replace(/\s+/g, " ");
+export const keyOf = (term: string) =>
+  term.trim().toLowerCase().replace(/\s+/g, " ");
 
 /** A pointer's target when it names one term ("am not, is not" names two). */
 const pointerTarget = (term: string) =>
@@ -210,7 +214,9 @@ export function shortLines(
 const JAPANESE_CAP = 50;
 
 const KATAKANA = /[\u30a1-\u30faー]/;
-const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff01-\uff60…〈〉]/;
+/** A character of Japanese text: kana, kanji, full-width forms, and …〈〉. */
+const JAPANESE_TEXT =
+  /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff01-\uff60…〈〉]/;
 
 /** The nearest character around `i` that is not a space, in direction `step`. */
 function nearest(text: string, i: number, step: 1 | -1): string {
@@ -233,8 +239,8 @@ function isJapaneseSeparator(text: string, i: number): boolean {
     );
   return (
     /\s/.test(ch) &&
-    JAPANESE.test(nearest(text, i, -1)) &&
-    JAPANESE.test(nearest(text, i, 1))
+    JAPANESE_TEXT.test(nearest(text, i, -1)) &&
+    JAPANESE_TEXT.test(nearest(text, i, 1))
   );
 }
 
@@ -359,14 +365,15 @@ function withoutJapaneseNotes(text: string): string {
   return trimItems(withoutWideSpaces(out));
 }
 
+/** Spaces next to a Japanese character. */
+const SPACES_BY_JAPANESE = new RegExp(
+  `(?<=${JAPANESE_TEXT.source})\\s+|\\s+(?=${JAPANESE_TEXT.source})`,
+  "g",
+);
+
 /** Without spaces next to a Japanese character ("次の 単語" → "次の単語"). */
 const withoutWideSpaces = (text: string) =>
-  text
-    .replace(/\s+/g, " ")
-    .replace(
-      new RegExp(`(?<=${JAPANESE.source})\\s+|\\s+(?=${JAPANESE.source})`, "g"),
-      "",
-    );
+  text.replace(/\s+/g, " ").replace(SPACES_BY_JAPANESE, "");
 
 /** A clause after a comma without its leading conjunction: "または許す" → "許す". */
 const withoutConjunction = (text: string) =>

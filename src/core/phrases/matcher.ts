@@ -24,6 +24,11 @@ export interface MatchWord {
   readonly forms: readonly string[];
   /** The slots the word fills under the language's rules. */
   readonly slots: readonly string[];
+  /**
+   * The trie words it stands for where the rules' slot words are slots: its forms that
+   * are not slot words, then the slots it fills (`forms` when it fills none and is none).
+   */
+  readonly steps: readonly string[];
 }
 
 /** The words of one block of text, prepared once for every match in it. */
@@ -48,7 +53,7 @@ export interface PhraseMatcherOptions {
   rules: PhraseRules;
   patterns: PhrasePatterns;
   /** Base forms of a word as written in text (`LanguagePack.lemmas`). */
-  lemmas(word: string): string[];
+  lemmas(word: string): readonly string[];
 }
 
 export interface PhraseMatcher {
@@ -219,11 +224,14 @@ export function createPhraseMatcher({
    * The trie words a word can stand for: its forms, and with slots, the slots it fills
    * instead of the slot words as literals.
    */
-  function stepsOf(trie: Trie, word: MatchWord): readonly string[] {
-    if (!trie.slots || (word.slots.length === 0 && !word.forms.some(isSlot)))
-      return word.forms;
-    return [...word.forms.filter((form) => !isSlot(form)), ...word.slots];
-  }
+  const stepsOf = (trie: Trie, word: MatchWord): readonly string[] =>
+    trie.slots ? word.steps : word.forms;
+
+  /** A word's `steps`, prepared once. */
+  const slotSteps = (forms: readonly string[], slots: readonly string[]) =>
+    slots.length === 0 && !forms.some(isSlot)
+      ? forms
+      : [...forms.filter((form) => !isSlot(form)), ...slots];
 
   /** Collects the patterns ending at `node` and below it, matching from word `j`. */
   function walk(
@@ -303,18 +311,21 @@ export function createPhraseMatcher({
           if (words.length > 0) joined.push(spaceOnly);
           const form = normalizeWord(token.text);
           const bases = lemmas(token.text);
+          // Most words are their only base form, or unknown.
+          const forms =
+            bases.length === 0
+              ? [form]
+              : bases.length === 1 && bases[0] === form
+                ? bases
+                : [...new Set([form, ...bases])];
+          const slots = slotsFilledBy(form);
           words.push({
             token,
             form,
             bases,
-            // Most words are their only base form, or unknown.
-            forms:
-              bases.length === 0
-                ? [form]
-                : bases.length === 1 && bases[0] === form
-                  ? bases
-                  : [...new Set([form, ...bases])],
-            slots: slotsFilledBy(form),
+            forms,
+            slots,
+            steps: slotSteps(forms, slots),
           });
           spaceOnly = true;
         } else if (!/^\s+$/.test(token.text)) {
