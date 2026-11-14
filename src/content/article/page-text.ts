@@ -39,6 +39,15 @@ const isInlineDisplay = (display: string) =>
   display === "contents" ||
   display.startsWith("ruby");
 
+/**
+ * A drop cap: a floated letter or two that the text right after it continues
+ * (`<span style="float:left">M</span>any`). It is part of the word, not a block.
+ */
+const isDropCap = (element: Element, style: CSSStyleDeclaration) =>
+  style.float !== "none" &&
+  /^\p{L}{1,2}$/u.test(element.textContent?.trim() ?? "") &&
+  /^\p{L}/u.test(element.nextSibling?.textContent ?? "");
+
 function isSkipped(element: Element, style: CSSStyleDeclaration): boolean {
   return (
     isLingoElement(element) ||
@@ -92,7 +101,7 @@ function visit(
       }
       const style = getComputedStyle(child);
       if (isSkipped(child, style)) continue;
-      if (isInlineDisplay(style.display)) {
+      if (isInlineDisplay(style.display) || isDropCap(child, style)) {
         visit(child, draft, out, accept);
       } else {
         draft.broken = true;
@@ -180,7 +189,8 @@ export function blockOffset(
 function nearestBlock(node: Node, root: Element): Element {
   let el = node instanceof Element ? node : node.parentElement;
   while (el && el !== root && root.contains(el)) {
-    if (!isInlineDisplay(getComputedStyle(el).display)) return el;
+    const style = getComputedStyle(el);
+    if (!isInlineDisplay(style.display) && !isDropCap(el, style)) return el;
     el = el.parentElement;
   }
   return root;

@@ -42,6 +42,27 @@ describe("collectBlocks", () => {
     expect(texts(collectBlocks(root))).toEqual(["They knead, wait an hour."]);
   });
 
+  it("reads a floated drop cap as part of its word", () => {
+    const root = fixture(
+      "<p><span style='float:left;font-size:3em'>M</span>any years later, a baker told me.</p>",
+    );
+    expect(texts(collectBlocks(root))).toEqual([
+      "Many years later, a baker told me.",
+    ]);
+  });
+
+  it("keeps other floated elements as blocks", () => {
+    const root = fixture(
+      "<p><span style='float:left'>Note</span>Knead it twice.</p><p><span style='float:right'>12</span>comments</p>",
+    );
+    expect(texts(collectBlocks(root))).toEqual([
+      "Knead it twice.",
+      "Note",
+      "comments",
+      "12",
+    ]);
+  });
+
   it("groups text by its nearest block-level ancestor, in document order", () => {
     const root = fixture(
       "<h1>Title</h1><div>Lead <p>First</p> tail<ul><li>One</li><li>Two <span style='display:block'>Inner</span></li></ul></div>",

@@ -74,6 +74,12 @@ const LINK_BLOCK_DENSITY = 0.6;
  */
 const HINT_SHARE = 0.5;
 
+/**
+ * The body's parts: the best-scored element and the elements beside it scoring at least
+ * this share of its score. The body ends with the last of them that holds prose.
+ */
+const END_SHARE = 0.25;
+
 /** Score shares of a prose block's parent, grandparent and great-grandparent. */
 const ANCESTOR_SHARES = [1, 1 / 2, 1 / 3];
 
@@ -88,18 +94,36 @@ const REPEAT_SHARE = 0.5;
  */
 const MIN_REPEATS = 2;
 
-const linkText = (block: TextBlock) =>
-  block.pieces.reduce(
-    (n, p) =>
-      p.node.parentElement?.closest("a[href]") ? n + p.node.data.length : n,
-    0,
+/** A link to another page: not to a place on this one, not a script. */
+function leavesPage(link: HTMLAnchorElement): boolean {
+  if (!/^https?:$/.test(link.protocol)) return false;
+  return (
+    link.origin !== location.origin ||
+    link.pathname !== location.pathname ||
+    link.search !== location.search
   );
+}
 
+const linkText = (block: TextBlock) =>
+  block.pieces.reduce((n, p) => {
+    const link = p.node.parentElement?.closest("a[href]");
+    return link instanceof HTMLAnchorElement && leavesPage(link)
+      ? n + p.node.data.length
+      : n;
+  }, 0);
+
+/**
+ * The words of a class or id: split at non-letters and at camelCase ("readMore"),
+ * except in generated tokens, where a camelCase piece is a single letter ("mwAdA").
+ */
 const words = (value: string) =>
   value
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
+    .split(/[^A-Za-z0-9]+/)
+    .flatMap((token) => {
+      const pieces = token.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(" ");
+      return pieces.some((p) => p.length === 1) ? [token] : pieces;
+    })
+    .map((w) => w.toLowerCase())
     .filter(Boolean);
 
 function hasBoilerplateHint(element: Element): boolean {
@@ -113,6 +137,19 @@ function hasBoilerplateHint(element: Element): boolean {
 
 const normalize = (text: string) =>
   text.replace(/\s+/g, " ").trim().toLowerCase();
+
+/** The page's titles: `<title>`, `og:title` and `twitter:title`. */
+function pageTitles(): string[] {
+  const titles = [document.title];
+  for (const selector of [
+    'meta[property="og:title"]',
+    'meta[name="twitter:title"]',
+  ]) {
+    const title = document.querySelector(selector)?.getAttribute("content");
+    if (title) titles.push(title);
+  }
+  return titles;
+}
 
 interface Measured {
   block: TextBlock;
@@ -146,17 +183,20 @@ function measure(block: TextBlock): Measured {
  *   element, widened to the nearest ancestor holding two other elements that score
  *   at least half as well (the posts of a live page, chapters), then to its nearest
  *   `article`, `main` or `[role=main]`.
- * - Left out of it: `nav`, `aside`, `footer` and their roles; elements whose class or
- *   id names related stories, sharing, comments, ads, references and the like (unless
- *   they hold the best-scored element); blocks mostly made of links.
- * - The title: the container's first `h1`, else an `h1` that `title` (the page's
- *   title) contains; it counts even outside the container.
+ * - Left out of it: what follows the body's end (`bodyEnd`: author bios, sign-up walls,
+ *   cards for other stories); `nav`, `aside`, `footer` and their roles; elements whose
+ *   class or id names related stories, sharing, comments, ads, references and the like
+ *   (unless they hold the best-scored element); blocks mostly made of links to other
+ *   pages.
+ * - The title: the container's first `h1`, else the heading `titleHeading` finds among
+ *   `titles` (the page's `<title>`, `og:title`, `twitter:title`); it counts even
+ *   outside the container.
  * When no block reads as prose, every block counts.
  */
 export function findMainContent(
   root: Element,
   blocks: readonly TextBlock[],
-  title: string = document.title,
+  titles: readonly string[] = pageTitles(),
 ): MainContent {
   const measured = blocks.map(measure);
   const prose = measured.filter((m) => m.prose);
@@ -221,22 +261,40 @@ export function findMainContent(
   const semantic = best.closest("article, main, [role=main]");
   const container = semantic && root.contains(semantic) ? semantic : best;
 
+  const end = bodyEnd(best, top, scores, container, prose);
+
   const included = new Set<TextBlock>();
   const holdsBest = (el: Element) => el.contains(best);
   for (const m of measured) {
     const { element } = m.block;
     if (!container.contains(element)) continue;
+    if (
+      !end.contains(element) &&
+      end.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING
+    )
+      continue;
     if (m.density >= LINK_BLOCK_DENSITY) continue;
     if (underBoilerplate(element, container, holdsBest)) continue;
     included.add(m.block);
   }
 
-  // The title.
+  // The title. A heading's blocks are those with text in it (an inline `h1`'s text
+  // belongs to its parent's block).
+  const textIn = (heading: Element) =>
+    normalize(
+      blocks
+        .flatMap((b) => b.pieces)
+        .filter((p) => heading.contains(p.node))
+        .map((p) => p.node.data)
+        .join(""),
+    );
   const heading =
-    container.querySelector("h1") ?? pageHeading(root, blocks, title);
+    [...container.querySelectorAll("h1")].find((h) => textIn(h) !== "") ??
+    titleHeading(root, titles, textIn);
   if (heading)
     for (const block of blocks)
-      if (heading.contains(block.element)) included.add(block);
+      if (block.pieces.some((p) => heading.contains(p.node)))
+        included.add(block);
 
   return {
     contains: (block) => included.has(block),
@@ -274,24 +332,61 @@ function widenToRepeats(
   return best;
 }
 
-/** The first `h1` among the blocks whose text the page title contains. */
-function pageHeading(
+/**
+ * Where the body ends: the smallest of its parts (`best` and the elements in
+ * `container` beside it scoring `END_SHARE` of `top`, such as the second half of a
+ * body split by an ad slot) around the last prose block in any of them.
+ */
+function bodyEnd(
+  best: Element,
+  top: number,
+  scores: ReadonlyMap<Element, number>,
+  container: Element,
+  prose: readonly Measured[],
+): Element {
+  const parts = [best];
+  for (const [element, score] of scores)
+    if (
+      score >= top * END_SHARE &&
+      container.contains(element) &&
+      !element.contains(best) &&
+      !best.contains(element)
+    )
+      parts.push(element);
+  const last = prose.findLast((m) =>
+    parts.some((part) => part.contains(m.block.element)),
+  )?.block.element;
+  let end = best;
+  if (last)
+    for (const part of parts)
+      if (part.contains(last) && (!end.contains(last) || end.contains(part)))
+        end = part;
+  return end;
+}
+
+/** The minimum length of an `h2` or `h3` taken as the title. */
+const SUBHEADING_TITLE_CHARS = 12;
+
+/**
+ * The first `h1` whose text one of the page's titles contains; else the first `h2` or
+ * `h3` of at least `SUBHEADING_TITLE_CHARS` (blogs that keep `h1` for the site name).
+ */
+function titleHeading(
   root: Element,
-  blocks: readonly TextBlock[],
-  title: string,
+  titles: readonly string[],
+  textIn: (heading: Element) => string,
 ): Element | undefined {
-  const page = normalize(title);
-  if (page === "") return undefined;
-  for (const h1 of root.querySelectorAll("h1")) {
-    const text = normalize(
-      blocks
-        .filter((b) => h1.contains(b.element))
-        .map((b) => b.text)
-        .join(" "),
-    );
-    if (text !== "" && page.includes(text)) return h1;
-  }
-  return undefined;
+  const pages = titles.map(normalize).filter((t) => t !== "");
+  const matches = (heading: Element, min: number) => {
+    const text = textIn(heading);
+    return text.length >= min && pages.some((page) => page.includes(text));
+  };
+  return (
+    [...root.querySelectorAll("h1")].find((h) => matches(h, 1)) ??
+    [...root.querySelectorAll("h2, h3")].find((h) =>
+      matches(h, SUBHEADING_TITLE_CHARS),
+    )
+  );
 }
 
 function everything(blocks: readonly TextBlock[]): MainContent {
