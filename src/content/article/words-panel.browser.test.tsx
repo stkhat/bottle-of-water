@@ -36,7 +36,7 @@ const heads = () =>
   [
     ...panel()
       .element()
-      .querySelectorAll("[data-word-row] > button > span > span:first-child"),
+      .querySelectorAll("[data-word-row] > button > span:first-child"),
   ].map((head) => head.textContent);
 
 /** The UI's shadow root (the test host's, open). */
@@ -113,7 +113,7 @@ describe("Words on this page", () => {
     const row = panel().getByRole("button", {
       name: "knead, go to the first one",
     });
-    expect(row.element().textContent).toContain("knead3×");
+    expect(row.element().textContent).toBe("knead（生地を）こねる3×");
     // One place: no chips.
     expect(
       panel().getByRole("group", { name: "Places of tangy" }).query(),

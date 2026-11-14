@@ -153,10 +153,10 @@ describe("WordsSortSelect", () => {
 });
 
 describe("WordsList", () => {
-  test("each row shows the head, the count and the short meaning in its language", async () => {
+  test("each row shows the head, the short meaning in its language and the count", async () => {
     const screen = await mountInShadowRoot(<WordsList {...base} />);
     const dough = rowNamed(screen, "dough").element();
-    expect(dough.textContent).toBe("dough3×パン生地");
+    expect(dough.textContent).toBe("doughパン生地3×");
     expect(dough.querySelector("[lang=en]")!.textContent).toBe("dough");
     expect(dough.querySelector("[lang=ja]")!.textContent).toBe("パン生地");
     const channel = rowNamed(screen, "channel").element();
@@ -188,18 +188,26 @@ describe("WordsList", () => {
     expect(head("dough").fontWeight).toBe("600");
   });
 
-  test("the short meaning is one line with an ellipsis", async () => {
+  test("the head and the short meaning share one line, the meaning cut with an ellipsis", async () => {
     const screen = await mountInShadowRoot(
       <div style={{ width: "200px" }}>
         <WordsList {...base} />
       </div>,
     );
-    const short = getComputedStyle(
-      rowNamed(screen, "channel").element().querySelectorAll("[lang=en]")[1]!,
-    );
+    const [head, meaning] = [
+      ...rowNamed(screen, "channel").element().querySelectorAll("[lang=en]"),
+    ];
+    const short = getComputedStyle(meaning!);
     expect(short.whiteSpace).toBe("nowrap");
     expect(short.textOverflow).toBe("ellipsis");
     expect(short.overflow).toBe("hidden");
+    const a = head!.getBoundingClientRect();
+    const b = meaning!.getBoundingClientRect();
+    expect(b.left).toBeGreaterThanOrEqual(a.right);
+    expect(
+      Math.abs(b.top + b.height / 2 - (a.top + a.height / 2)),
+    ).toBeLessThan(2);
+    expect(meaning!.scrollWidth).toBeGreaterThan(meaning!.clientWidth);
   });
 
   test("a row is a button named for its jump; it holds no other button", async () => {
@@ -241,7 +249,7 @@ describe("WordsList", () => {
     );
   });
 
-  test("a term in two or more places gets a chip per place, named by its time", async () => {
+  test("a term gets a chip per place, named by its time, also when it shows once", async () => {
     const screen = await mountInShadowRoot(<WordsList {...base} />);
     const figure = screen.getByRole("group", { name: "Times of figure out" });
     expect(
@@ -253,10 +261,25 @@ describe("WordsList", () => {
       ["0:56", "Jump to 0:56"],
       ["1:20", "Jump to 1:20"],
     ]);
-    // One place: no chips.
+    const channel = screen.getByRole("group", { name: "Times of channel" });
     expect(
-      screen.getByRole("group", { name: "Times of channel" }).query(),
-    ).toBeNull();
+      [...channel.element().querySelectorAll("button")].map(
+        (b) => b.textContent,
+      ),
+    ).toEqual(["0:52"]);
+  });
+
+  test("a term shown once jumps from its row and from its chip", async () => {
+    const onJump = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} onJump={onJump} />,
+    );
+    await rowNamed(screen, "channel").click();
+    await screen.getByRole("button", { name: "Jump to 0:52" }).click();
+    expect(onJump.mock.calls).toEqual([
+      [expect.objectContaining({ head: "channel" }), 0],
+      [expect.objectContaining({ head: "channel" }), 0],
+    ]);
   });
 
   test("chips look as in the mock, the last jump's filled green", async () => {

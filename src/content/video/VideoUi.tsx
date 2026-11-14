@@ -368,10 +368,10 @@ export function TranscriptUi(props: {
   const { app } = props;
   const state = useStore(app.store);
   const { frameHeight, sidebar } = useStore(props.layout);
-  const { cues, spans, summaries, settings } = state;
+  const { cues, lines, spans, summaries, settings } = state;
   const words = useMemo(
-    () => videoWords(cues, spans, summaries),
-    [cues, spans, summaries],
+    () => videoWords(cues, lines, spans, summaries),
+    [cues, lines, spans, summaries],
   );
   const jump = state.wordsJump;
   const rows = useMemo(
@@ -393,14 +393,19 @@ export function TranscriptUi(props: {
           count: word.count,
           short: brief?.short,
           shortLang: brief?.glossLang ?? settings.nativeLang,
-          places: word.cards.map((card) => formatTime(cues[card]!.startMs)),
-          pressed: jump?.id === id ? word.cards.indexOf(jump.card) : -1,
-          cards: word.cards,
+          places: word.places.map((place) => formatTime(place.startMs)),
+          pressed:
+            jump?.id === id
+              ? word.places.findIndex(
+                  (place) =>
+                    place.card === jump.card && place.line === jump.line,
+                )
+              : -1,
+          at: word.places,
         };
       }),
     [
       words,
-      cues,
       state.wordsFilter,
       state.wordsSort,
       summaries,
@@ -457,7 +462,7 @@ export function TranscriptUi(props: {
       onWordsFilter={app.setWordsFilter}
       wordsSort={state.wordsSort}
       onWordsSort={app.setWordsSort}
-      onJumpWord={(row, place) => app.jumpToWord(row.id, row.cards[place]!)}
+      onJumpWord={(row, place) => app.jumpToWord(row.id, row.at[place]!)}
       onWordsShown={(shown) =>
         app.wordsShown(shown.map(({ key, head }) => ({ key, head })))
       }

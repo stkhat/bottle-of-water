@@ -475,6 +475,14 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (w) run(() => task(w));
   };
 
+  /** Seeks to `ms` and plays, even when the video was paused. */
+  const playFrom = (ms: number) => {
+    adapter
+      .seek(ms)
+      .then(() => (adapter.video()?.paused ? adapter.play() : undefined))
+      .catch(warn);
+  };
+
   const app: VideoApp = {
     store,
     setEnabled(on) {
@@ -489,12 +497,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     },
     seekToCue(index) {
       const cue = store.get().cues[index];
-      if (!cue) return;
       // A card plays from its start, even when the video was paused.
-      adapter
-        .seek(cue.startMs)
-        .then(() => (adapter.video()?.paused ? adapter.play() : undefined))
-        .catch(warn);
+      if (cue) playFrom(cue.startMs);
     },
     enterWord: (ref, anchor, from = "subtitle") =>
       cards.enterWord(ref, anchor, from),
@@ -570,10 +574,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     setWordsSort(sort) {
       if (store.get().wordsSort !== sort) store.set({ wordsSort: sort });
     },
-    jumpToWord(id, card) {
+    jumpToWord(id, { card, line, startMs }) {
       if (!store.get().cues[card]) return;
-      store.set({ wordsJump: { id, card } });
-      app.seekToCue(card);
+      store.set({ wordsJump: { id, card, line } });
+      playFrom(startMs);
     },
     wordsShown(rows) {
       watch?.summaries.shown(rows);
