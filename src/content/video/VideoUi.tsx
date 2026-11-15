@@ -26,7 +26,7 @@ import {
 } from "./placement";
 import type { VideoApp, VideoState, WordPlace } from "./state";
 import { filterCounts, toWordRows } from "../words/words";
-import { videoWords, type VideoWord } from "./words";
+import { flatCue, videoWords, type VideoWord } from "./words";
 import { Floating, keepSelection, TOP_LAYER } from "../lookup/Floating";
 import { shallowEqual, useStore, useStoreSelect, type Store } from "../store";
 
@@ -393,6 +393,12 @@ export function TranscriptUi(props: {
           summaries,
           learningLang: settings.learningLang,
           nativeLang: settings.nativeLang,
+          // A chip's line is in a card: the card's flat text is its sentence.
+          sentence: (word, place) =>
+            flatCue(
+              cues[word.places[place]!.card]?.text ?? "",
+              settings.learningLang,
+            ),
         },
         (word, id) => ({
           places: word.places.map((place) => formatTime(place.startMs)),
@@ -412,6 +418,7 @@ export function TranscriptUi(props: {
       state.wordsFilter,
       state.wordsSort,
       summaries,
+      cues,
       settings.learningLang,
       settings.nativeLang,
       jump,

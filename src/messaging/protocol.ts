@@ -69,10 +69,28 @@ export interface ChooseMeaningInput {
   meaning: Meaning | null;
 }
 
+/**
+ * A meaning of the user's as the hover card and the lists show it: a short line, like
+ * the dictionary's lines (`DictionaryProvider.senseLine`; an English definition in its
+ * cached translation, else in English), an AI meaning as the model answered.
+ */
+export interface MeaningLine {
+  /** `YourMeaning.key` */
+  key: string;
+  line: string;
+  /** Language of `line` when it is not the native language (an English definition). */
+  lineLang?: string;
+  /** It came from the on-device AI (the "AI" tag). */
+  ai?: true;
+}
+
 /** A meaning of the term chosen in some sentence, with how many sentences it was chosen for. */
 export interface YourMeaning extends Meaning {
   key: string;
   count: number;
+  /** The meaning as the hover card shows it (`MeaningLine`). */
+  line: string;
+  lineLang?: string;
 }
 
 export interface EncounterInput {
@@ -155,8 +173,16 @@ export type Request =
   | { type: "lastExport" }
   /** `meanings: false` skips the dictionary, for while it is not on the device. */
   | { type: "listTermsWithStats"; lang: string; meanings?: boolean }
-  /** A video's word list. */
-  | { type: "termSummaries"; lang: string; keys: string[] }
+  /**
+   * A video's or page's word list. `sourceUrl`: the video or page, whose sentences
+   * with a meaning chosen come back as `TermBrief.chosen`.
+   */
+  | {
+      type: "termSummaries";
+      lang: string;
+      keys: string[];
+      sourceUrl?: string;
+    }
   /** Content scripts cannot open the options page themselves. */
   | { type: "openOptions" }
   /**
@@ -280,10 +306,16 @@ export interface TermSummary extends ShortMeaning {
   lastSeen: number;
   createdAt: number;
   learnedAt?: number;
+  /** The meanings chosen for its sentences: most chosen first, then the newest. */
+  meanings?: MeaningLine[];
 }
 
 export interface TermBrief extends ShortMeaning {
   status: TermStatus | "new";
+  /** The meanings chosen for its sentences: most chosen first, then the newest. */
+  meanings?: MeaningLine[];
+  /** Its sentences in the request's source with a meaning chosen, and that meaning's key. */
+  chosen?: { sentence: string; key: string }[];
 }
 
 /** Live terms only. `learning` and `known` count words; `phrases` counts phrases of either status. */

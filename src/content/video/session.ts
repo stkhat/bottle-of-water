@@ -10,7 +10,6 @@ import {
   mergeSettings,
   type SettingsPatch,
 } from "../../core/settings";
-import { joinerFor } from "../../core/subtitles/translation";
 import { documentCasing, textCasing } from "../../core/text/casing";
 import { hostnameOf } from "../../core/url";
 import { followPackStatus, pairNote } from "../../messaging/pack-status";
@@ -39,6 +38,7 @@ import { followPlayback, playingAt } from "./playback";
 import type { PlatformAdapter } from "./platform";
 import { createRecorder } from "./recorder";
 import { createSelection } from "./selection";
+import { flatCue } from "./words";
 import {
   freshState,
   type VideoApp,
@@ -114,7 +114,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     title: adapter.title(),
     lang: lang(),
   });
-  const flat = (text: string) => text.split("\n").join(joinerFor(lang()));
+  const flat = (text: string) => flatCue(text, lang());
   const cards = createCards({
     store,
     lookup,
@@ -215,6 +215,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       translator: lookup.translator,
       lang,
       nativeLang: () => settings.nativeLang,
+      url: () => adapter.url(),
       active,
       waitFor: lookup.waitFor,
       signal: controller.signal,
@@ -454,6 +455,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (card.status === "new" && !row.sense.usedHere)
       await statusChanged(w, ref, card, "learning");
     else await cards.refresh(card);
+    if (watch === w) w.summaries.meaningChosen(card.key);
   }
 
   /** The term at `ref` went from `card.status` to `to`: every line with it follows. */

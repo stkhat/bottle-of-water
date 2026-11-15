@@ -1256,6 +1256,15 @@ describe("chooseMeaning", () => {
     ]);
   });
 
+  it("reads the meanings of several terms at once, leaving out terms without one", async () => {
+    await store.saveTerm(dough());
+    await store.chooseMeaning(choose(PIECE));
+    const found = await store.meaningsOfTerms(["en:dough", "en:loaf"]);
+    expect([...found.keys()]).toEqual(["en:dough"]);
+    expect(found.get("en:dough")).toEqual(await store.meaningsOf("en:dough"));
+    expect(await store.meaningsOfTerms([])).toEqual(new Map());
+  });
+
   it("marks the choices with this device's id", async () => {
     const own = createTermStore(freshDb(), {
       now: clock.now,

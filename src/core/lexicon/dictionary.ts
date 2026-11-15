@@ -100,6 +100,13 @@ export interface DictionaryProvider {
    * Rule D keeps a name's meaning by it. Undefined without such a headword.
    */
   capitalMeaning(term: string): CapitalMeaning | undefined;
+  /**
+   * One sense as a short line, as the hover card's lines make it (`lines` before they
+   * are ordered and followed): a meaning the user chose shows so in the hover card and
+   * the lists. `glossLang`: the language of the sense when it is not the native one
+   * (an English definition). Empty when nothing of it is left (only notes).
+   */
+  senseLine(sense: Pick<Sense, "text" | "hint">, glossLang?: string): string;
 }
 
 export type CapitalMeaning = "word" | "name";
@@ -170,12 +177,14 @@ function dictionaryOver(
   ipa: IpaPack,
   find: (head: string, written?: Written, pos?: string) => Found | undefined,
   outline: (head: string) => EntryOutline | undefined,
+  senseLine: DictionaryProvider["senseLine"],
   capitalMeaning: (head: string) => CapitalMeaning | undefined = () =>
     undefined,
 ): DictionaryProvider {
   /** Outlines are read for every analyzed word with a tag: each headword's once. */
   const outlines = new Map<string, EntryOutline | undefined>();
   return {
+    senseLine,
     capitalMeaning: (term) => capitalMeaning(keyOf(term)),
     outline: (term) => {
       const head = keyOf(term);
@@ -299,6 +308,11 @@ export function createEnJaDictionary(
         ? outlineOf(found.senses, japaneseSense)
         : definitionOutline(head, data.defs);
     },
+    // EJDict's senses and Wiktionary's translations, or an English definition.
+    (sense, glossLang) =>
+      glossLang === undefined
+        ? cleanShort(sense.text)
+        : definitionLine(sense.text, definitionPointerOf),
     (head) => meaningOf(capitalOf(head)),
   );
 }
@@ -444,6 +458,7 @@ export function createDefsDictionary({
       };
     },
     (head) => definitionOutline(head, defs),
+    (sense) => definitionLine(sense.text, definitionPointerOf),
   );
 }
 
@@ -475,9 +490,7 @@ export function createPairDictionary({
       const [short, raw] = found;
       const senses = sensesOf(raw);
       // A translation table's sense is a list of words: its line is the first one.
-      const lines = raw.map(([, text, hint]) =>
-        hint === undefined ? definitionLine(text) : text.split(", ")[0]!.trim(),
-      );
+      const lines = raw.map(([, text, hint]) => pairLine({ text, hint }));
       const order =
         pos === undefined
           ? undefined
@@ -490,8 +503,16 @@ export function createPairDictionary({
         ? outlineOf(sensesOf(found[1]), englishSense)
         : definitionOutline(head, defs);
     },
+    (sense, glossLang) =>
+      glossLang === undefined
+        ? pairLine(sense)
+        : definitionLine(sense.text, definitionPointerOf),
   );
 }
+
+/** A translation table's sense is a list of words: its line is the first one. */
+const pairLine = ({ text, hint }: Pick<Sense, "text" | "hint">) =>
+  hint === undefined ? definitionLine(text) : text.split(", ")[0]!.trim();
 
 /** The outline of a headword's English definitions, when it has some. */
 function definitionOutline(

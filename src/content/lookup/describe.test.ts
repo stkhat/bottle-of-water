@@ -879,14 +879,51 @@ describe("hoverView and windowView", () => {
     delete word.short;
     expect(hoverView(word).meanings).toEqual([]);
   });
+
+  it("shows the user's meanings first, then the dictionary's other lines, three in all", () => {
+    const meaning = (key: string, line: string, lineLang?: string) => ({
+      key,
+      from: "dictionary" as const,
+      text: line,
+      count: 1,
+      line,
+      ...(lineLang !== undefined && { lineLang }),
+    });
+    const word: TermCard = {
+      ...card,
+      short: "（パンの）ひと塊",
+      lines: ["（パンの）ひと塊", "（食品の）塊", "ぶらぶらする"],
+      // In the order the lookup gives: the one chosen here, then the most used.
+      yourMeanings: [
+        meaning("k1", "（食品の）塊"),
+        meaning("k2", "To idle", "en"),
+      ],
+    };
+    expect(hoverView(word)).toMatchObject({
+      yours: [{ text: "（食品の）塊" }, { text: "To idle", lang: "en" }],
+      // A line that is one of the user's meanings shows once.
+      meanings: ["（パンの）ひと塊"],
+      // The dictionary's translated line still shows: marked.
+      machineTranslated: true,
+    });
+    const many = {
+      ...word,
+      yourMeanings: ["a", "b", "c", "d"].map((k) => meaning(k, k)),
+    };
+    expect(hoverView(many)).toMatchObject({
+      yours: [{ text: "a" }, { text: "b" }, { text: "c" }],
+      meanings: [],
+      machineTranslated: false,
+    });
+  });
 });
 
 describe("your meanings", () => {
   const mine = (
     key: string,
-    meaning: Omit<YourMeaning, "key" | "count">,
+    meaning: Omit<YourMeaning, "key" | "count" | "line">,
     count = 1,
-  ): YourMeaning => ({ key, ...meaning, count });
+  ): YourMeaning => ({ key, line: meaning.text, ...meaning, count });
 
   it("asks for the meanings chosen for the sentence the term is in, and keeps them", async () => {
     const chosen = mine("k1", { from: "ai", text: "（パン生地の）塊" }, 2);

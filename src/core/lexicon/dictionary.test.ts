@@ -124,6 +124,15 @@ const dictionary = createEnJaDictionary({
 });
 
 describe("createEnJaDictionary", () => {
+  it("makes one sense's line as the hover card's lines do: an EJDict sense or an English definition", () => {
+    expect(dictionary.senseLine({ text: "《おもに米俗》金銭,ぜに" })).toBe(
+      "金銭,ぜに",
+    );
+    expect(
+      dictionary.senseLine({ text: "To seek; to try to find." }, "en"),
+    ).toBe("To seek");
+  });
+
   it("gives a word's short translation", () => {
     expect(dictionary.entry("dough")?.short).toBe("練り粉,こね粉,生パン");
     expect(dictionary.entry("Dough")?.short).toBe("練り粉,こね粉,生パン");
@@ -556,6 +565,14 @@ describe("createPairDictionary", () => {
   it("has nothing for a term neither has", () => {
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("zzyzx")?.short).toBeUndefined();
+  });
+  it("makes one sense's line as the hover card's lines do", () => {
+    const [own, table] = dictionary.entry("light")!.senses;
+    expect(dictionary.senseLine(own!)).toBe("Luz");
+    expect(dictionary.senseLine(table!)).toBe("lámpara");
+    expect(dictionary.senseLine({ text: "To surrender." }, "en")).toBe(
+      "To surrender",
+    );
   });
   it("outlines a term from the pair pack or the English definitions", () => {
     expect(dictionary.outline("light")).toEqual({

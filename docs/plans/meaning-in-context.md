@@ -9,7 +9,7 @@ Progress (the parent session runs each step as a subagent end to end: branch, `n
   - [x] C3. Quality (300 terms with entries, 60 without; blind judged), then the explanation gate
   - [x] C4. Prompts per native language (Spanish, English; Portuguese unavailable)
 - [x] M1a. Your meanings: data, messages, JSON export v2, "Use here" in the dictionary window (the button as tall as the meaning line: user, 2026-11-16)
-- [ ] M1b. Your meanings: hover card, Words lists, word list page
+- [x] M1b. Your meanings: hover card, Words lists, word list page (2026-11-16)
 - [ ] M2. `ExplanationProvider`, `core/explain/`, the explanations cache, the per-page runner (fake provider)
 - [ ] M3. Chrome Prompt API provider, "In this sentence", download flow, Settings rows
 - [ ] M4. Real-site check in the user's Chrome, status and notes

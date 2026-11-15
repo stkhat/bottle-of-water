@@ -199,6 +199,7 @@ export async function startArticle(
     translator: lookup.translator,
     lang: () => lang,
     nativeLang: () => settings.nativeLang,
+    url: () => surface.url(),
     active: () => !controller.signal.aborted,
     waitFor: lookup.waitFor,
     signal: controller.signal,
@@ -374,6 +375,7 @@ export async function startArticle(
     if (card.status === "new" && !row.sense.usedHere)
       await statusChanged(ref, card, "learning");
     else await cards.refresh(card);
+    summaries.meaningChosen(card.key);
   }
 
   /** The term `ref` points at went from `card.status` to `to`: the page follows. */

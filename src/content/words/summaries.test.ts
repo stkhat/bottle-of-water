@@ -68,6 +68,7 @@ async function setup(provider: TranslationProvider) {
     translator,
     lang: () => "en",
     nativeLang: () => "ja",
+    url: () => "https://example.com/bread",
     active: () => true,
     waitFor: () => {},
     signal: controller.signal,
@@ -209,5 +210,68 @@ describe("createSummaries: meanings in lists", () => {
     expect(brief("look into")).toEqual(BRIEFS["look into"]);
     expect(brief("figure out")).toEqual(BRIEFS["figure out"]);
     expect(asked).toEqual(["To investigate"]);
+  });
+});
+
+describe("createSummaries: your meanings", () => {
+  it("asks for the sentences of this page with a meaning chosen, and again after a choice", async () => {
+    const sent: Request[] = [];
+    let chosen: TermBrief["chosen"] = [];
+    const send = (async (request: Request) => {
+      sent.push(request);
+      if (request.type !== "termSummaries") return null;
+      return Object.fromEntries(
+        request.keys.map((key): [string, TermBrief] => [
+          key,
+          {
+            short: "パンのひと塊",
+            status: "learning",
+            meanings: [{ key: "m1", line: "塊" }],
+            chosen,
+          },
+        ]),
+      );
+    }) as typeof sendFn;
+    const store = createStore({ summaries: {} as Record<string, TermBrief> });
+    const summaries = createSummaries({
+      send,
+      store,
+      translator: createTranslationQueue(() => japanese),
+      lang: () => "en",
+      nativeLang: () => "ja",
+      url: () => "https://example.com/bread",
+      active: () => true,
+      waitFor: () => {},
+    });
+    // Not asked for by the list yet: nothing to read again.
+    summaries.meaningChosen("loaf");
+    expect(sent).toEqual([]);
+
+    summaries.classified(
+      [{ ...span("loaf"), category: "learning" }],
+      new Set(["loaf"]),
+    );
+    await flush();
+    expect(sent).toEqual([
+      {
+        type: "termSummaries",
+        lang: "en",
+        keys: ["loaf"],
+        sourceUrl: "https://example.com/bread",
+      },
+    ]);
+
+    chosen = [{ sentence: "A warm loaf.", key: "m1" }];
+    summaries.meaningChosen("loaf");
+    await flush();
+    expect(sent).toHaveLength(2);
+    expect(store.get().summaries.loaf?.chosen).toEqual(chosen);
+
+    // Removing the term removes its meanings.
+    summaries.note([["loaf", "new"]]);
+    expect(store.get().summaries.loaf).toEqual({
+      short: "パンのひと塊",
+      status: "new",
+    });
   });
 });

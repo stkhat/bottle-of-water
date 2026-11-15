@@ -1,13 +1,18 @@
 import type { WordStatus } from "../../core/classify";
 import type { DictionaryEntry } from "../../core/lexicon/dictionary";
 import { t } from "../../i18n/t";
-import type { OccurrenceView, TermSummary } from "../../messaging/protocol";
+import type {
+  OccurrenceView,
+  TermSummary,
+  YourMeaning,
+} from "../../messaging/protocol";
 import { sameDay, shortDate } from "../../ui/format/format";
 import { occurrenceItem } from "../../ui/lookup/elsewhere";
 import { ElsewhereRow } from "../../ui/lookup/ElsewhereRow";
 import { EntryHeader } from "../../ui/lookup/EntryHeader";
 import { StatusButtons } from "../../ui/lookup/StatusButtons";
-import { color, iconButton, sectionHeading } from "../../ui/styles";
+import { BookmarkIcon } from "../../ui/icons";
+import { aiTag, color, iconButton, sectionHeading } from "../../ui/styles";
 
 /** The selected word: its row, its status now, and what `lookup` gave. */
 export interface Details {
@@ -17,6 +22,40 @@ export interface Details {
   /** The pack's IPA, also for a phrase no dictionary has (`LookupResult.ipa`). */
   ipa?: string;
   occurrences: OccurrenceView[];
+  /** The meanings chosen for its sentences (`LookupResult.yourMeanings`). */
+  meanings: YourMeaning[];
+}
+
+/** "Where you saw it" grouped by the meaning chosen there; `meaning` missing: none chosen. */
+interface SeenGroup<T> {
+  meaning?: YourMeaning;
+  items: T[];
+}
+
+/**
+ * The places grouped by the meaning chosen there, in order of first appearance, the
+ * places with none last; one group without a heading when no place has a meaning.
+ */
+function seenGroups<T>(
+  occurrences: readonly OccurrenceView[],
+  items: readonly T[],
+  meanings: readonly YourMeaning[],
+): SeenGroup<T>[] {
+  const byKey = new Map(meanings.map((m) => [m.key, m]));
+  const groups = new Map<string, SeenGroup<T>>();
+  const none: T[] = [];
+  occurrences.forEach((o, i) => {
+    const meaning =
+      o.meaningKey === undefined ? undefined : byKey.get(o.meaningKey);
+    if (!meaning) {
+      none.push(items[i]!);
+      return;
+    }
+    const group = groups.get(meaning.key);
+    if (group) group.items.push(items[i]!);
+    else groups.set(meaning.key, { meaning, items: [items[i]!] });
+  });
+  return [...groups.values(), ...(none.length > 0 ? [{ items: none }] : [])];
 }
 
 /** The occurrence a removed word is saved again from: where it was saved, else the newest. */
@@ -46,6 +85,9 @@ export function DetailsPanel(props: {
     if (o.origin === "saved") parts.push(t("wordlist.savedHere"));
     return { ...item, meta: parts.join(" · ") };
   });
+  const groups = seenGroups(occurrences, items, details.meanings);
+  // A term without meanings of the user's lists its places as before.
+  const labelled = groups.some((group) => group.meaning);
   return (
     <aside
       aria-label={t("wordlist.details")}
@@ -105,11 +147,70 @@ export function DetailsPanel(props: {
           <h3 style={sectionHeading}>
             {t("wordlist.seenIn", { count: items.length })}
           </h3>
-          {items.map((item, i) => (
-            <ElsewhereRow key={i} item={item} lang={props.learningLang} />
+          {groups.map((group, g) => (
+            <div
+              key={group.meaning?.key ?? ""}
+              data-seen-group
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
+              {labelled && (
+                <GroupHeading
+                  meaning={group.meaning}
+                  count={group.items.length}
+                  nativeLang={props.nativeLang}
+                />
+              )}
+              {group.items.map((item, i) => (
+                <ElsewhereRow
+                  key={`${g}-${i}`}
+                  item={item}
+                  lang={props.learningLang}
+                />
+              ))}
+            </div>
           ))}
         </div>
       </div>
     </aside>
+  );
+}
+
+/**
+ * A group's heading (mock WordListMeanings): the bookmark, the meaning, "AI" when the
+ * model gave it, and "· N"; "No meaning chosen" for the places with none.
+ */
+function GroupHeading(props: {
+  meaning: YourMeaning | undefined;
+  count: number;
+  nativeLang: string;
+}) {
+  const { meaning } = props;
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        marginTop: "6px",
+      }}
+    >
+      {meaning && <BookmarkIcon label={t("dict.yourMeaning")} />}
+      <span
+        lang={meaning ? (meaning.lineLang ?? props.nativeLang) : undefined}
+        style={
+          meaning
+            ? { fontSize: "14px", fontWeight: 600, color: color.ink }
+            : { fontSize: "13px", fontWeight: 600, color: color.muted }
+        }
+      >
+        {meaning ? meaning.line : t("wordlist.noMeaning")}
+      </span>
+      {meaning?.from === "ai" && <span style={aiTag}>{t("dict.ai")}</span>}
+      <span
+        style={{ fontSize: "12px", color: color.muted, whiteSpace: "nowrap" }}
+      >
+        {t("wordlist.groupCount", { count: props.count })}
+      </span>
+    </div>
   );
 }

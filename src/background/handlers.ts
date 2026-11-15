@@ -9,7 +9,10 @@ import {
   definitionTexts,
   isUsageNoteShort,
 } from "../core/lexicon/definitions";
-import type { DictionaryEntry } from "../core/lexicon/dictionary";
+import type {
+  DictionaryEntry,
+  DictionaryProvider,
+} from "../core/lexicon/dictionary";
 import type { LanguagePack } from "../core/lexicon/language-pack";
 import { readCasing } from "../core/text/casing";
 import { learningLanguages } from "../core/languages";
@@ -34,13 +37,17 @@ import {
   type RequestOf,
   type RequestType,
   type ResponseOf,
+  type MeaningLine,
   type ShortMeaning,
   type SyncStatus,
   type TermBrief,
   type TranslationItem,
-  type YourMeaning,
 } from "../messaging/protocol";
-import { orderMeanings } from "../core/meanings";
+import {
+  definitionsToTranslate,
+  meaningLines,
+  yourMeanings,
+} from "./meaning-lines";
 import { historyKeys, type HistoryStore } from "./history-store";
 import type { LanguageResources } from "./language-resources";
 import type { PackStore } from "./pack-store";
@@ -113,47 +120,6 @@ function view(
     source: { title, platform, url },
     link: occurrenceLink(o.source, o.pos),
     ...(meaningKey !== undefined && { meaningKey }),
-  };
-}
-
-/**
- * The term's meanings named by its choices, with how many sentences each was chosen
- * for, the one chosen at `here` first (`orderMeanings`), and that one's key.
- */
-function yourMeanings(
-  { meanings, choices }: Awaited<ReturnType<TermStore["meaningsOf"]>>,
-  here: { url: string; sentence: string } | undefined,
-): { yourMeanings: YourMeaning[]; chosenHere?: string } {
-  const chosenHere =
-    here &&
-    choices.find((c) => c.url === here.url && c.sentence === here.sentence)
-      ?.meaningKey;
-  const uses = new Map<string, { count: number; lastAt: number }>();
-  for (const { meaningKey, at } of choices) {
-    const use = uses.get(meaningKey);
-    if (use) {
-      use.count++;
-      use.lastAt = Math.max(use.lastAt, at);
-    } else uses.set(meaningKey, { count: 1, lastAt: at });
-  }
-  const ordered = orderMeanings(
-    meanings.flatMap((m) => {
-      const use = uses.get(m.key);
-      return use ? [{ ...m, ...use }] : [];
-    }),
-    chosenHere,
-  );
-  return {
-    yourMeanings: ordered.map((m): YourMeaning => ({
-      key: m.key,
-      from: m.from,
-      text: m.text,
-      ...(m.glossLang !== undefined && { glossLang: m.glossLang }),
-      ...(m.pos !== undefined && { pos: m.pos }),
-      ...(m.explanation !== undefined && { explanation: m.explanation }),
-      count: m.count,
-    })),
-    ...(chosenHere !== undefined && { chosenHere }),
   };
 }
 
@@ -259,6 +225,46 @@ export function createHandlers({
         ...(notes[i] && { usageNote: true as const }),
       };
     });
+  }
+
+  /**
+   * The meanings chosen for the terms' sentences as lists show them (`meaningLines`),
+   * with the live choices, by term id; terms without a meaning are left out.
+   */
+  async function listedMeanings(
+    lang: string,
+    nativeLang: string,
+    dictionary: DictionaryProvider,
+    terms: readonly { id: string; entry: DictionaryEntry | undefined }[],
+  ) {
+    const found = await store.meaningsOfTerms(terms.map((term) => term.id));
+    const listed = new Map<
+      string,
+      {
+        lines: MeaningLine[];
+        choices: { url?: string; sentence: string; meaningKey: string }[];
+      }
+    >();
+    if (found.size === 0) return listed;
+    const translated = await cachedTranslations(
+      translationPair(lang, nativeLang),
+      definitionsToTranslate(
+        [...found.values()].flatMap((f) => f.meanings),
+        nativeLang,
+      ),
+    );
+    for (const { id, entry } of terms) {
+      const mine = found.get(id);
+      if (!mine) continue;
+      const lines = meaningLines(mine, {
+        nativeLang,
+        dictionary,
+        ...(entry !== undefined && { entry }),
+        translations: translated,
+      });
+      if (lines.length > 0) listed.set(id, { lines, choices: mine.choices });
+    }
+    return listed;
   }
 
   /**
@@ -411,12 +417,19 @@ export function createHandlers({
         typeof pos === "string" ? pos : undefined,
       );
       const ipa = pack.ipa(key);
+      const pair = translationPair(lang, nativeLang);
       const translated = glossedInOtherLanguage(entry, nativeLang)
-        ? await cachedTranslations(
-            translationPair(lang, nativeLang),
-            definitionTexts(entry),
-          )
+        ? await cachedTranslations(pair, definitionTexts(entry))
         : {};
+      // A chosen definition the entry no longer has (a pack update) is read too.
+      const missing = definitionsToTranslate(
+        meanings.meanings,
+        nativeLang,
+      ).filter((text) => !Object.hasOwn(translated, text));
+      const lineTranslations = {
+        ...translated,
+        ...(await cachedTranslations(pair, missing)),
+      };
       return {
         ...(entry !== undefined && { entry }),
         ...(ipa !== undefined && { ipa }),
@@ -430,6 +443,12 @@ export function createHandlers({
           hereUrl !== undefined && typeof sentence === "string"
             ? { url: hereUrl, sentence }
             : undefined,
+          {
+            nativeLang,
+            dictionary,
+            ...(entry !== undefined && { entry }),
+            translations: lineTranslations,
+          },
         ),
       };
     },
@@ -470,15 +489,23 @@ export function createHandlers({
         store.occurrenceStats(lang),
         withMeanings ? resources.dictionary(lang, nativeLang) : undefined,
       ]);
-      const meanings = dictionary
-        ? await shortMeanings(
-            lang,
-            nativeLang,
-            terms.map((term) => dictionary.entry(term.key)),
-          )
+      const entries = dictionary
+        ? terms.map((term) => dictionary.entry(term.key))
         : [];
+      const [meanings, mine] = dictionary
+        ? await Promise.all([
+            shortMeanings(lang, nativeLang, entries),
+            listedMeanings(
+              lang,
+              nativeLang,
+              dictionary,
+              terms.map((term, i) => ({ id: term.id, entry: entries[i] })),
+            ),
+          ])
+        : [[], new Map()];
       return terms.map((term, i) => {
         const seen = stats.get(term.id);
+        const lines = mine.get(term.id)?.lines;
         return {
           id: term.id,
           key: term.key,
@@ -490,27 +517,54 @@ export function createHandlers({
           lastSeen: seen?.lastSeen ?? term.createdAt,
           createdAt: term.createdAt,
           ...(term.learnedAt !== undefined && { learnedAt: term.learnedAt }),
+          ...(lines !== undefined && { meanings: lines }),
         };
       });
     },
 
-    async termSummaries({ lang, keys }) {
+    async termSummaries({ lang, keys, sourceUrl }) {
       const { nativeLang } = await settings.get();
       const [index, dictionary] = await allOf([
         store.termIndex(lang),
         resources.dictionary(lang, nativeLang),
       ]);
-      const meanings = await shortMeanings(
-        lang,
-        nativeLang,
-        keys.map((key) => dictionary.entry(key)),
-      );
+      const entries = keys.map((key) => dictionary.entry(key));
+      const [meanings, mine] = await Promise.all([
+        shortMeanings(lang, nativeLang, entries),
+        // Only saved terms have meanings of the user's.
+        listedMeanings(
+          lang,
+          nativeLang,
+          dictionary,
+          keys.flatMap((key, i) =>
+            index.has(key)
+              ? [{ id: termId(lang, key), entry: entries[i] }]
+              : [],
+          ),
+        ),
+      ]);
+      const hereUrl =
+        typeof sourceUrl === "string" ? tryNormalizeUrl(sourceUrl) : undefined;
       // fromEntries: any key is an own property, "__proto__" included.
       return Object.fromEntries(
-        keys.map((key, i): [string, TermBrief] => [
-          key,
-          { ...meanings[i], status: index.get(key) ?? "new" },
-        ]),
+        keys.map((key, i): [string, TermBrief] => {
+          const listed = mine.get(termId(lang, key));
+          const chosen =
+            hereUrl === undefined
+              ? []
+              : (listed?.choices ?? [])
+                  .filter((c) => c.url === hereUrl)
+                  .map((c) => ({ sentence: c.sentence, key: c.meaningKey }));
+          return [
+            key,
+            {
+              ...meanings[i],
+              status: index.get(key) ?? "new",
+              ...(listed && { meanings: listed.lines }),
+              ...(chosen.length > 0 && { chosen }),
+            },
+          ];
+        }),
       );
     },
 

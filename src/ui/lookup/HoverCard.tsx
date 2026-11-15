@@ -2,6 +2,7 @@ import type { CSSProperties } from "preact";
 import type { TermKind, WordStatus } from "../../core/classify";
 import { t } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
+import { BookmarkIcon } from "../icons";
 import { IPA_FONT, color, root, statusButton } from "../styles";
 import { MachineTranslationMark } from "./MachineTranslationMark";
 
@@ -19,6 +20,11 @@ export interface HoverCardProps {
    * language (or `shortLang`). None: no translation line.
    */
   meanings?: readonly string[];
+  /**
+   * The meanings the user chose, shown before `meanings` with the bookmark mark, in
+   * the native language unless `lang` says otherwise (mock YourMeanings).
+   */
+  yours?: readonly { text: string; lang?: string }[];
   /**
    * The meaning came from the browser's translator (a literal translation or a
    * translated definition; one line): marked "Machine translation".
@@ -129,6 +135,23 @@ export function HoverCard(props: HoverCardProps) {
           {props.ipa}
         </div>
       )}
+      {(props.yours ?? []).map((mine, i) => (
+        <div
+          key={`mine-${i}`}
+          data-your-meaning
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "15px",
+            color: color.ink2,
+            marginTop: "2px",
+          }}
+        >
+          <BookmarkIcon label={t("dict.yourMeaning")} />
+          <span lang={mine.lang ?? props.nativeLang}>{mine.text}</span>
+        </div>
+      ))}
       {meanings.map((meaning, i) => (
         <div
           key={i}

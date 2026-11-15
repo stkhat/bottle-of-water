@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { t } from "../../i18n/t";
 import type { TermSummary } from "../../messaging/protocol";
 import { shortDate } from "../../ui/format/format";
+import { BookmarkIcon } from "../../ui/icons";
 import { useShownRows } from "../../ui/rows-in-view";
 import { color } from "../../ui/styles";
 
@@ -37,6 +38,22 @@ function StatusBadge(props: { status: TermSummary["status"] }) {
   );
 }
 
+/**
+ * The Meaning column: the meanings the user chose (marked, joined by " · ") instead of
+ * the short meaning.
+ */
+function rowMeaning(term: TermSummary, nativeLang: string) {
+  const mine = term.meanings ?? [];
+  if (mine.length === 0)
+    return { text: term.short ?? "", lang: term.glossLang ?? nativeLang };
+  const langs = new Set(mine.map((m) => m.lineLang ?? nativeLang));
+  return {
+    text: mine.map((m) => m.line).join(" · "),
+    lang: langs.size === 1 ? [...langs][0]! : nativeLang,
+    mine: true,
+  };
+}
+
 const phraseTag: Style = {
   fontSize: "11px",
   fontWeight: 600,
@@ -55,6 +72,7 @@ function Row(props: {
   style?: Style;
 }) {
   const { term, selected } = props;
+  const meaning = rowMeaning(term, props.nativeLang);
   return (
     <button
       type="button"
@@ -112,17 +130,27 @@ function Row(props: {
         )}
       </span>
       <span
-        lang={term.glossLang ?? props.nativeLang}
         style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
           padding: "0 12px",
+          minWidth: 0,
           fontSize: "14px",
           color: color.ink2,
           whiteSpace: "nowrap",
           overflow: "hidden",
-          textOverflow: "ellipsis",
         }}
       >
-        {term.short ?? ""}
+        {meaning.mine && (
+          <BookmarkIcon label={t("wordlist.yourMeanings")} size={13} />
+        )}
+        <span
+          lang={meaning.lang}
+          style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+        >
+          {meaning.text}
+        </span>
       </span>
       <span style={{ padding: "0 12px" }}>
         <StatusBadge status={term.status} />

@@ -77,6 +77,32 @@ test("choosing a meaning in the dictionary saves the word as Learning, and the e
   expect(data.meaningChoices).toEqual([
     expect.objectContaining({ termId: "en:loaf" }),
   ]);
+
+  // The word list shows the meaning in its Meaning column and groups the places by it.
+  const list = await context.newPage();
+  await list.goto(`chrome-extension://${extensionId}/wordlist.html`);
+  const row = list
+    .getByRole("region", { name: en["wordlist.list"] })
+    .getByRole("button", { name: /^loaf/ });
+  await expect(
+    row.getByRole("img", { name: en["wordlist.yourMeanings"] }),
+  ).toBeVisible();
+  const details = list.getByRole("complementary", {
+    name: en["wordlist.details"],
+  });
+  const heading = details.locator("[data-seen-group] > div").first();
+  await expect(
+    heading.getByRole("img", { name: en["dict.yourMeaning"] }),
+  ).toBeVisible();
+  await expect(heading).toContainText("· 1");
+  // The column and the group show the same line.
+  const line = (await heading.locator("[lang]").textContent())!;
+  expect(line).not.toBe("");
+  await expect(row).toContainText(line);
+  // The page's other sentence with "loaves", recorded since: no meaning chosen, last.
+  await expect(details.locator("[data-seen-group] > div").last()).toContainText(
+    en["wordlist.noMeaning"],
+  );
 });
 
 test("a name the page always capitalises is no word: not highlighted", async ({
