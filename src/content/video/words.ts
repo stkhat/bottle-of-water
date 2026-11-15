@@ -27,6 +27,8 @@ export interface VideoWord {
   count: number;
   /** The subtitle lines it shows in, each once, in order. */
   places: VideoPlace[];
+  /** Its first occurrence: the card and the index of its span there. */
+  first: { cue: number; span: number };
 }
 
 /**
@@ -79,7 +81,16 @@ export function videoWords(
         if (last?.card !== place.card || last.line !== place.line)
           at.push(place);
       }
-      return { key, kind, head, category, count: places.length, places: at };
+      const { unit: cue, span } = places[0]!;
+      return {
+        key,
+        kind,
+        head,
+        category,
+        count: places.length,
+        places: at,
+        first: { cue, span },
+      };
     },
   );
 }

@@ -958,6 +958,19 @@ describe("words in the subtitles", () => {
     expect(state().hover?.card.head).toBe("knead");
   });
 
+  it("keeps a Words row's card when the line changes: the row stays where it is", async () => {
+    const { state, app, video } = await start();
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => state().current).toBe(0);
+    app.enterWord(refOf(state, 0, "tangy"), BOX, "words");
+    // The line changes before the card shows: it shows anyway.
+    await seekTo(video, 1.2);
+    await expect.poll(() => state().hover?.card.head).toBe("tangy");
+    await seekTo(video, 2.8);
+    expect(state().hover?.from).toBe("words");
+  });
+
   it("a click opens the dictionary window with the term's lines in this video", async () => {
     const { state, app } = await start();
     await ready(state);

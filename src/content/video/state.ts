@@ -16,8 +16,11 @@ import type { VideoPlace } from "./words";
 /** The tabs of the column beside the video. */
 type PanelTab = "transcript" | "words";
 
-/** Where a hovered word is shown. */
+/** Where words are shown (and selected). */
 export type WordPlace = "subtitle" | "transcript";
+
+/** Where a hovered word is shown: also a row's head in the Words tab. */
+export type HoverPlace = WordPlace | "words";
 
 /** A term in the subtitles: the cue and the index of its span in that cue's spans. */
 export interface WordRef {
@@ -41,8 +44,8 @@ export interface SelectedWords {
 /** The hover card over a word in the subtitle or the transcript. */
 interface VideoHover {
   ref: WordRef;
-  /** Where the word is: a card over a transcript word goes when the list scrolls. */
-  from: WordPlace;
+  /** Where the word is: a card over a transcript or Words row goes when its list scrolls. */
+  from: HoverPlace;
   anchor: Box;
   card: TermCard;
 }
@@ -158,8 +161,11 @@ export interface VideoApp {
   setEnabled(on: boolean): void;
   /** A transcript card was clicked: the video plays from its start. */
   seekToCue(index: number): void;
-  /** The pointer entered a word of the subtitle or the transcript (its box in the viewport). */
-  enterWord(ref: WordRef, anchor: Box, from?: WordPlace): void;
+  /**
+   * The pointer entered a word of the subtitle or the transcript, or a Words row's head
+   * (its box in the viewport).
+   */
+  enterWord(ref: WordRef, anchor: Box, from?: HoverPlace): void;
   leaveWord(): void;
   /** The pointer entered the hover card: keep it. */
   keepHover(): void;
@@ -170,7 +176,7 @@ export interface VideoApp {
   enterSubtitle(): void;
   /** The pointer left the subtitle, or the subtitle went from under it. */
   leaveSubtitle(): void;
-  /** A word of the subtitle or the transcript was clicked: its dictionary window opens. */
+  /** A word of the subtitle or the transcript, or a Words row, was clicked: its dictionary window opens. */
   clickWord(ref: WordRef): void;
   /** The hover card's "+ Learning" / "Known". */
   setHoverStatus(status: TermStatus): void;
@@ -215,7 +221,7 @@ export interface VideoApp {
   setPanelTab(tab: PanelTab): void;
   setWordsFilter(filter: WordsFilter): void;
   setWordsSort(sort: WordsSort): void;
-  /** A Words row or one of its chips: the video plays from the start of the place's line. */
+  /** A Words row's chip: the video plays from the start of the place's line. */
   jumpToWord(id: string, place: VideoPlace): void;
   /** Rows of the Words tab came into view: their meanings get translated when needed. */
   wordsShown(rows: readonly { key: string; head: string }[]): void;

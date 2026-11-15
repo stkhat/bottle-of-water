@@ -35,8 +35,15 @@ export interface VideoPanelProps<R extends WordRow>
   onWordsFilter: (filter: WordsFilter) => void;
   wordsSort: WordsSort;
   onWordsSort: (sort: WordsSort) => void;
-  /** A row or one of its chips: jump to that place of the term. */
+  /** One of a row's chips: jump to that place of the term. */
   onJumpWord: (row: R, place: number) => void;
+  /** The pointer entered a row's head: its hover card shows. */
+  onListWordEnter: (row: R, element: HTMLElement) => void;
+  onListWordLeave: () => void;
+  /** A row: its term's dictionary window opens. */
+  onOpenWord: (row: R) => void;
+  /** The Words list scrolled. */
+  onWordsScroll?: () => void;
   /** Rows of the Words tab came into view. */
   onWordsShown?: (rows: R[]) => void;
   height: number;
@@ -168,6 +175,10 @@ function TabBody<R extends WordRow>(props: VideoPanelProps<R>) {
           rows={props.words}
           learningLang={props.learningLang}
           onJump={props.onJumpWord}
+          onWordEnter={props.onListWordEnter}
+          onWordLeave={props.onListWordLeave}
+          onOpen={props.onOpenWord}
+          {...(props.onWordsScroll && { onScroll: props.onWordsScroll })}
           {...(props.onWordsShown && { onShown: props.onWordsShown })}
         />
       ) : (

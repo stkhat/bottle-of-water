@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type { Request } from "../../messaging/protocol";
 import {
   cleanUp,
@@ -42,6 +42,17 @@ const heads = () =>
 /** The UI's shadow root (the test host's, open). */
 const ui = () => document.querySelector("lingo-test-ui")!.shadowRoot!;
 const outlines = () => ui().querySelectorAll("[data-outline]").length;
+/** The hover card's "Details" button: there is one only while the card shows. */
+const details = () => page.getByRole("button", { name: "Details" });
+/** A row's head (its highlighted term). */
+const head = (term: string) =>
+  [
+    ...panel()
+      .element()
+      .querySelectorAll<HTMLElement>(
+        "[data-word-row] > button > span:first-child",
+      ),
+  ].find((el) => el.textContent === term)!;
 
 async function open(html = ARTICLE) {
   const started = await setup(html, { settings: { highlight: SHOW_ALL } });
@@ -111,13 +122,14 @@ describe("Words on this page", () => {
       ["3", "Go to knead, 3 of 3"],
     ]);
     const row = panel().getByRole("button", {
-      name: "knead, go to the first one",
+      name: "knead, open in the dictionary",
     });
     expect(row.element().textContent).toBe("knead（生地を）こねる3×");
-    // One place: no chips.
+    // One place: one chip, the only way to go there.
+    const tangy = panel().getByRole("group", { name: "Places of tangy" });
     expect(
-      panel().getByRole("group", { name: "Places of tangy" }).query(),
-    ).toBeNull();
+      [...tangy.element().querySelectorAll("button")].map((b) => b.textContent),
+    ).toEqual(["1"]);
   });
 
   it("a chip scrolls its place to the middle of the view and outlines it for a moment", async () => {
@@ -147,26 +159,70 @@ describe("Words on this page", () => {
     expect(dictionary().query()).toBeNull();
   });
 
-  it("a row goes to the first place", async () => {
-    const { root } = await open();
-    await panel().getByRole("button", { name: "Go to knead, 3 of 3" }).click();
-    await expect.poll(() => scrollY, { timeout: 3000 }).toBeGreaterThan(1000);
+  it("a row opens its term's dictionary panel left of the list, going nowhere and outlining nothing", async () => {
+    await open();
+    await expect.poll(heads).toContain("tangy");
     await panel()
-      .getByRole("button", { name: "knead, go to the first one" })
+      .getByRole("button", { name: "tangy, open in the dictionary" })
+      .click();
+    await expect.element(dictionary()).toBeVisible();
+    await expect
+      .element(dictionary().getByRole("heading", { name: "tangy" }))
+      .toBeVisible();
+    const box = dictionary().element().getBoundingClientRect();
+    expect(innerWidth - box.right).toBe(16 + 360 + 16);
+    // "tangy" is far below: the page stays where it is, and nothing is outlined.
+    await new Promise((done) => setTimeout(done, 300));
+    expect(scrollY).toBe(0);
+    expect(outlines()).toBe(0);
+    expect(
+      panel().element().querySelector("[data-word-row][data-selected=true]"),
+    ).toBeNull();
+    // Another row switches the panel to its term.
+    await panel()
+      .getByRole("button", { name: "knead, open in the dictionary" })
       .click();
     await expect
-      .poll(
-        () => {
-          const rect = rangeOfText(root, "knead", 0).getBoundingClientRect();
-          return rect.top > 0 && rect.bottom < innerHeight;
-        },
-        { timeout: 3000 },
-      )
-      .toBe(true);
-    await expect
-      .element(panel().getByRole("button", { name: "Go to knead, 1 of 3" }))
-      .toHaveAttribute("aria-pressed", "true");
-    expect(dictionary().query()).toBeNull();
+      .element(dictionary().getByRole("heading", { name: "knead" }))
+      .toBeVisible();
+  });
+
+  it("a row's head shows its term's card by the head, kept while the pointer is on the card", async () => {
+    await open();
+    await expect.poll(heads).toContain("tangy");
+    const tangy = head("tangy");
+    await userEvent.hover(tangy);
+    await expect.element(details()).toBeVisible();
+    const word = tangy.getBoundingClientRect();
+    const card = details().element().parentElement!.parentElement!;
+    const box = card.getBoundingClientRect();
+    // Over the head (or under it, without room above), never covering it.
+    expect(box.bottom <= word.top || box.top >= word.bottom).toBe(true);
+    expect(card.textContent).toContain("tangy");
+    // From the head onto the card: it stays; its Details opens the panel.
+    await userEvent.hover(details());
+    await new Promise((done) => setTimeout(done, 400));
+    await details().click();
+    await expect.element(dictionary()).toBeVisible();
+    expect(details().query()).toBeNull();
+  });
+
+  it("the head's card goes when the pointer leaves it, or when the list scrolls", async () => {
+    await open();
+    await expect.poll(heads).toContain("tangy");
+    await userEvent.hover(head("tangy"));
+    await expect.element(details()).toBeVisible();
+    await userEvent.hover(
+      panel().getByRole("heading", { name: "Words on this page" }),
+    );
+    await expect.poll(() => details().query()).toBeNull();
+
+    await userEvent.hover(head("knead"));
+    await expect.element(details()).toBeVisible();
+    head("knead")
+      .closest("[data-word-row]")!
+      .parentElement!.dispatchEvent(new Event("scroll"));
+    await expect.poll(() => details().query()).toBeNull();
   });
 
   it("the dictionary panel opens left of it while it is open", async () => {

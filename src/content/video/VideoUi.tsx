@@ -404,6 +404,7 @@ export function TranscriptUi(props: {
                 )
               : -1,
           at: word.places,
+          first: word.first,
         }),
       ),
     [
@@ -460,6 +461,15 @@ export function TranscriptUi(props: {
       wordsSort={state.wordsSort}
       onWordsSort={app.setWordsSort}
       onJumpWord={(row, place) => app.jumpToWord(row.id, row.at[place]!)}
+      onListWordEnter={(row, element) =>
+        app.enterWord(row.first, boxOf(element), "words")
+      }
+      onListWordLeave={app.leaveWord}
+      onOpenWord={(row) => app.clickWord(row.first)}
+      onWordsScroll={() => {
+        // The card would stay where the head was.
+        if (state.hover?.from === "words") app.dismissHover();
+      }}
       onWordsShown={(shown) =>
         app.wordsShown(shown.map(({ key, head }) => ({ key, head })))
       }
