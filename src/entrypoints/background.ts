@@ -19,6 +19,7 @@ import { createBrowserSyncBackend } from "../background/sync/browser-sync-backen
 import { createTermStore } from "../background/term-store";
 import { followToolbarIcon } from "../background/toolbar-icon";
 import { createTranslationCache } from "../background/translation-cache";
+import { createExplanationCache } from "../background/explanation-cache";
 import { createPackLoader } from "../core/packs/load";
 import { readLock } from "../core/packs/lock";
 import { PACK_STATE_KEY } from "../core/packs/state";
@@ -66,6 +67,7 @@ export default defineBackground(() => {
     store,
     history,
     translations: createTranslationCache(db),
+    explanations: createExplanationCache(db),
     settings: { get: getSettings, set: setSettings },
     resources,
     packs: { lock, store: packStore, retry: retryPacks },

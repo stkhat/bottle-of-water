@@ -18,6 +18,13 @@ import { isShortsUrl } from "./adapter";
 /** A comment's text on a YouTube watch page (its replies' too). */
 const COMMENT_TEXT = "#content-text";
 
+/** A comment and its replies. */
+const COMMENT_THREAD = "ytd-comment-thread-renderer";
+
+/** The thread a comment's element is in: the lines around its sentences come from it. */
+export const commentThread = (element: Element) =>
+  element.closest(COMMENT_THREAD);
+
 /** The comment section under the video (not the hidden engagement-panel copy). */
 const COMMENTS_ROOT = "ytd-comments#comments";
 
@@ -114,6 +121,7 @@ function commentsSurface({
     acceptText: isCommentText,
     mainContent: () => WHOLE_ROOT,
     perBlockLanguage: true,
+    contextRoot: commentThread,
     source: () => ({
       platform: adapter.platform,
       url: adapter.url(),

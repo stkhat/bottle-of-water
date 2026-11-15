@@ -9,6 +9,7 @@ import type {
   TermKind,
   TermStatus,
 } from "../core/classify";
+import type { Answer } from "../core/explain/answer";
 import type { DictionaryEntry, Written } from "../core/lexicon/dictionary";
 import type { Meaning } from "../core/meanings";
 import type { PackState } from "../core/packs/state";
@@ -112,6 +113,31 @@ export interface TranslationItem {
   translated: string;
 }
 
+/**
+ * What an answer of the on-device AI is kept by: the pair, the term, the place (the
+ * same term in another sentence or source is another answer) and the model.
+ */
+export interface ExplanationKey {
+  learning: string;
+  native: string;
+  /** The term's key (`TermRecord.key`). */
+  key: string;
+  /** Any form of the page or video URL; the background normalizes it. */
+  sourceUrl: string;
+  sentence: string;
+  /** `ExplanationProvider.name` */
+  provider: string;
+  /** `ExplanationProvider.version` (the browser's major version for Chrome). */
+  version: string;
+}
+
+/** An answer of the on-device AI as it is kept. */
+export interface KeptExplanation {
+  answer: Answer;
+  /** How many lines around the sentence the prompt held. */
+  lines: number;
+}
+
 export type Request =
   | { type: "getSettings" }
   | { type: "setSettings"; patch: SettingsPatch }
@@ -210,7 +236,11 @@ export type Request =
    * Deletes a downloaded pack the chosen pair does not use, and the machine translations
    * of every offered pair whose packs include it.
    */
-  | { type: "removePack"; pack: string };
+  | { type: "removePack"; pack: string }
+  /** The kept answer of the on-device AI for the term there, or null. */
+  | { type: "getExplanation"; explanation: ExplanationKey }
+  /** Keeps an answer; a malformed one is skipped. */
+  | ({ type: "putExplanation"; explanation: ExplanationKey } & KeptExplanation);
 
 export const MAX_CACHED_TRANSLATIONS = 16;
 /** In UTF-16 code units; a translation may be up to four times as long. */
@@ -410,6 +440,8 @@ interface ResponseMap {
   packStatus: PackStatus;
   retryPacks: null;
   removePack: null;
+  getExplanation: KeptExplanation | null;
+  putExplanation: null;
 }
 
 export type ResponseOf<T extends RequestType> = ResponseMap[T];

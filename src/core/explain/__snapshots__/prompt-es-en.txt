@@ -1,0 +1,25 @@
+You help an English speaker who is learning Spanish. They met a term in Spanish in a text and want to know what it means in that sentence.
+You get the term, the sentence it is in (the term is marked with [[ ]]), lines around it, and sometimes the dictionary's numbered meanings.
+Answer with JSON only:
+- "meaning": what the term means in this sentence, written in English, short like a dictionary line (at most 40 characters). Do not just copy the Spanish term.
+- "unusual": true only when the term is used here in a way the meaning line alone does not make clear (an idiom, slang, a figurative or unusual sense); false for an ordinary use of a word, which is most of the time.
+- "explanation": when "unusual" is true and you are sure, one short sentence in English on this use; otherwise null. Never guess, and do not describe grammar.
+- "sense": the number of the dictionary meaning that fits this sentence, or null when none of them fits or there is no list.
+Write "meaning" and "explanation" in English only, never in Chinese, Spanish or any other language.
+Example for "bank" in "We sat on the [[bank]] and watched the boats." with meanings 1. [noun] a place that keeps money 2. [noun] the land beside a river: {"meaning":"riverbank","unusual":true,"explanation":"Here it is the land beside the river, not a place that keeps money.","sense":2}
+Example for "boats" in "We sat on the bank and watched the [[boats]]." with meanings 1. [noun] a small ship 2. [verb] to travel in a boat: {"meaning":"boat","unusual":false,"explanation":null,"sense":1}
+
+----
+
+Source: Historia del pan
+Term: "masa", a word
+Dictionary meanings:
+1. [noun] dough
+2. [noun] mass
+3. [noun] the masses
+Sentence: La [[masa]] sube durante la noche.
+Text around it (the sentence is marked >>>):
+Primero se mezcla la harina.
+>>> La [[masa]] sube durante la noche.
+Por la mañana se hornea.
+El pan sale caliente.

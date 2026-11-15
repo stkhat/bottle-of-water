@@ -31,6 +31,7 @@ import { replyValue } from "../testing/handlers";
 import { filesRead, stubPackLoader } from "../testing/packs";
 import { ARTICLE } from "../testing/sources";
 import type { TranslationCache } from "./translation-cache";
+import type { ExplanationCache } from "./explanation-cache";
 
 type FakeStore = { [K in keyof TermStore]: Mock<TermStore[K]> };
 
@@ -111,6 +112,19 @@ function fakeTranslations(): FakeTranslations {
   };
 }
 
+type FakeExplanations = {
+  [K in keyof ExplanationCache]: Mock<ExplanationCache[K]>;
+};
+
+/** An ExplanationCache that keeps nothing and records its calls. */
+function fakeExplanations(): FakeExplanations {
+  return {
+    get: vi.fn(async () => undefined),
+    put: vi.fn(async () => {}),
+    clearPair: vi.fn(async () => {}),
+  };
+}
+
 type FakePacks = {
   lock: PackLock;
   store: {
@@ -168,6 +182,7 @@ const SOURCE = ARTICLE;
 let store: FakeStore;
 let history: FakeHistory;
 let translations: FakeTranslations;
+let explanations: FakeExplanations;
 let sync: { status: Mock<() => Promise<SyncStatus>> };
 let deps: HandlerDeps;
 let handle: Handle;
@@ -180,6 +195,7 @@ beforeEach(() => {
   store = fakeStore();
   history = fakeHistory();
   translations = fakeTranslations();
+  explanations = fakeExplanations();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
   loadPack = stubPackLoader();
   packs = fakePacks();
@@ -188,6 +204,7 @@ beforeEach(() => {
     store,
     history,
     translations,
+    explanations,
     settings: { get: getSettings, set: setSettings },
     resources: createLanguageResources(loadPack),
     packs,
@@ -524,7 +541,7 @@ describe("handlers: language data", () => {
     expect(packs.retry).toHaveBeenCalledTimes(1);
   });
 
-  it("removes a downloaded pack and the machine translations of the pairs that use it", async () => {
+  it("removes a downloaded pack and the machine translations and AI answers of the pairs that use it", async () => {
     packs.store.downloaded.mockResolvedValue([
       { pack: "es", version: "2026.1111.0", size: 120 },
       { pack: "es-en", version: "2026.1111.0", size: 80 },
@@ -533,9 +550,11 @@ describe("handlers: language data", () => {
     expect(await value({ type: "removePack", pack: "es-en" })).toBeNull();
     expect(packs.store.remove).toHaveBeenCalledWith("es-en");
     expect(translations.clearPair.mock.calls).toEqual([["es>en"]]);
+    expect(explanations.clearPair.mock.calls).toEqual([["es>en"]]);
     expect(await value({ type: "removePack", pack: "es" })).toBeNull();
     expect(packs.store.remove).toHaveBeenLastCalledWith("es");
     expect(translations.clearPair.mock.calls).toEqual([["es>en"], ["es>en"]]);
+    expect(explanations.clearPair.mock.calls).toEqual([["es>en"], ["es>en"]]);
   });
 
   it("removes nothing that is not downloaded, and nothing the chosen languages use", async () => {
@@ -554,6 +573,81 @@ describe("handlers: language data", () => {
     ).toEqual({ ok: false, error: "No pack to remove" });
     expect(packs.store.remove).not.toHaveBeenCalled();
     expect(translations.clearPair).not.toHaveBeenCalled();
+    expect(explanations.clearPair).not.toHaveBeenCalled();
+  });
+});
+
+describe("handlers: explanations", () => {
+  const KEY = {
+    learning: "en",
+    native: "ja",
+    key: "bank",
+    sourceUrl: "https://Example.com/river#top",
+    sentence: "We sat on the bank.",
+    provider: "chrome-prompt-api",
+    version: "157",
+  };
+  const KEPT = {
+    answer: { meaning: "土手", unusual: false, explanation: null, sense: 2 },
+    lines: 3,
+  };
+
+  it("keeps an answer by its key, the source URL normalized, and gives it back", async () => {
+    expect(
+      await value({ type: "putExplanation", explanation: KEY, ...KEPT }),
+    ).toBeNull();
+    const normalized = { ...KEY, sourceUrl: "https://example.com/river" };
+    expect(explanations.put).toHaveBeenCalledWith(normalized, KEPT);
+    explanations.get.mockResolvedValueOnce(KEPT);
+    expect(await value({ type: "getExplanation", explanation: KEY })).toEqual(
+      KEPT,
+    );
+    expect(explanations.get).toHaveBeenCalledWith(normalized);
+    expect(
+      await value({ type: "getExplanation", explanation: KEY }),
+    ).toBeNull();
+  });
+
+  it("keeps only the answer's own fields", async () => {
+    await value({
+      type: "putExplanation",
+      explanation: KEY,
+      answer: { ...KEPT.answer, extra: "x" } as typeof KEPT.answer,
+      lines: 0,
+    });
+    expect(explanations.put).toHaveBeenCalledWith(expect.anything(), {
+      answer: KEPT.answer,
+      lines: 0,
+    });
+  });
+
+  it("skips a malformed key or answer", async () => {
+    const bad = [
+      { ...KEY, native: "fr" },
+      { ...KEY, learning: "xx" },
+      { ...KEY, key: "" },
+      { ...KEY, sentence: "a".repeat(2001) },
+      { ...KEY, sourceUrl: "not a url" },
+      { ...KEY, provider: 3 },
+      { ...KEY, version: "" },
+      null,
+    ] as unknown as (typeof KEY)[];
+    for (const explanation of bad) {
+      expect(
+        await value({ type: "putExplanation", explanation, ...KEPT }),
+      ).toBeNull();
+      expect(await value({ type: "getExplanation", explanation })).toBeNull();
+    }
+    for (const kept of [
+      { ...KEPT, lines: 6 },
+      { ...KEPT, lines: -1 },
+      { ...KEPT, lines: 1.5 },
+      { ...KEPT, answer: { ...KEPT.answer, meaning: "" } },
+      { ...KEPT, answer: { ...KEPT.answer, sense: 0 } },
+    ])
+      await value({ type: "putExplanation", explanation: KEY, ...kept });
+    expect(explanations.put).not.toHaveBeenCalled();
+    expect(explanations.get).not.toHaveBeenCalled();
   });
 });
 

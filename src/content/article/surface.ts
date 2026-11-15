@@ -37,6 +37,12 @@ export interface PageSurface {
    * reliably puts in another language are left alone (the page's `lang` says nothing).
    */
   perBlockLanguage?: boolean;
+  /**
+   * The part of the page whose blocks are the lines around a sentence of `element`'s
+   * block for the on-device AI (a comment's thread); the whole page when missing or
+   * null.
+   */
+  contextRoot?(element: Element): Element | null;
   /** The page or video saved terms, occurrences and history sentences come from. */
   source(): Omit<SourceInput, "lang">;
   /** The URL "Seen elsewhere" leaves out (the source's own). */
