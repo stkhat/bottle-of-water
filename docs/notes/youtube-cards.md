@@ -60,6 +60,12 @@ Costs measured:
 - v3 shows 21–23% of manual cues as two subtitle lines in the video (a cue whose sentence ends inside it), and lines shorter than 0.7 s go from 167 to 616 in the new sample. v4 changes nothing in the video.
 - The unit tests of `src/core/subtitles` and `src/content/video` pass unchanged with v5.
 
+## Netflix (held out, measured 2026-11-15)
+The rules were frozen as decided (v7 = v4, cards only between cues, plus v5's human-track join, plus a speaker's dash line keeping its own line in the card) and run on 10 episodes collected for this check: Stranger Things, Peaky Blinders, Sex Education, Young Sheldon and Our Planet, two episodes each (seed 20261115; The Good Place could not be played and one Sex Education pick played another clip, so both were replaced), raw English (IMSC closed captions or subtitles) and Japanese (IMSC subtitles) tracks.
+- Counted: cards 6,162 → 5,792; the same Japanese line on two cards in a row 4.3 → 0.1%; speech cards with no Japanese 4.3 → 4.3%. The first v7 run joined a two-speaker cue's lines with a space ("- How much? - Two hundred pounds."); keeping the dash line on its own line fixes it and is part of the step.
+- Judged blind (40 windows, 30 where the versions differ): whole sentence 86 → 89%, mid-sentence 5.5 → 1.0%, merged 6.8 → 9.2%; translation matches 75 → 84%, a neighbour's text 10.7 → 1.8%; preferred 12 vs 0 (18 the same).
+- v5 (cuts inside cues) on the same episodes: speech cards with no Japanese 4.3 → 11.6%, since a condensed Japanese line can only go to one part of a split cue. This confirms v4/v7 for Netflix too.
+
 ## Recommended fixes by layer
 | Layer | Fix | Evidence |
 |---|---|---|
@@ -85,7 +91,7 @@ Nothing beyond today's: the learning language's sentence and clause punctuation 
 
 ## Suggested order
 1. CORE: date translated sentence ends when said, speaker changes always end a card (small, auto-generated tracks only; `>>` inside cards 4.3 → 0%). **Done** (PR #87, 2026-11-15): auto-generated + YouTube's translation, new / round 2: `>>` inside cards 0.3 → 0% / 4.3 → 0%; cards with no Japanese 0.1 → 0.2% / 0 → 2.1% (of round 2's 91, 62 are sound labels before a `>>`, 29 speech whose translated clause YouTube put after the change); other paths card for card unchanged. Translated end marks right on an English sentence boundary 11.5 → 34.3% (18 punctuated tracks, median distance 336 → 153 ms; p90 1.13 → 1.24 s). Of 30 changed places read by hand, 14 better, 7 same, 9 worse: a clause on the wrong side of a `>>` (Japanese word order, or a 「[笑い]」 label opening the clause said at the change), a few late-dated ends shifting translations by one card, and boundaries moved by a word in unpunctuated tracks. Possible follow-up: a bracketed label in the translation as a clause of its own.
-2. CORE: manual tracks through the sentence rules, with the line decision (1 above), the human-track join (v5), a ♪ that opens a line starting a sentence, and a Netflix measurement first (collect raw TTML for a few episodes).
+2. CORE: manual tracks through the sentence rules, with the line decision (1 above), the human-track join (v5), a ♪ that opens a line starting a sentence, and a speaker's dash line kept on its own line in the card. Netflix measured (section above): ready to ship as v7.
 3. Fallback for a partial human track.
 
 ## Measuring
