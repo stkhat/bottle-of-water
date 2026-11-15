@@ -453,6 +453,125 @@ describe("alignAsrSentences", () => {
     });
   });
 
+  it("dates a sentence end inside a long translated piece when it is said", () => {
+    // One translated piece holds two sentences, the first covering two English ones: its
+    // end mark is said near "going?", not at the piece's start (near "Hi.").
+    const result = alignAsrSentences(
+      [
+        words(0, 2700, [
+          [0, "Hi."],
+          [600, " Where"],
+          [900, " are"],
+          [1200, " you"],
+          [1500, " going?"],
+          [2200, " Home."],
+        ]),
+      ],
+      [cue(0, 2700, "やあ、どこへ行くの？家へ。")],
+      { translationJoiner: "", lang: "en" },
+    );
+    expect(result && pairs(result)).toEqual([
+      ["Hi. Where are you going?", "やあ、どこへ行くの？"],
+      ["Home.", "家へ。"],
+    ]);
+  });
+
+  describe("a speaker change inside a translated sentence", () => {
+    const align = (english: Cue[], translated: Cue[]) => {
+      const result = alignAsrSentences(english, translated, {
+        translationJoiner: "",
+        lang: "en",
+      });
+      expect(result).toBeDefined();
+      expectWellFormed(result!);
+      return pairs(result!);
+    };
+    /** `count` words half a second apart, from `startMs`, each after a space. */
+    const run = (startMs: number, count: number, word: string) =>
+      Array.from(
+        { length: count },
+        (_, i) => [startMs + i * 500, ` ${word}${i}`] as [number, string],
+      );
+
+    it("ends the card, its translation cut at the clause end said there", () => {
+      expect(
+        align(
+          [
+            words(0, 5000, [
+              [0, "so"],
+              [300, " what"],
+              [600, " do"],
+              [900, " you"],
+              [1200, " think"],
+              [2000, " >> I"],
+              [2300, " think"],
+              [2600, " it's"],
+              [2900, " great"],
+            ]),
+            words(5000, 6000, [[0, "thanks"]]),
+          ],
+          [
+            words(0, 5000, [
+              [0, "どう思う、"],
+              [2000, "素晴らしいと思う。"],
+            ]),
+            words(5000, 6000, [[0, "ありがとう。"]]),
+          ],
+        ),
+      ).toEqual([
+        ["so what do you think", "どう思う、"],
+        [">> I think it's great", "素晴らしいと思う。"],
+        ["thanks", "ありがとう。"],
+      ]);
+    });
+
+    it("gives each clause the side it ends on when no clause end is near", () => {
+      // A sound label before the change: the whole translation is said after it.
+      expect(
+        align(
+          [
+            words(0, 3000, [
+              [0, "[laughter]"],
+              [1500, " >> live"],
+              [1800, " singing"],
+              [2100, " tonight"],
+            ]),
+            words(3000, 4000, [[0, "yes"]]),
+          ],
+          [
+            words(0, 3000, [[0, "（笑）ライブで歌うの？"]]),
+            words(3000, 4000, [[0, "はい。"]]),
+          ],
+        ),
+      ).toEqual([
+        ["[laughter]", ""],
+        [">> live singing tonight", "（笑）ライブで歌うの？"],
+        ["yes", "はい。"],
+      ]);
+      // Clause ends far from the change: each goes where it ends in time.
+      expect(
+        align(
+          [
+            words(0, 14000, [
+              [0, "a"],
+              ...run(500, 15, "a"),
+              [8000, " >> b"],
+              ...run(8500, 10, "b"),
+            ]),
+            words(14000, 15000, [[0, "next"]]),
+          ],
+          [
+            words(0, 14000, [
+              [0, "前の人の話、"],
+              [2000, "次の人の話。"],
+            ]),
+            words(14000, 15000, [[0, "次。"]]),
+          ],
+        ).map(([, translation]) => translation),
+      ).toEqual(["前の人の話、", "次の人の話。", "次。"]);
+    });
+  });
+
   it("ends a translated sentence at a period only before a space", () => {
     const result = alignAsrSentences(
       [

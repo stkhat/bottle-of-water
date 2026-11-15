@@ -388,8 +388,11 @@ function translatedSentences(
   joiner: string,
 ): TranslatedSentences {
   let stream = "";
-  const timeAt: number[] = [];
-  /** When each character has been said: spread over its piece's time (clause ends only). */
+  /**
+   * When each character has been said: spread over its piece's time. A piece may hold
+   * several sentences (a whole cue, a long translated event), so an end mark is dated when
+   * it is said, not when its piece starts.
+   */
   const saidAt: number[] = [];
   const tokens = tokensOf(cues, joiner);
   tokens.forEach((token, i) => {
@@ -397,7 +400,6 @@ function translatedSentences(
     const next = tokens[i + 1]?.startMs ?? token.cueEndMs;
     const until = Math.max(token.startMs, Math.min(next, token.cueEndMs));
     for (let k = 0; k < token.text.length; k++) {
-      timeAt.push(token.startMs);
       saidAt.push(
         token.startMs + ((k + 1) / token.text.length) * (until - token.startMs),
       );
@@ -430,7 +432,7 @@ function translatedSentences(
         end++;
       if (!cjk && !spaceAt(end)) continue;
       texts.push(clean(stream.slice(start, end)));
-      endsMs.push(timeAt[p] as number);
+      endsMs.push(saidAt[p] as number);
       cut(end, saidAt[p] as number);
       clauses.push(current);
       current = [];
@@ -613,6 +615,46 @@ function capCard(
 }
 
 /**
+ * Cuts `tokens[from, to)` at every speaker change (`>>`) inside it, and its translation
+ * `units` at the clause end said closest to each change, within CLAUSE_WINDOW_S and only
+ * between two clauses. With no clause end near, each clause goes to the side it ends on in
+ * time, so one side may get none (a "[laughter]" card before ">> Live singing…").
+ */
+function splitAtSpeakers(
+  tokens: readonly Token[],
+  candidates: readonly Candidate[],
+  from: number,
+  to: number,
+  units: readonly Unit[],
+  push: (from: number, to: number, units: readonly Unit[]) => void,
+): void {
+  let rest = units;
+  let start = from;
+  for (let k = from + 1; k < to; k++) {
+    if (!startsSpeaker(tokens[k] as Token)) continue;
+    const candidate = candidates[k - 1] as Candidate;
+    let cut = -1;
+    let best = CLAUSE_WINDOW_S;
+    for (let u = 1; u < rest.length; u++) {
+      const d = distanceMs((rest[u - 1] as Unit).ms, candidate) / 1000;
+      if (d < best) {
+        best = d;
+        cut = u;
+      }
+    }
+    if (cut < 0) {
+      cut = 0;
+      while (cut < rest.length && (rest[cut] as Unit).ms <= candidate.toMs)
+        cut++;
+    }
+    push(start, k, rest.slice(0, cut));
+    rest = rest.slice(cut);
+    start = k;
+  }
+  push(start, to, rest);
+}
+
+/**
  * The translation of a card's `units`: each translated sentence it has whole as the
  * sentence, a part of one as its clauses, joined by `joiner`.
  */
@@ -656,8 +698,8 @@ const unitsOf = (list: readonly number[], translation: TranslatedSentences) =>
  * (YouTube `tlang`). YouTube translates whole sentences, punctuating them even when the track
  * has no punctuation, and spreads each translation over the track's cues; so every sentence
  * end in the translation marks a sentence end in the track near that time. Each card gets
- * exactly the translated sentences between its ends. Undefined when the translation has no
- * sentence ends to follow.
+ * exactly the translated sentences between its ends; a speaker change always ends a card too
+ * (`splitAtSpeakers`). Undefined when the translation has no sentence ends to follow.
  */
 export function alignAsrSentences(
   cues: readonly Cue[],
@@ -684,8 +726,16 @@ export function alignAsrSentences(
     sentences.push(tokens.slice(from, to));
     translations.push(textOfUnits(units, translation, joiner));
   };
+  // A speaker change always ends a card, even inside one translated sentence.
   const capped = (from: number, to: number, list: number[]) =>
-    capCard(candidates, from, to, unitsOf(list, translation), push);
+    splitAtSpeakers(
+      tokens,
+      candidates,
+      from,
+      to,
+      unitsOf(list, translation),
+      (a, b, units) => capCard(candidates, a, b, units, push),
+    );
 
   let start = 0;
   let pending: number[] = [];
