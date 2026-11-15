@@ -10,6 +10,7 @@ import type {
   TermStatus,
 } from "../core/classify";
 import type { DictionaryEntry, Written } from "../core/lexicon/dictionary";
+import type { Meaning } from "../core/meanings";
 import type { PackState } from "../core/packs/state";
 import type { DocumentCasing } from "../core/text/casing";
 import type { Settings, SettingsPatch } from "../core/settings";
@@ -58,6 +59,22 @@ export interface SaveTermInput {
   pos: Position;
 }
 
+/**
+ * A meaning chosen for one sentence of a term ("this sentence": `sentence` in
+ * `source`), or none (`meaning` null: an undo). The rest is what saving the term from
+ * that sentence sends: an unsaved term is saved as Learning with it.
+ */
+export interface ChooseMeaningInput {
+  term: Omit<SaveTermInput, "status">;
+  meaning: Meaning | null;
+}
+
+/** A meaning of the term chosen in some sentence, with how many sentences it was chosen for. */
+export interface YourMeaning extends Meaning {
+  key: string;
+  count: number;
+}
+
 export interface EncounterInput {
   termId: string;
   sentence: string;
@@ -102,20 +119,24 @@ export type Request =
   | { type: "warmDictionary"; lang: string }
   /**
    * `sourceUrl` is the page or video the user is on; its occurrences come back as
-   * `here`. `written`: how the word was written there, when the page says: in lower
-   * case, capitalised in a way that counts (`Span.capital`), or as an acronym. `pos`:
-   * the part of speech its tag gives it there (`Span.pos`): the hover card's lines
-   * show senses of it first (rule A2).
+   * `here`. `sentence`: the sentence there the term was looked up in ("this
+   * sentence"), whose chosen meaning comes back as `chosenHere`. `written`: how the
+   * word was written there, when the page says: in lower case, capitalised in a way
+   * that counts (`Span.capital`), or as an acronym. `pos`: the part of speech its tag
+   * gives it there (`Span.pos`): the hover card's lines show senses of it first (rule
+   * A2).
    */
   | {
       type: "lookup";
       lang: string;
       key: string;
       sourceUrl?: string;
+      sentence?: string;
       written?: Written;
       pos?: string;
     }
   | ({ type: "saveTerm" } & SaveTermInput)
+  | ({ type: "chooseMeaning" } & ChooseMeaningInput)
   | { type: "setStatus"; id: string; status: TermStatus }
   | { type: "removeTerm"; id: string }
   | { type: "recordEncounters"; source: SourceInput; items: EncounterInput[] }
@@ -191,6 +212,8 @@ export interface OccurrenceView {
   source: { title: string; platform: Platform; url: string };
   /** The source URL, with the time for YouTube. */
   link: string;
+  /** The key of the meaning chosen for this sentence (`YourMeaning.key`), if any. */
+  meaningKey?: string;
 }
 
 export interface LookupResult {
@@ -211,6 +234,13 @@ export interface LookupResult {
    * their cleaned English. Only for an entry glossed in another language (`glossLang`).
    */
   translations?: Readonly<Record<string, string>>;
+  /**
+   * The meanings chosen for the term's sentences, the one chosen here first, then the
+   * most chosen, then the most recently chosen.
+   */
+  yourMeanings: YourMeaning[];
+  /** The key of the meaning chosen for `sentence` at `sourceUrl`, if any. */
+  chosenHere?: string;
 }
 
 /** A short meaning as lists show it. */
@@ -321,6 +351,8 @@ interface ResponseMap {
   warmDictionary: null;
   lookup: LookupResult;
   saveTerm: TermRecord;
+  /** The term, saved now when it was not; null for an undo that found nothing to undo. */
+  chooseMeaning: TermRecord | null;
   setStatus: TermRecord;
   removeTerm: null;
   /** How many occurrences were added. */

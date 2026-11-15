@@ -47,7 +47,14 @@ export function createCards(o: {
   ): Promise<TermCard | undefined> {
     const found = spanOf(ref);
     if (!found) return undefined;
-    return describeSpan(lookup, found.span, found.surface, shownIn);
+    // The card's flat text: the sentence saving the term from it records.
+    const sentence = flat(found.cue.text);
+    return describeSpan(
+      lookup,
+      found.span,
+      { surface: found.surface, sentence },
+      shownIn,
+    );
   }
 
   /**

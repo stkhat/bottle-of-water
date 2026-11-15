@@ -38,7 +38,9 @@ import {
   type SyncStatus,
   type TermBrief,
   type TranslationItem,
+  type YourMeaning,
 } from "../messaging/protocol";
+import { orderMeanings } from "../core/meanings";
 import { historyKeys, type HistoryStore } from "./history-store";
 import type { LanguageResources } from "./language-resources";
 import type { PackStore } from "./pack-store";
@@ -93,8 +95,14 @@ const WRITTEN: ReadonlySet<unknown> = new Set(["lower", "capital", "upper"]);
 /** Private (incognito) windows leave nothing behind: no history, no encounters. */
 const fromIncognito = (sender: MessageSender) => sender.tab?.incognito === true;
 
-/** An occurrence, or a kept sentence of the history (an encounter), as the UI shows it. */
-function view(o: ImportedOccurrence & { origin?: Origin }): OccurrenceView {
+/**
+ * An occurrence, or a kept sentence of the history (an encounter), as the UI shows it,
+ * with the key of the meaning chosen there.
+ */
+function view(
+  o: ImportedOccurrence & { origin?: Origin },
+  meaningKey?: string,
+): OccurrenceView {
   const { title, platform, url } = o.source;
   return {
     sentence: o.sentence,
@@ -104,6 +112,48 @@ function view(o: ImportedOccurrence & { origin?: Origin }): OccurrenceView {
     origin: o.origin ?? "encountered",
     source: { title, platform, url },
     link: occurrenceLink(o.source, o.pos),
+    ...(meaningKey !== undefined && { meaningKey }),
+  };
+}
+
+/**
+ * The term's meanings named by its choices, with how many sentences each was chosen
+ * for, the one chosen at `here` first (`orderMeanings`), and that one's key.
+ */
+function yourMeanings(
+  { meanings, choices }: Awaited<ReturnType<TermStore["meaningsOf"]>>,
+  here: { url: string; sentence: string } | undefined,
+): { yourMeanings: YourMeaning[]; chosenHere?: string } {
+  const chosenHere =
+    here &&
+    choices.find((c) => c.url === here.url && c.sentence === here.sentence)
+      ?.meaningKey;
+  const uses = new Map<string, { count: number; lastAt: number }>();
+  for (const { meaningKey, at } of choices) {
+    const use = uses.get(meaningKey);
+    if (use) {
+      use.count++;
+      use.lastAt = Math.max(use.lastAt, at);
+    } else uses.set(meaningKey, { count: 1, lastAt: at });
+  }
+  const ordered = orderMeanings(
+    meanings.flatMap((m) => {
+      const use = uses.get(m.key);
+      return use ? [{ ...m, ...use }] : [];
+    }),
+    chosenHere,
+  );
+  return {
+    yourMeanings: ordered.map((m): YourMeaning => ({
+      key: m.key,
+      from: m.from,
+      text: m.text,
+      ...(m.glossLang !== undefined && { glossLang: m.glossLang }),
+      ...(m.pos !== undefined && { pos: m.pos }),
+      ...(m.explanation !== undefined && { explanation: m.explanation }),
+      count: m.count,
+    })),
+    ...(chosenHere !== undefined && { chosenHere }),
   };
 }
 
@@ -255,6 +305,20 @@ export function createHandlers({
     };
   }
 
+  /**
+   * A term saved now (new, or saved again after removal) takes in the sentences kept
+   * for it. Read outside the store's transaction to keep that one small. Best effort:
+   * the term is saved whether or not its history comes along.
+   */
+  async function importKept(id: string) {
+    try {
+      const kept = await history.find(id, { limit: MAX_OCCURRENCES });
+      if (kept.length > 0) await store.importOccurrences(id, kept);
+    } catch (error) {
+      console.error("Lingo: could not import the sentence history", error);
+    }
+  }
+
   const handlers: Handlers = {
     getSettings: () => settings.get(),
     setSettings: ({ patch }) => settings.set(patch),
@@ -308,21 +372,27 @@ export function createHandlers({
       return null;
     },
 
-    async lookup({ lang, key, sourceUrl, written, pos }) {
+    async lookup({ lang, key, sourceUrl, sentence, written, pos }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
-      const [dictionary, pack, terms, occurrences] = await allOf([
+      const [dictionary, pack, terms, occurrences, meanings] = await allOf([
         resources.dictionary(lang, nativeLang),
         resources.pack(lang),
         store.termIndex(lang),
         store.occurrencesOf(id),
+        store.meaningsOf(id),
       ]);
       const hereUrl =
         sourceUrl === undefined ? undefined : tryNormalizeUrl(sourceUrl);
+      const chosen = new Map(
+        meanings.choices.map((c) => [`${c.sourceId}\n${c.sentence}`, c]),
+      );
       const here: OccurrenceView[] = [];
       const elsewhere: OccurrenceView[] = [];
       for (const o of occurrences)
-        (o.source.url === hereUrl ? here : elsewhere).push(view(o));
+        (o.source.url === hereUrl ? here : elsewhere).push(
+          view(o, chosen.get(`${o.sourceId}\n${o.sentence}`)?.meaningKey),
+        );
       const status = terms.get(key) ?? "new";
       // Best effort: the dictionary entry is shown whether or not the history is read.
       if (status === "new") {
@@ -330,7 +400,7 @@ export function createHandlers({
           const kept = await history.find(id, {
             ...(sourceUrl !== undefined && { excludeUrl: sourceUrl }),
           });
-          elsewhere.push(...kept.map(view));
+          elsewhere.push(...kept.map((o) => view(o)));
         } catch (error) {
           console.error("Lingo: could not read the sentence history", error);
         }
@@ -355,6 +425,12 @@ export function createHandlers({
         here,
         elsewhere,
         ...(Object.keys(translated).length > 0 && { translations: translated }),
+        ...yourMeanings(
+          meanings,
+          hereUrl !== undefined && typeof sentence === "string"
+            ? { url: hereUrl, sentence }
+            : undefined,
+        ),
       };
     },
 
@@ -362,17 +438,14 @@ export function createHandlers({
       const input = omit(request, "type");
       const wasSaved = (await store.termIndex(input.lang)).has(input.key);
       const term = await store.saveTerm(input);
-      // A term saved now (new, or saved again after removal) takes in the sentences
-      // kept for it. Read outside the store's transaction to keep that one small.
-      // Best effort: the term is saved whether or not its history comes along.
-      if (!wasSaved) {
-        try {
-          const kept = await history.find(term.id, { limit: MAX_OCCURRENCES });
-          if (kept.length > 0) await store.importOccurrences(term.id, kept);
-        } catch (error) {
-          console.error("Lingo: could not import the sentence history", error);
-        }
-      }
+      if (!wasSaved) await importKept(term.id);
+      return term;
+    },
+
+    async chooseMeaning({ term: input, meaning }) {
+      const wasSaved = (await store.termIndex(input.lang)).has(input.key);
+      const term = await store.chooseMeaning({ term: input, meaning });
+      if (term && !wasSaved) await importKept(term.id);
       return term;
     },
     setStatus: ({ id, status }) => store.setStatus(id, status),

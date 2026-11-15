@@ -6,6 +6,7 @@ import { applyOverrides, readLock, type PackLock } from "../core/packs/lock";
 import type { PackState } from "../core/packs/state";
 import { blockCasing, documentCasing } from "../core/text/casing";
 import { tokenize } from "../core/text/tokenize";
+import { omit } from "../core/util";
 import type {
   AnalyzeResult,
   Reply,
@@ -42,6 +43,8 @@ function fakeStore(): FakeStore {
     saveTerm: vi.fn(fail("saveTerm")),
     setStatus: vi.fn(fail("setStatus")),
     removeTerm: vi.fn(fail("removeTerm")),
+    chooseMeaning: vi.fn(fail("chooseMeaning")),
+    meaningsOf: vi.fn(async () => ({ meanings: [], choices: [] })),
     recordEncounters: vi.fn(fail("recordEncounters")),
     saveAll: vi.fn(fail("saveAll")),
     undoSaveAll: vi.fn(fail("undoSaveAll")),
@@ -971,6 +974,125 @@ describe("handlers: lookup", () => {
           link: "https://www.youtube.com/watch?v=abc&t=12s",
         },
       ],
+      yourMeanings: [],
+    });
+  });
+
+  describe("your meanings", () => {
+    const meaning = (key: string, text: string, createdAt = 0) => ({
+      key,
+      termId: "en:loaf",
+      from: "dictionary" as const,
+      text,
+      pos: "noun",
+      createdAt,
+    });
+    const choice = (
+      source: SourceRecord,
+      sentence: string,
+      meaningKey: string,
+      at: number,
+    ) => ({
+      termId: "en:loaf",
+      sourceId: source.id,
+      sentence,
+      meaningKey,
+      at,
+      deviceId: "d1",
+      url: source.url,
+    });
+
+    beforeEach(() => {
+      store.meaningsOf.mockResolvedValue({
+        meanings: [
+          meaning("m-lump", "塊"),
+          meaning("m-bread", "パンのひと塊"),
+          meaning("m-loaf", "ぶらぶらする"),
+          // Named by no choice: not one of the term's meanings.
+          meaning("m-old", "古い"),
+        ],
+        choices: [
+          choice(BREAD, "A warm loaf.", "m-bread", 10),
+          choice(BREAD, "Two loaves.", "m-lump", 20),
+          choice(VIDEO, "Shape the loaf.", "m-bread", 5),
+          choice(VIDEO, "Loaf around.", "m-loaf", 30),
+        ],
+      });
+    });
+
+    it("gives the chosen meanings with their counts, the one chosen here first", async () => {
+      const result = await value({
+        type: "lookup",
+        lang: "en",
+        key: "loaf",
+        sourceUrl: BREAD.url,
+        sentence: "Two loaves.",
+      });
+      expect(store.meaningsOf).toHaveBeenCalledWith("en:loaf");
+      expect(result.chosenHere).toBe("m-lump");
+      expect(result.yourMeanings).toEqual([
+        {
+          key: "m-lump",
+          from: "dictionary",
+          text: "塊",
+          pos: "noun",
+          count: 1,
+        },
+        {
+          key: "m-bread",
+          from: "dictionary",
+          text: "パンのひと塊",
+          pos: "noun",
+          count: 2,
+        },
+        {
+          key: "m-loaf",
+          from: "dictionary",
+          text: "ぶらぶらする",
+          pos: "noun",
+          count: 1,
+        },
+      ]);
+    });
+
+    it("orders by count, then by the newest choice, without a sentence", async () => {
+      const result = await value({
+        type: "lookup",
+        lang: "en",
+        key: "loaf",
+        sourceUrl: BREAD.url,
+      });
+      expect(result.chosenHere).toBeUndefined();
+      expect(result.yourMeanings.map((m) => m.key)).toEqual([
+        "m-bread",
+        "m-loaf",
+        "m-lump",
+      ]);
+    });
+
+    it("chooses nothing here for a sentence of another source", async () => {
+      const result = await value({
+        type: "lookup",
+        lang: "en",
+        key: "loaf",
+        sourceUrl: VIDEO.url,
+        sentence: "Two loaves.",
+      });
+      expect(result.chosenHere).toBeUndefined();
+    });
+
+    it("gives each occurrence the key of the meaning chosen there", async () => {
+      const result = await value({
+        type: "lookup",
+        lang: "en",
+        key: "loaf",
+        sourceUrl: BREAD.url,
+      });
+      expect(result.here.map((o) => [o.sentence, o.meaningKey])).toEqual([
+        ["A warm loaf.", "m-bread"],
+        ["Two loaves.", "m-lump"],
+      ]);
+      expect(result.elsewhere.map((o) => o.meaningKey)).toEqual(["m-bread"]);
     });
   });
 
@@ -1035,6 +1157,7 @@ describe("handlers: lookup", () => {
       termId: "en:sourdough",
       here: [],
       elsewhere: [],
+      yourMeanings: [],
     });
   });
 
@@ -1052,6 +1175,7 @@ describe("handlers: lookup", () => {
       termId: "en:yeast loaf",
       here: [],
       elsewhere: [],
+      yourMeanings: [],
     });
   });
 
@@ -1670,6 +1794,36 @@ describe("handlers: saving brings the kept sentences in", () => {
       error.mockRestore();
     },
   );
+
+  it("imports them when choosing a meaning saves the term, not for a saved one", async () => {
+    const term = omit(input, "status");
+    const meaning = {
+      from: "dictionary",
+      text: "パンのひと塊",
+      pos: "noun",
+    } as const;
+    store.chooseMeaning.mockResolvedValue(LOAF);
+    store.importOccurrences.mockResolvedValue(2);
+    history.find.mockResolvedValue(KEPT);
+    const request = { type: "chooseMeaning", term, meaning } as const;
+    expect(await value(request)).toEqual(LOAF);
+    expect(store.chooseMeaning).toHaveBeenCalledWith({ term, meaning });
+    expect(store.importOccurrences).toHaveBeenCalledWith("en:loaf", KEPT);
+
+    store.importOccurrences.mockClear();
+    store.termIndex.mockResolvedValue(new Map([["loaf", "learning"]]));
+    await value(request);
+    expect(store.importOccurrences).not.toHaveBeenCalled();
+  });
+
+  it("imports nothing for an undo that found nothing", async () => {
+    const term = omit(input, "status");
+    store.chooseMeaning.mockResolvedValue(null);
+    expect(
+      await value({ type: "chooseMeaning", term, meaning: null }),
+    ).toBeNull();
+    expect(history.find).not.toHaveBeenCalled();
+  });
 
   it("does not import for save all", async () => {
     store.saveAll.mockResolvedValue({ batchId: "b1", count: 1 });

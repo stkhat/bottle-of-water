@@ -202,6 +202,8 @@ export interface VideoApp {
   clearSelection(): void;
   /** The window's Learning / Known / Remove. */
   setPanelStatus(status: WordStatus): void;
+  /** The window's "Use here" / "Used here" on its Meanings row `index` (`meaningRows`). */
+  useMeaning(index: number): void;
   speak(): void;
   closePanel(): void;
   /** A line of the window's "In this video" was clicked. */

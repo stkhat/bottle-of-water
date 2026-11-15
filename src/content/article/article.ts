@@ -6,7 +6,7 @@ import {
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
-import type { TermCard } from "../lookup/describe";
+import { meaningRows, type TermCard } from "../lookup/describe";
 import {
   createLookup,
   createMarkAll,
@@ -22,7 +22,7 @@ import { createSummaries } from "../words/summaries";
 import type { Occurrence } from "../words/words";
 import { createAnalysis, type Analysis } from "./analysis";
 import { createBlocks } from "./blocks";
-import { createCards, writtenOf } from "./cards";
+import { createCards, sentenceOf, writtenOf } from "./cards";
 import { watchEndOfArticle } from "./end-of-article";
 import { watchInteractions, type Interactions } from "./interactions";
 import { spanAtPoint, type SpanRef } from "./locate";
@@ -36,7 +36,6 @@ import {
 } from "./page-text";
 import { createRecorder } from "./recorder";
 import { createSelection } from "./selection";
-import { sentenceAt } from "./sentence";
 import type { DetectLanguage } from "./should-run";
 import type { ArticleApp, ArticleState } from "./state";
 import { articleSurface, type PageSurface } from "./surface";
@@ -338,22 +337,47 @@ export async function startArticle(
     summaries.note(changes);
   }
 
+  /** What saving the term `ref` points at sends besides its status. */
+  function termInput(ref: SpanRef, card: TermCard) {
+    const sentence = sentenceOf(ref, lang);
+    return {
+      lang,
+      key: card.key,
+      display: writtenOf(ref),
+      kind: card.kind,
+      source: source(),
+      sentence,
+      pos: { textQuote: sentence },
+    };
+  }
+
   /** Saves, changes or removes the term `ref` points at. */
   async function changeStatus(ref: SpanRef, card: TermCard, to: WordStatus) {
-    const sent = await sendStatus(deps.send, card, to, () => {
-      const { block, span } = ref;
-      const sentence = sentenceAt(block.text, span.start, span.end, lang);
-      return {
-        lang,
-        key: card.key,
-        display: writtenOf(ref),
-        kind: card.kind,
-        source: source(),
-        sentence,
-        pos: { textQuote: sentence },
-      };
+    const sent = await sendStatus(deps.send, card, to, () =>
+      termInput(ref, card),
+    );
+    if (sent) await statusChanged(ref, card, to);
+  }
+
+  /**
+   * Chooses the meaning of the window's row `index` for the sentence `ref` is in, or
+   * undoes it when it is the one chosen there. An unsaved term is saved as Learning.
+   */
+  async function chooseMeaning(ref: SpanRef, card: TermCard, index: number) {
+    const row = meaningRows(card)[index];
+    if (!row) return;
+    await deps.send({
+      type: "chooseMeaning",
+      term: termInput(ref, card),
+      meaning: row.sense.usedHere ? null : row.meaning,
     });
-    if (!sent) return;
+    if (card.status === "new" && !row.sense.usedHere)
+      await statusChanged(ref, card, "learning");
+    else await cards.refresh(card);
+  }
+
+  /** The term `ref` points at went from `card.status` to `to`: the page follows. */
+  async function statusChanged(ref: SpanRef, card: TermCard, to: WordStatus) {
     noteStatus([card.key], to);
     // Unsaved, each occurrence is new or known again by the page's level.
     if (to === "new") await reanalyze(blocksWith(card));
@@ -394,6 +418,11 @@ export async function startArticle(
       const ref = cards.panelRef();
       const card = store.get().panel?.card;
       if (ref && card) run(() => changeStatus(ref, card, status));
+    },
+    useMeaning(index) {
+      const ref = cards.panelRef();
+      const card = store.get().panel?.card;
+      if (ref && card) run(() => chooseMeaning(ref, card, index));
     },
     speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel: cards.closePanel,

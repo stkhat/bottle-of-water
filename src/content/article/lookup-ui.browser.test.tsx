@@ -296,6 +296,53 @@ describe("dictionary panel", () => {
       .toHaveLength(2);
   });
 
+  it("Use here chooses a meaning for the clicked sentence and saves the word as Learning; undoing keeps it saved", async () => {
+    const { root, background } = await setup(ARTICLE, {
+      settings: { highlight: { new: true, learning: true, known: true } },
+    });
+    await expect.poll(() => highlighted("lingo-new")).toContain("tedious");
+    await clickOn(root, "tedious", 1);
+    const panel = dictionary();
+    const meaning = "退屈な；うんざりする；面倒な";
+    await panel.getByRole("button", { name: `Use here: ${meaning}` }).click();
+
+    const used = panel.getByRole("button", { name: `Used here: ${meaning}` });
+    await expect.element(used).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .element(panel.getByRole("button", { name: "Learning" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect.element(panel.getByText("1 sentence")).toBeVisible();
+    expect(highlighted("lingo-learning")).toEqual(["tedious", "tedious"]);
+    expect(background.sent("chooseMeaning")).toEqual([
+      {
+        type: "chooseMeaning",
+        term: expect.objectContaining({
+          key: "tedious",
+          sentence: "Once you figure out a schedule, it is tedious no more.",
+        }),
+        meaning: { from: "dictionary", text: meaning, pos: "adjective" },
+      },
+    ]);
+    // Another sentence of the page has no meaning chosen.
+    await clickOn(root, "tedious");
+    await expect
+      .element(panel.getByRole("button", { name: `Use here: ${meaning}` }))
+      .toBeInTheDocument();
+
+    await clickOn(root, "tedious", 1);
+    await panel.getByRole("button", { name: `Used here: ${meaning}` }).click();
+    await expect
+      .element(panel.getByRole("button", { name: `Use here: ${meaning}` }))
+      .toBeInTheDocument();
+    expect(panel.getByText("1 sentence").query()).toBeNull();
+    await expect
+      .element(panel.getByRole("button", { name: "Learning" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(background.sent("chooseMeaning").at(-1)).toMatchObject({
+      meaning: null,
+    });
+  });
+
   it("lists where a saved word was seen on other pages", async () => {
     const { root, background } = await setup(ARTICLE);
     await background.send({

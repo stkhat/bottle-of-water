@@ -1,4 +1,5 @@
-import { Dexie, type EntityTable } from "dexie";
+import { Dexie, type EntityTable, type Table } from "dexie";
+import type { Meaning } from "../core/meanings";
 import type { Platform, Position } from "../core/url";
 import type { Origin, TermRecord } from "../messaging/protocol";
 
@@ -23,6 +24,32 @@ export interface OccurrenceRecord {
   pos: Position;
   seenAt: number;
   origin: Origin;
+}
+
+/**
+ * A meaning of "your meanings", named by the choices of a term's sentences. One row per
+ * `key`, so the same meaning made on two devices, or imported, is one row. Dropped
+ * locally once no live choice names it.
+ */
+export interface MeaningRecord extends Meaning {
+  /** `meaningKey(termId, from, text)` */
+  key: string;
+  termId: string;
+  createdAt: number;
+}
+
+/**
+ * The meaning chosen for one place of a term: its source and sentence, the identity of
+ * an occurrence. `meaningKey` null is an undo; the latest `at` wins.
+ */
+export interface MeaningChoiceRecord {
+  termId: string;
+  sourceId: string;
+  sentence: string;
+  meaningKey: string | null;
+  at: number;
+  /** The device that made the choice. */
+  deviceId: string;
 }
 
 /** A page or video of the sentence history. Never synced or exported. */
@@ -98,11 +125,14 @@ export type LingoDb = Dexie & {
   mtCache: EntityTable<MtCacheRecord, "key">;
   packFiles: EntityTable<PackFileRecord, "sha256">;
   packVersions: EntityTable<PackVersionRecord, "pack">;
+  meanings: EntityTable<MeaningRecord, "key">;
+  meaningChoices: Table<MeaningChoiceRecord, [string, string, string]>;
 };
 
 /**
  * Tests pass a unique name per test. Versions 1–3 only added tables, so they were
- * merged into 4: Dexie upgrades an older database by comparing the schemas.
+ * merged into 4: Dexie upgrades an older database by comparing the schemas. Version 5
+ * adds your meanings (phase 3).
  */
 export function openLingoDb(name = "lingo"): LingoDb {
   const db = new Dexie(name) as LingoDb;
@@ -117,6 +147,10 @@ export function openLingoDb(name = "lingo"): LingoDb {
     mtCache: "key, usedAt, pair",
     packFiles: "sha256",
     packVersions: "pack",
+  });
+  db.version(5).stores({
+    meanings: "key, termId",
+    meaningChoices: "[termId+sourceId+sentence], termId, meaningKey",
   });
   return db;
 }

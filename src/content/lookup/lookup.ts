@@ -56,6 +56,8 @@ interface ShownTerm extends Term {
   written?: Written;
   /** The part of speech its tag gives it there (`Span.pos`). */
   pos?: string;
+  /** The sentence it is in ("this sentence"), as saving it from there records it. */
+  sentence?: string;
 }
 
 /** The popup's requests about a page (see `page-protocol.ts`), as the page answers them. */
@@ -84,19 +86,23 @@ export function latest() {
 
 export type Lookup = ReturnType<typeof createLookup>;
 
-/** The card of `span`'s term, written as `surface` where it shows. */
+/**
+ * The card of `span`'s term, written as `surface` in `sentence` ("this sentence": the
+ * line, card or article sentence, as saving the term from there records it).
+ */
 export function describeSpan(
   lookup: Lookup,
   span: Span,
-  surface: string,
+  place: { surface: string; sentence: string },
   shownIn: "hover" | "window" = "hover",
 ): Promise<TermCard> {
-  const written = lookup.written(span, surface);
+  const written = lookup.written(span, place.surface);
   return lookup.describe(
     {
       key: span.key,
       kind: span.kind,
-      surface,
+      surface: place.surface,
+      sentence: place.sentence,
       category: span.category,
       ...(written !== undefined && { written }),
       ...(span.pos !== undefined && { pos: span.pos }),

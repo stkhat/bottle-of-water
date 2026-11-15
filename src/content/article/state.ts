@@ -62,6 +62,8 @@ export interface ArticleApp {
   openDetails(): void;
   /** The panel's Learning / Known / Remove. */
   setPanelStatus(status: WordStatus): void;
+  /** The panel's "Use here" / "Used here" on its Meanings row `index` (`meaningRows`). */
+  useMeaning(index: number): void;
   speak(): void;
   closePanel(): void;
   /** Scrolls to the panel's "On this page" sentence. */
