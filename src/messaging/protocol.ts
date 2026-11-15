@@ -28,6 +28,8 @@ export interface TermRecord {
   bulk?: boolean;
   /** The "save all" batch that created the term, until the term is changed. */
   batchId?: string;
+  /** When the term last went from learning to known, while it stays known (the word list's Learned). */
+  learnedAt?: number;
   note?: string;
   createdAt: number;
   updatedAt: number;
@@ -247,6 +249,7 @@ export interface TermSummary extends ShortMeaning {
   /** The newest occurrence's time, else when the term was saved. */
   lastSeen: number;
   createdAt: number;
+  learnedAt?: number;
 }
 
 export interface TermBrief extends ShortMeaning {

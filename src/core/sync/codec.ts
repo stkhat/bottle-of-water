@@ -8,6 +8,8 @@ export interface SyncRecord {
   /** The term's key; a phrase's base forms are joined by spaces. */
   key: string;
   status: StoredStatus;
+  /** A known term that went there from learning (`TermRecord.learnedAt`). */
+  learned?: true;
   /** Last change, in whole minutes since the Unix epoch. */
   updatedMinutes: number;
 }
@@ -25,9 +27,14 @@ const CODES: Record<StoredStatus, string> = {
   known: "k",
   removed: "x",
 };
+/** Known and learned. */
+const LEARNED = "g";
 const STATUSES = new Map(
   Object.entries(CODES).map(([status, code]) => [code, status as StoredStatus]),
 );
+
+const codeOf = (r: SyncRecord) =>
+  r.learned && r.status === "known" ? LEARNED : CODES[r.status];
 
 const ESCAPES: Record<string, string> = {
   "\\": "\\\\",
@@ -107,7 +114,7 @@ export async function encode(
       throw new RangeError(
         `updatedMinutes must be whole minutes from 0: ${r.updatedMinutes}`,
       );
-    const code = CODES[r.status];
+    const code = codeOf(r);
     if (code === undefined)
       throw new RangeError(`Unknown status: ${String(r.status)}`);
     return `${escapeKey(r.key)}\t${code}\t${r.updatedMinutes.toString(36)}`;
@@ -127,11 +134,17 @@ export async function decode(chunks: readonly string[]): Promise<SyncRecord[]> {
     const fields = line.split("\t");
     if (fields.length !== 3) throw damaged();
     const [key, code, minutes] = fields as [string, string, string];
-    const status = STATUSES.get(code);
+    const learned = code === LEARNED;
+    const status = learned ? "known" : STATUSES.get(code);
     if (status === undefined || !/^[0-9a-z]+$/.test(minutes)) throw damaged();
     const updatedMinutes = parseInt(minutes, 36);
     if (!isMinutes(updatedMinutes)) throw damaged();
-    return { key: unescapeKey(key), status, updatedMinutes };
+    return {
+      key: unescapeKey(key),
+      status,
+      ...(learned && { learned }),
+      updatedMinutes,
+    };
   });
 }
 

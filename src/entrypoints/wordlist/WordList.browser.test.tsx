@@ -53,7 +53,10 @@ const TERMS: TermSummary[] = [
   term("figure out", "learning", 3, NOW - 2 * HOUR, "見つけ出す、理解する"),
   term("knead", "learning", 1, at(11, 6), "（パン生地などを）こねる"),
   term("heavy lifting", "learning", 1, at(11, 6) - HOUR),
-  term("honestly", "known", 1, at(11, 4), "正直に（言うと）"),
+  {
+    ...term("honestly", "known", 1, at(11, 4), "正直に（言うと）"),
+    learnedAt: at(11, 8),
+  },
   term("crackle", "known", 5, at(12, 28, 2025), "パチパチ音を立てる"),
 ];
 
@@ -158,9 +161,21 @@ function fake(options: FakeOptions = {}) {
           };
         }
         case "setStatus":
-          terms = terms.map((t) =>
-            t.id === request.id ? { ...t, status: request.status } : t,
-          );
+          terms = terms.map((t) => {
+            if (t.id !== request.id) return t;
+            const { learnedAt, ...rest } = t;
+            const learned =
+              request.status !== "known"
+                ? undefined
+                : t.status === "learning"
+                  ? NOW
+                  : learnedAt;
+            return {
+              ...rest,
+              status: request.status,
+              ...(learned !== undefined && { learnedAt: learned }),
+            };
+          });
           return {};
         case "removeTerm":
           terms = terms.filter((t) => t.id !== request.id);
@@ -383,6 +398,33 @@ describe("WordList", () => {
     await status.getByRole("button", { name: "All" }).click();
     await kind.getByRole("button", { name: "All" }).click();
     expect(heads()).toHaveLength(6);
+  });
+
+  it("filters the learned words, which the Known filter shows too", async () => {
+    const { screen, heads } = await open();
+    const status = screen.getByRole("group", { name: "Status" });
+    await status.getByRole("button", { name: "Learned" }).click();
+    await expect
+      .element(status.getByRole("button", { name: "Learned" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(heads()).toEqual(["honestly"]);
+    await status.getByRole("button", { name: "Known" }).click();
+    expect(heads()).toEqual(["honestly", "crackle"]);
+  });
+
+  it("dates a learned word in its details, and follows its status", async () => {
+    const { details, row } = await open();
+    await row("honestly").click();
+    await expect.element(details.getByText("Learned Nov 8")).toBeVisible();
+    await row("crackle").click();
+    await expect.element(details.getByText(/^Learned/)).not.toBeInTheDocument();
+
+    await row("tedious").click();
+    const group = details.getByRole("group", { name: "Word status" });
+    await group.getByRole("button", { name: "Known" }).click();
+    await expect.element(details.getByText("Learned Today")).toBeVisible();
+    await group.getByRole("button", { name: "Learning" }).click();
+    await expect.element(details.getByText(/^Learned/)).not.toBeInTheDocument();
   });
 
   it("searches heads and meanings, ignoring case", async () => {

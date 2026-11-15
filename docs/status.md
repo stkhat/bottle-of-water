@@ -9,6 +9,7 @@ Last update: 2026-11-15. Merged work is in git history; data sizes are in [notes
 - Highlight and video UI fixes (PR #68): "Details" on every hover card, white outline on the L / ^ group, selections partly over a highlight saved as selected, cheaper renders ([notes](notes/selection-performance.md)). Checked on YouTube and Netflix on 2026-11-14
 - Language data rules ([architecture](specs/architecture.md) "Language data"; measured effect in [notes](notes/translation-quality.md) "Shipped rules"): hover lines and pointer senses, tags (A1, A2), phrase precision, phrase data (B2, C2), vocabulary from Wiktionary (E), names and written case (D), site translations on transcript cards (G), the 2026-11-14 hover fixes
 - **Not yet checked in the user's Chrome**: the hover card's three senses, tags, phrase precision, phrase data, vocabulary, names, rule G and the 2026-11-14 hover fixes
+- Word list "Learned" (2026-11-15; [ui](specs/ui.md) "Word list page"): Known words that went there from Learning, with the date, as a status filter; carried by browser sync (code `g`) and the JSON export. Records only changes made from this version on
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
 - Next: phase 3 (Ask AI / LLM explanations, Tatoeba, Anki/CSV export, more sites), sync to the user's own cloud storage (designed, [architecture](specs/architecture.md) "Sync to the user's own cloud storage"), or the store release ([roadmap](plans/roadmap.md))
 

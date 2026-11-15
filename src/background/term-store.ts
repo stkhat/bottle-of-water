@@ -146,6 +146,21 @@ const isLive = (term: TermRecord | undefined): term is LiveTerm =>
 const deliberate = (term: TermRecord): TermRecord =>
   omit(term, "bulk", "batchId");
 
+/**
+ * `term` with the `learnedAt` its change from `before` gives: set when a learning term
+ * becomes known, kept while it stays known, dropped otherwise.
+ */
+function withLearned(
+  term: TermRecord,
+  before: TermRecord | undefined,
+  at: number,
+): TermRecord {
+  const rest = omit(term, "learnedAt");
+  if (term.status !== "known" || !isLive(before)) return rest;
+  const learnedAt = before.status === "learning" ? at : before.learnedAt;
+  return learnedAt === undefined ? rest : { ...rest, learnedAt };
+}
+
 class Changes {
   private readonly map = new Map<string, ChangeKind>();
   add(lang: string, kind: ChangeKind) {
@@ -184,7 +199,7 @@ function sourceKey(input: SourceInput) {
 
 /** The term as a tombstone removed at `at`. */
 const tombstoned = (term: TermRecord, at: number): TermRecord => ({
-  ...deliberate(term),
+  ...omit(deliberate(term), "learnedAt"),
   status: "removed",
   updatedAt: at,
 });
@@ -325,17 +340,21 @@ export function createTermStore(
         const at = now();
         const id = termId(input.lang, input.key);
         const existing = await db.terms.get(id);
-        const term: TermRecord = {
-          ...(isLive(existing) ? deliberate(existing) : {}),
-          id,
-          lang: input.lang,
-          key: input.key,
-          display: input.display,
-          kind: input.kind,
-          status: input.status,
-          createdAt: isLive(existing) ? existing.createdAt : at,
-          updatedAt: at,
-        };
+        const term = withLearned(
+          {
+            ...(isLive(existing) ? deliberate(existing) : {}),
+            id,
+            lang: input.lang,
+            key: input.key,
+            display: input.display,
+            kind: input.kind,
+            status: input.status,
+            createdAt: isLive(existing) ? existing.createdAt : at,
+            updatedAt: at,
+          },
+          existing,
+          at,
+        );
         await db.terms.put(term);
 
         const occurrence = makeOccurrence(
@@ -359,7 +378,12 @@ export function createTermStore(
       return mutate(async (changes) => {
         const existing = await requireTerm(id);
         if (existing.status === status) return existing;
-        const term = { ...deliberate(existing), status, updatedAt: now() };
+        const at = now();
+        const term = withLearned(
+          { ...deliberate(existing), status, updatedAt: at },
+          existing,
+          at,
+        );
         await db.terms.put(term);
         changes.add(term.lang, "terms");
         return term;
@@ -566,7 +590,12 @@ export function createTermStore(
         for (const incoming of data.terms) {
           const local = terms.get(incoming.id);
           if (local && incoming.updatedAt <= local.updatedAt) continue;
-          terms.set(incoming.id, omit(incoming, "batchId"));
+          terms.set(
+            incoming.id,
+            incoming.status === "known"
+              ? omit(incoming, "batchId")
+              : omit(incoming, "batchId", "learnedAt"),
+          );
           takenTerms.add(incoming.id);
           if (incoming.status === "removed") removed.add(incoming.id);
           changes.add(incoming.lang, "terms");
@@ -653,8 +682,17 @@ export function createTermStore(
             removed.add(id);
           } else {
             const kept = isLive(existing) && record.status !== "removed";
+            // The record carries the mark, not the time: a term learned here keeps its own.
+            const learnedAt =
+              record.learned && record.status === "known"
+                ? (isLive(existing) &&
+                    existing.status === "known" &&
+                    existing.learnedAt) ||
+                  at
+                : undefined;
             terms.set(id, {
-              ...(existing ? deliberate(existing) : {}),
+              ...(existing ? omit(deliberate(existing), "learnedAt") : {}),
+              ...(learnedAt !== undefined && { learnedAt }),
               id,
               lang,
               key: record.key,
@@ -715,6 +753,7 @@ function isTerm(t: unknown): t is TermRecord {
     isString(t.display) &&
     KINDS.has(t.kind as TermKind) &&
     STATUSES.has(t.status as StoredStatus) &&
+    (t.learnedAt === undefined || isNumber(t.learnedAt)) &&
     isNumber(t.createdAt) &&
     isNumber(t.updatedAt)
   );

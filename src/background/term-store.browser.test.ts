@@ -146,6 +146,69 @@ describe("setStatus", () => {
   });
 });
 
+describe("learnedAt", () => {
+  const learnedAt = async () => (await store.listTerms("en"))[0]?.learnedAt;
+
+  it("is set when a learning term becomes known, by status or by saving", async () => {
+    await store.saveTerm(dough());
+    clock.tick();
+    await store.setStatus("en:dough", "known");
+    expect(await learnedAt()).toBe(clock.time);
+
+    await store.saveTerm(figureOut());
+    clock.tick();
+    await store.saveTerm(figureOut({ status: "known" }));
+    expect((await store.listTerms("en"))[1]!.learnedAt).toBe(clock.time);
+  });
+
+  it("is not set for a term known from the start, by hand or by save all", async () => {
+    await store.saveTerm(dough({ status: "known" }));
+    await store.saveAll("en", ["bread"], "known", ARTICLE);
+    expect((await store.listTerms("en")).map((t) => t.learnedAt)).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it("stays when a learned term is saved as known again", async () => {
+    await store.saveTerm(dough());
+    await store.setStatus("en:dough", "known");
+    const learned = clock.time;
+    clock.tick();
+    await store.saveTerm(dough({ status: "known", sentence: "More dough." }));
+    expect(await learnedAt()).toBe(learned);
+  });
+
+  it("goes when the term goes back to learning, and comes back with the new date", async () => {
+    await store.saveTerm(dough());
+    await store.setStatus("en:dough", "known");
+    clock.tick();
+    await store.setStatus("en:dough", "learning");
+    expect(await learnedAt()).toBeUndefined();
+    clock.tick();
+    await store.setStatus("en:dough", "known");
+    expect(await learnedAt()).toBe(clock.time);
+  });
+
+  it("comes for a term known from the start once it goes through learning", async () => {
+    await store.saveTerm(dough({ status: "known" }));
+    await store.setStatus("en:dough", "learning");
+    clock.tick();
+    await store.setStatus("en:dough", "known");
+    expect(await learnedAt()).toBe(clock.time);
+  });
+
+  it("goes with a removal, and a term saved again as known is not learned", async () => {
+    await store.saveTerm(dough());
+    await store.setStatus("en:dough", "known");
+    await store.removeTerm("en:dough");
+    const [tombstone] = await store.listTerms("en", { includeRemoved: true });
+    expect(tombstone!.learnedAt).toBeUndefined();
+    await store.saveTerm(dough({ status: "known" }));
+    expect(await learnedAt()).toBeUndefined();
+  });
+});
+
 describe("removeTerm", () => {
   it("leaves a tombstone with the time of removal", async () => {
     await store.saveTerm(dough());
@@ -767,6 +830,34 @@ describe("applySynced", () => {
     expect(await store.occurrencesOf("en:dough")).toEqual([]);
   });
 
+  it("marks a term learned from the record, at the record's time", async () => {
+    await store.applySynced("en", [
+      { ...synced("dough", "known", 100), learned: true },
+    ]);
+    expect((await store.listTerms("en"))[0]!.learnedAt).toBe(100 * MIN);
+  });
+
+  it("keeps the local learned time when the term is learned here already", async () => {
+    clock.time = 100 * MIN;
+    await store.saveTerm(dough());
+    await store.setStatus("en:dough", "known");
+    await store.applySynced("en", [
+      { ...synced("dough", "known", 105), learned: true },
+    ]);
+    expect((await store.listTerms("en"))[0]).toMatchObject({
+      learnedAt: 100 * MIN,
+      updatedAt: 105 * MIN,
+    });
+  });
+
+  it("drops the learned mark when the record has none", async () => {
+    clock.time = 100 * MIN;
+    await store.saveTerm(dough());
+    await store.setStatus("en:dough", "known");
+    await store.applySynced("en", [synced("dough", "known", 105)]);
+    expect((await store.listTerms("en"))[0]!.learnedAt).toBeUndefined();
+  });
+
   it("tells listeners the change came from sync", async () => {
     const listener = vi.fn();
     store.onChange(listener);
@@ -848,6 +939,34 @@ describe("importJson", () => {
         })),
       );
     });
+  });
+
+  it("carries the learned time", async () => {
+    await store.saveTerm(dough());
+    clock.tick();
+    await store.setStatus("en:dough", "known");
+    const json = await store.exportJson();
+    await withOtherStore(async (other) => {
+      await other.importJson(json);
+      expect((await other.listTerms("en"))[0]!.learnedAt).toBe(clock.time);
+    });
+  });
+
+  it("drops a learned time on a term that is not known", async () => {
+    await store.saveTerm(dough());
+    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    data.terms[0]!.learnedAt = clock.time;
+    await withOtherStore(async (other) => {
+      await other.importJson(JSON.stringify(data));
+      expect((await other.listTerms("en"))[0]!.learnedAt).toBeUndefined();
+    });
+  });
+
+  it("rejects a learned time that is not a number", async () => {
+    await store.saveTerm(dough({ status: "known" }));
+    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    (data.terms[0] as unknown as Record<string, unknown>).learnedAt = "soon";
+    await expect(store.importJson(JSON.stringify(data))).rejects.toThrow();
   });
 
   it("takes a term that is newer in the file", async () => {
