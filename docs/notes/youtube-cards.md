@@ -92,7 +92,7 @@ In the user's Chrome, after PRs #87 and #89:
 - YouTube, human track (`fxbCHn6gE3U`): sentence cards with their human lines.
 - Netflix (Peaky Blinders S1E4): a two-speaker cue stays one card ("- How much? - Two hundred pounds." / 金額は？２００ポンド); the transcript shows its line break as a space, as before.
 - Error logs on YouTube and Netflix: empty, cleared.
-- Found on the way, not caused by these steps: some YouTube manual tracks carry `<i>…</i>` in the caption text, and Lingo shows the tags literally in the card and the subtitle ("this <i>Craigslist</i> ad"); YouTube itself renders them as italics. Sound labels in auto-generated tracks get word highlights ("[applause]" as New).
+- Found on the way, not caused by these steps: some YouTube manual tracks carry `<i>…</i>` in the caption text, and Lingo shows the tags literally in the card and the subtitle ("this <i>Craigslist</i> ad"); YouTube itself renders them as italics. **Fixed** (PR #90): the json3 parser drops tags whose name starts with a letter; English cards with a tag 21 → 0, translations 4 → 0, every other card unchanged. Sound labels in auto-generated tracks get word highlights ("[applause]" as New).
 
 ## Still open
 - Auto-generated tracks without punctuation and fast Shorts (cause 6): about 1 card in 4 has part of a neighbour's translation or misses part of its own. Time cannot fix it; a lexical anchor (dictionary or loanword matches between the English and the translation) might.
