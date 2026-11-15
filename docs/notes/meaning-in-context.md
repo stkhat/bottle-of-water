@@ -2,7 +2,7 @@
 
 **Done 2026-11-15/16**: C1 (API surface), C2 (latency, `clone()`), C3 (quality on 300 terms with dictionary meanings and 60 without, blind judged), C4 (Spanish and English answers). The user decides at the gate ("Decisions for the gate"). The study folder `data/raw/quality/2026-11-context/` (git-ignored) has the probe, prototype, batches, results, packets and judgements, and a README.
 
-Plan: [plans/meaning-in-context.md](../plans/meaning-in-context.md) "M0". Design: [architecture](../specs/architecture.md) "Meaning in context", [ui](../specs/ui.md) "Meaning in context and your meanings".
+Built 2026-11-16 (M1–M3) and checked with the real model in the user's Chrome ("Real-site check (M4)" below). Design: [architecture](../specs/architecture.md) "Meaning in context", [ui](../specs/ui.md) "Meaning in context and your meanings".
 
 ## Method
 - The user's Chrome **157.0.8103.51** (macOS), through Claude in Chrome, with a throwaway check build (never merged; its source is `probe.patch` in the study folder). A content script answers the page's `window.postMessage({type: "lingo:ai-probe", …})`; the service worker, an extension page (opened as a tab) and an offscreen document answer through the background. Prompt batches came from a local study server through the service worker (host permission `http://127.0.0.1:8765/*`); results went back the same way, so no corpus text passed through the page.
@@ -129,3 +129,24 @@ The user decided:
 Also from the results:
 - Where prompts run: the content script works (C1); the offscreen document is as fast and does not depend on the tab being shown, but cannot start a download. The spec's content-script design stands.
 - One base session per page with `clone()` per term saves 0.65 s per prompt.
+
+## Real-site check (M4)
+**Done 2026-11-16** in the user's Chrome (the same Chrome 157, the model already downloaded) with the check build of `main` (M3, then the footer fix of PR #98), through Claude in Chrome, videos muted and paused. Pages: YouTube Ken Robinson TED (transcript, comments with their replies closed and open), Netflix Friends `watch/70274124` (Japanese track), en.wikipedia.org "Creativity".
+
+| What | Seen |
+|---|---|
+| First prompt in the browser session (YouTube, "interest"; the page's base session made in it) | 10.2 s from "Reading…" to the card, under the 30 s limit |
+| First prompt on a later page (model warm: Wikipedia, Netflix) | 3.6 s, 3.7 s |
+| Later prompts on the same page | 1.9–2.5 s (5 prompts) |
+| A term without an entry ("pin you to the wall", "took all the words", "gets mad", "made a mistake is the") | started at once: "Reading…" 0.1 s after Details, the card 1.9 s later; the header keeps the machine translation |
+| The window opened again on the same sentence | the kept card 0.1 s after the click, no prompt |
+| Another term opened while a prompt ran (video and article) | the prompt stopped; the new window idle; nothing logged |
+| Use this meaning, then Used here again | saved as Learning, undone, the word left saved (removed by hand after) |
+| Error log (YouTube, Netflix, Wikipedia) | empty: no `ExplainError`, no warning from Chrome |
+
+- **Fits here** marked the row the model's `sense` named every time, also where the senses come from two EJDict headwords ("match": sense 3, 匹敵する相手). On the six terms with several senses it fit five (grasp, on parade, conception, province, match); "vested interest" got 興味,関心 where 利益 fits better.
+- **Meanings**: good on most terms (相応しい相手, 問い詰める, 言葉を奪った, 怒る, 領域、分野). Two took in words around the term: "this future that we can't grasp" → 理解できない, "not prepared to be wrong" → 間違いを恐れない.
+- **Explanations**: the model marked 11 of 12 answers `unusual` (C3: 53%), so nearly every card had one; some only restate the sentence ("on parade": 専門家による説明が重ねられても、未来の予測は難しい).
+- **Comments**: the lines are the comment's other sentences and the replies YouTube has loaded. A one-sentence comment with its replies closed has none ("Reading 0 lines around it…", "On-device AI · 0 lines"); with them open, 5. A reply read 2 (the thread's other English lines).
+- **Layout**: in the 340 px article panel the card's "Use this meaning" and "On-device AI · N lines" broke onto two lines each; fixed in PR #98 (the line moves under the button). On YouTube the dictionary window is about 340 px tall (Netflix 420), so "In this sentence" starts near its bottom edge: the card shows only after scrolling the window, also for a term explained at once.
+- Not seen: the download (the model was on the device), a prompt in a hidden tab (the tabs Claude in Chrome opened stayed visible), the Settings rows and the popup (`chrome-extension://` pages, which Claude in Chrome cannot open; browser tests cover them).
