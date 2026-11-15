@@ -6,6 +6,7 @@ import {
 } from "../../core/lexicon/definitions";
 import type { Sense, Written } from "../../core/lexicon/dictionary";
 import { translatedLine } from "../../core/lexicon/short-lines";
+import { matchSense, type Meaning } from "../../core/meanings";
 import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
 import { normalizeWord } from "../../core/text/tokenize";
 import { rulesFor } from "../../core/phrases/rules";
@@ -13,8 +14,12 @@ import type { send as sendFn } from "../../messaging/client";
 import {
   MAX_CACHED_TRANSLATIONS,
   type OccurrenceView,
+  type YourMeaning,
 } from "../../messaging/protocol";
-import type { DictionaryEntryView } from "../../ui/lookup/DictionaryWindow";
+import type {
+  DictionaryEntryView,
+  SenseView,
+} from "../../ui/lookup/DictionaryWindow";
 import type { TranslationPair, TranslationQueue } from "../translate/queue";
 
 /** A sense as the dictionary window shows it. */
@@ -64,6 +69,67 @@ export interface TermCard {
   termId: string;
   senses: CardSense[];
   elsewhere: OccurrenceView[];
+  /** The meanings chosen for the term's sentences (`LookupResult.yourMeanings`). */
+  yourMeanings: YourMeaning[];
+  /** The key of the meaning chosen for the sentence it was looked up in. */
+  chosenHere?: string;
+}
+
+/** A row of the dictionary window's Meanings, and what choosing it for this sentence sends. */
+export interface MeaningRow {
+  sense: SenseView;
+  meaning: Meaning;
+}
+
+/**
+ * The dictionary window's Meanings: the meanings chosen elsewhere that are not one of
+ * the entry's senses first (the on-device AI's, a sense a pack update took away), then
+ * the entry's senses. A chosen dictionary meaning is matched to its sense by part of
+ * speech and the pack's text (`matchSense`), so a translation shown for it changes
+ * nothing. Each row says how many sentences its meaning was chosen for and whether it
+ * was chosen for this one.
+ */
+export function meaningRows(card: TermCard): MeaningRow[] {
+  const mine = card.yourMeanings;
+  const chosen = (m: YourMeaning | undefined) =>
+    m && { chosen: m.count, usedHere: m.key === card.chosenHere };
+  const dictionary = mine.filter((m) => m.from === "dictionary");
+  const others = mine
+    .filter((m) => m.from === "ai" || matchSense(m, card.senses) < 0)
+    .map((m): MeaningRow => ({
+      sense: {
+        text: m.text,
+        ...(m.from === "ai"
+          ? { ai: true as const, native: true as const }
+          : {
+              ...(m.pos !== undefined && { pos: m.pos }),
+              ...(m.glossLang !== undefined
+                ? { lang: m.glossLang }
+                : { native: true as const }),
+            }),
+        ...chosen(m),
+      },
+      meaning: {
+        from: m.from,
+        text: m.text,
+        ...(m.glossLang !== undefined && { glossLang: m.glossLang }),
+        ...(m.pos !== undefined && { pos: m.pos }),
+        ...(m.explanation !== undefined && { explanation: m.explanation }),
+      },
+    }));
+  const senses = card.senses.map((sense): MeaningRow => ({
+    sense: {
+      ...sense,
+      ...chosen(dictionary.find((m) => matchSense(m, [sense]) === 0)),
+    },
+    meaning: {
+      from: "dictionary",
+      text: sense.text,
+      ...(card.glossLang !== undefined && { glossLang: card.glossLang }),
+      ...(sense.pos !== undefined && { pos: sense.pos }),
+    },
+  }));
+  return [...others, ...senses];
 }
 
 /** The status the hover card shows: a word known by its frequency shows as Known. */
@@ -95,7 +161,7 @@ export const windowView = (card: TermCard): DictionaryEntryView => ({
   short: card.short,
   shortLang: card.shortLang,
   machineTranslated: card.machineTranslated === "literal",
-  senses: card.senses,
+  senses: meaningRows(card).map((row) => row.sense),
   glossLang: card.glossLang,
 });
 
@@ -201,6 +267,8 @@ export async function describeTerm(
     written?: Written;
     /** The part of speech its tag gives it on the page (`Span.pos`). */
     pos?: string;
+    /** The sentence it is in there ("this sentence"), as saving it records it. */
+    sentence?: string;
   },
   {
     send,
@@ -212,16 +280,20 @@ export async function describeTerm(
     shownIn = "hover",
   }: DescribeDeps,
 ): Promise<TermCard> {
-  const lookup = (key: string, written?: Written, pos?: string) =>
+  const lookup = (
+    key: string,
+    place: { written?: Written; pos?: string; sentence?: string } = {},
+  ) =>
     send({
       type: "lookup",
       lang,
       key,
       sourceUrl,
-      ...(written !== undefined && { written }),
-      ...(pos !== undefined && { pos }),
+      ...(place.sentence !== undefined && { sentence: place.sentence }),
+      ...(place.written !== undefined && { written: place.written }),
+      ...(place.pos !== undefined && { pos: place.pos }),
     });
-  const found = await lookup(term.key, term.written, term.pos);
+  const found = await lookup(term.key, term);
   const { entry } = found;
   const ipa = entry?.ipa ?? found.ipa;
   const pair = definitionPair(entry?.glossLang, nativeLang);
@@ -317,6 +389,8 @@ export async function describeTerm(
     termId: found.termId,
     senses,
     elsewhere: found.elsewhere,
+    yourMeanings: found.yourMeanings,
+    ...(found.chosenHere !== undefined && { chosenHere: found.chosenHere }),
   };
 }
 

@@ -157,6 +157,7 @@ const TANGY: TermCard = {
   termId: "en:tangy",
   senses: [],
   elsewhere: [],
+  yourMeanings: [],
 };
 
 /** The button in `part` whose accessible name or text is `name`. */
@@ -955,6 +956,7 @@ describe("mountVideoUi", () => {
           termId: "en:tangy",
           senses: [],
           elsewhere: [],
+          yourMeanings: [],
         },
         here: [
           {
@@ -1008,6 +1010,7 @@ describe("mountVideoUi", () => {
           termId: "en:tangy",
           senses: [],
           elsewhere: [],
+          yourMeanings: [],
         },
         here: [
           {

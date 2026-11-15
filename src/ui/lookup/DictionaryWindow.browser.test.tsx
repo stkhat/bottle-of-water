@@ -661,3 +661,184 @@ describe("DictionaryWindow", () => {
     expect(getComputedStyle(head).fontSize).toBe("26px");
   });
 });
+
+describe("DictionaryWindow: your meanings", () => {
+  const fold: DictionaryWindowProps = {
+    ...figureOut,
+    entry: {
+      head: "fold",
+      kind: "word",
+      short: "…を折り畳む、折り重ねる",
+      senses: [
+        // Chosen from the on-device AI in two other sentences.
+        { text: "（パン生地の）折り込み", ai: true, native: true, chosen: 2 },
+        { pos: "noun", text: "折り目、ひだ" },
+        { pos: "verb", text: "…を折り畳む、折り重ねる", chosen: 1 },
+        { pos: "verb", text: "（料理で）…をさっくり混ぜる" },
+      ],
+    },
+    onUse: () => {},
+  };
+
+  const useButtons = (
+    screen: Awaited<ReturnType<typeof mountInShadowRoot>>,
+  ) => [...screen.container.querySelectorAll<HTMLButtonElement>("[data-use]")];
+  const opacity = (element: Element) => getComputedStyle(element).opacity;
+
+  test("each row shows Use here while the pointer is on it", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...fold} />);
+    const buttons = useButtons(screen);
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      "Use here",
+      "Use here",
+      "Use here",
+      "Use here",
+    ]);
+    expect(buttons.map(opacity)).toEqual(["0", "0", "0", "0"]);
+    const text = screen.getByText("折り目、ひだ", { exact: true });
+    const row = text.element().closest("[data-sense-row]")!;
+    const rowHeight = row.getBoundingClientRect().height;
+    await userEvent.hover(text);
+    await expect.poll(() => buttons.map(opacity)).toEqual(["0", "1", "0", "0"]);
+    const button = screen.getByRole("button", {
+      name: "Use here: 折り目、ひだ",
+    });
+    await expect.element(button).toHaveAttribute("aria-pressed", "false");
+    // As tall as the meaning's line box, beside it: the row keeps its height.
+    const b = button.element().getBoundingClientRect();
+    const line = text.element().getBoundingClientRect();
+    expect(b.height).toBeCloseTo(15 * 1.55, 0);
+    expect(Math.abs(b.top - line.top)).toBeLessThan(1);
+    expect(row.getBoundingClientRect().height).toBe(rowHeight);
+    const style = getComputedStyle(button.element());
+    expect(style.fontSize).toBe("12px");
+    expect(style.borderColor).toBe("rgb(143, 211, 188)");
+    expect(style.color).toBe("rgb(7, 92, 73)");
+    expect(style.backgroundColor).toBe("rgb(255, 255, 255)");
+  });
+
+  test("Use here shows when it has focus from the keyboard", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...fold} />);
+    const button = screen.getByRole("button", {
+      name: "Use here: 折り目、ひだ",
+    });
+    (button.element() as HTMLButtonElement).focus({ focusVisible: true });
+    await expect.poll(() => opacity(button.element())).toBe("1");
+  });
+
+  test("pressing it reports the row; the chosen row shows Used here, filled, all the time", async () => {
+    const onUse = vi.fn();
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow {...fold} onUse={onUse} />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use here: 折り目、ひだ" }),
+    );
+    expect(onUse).toHaveBeenCalledWith(1);
+
+    const senses = fold.entry.senses.map((sense, i) =>
+      i === 1 ? { ...sense, chosen: 1, usedHere: true } : sense,
+    );
+    await screen.rerender(
+      <DictionaryWindow
+        {...fold}
+        entry={{ ...fold.entry, senses }}
+        onUse={onUse}
+      />,
+    );
+    const used = screen.getByRole("button", {
+      name: "Used here: 折り目、ひだ",
+    });
+    await expect.element(used).toHaveAttribute("aria-pressed", "true");
+    await expect.element(used).toHaveTextContent("Used here");
+    await userEvent.unhover(used);
+    (used.element() as HTMLButtonElement).blur();
+    expect(opacity(used.element())).toBe("1");
+    const style = getComputedStyle(used.element());
+    expect(style.backgroundColor).toBe("rgb(11, 138, 108)");
+    expect(style.color).toBe("rgb(255, 255, 255)");
+    // Pressed again: the same row, which undoes it.
+    await userEvent.click(used);
+    expect(onUse).toHaveBeenLastCalledWith(1);
+  });
+
+  test("a meaning from the AI has the AI tag and no part of speech", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...fold}
+        entry={{
+          ...fold.entry,
+          senses: [{ ...fold.entry.senses[0]!, pos: "noun" }],
+        }}
+      />,
+    );
+    await expect.element(screen.getByText("AI", { exact: true })).toBeVisible();
+    expect(screen.container.querySelectorAll("[data-pos]")).toHaveLength(0);
+    await expect
+      .element(screen.getByText("（パン生地の）折り込み", { exact: true }))
+      .toHaveAttribute("lang", "ja");
+  });
+
+  test("a chosen meaning has the bookmark and its count of sentences", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...fold} />);
+    await expect
+      .element(screen.getByText("2 sentences", { exact: true }))
+      .toBeVisible();
+    await expect
+      .element(screen.getByText("1 sentence", { exact: true }))
+      .toBeVisible();
+    const marks = screen.getByRole("img", { name: "Your meaning" }).all();
+    expect(marks).toHaveLength(2);
+    // Before the text, on its line, green.
+    const mark = marks[1]!.element().getBoundingClientRect();
+    const text = screen
+      .getByText("…を折り畳む、折り重ねる", { exact: true })
+      .all()
+      .at(-1)!
+      .element()
+      .getBoundingClientRect();
+    expect(mark.right).toBeLessThanOrEqual(text.left);
+    expect(
+      Math.abs((mark.top + mark.bottom) / 2 - (text.top + text.bottom) / 2),
+    ).toBeLessThan(3);
+    expect(getComputedStyle(marks[1]!.element()).color).toBe(
+      "rgb(11, 127, 101)",
+    );
+    // An unchosen meaning has neither.
+    expect(screen.container.textContent).not.toContain("0 sentences");
+  });
+
+  test("a translated definition chosen here shows as Used here, with the pack's text below", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...fold}
+        entry={{
+          head: "spill the beans",
+          kind: "phrase",
+          senses: [
+            {
+              pos: "verb",
+              text: "To confess.",
+              translated: "白状する",
+              chosen: 1,
+              usedHere: true,
+            },
+          ],
+          glossLang: "en",
+        }}
+      />,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: "Used here: 白状する" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect
+      .element(screen.getByText("To confess.", { exact: true }))
+      .toHaveAttribute("lang", "en");
+  });
+
+  test("without onUse, rows have no button", async () => {
+    const props = { ...fold, onUse: undefined };
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    expect(useButtons(screen)).toEqual([]);
+  });
+});

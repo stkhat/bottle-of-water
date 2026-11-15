@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { DictionaryEntry } from "../../core/lexicon/dictionary";
-import type { LookupResult, Request } from "../../messaging/protocol";
+import type {
+  LookupResult,
+  Request,
+  YourMeaning,
+} from "../../messaging/protocol";
 import { rulesFor } from "../../core/phrases/rules";
 import type { TranslationPair, TranslationPriority } from "../translate/queue";
 import {
@@ -8,6 +12,7 @@ import {
   hoverView,
   inflectionNote,
   mainWord,
+  meaningRows,
   translateSenses,
   windowView,
   type TermCard,
@@ -136,6 +141,7 @@ function fakeSend(
       termId: `${request.lang}:${request.key}`,
       here: [],
       elsewhere: [],
+      yourMeanings: [],
       ...(entry?.glossLang && translations && { translations }),
     } satisfies LookupResult;
   }) as Parameters<typeof describeTerm>[1]["send"];
@@ -657,6 +663,7 @@ describe("translateSenses", () => {
       { pos: "verb", text: "To calculate an amount." },
     ],
     elsewhere: [],
+    yourMeanings: [],
   };
   const deps = (
     send: ReturnType<typeof fakeSend>["send"],
@@ -808,6 +815,7 @@ describe("hoverView and windowView", () => {
     termId: "en:spill the beans",
     senses: [{ text: "To confess.", translated: "白状する" }],
     elsewhere: [],
+    yourMeanings: [],
   };
 
   it("marks a translated definition on the hover card, and in the window on its senses only", () => {
@@ -870,5 +878,165 @@ describe("hoverView and windowView", () => {
     expect(hoverView(word).meanings).toEqual(["（パンの）ひと塊"]);
     delete word.short;
     expect(hoverView(word).meanings).toEqual([]);
+  });
+});
+
+describe("your meanings", () => {
+  const mine = (
+    key: string,
+    meaning: Omit<YourMeaning, "key" | "count">,
+    count = 1,
+  ): YourMeaning => ({ key, ...meaning, count });
+
+  it("asks for the meanings chosen for the sentence the term is in, and keeps them", async () => {
+    const chosen = mine("k1", { from: "ai", text: "（パン生地の）塊" }, 2);
+    const requests: Request[] = [];
+    const send = (async (request: Request) => {
+      requests.push(request);
+      return {
+        status: "learning",
+        termId: "en:loaf",
+        here: [],
+        elsewhere: [],
+        yourMeanings: [chosen],
+        chosenHere: "k1",
+      } satisfies LookupResult;
+    }) as Parameters<typeof describeTerm>[1]["send"];
+    const card = await describeTerm(
+      {
+        key: "loaf",
+        kind: "word",
+        surface: "loaf",
+        sentence: "Shape the loaf.",
+      },
+      {
+        send,
+        lang: "en",
+        nativeLang: "ja",
+        sourceUrl: "https://example.com/a",
+        translator,
+      },
+    );
+    expect(requests).toEqual([
+      expect.objectContaining({ key: "loaf", sentence: "Shape the loaf." }),
+    ]);
+    expect(card).toMatchObject({ yourMeanings: [chosen], chosenHere: "k1" });
+  });
+
+  describe("meaningRows", () => {
+    const card: TermCard = {
+      key: "fold",
+      kind: "word",
+      head: "fold",
+      status: "learning",
+      termId: "en:fold",
+      senses: [
+        { pos: "noun", text: "折り目、ひだ" },
+        { pos: "verb", text: "…を折り畳む" },
+        { pos: "verb", text: "To mix gently.", translated: "さっくり混ぜる" },
+      ],
+      elsewhere: [],
+      yourMeanings: [],
+    };
+
+    it("gives each sense with what choosing it sends: the pack's text and part of speech", () => {
+      const rows = meaningRows(card);
+      expect(rows.map((r) => r.sense)).toEqual(card.senses);
+      expect(rows.map((r) => r.meaning)).toEqual([
+        { from: "dictionary", text: "折り目、ひだ", pos: "noun" },
+        { from: "dictionary", text: "…を折り畳む", pos: "verb" },
+        { from: "dictionary", text: "To mix gently.", pos: "verb" },
+      ]);
+      expect(windowView(card).senses).toEqual(card.senses);
+    });
+
+    it("sends an English definition with its language, not its translation", () => {
+      const rows = meaningRows({ ...card, glossLang: "en" });
+      expect(rows[2]!.meaning).toEqual({
+        from: "dictionary",
+        text: "To mix gently.",
+        pos: "verb",
+        glossLang: "en",
+      });
+    });
+
+    it("marks the senses chosen, by part of speech and pack text, after a pack reorder too", () => {
+      const rows = meaningRows({
+        ...card,
+        senses: [card.senses[2]!, card.senses[0]!, card.senses[1]!],
+        yourMeanings: [
+          mine("mix", {
+            from: "dictionary",
+            text: "To mix gently.",
+            pos: "verb",
+          }),
+          mine(
+            "crease",
+            { from: "dictionary", text: "折り目、ひだ", pos: "noun" },
+            3,
+          ),
+          // Another part of speech: not this sense.
+          mine("other", {
+            from: "dictionary",
+            text: "…を折り畳む",
+            pos: "noun",
+          }),
+        ],
+        chosenHere: "mix",
+      });
+      expect(
+        rows.map((r) => [r.sense.text, r.sense.chosen, r.sense.usedHere]),
+      ).toEqual([
+        // A meaning no sense matches comes first, as it was stored.
+        ["…を折り畳む", 1, false],
+        ["To mix gently.", 1, true],
+        ["折り目、ひだ", 3, false],
+        ["…を折り畳む", undefined, undefined],
+      ]);
+      expect(rows[0]!.sense).toMatchObject({ pos: "noun", native: true });
+      // The translation shown stays with its sense.
+      expect(rows[1]!.sense.translated).toBe("さっくり混ぜる");
+    });
+
+    it("lists AI meanings first, tagged, in the native language, with what choosing them sends", () => {
+      const ai = mine(
+        "ai",
+        {
+          from: "ai",
+          text: "（生地の）折り込み",
+          explanation: "パン作りの用語。",
+        },
+        2,
+      );
+      const english = mine("en", {
+        from: "dictionary",
+        text: "A gone sense.",
+        pos: "noun",
+        glossLang: "en",
+      });
+      const rows = meaningRows({ ...card, yourMeanings: [ai, english] });
+      expect(rows.slice(0, 2).map((r) => r.sense)).toEqual([
+        {
+          text: "（生地の）折り込み",
+          ai: true,
+          native: true,
+          chosen: 2,
+          usedHere: false,
+        },
+        {
+          text: "A gone sense.",
+          pos: "noun",
+          lang: "en",
+          chosen: 1,
+          usedHere: false,
+        },
+      ]);
+      expect(rows[0]!.meaning).toEqual({
+        from: "ai",
+        text: "（生地の）折り込み",
+        explanation: "パン作りの用語。",
+      });
+      expect(rows).toHaveLength(5);
+    });
   });
 });

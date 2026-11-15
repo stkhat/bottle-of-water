@@ -139,6 +139,23 @@ export function GripIcon() {
   );
 }
 
+/** The mark of a meaning the user chose (mock YourMeanings `.mark`), named for screen readers. */
+export function BookmarkIcon(props: { label: string }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      role="img"
+      aria-label={props.label}
+      style={{ flex: "none", color: color.greenText }}
+    >
+      <path d="M6 3h12v18l-6-4.5L6 21z"></path>
+    </svg>
+  );
+}
+
 /** A source's kind (a video or a page), named for screen readers. */
 export function SourceIcon(props: { video: boolean; label: string }) {
   return (

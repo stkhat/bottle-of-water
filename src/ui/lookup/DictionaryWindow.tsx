@@ -1,7 +1,7 @@
 import type { CSSProperties, JSX } from "preact";
 import type { TermKind, WordStatus } from "../../core/classify";
 import { t } from "../../i18n/t";
-import { CloseIcon, GripIcon } from "../icons";
+import { BookmarkIcon, CloseIcon, GripIcon } from "../icons";
 import { keepOpen } from "../keep-open";
 import {
   SERIF_FONT,
@@ -18,6 +18,31 @@ import { EntryHeader } from "./EntryHeader";
 import { MachineTranslationMark } from "./MachineTranslationMark";
 import { StatusButtons } from "./StatusButtons";
 
+/**
+ * A row of Meanings. `translated`: the browser translator's translation of the sense,
+ * shown with `text` below it; any translated sense marks the Meanings heading "Machine
+ * translation". `hint`: a translation table's English sense, shown above its native
+ * words. `pos` is shown unless the data build only took it from the senses around it
+ * (`posBy` "gap").
+ */
+export interface SenseView {
+  pos?: string;
+  posBy?: string;
+  text: string;
+  hint?: string;
+  translated?: string;
+  /** `text` is in the native language, whatever the entry's `glossLang` (an AI meaning). */
+  native?: true;
+  /** Language of `text` when it is not the entry's `glossLang` (a meaning chosen elsewhere). */
+  lang?: string;
+  /** A meaning chosen from the on-device AI: tagged "AI". */
+  ai?: true;
+  /** How many sentences the meaning was chosen for: its bookmark and "N sentences" when above 0. */
+  chosen?: number;
+  /** Chosen for this sentence: "Used here". */
+  usedHere?: boolean;
+}
+
 export interface DictionaryEntryView {
   head: string;
   kind: TermKind;
@@ -32,20 +57,7 @@ export interface DictionaryEntryView {
    * translation" next to it.
    */
   machineTranslated?: boolean;
-  /**
-   * `translated`: the browser translator's translation of the sense, shown with `text`
-   * below it; any translated sense marks the Meanings heading "Machine translation".
-   * `hint`: a translation table's English sense, shown above its native words.
-   * `pos` is shown unless the data build only took it from the senses around it
-   * (`posBy` "gap").
-   */
-  senses: {
-    pos?: string;
-    posBy?: string;
-    text: string;
-    hint?: string;
-    translated?: string;
-  }[];
+  senses: SenseView[];
   /**
    * Language of the senses' `text` when it is not the native language (an English
    * definition).
@@ -70,6 +82,11 @@ interface CommonProps {
   learningLang: string;
   status: WordStatus;
   onStatus: (status: WordStatus) => void;
+  /**
+   * Chooses the meaning of the row at `index` of `entry.senses` for this sentence, or
+   * undoes it when it is the one chosen ("Used here"). Without it, rows have no button.
+   */
+  onUse?: (index: number) => void;
   onSpeak: () => void;
   dictionaries: { label: string; href: string }[];
   here: { source: "video" | "page"; items: HereItem[] };
@@ -268,7 +285,11 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
       />
 
       {entry.senses.length > 0 && (
-        <SenseList entry={entry} nativeLang={props.nativeLang} />
+        <SenseList
+          entry={entry}
+          nativeLang={props.nativeLang}
+          onUse={props.onUse}
+        />
       )}
 
       {props.dictionaries.length > 0 && (
@@ -288,98 +309,216 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
   );
 }
 
-/** "Meanings": the entry's senses. */
-function SenseList(props: { entry: DictionaryEntryView; nativeLang: string }) {
-  const { entry } = props;
+/**
+ * Inline styles cannot hover or see focus; the shadow root keeps these rules to the
+ * window (mock YourMeanings `.sr`, `.use`): "Use here" shows while the pointer is on
+ * its row or it has focus, "Used here" all the time.
+ */
+const SENSE_ROW_CSS = [
+  `[data-sense-row]:hover{background:${color.surface}}`,
+  `[data-use]{opacity:0}`,
+  `[data-sense-row]:hover [data-use],[data-use]:focus-visible,[data-use][aria-pressed="true"]{opacity:1}`,
+].join("\n");
+
+/** A meaning's text in Meanings. */
+const MEANING_FONT_PX = 15;
+const MEANING_LINE_HEIGHT = 1.55;
+
+/**
+ * Mock YourMeanings `.use`, unpressed and pressed: as tall as the meaning's line box
+ * and level with it, so showing it never changes the row's height.
+ */
+const useButton = (pressed: boolean): Style => ({
+  flex: "none",
+  boxSizing: "border-box",
+  display: "inline-flex",
+  alignItems: "center",
+  height: `${MEANING_FONT_PX * MEANING_LINE_HEIGHT}px`,
+  padding: "0 10px",
+  margin: 0,
+  borderRadius: "6px",
+  font: "inherit",
+  fontSize: "12px",
+  lineHeight: 1,
+  fontWeight: 600,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  ...(pressed
+    ? {
+        background: color.green,
+        color: color.white,
+        border: `1px solid ${color.green}`,
+      }
+    : {
+        background: color.card,
+        color: color.greenDark,
+        border: `1px solid ${color.greenLine}`,
+      }),
+});
+
+/** Mock YourMeanings `.tag`. */
+const TAG: Style = {
+  display: "inline-flex",
+  alignItems: "center",
+  height: "20px",
+  padding: "0 7px",
+  borderRadius: "999px",
+  fontSize: "11px",
+  fontWeight: 600,
+  lineHeight: 1,
+  background: color.surfaceGray,
+  color: color.ink3,
+  whiteSpace: "nowrap",
+};
+
+const SMALL_TEXT: Style = { fontSize: "13px", lineHeight: 1.5 };
+
+/** "Meanings": the entry's senses, after the meanings chosen elsewhere. */
+function SenseList(props: {
+  entry: DictionaryEntryView;
+  nativeLang: string;
+  onUse: ((index: number) => void) | undefined;
+}) {
+  const { entry, onUse } = props;
   const glossLang = entry.glossLang ?? props.nativeLang;
   const translated = entry.senses.some((sense) => sense.translated);
   const meanings = <h3 style={sectionHeading}>{t("dict.meanings")}</h3>;
   return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      <style>{SENSE_ROW_CSS}</style>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
+          marginBottom: "4px",
+        }}
+      >
+        {meanings}
+        {translated && <MachineTranslationMark />}
+      </div>
+      {entry.senses.map((sense, i) => (
+        <SenseRow
+          key={i}
+          sense={sense}
+          lang={sense.native ? props.nativeLang : (sense.lang ?? glossLang)}
+          nativeLang={props.nativeLang}
+          onUse={onUse && (() => onUse(i))}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One meaning: its tags, its text (translated, with the pack's text below), its button. */
+function SenseRow(props: {
+  sense: SenseView;
+  /** The language of `sense.text`. */
+  lang: string;
+  nativeLang: string;
+  onUse: (() => void) | undefined;
+}) {
+  const { sense } = props;
+  const chosen = sense.chosen ?? 0;
+  const pos = !sense.ai && sense.pos && sense.posBy !== "gap" && sense.pos;
+  const shown = sense.translated ?? sense.text;
+  // The button sits beside the meaning's first line, as tall as its line box: showing
+  // it never changes the row's height.
+  const main = (
+    <span style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontSize: `${MEANING_FONT_PX}px`,
+          lineHeight: MEANING_LINE_HEIGHT,
+        }}
+      >
+        {chosen > 0 && <BookmarkIcon label={t("dict.yourMeaning")} />}
+        <span lang={sense.translated ? props.nativeLang : props.lang}>
+          {shown}
+        </span>
+      </span>
+      {props.onUse && (
+        <button
+          type="button"
+          data-use
+          aria-pressed={sense.usedHere ? "true" : "false"}
+          aria-label={t(sense.usedHere ? "dict.usedHereOf" : "dict.useHereOf", {
+            meaning: shown,
+          })}
+          onClick={props.onUse}
+          style={useButton(sense.usedHere === true)}
+        >
+          {t(sense.usedHere ? "dict.usedHere" : "dict.useHere")}
+        </button>
+      )}
+    </span>
+  );
+  return (
     <div
+      data-sense-row
       style={{
-        display: "flex",
-        flexDirection: "column",
-        // Mock TranslatedSenses: a translated sense takes two lines.
-        gap: translated ? "12px" : "10px",
+        padding: "8px",
+        margin: "0 -8px",
+        borderRadius: "8px",
       }}
     >
-      {translated ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
-          }}
-        >
-          {meanings}
-          <MachineTranslationMark />
-        </div>
-      ) : (
-        meanings
-      )}
-      {entry.senses.map((sense, i) => (
-        <div
-          key={i}
-          style={{ display: "flex", flexDirection: "column", gap: "2px" }}
-        >
-          {sense.pos && sense.posBy !== "gap" && (
-            <span
-              data-pos
-              style={{
-                fontSize: "13px",
-                fontStyle: "italic",
-                color: color.greenText,
-              }}
-            >
-              {sense.pos}
-            </span>
-          )}
-          {sense.translated ? (
-            <>
+      <span
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px",
+        }}
+      >
+        {(sense.ai || pos || chosen > 0) && (
+          <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {sense.ai && <span style={TAG}>{t("dict.ai")}</span>}
+            {pos && (
               <span
-                lang={props.nativeLang}
-                style={{ fontSize: "15px", lineHeight: 1.55 }}
-              >
-                {sense.translated}
-              </span>
-              <span
-                lang={glossLang}
+                data-pos
                 style={{
                   fontSize: "13px",
-                  lineHeight: 1.5,
-                  color: color.muted,
+                  fontStyle: "italic",
+                  color: color.greenText,
                 }}
               >
-                {sense.text}
+                {pos}
               </span>
-            </>
-          ) : (
-            <>
-              {sense.hint && (
-                // Mock TranslatedSenses: a translation table's English sense
-                // above its words in the native language.
-                <span
-                  lang="en"
-                  style={{
-                    fontSize: "13px",
-                    lineHeight: 1.5,
-                    color: color.muted,
-                  }}
-                >
-                  {sense.hint}
-                </span>
-              )}
+            )}
+            {chosen > 0 && (
               <span
-                lang={glossLang}
-                style={{ fontSize: "15px", lineHeight: 1.55 }}
+                style={{
+                  fontSize: "12px",
+                  color: color.muted,
+                  whiteSpace: "nowrap",
+                }}
               >
-                {sense.text}
+                {chosen === 1
+                  ? t("dict.sentences.one")
+                  : t("dict.sentences", { count: chosen })}
               </span>
-            </>
-          )}
-        </div>
-      ))}
+            )}
+          </span>
+        )}
+        {sense.hint && !sense.translated && (
+          // Mock TranslatedSenses: a translation table's English sense above its
+          // words in the native language.
+          <span lang="en" style={{ ...SMALL_TEXT, color: color.muted }}>
+            {sense.hint}
+          </span>
+        )}
+        {main}
+        {sense.translated && (
+          <span lang={props.lang} style={{ ...SMALL_TEXT, color: color.muted }}>
+            {sense.text}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

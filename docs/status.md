@@ -1,6 +1,6 @@
 # Status
 
-Last update: 2026-11-15. Merged work is in git history; data sizes are in [notes/data-sizes.md](notes/data-sizes.md).
+Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes/data-sizes.md](notes/data-sizes.md).
 
 ## Where we are
 - Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, YouTube Shorts (subtitles and comments), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
@@ -11,7 +11,7 @@ Last update: 2026-11-15. Merged work is in git history; data sizes are in [notes
 - **Not yet checked in the user's Chrome**: the hover card's three senses, tags, phrase precision, phrase data, vocabulary, names, rule G and the 2026-11-14 hover fixes
 - Word list "Learned" (2026-11-15; [ui](specs/ui.md) "Word list page"): Known words that went there from Learning, with the date, as a status filter; carried by browser sync (code `g`) and the JSON export. Records only changes made from this version on
 - Codebase refactor done (PRs #33–#42): same behaviour, simpler code, light E2E, stricter checks
-- Phase 3 "Meaning in context" (on-device AI in the dictionary window) and "Your meanings" (a meaning per sentence for words with several): designed and mock approved 2026-11-15; checks done and build approved 2026-11-16 ([notes](notes/meaning-in-context.md), [plan](plans/meaning-in-context.md)), not built. "Ask AI" links are not done (user, 2026-11-15)
+- Phase 3 "Meaning in context" (on-device AI in the dictionary window) and "Your meanings" (a meaning per sentence for words with several): designed and mock approved 2026-11-15; checks done and build approved 2026-11-16 ([notes](notes/meaning-in-context.md), [plan](plans/meaning-in-context.md)). M1a built 2026-11-16: your meanings' data (Dexie version 5, JSON export version 2) and "Use here" in the dictionary window; the hover card, Words lists and word list (M1b) and the on-device AI (M2–M3) not yet; not checked in the user's Chrome. "Ask AI" links are not done (user, 2026-11-15)
 - Next: phase 3 (meaning in context, Tatoeba, Anki/CSV export, more sites), sync to the user's own cloud storage (designed, [architecture](specs/architecture.md) "Sync to the user's own cloud storage"), or the store release ([roadmap](plans/roadmap.md))
 
 ## Known issues and open points

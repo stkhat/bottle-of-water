@@ -31,6 +31,8 @@ const REPEATABLE: Record<RequestType, boolean> = {
   warmDictionary: true,
   lookup: true,
   saveTerm: true,
+  // It names the meaning (or none), not a toggle: a second request writes the same.
+  chooseMeaning: true,
   setStatus: true,
   // A second removal fails: the term is gone.
   removeTerm: false,

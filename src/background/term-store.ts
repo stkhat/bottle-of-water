@@ -5,6 +5,7 @@ import type {
   TermKind,
   TermStatus,
 } from "../core/classify";
+import { meaningKey, type Meaning, type MeaningFrom } from "../core/meanings";
 import { fromMinutes, toMinutes, type SyncRecord } from "../core/sync/codec";
 import { kindOfKey, termId } from "../core/term-id";
 import {
@@ -15,6 +16,7 @@ import {
 } from "../core/url";
 import { listeners, omit, promiseCache } from "../core/util";
 import type {
+  ChooseMeaningInput,
   Counts,
   EncounterInput,
   ImportResult,
@@ -23,7 +25,14 @@ import type {
   SourceInput,
   TermRecord,
 } from "../messaging/protocol";
-import type { LingoDb, MetaKey, OccurrenceRecord, SourceRecord } from "./db";
+import type {
+  LingoDb,
+  MeaningChoiceRecord,
+  MeaningRecord,
+  MetaKey,
+  OccurrenceRecord,
+  SourceRecord,
+} from "./db";
 
 /** A sentence brought into a term's occurrences from elsewhere (the sentence history). */
 export interface ImportedOccurrence {
@@ -44,17 +53,33 @@ interface OccurrenceStats {
   lastSeen: number;
 }
 
+/** A choice that names a meaning, with its source's URL (missing for a source not stored). */
+interface LiveChoice extends MeaningChoiceRecord {
+  meaningKey: string;
+  url?: string;
+}
+
+/**
+ * The JSON export (version 2). Version 1, which import still reads, had no meanings
+ * and no meaning choices.
+ */
 export interface LingoExport {
   format: "lingo-export";
-  version: 1;
+  version: 2;
   exportedAt: number;
   /** Every term, tombstones included. */
   terms: TermRecord[];
   sources: SourceRecord[];
   occurrences: Omit<OccurrenceRecord, "id">[];
+  meanings: MeaningRecord[];
+  /** Undone choices included: they win over older choices of the same place. */
+  meaningChoices: MeaningChoiceRecord[];
 }
 
-/** The terms themselves changed (status, added, removed), or only their occurrences. */
+/**
+ * The terms themselves changed (status, added, removed), or only their occurrences
+ * (and the meanings chosen for them).
+ */
 type ChangeKind = "terms" | "occurrences";
 
 /** `"sync"`: applied from another device's synced data. */
@@ -64,8 +89,20 @@ export interface TermStore {
   /** Creates or updates a term and records where it was saved. */
   saveTerm(input: SaveTermInput): Promise<TermRecord>;
   setStatus(id: string, status: TermStatus): Promise<TermRecord>;
-  /** Leaves a tombstone and deletes the term's occurrences. */
+  /** Leaves a tombstone and deletes the term's occurrences, choices and meanings. */
   removeTerm(id: string): Promise<void>;
+  /**
+   * Chooses a meaning for one sentence of a term (replacing the one chosen there), or
+   * none (`meaning` null: an undo, which leaves the term saved). An unsaved term is
+   * saved as Learning with the sentence (`saved`); a saved term without the sentence
+   * gets it (`encountered`). A meaning no choice names any more is dropped. Returns the
+   * term; null for an undo with nothing to undo.
+   */
+  chooseMeaning(input: ChooseMeaningInput): Promise<TermRecord | null>;
+  /** A term's meanings and the choices that name one, each with its source's URL. */
+  meaningsOf(
+    termId: string,
+  ): Promise<{ meanings: MeaningRecord[]; choices: LiveChoice[] }>;
   /**
    * Records saved terms met again. Unsaved terms and sentences already recorded for
    * the term in the same source are skipped. Returns how many were added.
@@ -106,8 +143,10 @@ export interface TermStore {
   /** All data as `LingoExport` JSON; records `lastExportAt`. */
   exportJson(): Promise<string>;
   /**
-   * Merges an export: per term the newer `updatedAt` wins (equal keeps this copy;
-   * tombstones count like any version); sources and occurrences are joined.
+   * Merges an export (version 1 or 2): per term the newer `updatedAt` wins (equal keeps
+   * this copy; tombstones count like any version); sources and occurrences are joined.
+   * Meaning choices of live terms: per place the later `at` wins (equal: the smaller
+   * `deviceId`); meanings are joined by key.
    */
   importJson(json: string): Promise<ImportResult>;
   /**
@@ -129,13 +168,20 @@ export interface TermStore {
 export interface TermStoreOptions {
   now?: () => number;
   newBatchId?: () => string;
+  /** This device's id (`deviceId`), which meaning choices carry. Default: one per store. */
+  deviceId?: () => Promise<string>;
 }
 
-/** Occurrences kept per term; the oldest encounters go first, saved ones stay. */
+/**
+ * Occurrences kept per term; the oldest encounters go first, saved ones and the ones
+ * with a meaning chosen stay.
+ */
 export const MAX_OCCURRENCES = 50;
 
 const EXPORT_FORMAT = "lingo-export";
-const EXPORT_VERSION = 1;
+const EXPORT_VERSION = 2;
+/** Versions `importJson` reads. */
+const IMPORT_VERSIONS: ReadonlySet<unknown> = new Set([1, 2]);
 
 type LiveTerm = TermRecord & { status: TermStatus };
 
@@ -207,6 +253,29 @@ const tombstoned = (term: TermRecord, at: number): TermRecord => ({
 /** Distinct values, in order. */
 const distinct = <T>(values: Iterable<T>) => [...new Set(values)];
 
+/** A place of a term (an occurrence or a choice) as one string: its source and sentence. */
+const placeOf = (p: { sourceId: string; sentence: string }) =>
+  `${p.sourceId}\n${p.sentence}`;
+
+/** The meaning's own fields: nothing else a message or a file may carry is stored. */
+const meaningFields = ({
+  from,
+  text,
+  glossLang,
+  pos,
+  explanation,
+}: Meaning): Meaning => ({
+  from,
+  text,
+  ...(glossLang !== undefined && { glossLang }),
+  ...(pos !== undefined && { pos }),
+  ...(explanation !== undefined && { explanation }),
+});
+
+/** `a` wins over `b` for the same place: the later choice; at the same time, the smaller device id. */
+const laterChoice = (a: MeaningChoiceRecord, b: MeaningChoiceRecord) =>
+  a.at > b.at || (a.at === b.at && a.deviceId < b.deviceId);
+
 function makeOccurrence(
   termId: string,
   sourceId: string,
@@ -225,16 +294,29 @@ function makeOccurrence(
   };
 }
 
+/** A random device id made once. */
+function oneDevice() {
+  const id = crypto.randomUUID();
+  return () => Promise.resolve(id);
+}
+
 export function createTermStore(
   db: LingoDb,
   {
     now = Date.now,
     newBatchId = () => crypto.randomUUID(),
+    deviceId = oneDevice(),
   }: TermStoreOptions = {},
 ): TermStore {
   const changed = listeners<[string, ChangeKind, ChangeOrigin]>();
   const indexes = promiseCache<TermIndex>({ keep: true });
-  const tables = [db.terms, db.sources, db.occurrences];
+  const tables = [
+    db.terms,
+    db.sources,
+    db.occurrences,
+    db.meanings,
+    db.meaningChoices,
+  ];
 
   /** Runs `fn` in one read-write transaction, then tells listeners what changed. */
   async function mutate<T>(
@@ -304,26 +386,53 @@ export function createTermStore(
       .where("[termId+seenAt]")
       .between([id, Dexie.minKey], [id, Dexie.maxKey]);
 
+  /** The term's choices that name a meaning. */
+  const liveChoices = (id: string) =>
+    db.meaningChoices
+      .where("termId")
+      .equals(id)
+      .filter((c) => c.meaningKey !== null)
+      .toArray() as Promise<(MeaningChoiceRecord & { meaningKey: string })[]>;
+
   /**
    * Keeps at most `MAX_OCCURRENCES` of a term by dropping the oldest encounters.
-   * Sentences the term was saved from count toward the limit but are never dropped.
+   * Sentences the term was saved from, and those with a meaning chosen, count toward
+   * the limit but are never dropped.
    */
   async function trimOccurrences(id: string) {
     const count = await db.occurrences.where("termId").equals(id).count();
     if (count <= MAX_OCCURRENCES) return;
+    const chosen = new Set((await liveChoices(id)).map(placeOf));
     const oldest = await occurrencesByAge(id)
-      .filter((o) => o.origin === "encountered")
+      .filter((o) => o.origin === "encountered" && !chosen.has(placeOf(o)))
       .limit(count - MAX_OCCURRENCES)
       .primaryKeys();
     await db.occurrences.bulkDelete(oldest);
   }
 
-  const deleteOccurrences = (id: string) =>
-    db.occurrences.where("termId").equals(id).delete();
+  /** Deletes the terms' occurrences, meaning choices and meanings (a removal). */
+  function deleteRecordsOf(ids: readonly string[]) {
+    return Promise.all(
+      [db.occurrences, db.meaningChoices, db.meanings].map((table) =>
+        table.where("termId").anyOf(ids).delete(),
+      ),
+    );
+  }
+
+  /** Drops the meanings no choice names any more (locally only: never a tombstone). */
+  async function dropUnused(keys: Iterable<string>) {
+    for (const key of new Set(keys)) {
+      const named = await db.meaningChoices
+        .where("meaningKey")
+        .equals(key)
+        .count();
+      if (named === 0) await db.meanings.delete(key);
+    }
+  }
 
   async function tombstone(term: TermRecord, at: number) {
     await db.terms.put(tombstoned(term, at));
-    await deleteOccurrences(term.id);
+    await deleteRecordsOf([term.id]);
   }
 
   async function requireTerm(id: string) {
@@ -332,46 +441,133 @@ export function createTermStore(
     return term;
   }
 
+  /**
+   * Writes the term with the input's status, and the sentence as one it was saved from;
+   * the caller trims its occurrences.
+   */
+  async function writeSaved(input: SaveTermInput, at: number) {
+    const id = termId(input.lang, input.key);
+    const existing = await db.terms.get(id);
+    const term = withLearned(
+      {
+        ...(isLive(existing) ? deliberate(existing) : {}),
+        id,
+        lang: input.lang,
+        key: input.key,
+        display: input.display,
+        kind: input.kind,
+        status: input.status,
+        createdAt: isLive(existing) ? existing.createdAt : at,
+        updatedAt: at,
+      },
+      existing,
+      at,
+    );
+    await db.terms.put(term);
+
+    const occurrence = makeOccurrence(
+      id,
+      await upsertSource(input.source, at),
+      input,
+      at,
+      "saved",
+    );
+    const same = await findOccurrence(occurrence);
+    if (same) await db.occurrences.put({ ...occurrence, id: same.id });
+    else await db.occurrences.add(occurrence);
+    return term;
+  }
+
   return {
     saveTerm(input) {
       if (!input?.source)
         return Promise.reject(new Error("saveTerm needs a source"));
       return mutate(async (changes) => {
-        const at = now();
-        const id = termId(input.lang, input.key);
-        const existing = await db.terms.get(id);
-        const term = withLearned(
-          {
-            ...(isLive(existing) ? deliberate(existing) : {}),
-            id,
-            lang: input.lang,
-            key: input.key,
-            display: input.display,
-            kind: input.kind,
-            status: input.status,
-            createdAt: isLive(existing) ? existing.createdAt : at,
-            updatedAt: at,
-          },
-          existing,
-          at,
-        );
-        await db.terms.put(term);
-
-        const occurrence = makeOccurrence(
-          id,
-          await upsertSource(input.source, at),
-          input,
-          at,
-          "saved",
-        );
-        const same = await findOccurrence(occurrence);
-        if (same) await db.occurrences.put({ ...occurrence, id: same.id });
-        else await db.occurrences.add(occurrence);
-        await trimOccurrences(id);
-
+        const term = await writeSaved(input, now());
+        await trimOccurrences(term.id);
         changes.add(input.lang, "terms");
         return term;
       });
+    },
+
+    async chooseMeaning({ term: input, meaning }) {
+      if (!input?.source) throw new Error("chooseMeaning needs a source");
+      if (meaning !== null && !isMeaning(meaning))
+        throw new Error("chooseMeaning needs a meaning or null");
+      const id = termId(input.lang, input.key);
+      // Read before the transaction: only database work may be waited for inside it.
+      const [device, key] = await Promise.all([
+        deviceId(),
+        meaning && meaningKey(id, meaning.from, meaning.text),
+      ]);
+      return mutate(async (changes) => {
+        const at = now();
+        const existing = await db.terms.get(id);
+        const place = {
+          termId: id,
+          sourceId: sourceKey(input.source).id,
+          sentence: input.sentence,
+        };
+        const previous = await db.meaningChoices.get([
+          place.termId,
+          place.sourceId,
+          place.sentence,
+        ]);
+        let term: TermRecord | null = isLive(existing) ? existing : null;
+        if (meaning === null || key === null) {
+          // An undo leaves the term saved; with nothing chosen there it does nothing.
+          if (!term || !previous?.meaningKey) return term;
+        } else if (term) {
+          const occurrence = makeOccurrence(
+            id,
+            await upsertSource(input.source, at),
+            input,
+            at,
+            "encountered",
+          );
+          await addOccurrence(occurrence);
+        } else {
+          term = await writeSaved({ ...input, status: "learning" }, at);
+        }
+        if (meaning && key && !(await db.meanings.get(key)))
+          await db.meanings.add({
+            ...meaningFields(meaning),
+            key,
+            termId: id,
+            createdAt: at,
+          });
+        await db.meaningChoices.put({
+          ...place,
+          meaningKey: key,
+          at,
+          deviceId: device,
+        });
+        if (previous?.meaningKey && previous.meaningKey !== key)
+          await dropUnused([previous.meaningKey]);
+        await trimOccurrences(id);
+        changes.add(input.lang, isLive(existing) ? "occurrences" : "terms");
+        return term;
+      });
+    },
+
+    async meaningsOf(id) {
+      const [meanings, choices] = await Promise.all([
+        db.meanings.where("termId").equals(id).toArray(),
+        liveChoices(id),
+      ]);
+      const sources = await db.sources.bulkGet(
+        distinct(choices.map((c) => c.sourceId)),
+      );
+      const urls = new Map(
+        sources.flatMap((s) => (s ? [[s.id, s.url] as const] : [])),
+      );
+      return {
+        meanings,
+        choices: choices.map((c) => {
+          const url = urls.get(c.sourceId);
+          return url === undefined ? c : { ...c, url };
+        }),
+      };
     },
 
     setStatus(id, status) {
@@ -558,11 +754,14 @@ export function createTermStore(
     async exportJson() {
       const exportedAt = now();
       const data = await db.transaction("r", tables, async () => {
-        const [terms, sources, occurrences] = await Promise.all([
-          db.terms.toArray(),
-          db.sources.toArray(),
-          db.occurrences.toArray(),
-        ]);
+        const [terms, sources, occurrences, meanings, meaningChoices] =
+          await Promise.all([
+            db.terms.toArray(),
+            db.sources.toArray(),
+            db.occurrences.toArray(),
+            db.meanings.toArray(),
+            db.meaningChoices.toArray(),
+          ]);
         const exported: LingoExport = {
           format: EXPORT_FORMAT,
           version: EXPORT_VERSION,
@@ -570,6 +769,8 @@ export function createTermStore(
           terms: terms.map((term) => omit(term, "batchId")),
           sources,
           occurrences: occurrences.map((o) => omit(o, "id")),
+          meanings,
+          meaningChoices,
         };
         return exported;
       });
@@ -579,6 +780,13 @@ export function createTermStore(
 
     async importJson(json) {
       const data = parseExport(json);
+      // A meaning's key is its hash: a file whose keys do not match is damaged. Checked
+      // before the transaction, which cannot wait for anything but the database.
+      const keys = await Promise.all(
+        data.meanings.map((m) => meaningKey(m.termId, m.from, m.text)),
+      );
+      if (keys.some((key, i) => key !== data.meanings[i]!.key))
+        throw new Error("The Lingo export is damaged");
       return mutate(async (changes) => {
         const result: ImportResult = { terms: 0, sources: 0, occurrences: 0 };
 
@@ -602,11 +810,7 @@ export function createTermStore(
           result.terms++;
         }
         await db.terms.bulkPut([...takenTerms].map((id) => terms.get(id)!));
-        if (removed.size > 0)
-          await db.occurrences
-            .where("termId")
-            .anyOf([...removed])
-            .delete();
+        await deleteRecordsOf([...removed]);
 
         const sourceIds = distinct(data.sources.map((source) => source.id));
         const storedSources = await db.sources.bulkGet(sourceIds);
@@ -632,6 +836,53 @@ export function createTermStore(
         await db.sources.bulkPut(
           [...takenSources].map((id) => sources.get(id)!),
         );
+
+        // Choices before occurrences, so the trim keeps the places with a meaning.
+        const chooser = await termsById([
+          ...data.meaningChoices.map((c) => c.termId),
+          ...data.meanings.map((m) => m.termId),
+        ]);
+        const chosenFor = new Set<string>();
+        for (const incoming of data.meaningChoices) {
+          const term = chooser.get(incoming.termId);
+          if (!isLive(term)) continue;
+          const local = await db.meaningChoices.get([
+            incoming.termId,
+            incoming.sourceId,
+            incoming.sentence,
+          ]);
+          if (local && !laterChoice(incoming, local)) continue;
+          const { termId: id, sourceId, sentence, meaningKey, at } = incoming;
+          await db.meaningChoices.put({
+            termId: id,
+            sourceId,
+            sentence,
+            meaningKey,
+            at,
+            deviceId: incoming.deviceId,
+          });
+          chosenFor.add(id);
+          changes.add(term.lang, "occurrences");
+        }
+        for (const incoming of data.meanings) {
+          const term = chooser.get(incoming.termId);
+          if (!isLive(term) || (await db.meanings.get(incoming.key))) continue;
+          await db.meanings.add({
+            ...meaningFields(incoming),
+            key: incoming.key,
+            termId: incoming.termId,
+            createdAt: incoming.createdAt,
+          });
+          chosenFor.add(incoming.termId);
+          changes.add(term.lang, "occurrences");
+        }
+        if (chosenFor.size > 0)
+          await dropUnused(
+            await db.meanings
+              .where("termId")
+              .anyOf([...chosenFor])
+              .primaryKeys(),
+          );
 
         const owners = await termsById(data.occurrences.map((o) => o.termId));
         const occurrenceSources = distinct(
@@ -708,11 +959,7 @@ export function createTermStore(
           applied++;
         }
         await db.terms.bulkPut([...taken].map((id) => terms.get(id)!));
-        if (removed.size > 0)
-          await db.occurrences
-            .where("termId")
-            .anyOf([...removed])
-            .delete();
+        await deleteRecordsOf([...removed]);
         return applied;
       }, "sync");
     },
@@ -737,12 +984,48 @@ const STATUSES = new Set<StoredStatus>(["learning", "known", "removed"]);
 const KINDS = new Set<TermKind>(["word", "phrase"]);
 const PLATFORMS = new Set<Platform>(["youtube", "netflix", "web"]);
 const ORIGINS = new Set(["saved", "encountered"]);
+const FROMS = new Set<MeaningFrom>(["dictionary", "ai"]);
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 const isString = (value: unknown) => typeof value === "string";
 const isNumber = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value);
+const isOptionalString = (value: unknown) =>
+  value === undefined || isString(value);
+
+function isMeaning(m: unknown): m is Meaning {
+  return (
+    isObject(m) &&
+    FROMS.has(m.from as MeaningFrom) &&
+    isString(m.text) &&
+    m.text !== "" &&
+    isOptionalString(m.glossLang) &&
+    isOptionalString(m.pos) &&
+    isOptionalString(m.explanation)
+  );
+}
+
+function isMeaningRecord(m: unknown): m is MeaningRecord {
+  return (
+    isMeaning(m) &&
+    isString((m as MeaningRecord).key) &&
+    isString((m as MeaningRecord).termId) &&
+    isNumber((m as MeaningRecord).createdAt)
+  );
+}
+
+function isChoice(c: unknown): c is MeaningChoiceRecord {
+  return (
+    isObject(c) &&
+    isString(c.termId) &&
+    isString(c.sourceId) &&
+    isString(c.sentence) &&
+    (c.meaningKey === null || isString(c.meaningKey)) &&
+    isNumber(c.at) &&
+    isString(c.deviceId)
+  );
+}
 
 function isTerm(t: unknown): t is TermRecord {
   return (
@@ -788,22 +1071,31 @@ function parseExport(json: string): LingoExport {
   const data: unknown = JSON.parse(json);
   if (!isObject(data) || data.format !== EXPORT_FORMAT)
     throw new Error("This file is not a Lingo export");
-  if (data.version !== EXPORT_VERSION)
+  if (!IMPORT_VERSIONS.has(data.version))
     throw new Error(
       `Unsupported Lingo export version: ${String(data.version)}`,
     );
   const { terms, sources, occurrences } = data;
+  // Version 1 had neither.
+  const { meanings, meaningChoices } =
+    data.version === 1 ? { meanings: [], meaningChoices: [] } : data;
   if (
     !Array.isArray(terms) ||
     !Array.isArray(sources) ||
     !Array.isArray(occurrences) ||
+    !Array.isArray(meanings) ||
+    !Array.isArray(meaningChoices) ||
     !terms.every(isTerm) ||
     !sources.every(isSource) ||
-    !occurrences.every(isOccurrence)
+    !occurrences.every(isOccurrence) ||
+    !meanings.every(isMeaningRecord) ||
+    !meaningChoices.every(isChoice)
   )
     throw new Error("The Lingo export is damaged");
   return {
     ...(data as unknown as LingoExport),
     occurrences: occurrences.map((o) => omit(o as OccurrenceRecord, "id")),
+    meanings,
+    meaningChoices,
   };
 }

@@ -90,6 +90,7 @@ export function ArticleUi({
             learningLang={settings.learningLang}
             status={panel.card.status}
             onStatus={app.setPanelStatus}
+            onUse={app.useMeaning}
             onSpeak={app.speak}
             dictionaries={panel.dictionaries}
             here={{

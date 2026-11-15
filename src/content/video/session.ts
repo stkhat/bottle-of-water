@@ -19,7 +19,7 @@ import {
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SaveTermInput, SourceInput } from "../../messaging/protocol";
-import type { TermCard } from "../lookup/describe";
+import { meaningRows, type TermCard } from "../lookup/describe";
 import {
   createLookup,
   createMarkAll,
@@ -420,13 +420,50 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     card: TermCard,
     to: WordStatus,
   ) {
-    const { key } = card;
-    const sent = await sendStatus(deps.send, card, to, () => {
-      const found = cards.spanOf(ref);
-      const input = found && termInput(ref.cue, found.surface);
-      return input && { ...input, key, kind: card.kind };
+    const sent = await sendStatus(deps.send, card, to, () =>
+      saveInput(ref, card),
+    );
+    if (sent) await statusChanged(w, ref, card, to);
+  }
+
+  /** What saving the term at `ref` sends besides its status. */
+  function saveInput(ref: WordRef, card: TermCard) {
+    const found = cards.spanOf(ref);
+    const input = found && termInput(ref.cue, found.surface);
+    return input && { ...input, key: card.key, kind: card.kind };
+  }
+
+  /**
+   * Chooses the meaning of the window's row `index` for the card `ref` is in, or undoes
+   * it when it is the one chosen there. An unsaved term is saved as Learning.
+   */
+  async function chooseMeaning(
+    w: Watch,
+    ref: WordRef,
+    card: TermCard,
+    index: number,
+  ) {
+    const row = meaningRows(card)[index];
+    const term = saveInput(ref, card);
+    if (!row || !term) return;
+    await deps.send({
+      type: "chooseMeaning",
+      term,
+      meaning: row.sense.usedHere ? null : row.meaning,
     });
-    if (!sent) return;
+    if (card.status === "new" && !row.sense.usedHere)
+      await statusChanged(w, ref, card, "learning");
+    else await cards.refresh(card);
+  }
+
+  /** The term at `ref` went from `card.status` to `to`: every line with it follows. */
+  async function statusChanged(
+    w: Watch,
+    ref: WordRef,
+    card: TermCard,
+    to: WordStatus,
+  ) {
+    const { key } = card;
     if (to === "new") {
       w.recorder.saved.delete(key);
       // Unsaved, each occurrence is new or known again by the level.
@@ -522,6 +559,11 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       const panel = store.get().panel;
       if (panel)
         withWatch((w) => changeStatus(w, panel.ref, panel.card, status));
+    },
+    useMeaning(index) {
+      const panel = store.get().panel;
+      if (panel)
+        withWatch((w) => chooseMeaning(w, panel.ref, panel.card, index));
     },
     speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel: cards.closePanel,

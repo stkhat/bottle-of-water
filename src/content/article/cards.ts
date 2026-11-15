@@ -20,11 +20,22 @@ export const writtenOf = ({ block, span }: SpanRef) => {
   return collapseSpaces(block.text.slice(start, end));
 };
 
+/** The sentence the term at `ref` is in, as saving it from there records it. */
+export const sentenceOf = ({ block, span }: SpanRef, lang: string) =>
+  sentenceAt(block.text, span.start, span.end, lang);
+
 export const describeRef = (
   lookup: Lookup,
   ref: SpanRef,
+  lang: string,
   shownIn: "hover" | "window" = "hover",
-) => describeSpan(lookup, ref.span, writtenOf(ref), shownIn);
+) =>
+  describeSpan(
+    lookup,
+    ref.span,
+    { surface: writtenOf(ref), sentence: sentenceOf(ref, lang) },
+    shownIn,
+  );
 
 const boxesOf = ({ block, span }: SpanRef) =>
   wordBoxes(rangeOf(block, span.start, span.end));
@@ -42,7 +53,7 @@ export function createCards(o: {
 }) {
   const { store, lookup, lang } = o;
   const describe = (ref: SpanRef, shownIn?: "hover" | "window") =>
-    describeRef(lookup, ref, shownIn);
+    describeRef(lookup, ref, lang, shownIn);
 
   let hoverRef: SpanRef | undefined;
   const hoverTicket = latest();

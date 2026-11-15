@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { meaningKey, type Meaning } from "../core/meanings";
 import type { SyncRecord } from "../core/sync/codec";
-import type { SaveTermInput, SourceInput } from "../messaging/protocol";
+import { omit } from "../core/util";
+import type {
+  ChooseMeaningInput,
+  SaveTermInput,
+  SourceInput,
+} from "../messaging/protocol";
 import type { LingoDb } from "./db";
 import {
   createTermStore,
@@ -12,6 +18,11 @@ import { freshDb } from "../testing/db";
 import { ARTICLE as BREAD, VIDEO } from "../testing/sources";
 
 const ARTICLE: SourceInput = { ...BREAD, url: "https://example.com/bread#top" };
+
+/** A file of export version 1: no meanings and no meaning choices. */
+type ExportV1 = Omit<LingoExport, "version" | "meanings" | "meaningChoices"> & {
+  version: 1;
+};
 
 const dough = (overrides: Partial<SaveTermInput> = {}): SaveTermInput => ({
   lang: "en",
@@ -891,8 +902,10 @@ describe("exportJson", () => {
     const data = JSON.parse(await store.exportJson()) as LingoExport;
     expect(data).toMatchObject({
       format: "lingo-export",
-      version: 1,
+      version: 2,
       exportedAt: clock.time,
+      meanings: [],
+      meaningChoices: [],
     });
     expect(data.terms.map((t) => t.id)).toEqual(["en:dough"]);
     expect(data.sources.map((s) => s.url)).toEqual([
@@ -1047,7 +1060,8 @@ describe("importJson", () => {
     await store.saveTerm(dough());
     const source = (await db.sources.toArray())[0]!;
     const term = (await store.listTerms("en"))[0]!;
-    const file: LingoExport = {
+    // Version 1: no meanings.
+    const file: ExportV1 = {
       format: "lingo-export",
       version: 1,
       exportedAt: 1000,
@@ -1161,12 +1175,507 @@ describe("importJson", () => {
   it("rejects a newer export version", async () => {
     const json = JSON.stringify({
       format: "lingo-export",
-      version: 2,
+      version: 3,
       exportedAt: 0,
       terms: [],
       sources: [],
       occurrences: [],
+      meanings: [],
+      meaningChoices: [],
     });
     await expect(store.importJson(json)).rejects.toThrow(/version/);
+  });
+
+  it("rejects a version 2 file without its meanings, or with damaged ones", async () => {
+    await store.saveTerm(dough());
+    await store.chooseMeaning(choose(PIECE));
+    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const damaged = [
+      { ...data, meanings: undefined },
+      { ...data, meaningChoices: [{ ...data.meaningChoices[0], at: "now" }] },
+      { ...data, meanings: [{ ...data.meanings[0], from: "web" }] },
+      // A key that is not the meaning's hash.
+      { ...data, meanings: [{ ...data.meanings[0], text: "別の意味" }] },
+    ];
+    for (const file of damaged)
+      await expect(store.importJson(JSON.stringify(file))).rejects.toThrow(
+        /damaged/,
+      );
+  });
+});
+
+/** The dictionary's meanings of "dough" for the tests below. */
+const PIECE = { from: "dictionary", text: "パン生地", pos: "noun" } as const;
+const MASS = { from: "dictionary", text: "練り粉", pos: "noun" } as const;
+const MONEY = {
+  from: "dictionary",
+  text: "Money.",
+  pos: "noun",
+  glossLang: "en",
+} as const;
+const AI = {
+  from: "ai",
+  text: "（パン作りの）生地",
+  explanation: "パン作りで、粉と水を練ったもの。",
+} as const;
+
+/** Chooses `meaning` for a sentence of dough (by default the one `dough()` saves). */
+const choose = (
+  meaning: Meaning | null,
+  overrides: Partial<SaveTermInput> = {},
+): ChooseMeaningInput => {
+  const term = omit(dough(overrides), "status");
+  return { term, meaning };
+};
+
+describe("chooseMeaning", () => {
+  it("chooses a meaning for a saved term's sentence", async () => {
+    await store.saveTerm(dough());
+    clock.tick();
+    const term = await store.chooseMeaning(choose(PIECE));
+    expect(term).toMatchObject({ id: "en:dough", status: "learning" });
+    const { meanings, choices } = await store.meaningsOf("en:dough");
+    expect(meanings).toEqual([
+      {
+        ...PIECE,
+        key: await meaningKey("en:dough", "dictionary", "パン生地"),
+        termId: "en:dough",
+        createdAt: clock.time,
+      },
+    ]);
+    expect(choices).toEqual([
+      {
+        termId: "en:dough",
+        sourceId: (await db.sources.toArray())[0]!.id,
+        sentence: "Knead the dough.",
+        meaningKey: meanings[0]!.key,
+        at: clock.time,
+        deviceId: expect.any(String),
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      },
+    ]);
+  });
+
+  it("marks the choices with this device's id", async () => {
+    const own = createTermStore(freshDb(), {
+      now: clock.now,
+      deviceId: async () => "device-a",
+    });
+    await own.chooseMeaning(choose(PIECE));
+    expect((await own.meaningsOf("en:dough")).choices[0]!.deviceId).toBe(
+      "device-a",
+    );
+  });
+
+  it("saves an unsaved term as Learning, with this sentence as saved", async () => {
+    const term = await store.chooseMeaning(choose(PIECE));
+    expect(term).toMatchObject({ status: "learning", createdAt: clock.time });
+    expect((await store.termIndex("en")).get("dough")).toBe("learning");
+    expect(
+      (await store.occurrencesOf("en:dough")).map((o) => [
+        o.sentence,
+        o.origin,
+      ]),
+    ).toEqual([["Knead the dough.", "saved"]]);
+  });
+
+  it("adds the sentence to a saved term that does not have it, as an encounter", async () => {
+    await store.saveTerm(dough({ status: "known" }));
+    clock.tick();
+    const term = await store.chooseMeaning(
+      choose(PIECE, { source: ARTICLE, sentence: "The dough rose." }),
+    );
+    expect(term).toMatchObject({ status: "known" });
+    expect(
+      (await store.occurrencesOf("en:dough")).map((o) => [
+        o.sentence,
+        o.origin,
+      ]),
+    ).toEqual([
+      ["The dough rose.", "encountered"],
+      ["Knead the dough.", "saved"],
+    ]);
+  });
+
+  it("replaces the meaning chosen for the sentence: one per sentence", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    clock.tick();
+    await store.chooseMeaning(choose(MASS));
+    const { meanings, choices } = await store.meaningsOf("en:dough");
+    // The meaning no choice names is dropped.
+    expect(meanings.map((m) => m.text)).toEqual(["練り粉"]);
+    expect(choices.map((c) => c.meaningKey)).toEqual([meanings[0]!.key]);
+  });
+
+  it("keeps a replaced meaning that another sentence still names", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    await store.chooseMeaning(choose(PIECE, { sentence: "More dough." }));
+    await store.chooseMeaning(choose(MASS));
+    const { meanings, choices } = await store.meaningsOf("en:dough");
+    expect(meanings.map((m) => m.text).sort()).toEqual(["パン生地", "練り粉"]);
+    expect(choices).toHaveLength(2);
+  });
+
+  it("undoes a choice and leaves the term saved, even when choosing saved it", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    clock.tick();
+    const term = await store.chooseMeaning(choose(null));
+    expect(term).toMatchObject({ status: "learning" });
+    expect(await store.meaningsOf("en:dough")).toEqual({
+      meanings: [],
+      choices: [],
+    });
+    // The undo is kept: it wins over older choices of the sentence elsewhere.
+    expect(await db.meaningChoices.toArray()).toEqual([
+      expect.objectContaining({ meaningKey: null, at: clock.time }),
+    ]);
+    expect(await store.occurrencesOf("en:dough")).toHaveLength(1);
+  });
+
+  it("does nothing for an undo with nothing chosen, and saves nothing", async () => {
+    expect(await store.chooseMeaning(choose(null))).toBeNull();
+    expect(await store.listTerms("en")).toEqual([]);
+    await store.saveTerm(dough());
+    const listener = vi.fn();
+    store.onChange(listener);
+    expect(await store.chooseMeaning(choose(null))).toMatchObject({
+      id: "en:dough",
+    });
+    expect(await db.meaningChoices.count()).toBe(0);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("keeps a meaning made twice as one row", async () => {
+    await store.chooseMeaning(choose(AI));
+    await store.chooseMeaning(choose(AI, { sentence: "Other dough." }));
+    const { meanings, choices } = await store.meaningsOf("en:dough");
+    expect(meanings).toEqual([expect.objectContaining(AI)]);
+    expect(choices).toHaveLength(2);
+  });
+
+  it("keeps a meaning's English definition as the pack has it, with its language", async () => {
+    await store.chooseMeaning(choose(MONEY));
+    expect((await store.meaningsOf("en:dough")).meanings).toEqual([
+      expect.objectContaining({ text: "Money.", glossLang: "en" }),
+    ]);
+  });
+
+  it("stores only a meaning's own fields, and refuses one that is not a meaning", async () => {
+    await store.chooseMeaning(
+      choose({ ...PIECE, extra: 1 } as unknown as Meaning),
+    );
+    expect(
+      Object.keys((await store.meaningsOf("en:dough")).meanings[0]!).sort(),
+    ).toEqual(["createdAt", "from", "key", "pos", "termId", "text"]);
+    for (const bad of [
+      { from: "web", text: "x" },
+      { from: "ai", text: "" },
+    ])
+      await expect(
+        store.chooseMeaning(choose(bad as unknown as Meaning)),
+      ).rejects.toThrow(/meaning/);
+  });
+
+  it("tells listeners: terms when it saved the term, else occurrences", async () => {
+    const listener = vi.fn();
+    store.onChange(listener);
+    await store.chooseMeaning(choose(PIECE));
+    await store.chooseMeaning(choose(MASS));
+    expect(listener.mock.calls).toEqual([
+      ["en", "terms", "local"],
+      ["en", "occurrences", "local"],
+    ]);
+  });
+
+  it("keeps the choice when the term is saved again from the same sentence", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    clock.tick();
+    await store.saveTerm(dough({ status: "known" }));
+    expect((await store.meaningsOf("en:dough")).choices).toHaveLength(1);
+  });
+
+  it("keeps the occurrences with a meaning chosen when encounters are trimmed", async () => {
+    await store.saveTerm(dough());
+    for (let i = 1; i <= 3; i++) {
+      clock.tick();
+      await store.recordEncounters(ARTICLE, [
+        {
+          termId: "en:dough",
+          sentence: `Sentence ${i}.`,
+          pos: { textQuote: `${i}` },
+        },
+      ]);
+    }
+    await store.chooseMeaning(
+      choose(PIECE, {
+        source: ARTICLE,
+        sentence: "Sentence 1.",
+        pos: { textQuote: "1" },
+      }),
+    );
+    for (let i = 4; i <= 60; i++) {
+      clock.tick();
+      await store.recordEncounters(ARTICLE, [
+        {
+          termId: "en:dough",
+          sentence: `Sentence ${i}.`,
+          pos: { textQuote: `${i}` },
+        },
+      ]);
+    }
+    const sentences = (await store.occurrencesOf("en:dough")).map(
+      (o) => o.sentence,
+    );
+    expect(sentences).toHaveLength(50);
+    expect(sentences).toContain("Sentence 1.");
+    expect(sentences).toContain("Knead the dough.");
+    expect(sentences).not.toContain("Sentence 2.");
+  });
+
+  it("can keep more than 50 occurrences: the chosen ones all stay", async () => {
+    await store.saveTerm(dough());
+    for (let i = 1; i <= 51; i++) {
+      clock.tick();
+      await store.chooseMeaning(
+        choose(PIECE, {
+          source: ARTICLE,
+          sentence: `Chosen ${i}.`,
+          pos: { textQuote: `${i}` },
+        }),
+      );
+    }
+    expect(await store.occurrencesOf("en:dough")).toHaveLength(52);
+  });
+});
+
+describe("removing a term deletes its choices and meanings", () => {
+  beforeEach(async () => {
+    await store.chooseMeaning(choose(PIECE));
+    await store.chooseMeaning(choose(null, { sentence: "Undone." }));
+  });
+
+  const expectNone = async (on = db) => {
+    expect(await on.meanings.count()).toBe(0);
+    expect(await on.meaningChoices.count()).toBe(0);
+  };
+
+  it("by removeTerm", async () => {
+    await store.removeTerm("en:dough");
+    await expectNone();
+  });
+
+  it("by undoSaveAll", async () => {
+    await store.removeTerm("en:dough");
+    const { batchId } = await store.saveAll("en", ["dough"], "known", ARTICLE);
+    await store.chooseMeaning(choose(PIECE));
+    await store.undoSaveAll(batchId);
+    // The choice changed nothing of the term: the batch still owns it.
+    await expectNone();
+  });
+
+  it("by a removal taken in by importJson", async () => {
+    const json = await withRemoval();
+    await store.importJson(json);
+    await expectNone();
+  });
+
+  it("by a removal taken in by applySynced", async () => {
+    clock.tick(120_000);
+    await store.applySynced("en", [
+      {
+        key: "dough",
+        status: "removed",
+        updatedMinutes: Math.floor(clock.time / 60_000),
+      },
+    ]);
+    await expectNone();
+  });
+
+  it("and saving it again brings none of them back", async () => {
+    await store.removeTerm("en:dough");
+    await store.saveTerm(dough());
+    expect(await store.meaningsOf("en:dough")).toEqual({
+      meanings: [],
+      choices: [],
+    });
+  });
+
+  /** An export of a store where dough was removed after this one's version. */
+  async function withRemoval() {
+    let json = "";
+    await withOtherStore(async (other) => {
+      clock.tick();
+      await other.saveTerm(dough());
+      clock.tick();
+      await other.removeTerm("en:dough");
+      json = await other.exportJson();
+    });
+    return json;
+  }
+});
+
+describe("export and import of your meanings", () => {
+  /** A second store with its own device id. */
+  const otherDevice = (deviceId: string) =>
+    createTermStore(freshDb(), {
+      now: clock.now,
+      deviceId: async () => deviceId,
+    });
+
+  it("carries the meanings and the choices, undone ones included", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    await store.chooseMeaning(choose(AI, { sentence: "Other." }));
+    await store.chooseMeaning(choose(PIECE, { sentence: "Undone." }));
+    await store.chooseMeaning(choose(null, { sentence: "Undone." }));
+    const json = await store.exportJson();
+    const data = JSON.parse(json) as LingoExport;
+    expect(data.meanings).toHaveLength(2);
+    expect(data.meaningChoices).toHaveLength(3);
+    await withOtherStore(async (other) => {
+      await other.importJson(json);
+      expect(await other.meaningsOf("en:dough")).toEqual(
+        await store.meaningsOf("en:dough"),
+      );
+    });
+  });
+
+  it("reads a version 1 file: no meanings", async () => {
+    await store.saveTerm(dough());
+    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const rest = omit(data, "meanings", "meaningChoices");
+    const v1: ExportV1 = { ...rest, version: 1 };
+    await withOtherStore(async (other) => {
+      expect(await other.importJson(JSON.stringify(v1))).toEqual({
+        terms: 1,
+        sources: 1,
+        occurrences: 1,
+      });
+      expect(await other.meaningsOf("en:dough")).toEqual({
+        meanings: [],
+        choices: [],
+      });
+    });
+  });
+
+  it("takes the later choice of a sentence; the replaced meaning goes", async () => {
+    const a = otherDevice("a");
+    await a.chooseMeaning(choose(PIECE));
+    clock.tick();
+    await store.chooseMeaning(choose(MASS));
+    const newer = await store.exportJson();
+    await a.importJson(newer);
+    const { meanings, choices } = await a.meaningsOf("en:dough");
+    expect(meanings.map((m) => m.text)).toEqual(["練り粉"]);
+    expect(choices.map((c) => c.at)).toEqual([clock.time]);
+  });
+
+  it("keeps the later choice made here over an older one in the file", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    const older = await store.exportJson();
+    clock.tick();
+    const a = otherDevice("a");
+    await a.chooseMeaning(choose(MASS));
+    await a.importJson(older);
+    expect(
+      (await a.meaningsOf("en:dough")).meanings.map((m) => m.text),
+    ).toEqual(["練り粉"]);
+  });
+
+  it("takes a later undo from the file", async () => {
+    const a = otherDevice("a");
+    await a.chooseMeaning(choose(PIECE));
+    await store.chooseMeaning(choose(PIECE));
+    clock.tick();
+    await store.chooseMeaning(choose(null));
+    await a.importJson(await store.exportJson());
+    expect(await a.meaningsOf("en:dough")).toEqual({
+      meanings: [],
+      choices: [],
+    });
+  });
+
+  it("settles choices made at the same time by the smaller device id", async () => {
+    const a = otherDevice("a");
+    const b = otherDevice("b");
+    await a.chooseMeaning(choose(PIECE));
+    await b.chooseMeaning(choose(MASS));
+    const fromA = await a.exportJson();
+    const fromB = await b.exportJson();
+    await a.importJson(fromB);
+    await b.importJson(fromA);
+    for (const device of [a, b])
+      expect(
+        (await device.meaningsOf("en:dough")).meanings.map((m) => m.text),
+      ).toEqual(["パン生地"]);
+  });
+
+  it("joins the same meaning chosen on two devices as one row", async () => {
+    const a = otherDevice("a");
+    await a.chooseMeaning(choose(AI));
+    clock.tick();
+    await store.chooseMeaning(choose(AI, { sentence: "Other." }));
+    await a.importJson(await store.exportJson());
+    const { meanings, choices } = await a.meaningsOf("en:dough");
+    expect(meanings).toHaveLength(1);
+    expect(choices).toHaveLength(2);
+  });
+
+  it("takes in no choice for a term that is not live here", async () => {
+    await store.chooseMeaning(choose(PIECE));
+    const json = await store.exportJson();
+    await withOtherStore(async (other) => {
+      clock.tick();
+      await other.saveTerm(dough());
+      clock.tick();
+      await other.removeTerm("en:dough");
+      await other.importJson(json);
+      expect(await other.listTerms("en")).toEqual([]);
+      expect(await other.meaningsOf("en:dough")).toEqual({
+        meanings: [],
+        choices: [],
+      });
+    });
+  });
+
+  it("keeps the imported occurrences with a meaning chosen through the trim", async () => {
+    await store.saveTerm(dough());
+    for (let i = 1; i <= 55; i++) {
+      clock.tick();
+      await store.recordEncounters(ARTICLE, [
+        {
+          termId: "en:dough",
+          sentence: `Sentence ${i}.`,
+          pos: { textQuote: `${i}` },
+        },
+      ]);
+    }
+    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    // The oldest encounter of the file, chosen on another device.
+    const a = otherDevice("a");
+    await a.chooseMeaning(
+      choose(PIECE, {
+        source: ARTICLE,
+        sentence: "Sentence 2.",
+        pos: { textQuote: "2" },
+      }),
+    );
+    const theirs = JSON.parse(await a.exportJson()) as LingoExport;
+    const file: LingoExport = {
+      ...data,
+      occurrences: [
+        ...data.occurrences,
+        ...theirs.occurrences.filter((o) => o.sentence === "Sentence 2."),
+      ],
+      meanings: theirs.meanings,
+      meaningChoices: theirs.meaningChoices,
+    };
+    await withOtherStore(async (other) => {
+      await other.importJson(JSON.stringify(file));
+      const sentences = (await other.occurrencesOf("en:dough")).map(
+        (o) => o.sentence,
+      );
+      expect(sentences).toHaveLength(50);
+      expect(sentences).toContain("Sentence 2.");
+    });
   });
 });

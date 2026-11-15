@@ -1057,6 +1057,44 @@ describe("words in the subtitles", () => {
     expect(unsavedOf(state)).toBe(4);
   });
 
+  it("chooses a meaning for the card the window opened from: the word is saved as Learning with it", async () => {
+    const { state, app, bg } = await start();
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 2, "tangy"));
+    await expect.poll(() => state().panel?.card.status).toBe("new");
+    app.useMeaning(0);
+    await expect.poll(() => state().panel?.card.status).toBe("learning");
+    const card = state().panel!.card;
+    expect(card.yourMeanings).toEqual([
+      expect.objectContaining({ from: "dictionary", count: 1 }),
+    ]);
+    expect(card.chosenHere).toBe(card.yourMeanings[0]!.key);
+    const sentence = state().cues[2]!.text.split("\n").join(" ");
+    expect(bg.sent("chooseMeaning")).toEqual([
+      expect.objectContaining({
+        term: expect.objectContaining({
+          key: "tangy",
+          sentence,
+          pos: { timeMs: state().cues[2]!.startMs },
+        }),
+      }),
+    ]);
+    const category = (cue: number) =>
+      state().spans[cue]!.find((s) => s.key === "tangy")?.category;
+    expect([category(0), category(2)]).toEqual(["learning", "learning"]);
+
+    // Another card of the video has none chosen; undoing in the first leaves the word saved.
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.chosenHere).toBeUndefined();
+    app.clickWord(refOf(state, 2, "tangy"));
+    await expect.poll(() => state().panel?.card.chosenHere).toBeDefined();
+    app.useMeaning(0);
+    await expect.poll(() => state().panel?.card.chosenHere).toBeUndefined();
+    expect(state().panel?.card.status).toBe("learning");
+    expect(state().panel?.card.yourMeanings).toEqual([]);
+  });
+
   it("tells the page when its window opens and when a term changes", async () => {
     const onPanelOpen = vi.fn();
     const onTermsChanged = vi.fn();

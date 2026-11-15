@@ -91,7 +91,7 @@ export function createSelection(o: {
         category: "new",
       },
     };
-    const card = await describeRef(o.lookup, ref);
+    const card = await describeRef(o.lookup, ref, lang);
     // Dropped when other words are selected by now.
     if (phrase !== selected) return;
     selected.ref = ref;

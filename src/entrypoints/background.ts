@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
 import { openLingoDb } from "../background/db";
+import { deviceId } from "../background/device-id";
 import { createHandlers } from "../background/handlers";
 import {
   createHistoryStore,
@@ -36,7 +37,7 @@ export default defineBackground(() => {
   if (import.meta.env.MODE === "check") startWorkerErrorLog();
 
   const db = openLingoDb();
-  const store = createTermStore(db);
+  const store = createTermStore(db, { deviceId: deviceId() });
   const history = createHistoryStore(db);
   const sync = createBrowserSyncBackend({ store });
 
