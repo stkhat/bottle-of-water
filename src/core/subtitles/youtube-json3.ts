@@ -14,6 +14,14 @@ interface Json3Event {
   segs?: { utf8?: string; tOffsetMs?: number }[];
 }
 
+/**
+ * A formatting tag in a segment's text (`<i>`, `</b>`, `<font color="…">`): YouTube keeps the
+ * tags of uploaded SRT/WebVTT captions in json3 and renders them, so they are markup, not
+ * text. A name must follow the bracket, so "<3" or "2 < 3" stay.
+ */
+const TAG = /<\/?[A-Za-z][\w.-]*(?:\s[^<>]*)?>/g;
+const segText = (seg: { utf8?: string }) => (seg.utf8 ?? "").replace(TAG, "");
+
 /** How long a cue lasts when the event has no duration and nothing follows it. */
 const LAST_CUE_MS = 3000;
 
@@ -37,7 +45,7 @@ export function parseYouTubeJson3(input: string | Json3): Cue[] {
   for (const event of events) {
     if (!Array.isArray(event.segs) || typeof event.tStartMs !== "number")
       continue;
-    const raw = event.segs.map((seg) => seg.utf8 ?? "").join("");
+    const raw = event.segs.map(segText).join("");
     if (event.aAppend) {
       const previous = drafts[drafts.length - 1];
       if (previous && raw.trim() !== "") previous.raw += raw;
@@ -53,7 +61,7 @@ export function parseYouTubeJson3(input: string | Json3): Cue[] {
         event.segs.length > 1
           ? event.segs.map((seg) => ({
               startMs: start + (seg.tOffsetMs ?? 0),
-              text: seg.utf8 ?? "",
+              text: segText(seg),
             }))
           : undefined,
     });

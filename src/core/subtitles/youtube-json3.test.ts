@@ -23,6 +23,42 @@ describe("parseYouTubeJson3", () => {
     );
   });
 
+  it("drops the formatting tags YouTube renders (italics, bold, font) but keeps other angle brackets", () => {
+    const cues = parseYouTubeJson3({
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 2000,
+          segs: [{ utf8: "he showed me this <i>Craigslist</i>\nad" }],
+        },
+        {
+          tStartMs: 2000,
+          dDurationMs: 2000,
+          segs: [
+            { utf8: '<font color="#ffff00"><b>BANG</b></font> <u>now</u>' },
+          ],
+        },
+        {
+          tStartMs: 4000,
+          dDurationMs: 2000,
+          segs: [{ utf8: "I <3 you, 2 < 3" }],
+        },
+        {
+          tStartMs: 6000,
+          dDurationMs: 2000,
+          segs: [{ utf8: "<i>so" }, { utf8: " cool</i>", tOffsetMs: 500 }],
+        },
+      ],
+    });
+    expect(cues.map((c) => c.text)).toEqual([
+      "he showed me this Craigslist\nad",
+      "BANG now",
+      "I <3 you, 2 < 3",
+      "so cool",
+    ]);
+    expect(cues[3]?.words?.map((w) => w.text)).toEqual(["so", " cool"]);
+  });
+
   it("parses the Japanese track with its own timing", () => {
     const cues = parseYouTubeJson3(fixture("ja.json3"));
     expect(cues[0]).toEqual({
