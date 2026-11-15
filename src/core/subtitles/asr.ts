@@ -7,12 +7,13 @@ import {
   type SubtitleLine,
 } from "./cues";
 import { normalizeCueText } from "./text";
-import type { Cue } from "./types";
+import type { Cue, CueWord } from "./types";
 
 /**
  * Auto-generated (ASR) tracks: YouTube sends a rolling window of a few words per cue,
  * overlapping, often without punctuation. These functions turn them into transcript cards
- * of whole sentences, each shown in the video as one or more short subtitle lines.
+ * of whole sentences, each shown in the video as one or more short subtitle lines. Manual
+ * tracks go through the same rules (`cueWords`, `linesByCue`), each cue staying one line.
  */
 
 interface Token {
@@ -24,6 +25,12 @@ interface Token {
   clean: string;
   /** `text` starts with a space: shown text puts one before it. */
   spaceBefore: boolean;
+  /** Index of the cue the token came from. */
+  cue: number;
+  /** A new speaker starts here (a dash at a line start in a manual track, `cueWords`). */
+  speaker: boolean;
+  /** A lone ♪ that opens a line: it starts a sentence instead of ending one. */
+  opens: boolean;
 }
 
 export interface AsrOptions {
@@ -33,6 +40,12 @@ export interface AsrOptions {
   lang?: string;
   /** A subtitle line longer than this is split (characters; default 60, 30 without spaces). */
   maxLineChars?: number;
+  /**
+   * Manual tracks: the subtitle lines are the track's own cues, and no card boundary falls
+   * inside a cue (the video keeps showing each cue whole). A long sentence of a punctuated
+   * track is split at its likeliest boundaries (clause marks, balance), not its largest pause.
+   */
+  linesByCue?: boolean;
 }
 
 export interface MergeOptions extends AsrOptions {
@@ -56,16 +69,28 @@ const MS_PER_CHAR = 70;
 /** A track counts as punctuated when this share of its words end a sentence. */
 const PUNCTUATED_SHARE = 0.02;
 const SPEAKER_CHANGE = /^>>/;
+/** A word that is only music notes. */
+const LONE_NOTE = /^♪+$/;
 
 const clean = (text: string) => normalizeCueText(text).replace(/\n/g, " ");
+/**
+ * `text` cleaned, its lines joined by `joiner` ("" in Japanese): YouTube's translation of a
+ * manual track keeps the original's line breaks.
+ */
+const cleanJoined = (text: string, joiner: string) =>
+  normalizeCueText(text).replace(/\n/g, joiner);
 
 function tokensOf(cues: readonly Cue[], joiner: string): Token[] {
   const tokens: Token[] = [];
-  for (const cue of cues) {
+  /** Whether each token is the first of a line of its cue. */
+  const lineStarts: boolean[] = [];
+  cues.forEach((cue, index) => {
     const words = cue.words?.length
       ? cue.words
       : [{ startMs: cue.startMs, text: cue.text }];
+    let lineStart = true;
     words.forEach((word, i) => {
+      if (/^\s*\n/.test(word.text)) lineStart = true;
       const cleaned = clean(word.text);
       if (cleaned === "") return;
       const text =
@@ -76,14 +101,35 @@ function tokensOf(cues: readonly Cue[], joiner: string): Token[] {
         cueEndMs: cue.endMs,
         clean: text === word.text ? cleaned : clean(text),
         spaceBefore: /^\s/.test(text),
+        cue: index,
+        speaker: word.speaker === true,
+        opens: false,
       });
+      lineStarts.push(lineStart);
+      lineStart = false;
     });
-  }
+  });
+  // A lone ♪ before more of its line opens a sung line ("♪ When she was just small ♪"):
+  // it starts a sentence, it does not end the one before.
+  tokens.forEach((token, i) => {
+    const next = tokens[i + 1];
+    token.opens =
+      LONE_NOTE.test(token.clean) &&
+      lineStarts[i] === true &&
+      next !== undefined &&
+      next.cue === token.cue &&
+      lineStarts[i + 1] === false;
+  });
   return tokens;
 }
 
-const endsSentence = (token: Token) => SENTENCE_END.test(token.text.trim());
-const startsSpeaker = (token: Token) => SPEAKER_CHANGE.test(token.text.trim());
+const endsSentence = (token: Token) =>
+  !token.opens && SENTENCE_END.test(token.text.trim());
+const startsSpeaker = (token: Token) =>
+  token.speaker || SPEAKER_CHANGE.test(token.text.trim());
+/** `token` goes on `previous`'s cue, where no card may end (`linesByCue`). */
+const sameCue = (previous: Token, token: Token, options: AsrOptions) =>
+  options.linesByCue === true && previous.cue === token.cue;
 
 function isPunctuated(tokens: readonly Token[]): boolean {
   if (tokens.length === 0) return false;
@@ -101,8 +147,9 @@ function gapBefore(tokens: readonly Token[], i: number): number {
 
 /**
  * Sentences by the track's own cues: a sentence ends after sentence punctuation, around a
- * sound label such as "[Music]", before a speaker change (">>"), at a pause (only in tracks
- * without punctuation), or, when it grows past `maxWords`, at its largest gap.
+ * sound label such as "[Music]", before a speaker change (">>", a speaker's dash) or a ♪
+ * that opens a line, at a pause (only in tracks without punctuation), or, when it grows past
+ * `maxWords`, at its largest gap. With `linesByCue`, never inside a cue.
  */
 function sentencesByPauses(
   tokens: readonly Token[],
@@ -119,18 +166,22 @@ function sentencesByPauses(
     const previous = current[current.length - 1];
     if (previous) {
       const boundary =
-        endsSentence(previous) ||
-        isSoundLabel(previous.text) ||
-        isSoundLabel(token.text) ||
-        startsSpeaker(token) ||
-        (current.length >= minWords && gapBefore(tokens, i) >= pauseMs);
+        !sameCue(previous, token, options) &&
+        (endsSentence(previous) ||
+          isSoundLabel(previous.text) ||
+          isSoundLabel(token.text) ||
+          startsSpeaker(token) ||
+          token.opens ||
+          (current.length >= minWords && gapBefore(tokens, i) >= pauseMs));
       if (boundary) {
         sentences.push(current);
         current = [];
       } else if (current.length >= maxWords) {
-        const split = largestGap([...current, token], minWords);
-        sentences.push(current.slice(0, split));
-        current = current.slice(split);
+        const split = largestGap([...current, token], minWords, options);
+        if (split > 0) {
+          sentences.push(current.slice(0, split));
+          current = current.slice(split);
+        }
       }
     }
     current.push(token);
@@ -142,11 +193,17 @@ function sentencesByPauses(
 /**
  * Where to split `run` (the sentence so far plus the incoming word): the largest gap that
  * leaves at least `minWords` before it. Splitting right before the incoming word is allowed.
+ * -1 when no split is allowed (`linesByCue`: the run is inside one cue).
  */
-function largestGap(run: readonly Token[], minWords: number): number {
-  let best = run.length - 1;
+function largestGap(
+  run: readonly Token[],
+  minWords: number,
+  options: AsrOptions,
+): number {
+  let best = options.linesByCue ? -1 : run.length - 1;
   let bestGap = -Infinity;
   for (let k = Math.max(1, minWords); k < run.length; k++) {
+    if (sameCue(run[k - 1] as Token, run[k] as Token, options)) continue;
     const gap = gapBefore(run, k);
     if (gap > bestGap) {
       bestGap = gap;
@@ -156,12 +213,19 @@ function largestGap(run: readonly Token[], minWords: number): number {
   return best;
 }
 
-/** Text of `tokens` as shown: cleaned, a space only where the site put one. */
+/**
+ * What goes before `token` in shown text: a space only where the site put one, and a line
+ * break before a speaker's dash line, which keeps its own line ("- How much?\n- Two.").
+ */
+const separatorBefore = (token: Token) =>
+  token.spaceBefore ? (token.speaker ? "\n" : " ") : "";
+
+/** Text of `tokens` as shown: cleaned, separated as `separatorBefore` says. */
 function textOf(tokens: readonly Token[]): string {
   let text = "";
-  for (const { clean: piece, spaceBefore } of tokens) {
-    if (piece === "") continue;
-    text += text !== "" && spaceBefore ? ` ${piece}` : piece;
+  for (const token of tokens) {
+    if (token.clean === "") continue;
+    text += (text !== "" ? separatorBefore(token) : "") + token.clean;
   }
   return text;
 }
@@ -215,6 +279,17 @@ function splitLines(tokens: Token[], maxChars: number): Token[][] {
   ];
 }
 
+/** Runs of tokens from the same cue: a manual track's subtitle lines (`linesByCue`). */
+function byCue(tokens: readonly Token[]): Token[][] {
+  const runs: Token[][] = [];
+  for (const token of tokens) {
+    const run = runs[runs.length - 1];
+    if (run && (run[0] as Token).cue === token.cue) run.push(token);
+    else runs.push([token]);
+  }
+  return runs;
+}
+
 function cardsOf(
   sentences: readonly Token[][],
   options: AsrOptions,
@@ -231,14 +306,20 @@ function cardsOf(
         ? last.cueEndMs
         : Math.min(last.cueEndMs, nextStart);
     const card = cards.length;
-    const parts = splitLines(sentence, maxChars);
+    const parts = options.linesByCue
+      ? byCue(sentence)
+      : splitLines(sentence, maxChars);
     let text = "";
     parts.forEach((part, p) => {
       const partText = textOf(part);
-      if (text !== "") text += (part[0] as Token).spaceBefore ? " " : "";
+      if (text !== "") text += separatorBefore(part[0] as Token);
+      const nextStart = parts[p + 1]?.[0]?.startMs ?? endMs;
       lines.push({
         startMs: (part[0] as Token).startMs,
-        endMs: parts[p + 1]?.[0]?.startMs ?? endMs,
+        // A cue's line ends with the cue, or when the next one starts.
+        endMs: options.linesByCue
+          ? Math.min((part[part.length - 1] as Token).cueEndMs, nextStart)
+          : nextStart,
         card,
         start: text.length,
         end: text.length + partText.length,
@@ -251,16 +332,36 @@ function cardsOf(
 }
 
 /**
- * Transcript cards from an auto-generated track on its own (no site translation to follow):
- * sentences end at punctuation, sound labels, speaker changes and, in tracks without
- * punctuation, at pauses. Each card is shown as lines of at most `maxLineChars`.
+ * Transcript cards from a track on its own (no site translation to follow): sentences end at
+ * punctuation, sound labels, speaker changes and, in tracks without punctuation, at pauses.
+ * Each card is shown as lines of at most `maxLineChars`, or with `linesByCue` as its cues;
+ * then a punctuated track's sentence over MAX_CARD_WORDS is split as with the site's
+ * translation (`capCard`: clause marks and balance), never inside a cue.
  */
 export function asrSentenceCards(
   cues: readonly Cue[],
   options: MergeOptions = {},
 ): SentenceCards {
   const tokens = tokensOf(cues, options.joiner ?? " ");
-  return cardsOf(sentencesByPauses(tokens, options), options);
+  if (
+    !options.linesByCue ||
+    options.maxWords !== undefined ||
+    !isPunctuated(tokens)
+  )
+    return cardsOf(sentencesByPauses(tokens, options), options);
+  const candidates = candidatesOf(tokens, options.lang ?? "", options);
+  const sentences: Token[][] = [];
+  let from = 0;
+  for (const sentence of sentencesByPauses(tokens, {
+    ...options,
+    maxWords: Infinity,
+  })) {
+    capCard(candidates, from, from + sentence.length, [], (a, b) =>
+      sentences.push(tokens.slice(a, b)),
+    );
+    from += sentence.length;
+  }
+  return cardsOf(sentences, options);
 }
 
 /** Common first words of an English sentence: a likely boundary in a track without punctuation. */
@@ -301,7 +402,15 @@ function endsNear(tokens: readonly Token[], i: number, words: number) {
   return false;
 }
 
-function candidatesOf(tokens: readonly Token[], lang: string): Candidate[] {
+/**
+ * Every place a card may end (after each token but the last) and how unlikely a boundary is
+ * there without other evidence (`prior`): Infinity inside a cue with `linesByCue`.
+ */
+function candidatesOf(
+  tokens: readonly Token[],
+  lang: string,
+  options: AsrOptions,
+): Candidate[] {
   const punctuated = isPunctuated(tokens);
   const starters = primary(lang) === "en" ? EN_STARTERS : new Set<string>();
   const candidates: Candidate[] = [];
@@ -309,7 +418,9 @@ function candidatesOf(tokens: readonly Token[], lang: string): Candidate[] {
     const token = tokens[i] as Token;
     const next = tokens[i + 1] as Token;
     let prior: number;
-    if (endsSentence(token) || startsSpeaker(next)) prior = 0;
+    if (sameCue(token, next, options)) prior = Infinity;
+    else if (endsSentence(token) || startsSpeaker(next) || next.opens)
+      prior = 0;
     else if (punctuated) {
       // Near a sentence end the translation's end most likely marks that one.
       const near = endsNear(tokens, i, NEAR_END_WORDS);
@@ -431,7 +542,7 @@ function translatedSentences(
       )
         end++;
       if (!cjk && !spaceAt(end)) continue;
-      texts.push(clean(stream.slice(start, end)));
+      texts.push(cleanJoined(stream.slice(start, end), joiner));
       endsMs.push(saidAt[p] as number);
       cut(end, saidAt[p] as number);
       clauses.push(current);
@@ -444,7 +555,7 @@ function translatedSentences(
     )
       cut(p + 1, saidAt[p] as number);
   }
-  const rest = clean(stream.slice(start));
+  const rest = cleanJoined(stream.slice(start), joiner);
   if (rest !== "") {
     texts.push(rest);
     cut(stream.length, saidAt[stream.length - 1] as number);
@@ -606,7 +717,8 @@ function capCard(
       }
     }
     const cost = candidate.prior + BALANCE_COST * balance + distance;
-    if (!best || cost < best.cost) best = { at, unit, cost };
+    if (cost < Infinity && (!best || cost < best.cost))
+      best = { at, unit, cost };
   }
   if (!best) return push(from, to, units);
   const { at, unit } = best;
@@ -618,7 +730,8 @@ function capCard(
  * Cuts `tokens[from, to)` at every speaker change (`>>`) inside it, and its translation
  * `units` at the clause end said closest to each change, within CLAUSE_WINDOW_S and only
  * between two clauses. With no clause end near, each clause goes to the side it ends on in
- * time, so one side may get none (a "[laughter]" card before ">> Live singing…").
+ * time, so one side may get none (a "[laughter]" card before ">> Live singing…"). A change
+ * where no card may end (inside a manual track's cue) is not cut.
  */
 function splitAtSpeakers(
   tokens: readonly Token[],
@@ -631,8 +744,9 @@ function splitAtSpeakers(
   let rest = units;
   let start = from;
   for (let k = from + 1; k < to; k++) {
-    if (!startsSpeaker(tokens[k] as Token)) continue;
     const candidate = candidates[k - 1] as Candidate;
+    if (!startsSpeaker(tokens[k] as Token) || candidate.prior === Infinity)
+      continue;
     let cut = -1;
     let best = CLAUSE_WINDOW_S;
     for (let u = 1; u < rest.length; u++) {
@@ -672,11 +786,12 @@ function textOfUnits(
     parts.push(
       whole
         ? (translation.texts[sentence] as string)
-        : clean(
+        : cleanJoined(
             units
               .slice(i, j)
               .map((u) => u.raw)
               .join(""),
+            joiner,
           ),
     );
     i = j;
@@ -716,7 +831,7 @@ export function alignAsrSentences(
       ? translation.endsMs.slice(0, -1)
       : translation.endsMs;
   if (inner.length === 0) return undefined;
-  const candidates = candidatesOf(tokens, options.lang ?? "");
+  const candidates = candidatesOf(tokens, options.lang ?? "", options);
   const matches = matchEnds(candidates, inner);
   if (!matches) return undefined;
 
@@ -751,4 +866,34 @@ export function alignAsrSentences(
     pending.push(j);
   capped(start, tokens.length, pending);
   return { ...cardsOf(sentences, options), translations };
+}
+
+/** A bracketed sound label ("[MUSIC]", "(LAUGHS)") stays one word; anything else splits at spaces. */
+const WORD_OR_LABEL = /[[(（][^\])）]*[\])）]|\S+/g;
+const SPEAKER_DASH = /^[-–—]/;
+
+/**
+ * Words for a cue the site sent without word timings (a manual track), so that it goes
+ * through the same sentence rules as an auto-generated track: each word starts when it would
+ * if the cue's time were spread evenly over its characters. A word that starts a line of the
+ * cue has a line break before it, others a space; the first word of a line that starts with
+ * a speaker's dash ("- How much?") is marked as a speaker change.
+ */
+export function cueWords(cue: Cue): CueWord[] {
+  const { text } = cue;
+  const span = Math.max(0, cue.endMs - cue.startMs);
+  const words: CueWord[] = [];
+  let last = 0;
+  for (const match of text.matchAll(WORD_OR_LABEL)) {
+    const at = match.index;
+    const first = words.length === 0;
+    const lineStart = first || text.slice(last, at).includes("\n");
+    words.push({
+      startMs: cue.startMs + Math.round((at / Math.max(1, text.length)) * span),
+      text: (first ? "" : lineStart ? "\n" : " ") + match[0],
+      ...(lineStart && SPEAKER_DASH.test(match[0]) && { speaker: true }),
+    });
+    last = at + match[0].length;
+  }
+  return words;
 }
