@@ -84,7 +84,7 @@ Nothing beyond today's: the learning language's sentence and clause punctuation 
 - Older auto-generated tracks: YouTube refused `tlang` for two 2011–2013 videos in every try (HTTP 429 on that request only); not studied what the extension shows then.
 
 ## Suggested order
-1. CORE: date translated sentence ends when said, speaker changes always end a card (small, auto-generated tracks only; `>>` inside cards 4.3 → 0%).
+1. CORE: date translated sentence ends when said, speaker changes always end a card (small, auto-generated tracks only; `>>` inside cards 4.3 → 0%). **Done** (PR #87, 2026-11-15): auto-generated + YouTube's translation, new / round 2: `>>` inside cards 0.3 → 0% / 4.3 → 0%; cards with no Japanese 0.1 → 0.2% / 0 → 2.1% (of round 2's 91, 62 are sound labels before a `>>`, 29 speech whose translated clause YouTube put after the change); other paths card for card unchanged. Translated end marks right on an English sentence boundary 11.5 → 34.3% (18 punctuated tracks, median distance 336 → 153 ms; p90 1.13 → 1.24 s). Of 30 changed places read by hand, 14 better, 7 same, 9 worse: a clause on the wrong side of a `>>` (Japanese word order, or a 「[笑い]」 label opening the clause said at the change), a few late-dated ends shifting translations by one card, and boundaries moved by a word in unpunctuated tracks. Possible follow-up: a bracketed label in the translation as a clause of its own.
 2. CORE: manual tracks through the sentence rules, with the line decision (1 above), the human-track join (v5), a ♪ that opens a line starting a sentence, and a Netflix measurement first (collect raw TTML for a few episodes).
 3. Fallback for a partial human track.
 
