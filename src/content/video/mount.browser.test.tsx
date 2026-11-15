@@ -428,7 +428,7 @@ describe("mountVideoUi", () => {
     expect(spy("seekToCue")).not.toHaveBeenCalled();
   });
 
-  it("the Words tab sorts its rows, jumps from rows and chips, and presses the last jump", async () => {
+  it("the Words tab sorts its rows, opens rows, jumps from chips, and presses the last jump", async () => {
     const cues: Cue[] = [
       CUES[0]!,
       { startMs: 65_000, endMs: 66_000, text: "Knead the yeast." },
@@ -453,21 +453,31 @@ describe("mountVideoUi", () => {
           []),
       ].map((row) => row.querySelector("[lang=en]")?.textContent);
     await expect.poll(heads).toEqual(["yeast", "tangy"]);
-    (await button("lingo-transcript", "yeast, jump to 0:00")).click();
-    await userEvent.click(
-      await button("lingo-transcript", "yeast, jump to 0:00"),
+    // The head's card stands for its first place.
+    const head = inside("lingo-transcript")!.querySelector<HTMLElement>(
+      "[data-word-row] [lang=en]",
+    )!;
+    await userEvent.hover(head);
+    const box = head.getBoundingClientRect();
+    expect(spy("enterWord")).toHaveBeenCalledWith(
+      { cue: 0, span: 0 },
+      { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
+      "words",
     );
-    // A page script's click does nothing; the user's jumps to the first card.
-    expect(spy("jumpToWord").mock.calls).toEqual([
-      ["word\nyeast", { card: 0, line: 0, startMs: 0 }],
-    ]);
+    (await button("lingo-transcript", "yeast, open in the dictionary")).click();
+    await userEvent.click(
+      await button("lingo-transcript", "yeast, open in the dictionary"),
+    );
+    // A page script's click does nothing; the user's opens the first place's term.
+    expect(spy("clickWord").mock.calls).toEqual([[{ cue: 0, span: 0 }]]);
+    expect(spy("jumpToWord")).not.toHaveBeenCalled();
     await userEvent.click(await button("lingo-transcript", "Jump to 1:05"));
     expect(spy("jumpToWord")).toHaveBeenLastCalledWith("word\nyeast", {
       card: 1,
       line: 1,
       startMs: 65_000,
     });
-    expect(spy("clickWord")).not.toHaveBeenCalled();
+    expect(spy("clickWord")).toHaveBeenCalledOnce();
 
     store.set({ wordsJump: { id: "word\nyeast", card: 1, line: 1 } });
     await expect
@@ -489,6 +499,33 @@ describe("mountVideoUi", () => {
     expect(spy("setWordsSort")).toHaveBeenCalledWith("az");
     store.set({ wordsSort: "az" });
     await expect.poll(heads).toEqual(["tangy", "yeast"]);
+  });
+
+  it("a Words row's card goes when the list scrolls; other cards stay", async () => {
+    const { store, spy } = mount(readyState({ panelTab: "words" }));
+    await expect
+      .poll(() => inside("lingo-transcript")?.querySelector("[data-word-row]"))
+      .not.toBeNull();
+    const list =
+      inside("lingo-transcript")!.querySelector(
+        "[data-word-row]",
+      )!.parentElement!;
+    const hover = (from: "subtitle" | "words") =>
+      store.set({
+        hover: {
+          ref: { cue: 0, span: 0 },
+          from,
+          anchor: { left: 0, top: 0, right: 10, bottom: 10 },
+          card: TANGY,
+        },
+      });
+    hover("subtitle");
+    list.dispatchEvent(new Event("scroll"));
+    expect(spy("dismissHover")).not.toHaveBeenCalled();
+    hover("words");
+    await expect.poll(() => text("lingo-video")).toContain("Details");
+    list.dispatchEvent(new Event("scroll"));
+    expect(spy("dismissHover")).toHaveBeenCalledOnce();
   });
 
   it("tells the app while the pointer is on the subtitle, over the video or below it, but not on the transcript", async () => {

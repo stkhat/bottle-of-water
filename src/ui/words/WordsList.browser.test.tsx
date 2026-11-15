@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
+import { keptOpen } from "../keep-open";
 import { userEvent } from "vitest/browser";
 import {
   WordsFilterChips,
@@ -46,6 +47,9 @@ const base: WordsListProps<WordRow> = {
   rows: ROWS,
   learningLang: "en",
   onJump: () => {},
+  onWordEnter: () => {},
+  onWordLeave: () => {},
+  onOpen: () => {},
 };
 
 afterEach(cleanUpMounts);
@@ -210,13 +214,17 @@ describe("WordsList", () => {
     expect(meaning!.scrollWidth).toBeGreaterThan(meaning!.clientWidth);
   });
 
-  test("a row is a button named for its jump; it holds no other button", async () => {
+  test("a row is a button named for opening its term; it holds no other button", async () => {
     const screen = await mountInShadowRoot(<WordsList {...base} />);
     await expect
-      .element(screen.getByRole("button", { name: "dough, jump to 1:09" }))
+      .element(
+        screen.getByRole("button", { name: "dough, open in the dictionary" }),
+      )
       .toBeVisible();
     await expect
-      .element(screen.getByRole("button", { name: "channel, jump to 0:52" }))
+      .element(
+        screen.getByRole("button", { name: "channel, open in the dictionary" }),
+      )
       .toBeVisible();
     for (const row of screen.container.querySelectorAll("[data-word-row]"))
       expect(row.querySelector("button button")).toBeNull();
@@ -269,17 +277,85 @@ describe("WordsList", () => {
     ).toEqual(["0:52"]);
   });
 
-  test("a term shown once jumps from its row and from its chip", async () => {
+  test("a row opens its term; only its chips jump", async () => {
     const onJump = vi.fn();
+    const onOpen = vi.fn();
     const screen = await mountInShadowRoot(
-      <WordsList {...base} onJump={onJump} />,
+      <WordsList {...base} onJump={onJump} onOpen={onOpen} />,
     );
     await rowNamed(screen, "channel").click();
+    expect(onOpen.mock.calls).toEqual([
+      [expect.objectContaining({ head: "channel" })],
+    ]);
+    expect(onJump).not.toHaveBeenCalled();
     await screen.getByRole("button", { name: "Jump to 0:52" }).click();
     expect(onJump.mock.calls).toEqual([
       [expect.objectContaining({ head: "channel" }), 0],
-      [expect.objectContaining({ head: "channel" }), 0],
     ]);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  test("a press on a row keeps the dictionary window open (the row switches it)", async () => {
+    const screen = await mountInShadowRoot(<WordsList {...base} />);
+    const kept: boolean[] = [];
+    const listen = (event: Event) => kept.push(keptOpen(event));
+    document.addEventListener("pointerdown", listen);
+    try {
+      await rowNamed(screen, "channel").click();
+    } finally {
+      document.removeEventListener("pointerdown", listen);
+    }
+    expect(kept).toEqual([true]);
+  });
+
+  test("the pointer on a row's head shows its card; on the rest of the row it does not", async () => {
+    const onWordEnter = vi.fn();
+    const onWordLeave = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList
+        {...base}
+        onWordEnter={onWordEnter}
+        onWordLeave={onWordLeave}
+      />,
+    );
+    const head = screen.getByText("dough", { exact: true });
+    await userEvent.hover(screen.getByText("パン生地"));
+    expect(onWordEnter).not.toHaveBeenCalled();
+    await userEvent.hover(head);
+    expect(onWordEnter).toHaveBeenCalledTimes(1);
+    expect(onWordEnter).toHaveBeenLastCalledWith(ROWS[1], head.element());
+    await userEvent.hover(screen.getByText("パン生地"));
+    expect(onWordLeave).toHaveBeenCalledTimes(1);
+  });
+
+  test("a pointer a page script fakes shows no card", async () => {
+    const onWordEnter = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} onWordEnter={onWordEnter} />,
+    );
+    screen
+      .getByText("dough", { exact: true })
+      .element()
+      .dispatchEvent(new PointerEvent("pointerenter"));
+    expect(onWordEnter).not.toHaveBeenCalled();
+  });
+
+  test("says when the list scrolls", async () => {
+    const rows: WordRow[] = Array.from({ length: 40 }, (_, i) => ({
+      ...ROWS[2]!,
+      id: `word\nw${i}`,
+      head: `w${i}`,
+    }));
+    const onScroll = vi.fn();
+    const screen = await mountInShadowRoot(
+      <div style={{ height: "200px", display: "flex" }}>
+        <WordsList {...base} rows={rows} onScroll={onScroll} />
+      </div>,
+    );
+    const scroller = rowNamed(screen, "w0").element().parentElement!
+      .parentElement!;
+    scroller.scrollTop = 100;
+    await expect.poll(() => onScroll.mock.calls.length).toBeGreaterThan(0);
   });
 
   test("chips look as in the mock, the last jump's filled green", async () => {
@@ -357,15 +433,10 @@ describe("WordsList", () => {
     ).toBeNull();
   });
 
-  test("a row jumps to its first place, a chip to its own", async () => {
+  test("a chip jumps to its own place", async () => {
     const onJump = vi.fn();
     const screen = await mountInShadowRoot(
       <WordsList {...base} onJump={onJump} />,
-    );
-    await rowNamed(screen, "figure out").click();
-    expect(onJump).toHaveBeenLastCalledWith(
-      expect.objectContaining({ head: "figure out" }),
-      0,
     );
     await screen.getByRole("button", { name: "Jump to 3:05" }).click();
     expect(onJump).toHaveBeenLastCalledWith(
@@ -376,14 +447,14 @@ describe("WordsList", () => {
 
   test("rows and chips work from the keyboard", async () => {
     const onJump = vi.fn();
+    const onOpen = vi.fn();
     const screen = await mountInShadowRoot(
-      <WordsList {...base} onJump={onJump} />,
+      <WordsList {...base} onJump={onJump} onOpen={onOpen} />,
     );
     (rowNamed(screen, "figure out").element() as HTMLElement).focus();
     await userEvent.keyboard("{Enter}");
-    expect(onJump).toHaveBeenLastCalledWith(
+    expect(onOpen).toHaveBeenLastCalledWith(
       expect.objectContaining({ head: "figure out" }),
-      0,
     );
     const focused = () =>
       (screen.container.getRootNode() as ShadowRoot).activeElement;
@@ -412,9 +483,14 @@ describe("WordsList", () => {
     await screen.getByRole("button", { name: "Show 2 more times" }).click();
     expect(chips()).toBe(7);
     const second = vi.fn();
-    await screen.rerender(<WordsList {...base} onJump={second} />);
+    const opened = vi.fn();
+    await screen.rerender(
+      <WordsList {...base} onJump={second} onOpen={opened} />,
+    );
+    await screen.getByRole("button", { name: "Jump to 1:20" }).click();
+    expect(second).toHaveBeenLastCalledWith(ROWS[0], 1);
     await rowNamed(screen, "figure out").click();
-    expect(second).toHaveBeenLastCalledWith(ROWS[0], 0);
+    expect(opened).toHaveBeenLastCalledWith(ROWS[0]);
     expect(first).not.toHaveBeenCalled();
     expect(chips()).toBe(7);
     const pressed = { ...ROWS[0]!, pressed: 1 };
@@ -433,12 +509,13 @@ describe("WordsList", () => {
     expect(chips()).toBe(7);
   });
 
-  test("a click a page script makes jumps nowhere", async () => {
+  test("a click a page script makes opens and jumps nowhere", async () => {
     const onJump = vi.fn();
+    const onOpen = vi.fn();
     const screen = await mountInShadowRoot(
-      <WordsList {...base} onJump={onJump} />,
+      <WordsList {...base} onJump={onJump} onOpen={onOpen} />,
     );
-    for (const name of ["figure out, jump to 0:56", "Jump to 1:20"]) {
+    for (const name of ["figure out, open in the dictionary", "Jump to 1:20"]) {
       const button = screen
         .getByRole("button", { name })
         .element() as HTMLElement;
@@ -446,6 +523,7 @@ describe("WordsList", () => {
       button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
     expect(onJump).not.toHaveBeenCalled();
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   test("tells which rows come into view, as the list scrolls", async () => {
@@ -494,13 +572,13 @@ describe("WordsList on a page (mock ArticleWords)", () => {
     pressed,
   });
 
-  test("rows and chips are named for the places they go to", async () => {
+  test("rows open their term; chips are named for the places they go to", async () => {
     const screen = await mountInShadowRoot(
       <WordsList {...base} variant="page" rows={[numbered(3)]} />,
     );
     await expect
       .element(
-        screen.getByRole("button", { name: "dough, go to the first one" }),
+        screen.getByRole("button", { name: "dough, open in the dictionary" }),
       )
       .toBeVisible();
     const chips = screen.getByRole("group", { name: "Places of dough" });
@@ -514,6 +592,23 @@ describe("WordsList on a page (mock ArticleWords)", () => {
       ["2", "Go to dough, 2 of 3"],
       ["3", "Go to dough, 3 of 3"],
     ]);
+  });
+
+  test("a term seen once gets a chip too: the only way to go to it", async () => {
+    const onJump = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList
+        {...base}
+        variant="page"
+        rows={[numbered(1)]}
+        onJump={onJump}
+      />,
+    );
+    await screen.getByRole("button", { name: "Go to dough, 1 of 1" }).click();
+    expect(onJump).toHaveBeenLastCalledWith(
+      expect.objectContaining({ head: "dough" }),
+      0,
+    );
   });
 
   test("number chips are 28 px wide at least, as the mock's", async () => {

@@ -13,11 +13,15 @@ export interface WordsUnit<U> {
   spans: readonly Span[] | null;
 }
 
-/** Where a term shows: its unit and its offsets there (a phrase with a gap as a whole). */
+/**
+ * Where a term shows: its unit, its offsets there (a phrase with a gap as a whole) and
+ * the index of its span in the unit's spans (a phrase's first part).
+ */
 export interface Occurrence<U> {
   unit: U;
   start: number;
   end: number;
+  span: number;
 }
 
 /** A word or phrase of a page, as a Words list shows it. */
@@ -49,7 +53,7 @@ export function listWords<U>(
   const rows = new Map<string, ListWord<U>>();
   for (const { unit, text, spans } of units) {
     if (!spans) continue;
-    for (const [span] of visibleSpans(spans)) {
+    for (const [span, index] of visibleSpans(spans)) {
       const { key, kind, category } = span;
       if (category === "ignored" || (span.part && span.part.index > 0))
         continue;
@@ -57,7 +61,7 @@ export function listWords<U>(
         continue;
       // A phrase with a gap as a whole.
       const { start, end } = span.part ?? span;
-      const place = { unit, start, end };
+      const place = { unit, start, end, span: index };
       const id = wordId(span);
       const row = rows.get(id);
       if (row) {

@@ -1,7 +1,7 @@
 import { useMemo } from "preact/hooks";
 import type { ArticleApp, ArticleState, WordsPanel } from "./state";
 import { hoverView, windowView } from "../lookup/describe";
-import type { Box } from "../lookup/geometry";
+import { boxOf, type Box } from "../lookup/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
@@ -198,6 +198,13 @@ function Words(props: {
       onJump={(row, place) =>
         app.jumpToWord(row.id, place, row.occurrences[place]!)
       }
+      onWordEnter={(row, element) =>
+        app.enterListWord(row.occurrences[0]!, boxOf(element))
+      }
+      onWordLeave={app.leaveListWord}
+      onOpen={(row) => app.openListWord(row.occurrences[0]!)}
+      // The card would stay where the head was.
+      onScroll={app.dismissHover}
       onShown={(shown) =>
         app.wordsShown(shown.map(({ key, head }) => ({ key, head })))
       }

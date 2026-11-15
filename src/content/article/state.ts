@@ -76,10 +76,17 @@ export interface ArticleApp {
   setWordsFilter(filter: WordsFilter): void;
   setWordsSort(sort: WordsSort): void;
   /**
-   * A Words row or one of its chips: scrolls the place to the middle of the view and
-   * outlines it for a moment (`id` and `place` are kept for the pressed styles).
+   * A Words row's chip: scrolls the place to the middle of the view and outlines it for
+   * a moment (`id` and `place` are kept for the pressed styles).
    */
   jumpToWord(id: string, place: number, at: Occurrence<TextBlock>): void;
+  /** The pointer entered a Words row's head (`anchor`): the card for its term at `at`. */
+  enterListWord(at: Occurrence<TextBlock>, anchor: Box): void;
+  leaveListWord(): void;
+  /** A Words row: the panel for its term at `at`. */
+  openListWord(at: Occurrence<TextBlock>): void;
+  /** Hides the hover card now (the Words list scrolled). */
+  dismissHover(): void;
   /** Rows of the Words list came into view: their meanings get translated when needed. */
   wordsShown(rows: readonly { key: string; head: string }[]): void;
 }

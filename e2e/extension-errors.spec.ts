@@ -111,8 +111,8 @@ async function useArticleBlindly(page: Page) {
 }
 
 /**
- * "Words on this page" from the popup; with the UI reachable, a row's jump, a filter,
- * the sort, and ×.
+ * "Words on this page" from the popup; with the UI reachable, a chip's jump, a row's
+ * dictionary panel, a filter, the sort, and ×.
  */
 async function useArticleWords(
   context: BrowserContext,
@@ -130,8 +130,15 @@ async function useArticleWords(
   });
   const row = panel.locator("[data-word-row]").first();
   await expect(row).toBeVisible();
-  await row.getByRole("button").first().click();
+  await row.getByRole("group").getByRole("button").first().click();
   await expect(row).toHaveAttribute("data-selected", "true");
+  await row.getByRole("button").first().click();
+  const dictionary = page.getByRole("complementary", {
+    name: en["dict.title"],
+  });
+  await expect(dictionary).toBeVisible();
+  await dictionary.getByRole("button", { name: en["dict.close"] }).click();
+  await expect(dictionary).toHaveCount(0);
   await panel
     .getByRole("group", { name: en["words.filter"] })
     .getByRole("button")
@@ -501,7 +508,8 @@ for (const build of ["production", "check"] as const)
       await ownSwitch.click();
       await videoCard(page, YT_LINE).click({ position: ON_TIME });
 
-      // The Words tab: a filter, the sort, a row's jump, back to the transcript.
+      // The Words tab: a filter, the sort, a chip's jump, a row's dictionary, back to
+      // the transcript.
       const panel = transcript(page);
       await panel.getByRole("tab", { name: en["kind.words"] }).click();
       await panel
@@ -514,13 +522,23 @@ for (const build of ["production", "check"] as const)
       await sort.focus();
       await page.keyboard.press("m");
       await expect(sort).toHaveValue("count");
-      const row = panel.getByRole("button", { name: /^creativity, jump to / });
-      await row.click();
+      await panel
+        .getByRole("group", { name: "Times of creativity" })
+        .getByRole("button")
+        .first()
+        .click();
       await expect(
         panel.locator("[data-word-row][data-selected=true]"),
       ).toContainText("creativity");
       // A jump only plays: no dictionary window.
       await expect(window).toHaveCount(0);
+      await panel
+        .getByRole("button", { name: "creativity, open in the dictionary" })
+        .click();
+      await expect(
+        window.getByRole("heading", { name: "creativity" }),
+      ).toBeVisible();
+      await window.getByRole("button", { name: en["dict.close"] }).click();
       await panel.getByRole("tab", { name: en["video.transcript"] }).click();
       await expect(videoCard(page, YT_LINE)).toBeVisible();
 

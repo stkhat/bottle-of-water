@@ -1,12 +1,14 @@
 import { fromUser } from "../../ui/from-user";
 import { isLingoHost } from "../../ui/lingo-host";
+import type { Box } from "../lookup/geometry";
 import { createHoverIntent } from "../lookup/hover-intent";
 import type { SpanRef } from "./locate";
 
 export interface InteractionCallbacks {
   /** The span under a viewport point that has a card, if any. */
   spanAt(x: number, y: number): SpanRef | undefined;
-  showHover(ref: SpanRef): void;
+  /** The card for `ref`, over `anchor` when given (a Words row's head), else the word. */
+  showHover(ref: SpanRef, anchor?: Box): void;
   hideHover(): void;
   /** A word was clicked. */
   click(ref: SpanRef): void;
@@ -25,6 +27,10 @@ export interface InteractionCallbacks {
 }
 
 export interface Interactions {
+  /** The pointer entered a Words row's head (`anchor`), which stands for `ref`. */
+  enterListed(ref: SpanRef, anchor: Box): void;
+  /** The pointer left the row's head. */
+  leaveListed(): void;
   /** The pointer is in the hover card. */
   keepHover(): void;
   /** The pointer left the hover card. */
@@ -50,6 +56,16 @@ const same = (a: SpanRef | undefined, b: SpanRef | undefined) =>
   a === b ||
   (!!a && !!b && a.block === b.block && a.span.start === b.span.start);
 
+/** A word the pointer is on: on the page, or a Words row's head standing for it. */
+interface HoverTarget {
+  ref: SpanRef;
+  /** The row's head; none for a word on the page. */
+  anchor?: Box;
+}
+
+const sameTarget = (a: HoverTarget, b: HoverTarget) =>
+  same(a.ref, b.ref) && !a.anchor === !b.anchor;
+
 /**
  * Turns pointer, selection, keyboard and scroll events on the page into hover, click,
  * selection, Escape and scroll callbacks; events a page script dispatched (not
@@ -57,9 +73,12 @@ const same = (a: SpanRef | undefined, b: SpanRef | undefined) =>
  * and hide as `createHoverIntent` says.
  */
 export function watchInteractions(cb: InteractionCallbacks): Interactions {
-  const hover = createHoverIntent<SpanRef>(
-    { show: cb.showHover, hide: cb.hideHover },
-    same,
+  const hover = createHoverIntent<HoverTarget>(
+    {
+      show: ({ ref, anchor }) => cb.showHover(ref, anchor),
+      hide: cb.hideHover,
+    },
+    sameTarget,
   );
   /** The word under the pointer. */
   let candidate: SpanRef | undefined;
@@ -80,7 +99,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
       event.buttons === 0 ? cb.spanAt(event.clientX, event.clientY) : undefined;
     if (same(ref, candidate)) return;
     candidate = ref;
-    if (ref) hover.enter(ref);
+    if (ref) hover.enter({ ref });
     else hover.leave();
   }
 
@@ -169,6 +188,11 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
   window.addEventListener("resize", onScroll, passive);
 
   return {
+    enterListed(ref, anchor) {
+      candidate = undefined;
+      hover.enter({ ref, anchor });
+    },
+    leaveListed: () => hover.leave(),
     keepHover() {
       candidate = undefined;
       hover.keep();
