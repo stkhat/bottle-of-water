@@ -103,6 +103,10 @@ export interface TermStore {
   meaningsOf(
     termId: string,
   ): Promise<{ meanings: MeaningRecord[]; choices: LiveChoice[] }>;
+  /** `meaningsOf` for several terms at once; terms without a meaning are left out. */
+  meaningsOfTerms(
+    termIds: readonly string[],
+  ): Promise<Map<string, { meanings: MeaningRecord[]; choices: LiveChoice[] }>>;
   /**
    * Records saved terms met again. Unsaved terms and sentences already recorded for
    * the term in the same source are skipped. Returns how many were added.
@@ -394,6 +398,40 @@ export function createTermStore(
       .filter((c) => c.meaningKey !== null)
       .toArray() as Promise<(MeaningChoiceRecord & { meaningKey: string })[]>;
 
+  /** The terms' meanings and live choices, each choice with its source's URL. */
+  async function meaningsOfTerms(ids: readonly string[]) {
+    const found = new Map<
+      string,
+      { meanings: MeaningRecord[]; choices: LiveChoice[] }
+    >();
+    if (ids.length === 0) return found;
+    const [meanings, choices] = await Promise.all([
+      db.meanings.where("termId").anyOf(ids).toArray(),
+      db.meaningChoices
+        .where("termId")
+        .anyOf(ids)
+        .filter((c) => c.meaningKey !== null)
+        .toArray() as Promise<LiveChoice[]>,
+    ]);
+    const sources = await db.sources.bulkGet(
+      distinct(choices.map((c) => c.sourceId)),
+    );
+    const urls = new Map(
+      sources.flatMap((s) => (s ? [[s.id, s.url] as const] : [])),
+    );
+    const of = (id: string) => {
+      let entry = found.get(id);
+      if (!entry) found.set(id, (entry = { meanings: [], choices: [] }));
+      return entry;
+    };
+    for (const m of meanings) of(m.termId).meanings.push(m);
+    for (const c of choices) {
+      const url = urls.get(c.sourceId);
+      of(c.termId).choices.push(url === undefined ? c : { ...c, url });
+    }
+    return found;
+  }
+
   /**
    * Keeps at most `MAX_OCCURRENCES` of a term by dropping the oldest encounters.
    * Sentences the term was saved from, and those with a meaning chosen, count toward
@@ -551,24 +589,12 @@ export function createTermStore(
     },
 
     async meaningsOf(id) {
-      const [meanings, choices] = await Promise.all([
-        db.meanings.where("termId").equals(id).toArray(),
-        liveChoices(id),
-      ]);
-      const sources = await db.sources.bulkGet(
-        distinct(choices.map((c) => c.sourceId)),
+      return (
+        (await meaningsOfTerms([id])).get(id) ?? { meanings: [], choices: [] }
       );
-      const urls = new Map(
-        sources.flatMap((s) => (s ? [[s.id, s.url] as const] : [])),
-      );
-      return {
-        meanings,
-        choices: choices.map((c) => {
-          const url = urls.get(c.sourceId);
-          return url === undefined ? c : { ...c, url };
-        }),
-      };
     },
+
+    meaningsOfTerms,
 
     setStatus(id, status) {
       return mutate(async (changes) => {

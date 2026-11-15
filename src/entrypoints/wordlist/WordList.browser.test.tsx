@@ -9,6 +9,7 @@ import type {
   OccurrenceView,
   Request,
   TermSummary,
+  YourMeaning,
 } from "../../messaging/protocol";
 import type { TranslationProvider } from "../../content/translate/translator";
 import { noTranslation } from "../../testing/stubs";
@@ -99,6 +100,70 @@ const OCCURRENCES: Record<string, OccurrenceView[]> = {
   ],
 };
 
+/** "fold": an AI meaning chosen twice, a dictionary meaning once, one place with none. */
+const FOLD_MEANINGS: YourMeaning[] = [
+  {
+    key: "m-dough",
+    from: "ai",
+    text: "（パン生地の）折り込み",
+    line: "（パン生地の）折り込み",
+    count: 2,
+  },
+  {
+    key: "m-mix",
+    from: "dictionary",
+    text: "（料理で）…をさっくり混ぜる",
+    line: "（料理で）…をさっくり混ぜる",
+    pos: "verb",
+    count: 1,
+  },
+];
+const FOLD: TermSummary = {
+  ...term("fold", "learning", 4, NOW - HOUR / 2, "折り目、ひだ"),
+  meanings: [
+    { key: "m-dough", line: "（パン生地の）折り込み", ai: true },
+    { key: "m-mix", line: "（料理で）…をさっくり混ぜる" },
+  ],
+};
+OCCURRENCES.fold = [
+  {
+    ...occurrence(
+      VIDEO,
+      "Give the dough a few folds.",
+      at(11, 9),
+      "saved",
+      134_000,
+    ),
+    meaningKey: "m-dough",
+  },
+  occurrence(
+    ARTICLE,
+    "…fold the edges under to shape the loaf.",
+    at(11, 6),
+    "encountered",
+  ),
+  {
+    ...occurrence(
+      ARTICLE,
+      "Gently fold the flour into the eggs.",
+      at(11, 6),
+      "encountered",
+    ),
+    meaningKey: "m-mix",
+  },
+  {
+    ...occurrence(
+      VIDEO,
+      "Now give it one more fold.",
+      at(11, 9),
+      "encountered",
+      182_000,
+    ),
+    meaningKey: "m-dough",
+  },
+];
+const MEANINGS: Record<string, YourMeaning[]> = { fold: FOLD_MEANINGS };
+
 interface FakeOptions {
   terms?: TermSummary[];
   settings?: Partial<Settings>;
@@ -158,6 +223,7 @@ function fake(options: FakeOptions = {}) {
             termId: `en:${request.key}`,
             here: [],
             elsewhere: OCCURRENCES[request.key] ?? [],
+            yourMeanings: MEANINGS[request.key] ?? [],
           };
         }
         case "setStatus":
@@ -444,6 +510,87 @@ describe("WordList", () => {
     await expect
       .element(screen.getByText("No saved words match."))
       .toBeVisible();
+  });
+
+  it("shows the meanings you chose in the Meaning column, marked, and searches them", async () => {
+    const { screen, heads, row } = await open({ terms: [FOLD, ...TERMS] });
+    await expect
+      .poll(() => textOf(row("fold")))
+      .toBe(
+        "fold（パン生地の）折り込み · （料理で）…をさっくり混ぜるLearning4Today",
+      );
+    const mark = row("fold").getByRole("img", { name: "Your meanings" });
+    await expect.element(mark).toBeVisible();
+    expect(mark.element().getBoundingClientRect().width).toBe(13);
+    expect(getComputedStyle(mark.element()).color).toBe("rgb(11, 127, 101)");
+    await expect
+      .element(row("fold").getByText(/折り込み/))
+      .toHaveAttribute("lang", "ja");
+    // A term without meanings of yours keeps its short meaning, unmarked.
+    expect(row("tedious").element().querySelector("svg")).toBeNull();
+
+    const search = screen.getByRole("searchbox", {
+      name: "Search saved words",
+    });
+    await search.fill("さっくり");
+    expect(heads()).toEqual(["fold"]);
+    // The dictionary's short meaning still matches.
+    await search.fill("ひだ");
+    expect(heads()).toEqual(["fold"]);
+  });
+
+  it("groups Where you saw it by the meaning chosen there, No meaning chosen last", async () => {
+    const { details } = await open({ terms: [FOLD, ...TERMS] });
+    await expect
+      .element(details.getByRole("heading", { name: "Where you saw it · 4" }))
+      .toBeVisible();
+    const groups = () => [
+      ...details.element().querySelectorAll<HTMLElement>("[data-seen-group]"),
+    ];
+    await expect.poll(() => groups().length).toBe(3);
+    const headings = groups().map(
+      (group) => group.firstElementChild!.textContent,
+    );
+    expect(headings).toEqual([
+      "（パン生地の）折り込みAI· 2",
+      "（料理で）…をさっくり混ぜる· 1",
+      "No meaning chosen· 1",
+    ]);
+    const sentences = groups().map((group) =>
+      [...group.querySelectorAll("a")].map((a) =>
+        a.textContent!.replace(/^.*(Give|Now|Gently|…fold)/, "$1"),
+      ),
+    );
+    expect(sentences).toEqual([
+      ["Give the dough a few folds.", "Now give it one more fold."],
+      ["Gently fold the flour into the eggs."],
+      ["…fold the edges under to shape the loaf."],
+    ]);
+    const [mine, , none] = groups().map((g) => g.firstElementChild!);
+    expect(mine!.querySelector("[role=img]")!.getAttribute("aria-label")).toBe(
+      "Your meaning",
+    );
+    const title = mine!.querySelector("[lang=ja]")!;
+    expect(getComputedStyle(title).fontSize).toBe("14px");
+    expect(getComputedStyle(title).color).toBe("rgb(20, 24, 43)");
+    expect(none!.querySelector("[role=img]")).toBeNull();
+    expect(getComputedStyle(none!.firstElementChild!).color).toBe(
+      "rgb(90, 96, 117)",
+    );
+    // Nothing is chosen on this page.
+    expect(
+      details.element().querySelector("button[aria-label^='Use here']"),
+    ).toBeNull();
+  });
+
+  it("lists the places of a term without meanings as before, with no group heading", async () => {
+    const { details, row } = await open({ terms: [FOLD, ...TERMS] });
+    await row("figure out").click();
+    await expect
+      .element(details.getByRole("heading", { name: "Where you saw it · 2" }))
+      .toBeVisible();
+    await expect.poll(() => details.getByRole("link").all().length).toBe(2);
+    expect(details.element().textContent).not.toContain("No meaning chosen");
   });
 
   it("sorts A–Z and by most seen", async () => {

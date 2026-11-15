@@ -139,12 +139,16 @@ export function GripIcon() {
   );
 }
 
-/** The mark of a meaning the user chose (mock YourMeanings `.mark`), named for screen readers. */
-export function BookmarkIcon(props: { label: string }) {
+/**
+ * The mark of a meaning the user chose (mock YourMeanings `.mark`; 12 px in the Words
+ * lists, 13 px in the word list's Meaning column), named for screen readers.
+ */
+export function BookmarkIcon(props: { label: string; size?: number }) {
+  const size = String(props.size ?? 14);
   return (
     <svg
-      width="14"
-      height="14"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="currentColor"
       role="img"

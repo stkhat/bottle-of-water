@@ -177,3 +177,18 @@ export const statusButton = {
           border: `1px solid ${color.lineStrong}`,
         },
 };
+
+/** The "AI" tag of a meaning the on-device AI gave (mock YourMeanings `.tag`). */
+export const aiTag: Style = {
+  display: "inline-flex",
+  alignItems: "center",
+  height: "20px",
+  padding: "0 7px",
+  borderRadius: "999px",
+  fontSize: "11px",
+  fontWeight: 600,
+  lineHeight: 1,
+  background: color.surfaceGray,
+  color: color.ink3,
+  whiteSpace: "nowrap",
+};

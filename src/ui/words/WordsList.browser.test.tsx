@@ -565,6 +565,184 @@ describe("WordsList", () => {
   });
 });
 
+describe("WordsList with your meanings (mock WordsListsMeanings)", () => {
+  const fold: WordRow = {
+    id: "word\nfold",
+    head: "fold",
+    category: "learning",
+    count: 4,
+    short: "折り目、ひだ",
+    shortLang: "ja",
+    places: ["2:14", "3:02", "7:20", "8:02"],
+    groups: [
+      {
+        meaning: { text: "（パン生地の）折り込み", lang: "ja" },
+        places: [0, 1],
+      },
+      {
+        meaning: { text: "（料理で）…をさっくり混ぜる", lang: "ja" },
+        places: [2],
+      },
+      { places: [3] },
+    ],
+    pressed: 1,
+  };
+  const starter: WordRow = {
+    id: "word\nstarter",
+    head: "starter",
+    category: "learning",
+    count: 1,
+    short: "パン種（サワードウの元種） · 始める人",
+    shortLang: "ja",
+    mine: true,
+    places: ["0:41"],
+    pressed: -1,
+  };
+
+  test("a meaning chosen here gets a line: the bookmark, the meaning, its chips; the others last in grey", async () => {
+    const onJump = vi.fn();
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} rows={[fold]} onJump={onJump} />,
+    );
+    // The head line shows the head and the count only.
+    expect(rowNamed(screen, "fold").element().textContent).toBe("fold4×");
+    const lines = [
+      ...screen.container.querySelectorAll<HTMLElement>("[data-place-group]"),
+    ];
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "（パン生地の）折り込み2:143:02",
+      "（料理で）…をさっくり混ぜる7:20",
+      "折り目、ひだ8:02",
+    ]);
+    const groups = [
+      "Places with your meaning （パン生地の）折り込み",
+      "Places with your meaning （料理で）…をさっくり混ぜる",
+      "Places with no meaning chosen, 折り目、ひだ",
+    ].map((name) => screen.getByRole("group", { name }));
+    for (const group of groups) await expect.element(group).toBeVisible();
+    // The last jump's chip is pressed in its line.
+    await expect
+      .element(screen.getByRole("button", { name: "Jump to 3:02" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await screen.getByRole("button", { name: "Jump to 7:20" }).click();
+    expect(onJump).toHaveBeenCalledWith(fold, 2);
+
+    const [mine, , none] = lines.map((line) => line.querySelector("span")!);
+    const mark = mine!.querySelector("svg")!;
+    expect(mark).toHaveAttribute("aria-label", "Your meaning");
+    expect(mark.getBoundingClientRect().width).toBe(12);
+    expect(getComputedStyle(mine!).fontSize).toBe("13px");
+    expect(getComputedStyle(mine!).fontWeight).toBe("400");
+    expect(getComputedStyle(mine!).color).toBe("rgb(20, 24, 43)");
+    expect(none!.querySelector("svg")).toBeNull();
+    expect(getComputedStyle(none!).color).toBe("rgb(90, 96, 117)");
+    // The chips sit at the line's right, level with the meaning.
+    const text = mine!.getBoundingClientRect();
+    const chip = screen
+      .getByRole("button", { name: "Jump to 2:14" })
+      .element()
+      .getBoundingClientRect();
+    expect(chip.left).toBeGreaterThanOrEqual(text.right);
+    expect(
+      Math.abs(chip.top + chip.height / 2 - (text.top + text.height / 2)),
+    ).toBeLessThan(2);
+  });
+
+  test("a long meaning is cut with an ellipsis before its chips", async () => {
+    const long = {
+      ...fold,
+      groups: [
+        {
+          meaning: {
+            text: "（パン生地の）折り込み、それに加えてとても長い説明が続く",
+            lang: "ja",
+          },
+          places: [0, 1, 2, 3],
+        },
+      ],
+    };
+    const screen = await mountInShadowRoot(
+      <div style={{ width: "260px" }}>
+        <WordsList {...base} rows={[long]} />
+      </div>,
+    );
+    const text = screen.container.querySelector<HTMLElement>(
+      "[data-place-group] [lang=ja]",
+    )!;
+    expect(getComputedStyle(text).textOverflow).toBe("ellipsis");
+    expect(text.scrollWidth).toBeGreaterThan(text.clientWidth);
+  });
+
+  test("many chips wrap at the line's right; the meaning keeps a third of it", async () => {
+    const places = ["0:10", "0:20", "0:30", "0:40", "0:50", "1:00", "1:10"];
+    const many: WordRow = {
+      ...fold,
+      places,
+      groups: [
+        {
+          meaning: { text: "（パン生地の）折り込み", lang: "ja" },
+          places: places.map((_, i) => i),
+        },
+      ],
+      pressed: -1,
+    };
+    const screen = await mountInShadowRoot(
+      <div style={{ width: "320px" }}>
+        <WordsList {...base} rows={[many]} />
+      </div>,
+    );
+    const line = screen.container
+      .querySelector<HTMLElement>("[data-place-group]")!
+      .getBoundingClientRect();
+    const text = screen.container
+      .querySelector<HTMLElement>("[data-place-group] > span")!
+      .getBoundingClientRect();
+    const chips = screen
+      .getByRole("group", { name: /^Places with your meaning / })
+      .element()
+      .getBoundingClientRect();
+    expect(text.width).toBeGreaterThanOrEqual(line.width / 3 - 1);
+    expect(chips.right).toBeLessThanOrEqual(line.right);
+    // The first 5 and +2, on two lines.
+    await expect
+      .element(screen.getByRole("button", { name: "Show 2 more times" }))
+      .toBeVisible();
+    expect(chips.height).toBeGreaterThan(26 * 1.5);
+  });
+
+  test("meanings chosen only elsewhere show on the head line with the bookmark", async () => {
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} rows={[starter]} />,
+    );
+    const row = rowNamed(screen, "starter").element();
+    expect(row.textContent).toBe(
+      "starterパン種（サワードウの元種） · 始める人1×",
+    );
+    const mark = row.querySelector("svg")!;
+    expect(mark).toHaveAttribute("aria-label", "Your meaning");
+    expect(mark.getBoundingClientRect().width).toBe(12);
+    await expect
+      .element(screen.getByRole("group", { name: "Times of starter" }))
+      .toBeVisible();
+  });
+
+  test("a line of places with no meaning chosen and no short meaning is still named", async () => {
+    const bare = { ...fold, groups: [fold.groups![0]!, { places: [2, 3] }] };
+    delete bare.short;
+    const screen = await mountInShadowRoot(
+      <WordsList {...base} rows={[bare]} />,
+    );
+    await expect
+      .element(
+        screen.getByRole("group", {
+          name: "Places with no meaning chosen",
+          exact: true,
+        }),
+      )
+      .toBeVisible();
+  });
+});
+
 describe("WordsList on a page (mock ArticleWords)", () => {
   const numbered = (count: number, pressed = -1): WordRow => ({
     ...ROWS[1]!,

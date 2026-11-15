@@ -45,6 +45,7 @@ function fakeStore(): FakeStore {
     removeTerm: vi.fn(fail("removeTerm")),
     chooseMeaning: vi.fn(fail("chooseMeaning")),
     meaningsOf: vi.fn(async () => ({ meanings: [], choices: [] })),
+    meaningsOfTerms: vi.fn(async () => new Map()),
     recordEncounters: vi.fn(fail("recordEncounters")),
     saveAll: vi.fn(fail("saveAll")),
     undoSaveAll: vi.fn(fail("undoSaveAll")),
@@ -785,7 +786,63 @@ const VIDEO: SourceRecord = {
   lastSeen: 0,
 };
 
+/** A loaf with a dictionary meaning and an AI meaning, chosen on the page and in the video. */
+const LOAF_MEANINGS = {
+  meanings: [
+    {
+      key: "m-loaf",
+      termId: "en:loaf",
+      from: "dictionary" as const,
+      text: "パンのひと塊",
+      createdAt: 1,
+    },
+    {
+      key: "m-dough",
+      termId: "en:loaf",
+      from: "ai" as const,
+      text: "（パン生地の）塊",
+      createdAt: 2,
+    },
+  ],
+  choices: [
+    ["A warm loaf.", "m-loaf", 10, BREAD],
+    ["Shape the loaf.", "m-dough", 20, VIDEO],
+    ["Loaf by loaf.", "m-dough", 30, VIDEO],
+  ].map(([sentence, meaningKey, at, source]) => ({
+    termId: "en:loaf",
+    sourceId: (source as SourceRecord).id,
+    url: (source as SourceRecord).url,
+    sentence: sentence as string,
+    meaningKey: meaningKey as string,
+    at: at as number,
+    deviceId: "d1",
+  })),
+};
+
 describe("handlers: listTermsWithStats", () => {
+  it("gives each term the meanings chosen for its sentences, most chosen first", async () => {
+    store.listTerms.mockResolvedValue([LOAF]);
+    store.occurrenceStats.mockResolvedValue(new Map());
+    store.meaningsOfTerms.mockResolvedValue(
+      new Map([["en:loaf", LOAF_MEANINGS]]),
+    );
+    const [loaf] = (await value({
+      type: "listTermsWithStats",
+      lang: "en",
+    })) as TermSummary[];
+    expect(loaf!.meanings).toEqual([
+      { key: "m-dough", line: "（パン生地の）塊", ai: true },
+      { key: "m-loaf", line: "パンのひと塊" },
+    ]);
+    // Without the dictionary, no meanings at all.
+    const [bare] = (await value({
+      type: "listTermsWithStats",
+      lang: "en",
+      meanings: false,
+    })) as TermSummary[];
+    expect(bare).not.toHaveProperty("meanings");
+  });
+
   it("gives each saved term with its short meaning, how often and when it was last seen", async () => {
     const lookUp: TermRecord = {
       id: "en:look up",
@@ -890,6 +947,31 @@ describe("handlers: termSummaries", () => {
     expect(
       await value({ type: "termSummaries", lang: "en", keys: [] }),
     ).toEqual({});
+  });
+
+  it("gives a saved term's meanings as lines and the sentences of this source they were chosen for", async () => {
+    store.termIndex.mockResolvedValue(new Map([["loaf", "learning"]]));
+    store.meaningsOfTerms.mockResolvedValue(
+      new Map([["en:loaf", LOAF_MEANINGS]]),
+    );
+    const answer = await value({
+      type: "termSummaries",
+      lang: "en",
+      keys: ["loaf", "crust"],
+      sourceUrl: `${BREAD.url}#top`,
+    });
+    // Unsaved terms have no meanings of the user's: not asked for.
+    expect(store.meaningsOfTerms).toHaveBeenCalledWith(["en:loaf"]);
+    expect(answer.loaf).toEqual({
+      short: "パンのひと塊",
+      status: "learning",
+      meanings: [
+        { key: "m-dough", line: "（パン生地の）塊", ai: true },
+        { key: "m-loaf", line: "パンのひと塊" },
+      ],
+      chosen: [{ sentence: "A warm loaf.", key: "m-loaf" }],
+    });
+    expect(answer.crust).toEqual({ short: "パンの皮", status: "new" });
   });
 
   it("uses the dictionary of the native language from the settings", async () => {
@@ -1036,6 +1118,7 @@ describe("handlers: lookup", () => {
           from: "dictionary",
           text: "塊",
           pos: "noun",
+          line: "塊",
           count: 1,
         },
         {
@@ -1043,6 +1126,7 @@ describe("handlers: lookup", () => {
           from: "dictionary",
           text: "パンのひと塊",
           pos: "noun",
+          line: "パンのひと塊",
           count: 2,
         },
         {
@@ -1050,6 +1134,7 @@ describe("handlers: lookup", () => {
           from: "dictionary",
           text: "ぶらぶらする",
           pos: "noun",
+          line: "ぶらぶらする",
           count: 1,
         },
       ]);
@@ -1291,6 +1376,7 @@ describe("handlers: machine translations of English definitions", () => {
           entry: (term) => ({ head: term, kind: "phrase", ...definition }),
           outline: () => undefined,
           capitalMeaning: () => undefined,
+          senseLine: (sense) => sense.text,
         }),
       },
     });

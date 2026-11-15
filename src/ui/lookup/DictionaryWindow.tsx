@@ -5,6 +5,7 @@ import { BookmarkIcon, CloseIcon, GripIcon } from "../icons";
 import { keepOpen } from "../keep-open";
 import {
   SERIF_FONT,
+  aiTag,
   badge,
   color,
   iconButton,
@@ -356,21 +357,6 @@ const useButton = (pressed: boolean): Style => ({
       }),
 });
 
-/** Mock YourMeanings `.tag`. */
-const TAG: Style = {
-  display: "inline-flex",
-  alignItems: "center",
-  height: "20px",
-  padding: "0 7px",
-  borderRadius: "999px",
-  fontSize: "11px",
-  fontWeight: 600,
-  lineHeight: 1,
-  background: color.surfaceGray,
-  color: color.ink3,
-  whiteSpace: "nowrap",
-};
-
 const SMALL_TEXT: Style = { fontSize: "13px", lineHeight: 1.5 };
 
 /** "Meanings": the entry's senses, after the meanings chosen elsewhere. */
@@ -477,7 +463,7 @@ function SenseRow(props: {
       >
         {(sense.ai || pos || chosen > 0) && (
           <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {sense.ai && <span style={TAG}>{t("dict.ai")}</span>}
+            {sense.ai && <span style={aiTag}>{t("dict.ai")}</span>}
             {pos && (
               <span
                 data-pos

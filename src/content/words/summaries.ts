@@ -31,6 +31,8 @@ export function createSummaries(o: {
   translator: TranslationQueue;
   lang(): string;
   nativeLang(): string;
+  /** The page or video: its sentences with a meaning chosen come with the summaries. */
+  url(): string;
   /** Still the page (the video) these summaries are of. */
   active(): boolean;
   /** The request found these packs missing. */
@@ -69,9 +71,38 @@ export function createSummaries(o: {
       const brief = briefOf(key);
       if (!brief || brief.status === status) continue;
       summaries ??= { ...current };
-      summaries[key] = { ...brief, status };
+      const next = { ...brief, status };
+      // Removing a term removes the meanings chosen for it.
+      if (status === "new") {
+        delete next.meanings;
+        delete next.chosen;
+      }
+      summaries[key] = next;
     }
     if (summaries) o.store.set({ summaries });
+  }
+
+  /** Asks the summaries of `keys` (one request), replacing what the list has of them. */
+  function ask(keys: string[]) {
+    o.send({ type: "termSummaries", lang: o.lang(), keys, sourceUrl: o.url() })
+      .then((answer) => {
+        if (!o.active()) return;
+        const summaries = { ...o.store.get().summaries };
+        for (const [key, brief] of Object.entries(answer))
+          summaries[key] = {
+            ...brief,
+            status: statuses.get(key) ?? brief.status,
+          };
+        o.store.set({ summaries });
+        // Rows shown before their meanings came.
+        meanings.refresh(Object.keys(answer));
+      })
+      .catch((error: unknown) => {
+        // Asked again with the next batch, or once the dictionary's data is there.
+        for (const key of keys) asked.delete(key);
+        if (error instanceof PacksUnavailableError) o.waitFor(error.packs);
+        warn(error);
+      });
   }
 
   return {
@@ -96,26 +127,14 @@ export function createSummaries(o: {
         keys.push(key);
       }
       note(found);
-      if (keys.length === 0) return;
-      o.send({ type: "termSummaries", lang: o.lang(), keys })
-        .then((answer) => {
-          if (!o.active()) return;
-          const summaries = { ...o.store.get().summaries };
-          for (const [key, brief] of Object.entries(answer))
-            summaries[key] = {
-              ...brief,
-              status: statuses.get(key) ?? brief.status,
-            };
-          o.store.set({ summaries });
-          // Rows shown before their meanings came.
-          meanings.refresh(Object.keys(answer));
-        })
-        .catch((error: unknown) => {
-          // Asked again with the next batch, or once the dictionary's data is there.
-          for (const key of keys) asked.delete(key);
-          if (error instanceof PacksUnavailableError) o.waitFor(error.packs);
-          warn(error);
-        });
+      if (keys.length > 0) ask(keys);
+    },
+    /**
+     * A meaning was chosen (or undone) for `key`: its meanings and the sentences they
+     * were chosen for are read again, if the list has asked for it.
+     */
+    meaningChosen(key: string) {
+      if (asked.has(key)) ask([key]);
     },
   };
 }

@@ -1083,6 +1083,13 @@ describe("words in the subtitles", () => {
     const category = (cue: number) =>
       state().spans[cue]!.find((s) => s.key === "tangy")?.category;
     expect([category(0), category(2)]).toEqual(["learning", "learning"]);
+    // The Words list reads the term's meanings again: chosen in this card.
+    await expect
+      .poll(() => state().summaries.tangy?.chosen)
+      .toEqual([{ sentence, key: card.chosenHere }]);
+    expect(state().summaries.tangy?.meanings).toEqual([
+      expect.objectContaining({ key: card.chosenHere }),
+    ]);
 
     // Another card of the video has none chosen; undoing in the first leaves the word saved.
     app.clickWord(refOf(state, 0, "tangy"));
@@ -1093,6 +1100,7 @@ describe("words in the subtitles", () => {
     await expect.poll(() => state().panel?.card.chosenHere).toBeUndefined();
     expect(state().panel?.card.status).toBe("learning");
     expect(state().panel?.card.yourMeanings).toEqual([]);
+    await expect.poll(() => state().summaries.tangy?.chosen).toBeUndefined();
   });
 
   it("tells the page when its window opens and when a term changes", async () => {
@@ -1650,11 +1658,13 @@ describe("words in this video", () => {
         type: "termSummaries",
         lang: "en",
         keys: ["of", "the", "tangy", "loaf"],
+        sourceUrl: "https://www.youtube.com/watch?v=vid1",
       },
       {
         type: "termSummaries",
         lang: "en",
         keys: ["dough"],
+        sourceUrl: "https://www.youtube.com/watch?v=vid1",
       },
     ]);
     await expect

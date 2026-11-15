@@ -1,9 +1,13 @@
 import type { Span, TermKind, WordStatus } from "../../core/classify";
 import { collapseSpaces } from "../../core/text/sentences";
 import { own } from "../../core/util";
-import type { TermBrief } from "../../messaging/protocol";
+import type { MeaningLine, TermBrief } from "../../messaging/protocol";
 import { visibleSpans } from "../../ui/video/terms";
-import type { WordsFilter, WordsSort } from "../../ui/words/WordsList";
+import type {
+  PlaceGroup,
+  WordsFilter,
+  WordsSort,
+} from "../../ui/words/WordsList";
 
 /** A piece of text a list reads its terms from: a transcript card, an article's block. */
 export interface WordsUnit<U> {
@@ -117,8 +121,73 @@ export function sortRows<R extends { head: string; count: number }>(
 }
 
 /**
+ * The places of a row grouped by the meaning the user chose there (ui.md "Words in this
+ * video / Words on this page"): a group per meaning, in order of first appearance, then
+ * the places with none. `sentenceOf(i)` is place `i`'s sentence, as choosing a meaning
+ * there records it. Undefined when no place has a meaning of `meanings`. A meaning's
+ * line is in the native language unless it says otherwise.
+ */
+function placeGroups(
+  count: number,
+  sentenceOf: (place: number) => string,
+  chosen: readonly { sentence: string; key: string }[],
+  meanings: readonly MeaningLine[],
+  nativeLang: string,
+): PlaceGroup[] | undefined {
+  const keyAt = new Map(chosen.map((c) => [c.sentence, c.key]));
+  const lines = new Map(meanings.map((m) => [m.key, m]));
+  const groups = new Map<string, { meaning: MeaningLine; places: number[] }>();
+  const none: number[] = [];
+  for (let place = 0; place < count; place++) {
+    const key = keyAt.get(sentenceOf(place));
+    const meaning = key === undefined ? undefined : lines.get(key);
+    if (!meaning) {
+      none.push(place);
+      continue;
+    }
+    const group = groups.get(meaning.key);
+    if (group) group.places.push(place);
+    else groups.set(meaning.key, { meaning, places: [place] });
+  }
+  if (groups.size === 0) return undefined;
+  return [
+    ...[...groups.values()].map(({ meaning, places }): PlaceGroup => ({
+      meaning: { text: meaning.line, lang: meaning.lineLang ?? nativeLang },
+      places,
+    })),
+    ...(none.length > 0 ? [{ places: none }] : []),
+  ];
+}
+
+/**
+ * A row's meaning: the dictionary's short meaning (with groups, the line of the places
+ * with no meaning chosen), or the user's meanings joined by " · " (`mine`) when they
+ * were chosen only elsewhere.
+ */
+function rowMeaning(
+  brief: TermBrief | undefined,
+  groups: readonly PlaceGroup[] | undefined,
+  nativeLang: string,
+) {
+  const mine = brief?.meanings ?? [];
+  if (groups || mine.length === 0)
+    return {
+      short: brief?.short,
+      shortLang: brief?.glossLang ?? nativeLang,
+    };
+  const langs = new Set(mine.map((m) => m.lineLang ?? nativeLang));
+  return {
+    short: mine.map((m) => m.line).join(" · "),
+    shortLang: langs.size === 1 ? [...langs][0]! : nativeLang,
+    mine: true as const,
+  };
+}
+
+/**
  * A Words list's rows: the words the filter shows, in the sort's order, each with its
- * short meaning from the summaries and what `more` adds (its places).
+ * short meaning from the summaries and what `more` adds (its places). A term with
+ * meanings chosen in this list's places has its places grouped by them
+ * (`placeGroups`; `sentence(word, i)`: the sentence of the word's place `i`).
  */
 export function toWordRows<
   W extends {
@@ -127,6 +196,7 @@ export function toWordRows<
     head: string;
     category: WordStatus;
     count: number;
+    places: readonly unknown[];
   },
   X,
 >(
@@ -137,6 +207,7 @@ export function toWordRows<
     summaries: Readonly<Record<string, TermBrief>>;
     learningLang: string;
     nativeLang: string;
+    sentence(word: W, place: number): string;
   },
   more: (word: W, id: string) => X,
 ) {
@@ -144,14 +215,24 @@ export function toWordRows<
     (word) => {
       const id = wordId(word);
       const brief = own(o.summaries, word.key);
+      const groups =
+        brief?.chosen && brief.meanings
+          ? placeGroups(
+              word.places.length,
+              (place) => o.sentence(word, place),
+              brief.chosen,
+              brief.meanings,
+              o.nativeLang,
+            )
+          : undefined;
       return {
         id,
         key: word.key,
         head: word.head,
         category: word.category,
         count: word.count,
-        short: brief?.short,
-        shortLang: brief?.glossLang ?? o.nativeLang,
+        ...rowMeaning(brief, groups, o.nativeLang),
+        ...(groups && { groups }),
         ...more(word, id),
       };
     },

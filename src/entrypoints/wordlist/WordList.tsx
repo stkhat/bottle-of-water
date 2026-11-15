@@ -132,7 +132,10 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           (kind === "all" || term.kind === kind) &&
           (!q ||
             term.key.toLowerCase().includes(q) ||
-            (term.short ?? "").toLowerCase().includes(q)),
+            (term.short ?? "").toLowerCase().includes(q) ||
+            (term.meanings ?? []).some((m) =>
+              m.line.toLowerCase().includes(q),
+            )),
       )
       .sort(COMPARE[sort]);
   }, [terms, query, status, kind, sort]);
@@ -160,6 +163,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
           ...(result.entry && { entry: result.entry }),
           ...(result.ipa !== undefined && { ipa: result.ipa }),
           occurrences: [...result.here, ...result.elsewhere],
+          meanings: result.yourMeanings,
         });
       })
       .catch((error: unknown) => {

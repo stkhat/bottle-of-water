@@ -15,6 +15,7 @@ import {
 import { Floating, keepSelection, TOP_LAYER } from "../lookup/Floating";
 import { useStore } from "../store";
 import { filterCounts, listWords, toWordRows } from "../words/words";
+import { sentenceAt } from "./sentence";
 
 /** Mock Article: the dictionary panel sits 16px in from the top right. */
 const CARD_INSET = 16;
@@ -170,6 +171,10 @@ function Words(props: {
           summaries,
           learningLang: settings.learningLang,
           nativeLang: settings.nativeLang,
+          sentence: (word, place) => {
+            const { unit, start, end } = word.places[place]!;
+            return sentenceAt(unit.text, start, end, settings.learningLang);
+          },
         },
         (word, id) => ({
           places: word.places.map((_, i) => String(i + 1)),

@@ -5,7 +5,10 @@ import {
   MAX_TRANSLATED_SENSES,
 } from "../../core/lexicon/definitions";
 import type { Sense, Written } from "../../core/lexicon/dictionary";
-import { translatedLine } from "../../core/lexicon/short-lines";
+import {
+  MAX_SHORT_LINES,
+  translatedLine,
+} from "../../core/lexicon/short-lines";
 import { matchSense, type Meaning } from "../../core/meanings";
 import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
 import { normalizeWord } from "../../core/text/tokenize";
@@ -136,17 +139,36 @@ export function meaningRows(card: TermCard): MeaningRow[] {
 const shownStatus = (card: TermCard): WordStatus =>
   card.knownByLevel ? "known" : card.status;
 
-/** What the hover card shows of a term. */
-export const hoverView = (card: TermCard) => ({
-  kind: card.kind,
-  status: shownStatus(card),
-  head: card.head,
-  ipa: card.ipa,
-  meanings: card.lines ?? (card.short === undefined ? [] : [card.short]),
-  machineTranslated: card.machineTranslated !== undefined,
-  shortLang: card.shortLang,
-  sub: card.sub,
-});
+/**
+ * What the hover card shows of a term. Its lines: the meanings the user chose (the one
+ * chosen for this sentence, then the most used: `yourMeanings`' order), then the
+ * dictionary's other lines, at most three in all. The "Machine translation" mark goes
+ * with the dictionary's translated line, when it shows.
+ */
+export const hoverView = (card: TermCard) => {
+  const yours = card.yourMeanings.slice(0, MAX_SHORT_LINES).map((m) => ({
+    text: m.line,
+    ...(m.lineLang !== undefined && { lang: m.lineLang }),
+  }));
+  const taken = new Set(yours.map((m) => m.text));
+  const meanings = (
+    card.lines ?? (card.short === undefined ? [] : [card.short])
+  )
+    .filter((line) => !taken.has(line))
+    .slice(0, MAX_SHORT_LINES - yours.length);
+  return {
+    kind: card.kind,
+    status: shownStatus(card),
+    head: card.head,
+    ipa: card.ipa,
+    yours,
+    meanings,
+    machineTranslated:
+      card.machineTranslated !== undefined && meanings.length > 0,
+    shortLang: card.shortLang,
+    sub: card.sub,
+  };
+};
 
 /**
  * What the dictionary window shows of a term. Its short line is marked "Machine

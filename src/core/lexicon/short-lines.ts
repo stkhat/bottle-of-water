@@ -14,7 +14,7 @@
  */
 
 /** The hover card shows at most this many senses. */
-const MAX_SHORT_LINES = 3;
+export const MAX_SHORT_LINES = 3;
 
 // Language-independent
 

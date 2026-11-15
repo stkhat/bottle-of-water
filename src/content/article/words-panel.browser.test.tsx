@@ -337,6 +337,42 @@ describe("Words on this page", () => {
     expect(history().filter((text) => text === FAR)).toHaveLength(1);
   });
 
+  it("a meaning chosen from a row groups its places, and leads its hover card", async () => {
+    await open();
+    await expect.poll(heads).toContain("knead");
+    await panel()
+      .getByRole("button", { name: "knead, open in the dictionary" })
+      .click();
+    // The row stands for its first place: the meaning is chosen there.
+    const use = dictionary().getByRole("button", { name: /^Use here: / });
+    await expect.element(use.first()).toBeInTheDocument();
+    await use.first().click();
+    const mine = panel().getByRole("group", {
+      name: /^Places with your meaning /,
+    });
+    await expect.element(mine).toBeVisible();
+    expect(
+      [...mine.element().querySelectorAll("button")].map((b) => b.textContent),
+    ).toEqual(["1"]);
+    const none = panel().getByRole("group", {
+      name: /^Places with no meaning chosen/,
+    });
+    expect(
+      [...none.element().querySelectorAll("button")].map((b) => b.textContent),
+    ).toEqual(["2", "3"]);
+    const row = panel().getByRole("button", {
+      name: "knead, open in the dictionary",
+    });
+    expect(row.element().textContent).toBe("knead3×");
+
+    // The hover card of the row's head (its first place) shows it first.
+    await userEvent.hover(head("knead"));
+    await expect.element(details()).toBeVisible();
+    await expect
+      .poll(() => ui().querySelectorAll("[data-your-meaning]").length)
+      .toBe(1);
+  });
+
   it("closes with ×", async () => {
     await open();
     await panel().getByRole("button", { name: "Close words" }).click();

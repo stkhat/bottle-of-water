@@ -1,5 +1,6 @@
 import type { Span, TermKind, WordStatus } from "../../core/classify";
 import { lowerBound, type SubtitleLine } from "../../core/subtitles/cues";
+import { joinerFor } from "../../core/subtitles/translation";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
 import { listWords } from "../words/words";
@@ -30,6 +31,13 @@ export interface VideoWord {
   /** Its first occurrence: the card and the index of its span there. */
   first: { cue: number; span: number };
 }
+
+/**
+ * A card's text on one line, as saving a term from it records its sentence: its line
+ * breaks joined as the language joins lines.
+ */
+export const flatCue = (text: string, lang: string) =>
+  text.split("\n").join(joinerFor(lang));
 
 /**
  * The place of the text at `offset` in card `card`: the last of the card's lines that

@@ -643,4 +643,57 @@ describe("the tabs", () => {
       1,
     );
   });
+
+  test("the Words tab groups a row's times by the meanings chosen in the video", async () => {
+    const onJumpWord = vi.fn();
+    const fold: WordRow = {
+      id: "word\nfold",
+      head: "fold",
+      category: "learning",
+      count: 3,
+      short: "折り目、ひだ",
+      shortLang: "ja",
+      places: ["2:14", "3:02", "8:02"],
+      groups: [
+        {
+          meaning: { text: "（パン生地の）折り込み", lang: "ja" },
+          places: [0, 1],
+        },
+        { places: [2] },
+      ],
+      pressed: -1,
+    };
+    const screen = await mountInShadowRoot(
+      <div style={{ width: "360px", height: "600px", display: "flex" }}>
+        <VideoPanel
+          {...base}
+          tab="words"
+          words={[fold, ...ROWS]}
+          onJumpWord={onJumpWord}
+        />
+      </div>,
+    );
+    const mine = screen.getByRole("group", {
+      name: "Places with your meaning （パン生地の）折り込み",
+    });
+    await expect.element(mine).toBeVisible();
+    await expect
+      .element(
+        screen.getByRole("group", {
+          name: "Places with no meaning chosen, 折り目、ひだ",
+        }),
+      )
+      .toBeVisible();
+    // The other rows are as before.
+    await expect
+      .element(screen.getByRole("group", { name: "Times of bunch" }))
+      .toBeVisible();
+    // The line stays inside the column.
+    const panel = screen.getByRole("tabpanel", { name: "Words" }).element();
+    expect(mine.element().getBoundingClientRect().right).toBeLessThanOrEqual(
+      panel.getBoundingClientRect().right,
+    );
+    await mine.getByRole("button", { name: "Jump to 3:02" }).click();
+    expect(onJumpWord).toHaveBeenCalledWith(fold, 1);
+  });
 });

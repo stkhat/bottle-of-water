@@ -84,6 +84,48 @@ describe("HoverCard", () => {
     expect(screen.container.textContent).toContain(lines.join(""));
   });
 
+  test("shows the user's meanings first, each with the bookmark, like the other lines", async () => {
+    const screen = await mountInShadowRoot(
+      <HoverCard
+        {...figureOut}
+        kind="word"
+        head="fold"
+        yours={[
+          { text: "（パン生地の）折り込み" },
+          { text: "To bend", lang: "en" },
+        ]}
+        meanings={["折り目、ひだ"]}
+      />,
+    );
+    const lines = [
+      ...screen.container.querySelectorAll<HTMLElement>("[data-your-meaning]"),
+    ];
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "（パン生地の）折り込み",
+      "To bend",
+    ]);
+    for (const line of lines) {
+      const mark = line.querySelector("svg")!;
+      expect(mark).toHaveAttribute("aria-label", "Your meaning");
+      expect(mark.getBoundingClientRect().width).toBe(14);
+      expect(getComputedStyle(mark).color).toBe("rgb(11, 127, 101)");
+      expect(getComputedStyle(line).fontSize).toBe("15px");
+      expect(getComputedStyle(line).color).toBe("rgb(42, 47, 69)");
+    }
+    await expect
+      .element(screen.getByText("（パン生地の）折り込み"))
+      .toHaveAttribute("lang", "ja");
+    await expect
+      .element(screen.getByText("To bend"))
+      .toHaveAttribute("lang", "en");
+    // The dictionary's line comes after them.
+    const dictionary = screen.getByText("折り目、ひだ").element();
+    expect(dictionary.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      lines[1]!.getBoundingClientRect().bottom,
+    );
+    expect(dictionary.closest("div")!.querySelector("svg")).toBeNull();
+  });
+
   test("labels a word and an unsaved status", async () => {
     const screen = await mountInShadowRoot(
       <HoverCard {...figureOut} kind="word" status="new" head="dough" />,

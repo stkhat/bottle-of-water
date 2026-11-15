@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "preact/hooks";
 import type { WordStatus } from "../../core/classify";
 import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
+import { BookmarkIcon } from "../icons";
 import { keepOpen } from "../keep-open";
 import { useShownRows } from "../rows-in-view";
 import { color, toggleChip } from "../styles";
@@ -16,6 +17,17 @@ export type WordsFilter = "all" | WordStatus;
 /** The sort: first appearance, A–Z, or most seen first. */
 export type WordsSort = "order" | "az" | "count";
 
+/**
+ * A line of a row with meanings chosen in its places (mock WordsListsMeanings `.gl`):
+ * a meaning and the chips of the places it was chosen in, or the places with none.
+ */
+export interface PlaceGroup {
+  /** The meaning chosen in these places; missing: the places with none chosen. */
+  meaning?: { text: string; lang: string };
+  /** Indices in the row's `places`. */
+  places: readonly number[];
+}
+
 export interface WordRow {
   /** Unique in the list. */
   id: string;
@@ -23,9 +35,19 @@ export interface WordRow {
   category: WordStatus;
   /** How many times the page or the video shows it. */
   count: number;
-  /** The dictionary's short meaning, when it has one. */
+  /**
+   * The dictionary's short meaning, when it has one; with `mine`, the user's meanings
+   * joined by " · " (chosen only elsewhere).
+   */
   short?: string;
   shortLang: string;
+  /** `short` is the user's meanings: shown with the bookmark mark. */
+  mine?: true;
+  /**
+   * Meanings were chosen in some of its places: a line each, then the places with
+   * none, under `short` (the head line then shows no meaning).
+   */
+  groups?: readonly PlaceGroup[];
   /**
    * Where it shows, in order, as its chips read (the start times of a video's subtitle
    * lines, a page's place numbers): a chip each.
@@ -399,19 +421,28 @@ function RowBody<R extends WordRow>(props: RowProps<R>) {
         </span>
         {/* The meaning takes the rest of the line, cut with an ellipsis. */}
         <span
-          lang={row.short ? row.shortLang : undefined}
           style={{
             flex: 1,
             minWidth: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
             fontSize: "13px",
             lineHeight: 1.45,
             color: color.ink3,
             whiteSpace: "nowrap",
             overflow: "hidden",
-            textOverflow: "ellipsis",
           }}
         >
-          {row.short}
+          {!row.groups && row.mine && (
+            <BookmarkIcon label={t("dict.yourMeaning")} size={12} />
+          )}
+          <span
+            lang={!row.groups && row.short ? row.shortLang : undefined}
+            style={ELLIPSIS}
+          >
+            {row.groups ? "" : row.short}
+          </span>
         </span>
         <span
           style={{
@@ -424,31 +455,108 @@ function RowBody<R extends WordRow>(props: RowProps<R>) {
           {t("words.times", { count: row.count })}
         </span>
       </button>
-      {row.places.length > 0 && <Places {...props} />}
+      {row.groups
+        ? row.groups.map((group, i) => (
+            <GroupLine key={i} {...props} group={group} />
+          ))
+        : row.places.length > 0 && (
+            <Chips
+              {...props}
+              places={row.places.map((_, place) => place)}
+              label={VARIANTS[props.variant ?? "video"].groupLabel(row.head)}
+              style={{ marginTop: "4px" }}
+            />
+          )}
     </div>
   );
 }
 
-/** A chip per place, the first ones and "+N" until that is pressed. */
-function Places<R extends WordRow>(props: RowProps<R>) {
+const ELLIPSIS: Style = { overflow: "hidden", textOverflow: "ellipsis" };
+
+/**
+ * A meaning chosen in some of the row's places, with their chips; or the places with
+ * none, under the dictionary's short meaning in grey (mock WordsListsMeanings `.gl`).
+ */
+function GroupLine<R extends WordRow>(
+  props: RowProps<R> & { group: PlaceGroup },
+) {
+  const { row, group } = props;
+  const { meaning } = group;
+  const text = meaning?.text ?? row.short ?? "";
+  const label = meaning
+    ? t("words.placesMine", { meaning: text })
+    : text
+      ? t("words.placesNone", { meaning: text })
+      : t("words.placesNoneBare");
+  return (
+    <div
+      data-place-group
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginTop: "6px",
+        minWidth: 0,
+      }}
+    >
+      {/* The meaning keeps a third of the line; more chips wrap at the right. */}
+      <span
+        style={{
+          flex: 1,
+          minWidth: "33%",
+          display: "flex",
+          alignItems: "center",
+          gap: "5px",
+          fontSize: "13px",
+          lineHeight: 1.45,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          color: meaning ? color.ink : color.muted,
+        }}
+      >
+        {meaning && <BookmarkIcon label={t("dict.yourMeaning")} size={12} />}
+        <span lang={meaning ? meaning.lang : row.shortLang} style={ELLIPSIS}>
+          {text}
+        </span>
+      </span>
+      <Chips
+        {...props}
+        places={group.places}
+        label={label}
+        style={{ flex: "0 1 auto", justifyContent: "flex-end" }}
+      />
+    </div>
+  );
+}
+
+/** A chip per place of `places`, the first ones and "+N" until that is pressed. */
+function Chips<R extends WordRow>(
+  props: RowProps<R> & {
+    /** Indices in the row's places. */
+    places: readonly number[];
+    label: string;
+    style: Style;
+  },
+) {
   const { row, handlers } = props;
   const look = VARIANTS[props.variant ?? "video"];
   // A pressed chip past the first ones shows them all.
-  const all = props.opened || row.pressed >= look.chipsShown;
-  const shown = all ? row.places : row.places.slice(0, look.chipsShown);
-  const rest = row.places.length - shown.length;
+  const all =
+    props.opened || props.places.indexOf(row.pressed) >= look.chipsShown;
+  const shown = all ? props.places : props.places.slice(0, look.chipsShown);
+  const rest = props.places.length - shown.length;
   return (
     <div
       role="group"
-      aria-label={look.groupLabel(row.head)}
+      aria-label={props.label}
       style={{
         display: "flex",
         flexWrap: "wrap",
         gap: "4px",
-        marginTop: "4px",
+        ...props.style,
       }}
     >
-      {shown.map((text, place) => {
+      {shown.map((place) => {
         const pressed = row.pressed === place;
         return (
           <button
@@ -459,7 +567,7 @@ function Places<R extends WordRow>(props: RowProps<R>) {
             onClick={onlyFromUser(() => handlers.onJump(row, place))}
             style={{ ...(pressed ? CHIP_ON : CHIP_OFF), ...look.chip }}
           >
-            {text}
+            {row.places[place]}
           </button>
         );
       })}
