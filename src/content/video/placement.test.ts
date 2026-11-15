@@ -89,7 +89,7 @@ describe("dictionaryFrame", () => {
     ).toEqual({
       left: 1032,
       top: 64,
-      height: 340,
+      height: 420,
     });
     const small = { width: 800, height: 500 };
     const frame = dictionaryFrame(PLAYER, "belowVideo", small, TRANSCRIPT);
@@ -97,6 +97,27 @@ describe("dictionaryFrame", () => {
     expect(frame.top + frame.height).toBeLessThanOrEqual(500 - 8);
     const narrow = { left: 0, top: 112, right: 300, bottom: 400 };
     expect(dictionaryFrame(narrow, "inVideo", VIEWPORT).left).toBe(8);
+  });
+
+  it("with the subtitle in the video: at most 420px tall, ending 60% down the video", () => {
+    // A 1410×802 window with YouTube's player 686px tall: 60% down it is 416px below the top.
+    const player = { left: 16, top: 68, right: 931, bottom: 754 };
+    const frame = dictionaryFrame(player, "inVideo", {
+      width: 1410,
+      height: 802,
+    });
+    expect(frame.top).toBe(64);
+    expect(frame.height).toBe(416);
+    // A taller player: capped at 420px, as in fullscreen.
+    const tall = { left: 0, top: 68, right: 1300, bottom: 1068 };
+    expect(
+      dictionaryFrame(tall, "inVideo", { width: 1400, height: 1200 }).height,
+    ).toBe(420);
+    // A short player: at least 240px.
+    const short = { left: 0, top: 68, right: 600, bottom: 400 };
+    expect(
+      dictionaryFrame(short, "inVideo", { width: 1400, height: 900 }).height,
+    ).toBe(240);
   });
 
   it("in fullscreen: top right, 32px from the edges, 360×420 (mock Fullscreen)", () => {

@@ -42,7 +42,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 
 ## Shared: dictionary window (opens when a word is clicked)
 - **A popup window floating over the page.** It can be dragged by its handle and closed with ×, Escape, or a press anywhere outside it (a press on another word switches the window to that word instead; a press on the hover card keeps it). It is not a fixed column
-  - Video: a window over the right part of the video, its right edge just past the transcript's left edge (at the video's right edge without a transcript), so it covers almost none of the transcript; when subtitles are inside the video, placed so it does not cover them
+  - Video: a window over the right part of the video, its right edge just past the transcript's left edge (at the video's right edge without a transcript), so it covers almost none of the transcript; when subtitles are inside the video, placed so it does not cover them: it ends 60% down the video, at most 420 px tall as in fullscreen and beside the sidebar, at least 240 px (2026-11-16; at 340 px the "In this sentence" card was below the fold)
   - Article: a panel floating on the right side of the screen
 - Contents
   - Headword, kind, pronunciation playback (`speechSynthesis`), **IPA**, notes, short translation
