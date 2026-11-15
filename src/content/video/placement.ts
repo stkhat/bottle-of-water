@@ -30,11 +30,18 @@ const FULLSCREEN = { inset: 32, height: 420 };
  * at the sidebar's left edge (16px past the player's), 72px from the top, 420px tall.
  */
 const SIDEBAR = { top: 72, height: 420 };
+/**
+ * With the subtitle in the video: as tall as in fullscreen and beside the sidebar
+ * (420px; user, 2026-11-16: at 340px the "In this sentence" card was below the fold),
+ * but never past 60% down the video, so the subtitle stays clear; at least 240px.
+ */
+const IN_VIDEO = { min: 240, max: FULLSCREEN.height, share: 0.6 };
 
 /**
  * Where the dictionary window opens (mock Main). It sits over the right part of the
  * video, its right edge 12px into the transcript beside the video (at the video's right
- * edge without one), and ends above the subtitle in the video (60% down the video);
+ * edge without one), and ends above the subtitle in the video (60% down the video, at
+ * most 420px tall);
  * with the subtitle below the video, it is taller and stops short of the transcript.
  * In fullscreen (mock Fullscreen) it is at the screen's top right. Beside the transcript
  * sidebar (a player that fills the window or the screen) it ends at the sidebar.
@@ -88,7 +95,11 @@ export function dictionaryFrame(
   );
   const top = Math.max(TOP_MIN, player.top - (inVideo ? 42 : 32));
   const wanted = inVideo
-    ? clamp(player.top + (player.bottom - player.top) * 0.6 - top, 240, 340)
+    ? clamp(
+        player.top + (player.bottom - player.top) * IN_VIDEO.share - top,
+        IN_VIDEO.min,
+        IN_VIDEO.max,
+      )
     : 530;
   const height = Math.round(
     Math.max(0, Math.min(wanted, viewport.height - EDGE - top)),

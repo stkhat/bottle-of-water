@@ -30,7 +30,6 @@ Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes
 - Video lines that play while the language data is missing are classified later but not kept in the sentence history
 
 ### Meaning in context
-- On YouTube the dictionary window is about 340 px tall (Netflix 420), so "In this sentence" starts near its bottom edge: the card shows only after scrolling the window, also for a term without an entry, explained as the window opens
 - In YouTube comments the lines around the sentence are the comment's other sentences and the replies YouTube has loaded: a one-sentence comment with its replies closed reads "Reading 0 lines around it…" and "On-device AI · 0 lines"
 - The model marked 11 of 12 answers in the real check `unusual` (53% in the M0 study), so nearly every card has an explanation, some only restating the sentence; a meaning can take in words around the term ("we can't grasp" → 理解できない). "Fits here" fit 5 of 6 terms (M0: about 3 in 4)
 
