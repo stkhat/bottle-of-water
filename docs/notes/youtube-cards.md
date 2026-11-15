@@ -85,6 +85,15 @@ Nothing beyond today's: the learning language's sentence and clause punctuation 
 2. **Netflix.** `captionCards` is shared, so these rules change Netflix cards too. The corpus has no raw Netflix tracks (only rendered cards), so Netflix is unmeasured; it is the held-out site. **Decided (2026-11-15): measure Netflix (raw TTML of a few episodes) before the manual-track change ships; the auto-generated step does not wait for it.**
 3. **Partial human track.** A human track that covers only part of the video (one of 10 here) leaves most cards empty. Falling back to YouTube's translation when the human track covers less than half of the speech would fix it.
 
+## Checked on the real sites (2026-11-15, check build of main e09ffe4)
+In the user's Chrome, after PRs #87 and #89:
+- YouTube, manual + YouTube's translation (`u1hVAhIVa-4`): the transcript matches the offline cards card for card (396); the video shows each cue whole, also where a sentence ends inside a cue (the v4 trade-off: the next card starts with the cue's tail, "movie is based on. And we were…").
+- YouTube, auto-generated + translation (`LT5Y8DUfQt4`): no card holds `>>` inside it (723 cards); `>> [laughter]` and `>> Live singing…?` are separate cards, the label card without Japanese.
+- YouTube, human track (`fxbCHn6gE3U`): sentence cards with their human lines.
+- Netflix (Peaky Blinders S1E4): a two-speaker cue stays one card ("- How much? - Two hundred pounds." / 金額は？２００ポンド); the transcript shows its line break as a space, as before.
+- Error logs on YouTube and Netflix: empty, cleared.
+- Found on the way, not caused by these steps: some YouTube manual tracks carry `<i>…</i>` in the caption text, and Lingo shows the tags literally in the card and the subtitle ("this <i>Craigslist</i> ad"); YouTube itself renders them as italics. Sound labels in auto-generated tracks get word highlights ("[applause]" as New).
+
 ## Still open
 - Auto-generated tracks without punctuation and fast Shorts (cause 6): about 1 card in 4 has part of a neighbour's translation or misses part of its own. Time cannot fix it; a lexical anchor (dictionary or loanword matches between the English and the translation) might.
 - Older auto-generated tracks: YouTube refused `tlang` for two 2011–2013 videos in every try (HTTP 429 on that request only); not studied what the extension shows then.
