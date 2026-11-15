@@ -6,6 +6,7 @@ import { openLingoDb } from "../background/db";
 import { createHistoryStore } from "../background/history-store";
 import { createTermStore } from "../background/term-store";
 import { createTranslationCache } from "../background/translation-cache";
+import { createExplanationCache } from "../background/explanation-cache";
 import {
   createPackLoader,
   type PackFiles,
@@ -193,6 +194,8 @@ export interface TestBackgroundOptions {
    * with `PacksUnavailableError` until `setPackStates` says they are usable.
    */
   missingPacks?: readonly PackName[];
+  /** Packs stored on the device that `removePack` can remove (none by default). */
+  storedPacks?: readonly PackName[];
 }
 
 /**
@@ -223,6 +226,7 @@ export function testBackground(
     store,
     history: createHistoryStore(db),
     translations: createTranslationCache(db),
+    explanations: createExplanationCache(db),
     settings: {
       get: async () => settings,
       set: async (patch: SettingsPatch) => {
@@ -251,7 +255,12 @@ export function testBackground(
                   : { state: "downloading", received: 0, total: 0 };
           return result;
         },
-        downloaded: async () => [],
+        downloaded: async () =>
+          (options.storedPacks ?? []).map((pack) => ({
+            pack,
+            version: "test",
+            size: 0,
+          })),
         remove: async () => {},
       },
       retry: () => {

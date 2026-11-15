@@ -17,6 +17,7 @@ import { replyValue } from "../testing/handlers";
 import { bundledPacks, stubPackLoader } from "../testing/packs";
 import { ARTICLE } from "../testing/sources";
 import { createTranslationCache } from "./translation-cache";
+import { createExplanationCache } from "./explanation-cache";
 
 const ARTICLE_A: SourceInput = {
   ...ARTICLE,
@@ -49,6 +50,7 @@ beforeEach(() => {
     store,
     history: createHistoryStore(db, { now: clock.now }),
     translations: createTranslationCache(db, { now: clock.now }),
+    explanations: createExplanationCache(db, { now: clock.now }),
     settings: {
       get: async () => settings,
       set: async (patch) => (settings = mergeSettings(patch, settings)),

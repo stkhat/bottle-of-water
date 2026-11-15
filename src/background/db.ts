@@ -1,4 +1,5 @@
 import { Dexie, type EntityTable, type Table } from "dexie";
+import type { Answer } from "../core/explain/answer";
 import type { Meaning } from "../core/meanings";
 import type { Platform, Position } from "../core/url";
 import type { Origin, TermRecord } from "../messaging/protocol";
@@ -92,6 +93,22 @@ export interface MtCacheRecord {
   usedAt: number;
 }
 
+/**
+ * An answer of the on-device AI for a term in one sentence (`explanation-cache.ts`).
+ * Device only, never exported.
+ */
+interface ExplanationRecord {
+  /** The JSON array of the pair, the term, the source, the sentence and the model. */
+  key: string;
+  /** `translationPair(learning, native)` */
+  pair: string;
+  answer: Answer;
+  /** How many lines around the sentence the prompt held. */
+  lines: number;
+  /** When the answer was last written or read. */
+  usedAt: number;
+}
+
 /** A file of a downloaded pack, keyed by its SHA-256: a file shared by versions is stored once. */
 interface PackFileRecord {
   sha256: string;
@@ -127,12 +144,13 @@ export type LingoDb = Dexie & {
   packVersions: EntityTable<PackVersionRecord, "pack">;
   meanings: EntityTable<MeaningRecord, "key">;
   meaningChoices: Table<MeaningChoiceRecord, [string, string, string]>;
+  explanations: EntityTable<ExplanationRecord, "key">;
 };
 
 /**
  * Tests pass a unique name per test. Versions 1–3 only added tables, so they were
  * merged into 4: Dexie upgrades an older database by comparing the schemas. Version 5
- * adds your meanings (phase 3).
+ * adds your meanings and 6 the on-device AI's answers (phase 3).
  */
 export function openLingoDb(name = "lingo"): LingoDb {
   const db = new Dexie(name) as LingoDb;
@@ -152,5 +170,6 @@ export function openLingoDb(name = "lingo"): LingoDb {
     meanings: "key, termId",
     meaningChoices: "[termId+sourceId+sentence], termId, meaningKey",
   });
+  db.version(6).stores({ explanations: "key, usedAt, pair" });
   return db;
 }

@@ -15,7 +15,9 @@ import type {
 } from "../core/lexicon/dictionary";
 import type { LanguagePack } from "../core/lexicon/language-pack";
 import { readCasing } from "../core/text/casing";
-import { learningLanguages } from "../core/languages";
+import { isAnswer } from "../core/explain/answer";
+import { MAX_LINES } from "../core/explain/context";
+import { learningLanguages, nativeLanguages } from "../core/languages";
 import { packBytes, type PackLock } from "../core/packs/lock";
 import { packsFor, pairsOfPack, translationPair } from "../core/packs/pairs";
 import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
@@ -31,6 +33,7 @@ import { errorText, omit } from "../core/util";
 import {
   MAX_CACHED_TRANSLATIONS,
   MAX_TRANSLATION_TEXT,
+  type ExplanationKey,
   type OccurrenceView,
   type Origin,
   type Reply,
@@ -57,12 +60,14 @@ import {
   type TermStore,
 } from "./term-store";
 import type { TranslationCache } from "./translation-cache";
+import type { ExplanationCache } from "./explanation-cache";
 
 /** What the handlers work with; tests pass fakes. */
 export interface HandlerDeps {
   store: TermStore;
   history: HistoryStore;
   translations: TranslationCache;
+  explanations: ExplanationCache;
   settings: {
     get(): Promise<Settings>;
     set(patch: SettingsPatch): Promise<Settings>;
@@ -152,6 +157,37 @@ const glossedInOtherLanguage = (
 ): entry is DictionaryEntry & { glossLang: string } =>
   entry?.glossLang !== undefined && entry.glossLang !== nativeLang;
 
+/** Longest term key, sentence and provider field an explanation is kept by. */
+const MAX_EXPLAINED_KEY = 200;
+const MAX_EXPLAINED_SENTENCE = 2000;
+const MAX_PROVIDER_FIELD = 100;
+
+const textUpTo = (value: unknown, max: number): value is string =>
+  typeof value === "string" && value.trim() !== "" && value.length <= max;
+
+/**
+ * The key of an explanation as the cache keeps it: an offered pair, the fields within
+ * their limits, the source URL normalized. Undefined when malformed.
+ */
+function explanationKeyOf(value: unknown): ExplanationKey | undefined {
+  const k = (value ?? {}) as Record<keyof ExplanationKey, unknown>;
+  if (
+    typeof k.learning !== "string" ||
+    typeof k.native !== "string" ||
+    !nativeLanguages(k.learning).includes(k.native) ||
+    !textUpTo(k.key, MAX_EXPLAINED_KEY) ||
+    !textUpTo(k.sentence, MAX_EXPLAINED_SENTENCE) ||
+    !textUpTo(k.provider, MAX_PROVIDER_FIELD) ||
+    !textUpTo(k.version, MAX_PROVIDER_FIELD) ||
+    typeof k.sourceUrl !== "string"
+  )
+    return undefined;
+  const sourceUrl = tryNormalizeUrl(k.sourceUrl);
+  if (sourceUrl === undefined) return undefined;
+  const { learning, native, key, sentence, provider, version } = k;
+  return { learning, native, key, sourceUrl, sentence, provider, version };
+}
+
 function isTranslationItem(item: unknown): item is TranslationItem {
   const { text, translated } = (item ?? {}) as Record<string, unknown>;
   return (
@@ -168,6 +204,7 @@ export function createHandlers({
   store,
   history,
   translations,
+  explanations,
   settings,
   resources,
   packs,
@@ -652,10 +689,34 @@ export function createHandlers({
       if (!stored.some((d) => d.pack === pack)) return null;
       await packs.store.remove(pack);
       await Promise.all(
-        pairsOfPack(pack).map(({ learning, native }) =>
+        pairsOfPack(pack).flatMap(({ learning, native }) => [
           translations.clearPair(translationPair(learning, native)),
-        ),
+          explanations.clearPair(translationPair(learning, native)),
+        ]),
       );
+      return null;
+    },
+
+    async getExplanation({ explanation }) {
+      const key = explanationKeyOf(explanation);
+      return (key && (await explanations.get(key))) ?? null;
+    },
+
+    async putExplanation({ explanation, answer, lines }) {
+      const key = explanationKeyOf(explanation);
+      if (
+        key === undefined ||
+        !isAnswer(answer) ||
+        !Number.isInteger(lines) ||
+        lines < 0 ||
+        lines > MAX_LINES
+      )
+        return null;
+      const { meaning, unusual, explanation: text, sense } = answer;
+      await explanations.put(key, {
+        answer: { meaning, unusual, explanation: text, sense },
+        lines,
+      });
       return null;
     },
   };

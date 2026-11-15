@@ -61,6 +61,9 @@ const REPEATABLE: Record<RequestType, boolean> = {
   retryPacks: true,
   // Removing a pack that is gone does nothing.
   removePack: true,
+  getExplanation: true,
+  // Answers are kept by their key: a second request writes the same row.
+  putExplanation: true,
 };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
