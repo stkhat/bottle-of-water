@@ -154,6 +154,7 @@ async function readRemote(
 const toRecord = (term: TermRecord): SyncRecord => ({
   key: term.key,
   status: term.status,
+  ...(term.learnedAt !== undefined && { learned: true }),
   updatedMinutes: toMinutes(term.updatedAt),
 });
 
@@ -163,6 +164,7 @@ const sameRecords = (a: readonly SyncRecord[], b: readonly SyncRecord[]) =>
     (r, i) =>
       r.key === b[i]!.key &&
       r.status === b[i]!.status &&
+      r.learned === b[i]!.learned &&
       r.updatedMinutes === b[i]!.updatedMinutes,
   );
 

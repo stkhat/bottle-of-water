@@ -31,7 +31,8 @@ export interface WordListDeps extends BackupDeps {
   createTranslator(from: string, to: string): TranslationProvider;
 }
 
-type StatusFilter = "all" | "learning" | "known";
+/** "learned": known words that went there from learning (`learnedAt`). */
+type StatusFilter = "all" | "learning" | "learned" | "known";
 type KindFilter = "all" | "word" | "phrase";
 type Sort = "recent" | "az" | "seen";
 
@@ -47,6 +48,7 @@ ${PAGE_BUTTON_CSS}
 const STATUS_TABS: readonly { id: StatusFilter; label: MessageKey }[] = [
   { id: "all", label: "filter.all" },
   { id: "learning", label: "status.learning" },
+  { id: "learned", label: "status.learned" },
   { id: "known", label: "status.known" },
 ];
 const KIND_TABS: readonly { id: KindFilter; label: MessageKey }[] = [
@@ -59,6 +61,12 @@ const SORTS: readonly [Sort, MessageKey][] = [
   ["az", "wordlist.sort.az"],
   ["seen", "wordlist.sort.seen"],
 ];
+
+const showsIn = (term: TermSummary, status: StatusFilter) =>
+  status === "all" ||
+  (status === "learned"
+    ? term.status === "known" && term.learnedAt !== undefined
+    : term.status === status);
 
 const byKey = (a: TermSummary, b: TermSummary) => a.key.localeCompare(b.key);
 const COMPARE: Record<Sort, (a: TermSummary, b: TermSummary) => number> = {
@@ -120,7 +128,7 @@ export function WordList({ deps }: { deps: WordListDeps }) {
     return terms
       .filter(
         (term) =>
-          (status === "all" || term.status === status) &&
+          showsIn(term, status) &&
           (kind === "all" || term.kind === kind) &&
           (!q ||
             term.key.toLowerCase().includes(q) ||

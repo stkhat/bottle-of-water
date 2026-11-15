@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../../core/settings";
-import { decode, toMinutes, type SyncRecord } from "../../core/sync/codec";
+import {
+  decode,
+  fromMinutes,
+  toMinutes,
+  type SyncRecord,
+} from "../../core/sync/codec";
 import {
   chunkKey,
   itemBytes,
@@ -349,6 +354,29 @@ describe("two devices", () => {
     ]);
     expect(await versions(b.store)).toEqual(await versions(a.store));
     expect(await a.store.listTerms("en")).toHaveLength(1);
+  });
+
+  it("carries the learned mark to the other device", async () => {
+    const area = createFakeSyncArea();
+    const a = device(area);
+    const b = device(area);
+    await a.backend.start();
+    await b.backend.start();
+
+    await save(a.store, "dough");
+    await save(a.store, "bread", "known");
+    time += MIN;
+    await a.store.setStatus("en:dough", "known");
+    await a.after(2000, b);
+
+    const learned = (await b.store.listTerms("en")).map((t) => [
+      t.key,
+      t.learnedAt,
+    ]);
+    expect(learned).toEqual([
+      ["bread", undefined],
+      ["dough", fromMinutes(toMinutes(time))],
+    ]);
   });
 
   it("converge on terms of two languages, each kept under its own keys", async () => {

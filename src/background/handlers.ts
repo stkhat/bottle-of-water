@@ -416,6 +416,7 @@ export function createHandlers({
           seen: seen?.count ?? 0,
           lastSeen: seen?.lastSeen ?? term.createdAt,
           createdAt: term.createdAt,
+          ...(term.learnedAt !== undefined && { learnedAt: term.learnedAt }),
         };
       });
     },
