@@ -66,40 +66,47 @@ export function createExplainRunner(o: {
     running = undefined;
   }
 
+  const keyOf = ({
+    input,
+    key,
+    sourceUrl,
+  }: ExplainRequest): ExplanationKey => ({
+    learning: input.learning,
+    native: input.native,
+    key,
+    sourceUrl,
+    sentence: input.sentence,
+    provider: provider.name,
+    version: provider.version,
+  });
+
+  /** The kept answer, or null (also when the cache cannot be read: best effort). */
+  const kept = (request: ExplainRequest) =>
+    o
+      .send({ type: "getExplanation", explanation: keyOf(request) })
+      .catch((error: unknown) => {
+        warn(error);
+        return null;
+      });
+
   /**
    * The term's meaning in its sentence. Rejects with an `AbortError` when another
    * explanation or `cancel()` came first, else with an `ExplainError`.
    */
-  async function explain({
-    input,
-    key,
-    sourceUrl,
-  }: ExplainRequest): Promise<Explanation> {
+  async function explain(request: ExplainRequest): Promise<Explanation> {
     cancel();
     const controller = new AbortController();
     running = controller;
     const { signal } = controller;
-    const explanation: ExplanationKey = {
-      learning: input.learning,
-      native: input.native,
-      key,
-      sourceUrl,
-      sentence: input.sentence,
-      provider: provider.name,
-      version: provider.version,
-    };
+    const { input } = request;
+    const explanation = keyOf(request);
     let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       // Best effort: an unreadable cache asks the model.
-      const kept = await o
-        .send({ type: "getExplanation", explanation })
-        .catch((error: unknown) => {
-          warn(error);
-          return null;
-        });
+      const found = await kept(request);
       signal.throwIfAborted();
-      if (kept) return { ...kept, cached: true };
+      if (found) return { ...found, cached: true };
       timer = setTimeout(() => {
         timedOut = true;
         controller.abort(new DOMException("No answer in time", "TimeoutError"));
@@ -119,5 +126,5 @@ export function createExplainRunner(o: {
     }
   }
 
-  return { explain, cancel };
+  return { explain, kept, cancel };
 }

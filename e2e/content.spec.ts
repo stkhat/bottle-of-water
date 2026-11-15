@@ -47,6 +47,11 @@ test("choosing a meaning in the dictionary saves the word as Learning, and the e
   await expect(panel.getByRole("heading", { name: "loaf" })).toBeVisible(
     COLD_LOAD,
   );
+  // Playwright's Chromium has no on-device model: no "In this sentence".
+  await expect(panel.getByText(en["dict.meanings"])).toBeVisible();
+  await expect(
+    panel.getByRole("region", { name: en["dict.inSentence"] }),
+  ).toHaveCount(0);
   const use = panel.getByRole("button", { name: /^Use here: / }).first();
   const meaning = (await use.getAttribute("aria-label"))!.slice(
     "Use here: ".length,

@@ -50,6 +50,10 @@ export function createCards(o: {
   /** The selection card is up: it is the card for the words under the pointer. */
   selecting(): boolean;
   onPanelOpen?(): void;
+  /** The panel opened on `ref`'s term (not looked up again in an open panel). */
+  opened?(ref: SpanRef, card: TermCard): void;
+  /** The panel closed. */
+  closed?(): void;
 }) {
   const { store, lookup, lang } = o;
   const describe = (ref: SpanRef, shownIn?: "hover" | "window") =>
@@ -140,6 +144,7 @@ export function createCards(o: {
       panelRef = ref;
       outlined = outline;
       showPanel(ref, card);
+      o.opened?.(ref, card);
       o.onPanelOpen?.();
     },
     closePanel() {
@@ -147,6 +152,7 @@ export function createCards(o: {
       panelRef = undefined;
       panelRanges = [];
       store.set({ panel: null });
+      o.closed?.();
     },
     /** The page scrolled: the outline follows the word. */
     follow() {

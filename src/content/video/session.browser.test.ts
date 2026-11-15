@@ -6,6 +6,11 @@ import videoUrl from "../../../tests/fixtures/video.webm?url";
 import type { Cue } from "../../core/subtitles/types";
 import { termId } from "../../core/term-id";
 import { testBackground } from "../../testing/background";
+import {
+  answerJson,
+  fakeExplanationProvider,
+  HANG,
+} from "../../testing/explain";
 import { noTranslation } from "../../testing/stubs";
 import type { TranslationProvider } from "../translate/translator";
 import type { PlatformAdapter, VideoCaptions } from "./platform";
@@ -144,6 +149,7 @@ async function start(
     /** Downloaded packs not on the device yet. */
     missingPacks?: PackName[];
     hooks?: Pick<VideoDeps, "onPanelOpen" | "onTermsChanged">;
+    explainProvider?: VideoDeps["explainProvider"];
   } = {},
 ) {
   const video = await createVideo();
@@ -165,6 +171,9 @@ async function start(
     createTranslator: () => options.translator ?? noTranslation,
     translatorAvailable: async () => options.translatorAvailable ?? false,
     ...options.hooks,
+    ...(options.explainProvider && {
+      explainProvider: options.explainProvider,
+    }),
   });
   cleanups.push(() => session.stop());
   return {
@@ -2288,5 +2297,96 @@ describe("a video without its language data", () => {
     await expect.poll(() => bg.packWatchers()).toBe(2);
     session.stop();
     expect(bg.packWatchers()).toBe(0);
+  });
+});
+
+describe("meaning in context", () => {
+  it("reads the term's card and the cards around it, and shows the answer in the window", async () => {
+    const { provider, log } = fakeExplanationProvider({
+      answers: [answerJson({ meaning: "ぴりっとした", sense: 1 })],
+    });
+    const { state, app } = await start(undefined, {
+      explainProvider: provider,
+    });
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 2, "tangy"));
+    await expect.poll(() => state().explain).toEqual({ state: "idle" });
+
+    app.explainHere();
+    expect(state().explain).toEqual({ state: "reading", lines: 2 });
+    await expect.poll(() => state().explain?.state).toBe("answer");
+    expect(state().explain).toMatchObject({
+      answer: { meaning: "ぴりっとした", sense: 1 },
+      lines: 2,
+    });
+    const [prompt] = log.prompts;
+    expect(prompt).toContain("Source: Title of vid1");
+    expect(prompt).toContain("It is a [[tangy]] loaf.");
+    expect(prompt).toContain("The yeast smells tangy.");
+    expect(prompt).toContain("Knead the dough.");
+  });
+
+  it("chooses the answer's meaning for the card: the word is saved as Learning", async () => {
+    const { provider } = fakeExplanationProvider({
+      answers: [answerJson({ meaning: "ぴりっとした" })],
+    });
+    const { state, app, bg } = await start(undefined, {
+      explainProvider: provider,
+    });
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().explain?.state).toBe("idle");
+    app.explainHere();
+    await expect.poll(() => state().explain?.state).toBe("answer");
+    app.useAnswer();
+    await expect.poll(() => state().panel?.card.status).toBe("learning");
+    expect(bg.sent("chooseMeaning")).toEqual([
+      expect.objectContaining({
+        term: expect.objectContaining({
+          key: "tangy",
+          sentence: "The yeast smells tangy.",
+        }),
+        meaning: { from: "ai", text: "ぴりっとした" },
+      }),
+    ]);
+    await expect
+      .poll(() => state().panel?.card.chosenHere)
+      .toBe(state().panel?.card.yourMeanings[0]?.key);
+  });
+
+  it("stops explaining when the window closes or Lingo is switched off", async () => {
+    const { provider, log } = fakeExplanationProvider({ answers: [HANG] });
+    const { state, app } = await start(undefined, {
+      explainProvider: provider,
+    });
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().explain?.state).toBe("idle");
+    app.explainHere();
+    await expect.poll(() => log.prompts.length).toBe(1);
+    app.closePanel();
+    await expect.poll(() => log.aborted).toBe(1);
+    expect(state().explain).toBeNull();
+
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().explain?.state).toBe("idle");
+    app.explainHere();
+    await expect.poll(() => log.prompts.length).toBe(2);
+    app.setEnabled(false);
+    await expect.poll(() => log.aborted).toBe(2);
+    expect(state().panel).toBeNull();
+    expect(state().explain).toBeNull();
+  });
+
+  it("has no section without a provider", async () => {
+    const { state, app } = await start();
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "tangy"));
+    await expect.poll(() => state().panel?.card.head).toBe("tangy");
+    expect(state().explain).toBeNull();
   });
 });

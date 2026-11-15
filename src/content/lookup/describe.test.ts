@@ -8,6 +8,7 @@ import type {
 import { rulesFor } from "../../core/phrases/rules";
 import type { TranslationPair, TranslationPriority } from "../translate/queue";
 import {
+  answerChoice,
   describeTerm,
   hoverView,
   inflectionNote,
@@ -1074,6 +1075,64 @@ describe("your meanings", () => {
         explanation: "パン作りの用語。",
       });
       expect(rows).toHaveLength(5);
+    });
+
+    it("follows the on-device AI's answer: its meaning stays in its card, the sense it names fits", () => {
+      const ai = mine("ai", { from: "ai", text: "（生地の）折り込み" });
+      const other = mine("other", { from: "ai", text: "囲い" });
+      const answer = { meaning: "（生地の）折り込み", sense: 2 };
+      const shown = { ...card, yourMeanings: [ai, other] };
+      const rows = meaningRows(shown, answer);
+      expect(rows.map((r) => [r.sense.text, r.sense.fits])).toEqual([
+        ["囲い", undefined],
+        ["折り目、ひだ", undefined],
+        ["…を折り畳む", true],
+        ["To mix gently.", undefined],
+      ]);
+      expect(windowView(shown, answer).senses).toEqual(
+        rows.map((r) => r.sense),
+      );
+    });
+  });
+
+  describe("answerChoice", () => {
+    const card: TermCard = {
+      key: "fold",
+      kind: "word",
+      head: "fold",
+      status: "learning",
+      termId: "en:fold",
+      senses: [],
+      elsewhere: [],
+      yourMeanings: [mine("k", { from: "ai", text: "折り込み" })],
+    };
+    const answer = {
+      meaning: "折り込み",
+      unusual: true,
+      explanation: "パン作りの用語。",
+      sense: null,
+    };
+
+    it("saves the meaning with the explanation it showed; Used here when chosen for this sentence", () => {
+      expect(answerChoice(card, answer)).toEqual({
+        meaning: {
+          from: "ai",
+          text: "折り込み",
+          explanation: "パン作りの用語。",
+        },
+        usedHere: false,
+      });
+      expect(answerChoice({ ...card, chosenHere: "k" }, answer).usedHere).toBe(
+        true,
+      );
+    });
+
+    it("keeps no explanation for an ordinary use", () => {
+      const ordinary = { ...answer, unusual: false };
+      expect(answerChoice(card, ordinary).meaning).toEqual({
+        from: "ai",
+        text: "折り込み",
+      });
     });
   });
 });

@@ -7,6 +7,8 @@ import type { Cue } from "../../core/subtitles/types";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import type { TermBrief } from "../../messaging/protocol";
 import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
+import type { ExplainView } from "../../ui/lookup/InThisSentence";
+import type { ExplainActions } from "../explain/panel";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
@@ -119,6 +121,8 @@ export interface VideoState {
   subtitleTranslation: string;
   hover: VideoHover | null;
   panel: VideoPanel | null;
+  /** The window's "In this sentence"; null: none. */
+  explain: ExplainView | null;
   /** The card over words selected in the subtitle or the transcript. */
   phrase: VideoPhrase | null;
   /**
@@ -155,7 +159,7 @@ export interface VideoState {
 }
 
 /** The UI's view of the video: its state and what its controls do. */
-export interface VideoApp {
+export interface VideoApp extends ExplainActions {
   readonly store: Store<VideoState>;
   /** The L button: Lingo on or off for this video. */
   setEnabled(on: boolean): void;
@@ -264,6 +268,7 @@ export function freshState(
     subtitleTranslation: "",
     hover: null,
     panel: null,
+    explain: null,
     phrase: null,
     selecting: false,
     subtitleHover: false,

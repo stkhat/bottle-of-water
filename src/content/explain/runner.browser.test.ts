@@ -172,7 +172,8 @@ describe("explain runner", () => {
           channel.port1.onmessage = () => resolve();
           channel.port2.postMessage(null);
         });
-      for (let i = 0; i < 1_000 && log.prompts.length === 0; i++) await task();
+      // The cache is read first: under a loaded browser its database can take a while.
+      for (let i = 0; i < 20_000 && log.prompts.length === 0; i++) await task();
       expect(log.prompts).toHaveLength(1);
       await vi.advanceTimersByTimeAsync(29_999);
       expect(log.aborted).toBe(0);

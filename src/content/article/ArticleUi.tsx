@@ -1,5 +1,6 @@
 import { useMemo } from "preact/hooks";
 import type { ArticleApp, ArticleState, WordsPanel } from "./state";
+import { explainSection, shownAnswer } from "../explain/panel";
 import { hoverView, windowView } from "../lookup/describe";
 import { boxOf, type Box } from "../lookup/geometry";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
@@ -70,7 +71,7 @@ export function ArticleUi({
   panelFrame?: () => PanelFrame | null;
 }) {
   const state = useStore(app.store);
-  const { settings, hover, panel, phrase, words, flash } = state;
+  const { settings, hover, panel, phrase, words, flash, explain } = state;
 
   return (
     <ThemeScope theme={settings.theme}>
@@ -86,13 +87,14 @@ export function ArticleUi({
           <DictionaryWindow
             variant="panel"
             frame={panelFrame?.() ?? (words ? BESIDE_WORDS : DEFAULT_FRAME)}
-            entry={windowView(panel.card)}
+            entry={windowView(panel.card, shownAnswer(explain))}
             nativeLang={settings.nativeLang}
             learningLang={settings.learningLang}
             status={panel.card.status}
             onStatus={app.setPanelStatus}
             onUse={app.useMeaning}
             onSpeak={app.speak}
+            explain={explainSection(panel.card, explain, app)}
             dictionaries={panel.dictionaries}
             here={{
               source: "page",

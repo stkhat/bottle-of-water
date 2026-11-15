@@ -10,6 +10,9 @@ import type {
 } from "../../messaging/protocol";
 import type { PackState, PackStates } from "../../core/packs/state";
 import { mergeSettings, type Settings } from "../../core/settings";
+import type { ExplanationProvider } from "../../core/explain/provider";
+import type { LanguagePair } from "../../core/packs/pairs";
+import { fakeExplanationProvider } from "../../testing/explain";
 import { SettingsPage, type SettingsDeps } from "./SettingsPage";
 import { listeners, settingsListeners } from "../../testing/stubs";
 
@@ -29,7 +32,8 @@ const SYNC: SyncStatus = {
 
 interface FakeOptions {
   settings?: Partial<Settings>;
-  builtInAi?: boolean;
+  /** The on-device AI (default: none, as in Firefox). */
+  explainProvider?: ExplanationProvider;
   lastExport?: number | null;
   importResult?: ImportResult | Error;
   history?: HistoryStatus;
@@ -103,11 +107,11 @@ function fake(options: FakeOptions = {}) {
     env: {
       name: "Chrome",
       syncName: "Chrome sync",
-      features: {
-        builtInAi: options.builtInAi ?? true,
-        fileSystemAccess: true,
-      },
+      features: { fileSystemAccess: true },
     },
+    ...(options.explainProvider && {
+      explainProvider: options.explainProvider,
+    }),
     version: "0.1.0",
     now: () => NOW,
     download: (name, text) => downloads.push({ name, text }),
@@ -537,28 +541,96 @@ describe("SettingsPage", () => {
     expect(f.settings().dictionaries.reverso).toBe(false);
   });
 
-  it("mentions the browser's built-in AI only where there is one", async () => {
-    const withAi = await open({ builtInAi: true });
-    const ai = section(withAi.screen, "Dictionaries and AI");
-    await expect
-      .element(
-        ai.getByText(
-          "Uses Chrome's built-in AI on your device, or your own API key.",
-        ),
-      )
-      .toBeVisible();
-    await expect.element(ai.getByText("Coming later")).toBeVisible();
-    cleanup();
+  describe("On-device AI", () => {
+    const AI_TEXT =
+      "Chrome's built-in AI explains a word in the sentence you met it in, in the dictionary window. It runs on this device.";
+    const UNKNOWN = "Explain words the dictionary doesn't have";
 
-    const without = await open({ builtInAi: false });
-    await expect
-      .element(
-        section(without.screen, "Dictionaries and AI").getByText(
-          "Uses your own API key.",
-        ),
-      )
-      .toBeVisible();
-    expect(without.screen.getByText(/built-in AI/).query()).toBeNull();
+    it("downloads the model: Download, Downloading with its percentage, Ready", async () => {
+      let progress: ((loaded: number) => void) | undefined;
+      let finish: (() => void) | undefined;
+      const { provider } = fakeExplanationProvider({
+        availability: "downloadable",
+      });
+      const asked: LanguagePair[] = [];
+      const availability = provider.availability.bind(provider);
+      provider.availability = (pair) => {
+        asked.push(pair);
+        return availability(pair);
+      };
+      provider.download = (_pair, onProgress) => {
+        progress = onProgress;
+        return new Promise<void>((resolve) => (finish = resolve));
+      };
+      const f = await open({ explainProvider: provider });
+      const ai = section(f.screen, "Dictionaries and AI");
+      await expect.element(ai.getByText("On-device AI")).toBeVisible();
+      await expect.element(ai.getByText(AI_TEXT)).toBeVisible();
+      expect(asked).toEqual([{ learning: "en", native: "ja" }]);
+
+      await ai.getByRole("button", { name: "Download" }).click();
+      await expect
+        .element(ai.getByRole("status"))
+        .toHaveTextContent("Downloading0%");
+      progress!(0.42);
+      await expect
+        .element(ai.getByRole("status"))
+        .toHaveTextContent("Downloading42%");
+      finish!();
+      await expect.element(ai.getByText("Ready")).toBeVisible();
+      expect(ai.getByRole("button", { name: "Download" }).query()).toBeNull();
+    });
+
+    it("reads the model again for another pair, and shows Ready when it is there", async () => {
+      const { provider } = fakeExplanationProvider();
+      const f = await open({ explainProvider: provider });
+      const ai = section(f.screen, "Dictionaries and AI");
+      await expect.element(ai.getByText("Ready")).toBeVisible();
+      provider.availability = async (pair) =>
+        pair.native === "pt" ? "unavailable" : "ready";
+      f.changeSettings({ nativeLang: "pt" });
+      await expect.poll(() => ai.getByText("On-device AI").query()).toBeNull();
+      expect(ai.getByRole("switch", { name: UNKNOWN }).query()).toBeNull();
+    });
+
+    it("switches explaining words without an entry, on by default", async () => {
+      const { provider } = fakeExplanationProvider();
+      const f = await open({ explainProvider: provider });
+      const ai = section(f.screen, "Dictionaries and AI");
+      const unknown = ai.getByRole("switch", { name: UNKNOWN });
+      await expect.element(unknown).toHaveAttribute("aria-checked", "true");
+      await expect
+        .element(
+          ai.getByText(
+            "As soon as the dictionary window opens. Words with an entry are explained when you press Explain in context.",
+          ),
+        )
+        .toBeVisible();
+      await unknown.click();
+      await expect.element(unknown).toHaveAttribute("aria-checked", "false");
+      expect(f.settings().explainUnknown).toBe(false);
+      expect(setSettingsPatches(f.sent)).toContainEqual({
+        explainUnknown: false,
+      });
+    });
+
+    it("shows no rows where the pair cannot run, nor without a provider", async () => {
+      const { provider } = fakeExplanationProvider({
+        availability: "unavailable",
+      });
+      const f = await open({ explainProvider: provider });
+      await expect
+        .element(section(f.screen, "Dictionaries and AI"))
+        .toBeVisible();
+      expect(f.screen.getByText("On-device AI").query()).toBeNull();
+      expect(f.screen.getByText(UNKNOWN).query()).toBeNull();
+      cleanup();
+
+      const without = await open();
+      expect(without.screen.getByText("On-device AI").query()).toBeNull();
+      expect(without.screen.getByText(/built-in AI/).query()).toBeNull();
+      expect(without.screen.getByText(UNKNOWN).query()).toBeNull();
+    });
   });
 
   it("picks the subtitle position and the translation switches", async () => {

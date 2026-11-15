@@ -35,6 +35,7 @@ describe("DEFAULT_SETTINGS", () => {
       disabledSites: [],
       syncEnabled: true,
       sentenceHistory: true,
+      explainUnknown: true,
       theme: "system",
     });
   });
@@ -46,6 +47,11 @@ describe("mergeSettings", () => {
       false,
     );
     expect(mergeSettings({ transcriptShown: "no" }).transcriptShown).toBe(true);
+  });
+
+  it("keeps explaining words without an entry switched off, on for anything but a boolean", () => {
+    expect(mergeSettings({ explainUnknown: false }).explainUnknown).toBe(false);
+    expect(mergeSettings({ explainUnknown: 0 }).explainUnknown).toBe(true);
   });
 
   it("fills missing keys from the defaults", () => {

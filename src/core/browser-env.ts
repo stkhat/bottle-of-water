@@ -11,8 +11,6 @@ export interface BrowserEnv {
   /** e.g. "Chrome sync". */
   syncName: string;
   features: {
-    /** Prompt API. */
-    builtInAi: boolean;
     /** File System Access API (saving to a folder). */
     fileSystemAccess: boolean;
   };
@@ -28,7 +26,6 @@ export function createBrowserEnv(
       ? { name: "Firefox", syncName: "Firefox Sync" }
       : { name: "Chrome", syncName: "Chrome sync" }),
     features: {
-      builtInAi: "LanguageModel" in g,
       fileSystemAccess: "showDirectoryPicker" in g,
     },
   };

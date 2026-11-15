@@ -23,6 +23,10 @@ export function createCards(o: {
   lookup: Lookup;
   flat(text: string): string;
   onPanelOpen?(): void;
+  /** The window opened on `ref`'s term (not looked up again in an open window). */
+  opened?(ref: WordRef, card: TermCard): void;
+  /** The window closed. */
+  closed?(): void;
 }) {
   const { store, lookup, flat } = o;
 
@@ -125,6 +129,7 @@ export function createCards(o: {
     if (!isLatest() || !card) return;
     if (!store.get().panel) opened++;
     showPanel(ref, card, opened);
+    o.opened?.(ref, card);
     o.onPanelOpen?.();
   }
 
@@ -194,6 +199,7 @@ export function createCards(o: {
     closePanel() {
       panelTicket.drop();
       store.set({ panel: null });
+      o.closed?.();
     },
   };
 }

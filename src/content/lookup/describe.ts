@@ -1,4 +1,5 @@
 import type { Category, TermKind, WordStatus } from "../../core/classify";
+import type { Answer } from "../../core/explain/answer";
 import {
   cleanDefinition,
   isUsageNoteShort,
@@ -84,21 +85,31 @@ export interface MeaningRow {
   meaning: Meaning;
 }
 
+/** The on-device AI's answer "In this sentence" shows, as far as Meanings follows it. */
+type ShownAnswer = Pick<Answer, "meaning" | "sense">;
+
 /**
  * The dictionary window's Meanings: the meanings chosen elsewhere that are not one of
  * the entry's senses first (the on-device AI's, a sense a pack update took away), then
  * the entry's senses. A chosen dictionary meaning is matched to its sense by part of
  * speech and the pack's text (`matchSense`), so a translation shown for it changes
  * nothing. Each row says how many sentences its meaning was chosen for and whether it
- * was chosen for this one.
+ * was chosen for this one. With the on-device AI's `answer` for this sentence, the AI
+ * meaning that is its meaning is left to its card, and the sense it names "Fits here".
  */
-export function meaningRows(card: TermCard): MeaningRow[] {
+export function meaningRows(
+  card: TermCard,
+  answer?: ShownAnswer,
+): MeaningRow[] {
   const mine = card.yourMeanings;
   const chosen = (m: YourMeaning | undefined) =>
     m && { chosen: m.count, usedHere: m.key === card.chosenHere };
   const dictionary = mine.filter((m) => m.from === "dictionary");
+  const inCard = (m: YourMeaning) =>
+    m.from === "ai" && answer !== undefined && m.text === answer.meaning;
   const others = mine
     .filter((m) => m.from === "ai" || matchSense(m, card.senses) < 0)
+    .filter((m) => !inCard(m))
     .map((m): MeaningRow => ({
       sense: {
         text: m.text,
@@ -120,10 +131,11 @@ export function meaningRows(card: TermCard): MeaningRow[] {
         ...(m.explanation !== undefined && { explanation: m.explanation }),
       },
     }));
-  const senses = card.senses.map((sense): MeaningRow => ({
+  const senses = card.senses.map((sense, i): MeaningRow => ({
     sense: {
       ...sense,
       ...chosen(dictionary.find((m) => matchSense(m, [sense]) === 0)),
+      ...(answer?.sense === i + 1 && { fits: true as const }),
     },
     meaning: {
       from: "dictionary",
@@ -133,6 +145,45 @@ export function meaningRows(card: TermCard): MeaningRow[] {
     },
   }));
   return [...others, ...senses];
+}
+
+/** A meaning the window offers for this sentence, and whether it is the one chosen. */
+export interface Choice {
+  meaning: Meaning;
+  usedHere: boolean;
+}
+
+/** "Use here" on a Meanings row. */
+export const rowChoice = (row: MeaningRow | undefined): Choice | undefined =>
+  row && { meaning: row.meaning, usedHere: row.sense.usedHere === true };
+
+/**
+ * The entry's senses as the on-device AI reads them: as the pack has them (an English
+ * definition in English), with their parts of speech, in order.
+ */
+export const packSenses = (card: TermCard) =>
+  card.senses.map(({ pos, text }) => ({
+    text,
+    ...(pos !== undefined && { pos }),
+  }));
+
+/**
+ * "Use this meaning" on the on-device AI's `answer`: the meaning it saves (with the
+ * explanation it showed) and whether it is the one chosen for this sentence.
+ */
+export function answerChoice(card: TermCard, answer: Answer): Choice {
+  const kept = card.yourMeanings.find(
+    (m) => m.from === "ai" && m.text === answer.meaning,
+  );
+  return {
+    meaning: {
+      from: "ai",
+      text: answer.meaning,
+      ...(answer.unusual &&
+        answer.explanation !== null && { explanation: answer.explanation }),
+    },
+    usedHere: kept !== undefined && kept.key === card.chosenHere,
+  };
 }
 
 /** The status the hover card shows: a word known by its frequency shows as Known. */
@@ -175,7 +226,10 @@ export const hoverView = (card: TermCard) => {
  * translation" only for a literal translation: translated definitions are marked on
  * the Meanings heading.
  */
-export const windowView = (card: TermCard): DictionaryEntryView => ({
+export const windowView = (
+  card: TermCard,
+  answer?: ShownAnswer,
+): DictionaryEntryView => ({
   head: card.head,
   kind: card.kind,
   ipa: card.ipa,
@@ -183,7 +237,7 @@ export const windowView = (card: TermCard): DictionaryEntryView => ({
   short: card.short,
   shortLang: card.shortLang,
   machineTranslated: card.machineTranslated === "literal",
-  senses: meaningRows(card).map((row) => row.sense),
+  senses: meaningRows(card, answer).map((row) => row.sense),
   glossLang: card.glossLang,
 });
 

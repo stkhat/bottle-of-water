@@ -29,6 +29,17 @@ export function freePort(): Promise<number> {
   });
 }
 
+/**
+ * Chrome's own warnings when a page asks `LanguageModel.availability()` while its
+ * built-in AI is turned off (a feature flag in Playwright's Chromium, or
+ * chrome://settings/ai): they describe the browser, not a fault of Lingo, which has to
+ * ask to know whether to show "On-device AI". Chrome writes them at the page itself,
+ * not from a script.
+ */
+const builtInAiOff = (text: string, url: string) =>
+  /On-device AI is disabled|model execution was disabled/.test(text) &&
+  !url.endsWith(".js");
+
 const firstAt = (stack: string | undefined) =>
   stack
     ?.split("\n")
@@ -269,6 +280,8 @@ export async function collectExtensionErrors(
     // An extension page's every message; on a web page, those from the extension's
     // scripts (content scripts) or about its files.
     if (!page.url().startsWith(origin) && !location.url.startsWith(origin))
+      return;
+    if (type === "warning" && builtInAiOff(message.text(), location.url))
       return;
     reports.push({
       source: pageSource(page.url()),

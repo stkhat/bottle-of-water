@@ -120,6 +120,16 @@ export function PlayIcon() {
 }
 
 /** The dictionary window's drag handle: two columns of three dots. */
+/** "Explain in context": the on-device AI (mock ContextMeaning). */
+export function SparkleIcon() {
+  return (
+    <Outline size={16} stroke={1.8} join>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path>
+      <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"></path>
+    </Outline>
+  );
+}
+
 export function GripIcon() {
   return (
     <svg
