@@ -959,6 +959,37 @@ describe("DictionaryWindow: in this sentence", () => {
     ).toBeNull();
   });
 
+  test("keeps Use this meaning and where it came from on one line each in the article panel", async () => {
+    // The real check (M4): in the 340 px panel both broke onto two lines.
+    const props: DictionaryWindowProps = {
+      ...panel,
+      explain: withExplain({ state: "answer", answer: ANSWER, lines: 5 }).props
+        .explain,
+    };
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    const lineCount = (element: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.top)))
+        .size;
+    };
+    const use = screen.getByRole("button", { name: "Use this meaning" });
+    const meta = screen.getByText("On-device AI · 5 lines");
+    await expect.element(meta).toBeVisible();
+    expect(lineCount(use.element())).toBe(1);
+    expect(lineCount(meta.element())).toBe(1);
+    // Still at the card's right, as in the mock.
+    const card = use.element().closest("div")!.parentElement!;
+    const cardRight =
+      card.getBoundingClientRect().right -
+      parseFloat(getComputedStyle(card).paddingRight) -
+      parseFloat(getComputedStyle(card).borderRightWidth);
+    expect(meta.element().getBoundingClientRect().right).toBeCloseTo(
+      cardRight,
+      0,
+    );
+  });
+
   test("leaves the explanation out for an ordinary use, and reads Used here when chosen", async () => {
     const { props } = withExplain(
       {
