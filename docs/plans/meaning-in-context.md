@@ -3,7 +3,11 @@
 To be committed as `docs/plans/meaning-in-context.md` (English). Deleted once M4 is merged (decisions go into the spec, status and notes).
 
 Progress (the parent session runs each step as a subagent end to end: branch, `npm run verify`, draft PR → ready → `merge-when-green.sh`, then worktree and branch removed, local main fast-forwarded):
-- [ ] M0. Checks before building (the user's Chrome) → notes + spec/mock changes, one docs PR — **gate: the user decides what gets built**
+- [ ] M0. Checks before building (the user's Chrome) → notes + spec/mock changes, one docs PR — **gate: the user decides what gets built**. Stopped 2026-11-15, partial results in [notes](../notes/meaning-in-context.md); study folder README says how to resume
+  - [x] C1. API surface (every context, pairs, activation, docs)
+  - [ ] C2. Latency: fresh sessions done (sentence, 5/10/20 lines, most that fits); `clone()` batch and the cap left
+  - [ ] C3. Quality (prototype and sample ready; no C3 batch run or judged)
+  - [ ] C4. Prompts per native language
 - [ ] M1a. Your meanings: data, messages, JSON export v2, "Use here" in the dictionary window
 - [ ] M1b. Your meanings: hover card, Words lists, word list page
 - [ ] M2. `ExplanationProvider`, `core/explain/`, the explanations cache, the per-page runner (fake provider)
