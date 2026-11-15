@@ -3,9 +3,9 @@
 Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left, in no fixed order; the user picks the next one.
 
 ## Phase 3 ([design](../specs/design.md) "Phases")
-- "Ask AI" links (ChatGPT / Claude with the word and sentence)
-- LLM explanations: Chrome's Prompt API first, the user's own API key as fallback; cached per word + sentence; user-initiated only, never automatic hovers ([design](../specs/design.md) "Phases")
+- Meaning in context (on-device AI in the dictionary window) and your meanings (a meaning per sentence for words with several): designed and mock approved 2026-11-15 ([architecture](../specs/architecture.md) "Meaning in context"); its "Checks before building" come first. The user's own API key is a later step of its own
 - Tatoeba example sentences (CC BY)
+- Not done: "Ask AI" links to ChatGPT / Claude (user, 2026-11-15; [design](../specs/design.md) "Phases")
 - Anki / CSV export
 - More sites (each a `PlatformAdapter`)
 - New screens go into the mock first and are built after the user reviews them
