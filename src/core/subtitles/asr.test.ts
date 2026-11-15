@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   alignAsrSentences,
   asrSentenceCards,
+  cueWords,
   type TranslatedCards,
 } from "./asr";
 import type { SentenceCards } from "./cues";
+import { parseTtml } from "./ttml";
 import type { Cue } from "./types";
 import { parseYouTubeJson3 } from "./youtube-json3";
 
@@ -453,6 +455,125 @@ describe("alignAsrSentences", () => {
     });
   });
 
+  it("dates a sentence end inside a long translated piece when it is said", () => {
+    // One translated piece holds two sentences, the first covering two English ones: its
+    // end mark is said near "going?", not at the piece's start (near "Hi.").
+    const result = alignAsrSentences(
+      [
+        words(0, 2700, [
+          [0, "Hi."],
+          [600, " Where"],
+          [900, " are"],
+          [1200, " you"],
+          [1500, " going?"],
+          [2200, " Home."],
+        ]),
+      ],
+      [cue(0, 2700, "やあ、どこへ行くの？家へ。")],
+      { translationJoiner: "", lang: "en" },
+    );
+    expect(result && pairs(result)).toEqual([
+      ["Hi. Where are you going?", "やあ、どこへ行くの？"],
+      ["Home.", "家へ。"],
+    ]);
+  });
+
+  describe("a speaker change inside a translated sentence", () => {
+    const align = (english: Cue[], translated: Cue[]) => {
+      const result = alignAsrSentences(english, translated, {
+        translationJoiner: "",
+        lang: "en",
+      });
+      expect(result).toBeDefined();
+      expectWellFormed(result!);
+      return pairs(result!);
+    };
+    /** `count` words half a second apart, from `startMs`, each after a space. */
+    const run = (startMs: number, count: number, word: string) =>
+      Array.from(
+        { length: count },
+        (_, i) => [startMs + i * 500, ` ${word}${i}`] as [number, string],
+      );
+
+    it("ends the card, its translation cut at the clause end said there", () => {
+      expect(
+        align(
+          [
+            words(0, 5000, [
+              [0, "so"],
+              [300, " what"],
+              [600, " do"],
+              [900, " you"],
+              [1200, " think"],
+              [2000, " >> I"],
+              [2300, " think"],
+              [2600, " it's"],
+              [2900, " great"],
+            ]),
+            words(5000, 6000, [[0, "thanks"]]),
+          ],
+          [
+            words(0, 5000, [
+              [0, "どう思う、"],
+              [2000, "素晴らしいと思う。"],
+            ]),
+            words(5000, 6000, [[0, "ありがとう。"]]),
+          ],
+        ),
+      ).toEqual([
+        ["so what do you think", "どう思う、"],
+        [">> I think it's great", "素晴らしいと思う。"],
+        ["thanks", "ありがとう。"],
+      ]);
+    });
+
+    it("gives each clause the side it ends on when no clause end is near", () => {
+      // A sound label before the change: the whole translation is said after it.
+      expect(
+        align(
+          [
+            words(0, 3000, [
+              [0, "[laughter]"],
+              [1500, " >> live"],
+              [1800, " singing"],
+              [2100, " tonight"],
+            ]),
+            words(3000, 4000, [[0, "yes"]]),
+          ],
+          [
+            words(0, 3000, [[0, "（笑）ライブで歌うの？"]]),
+            words(3000, 4000, [[0, "はい。"]]),
+          ],
+        ),
+      ).toEqual([
+        ["[laughter]", ""],
+        [">> live singing tonight", "（笑）ライブで歌うの？"],
+        ["yes", "はい。"],
+      ]);
+      // Clause ends far from the change: each goes where it ends in time.
+      expect(
+        align(
+          [
+            words(0, 14000, [
+              [0, "a"],
+              ...run(500, 15, "a"),
+              [8000, " >> b"],
+              ...run(8500, 10, "b"),
+            ]),
+            words(14000, 15000, [[0, "next"]]),
+          ],
+          [
+            words(0, 14000, [
+              [0, "前の人の話、"],
+              [2000, "次の人の話。"],
+            ]),
+            words(14000, 15000, [[0, "次。"]]),
+          ],
+        ).map(([, translation]) => translation),
+      ).toEqual(["前の人の話、", "次の人の話。", "次。"]);
+    });
+  });
+
   it("ends a translated sentence at a period only before a space", () => {
     const result = alignAsrSentences(
       [
@@ -489,5 +610,231 @@ describe("alignAsrSentences", () => {
         [cue(0, 2000, "こんにちは")],
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("cueWords", () => {
+  it("spreads a cue's time over its characters", () => {
+    expect(cueWords(cue(1000, 2000, "One two three four"))).toEqual([
+      { startMs: 1000, text: "One" },
+      { startMs: 1222, text: " two" },
+      { startMs: 1444, text: " three" },
+      { startMs: 1778, text: " four" },
+    ]);
+  });
+
+  it("keeps a bracketed sound label one word", () => {
+    expect(
+      cueWords(cue(0, 1000, "(Laughter) [door closes] Yes.")).map(
+        (w) => w.text,
+      ),
+    ).toEqual(["(Laughter)", " [door closes]", " Yes."]);
+  });
+
+  it("marks a new line, and the first word of a speaker's dash line", () => {
+    expect(
+      cueWords(cue(0, 1000, "- How much?\n- Two - no,\nthree.")).map((w) => [
+        w.text,
+        w.speaker === true,
+      ]),
+    ).toEqual([
+      ["-", true],
+      [" How", false],
+      [" much?", false],
+      ["\n-", true],
+      [" Two", false],
+      // A dash inside a line is not a speaker.
+      [" -", false],
+      [" no,", false],
+      ["\nthree.", false],
+    ]);
+  });
+});
+
+describe("asrSentenceCards on a manual track (linesByCue)", () => {
+  /** Cues as `captionCards` passes a manual track's: with `cueWords`. */
+  const manual = (cues: readonly Cue[], joiner = " ") =>
+    asrSentenceCards(
+      cues.map((c) => ({ ...c, words: cueWords(c) })),
+      { joiner, lang: "en", linesByCue: true },
+    );
+
+  it("joins a sentence's cues into one card, each cue one line", () => {
+    const result = manual([
+      cue(1000, 3000, "DID YOU EVEN INTERVIEW THIS WOMAN"),
+      cue(3100, 5000, "BEFORE YOU ASKED HER\nTO MOVE IN?"),
+      cue(5200, 6000, "I DIDN'T KNOW THAT, EITHER."),
+    ]);
+    expect(texts(result)).toEqual([
+      "DID YOU EVEN INTERVIEW THIS WOMAN BEFORE YOU ASKED HER TO MOVE IN?",
+      "I DIDN'T KNOW THAT, EITHER.",
+    ]);
+    expect(lineTexts(result, 0)).toEqual([
+      "DID YOU EVEN INTERVIEW THIS WOMAN",
+      "BEFORE YOU ASKED HER TO MOVE IN?",
+    ]);
+    // A line keeps its cue's times (it ends with the cue, or when the next line starts).
+    expect(result.lines.map((l) => [l.startMs, l.endMs])).toEqual([
+      [1000, 3000],
+      [3100, 5000],
+      [5200, 6000],
+    ]);
+  });
+
+  it("puts no card boundary inside a cue", () => {
+    const result = manual([
+      cue(0, 3000, "It was late. But is this fair? After all,"),
+      cue(3000, 5000, "we all agreed to it."),
+      cue(5000, 6000, "Yes."),
+    ]);
+    expect(texts(result)).toEqual([
+      "It was late. But is this fair? After all, we all agreed to it.",
+      "Yes.",
+    ]);
+    expect(result.lines).toHaveLength(3);
+  });
+
+  it("starts a card at a speaker's dash and keeps each dash line on its own line", () => {
+    const result = manual([
+      cue(0, 1000, "Wait, where are you"),
+      cue(1000, 2000, "- going?"),
+      cue(2000, 4000, "- How much?\n- Two hundred pounds."),
+      cue(4000, 5000, "- Where are you"),
+      cue(5000, 6000, "going?"),
+    ]);
+    expect(texts(result)).toEqual([
+      "Wait, where are you",
+      "- going?",
+      "- How much?\n- Two hundred pounds.",
+      // One speaker's sentence goes on in the next cue.
+      "- Where are you going?",
+    ]);
+    expect(lineTexts(result, 2)).toEqual([
+      "- How much?\n- Two hundred pounds.",
+    ]);
+  });
+
+  it("keeps sound labels on their own", () => {
+    expect(
+      texts(
+        manual([
+          cue(0, 1000, "[DOOR OPENS]"),
+          cue(1000, 2000, "So."),
+          cue(2000, 3000, "(LAUGHS)"),
+        ]),
+      ),
+    ).toEqual(["[DOOR OPENS]", "So.", "(LAUGHS)"]);
+  });
+
+  it("starts a sentence at a ♪ that opens a line", () => {
+    const sung = [
+      cue(0, 2000, "-[man shouting on TV]"),
+      cue(2000, 4000, "♪ Ooh, yeah ♪"),
+      cue(4000, 6000, "He called Alice ♪"),
+      cue(6000, 8000, "♪ When she was just small ♪"),
+    ];
+    expect(texts(manual(sung))).toEqual([
+      "-[man shouting on TV]",
+      "♪ Ooh, yeah ♪",
+      "He called Alice ♪",
+      "♪ When she was just small ♪",
+    ]);
+    // Also where cards may end inside a cue: the opening ♪ is no card of its own.
+    expect(
+      texts(
+        asrSentenceCards(
+          [cue(0, 4000, "He called Alice ♪\n♪ When she was small ♪")].map(
+            (c) => ({ ...c, words: cueWords(c) }),
+          ),
+        ),
+      ),
+    ).toEqual(["He called Alice ♪", "♪ When she was small ♪"]);
+  });
+
+  it("splits a long sentence at a clause between cues, not at its largest pause", () => {
+    const result = manual([
+      cue(
+        0,
+        3000,
+        "When we started this project five years ago in a small office",
+      ),
+      cue(3000, 6000, "with only three people and a borrowed computer,"),
+      cue(6000, 8000, "we had no idea how far it would go or who would"),
+      cue(10000, 12000, "come to rely on it every single day."),
+      cue(12000, 13000, "Thank you."),
+    ]);
+    expect(texts(result)).toEqual([
+      "When we started this project five years ago in a small office with only three people and a borrowed computer,",
+      "we had no idea how far it would go or who would come to rely on it every single day.",
+      "Thank you.",
+    ]);
+  });
+
+  it("joins cues without spaces for languages written without them", () => {
+    expect(
+      texts(
+        manual(
+          [cue(0, 1000, "そうなんだ"), cue(1000, 2000, "知らなかった。")],
+          "",
+        ),
+      ),
+    ).toEqual(["そうなんだ知らなかった。"]);
+  });
+
+  it("makes sentence cards of Netflix's closed captions, every cue one line", () => {
+    const captions = parseTtml(
+      readFileSync(
+        new URL("./fixtures/netflix/en.imsc.ttml", import.meta.url),
+        "utf8",
+      ),
+    );
+    const result = manual(captions);
+    expect(texts(result)).toEqual([
+      "GOOD EVENING, AND WELCOME BACK TO THE WORKSHOP.",
+      "TONIGHT WE TALK ABOUT CREATIVITY IN THE CLASSROOM.",
+      "EVERY CHILD HAS AN EXTRAORDINARY IMAGINATION.",
+      "WE SHOULD NURTURE IT, NOT STIFLE IT.",
+      "[AUDIENCE APPLAUDS]",
+      "MISTAKES ARE PART OF LEARNING.",
+      "IF YOU ARE NOT PREPARED TO BE WRONG, YOU WILL NEVER COME UP WITH ANYTHING ORIGINAL.",
+      "THAT IS THE HEART OF THE MATTER.",
+      "THANK YOU. BRAVO!",
+    ]);
+    expect(result.lines).toHaveLength(captions.length);
+    result.lines.forEach((line, i) => {
+      const card = result.cards[line.card]!;
+      expect(card.text.slice(line.start, line.end)).toBe(
+        captions[i]!.text.replaceAll("\n", " "),
+      );
+      expect(line.startMs).toBe(captions[i]!.startMs);
+    });
+  });
+
+  it("makes whole sentences of a YouTube manual track", () => {
+    const flat = texts(manual(fixture("en")));
+    expect(flat).toContain(
+      "There have been three themes running through the conference, which are relevant to what I want to talk about.",
+    );
+    expect(flat).toContain("(Laughter)");
+    expect(
+      Math.max(...flat.map((t) => t.split(" ").length)),
+    ).toBeLessThanOrEqual(30);
+  });
+
+  it("leaves an auto-generated track's long sentences to its largest pause", () => {
+    // Without linesByCue the cards are as before: split at the largest gap.
+    const cues = [
+      cue(
+        0,
+        3000,
+        "When we started this project five years ago in a small office",
+      ),
+      cue(3000, 6000, "with only three people and a borrowed computer,"),
+      cue(6000, 8000, "we had no idea how far it would go or who would"),
+      cue(10000, 12000, "come to rely on it every single day."),
+    ].map((c) => ({ ...c, words: cueWords(c) }));
+    const [first] = texts(asrSentenceCards(cues, { lang: "en" }));
+    expect(first).not.toMatch(/computer,$/);
+    expect(first!.split(" ").length).toBeLessThanOrEqual(30);
   });
 });

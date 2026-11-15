@@ -8,6 +8,7 @@ MV3 / TypeScript / WXT + Preact, UI inside Shadow DOM. UI behaviour: [ui.md](ui.
 | `LanguagePack` | Word segmentation (`Intl.Segmenter`), the vocabulary (rule E), base forms, frequency rank, **IPA**, phrase patterns with their own parts of speech and the language's **phrase matcher** (slots, gaps, detect vs select, the particles of phrasal verbs), parts of speech, the **names lexicon** and whether the language's capitals mark names ("Names and written case"), the **part-of-speech tagger** with the language's grammar of auxiliaries and participles ("Tags" below) | `en`: inflection table, frequency list, IPA table, phrase list and names lexicon built from kaikki (Wiktionary) and EJDict, tagger trained on UD English-EWT; `es` (kaikki Spanish, Wiktionary Spanish frequency list; no tagger yet) |
 | `DictionaryProvider` | Short translation, the hover card's lines (up to three senses shortened like the short translation, pointers followed to the word they name: "Short lines" below; the senses of the word's tagged part of speech first: "Tags" below; computed when an entry is looked up, so packs carry nothing extra), details (meanings by part of speech) and an outline of each headword for rule A1, with the source each term came from | `en→ja`: EJDict-hand (public domain, bundled). EJDict has no part-of-speech labels: the data build labels its senses (`en-ja/pos.json`, "Tags" below), so the extension reads no Japanese glosses for them; `es→en` from kaikki's English glosses; `en→es`, `en→pt` from recipes ("Language data") |
 | `TranslationProvider` | Translating one subtitle line / sentence. Several implementations tried in order ("Choosing a translation") | ① the site's translated subtitles (from `PlatformAdapter`) ② the browser's built-in translator (Chrome: Translator API). If neither exists, no translation |
+| `ExplanationProvider` (phase 3, not built) | A language model that answers a prompt with JSON: whether it can run (ready / downloadable / downloading / unavailable), its download, its token count and input budget ("Meaning in context") | Chrome's Prompt API (`LanguageModel`, Gemini Nano). Later the mobile app's native bridge, then the user's own API key. None in Firefox |
 | `PlatformAdapter` | Get the video element, fetch and parse subtitle tracks (**including the native-language track**), seek, detect the end, detect navigation; optionally say the page is a vertical short video (subtitle only), and that the player fills the window and can be narrowed for the transcript sidebar | YouTube (watch pages and Shorts) / Netflix |
 | `TermStore` | Store and sync terms, sources and occurrences | IndexedDB (Dexie) + `BrowserSyncBackend` + Export/Import |
 | `BrowserEnv` | Browser names for UI text and feature detection | Chrome (Firefox values only need to build) |
@@ -173,15 +174,16 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - Pick one per video and never switch midway. When a video uses the site's translation, lines without a translation are not filled in by the built-in translator (meanings would overlap and the phrasing would clash)
 - **Timing**: a site's native-language track has different line breaks and timestamps from the original (especially Japanese subtitles on Netflix)
   - Subtitle translation: look up the translation track separately by playback position and show the translation on screen at that moment as is
-  - Transcript cards (rule G, many to many): each translated cue goes to the card (sentence) it overlaps most in time (ties to the earlier card), and also to every other card of its kind (spoken or sound label) that it covers at least half of, so a condensed line spanning two sentences shows on both. A card joins all its cues in time order. A spoken line goes to a sound-label card only when it overlaps no other card. The half was measured on human Japanese tracks timed apart from the English (and on the same tracks condensed): it leaves almost no card without a line while lines with a neighbour's text barely grow; a lower share mostly adds grazing neighbours, and asking the cue to lie mostly in the card too gives back most of the empty cards. YouTube's machine translation of an auto-generated track keeps its own rule (cards follow its sentences, see "Transcript")
-  - YouTube's auto-translation of a manual track comes back with the same breaks as the original, so map it one to one; for an auto-generated track the cards come from its sentences (see "Transcript")
+  - Transcript cards (rule G, many to many): each translated cue goes to the card (sentence) it overlaps most in time (ties to the earlier card), and also to every other card of its kind (spoken or sound label) that it covers at least half of, so a condensed line spanning two sentences shows on both. A card joins all its cues in time order. A spoken line goes to a sound-label card only when it overlaps no other card. The half was measured on human Japanese tracks timed apart from the English (and on the same tracks condensed): it leaves almost no card without a line while lines with a neighbour's text barely grow; a lower share mostly adds grazing neighbours, and asking the cue to lie mostly in the card too gives back most of the empty cards. Before rule G, adjacent sentence cards that one translated line covers at least half of each are joined into one card while it stays within 30 words (`joinCoveredCards`, 2026-11-15): a translator often puts two short sentences into one line, which would otherwise show on both (the same line on two cards in a row: Netflix 4.3 → 0.1%, YouTube 2.9 → 1.3%). YouTube's machine translation keeps its own rule (cards follow its sentences, see "Transcript")
+  - YouTube's auto-translation comes back with the same breaks as the original, but YouTube translates sentence by sentence and spreads each sentence over the cues it covers, so for manual and auto-generated tracks alike the cards come from its sentences (see "Transcript"); a manual track's cards stay whole cues
 - The occurrence's `translation` stores the translation shown at that time
 - Articles have no site translation, so only the built-in translator is used
 
 ## Data model (IndexedDB)
 - One Dexie schema version (4). Versions 1–3 only added tables and were merged into it (2026-11-12); Dexie upgrades an older database by comparing the schemas
-- `terms`: `{id: "en:look up", lang, key (base form or sequence of base forms), display, kind: word|phrase, status: learning|known, bulk?: bool, note?, createdAt, updatedAt}`
+- `terms`: `{id: "en:look up", lang, key (base form or sequence of base forms), display, kind: word|phrase, status: learning|known, bulk?: bool, learnedAt?, note?, createdAt, updatedAt}`
   - Words saved by "save all" (Mark as Known at the end) get `bulk: true` (for demotion when sync space runs out)
+  - `learnedAt`: when a live term last went from `learning` to `known` (the word list's Learned, [ui](ui.md) "Word list page"). Set by that change only; going back to `learning`, removal and a sync record without the mark drop it; saving a known term again keeps it
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
@@ -193,12 +195,14 @@ Use the site's translation when it has one; fall back to the browser's built-in 
   - Meeting a saved word again records it automatically (deduplicated by source + sentence, at most 50 per word; the oldest encounters go first, the sentences the word was saved from always stay)
   - YouTube links use `&t=` to jump to the spot
   - Only pages/videos opened with the extension on are recorded
+- Phase 3 (not built): `meanings` and `meaningChoices` ("Meaning in context" → "Your meanings: data")
 - Settings live in storage.sync: language pair, interface language, frequency level, highlight categories, external dictionaries on/off, subtitle position, translation visibility (subtitle / transcript), subtitle text size and background, what to do with unsaved New words at the end, per-site on/off and the exclusion list, and the L button's on/off per video platform
 
 ## Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
 - `BrowserSyncBackend` (background) owns it. `CloudSyncBackend` (designed, not built: "Sync to the user's own cloud storage") takes over terms while connected; no shared interface is kept until it is built
 - The limits are the same in Chrome and Firefox. Use the `storage.sync` constants (`QUOTA_BYTES` etc.) when readable at runtime, otherwise the values above
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
+  - Status codes: `l` learning, `k` known, `g` known and learned (`learnedAt` set), `x` removed. A device that takes in `g` keeps its own `learnedAt` when its copy is already learned, else uses the record's update time
 - **Rough capacity**
   - Uncompressed: **~6,000 words**
   - Compressed: **~12,400 words** (English, measured 2026-11-09 with realistic save times; 20,000 words take ~170 KB)
@@ -233,11 +237,12 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 ### What is synced
 | Data | File |
 |---|---|
-| Terms (words and phrases): key, display, kind, status, `bulk`, note, created / updated / cleared times. Tombstones are kept for good | `main` |
+| Terms (words and phrases): key, display, kind, status, `bulk`, note, created / updated / cleared / learned times. Tombstones are kept for good | `main` |
 | Sources that still have an occurrence | `main` |
 | Settings (everything in `storage.sync` today) with a time per field | `main` |
 | `historyClearedAt` (the last "Clear") and `historyForgotten` (host → when it was added to "Never run on") | `main` |
 | Occurrences, saved and encountered ("Seen elsewhere"), with the sources they use | `occurrences-YYYY-MM` |
+| Your meanings (phase 3, "Meaning in context"): the meaning choices this device made, undone ones included, and the meanings they name | `main` |
 | Sentence history (pages and sentences), unless "Also save to <provider>" is off; the newest 50 MB over all devices | `history-YYYY-MM` |
 
 - Not synced: sign-in tokens, the device id, `lastSavedAt` / `lastExportAt` / `historyBytes`, downloaded packs, the translation cache
@@ -269,7 +274,8 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 ### Merge (shared with JSON import, which moves to the same rules)
 - **Order of reading**: every `main` first, then month files. A month file counts as read only when each row was taken in or dropped for good; rows for a term not known yet leave it to be read again next time
 - **Terms**: the newer `updatedAt` wins; tombstones count like any version; `clearedAt` takes the later of the two
-- **Occurrences**: taken in only if the term is live and `addedAt` ≥ its `clearedAt`. Rows are matched by (term, source, sentence); when two copies differ, one fixed order decides: `saved` beats `encountered`, then the earlier `seenAt`, then the earlier `addedAt`, then `deviceId`. The trim (50 per term, oldest encounters first, saved sentences stay) breaks ties the same way, not by the local auto-increment id
+- **Occurrences**: taken in only if the term is live and `addedAt` ≥ its `clearedAt`. Rows are matched by (term, source, sentence); when two copies differ, one fixed order decides: `saved` beats `encountered`, then the earlier `seenAt`, then the earlier `addedAt`, then `deviceId`. The trim (50 per term, oldest encounters first; saved sentences and, in phase 3, sentences with a meaning chosen stay) breaks ties the same way, not by the local auto-increment id
+- **Meaning choices** (phase 3): by (term, source, sentence), the later `at` wins (an undo is a choice of none); taken in only if the term is live and `at` ≥ its `clearedAt`. Meanings: the union by `key` (the same key is the same meaning)
 - **Sources and history pages**: ids come from the URL; first/last seen times only widen; equal `lastSeen` → the lexically smaller title
 - **History sentences**: matched by (page, text), the same fixed order for differing copies; dropped if `addedAt` < `historyClearedAt` or the page's host is in `historyForgotten` with a later time. Then the 50 MB limit (oldest pages go until under 45 MB). "Seen elsewhere" lists order by `seenAt`, not the auto-increment id
 - **Settings**: per field, the newer field time wins; defaults count as time 0, so a fresh install or the mobile app changing one field does not overwrite the rest. A settings item written by an older Lingo (no field times) counts its differing fields as changed when it arrives. Taking in `historyForgotten` from the cloud runs the same removal as adding a host locally
@@ -325,6 +331,60 @@ A throwaway build that only signs in and reads/writes one file, in Chrome and Fi
 
 - Later, not designed: a local folder via the File System Access API (Chromium only), WebDAV, and a "Forget this device" action for folders of devices no longer used
 
+## Meaning in context (phase 3; designed 2026-11-15, not built)
+What the user sees: [ui](ui.md) "Meaning in context and your meanings" (mock approved 2026-11-15). Decisions: [design](design.md) "Phases". The steps before building are under "Checks before building" below.
+
+### Parts
+- `ExplanationProvider`: one language model behind one small interface, so the mobile app and an API key later add an implementation and change nothing else
+  - `availability({learning, native})`: `ready` | `downloadable` | `downloading` | `unavailable`, for that pair (Gemini Nano does not read and write every language; an unsupported one is `unavailable`). This, not `BrowserEnv.builtInAi` (the API exists even on devices that cannot run it), decides whether the UI shows anything. Asked again whenever the dictionary window or Settings opens: Chrome removes the model when free disk runs low
+  - `download(onProgress)`: only inside a user activation (a click)
+  - `measure(text)`: its tokens (current Chrome: `measureContextUsage`, older `measureInputUsage`; it needs a session and counts the schema too); `budget`: the input tokens one prompt may use (`contextWindow`, older `inputQuota`)
+  - `prompt(text, schema, signal)`: the answer as JSON text constrained to `schema`; aborted by `signal`
+  - Implementations: `ChromePromptApi` over `LanguageModel` (detected by whether it exists, never by browser name). Later: `NativeBridge` for the mobile app (Foundation Models on iOS 26+, the ML Kit GenAI Prompt API on Android; [notes](../notes/mobile.md) "Open issues" 9), then `UserApiKey` as a step of its own (consent, store review, privacy policy)
+- `core/explain/` (browser-free, shared by every provider): collecting the context, building the prompt, the answer's schema and checking it. Its tests run with a fake provider
+- Where it runs: like the translator, where the API exists, with the answers kept by the background (`explanations`). If `LanguageModel` is missing in content scripts (check 1), the content script asks the background, which runs it in an offscreen document. A download needs a user activation where the session is created, which an offscreen document never has: then the window's "Download and explain" opens Settings at the On-device AI row instead (the mock changes if check 1 finds this)
+- One prompt at a time per page. A new one (another term, the window closed) aborts the one running. It does not share the translation queue
+
+### Context (what one prompt holds)
+- Fixed part: the instructions (English; answer in the native language), the learning and native languages, the source's title, the term as written and its base form, its kind, the sentence with the term marked (each part of a phrase with a gap), and the dictionary's meanings as the pack has them (an English definition in English, not its display-time translation), numbered, with their parts of speech. A term without an entry has no list, and its `sense` is always null
+- Lines around the sentence, added one at a time, alternately before and after (before first), each whole, until the next would pass the budget
+  - Video: the transcript cards around the term's card (cards are sentences). When the video uses a site translation (native track or YouTube's auto-translation, "Choosing a translation"), each line carries its translation, aligned by rule G. Built-in translator lines are not added (the model can translate; machine translations would add noise)
+  - Article: the sentences of the same block, then the blocks before and after in document order. YouTube comments: the comment, then its thread
+- Budget: the provider's input limit minus the fixed part and room for the answer, capped by check 2 so an answer comes within a few seconds. Lines are measured in batches (a few at a time, then one by one near the limit), not one prompt-measure per line. The number of lines used is shown on the card ("On-device AI · 14 lines")
+
+### Answer
+- JSON constrained by a schema: `{meaning: string, explanation: string, sense: integer | null}`. `meaning` is short (a hover line: about 25 Japanese characters or 40 Latin ones), `explanation` one or two sentences, `sense` the number of the fitting dictionary meaning, or null
+- Checked: a `sense` out of range becomes null; an empty `meaning` or text that is not JSON is retried once, then is an error. Errors, and no answer within 30 s, show "Couldn't explain this." with Try again
+- Cache `explanations` (IndexedDB, background): keyed by the learning and native languages, the term key, the source, the sentence text, the provider and the browser's major version (the API names no model version; a Chrome update may bring a new model); holds the answer and its number of lines; 5,000 rows, least recently used out; device only, never exported; cleared with the pair's packs (their meanings may change)
+
+### Your meanings: data
+Two new tables. The choice made for a sentence is its own record, not a field of the occurrence, so another device's sentences, undoing and replacing all merge by time, and saving or importing an occurrence never touches it.
+- `meanings`: `{key, termId, from: dictionary|ai, text, glossLang?, pos?, explanation?, createdAt}`. `key` is a hash of (termId, `from`, text), so the same meaning made on two devices, or imported, is one row. A dictionary meaning keeps the sense **as the pack has it** (an English definition stays English, with `glossLang`) and its part of speech; it is translated at display time like every other sense, and the window matches its Meanings rows by part of speech and pack text, so a translation that differs between devices or a pack update that reorders the senses does not lose it. An AI meaning keeps the model's answer (already in the native language) and its explanation
+- `meaningChoices`: `{termId, sourceId, sentence, meaningKey | null, at, deviceId}`, one per (term, source, sentence), the same identity as an occurrence (occurrences are unique per source and sentence, so a line said twice in a video is one place, and every chip of it shows the meaning). `meaningKey` null is an undo. The latest `at` wins
+- Choosing a meaning for "this sentence" writes the `meanings` row (if new) and the choice. "This sentence" is the occurrence the window was opened from: the line, card or article sentence; from a Words row, the term's earliest place in the video or page. A saved term without that occurrence gets it now (`origin: encountered`); an unsaved term is saved as Learning with this sentence (`origin: saved`). Undoing writes a choice of none and leaves the term saved
+- Read side: an occurrence's meaning is the live choice for its (term, source, sentence); "your meanings" of a term are the meanings its live choices name. A meaning no live choice names is dropped locally only (never as a tombstone, so a device that has not read every file yet cannot remove a meaning others use)
+- Occurrences with a live choice stay when encounters are trimmed, like the sentences the term was saved from, so a term can keep more than 50 occurrences (only the ones the user chose meanings for)
+- Removing a term deletes its choices and meanings on every path that deletes its occurrences today (`removeTerm`, a removal taken in by `importJson`, and by `applySynced`). A choice older than the term's `clearedAt` is not taken in again (the occurrences' rule)
+- Order wherever several show (hover card, lists): the meaning chosen for the hovered or listed sentence first, then most choices, then the newest
+- Sync: not in `storage.sync`, which only has room for each term's status: on another device with browser sync only, the term arrives without its meanings (the UI says nothing about it and never says "Synced"). The JSON export carries both tables (format version 2; import reads versions 1 and 2, version 1 without meanings) and import merges by the same rules. Own cloud storage (designed above): each device's `main` holds the choices it made and the meanings they name; merged as in "Merge"
+- Schema: the next Dexie version (together with version 5's cloud-sync changes if those are built first)
+
+### Without a provider
+`availability()` is `unavailable`, or no provider exists (Firefox): no "In this sentence", no Settings rows, no prompts. A term without an entry keeps its literal machine translation. Choosing dictionary meanings, the hover card, the lists and the word list work the same
+
+### Tests
+- Unit (`core/explain/`): lines chosen under a budget (alternation, whole lines, translations attached, a budget that fits only the sentence), the prompt (snapshot), checking answers (out-of-range `sense`, bad JSON), matching a stored dictionary meaning to the window's rows after a pack change
+- Unit (background): choose, replace, undo (the term stays), the same meaning from two devices as one row, dropping unused meanings locally, the trim keeping occurrences with a choice, removing a term on all three paths, saving again from the same sentence keeping its choice, JSON export and import (version 1 and 2, merge by `at`), the cache keyed by source
+- Unit (cloud merge, when built): choices from two devices, undo and replace, `clearedAt`, added to the property test
+- Browser: the dictionary window with a fake provider (idle → reading → card, download, error and Try again, aborting on another term, the automatic start for a term without an entry and the Settings switch, a pair the provider cannot do), Use here / Use this meaning, an unsaved term saved as Learning, a translated definition matched as "Used here", the hover card's order, the Words lists' and the word list's groups and search; no section and no Settings rows without a provider (also on Firefox)
+- The real model only in the user's Chrome (Playwright's Chromium has none)
+
+### Checks before building
+1. Chrome stable, MV3: where `LanguageModel` exists (content script, extension page, offscreen document, service worker); the names of its availability values, download progress, input limit and token counting in the current version; whether a JSON-schema `responseConstraint` works; whether creating a session needs a user activation only for the download, and where a download can start if prompts must run in an offscreen document; which languages `expectedInputs` / `expectedOutputs` accept (Portuguese may be missing); whether Google's terms ask the extension to accept its Generative AI Prohibited Uses Policy
+2. Latency in the user's Chrome by context size (only the sentence; 5, 10, 20 lines; the most that fits), the first prompt after a start and later ones: choose the budget cap
+3. Quality on real content (the `real-content-quality` skill, the corpus of [notes](../notes/translation-quality.md)): for words with several dictionary meanings, how often the meaning in context fits, with only the sentence, a few lines and the cap, with and without the site's translation; how often `sense` names a fitting meaning; how often the JSON is valid; whether the Japanese reads well. The baseline is the dictionary rules' 70% and the model's 72% without this context. Build only if the context clearly helps; the numbers go into the notes
+4. The prompt for each native language offered (Japanese, Spanish, Portuguese)
+
 ## Interface language
 - The extension `i18n` API follows the browser's language and cannot be chosen by the user, so use a small custom mechanism: every UI string goes through `t("key")` with one file per language (`locales/en.json`). Switch with the `uiLocale` setting, default `en`
 - Only the store name and description use `_locales/en/messages.json` (the `i18n` API)
@@ -354,7 +414,7 @@ Only the Chrome version is published, but the structure must not need rewriting 
 | Subtitle/sentence translation | Translator API (138+) | none (Mozilla opposes it) | Every browser uses the site's translation first, so only the third fallback differs. In Firefox, videos without a site translation and articles get no translation. Whether Firefox has a translation API for extensions is to be investigated |
 | Translating English definitions | Translator API, in the UI | none | Firefox shows the English definition as it is. Detected where the translation runs (the UI), not in the background |
 | Downloaded language data | IndexedDB in the background | IndexedDB in the event page | Same code. Cache Storage is not used (Firefox allows it on `moz-extension:` only behind a pref) |
-| Built-in AI (phase 3) | Prompt API | none | Only the user's own API key |
+| Built-in AI (phase 3) | Prompt API | none | "In this sentence" and its Settings rows are not shown; choosing meanings works with the dictionary's. The user's own API key is a later step |
 | Article highlights (CSS Custom Highlight API) | available | available from 140, but at release **without underline (`text-decoration`) support** | Without underlines use background colors only (New = pale blue, Learning = pale green, Known = pale gray; colors to tune). Current support and detection method to be confirmed. Video subtitles are drawn with our own elements, so unaffected |
 | DOM work in the background | offscreen document | the event page has a DOM | not needed so far |
 | Reading a selection inside Lingo's shadow roots (words selected in the video subtitle and transcript) | `Selection.getComposedRanges`; older versions only `ShadowRoot.getSelection` (non-standard) | `getComposedRanges` in recent versions | `ui/selection-in-root.ts` uses the first that exists. With neither, those words cannot be selected (no phrase card); everything else works |
@@ -382,6 +442,7 @@ No outright blocker. Decisions and requirements:
 - **2026 policy update (in force since 2026-08-01)**: data collected must be necessary for the single purpose and prominently disclosed
 - **Code**: no remotely hosted code (everything bundled, including the MAIN-world scripts); no obfuscation (minification is fine). Hooking page fetch/XHR/`JSON.parse` is not prohibited but needs a justification
 - **Downloaded language data**: data, not code, so allowed. Packs are JSON read with `JSON.parse`, verified against hashes bundled with the extension. The privacy policy names the hosts (jsDelivr, unpkg), says they see the IP address and which packs were fetched, and that no page content or words are sent
+- **On-device AI (phase 3)**: no network and no new permission. The privacy policy and the listing say that the sentence and the lines around it go to the browser's on-device model, on the device. The later API-key step sends them to a third party: its own consent, listing text and a look at the sites' terms
 - **Single purpose**: "learn vocabulary on the videos and articles you read" — keep every feature framed around it
 - **Listing**: icon, screenshots and a description are mandatory; no keyword lists ("YouTube Netflix …"); "works with YouTube and Netflix" wording only, no third-party logos
 - **Account**: 2-Step Verification; trader / non-trader declaration (EU DSA) — the user decides before publishing

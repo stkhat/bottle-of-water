@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "preact/hooks";
 import type { WordStatus } from "../../core/classify";
 import { t, type MessageKey } from "../../i18n/t";
 import { onlyFromUser } from "../from-user";
+import { keepOpen } from "../keep-open";
 import { useShownRows } from "../rows-in-view";
 import { color, toggleChip } from "../styles";
 import { termStyle } from "../video/terms";
@@ -27,7 +28,7 @@ export interface WordRow {
   shortLang: string;
   /**
    * Where it shows, in order, as its chips read (the start times of a video's subtitle
-   * lines, a page's place numbers): a chip each (on a page only when 2 or more).
+   * lines, a page's place numbers): a chip each.
    */
   places: readonly string[];
   /** The place of the last jump, when it was to this row (its chip shows pressed); else -1. */
@@ -140,8 +141,15 @@ export interface WordsListProps<R extends WordRow> {
   /** Default "video". */
   variant?: WordsVariant;
   learningLang: string;
-  /** A row (its first place) or one of its chips was clicked: jump to that place. */
+  /** One of a row's chips was clicked: jump to that place. */
   onJump: (row: R, place: number) => void;
+  /** The pointer entered a row's head (`element`): its hover card shows. */
+  onWordEnter: (row: R, element: HTMLElement) => void;
+  onWordLeave: () => void;
+  /** A row was clicked: its term's dictionary opens. */
+  onOpen: (row: R) => void;
+  /** The list scrolled (a hover card over a head would stay where the head was). */
+  onScroll?: () => void;
   /** Rows came into view (their meanings may need translating). */
   onShown?: (rows: R[]) => void;
 }
@@ -220,10 +228,7 @@ const VARIANTS: Record<
   {
     /** The chips a row shows before its "+N" (the ones that fit one line). */
     chipsShown: number;
-    /** A row gets chips from this many places (a lone time still says when). */
-    chipsFrom: number;
     chip: Style;
-    rowLabel(head: string, first: string): string;
     chipLabel(head: string, place: number, places: readonly string[]): string;
     groupLabel(head: string): string;
     moreLabel(count: number): string;
@@ -231,9 +236,7 @@ const VARIANTS: Record<
 > = {
   video: {
     chipsShown: 5,
-    chipsFrom: 1,
     chip: {},
-    rowLabel: (head, time) => t("video.words.jumpRow", { head, time }),
     chipLabel: (_head, place, places) =>
       t("video.words.jump", { time: places[place]! }),
     groupLabel: (head) => t("video.words.places", { head }),
@@ -244,10 +247,8 @@ const VARIANTS: Record<
   },
   page: {
     chipsShown: 7,
-    chipsFrom: 2,
     // Numbers are narrow: a minimum width keeps 1–9 square-ish.
     chip: { minWidth: "28px", padding: "0 6px" },
-    rowLabel: (head) => t("page.words.jumpRow", { head }),
     chipLabel: (head, place, places) =>
       t("page.words.jump", { head, n: place + 1, count: places.length }),
     groupLabel: (head) => t("page.words.places", { head }),
@@ -262,6 +263,9 @@ const HOVER = `[data-word-row][data-selected="false"]:hover{background:${color.s
 /** What a row does with the user's presses: stable across renders (see `Row`). */
 interface RowHandlers<R extends WordRow> {
   onJump: (row: R, place: number) => void;
+  onWordEnter: (row: R, element: HTMLElement) => void;
+  onWordLeave: () => void;
+  onOpen: (row: R) => void;
   /** The row's "+N" was pressed. */
   onMore: (id: string) => void;
 }
@@ -281,11 +285,15 @@ export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   // The rows call the latest handlers through these, so new handlers on each render
   // do not render every row again.
-  const latest = useRef({ onJump: props.onJump, opened });
-  latest.current = { onJump: props.onJump, opened };
+  const latest = useRef({ props, opened });
+  latest.current = { props, opened };
   const handlers = useMemo<RowHandlers<R>>(
     () => ({
-      onJump: (row, place) => latest.current.onJump(row, place),
+      onJump: (row, place) => latest.current.props.onJump(row, place),
+      onWordEnter: (row, element) =>
+        latest.current.props.onWordEnter(row, element),
+      onWordLeave: () => latest.current.props.onWordLeave(),
+      onOpen: (row) => latest.current.props.onOpen(row),
       onMore: (id) => setOpened(new Set(latest.current.opened).add(id)),
     }),
     [],
@@ -293,6 +301,7 @@ export function WordsList<R extends WordRow>(props: WordsListProps<R>) {
   return (
     <div
       ref={scroller}
+      onScroll={() => props.onScroll?.()}
       style={{
         flex: 1,
         minHeight: 0,
@@ -351,9 +360,7 @@ class Row<R extends WordRow> extends Component<RowProps<R>> {
 
 function RowBody<R extends WordRow>(props: RowProps<R>) {
   const { row, handlers } = props;
-  const look = VARIANTS[props.variant ?? "video"];
   const selected = row.pressed >= 0;
-  const first = row.places[0];
   return (
     <div
       data-word-row
@@ -363,14 +370,18 @@ function RowBody<R extends WordRow>(props: RowProps<R>) {
     >
       <button
         type="button"
-        aria-label={
-          first === undefined ? undefined : look.rowLabel(row.head, first)
-        }
-        onClick={onlyFromUser(() => handlers.onJump(row, 0))}
+        aria-label={t("words.openRow", { head: row.head })}
+        onClick={onlyFromUser(() => handlers.onOpen(row))}
+        // A press on another row opens it in the same window.
+        onPointerDown={keepOpen}
         style={ROW_BUTTON}
       >
         <span
           lang={props.learningLang}
+          onPointerEnter={onlyFromUser((event) =>
+            handlers.onWordEnter(row, event.currentTarget as HTMLElement),
+          )}
+          onPointerLeave={() => handlers.onWordLeave()}
           style={{
             ...termStyle(row.category, ALL_ON, "ui"),
             flexShrink: 0,
@@ -413,7 +424,7 @@ function RowBody<R extends WordRow>(props: RowProps<R>) {
           {t("words.times", { count: row.count })}
         </span>
       </button>
-      {row.places.length >= look.chipsFrom && <Places {...props} />}
+      {row.places.length > 0 && <Places {...props} />}
     </div>
   );
 }

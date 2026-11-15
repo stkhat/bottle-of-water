@@ -24,9 +24,17 @@ const CUES: Cue[] = [
   { startMs: 1000, endMs: 2000, text: "Knead the dough." },
   { startMs: 2500, endMs: 3500, text: "It is a tangy\nloaf." },
 ];
-/** A Japanese track with its own timing: the first line covers two cues. */
+/** The cards of CUES: one sentence each, a line break inside a cue as a space. */
+const CARDS: Cue[] = CUES.map((c) => ({
+  ...c,
+  text: c.text.replaceAll("\n", " "),
+}));
+/**
+ * A Japanese track with its own timing: the first line runs into the second cue, but
+ * covers less than half of it (one that covered half of each would join the two cards).
+ */
 const JA: Cue[] = [
-  { startMs: 0, endMs: 1800, text: "イーストはぴりっとした匂い。" },
+  { startMs: 0, endMs: 1400, text: "イーストはぴりっとした匂い。" },
   { startMs: 2400, endMs: 3600, text: "ぴりっとしたパンだ。" },
 ];
 
@@ -187,13 +195,13 @@ describe("a video with subtitles", () => {
     expect(state()).toMatchObject({
       videoId: "vid1",
       enabled: true,
-      cues: CUES,
+      cues: CARDS,
       translationSource: "siteTrack",
-      // Each Japanese line goes to the card it overlaps most and to every card it
-      // covers at least half of: the first one covers 800 of the second card's 1000 ms.
+      // Each Japanese line goes to the card it overlaps most (and to every card it covers
+      // at least half of): the first one covers only 400 of the second card's 1000 ms.
       translations: [
         "イーストはぴりっとした匂い。",
-        "イーストはぴりっとした匂い。",
+        "",
         "ぴりっとしたパンだ。",
       ],
     });
@@ -256,7 +264,7 @@ describe("a video with subtitles", () => {
       {
         type: "analyze",
         lang: "en",
-        blocks: CUES.map((c) => c.text),
+        blocks: CARDS.map((c) => c.text),
         // The track's casing: no word is capitalised inside a sentence.
         casing: { mode: "lower", words: {} },
       },
@@ -956,6 +964,19 @@ describe("words in the subtitles", () => {
     app.keepHover();
     await seekTo(video, 2.8);
     expect(state().hover?.card.head).toBe("knead");
+  });
+
+  it("keeps a Words row's card when the line changes: the row stays where it is", async () => {
+    const { state, app, video } = await start();
+    await ready(state);
+    await classified(state);
+    await expect.poll(() => state().current).toBe(0);
+    app.enterWord(refOf(state, 0, "tangy"), BOX, "words");
+    // The line changes before the card shows: it shows anyway.
+    await seekTo(video, 1.2);
+    await expect.poll(() => state().hover?.card.head).toBe("tangy");
+    await seekTo(video, 2.8);
+    expect(state().hover?.from).toBe("words");
   });
 
   it("a click opens the dictionary window with the term's lines in this video", async () => {
@@ -1708,7 +1729,7 @@ describe("words in this video", () => {
     expect(places.map((place) => place.startMs)).toEqual([0, 2500]);
     expect(places.map(({ card }) => state().cues[card]!.text)).toEqual([
       "The yeast smells tangy.",
-      "It is a tangy\nloaf.",
+      "It is a tangy loaf.",
     ]);
   });
 

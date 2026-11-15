@@ -19,6 +19,7 @@ import { sendStatus } from "../lookup/status";
 import { warn } from "../lookup/warn";
 import { createStore } from "../store";
 import { createSummaries } from "../words/summaries";
+import type { Occurrence } from "../words/words";
 import { createAnalysis, type Analysis } from "./analysis";
 import { createBlocks } from "./blocks";
 import { createCards, writtenOf } from "./cards";
@@ -363,6 +364,17 @@ export async function startArticle(
     await cards.refresh(card);
   }
 
+  /**
+   * The page word a Words row's place stands for; undefined once its block is gone or
+   * analyzed again (the list then shows new rows).
+   */
+  function listedRef(at: Occurrence<TextBlock>): SpanRef | undefined {
+    if (!blocks.isLive(at.unit)) return undefined;
+    const span = spans.get(at.unit)?.[at.span];
+    if (!span || (span.part ?? span).start !== at.start) return undefined;
+    return { block: at.unit, span };
+  }
+
   const app: ArticleApp = {
     store,
     setHoverStatus(status) {
@@ -399,6 +411,19 @@ export async function startArticle(
     setWordsFilter: (filter) => words.setWords({ filter }),
     setWordsSort: (sort) => words.setWords({ sort }),
     jumpToWord: words.jump,
+    enterListWord(at, anchor) {
+      const ref = listedRef(at);
+      if (ref) later.interactions.get().enterListed(ref, anchor);
+    },
+    leaveListWord: () => later.interactions.get().leaveListed(),
+    openListWord(at) {
+      const ref = listedRef(at);
+      if (!ref) return;
+      later.interactions.get().dismissHover();
+      // The word on the page was not clicked: it is not outlined.
+      void cards.openPanel(ref, false).catch(warn);
+    },
+    dismissHover: () => later.interactions.get().dismissHover(),
     wordsShown: (rows) => summaries.shown(rows),
   };
 
@@ -460,7 +485,7 @@ export async function startArticle(
         const ref = spanAtPoint(x, y, blocks.index, spans);
         return ref && ref.span.category !== "ignored" ? ref : undefined;
       },
-      showHover: (ref) => void cards.showHover(ref).catch(warn),
+      showHover: (ref, anchor) => void cards.showHover(ref, anchor).catch(warn),
       hideHover: cards.hideHover,
       click: (ref) => void cards.openPanel(ref).catch(warn),
       selection: selection.select,

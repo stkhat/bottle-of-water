@@ -22,8 +22,15 @@ export interface PageWordsPanelProps<R extends WordRow> {
   onFilter: (filter: WordsFilter) => void;
   sort: WordsSort;
   onSort: (sort: WordsSort) => void;
-  /** A row or one of its chips: go to that place of the term. */
+  /** One of a row's chips: go to that place of the term. */
   onJump: (row: R, place: number) => void;
+  /** The pointer entered a row's head: its hover card shows. */
+  onWordEnter: (row: R, element: HTMLElement) => void;
+  onWordLeave: () => void;
+  /** A row: its term's dictionary panel opens. */
+  onOpen: (row: R) => void;
+  /** The list scrolled. */
+  onScroll?: () => void;
   /** Rows came into view (their meanings may need translating). */
   onShown?: (rows: R[]) => void;
   learningLang: string;
@@ -106,6 +113,10 @@ export function PageWordsPanel<R extends WordRow>(
         rows={props.rows}
         learningLang={props.learningLang}
         onJump={props.onJump}
+        onWordEnter={props.onWordEnter}
+        onWordLeave={props.onWordLeave}
+        onOpen={props.onOpen}
+        {...(props.onScroll && { onScroll: props.onScroll })}
         {...(props.onShown && { onShown: props.onShown })}
       />
     </aside>

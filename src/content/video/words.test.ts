@@ -72,6 +72,7 @@ describe("videoWords", () => {
         category: "new",
         count: 2,
         places: on(0, 3),
+        first: { cue: 0, span: 0 },
       },
       {
         key: "loaf",
@@ -80,6 +81,7 @@ describe("videoWords", () => {
         category: "learning",
         count: 3,
         places: on(0, 1),
+        first: { cue: 0, span: 2 },
       },
       {
         key: "rise",
@@ -88,6 +90,7 @@ describe("videoWords", () => {
         category: "known",
         count: 1,
         places: on(1),
+        first: { cue: 1, span: 2 },
       },
       {
         key: "tangy",
@@ -96,6 +99,7 @@ describe("videoWords", () => {
         category: "new",
         count: 1,
         places: on(3),
+        first: { cue: 3, span: 0 },
       },
       {
         key: "rise",
@@ -104,6 +108,7 @@ describe("videoWords", () => {
         category: "new",
         count: 1,
         places: on(4),
+        first: { cue: 4, span: 0 },
       },
     ]);
   });
@@ -125,6 +130,7 @@ describe("videoWords", () => {
       category: "known",
       count: 2,
       places: on(0, 1),
+      first: { cue: 0, span: 1 },
     });
   });
 
@@ -172,6 +178,7 @@ describe("videoWords", () => {
         category: "learning",
         count: 2,
         places: on(0),
+        first: { cue: 0, span: 0 },
       },
       {
         key: "it",
@@ -180,6 +187,7 @@ describe("videoWords", () => {
         category: "new",
         count: 1,
         places: on(0),
+        first: { cue: 0, span: 1 },
       },
       {
         key: "them",
@@ -188,6 +196,7 @@ describe("videoWords", () => {
         category: "new",
         count: 1,
         places: on(0),
+        first: { cue: 0, span: 4 },
       },
     ]);
   });

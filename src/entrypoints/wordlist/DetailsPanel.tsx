@@ -37,6 +37,8 @@ export function DetailsPanel(props: {
   const { details, now } = props;
   const { entry, term, occurrences } = details;
   const head = entry?.head ?? term.key;
+  // The row is read again after a status change; the details keep the term as picked.
+  const learnedAt = props.row?.learnedAt;
   const items = occurrences.map((o) => {
     const item = occurrenceItem(o);
     const parts = [item.meta];
@@ -85,12 +87,19 @@ export function DetailsPanel(props: {
           speakClass="ib"
         />
 
-        <StatusButtons
-          status={details.status}
-          onStatus={props.onStatus}
-          removeBorder={color.chipLine}
-          saveDisabled={!savedFrom(occurrences)}
-        />
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <StatusButtons
+            status={details.status}
+            onStatus={props.onStatus}
+            removeBorder={color.chipLine}
+            saveDisabled={!savedFrom(occurrences)}
+          />
+          {details.status === "known" && learnedAt !== undefined && (
+            <p style={{ margin: 0, fontSize: "13px", color: color.muted }}>
+              {t("wordlist.learnedOn", { date: shortDate(learnedAt, now) })}
+            </p>
+          )}
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <h3 style={sectionHeading}>

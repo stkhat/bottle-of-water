@@ -11,7 +11,7 @@ import {
   type Term,
 } from "../lookup/lookup";
 import type { Store } from "../store";
-import type { VideoLine, VideoState, WordPlace, WordRef } from "./state";
+import type { HoverPlace, VideoLine, VideoState, WordRef } from "./state";
 import { placeOf } from "./words";
 
 /**
@@ -83,12 +83,14 @@ export function createCards(o: {
   let pendingAnchor: Box | undefined;
   /** The pointer is on the hover card. */
   let onCard = false;
+  /** Where the word the pointer last entered is. */
+  let entered: HoverPlace | undefined;
   const hover = createHoverIntent<string>({
     // The selection's card is the card for the words under the pointer.
     blocked: () => store.get().selecting,
     show(id) {
       // The same word in the subtitle and the transcript are two targets.
-      const [from, cue, span] = id.split(":") as [WordPlace, string, string];
+      const [from, cue, span] = id.split(":") as [HoverPlace, string, string];
       const ref = { cue: Number(cue), span: Number(span) };
       const anchor = pendingAnchor;
       const isLatest = hoverTicket.next();
@@ -156,8 +158,9 @@ export function createCards(o: {
       for (const card of [shown?.card, panel?.card])
         if (card) await refresh(card);
     },
-    enterWord(ref: WordRef, anchor: Box, from: WordPlace) {
+    enterWord(ref: WordRef, anchor: Box, from: HoverPlace) {
       pendingAnchor = anchor;
+      entered = from;
       hover.enter(`${from}:${ref.cue}:${ref.span}`);
     },
     leaveWord: () => hover.leave(),
@@ -170,9 +173,12 @@ export function createCards(o: {
       hover.release();
     },
     dismissHover: () => hover.cancel(),
-    /** The playing line changed: the word under the pointer went with it. */
+    /**
+     * The playing line changed: the word under the pointer went with it (the subtitle
+     * shows the next line, the transcript scrolls to it). A Words row stays put.
+     */
     lineChanged() {
-      if (!onCard) hover.cancel();
+      if (!onCard && entered !== "words") hover.cancel();
     },
     clickWord(ref: WordRef) {
       hover.cancel();

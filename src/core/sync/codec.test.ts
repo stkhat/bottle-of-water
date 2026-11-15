@@ -45,6 +45,14 @@ describe("encode", () => {
     );
   });
 
+  it("writes a learned known term as g", async () => {
+    const chunks = await encode([
+      { ...rec("dough", "known", 35), learned: true },
+      rec("bread", "known", 35),
+    ]);
+    expect(await unpack(chunks)).toBe("bread\tk\tz\ndough\tg\tz");
+  });
+
   it("sorts keys by code point", async () => {
     const chunks = await encode([
       rec("\u{1F35E}", "known", 1),
@@ -102,6 +110,13 @@ describe("decode", () => {
       rec("café", "removed", 1234),
       rec("don't", "known", 5),
       rec("look up", "learning", 29_000_000),
+    ]);
+  });
+
+  it("reads g back as a learned known term", async () => {
+    expect(await decode([await pack("dough\tg\tz\nbread\tk\tz")])).toEqual([
+      { key: "dough", status: "known", learned: true, updatedMinutes: 35 },
+      { key: "bread", status: "known", updatedMinutes: 35 },
     ]);
   });
 

@@ -1,6 +1,6 @@
 import { collapseSpaces } from "../../core/text/sentences";
 import type { TermCard } from "../lookup/describe";
-import { wordBoxes } from "../lookup/geometry";
+import { wordBoxes, type Box } from "../lookup/geometry";
 import {
   describeSpan,
   latest,
@@ -47,6 +47,8 @@ export function createCards(o: {
   let hoverRef: SpanRef | undefined;
   const hoverTicket = latest();
   let panelRef: SpanRef | undefined;
+  /** The panel's word is outlined (it was clicked on the page, not in the Words list). */
+  let outlined = true;
   const panelTicket = latest();
   /** The span of each "On this page" sentence, for scrolling to it. */
   let panelRanges: Range[] = [];
@@ -73,7 +75,7 @@ export function createCards(o: {
       card,
       here,
       dictionaries: lookup.dictionaries(card.head),
-      outline: boxesOf(ref),
+      outline: outlined ? boxesOf(ref) : [],
     });
   }
 
@@ -103,12 +105,13 @@ export function createCards(o: {
       const refs = [hoverRef, panelRef].filter((r) => r !== undefined);
       for (const { span } of refs) await refresh(span);
     },
-    async showHover(ref: SpanRef) {
+    /** The hover card for `ref`, over `over` when given, else over the word. */
+    async showHover(ref: SpanRef, over?: Box) {
       if (o.selecting()) return;
       const isLatest = hoverTicket.next();
       const card = await describe(ref);
       if (!isLatest()) return;
-      const [anchor] = boxesOf(ref);
+      const anchor = over ?? boxesOf(ref)[0];
       if (!anchor) return;
       hoverRef = ref;
       store.set({ hover: { anchor, card } });
@@ -118,11 +121,13 @@ export function createCards(o: {
       hoverRef = undefined;
       if (store.get().hover) store.set({ hover: null });
     },
-    async openPanel(ref: SpanRef) {
+    /** The panel for `ref`; `outline` false when the word was not clicked on the page. */
+    async openPanel(ref: SpanRef, outline = true) {
       const isLatest = panelTicket.next();
       const card = await describe(ref, "window");
       if (!isLatest()) return;
       panelRef = ref;
+      outlined = outline;
       showPanel(ref, card);
       o.onPanelOpen?.();
     },
@@ -135,7 +140,7 @@ export function createCards(o: {
     /** The page scrolled: the outline follows the word. */
     follow() {
       const { panel } = store.get();
-      if (panel && panelRef)
+      if (panel && panelRef && outlined)
         store.set({ panel: { ...panel, outline: boxesOf(panelRef) } });
     },
     goToSentence(i: number) {

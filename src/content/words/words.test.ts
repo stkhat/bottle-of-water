@@ -11,7 +11,7 @@ const span = (
 ): Span => ({ start, end, key, kind, category });
 
 describe("listWords", () => {
-  it("gives each term every place it shows, in reading order, over every unit", () => {
+  it("gives each term every place it shows, in reading order, over every unit, with its span's index", () => {
     const units = [
       {
         unit: "a",
@@ -35,9 +35,9 @@ describe("listWords", () => {
         head: "knead",
         category: "new",
         places: [
-          { unit: "a", start: 0, end: 5 },
-          { unit: "a", start: 10, end: 15 },
-          { unit: "c", start: 25, end: 30 },
+          { unit: "a", start: 0, end: 5, span: 0 },
+          { unit: "a", start: 10, end: 15, span: 1 },
+          { unit: "c", start: 25, end: 30, span: 1 },
         ],
       },
       {
@@ -45,7 +45,7 @@ describe("listWords", () => {
         kind: "phrase",
         head: "from scratch",
         category: "learning",
-        places: [{ unit: "c", start: 6, end: 18 }],
+        places: [{ unit: "c", start: 6, end: 18, span: 0 }],
       },
     ]);
   });
@@ -66,7 +66,7 @@ describe("listWords", () => {
       ],
       {},
     );
-    expect(row!.places).toEqual([{ unit: 0, start: 0, end: 13 }]);
+    expect(row!.places).toEqual([{ unit: 0, start: 0, end: 13, span: 0 }]);
   });
 });
 

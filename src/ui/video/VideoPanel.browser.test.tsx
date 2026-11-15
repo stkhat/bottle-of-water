@@ -80,6 +80,9 @@ const base: VideoPanelProps<WordRow> = {
   wordsSort: "order",
   onWordsSort: () => {},
   onJumpWord: () => {},
+  onListWordEnter: () => {},
+  onListWordLeave: () => {},
+  onOpenWord: () => {},
   cues: CUES,
   spans: SPANS,
   translations: [
@@ -574,6 +577,10 @@ describe("the tabs", () => {
     const onWordsFilter = vi.fn();
     const onWordsSort = vi.fn();
     const onJumpWord = vi.fn();
+    const onOpenWord = vi.fn();
+    const onListWordEnter = vi.fn();
+    const onListWordLeave = vi.fn();
+    const onWordsScroll = vi.fn();
     const screen = await mountInShadowRoot(
       <VideoPanel
         {...base}
@@ -583,6 +590,10 @@ describe("the tabs", () => {
         wordsSort="az"
         onWordsSort={onWordsSort}
         onJumpWord={onJumpWord}
+        onOpenWord={onOpenWord}
+        onListWordEnter={onListWordEnter}
+        onListWordLeave={onListWordLeave}
+        onWordsScroll={onWordsScroll}
       />,
     );
     await expect
@@ -611,11 +622,21 @@ describe("the tabs", () => {
     );
     await userEvent.selectOptions(sort, "count");
     expect(onWordsSort).toHaveBeenCalledWith("count");
-    await screen.getByRole("button", { name: "bunch, jump to 1:03" }).click();
-    expect(onJumpWord).toHaveBeenCalledWith(
+    const head = screen.getByText("bunch", { exact: true });
+    await userEvent.hover(head);
+    expect(onListWordEnter).toHaveBeenCalledWith(
       expect.objectContaining({ head: "bunch" }),
-      0,
+      head.element(),
     );
+    await userEvent.unhover(head);
+    expect(onListWordLeave).toHaveBeenCalled();
+    await screen
+      .getByRole("button", { name: "bunch, open in the dictionary" })
+      .click();
+    expect(onOpenWord).toHaveBeenCalledWith(
+      expect.objectContaining({ head: "bunch" }),
+    );
+    expect(onJumpWord).not.toHaveBeenCalled();
     await screen.getByRole("button", { name: "Jump to 1:20" }).click();
     expect(onJumpWord).toHaveBeenLastCalledWith(
       expect.objectContaining({ head: "figure out" }),

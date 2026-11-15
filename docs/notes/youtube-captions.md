@@ -86,6 +86,16 @@ Videos: `GLNVMi_4Khw` (gaming commentary, 2018, ASR without punctuation), `1w5R5
 
 A track's URL is built from its own `baseUrl` (its `variant`) plus the player's token, so Shorts load when the player first asked for another caption language (an empty body before, so no subtitles); YouTube's own captions show again for a video Lingo has no subtitles for (they stayed hidden after a video with subtitles); with YouTube's auto-translation a bracket that never closes no longer hides every later sentence end, and an auto-generated card holds at most 30 words, its translation cut at a clause end. Over the 14 auto-generated videos of the corpus: cards over 30 words 203 → 1 (31 by whitespace), the longest 7,615 → 31 words, cards 2,673 → 4,153. Checked in the user's Chrome on 2026-11-14 (Short `mzYMZGrIml4` with the caption language Japanese, SPA moves between Shorts, `7C9gSIvAn9I`: longest card 67 → 30 words)
 
+## Speaker changes and translated sentence ends in ASR cards (fixed 2026-11-15)
+
+With YouTube's auto-translation, an auto-generated card now always ends at a speaker change `>>`, and each translated sentence end is dated when it is said (the piece's time spread over its characters) instead of at the start of the piece holding it. Study `2026-11-cards`, offline over 11 + 14 auto-generated videos (new sample / round 2 of the 2026-11 study):
+- Cards with `>>` inside: 5 → 0 of 1,952 / 177 → 0 of 4,153 (4.3%; up to 1 card in 7 on talk shows). Cards 1,952 → 1,962 / 4,153 → 4,347.
+- Cards without a translation: 0.1 → 0.2% / 0 → 2.1% (91: 62 are only sound labels such as "[laughter]" before a `>>`, 29 are speech whose translated clause YouTube said after the change, e.g. ">> WOW." before ">> IT'S LIKE MAGIC.").
+- Cards ending mid-sentence with the next going on in lower case: 11.5 → 11.5% / 28.4 → 26.6%; the same translation as the card before: 0.9 → 1.0% / 1.3 → 1.2%.
+- Dating, 18 punctuated tracks (4,820 translated end marks): distance to the nearest English sentence boundary median 336 → 153 ms, at the boundary 11.5 → 34.3%, within 300 ms 46 → 63% (p90 1.13 → 1.24 s: the last piece of an event spreads up to the next piece, which YouTube sometimes starts late).
+- Read by hand, 30 changed places (before vs after): 14 better, 7 the same, 9 worse. Worse: a translated clause put on the wrong side of a `>>` (Japanese word order, or a label "[笑い]" opening the clause said at the change), and one-word boundary shifts in tracks without punctuation.
+- Manual tracks and auto-generated tracks without the translation are unchanged.
+
 ## Risks
 - PO token rules change often; if the "reuse the player's URL" trick stops working, fall back to asking the player for each track in turn (`setOption`) and capturing every response, or to the built-in translator.
 - Automated tests cannot get real captions from youtube.com; only recorded fixtures.
