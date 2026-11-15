@@ -30,7 +30,9 @@ Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes
 - Video lines that play while the language data is missing are classified later but not kept in the sentence history
 
 ### Meaning in context
-- In YouTube comments the lines around the sentence are the comment's other sentences and the replies YouTube has loaded: a one-sentence comment with its replies closed reads "Reading 0 lines around it…" and "On-device AI · 0 lines"
+- In YouTube comments the lines around the sentence are the comment's other sentences and the replies YouTube has loaded: a one-sentence comment with its replies closed is explained from its sentence alone
+- 2026-11-16: the reading placeholder says "Thinking…", and "Starting on-device AI…" only while the model itself has been starting for more than 1 s (the page's base session being created); the card's footer reads "On-device AI" without a line count. The slow start is covered by tests only: it cannot be brought about on demand in the user's Chrome
+- Deferred (user, 2026-11-16): hiding the first explanation's delay (about 10 s after the model was idle, nearly all of it the base session's `create()`). Two ways, neither built now: create the page's base session ahead of time when a page loads (costs memory and power on every page where no explanation is asked), or share one base session across pages from an offscreen document (it runs prompts as fast as a content script, M0 check C2, but it cannot start a download, which needs a click on the page)
 - The model marked 11 of 12 answers in the real check `unusual` (53% in the M0 study), so nearly every card has an explanation, some only restating the sentence; a meaning can take in words around the term ("we can't grasp" → 理解できない). "Fits here" fit 5 of 6 terms (M0: about 3 in 4)
 
 ### YouTube comments

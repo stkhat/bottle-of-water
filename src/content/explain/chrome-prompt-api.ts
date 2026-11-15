@@ -135,11 +135,13 @@ export function createChromePromptApi(
   /** `majorVersion` */
   version: string,
 ): ExplanationProvider {
-  let base: { id: string; session: Promise<ModelSession> } | undefined;
+  let base:
+    | { id: string; session: Promise<ModelSession>; created: boolean }
+    | undefined;
 
   function baseFor(pair: LanguagePair, instructions: string) {
     const id = JSON.stringify([pair.learning, pair.native, instructions]);
-    if (base?.id === id) return base.session;
+    if (base?.id === id) return base;
     const old = base?.session;
     old?.then((s) => s.destroy()).catch(() => {});
     // Not aborted with the prompt that asked for it: the next prompt uses it.
@@ -147,12 +149,17 @@ export function createChromePromptApi(
       ...languages(pair),
       initialPrompts: [{ role: "system", content: instructions }],
     });
-    const made = { id, session };
+    const made = { id, session, created: false };
     base = made;
-    session.catch(() => {
-      if (base === made) base = undefined;
-    });
-    return session;
+    session.then(
+      () => {
+        made.created = true;
+      },
+      () => {
+        if (base === made) base = undefined;
+      },
+    );
+    return made;
   }
 
   return {
@@ -175,14 +182,22 @@ export function createChromePromptApi(
       });
       session.destroy();
     },
-    async session(pair, instructions, signal) {
+    async session(pair, instructions, signal, onStarting) {
       const made = baseFor(pair, instructions);
-      const session = await unlessAborted(made, signal);
+      // The base still being created is the model starting (7–9 s after it was idle).
+      const starting = !made.created;
+      if (starting) onStarting?.(true);
+      let session: ModelSession;
+      try {
+        session = await unlessAborted(made.session, signal);
+      } finally {
+        if (starting && !signal.aborted) onStarting?.(false);
+      }
       try {
         return sessionOf(await session.clone({ signal }));
       } catch (error) {
         // A base that cannot be cloned (the model went) is made again next time.
-        if (!signal.aborted && base?.session === made) base = undefined;
+        if (!signal.aborted && base === made) base = undefined;
         throw error;
       }
     },

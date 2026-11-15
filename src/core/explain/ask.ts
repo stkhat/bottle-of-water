@@ -36,18 +36,20 @@ const ATTEMPTS = 2;
  * in a session of its own (a retry does not see the bad answer). Rejects with
  * `BadAnswerError` after two bad answers, `ContextTooLongError` when the sentence
  * alone does not fit, and whatever the provider throws (an abort included).
+ * `onStarting` hears when the model itself is starting (`ExplanationProvider.session`).
  */
 export async function ask(
   provider: Pick<ExplanationProvider, "session">,
   input: ExplainInput,
   signal: AbortSignal,
+  onStarting?: (starting: boolean) => void,
 ): Promise<Explained> {
   const pair = { learning: input.learning, native: input.native };
   const system = instructions(pair);
   let fitted: { prompt: string; lines: number } | undefined;
   let why: BadAnswer = "notJson";
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-    const session = await provider.session(pair, system, signal);
+    const session = await provider.session(pair, system, signal, onStarting);
     try {
       fitted ??= await fitContext(input, session, signal);
       const json = await session.prompt(fitted.prompt, ANSWER_SCHEMA, signal);

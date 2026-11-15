@@ -91,9 +91,13 @@ export function createExplainRunner(o: {
 
   /**
    * The term's meaning in its sentence. Rejects with an `AbortError` when another
-   * explanation or `cancel()` came first, else with an `ExplainError`.
+   * explanation or `cancel()` came first, else with an `ExplainError`. `onStarting`
+   * hears when the model itself is starting (`ExplanationProvider.session`).
    */
-  async function explain(request: ExplainRequest): Promise<Explanation> {
+  async function explain(
+    request: ExplainRequest,
+    onStarting?: (starting: boolean) => void,
+  ): Promise<Explanation> {
     cancel();
     const controller = new AbortController();
     running = controller;
@@ -111,7 +115,7 @@ export function createExplainRunner(o: {
         timedOut = true;
         controller.abort(new DOMException("No answer in time", "TimeoutError"));
       }, timeoutMs);
-      const { answer, lines } = await ask(provider, input, signal);
+      const { answer, lines } = await ask(provider, input, signal, onStarting);
       void o
         .send({ type: "putExplanation", explanation, answer, lines })
         .catch(warn);

@@ -59,10 +59,7 @@ describe("In this sentence", () => {
       name: "Explaining in context",
     });
     await expect.element(reading).toBeVisible();
-    // Two lines before it on the page, one after.
-    await expect
-      .element(reading.getByText("Reading 3 lines around it…"))
-      .toBeVisible();
+    await expect.element(reading.getByText("Thinking…")).toBeVisible();
     expect(log.prompts[0]).toContain(
       "Once you figure out a schedule, it is [[tedious]] no more.",
     );
@@ -71,7 +68,7 @@ describe("In this sentence", () => {
     held.open(answerJson({ meaning: "うんざりする", sense: 1 }));
     await expect.element(section().getByText("うんざりする")).toBeVisible();
     await expect
-      .element(section().getByText("On-device AI · 3 lines"))
+      .element(section().getByText("On-device AI", { exact: true }))
       .toBeVisible();
     await expect
       .element(section().getByRole("button", { name: "Use this meaning" }))
@@ -88,6 +85,33 @@ describe("In this sentence", () => {
       TEDIOUS,
     );
     await expect.poll(() => background.sent("putExplanation").length).toBe(1);
+  });
+
+  it("says Starting on-device AI… while the model is slow to start, then Thinking… for the prompt", async () => {
+    let start!: () => void;
+    const held = gate();
+    const { provider, log } = fakeExplanationProvider({
+      answers: [held.answer],
+      started: new Promise<void>((resolve) => (start = resolve)),
+    });
+    const { root } = await setup(ARTICLE, { explainProvider: provider });
+    await clickOn(root, "tedious", 1);
+    await explainButton().click();
+    const reading = section().getByRole("status", {
+      name: "Explaining in context",
+    });
+    await expect.element(reading.getByText("Thinking…")).toBeVisible();
+    await expect.poll(() => log.starting).toEqual([true]);
+    await expect
+      .element(reading.getByText("Starting on-device AI…"), { timeout: 3_000 })
+      .toBeVisible();
+    expect(reading.element().querySelectorAll("[data-pulse]")).toHaveLength(3);
+
+    start();
+    await expect.element(reading.getByText("Thinking…")).toBeVisible();
+    expect(reading.getByText("Starting on-device AI…").query()).toBeNull();
+    held.open(answerJson({ meaning: "うんざりする", sense: 1 }));
+    await expect.element(section().getByText("うんざりする")).toBeVisible();
   });
 
   it("shows the explanation only for an unusual use, and says when no dictionary meaning fits", async () => {

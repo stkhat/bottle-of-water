@@ -905,32 +905,43 @@ describe("DictionaryWindow: in this sentence", () => {
     expect(calls.onExplain).toHaveBeenCalledOnce();
   });
 
-  test("shows the reading placeholder with the lines it reads", async () => {
-    const { props } = withExplain({ state: "reading", lines: 1 });
+  test("shows the reading placeholder: Thinking…, or Starting on-device AI… in the same place", async () => {
+    const { props } = withExplain({ state: "reading" });
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
     const status = screen.getByRole("status", {
       name: "Explaining in context",
     });
-    await expect
-      .element(status.getByText("Reading 1 line around it…"))
-      .toBeVisible();
+    const thinking = status.getByText("Thinking…", { exact: true });
+    await expect.element(thinking).toBeVisible();
     expect(status.element().querySelectorAll("[data-pulse]")).toHaveLength(3);
+    // Mock ContextMeaning `.aimeta`: 12px, muted gray, under the pulsing lines.
+    expect(style(thinking.element())).toMatchObject({
+      fontSize: "12px",
+      color: "rgb(90, 96, 117)",
+    });
+    const box = (element: Element) => {
+      const { left, top, height } = element.getBoundingClientRect();
+      return { left, top, height };
+    };
+    const before = box(thinking.element());
     await screen.rerender(
-      <DictionaryWindow
-        {...withExplain({ state: "reading", lines: 5 }).props}
-      />,
+      <DictionaryWindow {...withExplain({ state: "starting" }).props} />,
     );
-    await expect
-      .element(screen.getByText("Reading 5 lines around it…"))
-      .toBeVisible();
+    const starting = screen
+      .getByRole("status", { name: "Explaining in context" })
+      .getByText("Starting on-device AI…", { exact: true });
+    await expect.element(starting).toBeVisible();
+    expect(screen.getByText("Thinking…").query()).toBeNull();
+    expect(screen.container.querySelectorAll("[data-pulse]")).toHaveLength(3);
+    expect(style(starting.element())).toMatchObject({
+      fontSize: "12px",
+      color: "rgb(90, 96, 117)",
+    });
+    expect(box(starting.element())).toEqual(before);
   });
 
   test("shows the answer: the meaning, the explanation, Use this meaning and where it came from", async () => {
-    const { props, calls } = withExplain({
-      state: "answer",
-      answer: ANSWER,
-      lines: 5,
-    });
+    const { props, calls } = withExplain({ state: "answer", answer: ANSWER });
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
     const meaning = screen.getByText(ANSWER.meaning);
     await expect.element(meaning).toHaveAttribute("lang", "ja");
@@ -941,7 +952,7 @@ describe("DictionaryWindow: in this sentence", () => {
     const explanation = screen.getByText(ANSWER.explanation);
     expect(style(explanation.element()).fontSize).toBe("14px");
     await expect
-      .element(screen.getByText("On-device AI · 5 lines"))
+      .element(screen.getByText("On-device AI", { exact: true }))
       .toBeVisible();
     // Mock `.aic`: the card on the window's gray surface.
     const card = meaning.element().parentElement!;
@@ -963,8 +974,7 @@ describe("DictionaryWindow: in this sentence", () => {
     // The real check (M4): in the 340 px panel both broke onto two lines.
     const props: DictionaryWindowProps = {
       ...panel,
-      explain: withExplain({ state: "answer", answer: ANSWER, lines: 5 }).props
-        .explain,
+      explain: withExplain({ state: "answer", answer: ANSWER }).props.explain,
     };
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
     const lineCount = (element: Element) => {
@@ -974,7 +984,7 @@ describe("DictionaryWindow: in this sentence", () => {
         .size;
     };
     const use = screen.getByRole("button", { name: "Use this meaning" });
-    const meta = screen.getByText("On-device AI · 5 lines");
+    const meta = screen.getByText("On-device AI", { exact: true });
     await expect.element(meta).toBeVisible();
     expect(lineCount(use.element())).toBe(1);
     expect(lineCount(meta.element())).toBe(1);
@@ -995,7 +1005,6 @@ describe("DictionaryWindow: in this sentence", () => {
       {
         state: "answer",
         answer: { ...ANSWER, unusual: false, sense: null },
-        lines: 1,
       },
       { usedHere: true },
     );
@@ -1006,7 +1015,7 @@ describe("DictionaryWindow: in this sentence", () => {
       .element(screen.getByText("None of the dictionary's meanings fit here."))
       .toBeVisible();
     await expect
-      .element(screen.getByText("On-device AI · 1 line"))
+      .element(screen.getByText("On-device AI", { exact: true }))
       .toBeVisible();
     const used = screen.getByRole("button", { name: "Used here" });
     await expect.element(used).toHaveAttribute("aria-pressed", "true");
@@ -1015,7 +1024,7 @@ describe("DictionaryWindow: in this sentence", () => {
 
   test("says nothing about the dictionary's meanings for a term without an entry", async () => {
     const { props } = withExplain(
-      { state: "answer", answer: { ...ANSWER, sense: null }, lines: 2 },
+      { state: "answer", answer: { ...ANSWER, sense: null } },
       { hasSenses: false },
     );
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
@@ -1060,11 +1069,7 @@ describe("DictionaryWindow: in this sentence", () => {
   });
 
   test("tags the meaning the answer names Fits here", async () => {
-    const { props } = withExplain({
-      state: "answer",
-      answer: ANSWER,
-      lines: 5,
-    });
+    const { props } = withExplain({ state: "answer", answer: ANSWER });
     const screen = await mountInShadowRoot(
       <DictionaryWindow
         {...props}
