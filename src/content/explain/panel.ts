@@ -3,8 +3,6 @@
  * your meanings"): whether it shows, the button, the download, the reading, the answer
  * and the error. Shared by the video and article parts.
  */
-import { MAX_LINES } from "../../core/explain/context";
-import { alternate } from "../../core/explain/prompt";
 import type {
   ExplainAvailability,
   ExplanationProvider,
@@ -33,9 +31,12 @@ const pairOf = ({ input }: ExplainRequest): LanguagePair => ({
   native: input.native,
 });
 
-/** The lines the prompt will hold unless they do not fit ("Reading N lines…"). */
-const linesOf = ({ input }: ExplainRequest) =>
-  Math.min(MAX_LINES, alternate(input).length);
+/**
+ * How long the model may take to start before the placeholder says "Starting
+ * on-device AI…": a page's first base session is ready in well under a second, one
+ * after the model was idle takes 7–9 s (notes "meaning-in-context").
+ */
+export const STARTING_NOTICE_MS = 1_000;
 
 /** What the section's buttons do, in a part's app. */
 export interface ExplainActions {
@@ -100,22 +101,43 @@ export function createExplainPanel(o: {
         return "unavailable";
       });
 
-  /** Asks the model (or the cache) and shows the reading, then the answer. */
+  /**
+   * Asks the model (or the cache) and shows the reading, then the answer. While the
+   * model itself starts for longer than `STARTING_NOTICE_MS`, the reading says so.
+   */
   function start() {
     const request = target?.request;
     if (!request || !runner) return;
     const isLatest = ticket.next();
-    o.show({ state: "reading", lines: linesOf(request) });
-    runner.explain(request).then(
-      ({ answer, lines }) => {
-        if (isLatest()) o.show({ state: "answer", answer, lines });
-      },
-      (error: unknown) => {
-        if (isAbortError(error) || !isLatest()) return;
-        warn(error);
-        o.show({ state: "error" });
-      },
-    );
+    let notice: ReturnType<typeof setTimeout> | undefined;
+    let noticed = false;
+    const onStarting = (starting: boolean) => {
+      clearTimeout(notice);
+      if (starting) {
+        notice = setTimeout(() => {
+          if (!isLatest()) return;
+          noticed = true;
+          o.show({ state: "starting" });
+        }, STARTING_NOTICE_MS);
+      } else if (noticed && isLatest()) {
+        noticed = false;
+        o.show({ state: "reading" });
+      }
+    };
+    o.show({ state: "reading" });
+    runner
+      .explain(request, onStarting)
+      .then(
+        ({ answer }) => {
+          if (isLatest()) o.show({ state: "answer", answer });
+        },
+        (error: unknown) => {
+          if (isAbortError(error) || !isLatest()) return;
+          warn(error);
+          o.show({ state: "error" });
+        },
+      )
+      .finally(() => clearTimeout(notice));
   }
 
   return {
@@ -132,7 +154,7 @@ export function createExplainPanel(o: {
       const kept = await runner.kept(request);
       if (!isLatest()) return;
       if (kept) {
-        o.show({ state: "answer", answer: kept.answer, lines: kept.lines });
+        o.show({ state: "answer", answer: kept.answer });
         return;
       }
       if (can !== "ready") o.show({ state: "download" });

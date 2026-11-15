@@ -51,10 +51,14 @@ export interface ExplanationProvider {
   /**
    * A session for one prompt, `instructions` given first (a system prompt). A
    * provider may keep a base session per page holding them and give a clone of it.
+   * `onStarting(true)` when the session waits for the model itself to start (Chrome:
+   * the base session's `create()`, the model loading), `onStarting(false)` once it
+   * has; not called when the model is up already, nor after `signal` aborts.
    */
   session(
     pair: LanguagePair,
     instructions: string,
     signal: AbortSignal,
+    onStarting?: (starting: boolean) => void,
   ): Promise<ExplanationSession>;
 }

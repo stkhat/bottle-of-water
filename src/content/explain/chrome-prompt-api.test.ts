@@ -68,6 +68,8 @@ function fakeModel(
     hang?: boolean;
     progress?: { loaded: number; total?: number }[];
     createFails?: boolean;
+    /** `create()` resolves once this does (the model loading). */
+    loaded?: Promise<void>;
   } = {},
 ) {
   const log: FakeLog = {
@@ -85,6 +87,7 @@ function fakeModel(
     async create(o = {} as never) {
       log.creates.push(o);
       if (options.createFails) throw new DOMException("No", "NotAllowedError");
+      await options.loaded;
       if (o.monitor) {
         const target = new EventTarget();
         o.monitor(target);
@@ -274,6 +277,58 @@ describe("session", () => {
       provider.session(EN_JA, "Be brief.", controller.signal),
     ).rejects.toThrow("Aborted");
     await provider.session(EN_JA, "Be brief.", signal());
+    expect(log.creates).toHaveLength(1);
+  });
+
+  it("tells while the base session is being created, and not once it is", async () => {
+    let load!: () => void;
+    const { api, log } = fakeModel({
+      loaded: new Promise<void>((resolve) => (load = resolve)),
+    });
+    const provider = createChromePromptApi(api, "157");
+    const told: boolean[] = [];
+    const first = provider.session(EN_JA, "Be brief.", signal(), (s) =>
+      told.push(s),
+    );
+    expect(told).toEqual([true]);
+    await Promise.resolve();
+    expect(told).toEqual([true]);
+    load();
+    await first;
+    expect(told).toEqual([true, false]);
+    expect(log.clones).toBe(1);
+
+    // A clone of the base the model has made: nothing to tell.
+    const later: boolean[] = [];
+    await provider.session(EN_JA, "Be brief.", signal(), (s) => later.push(s));
+    expect(later).toEqual([]);
+  });
+
+  it("stops telling when aborted, and tells the next prompt that waits for the same base", async () => {
+    let load!: () => void;
+    const { api, log } = fakeModel({
+      loaded: new Promise<void>((resolve) => (load = resolve)),
+    });
+    const provider = createChromePromptApi(api, "157");
+    const controller = new AbortController();
+    const told: boolean[] = [];
+    const aborted = provider.session(
+      EN_JA,
+      "Be brief.",
+      controller.signal,
+      (s) => told.push(s),
+    );
+    controller.abort(new DOMException("Aborted", "AbortError"));
+    await expect(aborted).rejects.toThrow("Aborted");
+
+    const next: boolean[] = [];
+    const waiting = provider.session(EN_JA, "Be brief.", signal(), (s) =>
+      next.push(s),
+    );
+    load();
+    await waiting;
+    expect(told).toEqual([true]);
+    expect(next).toEqual([true, false]);
     expect(log.creates).toHaveLength(1);
   });
 

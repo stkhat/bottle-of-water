@@ -2314,11 +2314,11 @@ describe("meaning in context", () => {
     await expect.poll(() => state().explain).toEqual({ state: "idle" });
 
     app.explainHere();
-    expect(state().explain).toEqual({ state: "reading", lines: 2 });
+    expect(state().explain).toEqual({ state: "reading" });
     await expect.poll(() => state().explain?.state).toBe("answer");
-    expect(state().explain).toMatchObject({
-      answer: { meaning: "ぴりっとした", sense: 1 },
-      lines: 2,
+    expect(state().explain).toEqual({
+      state: "answer",
+      answer: expect.objectContaining({ meaning: "ぴりっとした", sense: 1 }),
     });
     const [prompt] = log.prompts;
     expect(prompt).toContain("Source: Title of vid1");

@@ -7,18 +7,17 @@ import { color, sectionHeading } from "../styles";
 
 /**
  * What "In this sentence" shows (mock ContextMeaning): the button, the model to
- * download, its download, the placeholder while the model reads, the answer, or the
- * error with Try again.
+ * download, its download, the placeholder while the model reads ("Thinking…", or
+ * "Starting on-device AI…" while the model itself is slow to start), the answer, or
+ * the error with Try again.
  */
 export type ExplainView =
   | { state: "idle" }
   | { state: "download" }
   | { state: "downloading"; /** 0 to 1 */ loaded: number }
-  | {
-      state: "reading";
-      /** Lines around the sentence it reads. */ lines: number;
-    }
-  | { state: "answer"; answer: Answer; lines: number }
+  | { state: "reading" }
+  | { state: "starting" }
+  | { state: "answer"; answer: Answer }
   | { state: "error" };
 
 export interface InThisSentenceProps {
@@ -113,18 +112,6 @@ const useButton = (pressed: boolean): Style => ({
       }),
 });
 
-/** "Reading N lines around it…" */
-const reading = (lines: number) =>
-  lines === 1
-    ? t("dict.explain.reading.one")
-    : t("dict.explain.reading", { count: lines });
-
-/** "On-device AI · N lines" */
-const madeFrom = (lines: number) =>
-  lines === 1
-    ? t("dict.explain.meta.one")
-    : t("dict.explain.meta", { count: lines });
-
 /**
  * "In this sentence" in the dictionary window (ui.md "Meaning in context and your
  * meanings"): the on-device AI's meaning of the term in the sentence it was met in.
@@ -196,6 +183,7 @@ function State(props: InThisSentenceProps) {
       );
     }
     case "reading":
+    case "starting":
       return (
         <div role="status" aria-label={t("dict.explain.busy")} style={CARD}>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -213,7 +201,13 @@ function State(props: InThisSentenceProps) {
               ></span>
             ))}
           </div>
-          <span style={META}>{reading(view.lines)}</span>
+          <span style={META}>
+            {t(
+              view.state === "starting"
+                ? "dict.explain.starting"
+                : "dict.explain.thinking",
+            )}
+          </span>
         </div>
       );
     case "answer":
@@ -241,7 +235,7 @@ function AnswerCard(
     view: Extract<ExplainView, { state: "answer" }>;
   },
 ) {
-  const { answer, lines } = props.view;
+  const { answer } = props.view;
   return (
     <div style={CARD}>
       <p
@@ -263,8 +257,8 @@ function AnswerCard(
       {props.hasSenses && answer.sense === null && (
         <span style={META}>{t("dict.explain.noFit")}</span>
       )}
-      {/* Neither breaks inside: where the row is too narrow for both (the article
-          panel), "On-device AI · N lines" moves under the button, still at the right. */}
+      {/* Neither breaks inside: where the row is too narrow for both, "On-device
+          AI" moves under the button, still at the right. */}
       <div
         style={{
           display: "flex",
@@ -283,7 +277,7 @@ function AnswerCard(
           {t(props.usedHere ? "dict.usedHere" : "dict.explain.use")}
         </button>
         <span style={{ ...META, marginLeft: "auto", whiteSpace: "nowrap" }}>
-          {madeFrom(lines)}
+          {t("dict.explain.meta")}
         </span>
       </div>
     </div>

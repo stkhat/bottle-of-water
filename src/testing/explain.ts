@@ -24,6 +24,11 @@ export interface FakeProviderOptions {
   measure?: (text: string) => number;
   /** The answers in turn; the last one repeats (default `answerJson()`). */
   answers?: FakeAnswer[];
+  /**
+   * The model starts when this settles (default: it is up already). Sessions asked
+   * before wait for it, telling `onStarting` as a provider does.
+   */
+  started?: Promise<void>;
 }
 
 /** An answer's JSON as the model writes it. */
@@ -65,8 +70,14 @@ export function fakeExplanationProvider(options: FakeProviderOptions = {}) {
     prompts: [] as string[],
     /** Prompts that were aborted. */
     aborted: 0,
+    /** What `onStarting` was told, in order. */
+    starting: [] as boolean[],
   };
   let availability = options.availability ?? "ready";
+  let up = options.started === undefined;
+  void options.started?.then(() => {
+    up = true;
+  });
 
   const provider: ExplanationProvider = {
     name: "fake",
@@ -77,8 +88,20 @@ export function fakeExplanationProvider(options: FakeProviderOptions = {}) {
       onProgress(1);
       availability = "ready";
     },
-    async session(pair, instructions, signal) {
+    async session(pair, instructions, signal, onStarting) {
       signal.throwIfAborted();
+      if (!up) {
+        const tell = (starting: boolean) => {
+          log.starting.push(starting);
+          onStarting?.(starting);
+        };
+        tell(true);
+        try {
+          await Promise.race([options.started, aborted(signal)]);
+        } finally {
+          if (!signal.aborted) tell(false);
+        }
+      }
       const record = { pair, instructions, destroyed: false };
       log.sessions.push(record);
       return {
