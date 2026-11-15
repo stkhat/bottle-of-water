@@ -3,7 +3,7 @@
 Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left, in no fixed order; the user picks the next one.
 
 ## Phase 3 ([design](../specs/design.md) "Phases")
-- Meaning in context (on-device AI in the dictionary window) and your meanings (a meaning per sentence for words with several): designed and mock approved 2026-11-15 ([architecture](../specs/architecture.md) "Meaning in context"); its "Checks before building" come first. The user's own API key is a later step of its own
+- Meaning in context (on-device AI in the dictionary window) and your meanings (a meaning per sentence for words with several): built and checked with the real model 2026-11-16 ([status](../status.md)). Left: the user's own API key, a later step of its own
 - Tatoeba example sentences (CC BY)
 - Not done: "Ask AI" links to ChatGPT / Claude (user, 2026-11-15; [design](../specs/design.md) "Phases")
 - Anki / CSV export
