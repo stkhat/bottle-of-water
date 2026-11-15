@@ -51,7 +51,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
   - External dictionary links: Cambridge / Wiktionary / Reverso / WordReference (each can be turned on/off in settings; **users cannot add their own dictionary URLs**)
   - "In this video" / "On this page": other occurrences in the same video or page (with timestamps for videos; clicking seeks there). In a video's list the term is marked in each line with its category's highlight (as in the transcript, shown even when that category's highlight is switched off; each part of a phrase with a gap). On a page the list has every sentence with the term, the clicked one included, as in the mock; clicking one scrolls to it
   - "Seen elsewhere": occurrences in other sources. For unsaved words, explain that saving starts recording
-- **No "Ask AI" button (links to ChatGPT / Claude) in phase 1**
+- "In this sentence" (phase 3, not built): see "Meaning in context and your meanings". No "Ask AI" links to ChatGPT / Claude (user, 2026-11-15)
 
 ## Video UI (YouTube / Netflix)
 - **Two columns**: video on the left, transcript (subtitle cards) on the right. The dictionary is the popup window above
@@ -158,7 +158,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
   - **Appearance**: Theme — System (default) / Light / Dark, a three-option segmented choice (see "Shared: theme")
   - **New-word level**: slider "Treat the N most common words as known" (1,000–20,000, default 3,000)
   - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice
-  - **Dictionaries and AI**: on/off for the four external dictionaries. "AI explanations inside the window" shows Coming later (the mention of "Chrome's built-in AI" is hidden in browsers without built-in AI, leaving only "your own API key")
+  - **Dictionaries and AI**: on/off for the four external dictionaries. Today "AI explanations inside the window" shows Coming later; phase 3 replaces it with "On-device AI" and "Explain words the dictionary doesn't have" (see "Meaning in context and your meanings")
   - **Video subtitles**: subtitle position (In video / Below video), subtitle translation, transcript translation
   - **Sites**: on/off for YouTube / YouTube comments / Netflix / other articles, and a "Never run on" list
   - **Sentence history**: see "Past occurrences of unsaved words"
@@ -201,3 +201,31 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
   - The dictionary window shows "Seen elsewhere · N" for unsaved words too, from the local sentence history. When the word is saved, those occurrences become part of its history
   - Rows show "host · Nov 8" for pages and "YouTube · at 3:10 · Nov 8" for videos (saved words too)
   - Settings gets a **Sentence history** section (after Sites): "Keep sentence history" switch (on by default; not in browser sync; Never run on sites are not kept; while connected to the user's own cloud storage, "Also save to <provider>" sends it there, see architecture), space used with a bar (cap 50 MB; the oldest pages are removed first), the number of pages and videos, and "Clear" (saved words and their sources stay)
+
+## Meaning in context and your meanings (phase 3; mock `Phase 3 — meaning in this sentence`, `— your meanings`, `— your meanings in Words lists`, `— your meanings on the word list page`, approved 2026-11-15; not built)
+How it works underneath: [architecture](architecture.md) "Meaning in context". Everything here except the parts named "on-device AI" works without a model.
+
+- **Dictionary window, "In this sentence"** (after the status buttons, before Meanings). Shown only where an on-device model can run for the language pair; elsewhere the section is not there (Firefox, devices Chrome's model does not support, languages it does not read or write)
+  - A term with a dictionary entry: an "Explain in context" button (sparkle icon, pale green, green outline). Pressed: a placeholder of three pulsing lines and "Reading N lines around it…", then a card (`#F6F7F9`): the meaning in this sentence (16 px semibold), one or two sentences of explanation (14 px), "Use this meaning", and at the right "On-device AI · N lines" (N: the lines the prompt held)
+  - A term the dictionary does not have (a selection that matches no pattern): the same card starts as soon as the window opens, unless Settings turns it off; the header keeps its literal translation, marked "Machine translation"
+  - Once the answer is there, the dictionary meaning the model names gets a "Fits here" tag (white, green outline) in Meanings. When a term with an entry gets none, the card adds "None of the dictionary's meanings fit here." (a term without an entry never shows it)
+  - The model not on the device yet: the card says "Chrome's on-device AI is downloaded once before its first use." (the browser's name comes from `BrowserEnv`) with "Download and explain"; pressed, "Downloading on-device AI" with a percentage and a bar, then the explanation as above. If the model can only be created outside the page (architecture "Meaning in context" → "Parts"), the button opens Settings at the On-device AI row instead
+  - Not in the mock: when the model fails or takes too long, the card says "Couldn't explain this." with "Try again". Opening the window again on the same sentence shows the cached card at once
+- **Choosing a meaning for this sentence** ("this sentence": the line or sentence the window was opened from; from a Words row, the term's earliest place in the video or page. A line said twice in one video is one place: all its chips show the meaning)
+  - Each row in Meanings shows "Use here" (28 px, green outline) while the pointer is on the row or the button has focus; the chosen row shows "Used here" (filled green) all the time. The card's "Use this meaning" works the same way and reads "Used here" when chosen. Pressing a chosen one again undoes it; choosing another replaces it (one meaning per sentence). Undoing never removes the word, also when choosing had saved it
+  - Choosing for an unsaved term saves it as Learning, with this sentence as "Saved here"
+  - Meanings chosen from the model in other sentences are listed first in Meanings, with an "AI" tag (no part of speech). Every meaning chosen anywhere shows a bookmark mark (green, filled) before its text and "N sentences" after its part of speech
+  - Places Lingo records by itself (a saved word met again, kept sentences copied at saving) have no meaning until the user chooses one there
+- **Hover card**: the term's chosen meanings come first, each with the bookmark mark: the one chosen for the hovered sentence, then the most used; then the dictionary's lines, still at most three lines in all
+- **Words in this video / Words on this page**
+  - A term with a meaning chosen in some place of this video or page: the head line shows the head and the count only; under it, one line per meaning in order of first appearance: the bookmark, the meaning (13 px, cut with an ellipsis) and the chips of the places it was chosen in. Places with no meaning chosen come last, on a line with the dictionary's short meaning in grey and no mark
+  - A term with meanings chosen only elsewhere: one line as before, showing its meanings (bookmark, joined by " · ") instead of the dictionary's short meaning
+  - Other terms are unchanged; chips, hover and click work as before. Accessible names of the chip groups: "Places with your meaning …", "Places with no meaning chosen, …"
+- **Word list page**
+  - Meaning column: the term's chosen meanings (bookmark, joined by " · ") instead of the short meaning. Search matches them too
+  - Details, "Where you saw it · N": grouped by meaning, each group headed by the bookmark, the meaning, an "AI" tag when it came from the model, and "· N"; places with no meaning chosen last, under "No meaning chosen". A term without chosen meanings lists its places as before
+  - Meanings are chosen only in the dictionary window, not on this page
+- **Settings → Dictionaries and AI** (the two rows show only where an on-device model can run)
+  - "On-device AI" — "Chrome's built-in AI explains a word in the sentence you met it in, in the dictionary window. It runs on this device." (the browser's name from `BrowserEnv`) — with Download, then "Downloading" with a percentage and a bar, then "Ready". Read again each time Settings opens: Chrome can remove the model when disk space runs low, and the row goes back to Download
+  - "Explain words the dictionary doesn't have" — "As soon as the dictionary window opens. Words with an entry are explained when you press Explain in context." — a switch, on by default, in browser sync with the other settings
+- Counts in this section ("N lines", "N sentences", "· N") take the plural forms of `t()`
