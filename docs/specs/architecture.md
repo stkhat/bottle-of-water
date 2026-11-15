@@ -180,8 +180,9 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 
 ## Data model (IndexedDB)
 - One Dexie schema version (4). Versions 1–3 only added tables and were merged into it (2026-11-12); Dexie upgrades an older database by comparing the schemas
-- `terms`: `{id: "en:look up", lang, key (base form or sequence of base forms), display, kind: word|phrase, status: learning|known, bulk?: bool, note?, createdAt, updatedAt}`
+- `terms`: `{id: "en:look up", lang, key (base form or sequence of base forms), display, kind: word|phrase, status: learning|known, bulk?: bool, learnedAt?, note?, createdAt, updatedAt}`
   - Words saved by "save all" (Mark as Known at the end) get `bulk: true` (for demotion when sync space runs out)
+  - `learnedAt`: when a live term last went from `learning` to `known` (the word list's Learned, [ui](ui.md) "Word list page"). Set by that change only; going back to `learning`, removal and a sync record without the mark drop it; saving a known term again keeps it
 - `sources`: `{id, platform: youtube|netflix|web, url (normalized), title, lang, firstSeen, lastSeen}`
 - `occurrences`: `{termId, sourceId, sentence, translation?, pos: {timeMs}|{textQuote}, seenAt, origin: saved|encountered}`
   - Saving always creates one source record
@@ -199,6 +200,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - `BrowserSyncBackend` (background) owns it. `CloudSyncBackend` (designed, not built: "Sync to the user's own cloud storage") takes over terms while connected; no shared interface is kept until it is built
 - The limits are the same in Chrome and Firefox. Use the `storage.sync` constants (`QUOTA_BYTES` etc.) when readable at runtime, otherwise the values above
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
+  - Status codes: `l` learning, `k` known, `g` known and learned (`learnedAt` set), `x` removed. A device that takes in `g` keeps its own `learnedAt` when its copy is already learned, else uses the record's update time
 - **Rough capacity**
   - Uncompressed: **~6,000 words**
   - Compressed: **~12,400 words** (English, measured 2026-11-09 with realistic save times; 20,000 words take ~170 KB)
@@ -233,7 +235,7 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 ### What is synced
 | Data | File |
 |---|---|
-| Terms (words and phrases): key, display, kind, status, `bulk`, note, created / updated / cleared times. Tombstones are kept for good | `main` |
+| Terms (words and phrases): key, display, kind, status, `bulk`, note, created / updated / cleared / learned times. Tombstones are kept for good | `main` |
 | Sources that still have an occurrence | `main` |
 | Settings (everything in `storage.sync` today) with a time per field | `main` |
 | `historyClearedAt` (the last "Clear") and `historyForgotten` (host → when it was added to "Never run on") | `main` |
