@@ -11,7 +11,7 @@ Progress (the parent session runs each step as a subagent end to end: branch, `n
 - [x] M1a. Your meanings: data, messages, JSON export v2, "Use here" in the dictionary window (the button as tall as the meaning line: user, 2026-11-16)
 - [x] M1b. Your meanings: hover card, Words lists, word list page (2026-11-16)
 - [x] M2. `ExplanationProvider`, `core/explain/`, the explanations cache, the per-page runner (fake provider) (2026-11-16; the provider gives a session per prompt: `session(pair, instructions, signal)` → `{budget, measure, prompt, destroy}`, architecture "Parts")
-- [ ] M3. Chrome Prompt API provider, "In this sentence", download flow, Settings rows
+- [x] M3. Chrome Prompt API provider, "In this sentence", download flow, Settings rows (2026-11-16; fake model only, the real one in M4: [architecture](../specs/architecture.md) "Meaning in context" → "Parts", [ui](../specs/ui.md) "Meaning in context and your meanings")
 - [ ] M4. Real-site check in the user's Chrome, status and notes
 
 ## Context
@@ -26,7 +26,7 @@ The spec asks for its checks first, because the API's shape in MV3 and the model
 - `SenseList` in `ui/lookup/DictionaryWindow.tsx:292` renders each sense's pack text (`text`) with its display-time translation (`translated`). Hover lines come from `windowView`/`hoverView` in `content/lookup/describe.ts`.
 - The translator queue (`content/translate/queue.ts`) runs one job at a time, has no abort; `translator.ts` shows the user-activation rule for downloads.
 - `translation-cache.ts` (LRU by `usedAt`, `clearPair`) and the `removePack` handler (`handlers.ts:519`) are the model for the explanations cache.
-- `BrowserEnv.features.builtInAi` = `"LanguageModel" in globalThis`; Settings shows a `LaterRow` "AI explanations inside the window" (`options/sections/Dictionaries.tsx:52`).
+- `BrowserEnv.features.builtInAi` = `"LanguageModel" in globalThis`; Settings shows a `LaterRow` "AI explanations inside the window" (`options/sections/Dictionaries.tsx:52`). (M3 removed both: the provider detects `LanguageModel` itself.)
 - `t()` has no plural rules: singular forms are separate `.one` keys picked by the caller (`page.words.more.one`). The spec's "plural forms of `t()`" means this pattern.
 - IndexedDB tests are `*.browser.test.ts` (Chromium and Firefox) with `freshDb()` (`src/testing/db.ts`); handlers have unit tests with fake deps.
 - A sense-picking study with Gemini Nano already ran on the 2026-11 corpus in the user's Chrome 157 (`data/raw/quality/2026-11/`, git-ignored; [notes](../notes/translation-quality.md) "What was tested in round 2").

@@ -1,4 +1,5 @@
 import type { Category, Span, TermKind, TermStatus } from "../../core/classify";
+import type { ExplanationProvider } from "../../core/explain/provider";
 import type { Written } from "../../core/lexicon/dictionary";
 import type { PackStates } from "../../core/packs/state";
 import type { DocumentCasing } from "../../core/text/casing";
@@ -30,6 +31,11 @@ export interface LookupDeps {
   watchPackState(listener: (states: PackStates) => void): () => void;
   /** Default: the browser's built-in translator. */
   createTranslator?(from: string, to: string): TranslationProvider;
+  /**
+   * The on-device AI of the dictionary window's "In this sentence", one for the whole
+   * page; none: no section.
+   */
+  explainProvider?: ExplanationProvider;
   /** This part's dictionary opened: another part's on the same page closes. */
   onPanelOpen?(): void;
   /** A term was saved, changed or removed here: other parts of the page follow. */

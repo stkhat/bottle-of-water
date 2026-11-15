@@ -7,6 +7,7 @@ import {
   type PageSummary,
 } from "../messaging/page-protocol";
 import { watchPackState, watchSettings } from "../messaging/storage";
+import { explanationProvider } from "./explain/chrome-prompt-api";
 import { sendWhileConnected } from "./orphan";
 
 /** The extension as a content script reaches it. */
@@ -16,6 +17,7 @@ export function contentDeps(ctx: ContentScriptContext) {
     watchSettings,
     watchPackState,
     detectLanguage: (text: string) => browser.i18n.detectLanguage(text),
+    explainProvider: explanationProvider(),
   };
 }
 

@@ -56,6 +56,11 @@ export interface Settings {
   disabledSites: string[];
   syncEnabled: boolean;
   sentenceHistory: boolean;
+  /**
+   * The on-device AI explains a term the dictionary does not have as soon as the
+   * dictionary window opens (where a model can run for the pair).
+   */
+  explainUnknown: boolean;
   /** Light or dark UI; `system` follows the browser's appearance. */
   theme: "system" | "light" | "dark";
 }
@@ -113,6 +118,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   disabledSites: [],
   syncEnabled: true,
   sentenceHistory: true,
+  explainUnknown: true,
   theme: "system",
 });
 
@@ -218,6 +224,7 @@ export function mergeSettings(
     disabledSites: strings(v.disabledSites, base.disabledSites),
     syncEnabled: bool(v.syncEnabled, base.syncEnabled),
     sentenceHistory: bool(v.sentenceHistory, base.sentenceHistory),
+    explainUnknown: bool(v.explainUnknown, base.explainUnknown),
     theme: oneOf(v.theme, base.theme, ["system", "light", "dark"]),
   };
 }

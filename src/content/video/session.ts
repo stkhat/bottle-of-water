@@ -18,7 +18,20 @@ import {
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SaveTermInput, SourceInput } from "../../messaging/protocol";
-import { meaningRows, type TermCard } from "../lookup/describe";
+import {
+  createExplainPanel,
+  shownAnswer,
+  type ExplainTarget,
+} from "../explain/panel";
+import { videoPlace } from "../explain/place";
+import {
+  answerChoice,
+  meaningRows,
+  packSenses,
+  rowChoice,
+  type Choice,
+  type TermCard,
+} from "../lookup/describe";
 import {
   createLookup,
   createMarkAll,
@@ -115,12 +128,48 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     lang: lang(),
   });
   const flat = (text: string) => flatCue(text, lang());
+  const explain = createExplainPanel({
+    provider: deps.explainProvider,
+    send: deps.send,
+    settings: () => settings,
+    show: (view) => store.set({ explain: view }),
+  });
   const cards = createCards({
     store,
     lookup,
     flat,
     onPanelOpen: deps.onPanelOpen,
+    opened: (ref, card) => void explain.open(explainTarget(ref, card)),
+    closed: explain.close,
   });
+
+  /** What the on-device AI reads for the term at `ref`: its card and the cards around it. */
+  function explainTarget(
+    ref: WordRef,
+    card: TermCard,
+  ): ExplainTarget | undefined {
+    const { cues, spans } = store.get();
+    const place = videoPlace(cues, spans, ref, flat);
+    const found = cards.spanOf(ref);
+    if (!place || !found) return undefined;
+    return {
+      request: {
+        input: {
+          learning: lang(),
+          native: settings.nativeLang,
+          title: adapter.title(),
+          written: found.surface,
+          base: card.key,
+          kind: card.kind,
+          ...place,
+          senses: packSenses(card),
+        },
+        key: card.key,
+        sourceUrl: adapter.url(),
+      },
+      noEntry: card.senses.length === 0,
+    };
+  }
 
   /** What saving a term from the cue sends besides its key, status and kind. */
   function termInput(
@@ -185,6 +234,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     lookup.setCasing(undefined);
     cards.dismissHover();
     selection.clear();
+    explain.close();
     // The L button starts where it was left on this platform.
     store.set(
       freshState(
@@ -435,27 +485,34 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   }
 
   /**
-   * Chooses the meaning of the window's row `index` for the card `ref` is in, or undoes
-   * it when it is the one chosen there. An unsaved term is saved as Learning.
+   * Chooses `choice.meaning` for the card `ref` is in, or undoes it when it is the one
+   * chosen there. An unsaved term is saved as Learning.
    */
   async function chooseMeaning(
     w: Watch,
     ref: WordRef,
     card: TermCard,
-    index: number,
+    choice: Choice,
   ) {
-    const row = meaningRows(card)[index];
     const term = saveInput(ref, card);
-    if (!row || !term) return;
+    if (!term) return;
     await deps.send({
       type: "chooseMeaning",
       term,
-      meaning: row.sense.usedHere ? null : row.meaning,
+      meaning: choice.usedHere ? null : choice.meaning,
     });
-    if (card.status === "new" && !row.sense.usedHere)
+    if (card.status === "new" && !choice.usedHere)
       await statusChanged(w, ref, card, "learning");
     else await cards.refresh(card);
     if (watch === w) w.summaries.meaningChosen(card.key);
+  }
+
+  /** Chooses (or undoes) `pick`'s meaning of the window's term for its card. */
+  function choose(pick: (card: TermCard) => Choice | undefined) {
+    const panel = store.get().panel;
+    const choice = panel && pick(panel.card);
+    if (panel && choice)
+      withWatch((w) => chooseMeaning(w, panel.ref, panel.card, choice));
   }
 
   /** The term at `ref` went from `card.status` to `to`: every line with it follows. */
@@ -517,7 +574,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (store.get().enabled === on) return;
       cards.dismissHover();
       selection.clear();
-      store.set({ enabled: on, ...(!on && { panel: null }) });
+      if (!on) cards.closePanel();
+      store.set({ enabled: on });
       if (settings.videoOn[platform] !== on)
         changeSettings({ videoOn: { [platform]: on } });
       const video = adapter.video();
@@ -563,9 +621,17 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         withWatch((w) => changeStatus(w, panel.ref, panel.card, status));
     },
     useMeaning(index) {
-      const panel = store.get().panel;
-      if (panel)
-        withWatch((w) => chooseMeaning(w, panel.ref, panel.card, index));
+      choose((card) => {
+        const answer = shownAnswer(store.get().explain);
+        return rowChoice(meaningRows(card, answer)[index]);
+      });
+    },
+    explainHere: explain.explain,
+    downloadModel: explain.download,
+    retryExplain: () => void explain.retry(),
+    useAnswer() {
+      const answer = shownAnswer(store.get().explain);
+      if (answer) choose((card) => answerChoice(card, answer));
     },
     speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel: cards.closePanel,
@@ -651,6 +717,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       data.stop();
       cards.dismissHover();
       selection.clear();
+      explain.close();
       hold.stop();
       watch?.controller.abort();
       watch = undefined;

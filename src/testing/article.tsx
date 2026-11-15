@@ -3,6 +3,7 @@
 import { render } from "preact";
 import { expect } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import type { ExplanationProvider } from "../core/explain/provider";
 import type { Settings } from "../core/settings";
 import type { Request } from "../messaging/protocol";
 import { ArticleUi } from "../content/article/ArticleUi";
@@ -22,6 +23,8 @@ export async function cleanUp() {
 export interface SetupOptions {
   settings?: Partial<Settings>;
   translator?: TranslationProvider;
+  /** The on-device AI (default: none). */
+  explainProvider?: ExplanationProvider;
   /** Runs before each request reaches the background, e.g. to slow it down. */
   beforeRequest?: (request: Request) => Promise<void>;
   /** Runs before the page starts, e.g. to save terms. */
@@ -95,6 +98,9 @@ export async function setup(html: string, options: SetupOptions = {}) {
         };
       },
       createTranslator: () => translator,
+      ...(options.explainProvider && {
+        explainProvider: options.explainProvider,
+      }),
     },
     { root, htmlLang: "en", hostname: "example.com" },
   )) as ArticleSession;

@@ -16,6 +16,7 @@ import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
 import { VideoPanel } from "../../ui/video/VideoPanel";
 import { ThemeScope } from "../../ui/ThemeScope";
+import { explainSection, shownAnswer } from "../explain/panel";
 import { hoverView, windowView } from "../lookup/describe";
 import { boxOf, type Box } from "../lookup/geometry";
 import {
@@ -542,7 +543,7 @@ export function PageUi(props: {
   const { app, geometry } = props;
   const state = useStore(app.store);
   const { vertical, sidebar } = useStore(props.layout);
-  const { hover, panel, phrase, settings, fullscreen } = state;
+  const { hover, panel, phrase, settings, fullscreen, explain } = state;
   const position = sidebar
     ? "sidebar"
     : fullscreen
@@ -570,13 +571,14 @@ export function PageUi(props: {
           frame={frame}
           // Over a video that fills the window or the screen: the darker shadow.
           fullscreen={fullscreen || sidebar}
-          entry={windowView(panel.card)}
+          entry={windowView(panel.card, shownAnswer(explain))}
           nativeLang={settings.nativeLang}
           learningLang={settings.learningLang}
           status={panel.card.status}
           onStatus={app.setPanelStatus}
           onUse={app.useMeaning}
           onSpeak={app.speak}
+          explain={explainSection(panel.card, explain, app)}
           dictionaries={panel.dictionaries}
           here={{
             source: "video",

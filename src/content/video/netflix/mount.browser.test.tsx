@@ -30,6 +30,7 @@ const STATE: VideoState = {
   subtitleTranslation: "",
   hover: null,
   panel: null,
+  explain: null,
   phrase: null,
   selecting: false,
   subtitleHover: false,

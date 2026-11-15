@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { BrowserEnv } from "../../core/browser-env";
+import type { ExplanationProvider } from "../../core/explain/provider";
 import {
   mergeSettings,
   type Settings,
@@ -36,6 +37,8 @@ import { VideoSection } from "./sections/Video";
 export interface SettingsDeps extends BackupDeps, PackStatusDeps {
   send: typeof send;
   env: Pick<BrowserEnv, "name" | "syncName" | "features">;
+  /** The on-device AI ("Dictionaries and AI"); none: no rows for it. */
+  explainProvider?: ExplanationProvider;
   /** The extension's version, from the manifest. */
   version: string;
   /** How often the sync and history status and the relative times are refreshed. */
@@ -234,7 +237,11 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
         <AppearanceSection {...section} />
         <LevelSection {...section} />
         <HighlightingSection {...section} />
-        <DictionariesSection {...section} env={deps.env} />
+        <DictionariesSection
+          {...section}
+          env={deps.env}
+          explainProvider={deps.explainProvider}
+        />
         <VideoSection {...section} />
         <SitesSection {...section} />
         <HistorySection

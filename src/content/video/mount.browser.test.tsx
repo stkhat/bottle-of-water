@@ -62,6 +62,7 @@ function readyState(patch: Partial<VideoState> = {}): VideoState {
     subtitleTranslation: "イーストはぴりっとした匂い。",
     hover: null,
     panel: null,
+    explain: null,
     phrase: null,
     selecting: false,
     subtitleHover: false,

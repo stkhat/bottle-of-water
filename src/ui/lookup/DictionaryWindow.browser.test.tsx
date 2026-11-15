@@ -4,6 +4,7 @@ import {
   DictionaryWindow,
   type DictionaryWindowProps,
 } from "./DictionaryWindow";
+import type { ExplainView } from "./InThisSentence";
 import {
   addPageStyle,
   cleanUpMounts,
@@ -840,5 +841,226 @@ describe("DictionaryWindow: your meanings", () => {
     const props = { ...fold, onUse: undefined };
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
     expect(useButtons(screen)).toEqual([]);
+  });
+});
+
+describe("DictionaryWindow: in this sentence", () => {
+  const actions = () => ({
+    onExplain: vi.fn(),
+    onDownload: vi.fn(),
+    onRetry: vi.fn(),
+    onUse: vi.fn(),
+  });
+  const withExplain = (
+    view: ExplainView,
+    more: Partial<NonNullable<DictionaryWindowProps["explain"]>> = {},
+  ) => {
+    const calls = actions();
+    const props: DictionaryWindowProps = {
+      ...figureOut,
+      explain: {
+        view,
+        browserName: "Chrome",
+        hasSenses: true,
+        usedHere: false,
+        ...calls,
+        ...more,
+      },
+    };
+    return { props, calls };
+  };
+  const style = (element: Element) => getComputedStyle(element);
+  const ANSWER = {
+    meaning: "（パン生地の）折り込み",
+    unusual: true,
+    explanation: "パン作りで、生地を折り重ねる作業。",
+    sense: 1,
+  };
+
+  test("comes after the status buttons, before Meanings, as the button", async () => {
+    const { props, calls } = withExplain({ state: "idle" });
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    const section = screen.getByRole("region", { name: "In this sentence" });
+    await expect
+      .element(section.getByRole("heading", { name: "In this sentence" }))
+      .toBeVisible();
+    const text = screen.container.textContent;
+    expect(text.indexOf("Not saved")).toBeLessThan(
+      text.indexOf("In this sentence"),
+    );
+    expect(text.indexOf("In this sentence")).toBeLessThan(
+      text.indexOf("Meanings"),
+    );
+    const button = section.getByRole("button", { name: "Explain in context" });
+    // Mock ContextMeaning `.explain`: pale green with a green outline, 40px tall.
+    expect(style(button.element())).toMatchObject({
+      height: "40px",
+      backgroundColor: "rgb(230, 246, 240)",
+      borderTopColor: "rgb(143, 211, 188)",
+      color: "rgb(7, 92, 73)",
+      fontWeight: "600",
+    });
+    expect(button.element().querySelector("svg")).not.toBeNull();
+    await button.click();
+    expect(calls.onExplain).toHaveBeenCalledOnce();
+  });
+
+  test("shows the reading placeholder with the lines it reads", async () => {
+    const { props } = withExplain({ state: "reading", lines: 1 });
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    const status = screen.getByRole("status", {
+      name: "Explaining in context",
+    });
+    await expect
+      .element(status.getByText("Reading 1 line around it…"))
+      .toBeVisible();
+    expect(status.element().querySelectorAll("[data-pulse]")).toHaveLength(3);
+    await screen.rerender(
+      <DictionaryWindow
+        {...withExplain({ state: "reading", lines: 5 }).props}
+      />,
+    );
+    await expect
+      .element(screen.getByText("Reading 5 lines around it…"))
+      .toBeVisible();
+  });
+
+  test("shows the answer: the meaning, the explanation, Use this meaning and where it came from", async () => {
+    const { props, calls } = withExplain({
+      state: "answer",
+      answer: ANSWER,
+      lines: 5,
+    });
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    const meaning = screen.getByText(ANSWER.meaning);
+    await expect.element(meaning).toHaveAttribute("lang", "ja");
+    expect(style(meaning.element())).toMatchObject({
+      fontSize: "16px",
+      fontWeight: "600",
+    });
+    const explanation = screen.getByText(ANSWER.explanation);
+    expect(style(explanation.element()).fontSize).toBe("14px");
+    await expect
+      .element(screen.getByText("On-device AI · 5 lines"))
+      .toBeVisible();
+    // Mock `.aic`: the card on the window's gray surface.
+    const card = meaning.element().parentElement!;
+    expect(style(card)).toMatchObject({
+      backgroundColor: "rgb(246, 247, 249)",
+      borderTopLeftRadius: "10px",
+      paddingTop: "14px",
+    });
+    const use = screen.getByRole("button", { name: "Use this meaning" });
+    expect(style(use.element()).height).toBe("34px");
+    await use.click();
+    expect(calls.onUse).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText("None of the dictionary's meanings fit here.").query(),
+    ).toBeNull();
+  });
+
+  test("leaves the explanation out for an ordinary use, and reads Used here when chosen", async () => {
+    const { props } = withExplain(
+      {
+        state: "answer",
+        answer: { ...ANSWER, unusual: false, sense: null },
+        lines: 1,
+      },
+      { usedHere: true },
+    );
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    await expect.element(screen.getByText(ANSWER.meaning)).toBeVisible();
+    expect(screen.getByText(ANSWER.explanation).query()).toBeNull();
+    await expect
+      .element(screen.getByText("None of the dictionary's meanings fit here."))
+      .toBeVisible();
+    await expect
+      .element(screen.getByText("On-device AI · 1 line"))
+      .toBeVisible();
+    const used = screen.getByRole("button", { name: "Used here" });
+    await expect.element(used).toHaveAttribute("aria-pressed", "true");
+    expect(style(used.element()).backgroundColor).toBe("rgb(11, 138, 108)");
+  });
+
+  test("says nothing about the dictionary's meanings for a term without an entry", async () => {
+    const { props } = withExplain(
+      { state: "answer", answer: { ...ANSWER, sense: null }, lines: 2 },
+      { hasSenses: false },
+    );
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    await expect.element(screen.getByText(ANSWER.meaning)).toBeVisible();
+    expect(
+      screen.getByText("None of the dictionary's meanings fit here.").query(),
+    ).toBeNull();
+  });
+
+  test("offers the download with the browser's name, then shows its progress", async () => {
+    const { props, calls } = withExplain({ state: "download" });
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    await expect
+      .element(
+        screen.getByText(
+          "Chrome's on-device AI is downloaded once before its first use.",
+        ),
+      )
+      .toBeVisible();
+    await screen.getByRole("button", { name: "Download and explain" }).click();
+    expect(calls.onDownload).toHaveBeenCalledOnce();
+
+    await screen.rerender(
+      <DictionaryWindow
+        {...withExplain({ state: "downloading", loaded: 0.456 }).props}
+      />,
+    );
+    const status = screen.getByRole("status");
+    await expect
+      .element(status)
+      .toHaveTextContent("Downloading on-device AI45%");
+  });
+
+  test("says when it could not explain, with Try again", async () => {
+    const { props, calls } = withExplain({ state: "error" });
+    const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+    await expect
+      .element(screen.getByText("Couldn't explain this."))
+      .toBeVisible();
+    await screen.getByRole("button", { name: "Try again" }).click();
+    expect(calls.onRetry).toHaveBeenCalledOnce();
+  });
+
+  test("tags the meaning the answer names Fits here", async () => {
+    const { props } = withExplain({
+      state: "answer",
+      answer: ANSWER,
+      lines: 5,
+    });
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...props}
+        entry={{
+          ...props.entry,
+          senses: [
+            { pos: "noun", text: "折り目、ひだ" },
+            { pos: "verb", text: "…を折り畳む", fits: true },
+          ],
+        }}
+      />,
+    );
+    const fits = screen.getByText("Fits here", { exact: true });
+    await expect.element(fits).toBeVisible();
+    expect(fits.element().closest("[data-sense-row]")!.textContent).toContain(
+      "…を折り畳む",
+    );
+    expect(style(fits.element())).toMatchObject({
+      height: "20px",
+      borderTopColor: "rgb(143, 211, 188)",
+      backgroundColor: "rgb(255, 255, 255)",
+    });
+  });
+
+  test("is not there without the on-device AI", async () => {
+    const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
+    await expect.element(screen.getByText("Meanings")).toBeVisible();
+    expect(screen.getByText("In this sentence").query()).toBeNull();
   });
 });

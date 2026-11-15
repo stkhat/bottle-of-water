@@ -2,6 +2,8 @@ import type { Span, TermStatus, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import type { TermBrief } from "../../messaging/protocol";
 import type { DictionaryLink } from "../../ui/lookup/externalDictionaries";
+import type { ExplainView } from "../../ui/lookup/InThisSentence";
+import type { ExplainActions } from "../explain/panel";
 import type { TermCard } from "../lookup/describe";
 import type { Box } from "../lookup/geometry";
 import type { Store } from "../store";
@@ -36,6 +38,8 @@ export interface ArticleState {
     /** The clicked word's boxes, outlined. */
     outline: Box[];
   } | null;
+  /** The panel's "In this sentence"; null: none. */
+  explain: ExplainView | null;
   /**
    * The card over selected words, which saves them as a phrase: the dictionary pattern
    * they stand for ("make up one's mind" for "made up her mind"), else the words.
@@ -50,7 +54,7 @@ export interface ArticleState {
 }
 
 /** The UI's view of the page: its state and what its controls do. */
-export interface ArticleApp {
+export interface ArticleApp extends ExplainActions {
   readonly store: Store<ArticleState>;
   /** The hover card's "+ Learning" / "Known". */
   setHoverStatus(status: TermStatus): void;

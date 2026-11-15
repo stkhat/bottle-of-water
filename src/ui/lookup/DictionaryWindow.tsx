@@ -16,6 +16,7 @@ import {
 import { useDrag } from "../useDrag";
 import { ElsewhereRow, type ElsewhereItem } from "./ElsewhereRow";
 import { EntryHeader } from "./EntryHeader";
+import { InThisSentence, type InThisSentenceProps } from "./InThisSentence";
 import { MachineTranslationMark } from "./MachineTranslationMark";
 import { StatusButtons } from "./StatusButtons";
 
@@ -42,6 +43,8 @@ export interface SenseView {
   chosen?: number;
   /** Chosen for this sentence: "Used here". */
   usedHere?: boolean;
+  /** The on-device AI's answer names this dictionary meaning: "Fits here". */
+  fits?: true;
 }
 
 export interface DictionaryEntryView {
@@ -89,6 +92,11 @@ interface CommonProps {
    */
   onUse?: (index: number) => void;
   onSpeak: () => void;
+  /**
+   * "In this sentence": the on-device AI. Missing where no model can run for the pair
+   * (no section).
+   */
+  explain?: Omit<InThisSentenceProps, "nativeLang">;
   dictionaries: { label: string; href: string }[];
   here: { source: "video" | "page"; items: HereItem[] };
   /**
@@ -285,6 +293,10 @@ function Content(props: DictionaryWindowProps & { icon: Style }) {
         }
       />
 
+      {props.explain && (
+        <InThisSentence {...props.explain} nativeLang={props.nativeLang} />
+      )}
+
       {entry.senses.length > 0 && (
         <SenseList
           entry={entry}
@@ -358,6 +370,22 @@ const useButton = (pressed: boolean): Style => ({
 });
 
 const SMALL_TEXT: Style = { fontSize: "13px", lineHeight: 1.5 };
+
+/** Mock ContextMeaning `.fits`: the dictionary meaning the on-device AI names. */
+const FITS_TAG: Style = {
+  display: "inline-flex",
+  alignItems: "center",
+  height: "20px",
+  padding: "0 8px",
+  borderRadius: "999px",
+  fontSize: "11px",
+  fontWeight: 600,
+  lineHeight: 1,
+  background: color.card,
+  color: color.greenDark,
+  border: `1px solid ${color.greenLine}`,
+  whiteSpace: "nowrap",
+};
 
 /** "Meanings": the entry's senses, after the meanings chosen elsewhere. */
 function SenseList(props: {
@@ -461,7 +489,7 @@ function SenseRow(props: {
           gap: "2px",
         }}
       >
-        {(sense.ai || pos || chosen > 0) && (
+        {(sense.ai || pos || chosen > 0 || sense.fits) && (
           <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {sense.ai && <span style={aiTag}>{t("dict.ai")}</span>}
             {pos && (
@@ -489,6 +517,7 @@ function SenseRow(props: {
                   : t("dict.sentences", { count: chosen })}
               </span>
             )}
+            {sense.fits && <span style={FITS_TAG}>{t("dict.fitsHere")}</span>}
           </span>
         )}
         {sense.hint && !sense.translated && (

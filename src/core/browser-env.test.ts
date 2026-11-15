@@ -24,20 +24,12 @@ describe("createBrowserEnv", () => {
     );
   });
 
-  it("detects built-in AI and the File System Access API on the given global", () => {
+  it("detects the File System Access API on the given global", () => {
     expect(createBrowserEnv("chrome", {}).features).toEqual({
-      builtInAi: false,
       fileSystemAccess: false,
     });
     expect(
-      createBrowserEnv("chrome", {
-        LanguageModel: {},
-        showDirectoryPicker: () => {},
-      }).features,
-    ).toEqual({ builtInAi: true, fileSystemAccess: true });
-    expect(createBrowserEnv("chrome", { LanguageModel: {} }).features).toEqual({
-      builtInAi: true,
-      fileSystemAccess: false,
-    });
+      createBrowserEnv("chrome", { showDirectoryPicker: () => {} }).features,
+    ).toEqual({ fileSystemAccess: true });
   });
 });

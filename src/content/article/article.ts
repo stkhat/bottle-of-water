@@ -6,7 +6,20 @@ import {
   type PageSummary,
 } from "../../messaging/page-protocol";
 import type { SourceInput } from "../../messaging/protocol";
-import { meaningRows, type TermCard } from "../lookup/describe";
+import {
+  createExplainPanel,
+  shownAnswer,
+  type ExplainTarget,
+} from "../explain/panel";
+import { articlePlace } from "../explain/place";
+import {
+  answerChoice,
+  meaningRows,
+  packSenses,
+  rowChoice,
+  type Choice,
+  type TermCard,
+} from "../lookup/describe";
 import {
   createLookup,
   createMarkAll,
@@ -190,6 +203,13 @@ export async function startArticle(
     words: null,
     summaries: {},
     flash: null,
+    explain: null,
+  });
+  const explain = createExplainPanel({
+    provider: deps.explainProvider,
+    send: deps.send,
+    settings: () => settings,
+    show: (view) => store.set({ explain: view }),
   });
   /** Stops the Words list's requests and translations with the page. */
   const controller = new AbortController();
@@ -294,7 +314,38 @@ export async function startArticle(
     blocks: pageBlocks,
     selecting: () => selection.selecting(),
     onPanelOpen: deps.onPanelOpen,
+    opened: (ref, card) => void explain.open(explainTarget(ref, card)),
+    closed: explain.close,
   });
+
+  /** What the on-device AI reads for the term at `ref`: its sentence and the lines around it. */
+  function explainTarget(ref: SpanRef, card: TermCard): ExplainTarget {
+    const within = surface.contextRoot?.(ref.block.element) ?? undefined;
+    const place = articlePlace(
+      ref,
+      spans.get(ref.block) ?? [],
+      pageBlocks(),
+      lang,
+      within,
+    );
+    return {
+      request: {
+        input: {
+          learning: lang,
+          native: settings.nativeLang,
+          title: surface.source().title,
+          written: writtenOf(ref),
+          base: card.key,
+          kind: card.kind,
+          ...place,
+          senses: packSenses(card),
+        },
+        key: card.key,
+        sourceUrl: surface.url(),
+      },
+      noEntry: card.senses.length === 0,
+    };
+  }
 
   /** Distinct keys of unsaved new words on the analyzed part of the page, in page order. */
   const unsavedOnPage = () =>
@@ -361,21 +412,27 @@ export async function startArticle(
   }
 
   /**
-   * Chooses the meaning of the window's row `index` for the sentence `ref` is in, or
-   * undoes it when it is the one chosen there. An unsaved term is saved as Learning.
+   * Chooses `choice.meaning` for the sentence `ref` is in, or undoes it when it is the
+   * one chosen there. An unsaved term is saved as Learning.
    */
-  async function chooseMeaning(ref: SpanRef, card: TermCard, index: number) {
-    const row = meaningRows(card)[index];
-    if (!row) return;
+  async function chooseMeaning(ref: SpanRef, card: TermCard, choice: Choice) {
     await deps.send({
       type: "chooseMeaning",
       term: termInput(ref, card),
-      meaning: row.sense.usedHere ? null : row.meaning,
+      meaning: choice.usedHere ? null : choice.meaning,
     });
-    if (card.status === "new" && !row.sense.usedHere)
+    if (card.status === "new" && !choice.usedHere)
       await statusChanged(ref, card, "learning");
     else await cards.refresh(card);
     summaries.meaningChosen(card.key);
+  }
+
+  /** Chooses (or undoes) `pick`'s meaning of the panel's term for its sentence. */
+  function choose(pick: (card: TermCard) => Choice | undefined) {
+    const ref = cards.panelRef();
+    const card = store.get().panel?.card;
+    const choice = card && pick(card);
+    if (ref && card && choice) run(() => chooseMeaning(ref, card, choice));
   }
 
   /** The term `ref` points at went from `card.status` to `to`: the page follows. */
@@ -422,9 +479,17 @@ export async function startArticle(
       if (ref && card) run(() => changeStatus(ref, card, status));
     },
     useMeaning(index) {
-      const ref = cards.panelRef();
-      const card = store.get().panel?.card;
-      if (ref && card) run(() => chooseMeaning(ref, card, index));
+      choose((card) => {
+        const answer = shownAnswer(store.get().explain);
+        return rowChoice(meaningRows(card, answer)[index]);
+      });
+    },
+    explainHere: explain.explain,
+    downloadModel: explain.download,
+    retryExplain: () => void explain.retry(),
+    useAnswer() {
+      const answer = shownAnswer(store.get().explain);
+      if (answer) choose((card) => answerChoice(card, answer));
     },
     speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel: cards.closePanel,
@@ -561,6 +626,7 @@ export async function startArticle(
       }),
     stop() {
       unwatch();
+      explain.close();
       controller.abort();
       words.stop();
       lookup.stop();
