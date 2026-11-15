@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { sentenceCards } from "./cues";
+import { asrSentenceCards, cueWords } from "./asr";
 import { alignByOverlap, chooseTranslation } from "./translation";
 import { parseTtml } from "./ttml";
 import type { Cue, Track } from "./types";
@@ -236,9 +236,15 @@ describe("alignByOverlap", () => {
 
 describe("alignByOverlap on sentence cards", () => {
   const flat = (text: string) => text.replaceAll("\n", " ");
+  /** A manual track's cards, as `captionCards` makes them. */
+  const manualCards = (cues: readonly Cue[]) =>
+    asrSentenceCards(
+      cues.map((c) => ({ ...c, words: cueWords(c) })),
+      { linesByCue: true },
+    );
 
   it("gives a line that covers two cues to their sentence, not to half of it", () => {
-    const { cards } = sentenceCards([
+    const { cards } = manualCards([
       cue(1000, 3000, "DID YOU EVEN INTERVIEW THIS WOMAN"),
       cue(3100, 5000, "BEFORE YOU ASKED HER TO MOVE IN?"),
       cue(5200, 6000, "I DIDN'T KNOW THAT, EITHER."),
@@ -256,7 +262,7 @@ describe("alignByOverlap on sentence cards", () => {
   });
 
   it("gives a spoken line to a sentence it overlaps rather than to a sound label", () => {
-    const { cards } = sentenceCards([
+    const { cards } = manualCards([
       cue(0, 2000, "If you work in education,"),
       cue(2000, 3000, "you're not asked."),
       cue(3000, 6000, "(Laughter)"),
@@ -275,7 +281,7 @@ describe("alignByOverlap on sentence cards", () => {
   });
 
   it("matches the YouTube fixtures' Japanese lines to the English sentences", () => {
-    const { cards } = sentenceCards(parseYouTubeJson3(fixture("en.json3")));
+    const { cards } = manualCards(parseYouTubeJson3(fixture("en.json3")));
     const ja = parseYouTubeJson3(fixture("ja.json3"));
     const aligned = alignByOverlap(cards, ja, { lang: "ja" });
     const of = (start: string) =>
@@ -309,7 +315,7 @@ describe("alignByOverlap on sentence cards", () => {
           "utf8",
         ),
       );
-    const { cards } = sentenceCards(read("en.imsc.ttml"));
+    const { cards } = manualCards(read("en.imsc.ttml"));
     const aligned = alignByOverlap(cards, read("ja.imsc.ttml"), {
       lang: "ja",
     });

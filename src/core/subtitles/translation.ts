@@ -1,5 +1,5 @@
 import { primary } from "../languages";
-import { isSoundLabel, lowerBound } from "./cues";
+import { isSoundLabel, lowerBound, type SentenceCards } from "./cues";
 import type { Cue, Track } from "./types";
 
 /**
@@ -101,6 +101,76 @@ export function alignByOverlap(
     for (const target of targets) parts[target]?.push(flatten(t.text));
   }
   return parts.map((list) => list.join(joiner));
+}
+
+/** The most words in a card made by `joinCoveredCards`. */
+const MAX_JOINED_WORDS = 30;
+const SPEAKER_DASH = /^[-–—]/;
+
+/**
+ * Joins adjacent cards that one translated cue covers at least `COVERED_SHARE` of each, up
+ * to MAX_JOINED_WORDS words: a human translation often puts two short sentences into one
+ * line ("They feel fear and doubt. They procrastinate."), which would otherwise show on
+ * both cards (rule G). The subtitle lines move with their cards. `joiner` goes between the
+ * joined texts (a line break before a speaker's dash line).
+ */
+export function joinCoveredCards(
+  sentences: SentenceCards,
+  translated: readonly Cue[],
+  joiner: string,
+): SentenceCards {
+  const covers = (t: Cue, c: Cue) =>
+    Math.min(t.endMs, c.endMs) - Math.max(t.startMs, c.startMs) >=
+    COVERED_SHARE * (c.endMs - c.startMs);
+  const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
+  const inOrder = [...translated].sort((a, b) => a.startMs - b.startMs);
+  const longestMs = inOrder.reduce(
+    (max, t) => Math.max(max, t.endMs - t.startMs),
+    0,
+  );
+  /** A translated cue that covers both `a` and `b` (in time order, `a` first). */
+  const coveredTogether = (a: Cue, b: Cue) => {
+    const from = firstStartingAtOrAfter(inOrder, b.startMs - longestMs);
+    for (let i = from; i < inOrder.length; i++) {
+      const t = inOrder[i] as Cue;
+      if (t.startMs >= a.endMs) break;
+      if (covers(t, a) && covers(t, b)) return true;
+    }
+    return false;
+  };
+  /** Where each card went: the new card and where its text starts in it. */
+  const target: [card: number, offset: number][] = [];
+  const cards: Cue[] = [];
+  sentences.cards.forEach((card, i) => {
+    const last = cards[cards.length - 1];
+    const previous = sentences.cards[i - 1];
+    if (
+      last &&
+      previous &&
+      words(last.text) + words(card.text) <= MAX_JOINED_WORDS &&
+      coveredTogether(previous, card)
+    ) {
+      const separator = SPEAKER_DASH.test(card.text) ? "\n" : joiner;
+      target.push([cards.length - 1, last.text.length + separator.length]);
+      last.text += separator + card.text;
+      last.endMs = Math.max(last.endMs, card.endMs);
+    } else {
+      target.push([cards.length, 0]);
+      cards.push({ startMs: card.startMs, endMs: card.endMs, text: card.text });
+    }
+  });
+  return {
+    cards,
+    lines: sentences.lines.map((line) => {
+      const [card, offset] = target[line.card] as [number, number];
+      return {
+        ...line,
+        card,
+        start: line.start + offset,
+        end: line.end + offset,
+      };
+    }),
+  };
 }
 
 const firstStartingAtOrAfter = (cues: readonly Cue[], ms: number) =>

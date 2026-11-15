@@ -1,8 +1,10 @@
 /** A word inside a cue, with its own start time (YouTube ASR gives one per word). */
 export interface CueWord {
   startMs: number;
-  /** Raw text as the site sent it, including any leading space. */
+  /** Raw text as the site sent it, including any leading space (a line break: a new line). */
   text: string;
+  /** A new speaker starts here (a manual track's dash line, `cueWords`). */
+  speaker?: boolean;
 }
 
 /** One subtitle line (or a few lines shown together). Lines are separated by "\n". */

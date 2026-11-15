@@ -1,6 +1,13 @@
-import { alignAsrSentences, asrSentenceCards } from "../../core/subtitles/asr";
-import { sentenceCards } from "../../core/subtitles/cues";
-import { alignByOverlap, joinerFor } from "../../core/subtitles/translation";
+import {
+  alignAsrSentences,
+  asrSentenceCards,
+  cueWords,
+} from "../../core/subtitles/asr";
+import {
+  alignByOverlap,
+  joinCoveredCards,
+  joinerFor,
+} from "../../core/subtitles/translation";
 import type { Cue } from "../../core/subtitles/types";
 import type { VideoCaptions } from "./platform";
 import type { VideoState } from "./state";
@@ -29,31 +36,38 @@ export function captionCards(captions: VideoCaptions): {
   const site =
     translation.source === "siteTrack" ||
     translation.source === "siteAutoTranslate";
-  // YouTube translates an auto-generated track sentence by sentence: follow its sentences.
+  // Cards are the original's sentences however the site cut its cues: a manual track's cues
+  // get word times spread over their text and go through the same sentence rules, each cue
+  // staying one subtitle line.
+  const cues = asr
+    ? captions.cues
+    : captions.cues.map((cue) => ({ ...cue, words: cueWords(cue) }));
+  const options = { joiner, lang: captions.track.lang, linesByCue: !asr };
+  // YouTube translates a track sentence by sentence: follow its sentences.
   const aligned =
-    asr && translation.source === "siteAutoTranslate"
-      ? alignAsrSentences(captions.cues, translation.cues, {
-          joiner,
-          lang: captions.track.lang,
+    translation.source === "siteAutoTranslate"
+      ? alignAsrSentences(cues, translation.cues, {
+          ...options,
           translationJoiner: joinerFor(translation.lang),
         })
       : undefined;
-  const { cards: cues, lines } =
-    aligned ??
-    (asr
-      ? asrSentenceCards(captions.cues, { joiner, lang: captions.track.lang })
-      : sentenceCards(captions.cues, { joiner }));
+  const sentences = aligned ?? asrSentenceCards(cues, options);
+  // A human translation line that covers most of two sentences translates them together.
+  const { cards, lines } =
+    translation.source === "siteTrack"
+      ? joinCoveredCards(sentences, translation.cues, joiner)
+      : sentences;
   return {
     state: {
-      cues,
+      cues: cards,
       lines,
-      spans: cues.map(() => null),
+      spans: cards.map(() => null),
       translationSource: translation.source,
       translations:
         aligned?.translations ??
         (site
-          ? alignByOverlap(cues, translation.cues, { lang: translation.lang })
-          : cues.map(() => "")),
+          ? alignByOverlap(cards, translation.cues, { lang: translation.lang })
+          : cards.map(() => "")),
     },
     // Merged sentences no longer match the fragments' timing: show the aligned text.
     timed:
