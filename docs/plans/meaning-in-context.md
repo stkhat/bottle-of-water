@@ -3,11 +3,11 @@
 To be committed as `docs/plans/meaning-in-context.md` (English). Deleted once M4 is merged (decisions go into the spec, status and notes).
 
 Progress (the parent session runs each step as a subagent end to end: branch, `npm run verify`, draft PR → ready → `merge-when-green.sh`, then worktree and branch removed, local main fast-forwarded):
-- [ ] M0. Checks before building (the user's Chrome) → notes + spec/mock changes, one docs PR — **gate: the user decides what gets built**. Stopped 2026-11-15, partial results in [notes](../notes/meaning-in-context.md); study folder README says how to resume
+- [x] M0. Checks before building (the user's Chrome) → notes + spec changes, one docs PR — **gate passed 2026-11-16: build M1a–M4** ([notes](../notes/meaning-in-context.md) "Decisions"; no mock change: a card without an explanation is the mock's card without that line)
   - [x] C1. API surface (every context, pairs, activation, docs)
-  - [ ] C2. Latency: fresh sessions done (sentence, 5/10/20 lines, most that fits); `clone()` batch and the cap left
-  - [ ] C3. Quality (prototype and sample ready; no C3 batch run or judged)
-  - [ ] C4. Prompts per native language
+  - [x] C2. Latency, `clone()`
+  - [x] C3. Quality (300 terms with entries, 60 without; blind judged), then the explanation gate
+  - [x] C4. Prompts per native language (Spanish, English; Portuguese unavailable)
 - [ ] M1a. Your meanings: data, messages, JSON export v2, "Use here" in the dictionary window
 - [ ] M1b. Your meanings: hover card, Words lists, word list page
 - [ ] M2. `ExplanationProvider`, `core/explain/`, the explanations cache, the per-page runner (fake provider)
@@ -96,26 +96,26 @@ Branch `claude/your-meanings-lists`.
 - **Real-site check** (short, M1 ships on its own): YouTube TED and a Wikipedia article in the user's Chrome — choose, undo, hover, Words, word list; error log read and cleared.
 
 ## M2. `ExplanationProvider` and `core/explain/` (fake provider)
-Branch `claude/explain-core`. Only if the gate says to build the AI. No visible UI (nothing runs without a provider).
+Branch `claude/explain-core`. The gate said to build it. No visible UI (nothing runs without a provider). The study prototype (`data/raw/quality/2026-11-context/proto/explain.ts`, `explain: "needed"`) is the starting point for the prompt.
 - `core/explain/provider.ts`: the interface (`availability(pair)`, `download(onProgress)`, `measure(text)`, `budget`, `prompt(text, schema, signal)`); fake in `src/testing/explain.ts`.
-- `core/explain/context.ts`: fixed part + lines alternately before/after (before first), whole lines, until the budget; measured in batches then one by one near the limit; returns the lines used. Lines `{text, translation?}`.
-- `core/explain/prompt.ts`: the instructions per native language from C4, the term marked (each part of a gap phrase), numbered pack senses with parts of speech, none for a term without an entry.
-- `core/explain/answer.ts`: the schema and `checkAnswer` (out-of-range `sense` → null, empty meaning or bad JSON → retry once, then error).
-- Content side `content/explain/`: lines from the transcript cards around the term's card with site translations aligned by rule G (none from the built-in translator); from the article block, then neighbour blocks; from a comment, then its thread. A runner: one prompt per page, a new term or closing the window aborts, 30 s timeout. If C1 found prompts must run in an offscreen document: a proxy provider over messages to the background, which owns the offscreen document.
+- `core/explain/context.ts`: fixed part + up to 5 lines alternately before/after (before first), whole lines; one `measure()` of the prompt, lines dropped from the far end while it is over the limit; returns the lines used. Lines `{text}` (no translations).
+- `core/explain/prompt.ts`: English instructions, the answer in the native language, the two examples (with and without explanation) per native language, the term marked (each part of a gap phrase), numbered pack senses with parts of speech, none for a term without an entry.
+- `core/explain/answer.ts`: the schema `{meaning, unusual, explanation | null, sense | null}` and `checkAnswer` (out-of-range `sense` → null, the explanation dropped unless `unusual`, empty meaning or bad JSON → retry once, then error).
+- Content side `content/explain/`: lines from the transcript cards around the term's card; from the article block, then neighbour blocks; from a comment, then its thread. A runner: one prompt per page, a new term or closing the window aborts, 30 s timeout. Prompts run in the content script (C1).
 - Background: `explanations` table (Dexie version 6), keyed by pair, term key, source, sentence, provider, browser major version; answer + line count; 5,000 rows LRU; cleared in `removePack` next to `translations.clearPair`; `getExplanation`/`putExplanation` messages. Never exported.
-- **Tests**: unit — budget (alternation, whole lines, translations attached, only the sentence fits), prompt snapshots per native language, answer checks; browser — the cache (LRU, key by source, cleared with a pack), the runner with the fake provider (abort, timeout, retry), context from the video and article fixtures.
+- **Tests**: unit — context (alternation, whole lines, at most 5, a long line dropped to fit, only the sentence fits), prompt snapshots per native language, answer checks; browser — the cache (LRU, key by source, cleared with a pack), the runner with the fake provider (abort, timeout, retry), context from the video and article fixtures.
 
 ## M3. Chrome Prompt API provider and the UI
 Branch `claude/explain-chrome`.
-- `ChromePromptApi` (`content/explain/chrome-prompt-api.ts` or the offscreen document, per C1): detected by `LanguageModel` existing; availability per pair with `expectedInputs`/`expectedOutputs`; download with progress inside the click; `measureContextUsage` ?? `measureInputUsage`; `contextWindow` ?? `inputQuota`, capped by C2; `responseConstraint`; abort signal; base session + `clone()` if C2 says so.
-- Dictionary window "In this sentence" (after the status buttons): Explain in context (sparkle, pale green, green outline); reading placeholder "Reading N lines around it…"; card (`#F6F7F9`, meaning 16 px semibold, explanation 14 px, Use this meaning → M1a's `chooseMeaning` with `from: ai`, "On-device AI · N lines"); "Fits here" tag; "None of the dictionary's meanings fit here."; download text with the browser name from `BrowserEnv`, "Download and explain", progress and bar; "Couldn't explain this." + Try again; cached card at once. A term without an entry starts at once unless the setting is off.
+- `ChromePromptApi` (`content/explain/chrome-prompt-api.ts`): detected by `LanguageModel` existing; availability per pair with `expectedInputs`/`expectedOutputs`; download with progress inside the click; `measureContextUsage` ?? `measureInputUsage`; `contextWindow` ?? `inputQuota`; `responseConstraint`; abort signal; one base session per page with the instructions, `clone()` per prompt.
+- Dictionary window "In this sentence" (after the status buttons): Explain in context (sparkle, pale green, green outline); reading placeholder "Reading N lines around it…"; card (`#F6F7F9`, meaning 16 px semibold, explanation 14 px only when `unusual`, Use this meaning → M1a's `chooseMeaning` with `from: ai`, "On-device AI · N lines"); "Fits here" tag; "None of the dictionary's meanings fit here."; download text with the browser name from `BrowserEnv`, "Download and explain", progress and bar; "Couldn't explain this." + Try again; cached card at once. A term without an entry starts at once unless the setting is off.
 - Settings: `explainUnknown` (default on, in `Settings`/`DEFAULT_SETTINGS`/`mergeSettings`); "On-device AI" row (Download → Downloading % → Ready, read again on open) and the switch row replace the `LaterRow`; both hidden without a provider or with the pair unavailable.
 - i18n keys (`.one` forms for "N lines"); the store listing and privacy-policy notes in status "Before publishing" (sentence and lines go to the on-device model).
 - **Tests**: unit — the provider over a fake `LanguageModel` global (value names, old and new API names, unavailable pair); browser (Chromium + Firefox) — window states with the fake provider (idle → reading → card, download, error and Try again, abort on another term, automatic start and the switch, unavailable pair), Use this meaning, Settings rows, nothing shown without a provider (Firefox run included); E2E — Playwright's Chromium has no model: no section, no Settings rows, no errors logged.
 - **Mock**: every state of `ContextMeaning` and the Settings "Dictionaries and AI" rows rendered with the fake provider, light and dark.
 
 ## M4. Real-site check and wrap-up
-In the user's Chrome (Claude in Chrome, check build, muted videos): YouTube Ken Robinson TED (site translation in the context), Netflix Friends `watch/70274124` (Japanese track), a Wikipedia article, a YouTube comment thread. Explain in context, a term without an entry, download flow if the model is missing, Fits here, Use this meaning, cached reopen, Settings rows; timings noted. Error log read, every entry fixed or explained, cleared. Then status.md ("Where we are", known issues), spec "not built" markers removed, notes updated, this plan deleted.
+In the user's Chrome (Claude in Chrome, check build, muted videos): YouTube Ken Robinson TED, Netflix Friends `watch/70274124` (Japanese track), a Wikipedia article, a YouTube comment thread. Explain in context, a term without an entry, download flow if the model is missing, Fits here, Use this meaning, cached reopen, Settings rows; timings noted. Error log read, every entry fixed or explained, cleared. Then status.md ("Where we are", known issues), spec "not built" markers removed, notes updated, this plan deleted.
 
 ## Verification (every milestone)
 - `npm run check`, the touched unit and browser tests while iterating (Firefox too when the DOM changes), `npm run verify` before every push.
