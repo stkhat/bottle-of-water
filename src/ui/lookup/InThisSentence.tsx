@@ -263,11 +263,14 @@ function AnswerCard(
       {props.hasSenses && answer.sense === null && (
         <span style={META}>{t("dict.explain.noFit")}</span>
       )}
+      {/* Neither breaks inside: where the row is too narrow for both (the article
+          panel), "On-device AI · N lines" moves under the button, still at the right. */}
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
-          gap: "10px",
+          gap: "6px 10px",
           marginTop: "2px",
         }}
       >
@@ -275,12 +278,13 @@ function AnswerCard(
           type="button"
           aria-pressed={props.usedHere ? "true" : "false"}
           onClick={props.onUse}
-          style={useButton(props.usedHere)}
+          style={{ ...useButton(props.usedHere), whiteSpace: "nowrap" }}
         >
           {t(props.usedHere ? "dict.usedHere" : "dict.explain.use")}
         </button>
-        <span style={{ flex: 1 }}></span>
-        <span style={META}>{madeFrom(lines)}</span>
+        <span style={{ ...META, marginLeft: "auto", whiteSpace: "nowrap" }}>
+          {madeFrom(lines)}
+        </span>
       </div>
     </div>
   );
