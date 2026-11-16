@@ -191,15 +191,43 @@ async function runLane(lane: string, logDir: string): Promise<LaneResult> {
   return { lane, ok: true };
 }
 
+/** Every process below `pid`, from `ps -A -o pid=,ppid=` output. */
+export function descendantsOf(pid: number, ps: string): number[] {
+  const children = new Map<number, number[]>();
+  for (const line of ps.split("\n")) {
+    const [child, parent] = line.trim().split(/\s+/).map(Number);
+    if (!child || parent === undefined || Number.isNaN(parent)) continue;
+    children.set(parent, [...(children.get(parent) ?? []), child]);
+  }
+  const found: number[] = [];
+  const queue = [pid];
+  for (let next = queue.shift(); next !== undefined; next = queue.shift())
+    for (const child of children.get(next) ?? []) {
+      found.push(child);
+      queue.push(child);
+    }
+  return found;
+}
+
+const kill = (pid: number) => {
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    // already gone
+  }
+};
+
+// The lane's process group, and every process below it that moved to a group of its
+// own: Playwright starts its web server that way, and a server left behind keeps the
+// E2E port, where the next run reuses it (from a checkout that may be gone).
 function stopOthers(except: string): void {
   stopping = true;
+  const ps = spawnSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" });
   for (const [lane, child] of running) {
     if (lane === except || child.pid === undefined) continue;
-    try {
-      process.kill(-child.pid, "SIGTERM");
-    } catch {
-      // already gone
-    }
+    const below = descendantsOf(child.pid, ps.stdout ?? "");
+    kill(-child.pid);
+    below.forEach(kill);
   }
 }
 

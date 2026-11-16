@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pushedCommits } from "./pre-push.ts";
-import { failureExcerpt, seconds, stripAnsi } from "./verify.ts";
+import { descendantsOf, failureExcerpt, seconds, stripAnsi } from "./verify.ts";
 
 describe("failureExcerpt", () => {
   it("starts at Vitest's failed tests, past the errors passing tests log", () => {
@@ -101,5 +101,21 @@ describe("pushedCommits (pre-push)", () => {
         `refs/heads/claude/new ${sha("f")} refs/heads/claude/new ${sha("0")}`,
       ),
     ).toEqual([{ ref: "claude/new", sha: sha("f") }]);
+  });
+});
+
+describe("descendantsOf", () => {
+  it("finds children and their children, wherever their process group is", () => {
+    const ps = [
+      "  1     0",
+      " 10     1",
+      " 11    10",
+      " 12    11",
+      " 13    10",
+      " 20     1",
+      "",
+    ].join("\n");
+    expect(descendantsOf(10, ps).sort()).toEqual([11, 12, 13]);
+    expect(descendantsOf(13, ps)).toEqual([]);
   });
 });

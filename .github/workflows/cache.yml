@@ -1,0 +1,39 @@
+name: Cache
+
+# Fills the node_modules cache ci.yml restores. GitHub lets a pull request restore only
+# caches made on its own branch or on the base branch, and ci.yml never runs on main, so
+# this makes the cache on main whenever what its key depends on changes (or by hand).
+# Keep the image, key and steps the same as ci.yml's.
+on:
+  push:
+    branches: [main]
+    paths:
+      - package-lock.json
+      - .nvmrc
+      - .github/workflows/ci.yml
+      - .github/workflows/cache.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-modules:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
+    env:
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - id: node-modules
+        uses: actions/cache@v6
+        with:
+          path: node_modules
+          key: node-modules-${{ env.PLAYWRIGHT_IMAGE }}-${{ hashFiles('package-lock.json', '.nvmrc') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
