@@ -23,21 +23,21 @@
 | `npm run check:dead` | knip: unused files, exports and dependencies |
 | `npm test` | unit tests |
 | `npm run test:browser` | browser-mode tests (set `VITEST_BROWSERS=chromium` to skip Firefox) |
-| `npm run test:browser:firefox` | browser-mode tests on Firefox in CI's Playwright image (Docker; see "Firefox in Docker"); takes Vitest arguments, e.g. a test file |
+| `npm run test:browser:firefox` | browser-mode tests on Firefox in CI's Playwright image (Docker; see "Firefox in Docker"); takes Vitest arguments, e.g. a test file, and `--shards=N` to split the files over N containers |
 | `npm run build` / `npm run build:firefox` | build to `.output/chrome-mv3` / `.output/firefox-mv3` |
 | `npm run build:check` | self-reloading Chrome build in `.output/lingo-check` (see below) |
 | `npm run build:check-download` | check build that downloads its Spanish data from the E2E server's mirror, in `.output/chrome-mv3-check-download` (see "Language data downloads in E2E") |
 | `npm run test:manifest` | check both built manifests |
 | `npm run test:e2e:build` | production, check and check-download builds, then run E2E |
 | `npm run test:e2e:real` | E2E error checks on real sites (Wikipedia, BBC, YouTube); needs the network |
-| `npm run verify` | check, unit, browser (Chromium, then Firefox in Docker), builds and E2E, with terse output |
+| `npm run verify` | everything a push needs, in about 75 s (`scripts/verify.ts`): check, unit, browser on Chromium, builds and E2E on the host, while the Firefox browser tests run in Docker (3 containers) alongside; one line per stage, and the part of the log that says why when one fails (full logs in `$(git rev-parse --git-path lingo-verify)`). The first failure stops the rest. When it passes, it records the tree it tested for the pre-push hook |
 | `npm run zip` / `npm run zip:firefox` | store-ready zips in `.output/` |
 | `npm run test:mutation` | Stryker report in `reports/mutation/` |
 
 ## Hooks and static checks
-- `npm install` installs the git hooks (`prepare` runs `simple-git-hooks`; after changing the `simple-git-hooks` key in `package.json`, run `npm run prepare`). **pre-commit**: `lint-staged` runs `prettier --write` and `eslint --fix` on the staged files and restages them; no typecheck, to keep commits fast. **pre-push**: `npm run check`.
+- `npm install` installs the git hooks (`prepare` runs `simple-git-hooks`; after changing the `simple-git-hooks` key in `package.json`, run `npm run prepare`). **pre-commit**: `lint-staged` runs `prettier --write` and `eslint --fix` on the staged files and restages them; no typecheck, to keep commits fast. **pre-push** (`scripts/pre-push.ts`): a branch push goes through only if `npm run verify` passed on the tree being pushed (the working tree as `git add -A` would commit it, so verifying before committing counts; trees are listed in `.git/lingo-verified`, shared by every worktree). Tags and branch deletions pass.
 - Claude Code: the `PostToolUse` hook in `.claude/settings.json` runs `scripts/format-hook.ts`, which formats each edited file with Prettier, and `scripts/check-claude-md.ts --hook`.
-- In an emergency, `git commit --no-verify` skips the pre-commit hook. Never skip the pre-push hook for a push to a PR.
+- In an emergency, `git commit --no-verify` skips the pre-commit hook and `git push --no-verify` the pre-push hook. Never skip the pre-push hook for a push to a PR: CI no longer runs `check` or Firefox, so it would not catch what `verify` would have.
 - TypeScript: `strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `noImplicitOverride` and `noUncheckedIndexedAccess` (WXT's generated tsconfig already turned on the last three; `tsconfig.json` states them so they do not depend on it).
 - ESLint: `tseslint.configs.strict` everywhere, plus type-aware rules on `src/` (`no-floating-promises`, `no-misused-promises`, `await-thenable`, `consistent-type-imports`, `switch-exhaustiveness-check` with a `default` counting as exhaustive). `no-non-null-assertion` is off: with `noUncheckedIndexedAccess`, `!` states an index the code knows is present.
 - Prettier does not format `docs/` or `CLAUDE.md`: it pads every table column and adds blank lines, growing the docs by about 17%, which sessions read as context.
@@ -91,6 +91,7 @@ Limits:
 - Playwright's Firefox does not launch on the dev Mac (macOS 27), so `npm run test:browser:firefox` runs the browser tests in the image CI uses (`mcr.microsoft.com/playwright:v<@playwright/test version>-noble`, from `scripts/playwright-image.ts`, which `scripts/check-playwright-image.ts` also checks CI against). Install once: `brew install colima docker`.
 - When Docker is not running, the script starts Colima with 4 CPUs and 4 GB (about 20 s) and stops it after, unless another container still runs in it; an already running Colima or Docker Desktop is used as it is. The first run pulls the image (about 1 GB to download, 3.6 GB on disk).
 - The checkout is mounted at the same path (failures name files you can open), and `node_modules` (Linux builds) lives in a Docker volume named after the `package-lock.json` hash, filled by `npm ci --ignore-scripts` on first use; volumes of older lockfiles are removed. The run has no `CI` variable, so a failing test is not retried.
+- `--shards=N` runs N containers side by side, each with its own Firefox, so Firefox's one-active-window limit (testing.md "Notes") holds within each. `verify` uses 3: 108 s in one container, 44 s in three; more would not help, since the host lane takes about 70 s. The install runs first, in one container.
 
 ## Checking the Firefox build
 ```
@@ -108,8 +109,9 @@ npx web-ext lint -s .output/firefox-mv3
 - Publishing to npm is manual and pending: the scope and the public data repository do not exist yet, so every pack stays bundled. Then: `npm publish` in each `data/publish/<pack>/`, run `data:publish -- --download …`, release.
 
 ## CI/CD
-- Tests run locally first: `npm run verify` before every push. GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.
-- `ci.yml` (pull requests that are not drafts, and manual runs; not on pushes to main; not on pull requests that change only `docs/`, which nothing builds, tests or checks): one Linux job in Playwright's image (`mcr.microsoft.com/playwright`, browsers preinstalled) that runs check, unit, browser tests on Chromium and Firefox, all builds, manifest, E2E (reports uploaded on failure), the zips and `web-ext lint` (artifact `lingo-zips`). The image tag must match `@playwright/test` (`scripts/check-playwright-image.ts` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
+- Tests run locally first: `npm run verify` before every push (the pre-push hook enforces it). GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.
+- `ci.yml` (pull requests that are not drafts, and manual runs; not on pushes to main; not on pull requests that change only `docs/`, which nothing builds, tests or checks): one Linux job in Playwright's image (`mcr.microsoft.com/playwright`, browsers preinstalled), about 3.5 minutes, that runs only what Linux can tell apart from the dev Mac: unit, browser tests on Chromium, all builds, manifest, E2E (reports uploaded on failure) and `web-ext lint`. `check` (the same on any OS) and the Firefox browser tests (already run in this very image by `verify`) are left to `verify`; zips come from `release.yml`. `node_modules` is cached per lockfile, `.nvmrc` and image, so `npm ci` runs only when one changes. The image tag must match `@playwright/test` (`scripts/check-playwright-image.ts` fails the job otherwise), so bump it in `ci.yml` with each Playwright update.
+- Work in phases may be stacked: while a phase's pull request waits for CI, the next phase starts on its branch, with that branch as the pull request's base; it is retargeted to `main` once the base merges, and merged only then.
 - `cross-os.yml` (manual only): the whole suite on macOS and Windows. Run it before a release, or after changing code that touches paths, files or the OS.
 - `release.yml` (tag `v*` or manual run): verifies the tag equals the `package.json` version, builds both zips, and for tags creates a GitHub release with the zips attached.
 - `mutation.yml` (manual only): Stryker run; uploads `reports/mutation`.

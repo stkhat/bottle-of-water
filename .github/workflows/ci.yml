@@ -1,11 +1,14 @@
 name: CI
 
-# Tests run locally first (`npm run verify` before every push). GitHub runs them once a
-# pull request is ready to merge: not on drafts, not on pushes to main (merged pull
-# requests were already tested). Mark a pull request "Ready for review" to run this, or
-# start it by hand. Pull requests that change only docs/ do not run it: no check, test
-# or build reads those files (Prettier skips docs/; CLAUDE.md is outside docs/, so its
-# line limit is still checked).
+# Tests run locally first: `npm run verify` before every push, which the pre-push hook
+# enforces (scripts/pre-push.ts). GitHub runs them once a pull request is ready to merge:
+# not on drafts, not on pushes to main (merged pull requests were already tested). Mark a
+# pull request "Ready for review" to run this, or start it by hand. Pull requests that
+# change only docs/ do not run it: no check, test or build reads those files.
+#
+# Only what Linux can tell apart from the dev Mac runs here: `npm run check` gives the
+# same answer on any OS, and the Firefox browser tests already ran in this very image
+# (scripts/test-firefox.ts), both in `verify`. Release zips come from release.yml.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -39,13 +42,22 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+      # node_modules for this lockfile, Node version and image; `npm ci` only on a miss.
+      - id: node-modules
+        uses: actions/cache@v6
+        with:
+          path: node_modules
+          key: node-modules-${{ env.PLAYWRIGHT_IMAGE }}-${{ hashFiles('package-lock.json', '.nvmrc') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+      - if: steps.node-modules.outputs.cache-hit == 'true'
+        run: npx wxt prepare
       - name: Check the Playwright image matches @playwright/test
         run: node scripts/check-playwright-image.ts
-      - run: npm run check
       - run: npm test
       - run: npm run test:browser
+        env:
+          VITEST_BROWSERS: chromium
       - run: npm run build
       - run: npm run build:firefox
       - run: npm run build:check
@@ -61,13 +73,4 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: ignore
-      - run: npm run zip
-      - run: npm run zip:firefox
       - run: npx web-ext lint --source-dir .output/firefox-mv3
-      - uses: actions/upload-artifact@v7
-        with:
-          name: lingo-zips
-          path: .output/*.zip
-          if-no-files-found: error
-          # .output is a hidden directory, which upload-artifact skips by default
-          include-hidden-files: true

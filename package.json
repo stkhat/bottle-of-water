@@ -29,7 +29,7 @@
     "test:e2e:build": "npm run build && wxt build --mode check && npm run build:check-download && playwright test",
     "test:e2e:real": "LINGO_REAL_SITES=1 playwright test e2e/extension-errors.spec.ts -g \"real sites\"",
     "test:all": "npm test && npm run test:browser",
-    "verify": "npm run check && npm test -- --reporter=dot && VITEST_BROWSERS=chromium npm run test:browser -- --reporter=dot && npm run test:browser:firefox -- --reporter=dot && npm run test:e2e:build -- --reporter=dot",
+    "verify": "node scripts/verify.ts",
     "postinstall": "wxt prepare",
     "check:claude-md": "node scripts/check-claude-md.ts",
     "test:mutation": "stryker run",
@@ -78,7 +78,7 @@
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged",
-    "pre-push": "npm run check"
+    "pre-push": "if [ -f scripts/pre-push.ts ]; then node scripts/pre-push.ts; else npm run check; fi"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs}": [
