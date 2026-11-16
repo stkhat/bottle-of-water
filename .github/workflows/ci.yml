@@ -43,6 +43,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       # node_modules for this lockfile, Node version and image; `npm ci` only on a miss.
+      # cache.yml makes it on main, where every pull request can restore it.
       - id: node-modules
         uses: actions/cache@v6
         with:
