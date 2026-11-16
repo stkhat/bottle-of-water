@@ -150,3 +150,35 @@ Also from the results:
 - **Comments**: the lines are the comment's other sentences and the replies YouTube has loaded. A one-sentence comment with its replies closed has none ("Reading 0 lines around it…", "On-device AI · 0 lines"); with them open, 5. A reply read 2 (the thread's other English lines).
 - **Layout**: in the 340 px article panel the card's "Use this meaning" and "On-device AI · N lines" broke onto two lines each; fixed in PR #98 (the line moves under the button). On YouTube the dictionary window is about 340 px tall (Netflix 420), so "In this sentence" starts near its bottom edge: the card shows only after scrolling the window, also for a term explained at once.
 - Not seen: the download (the model was on the device), a prompt in a hidden tab (the tabs Claude in Chrome opened stayed visible), the Settings rows and the popup (`chrome-extension://` pages, which Claude in Chrome cannot open; browser tests cover them).
+
+## When to show an explanation (after M4)
+The real-site check found nearly every card explained (11 of 12), some explanations only restating the sentence, and meanings that took in the words around the term. Prompt variants were tuned on 48 terms (the 24 tuning words and 24 unused no-entry phrases), then run once on the 300 sample words and the 60 no-entry phrases (5 lines, no translation) and judged blind against `c3e` (the shipped prompt), one judge per item. The rubric added: per item, whether the term **needs** an explanation at all (would the best short meaning line still leave the learner unsure: an idiom, a metaphor, slang, a joke, irony); per answer, whether the meaning is **wider** than the marked words; per shown explanation, whether it **adds** something the meaning line does not.
+
+Variants (all with the same user prompt):
+- **shipped**: `unusual: boolean` before `explanation`, the "bank" example marked unusual.
+- **`use`**: `use: "plain" | "idiom" | "figurative" | "slang"` instead of `unusual` ("plain" also for a less common dictionary sense), the explanation shown only when not "plain"; "bank" is now a plain example and an idiom example has the explanation; the meaning line is told to translate only the marked words.
+- **`use`, no scope sentence**: the same without that last instruction.
+- **meaning only**: no explanation field at all (`{meaning, sense}`), with the scope sentence.
+- Dropped on the tuning terms: `enough: boolean` (the meaning line is enough) flipped 2 of 48, the two it flipped explained badly; it amounts to no explanations.
+
+| 360 terms (300 words + 60 phrases) | Shipped | `use` | `use`, no scope | Meaning only |
+|---|---|---|---|---|
+| Cards with an explanation | 59% (words 53, phrases 90) | 10% (3, 45) | 10% (3, 43) | 0 |
+| Wrong among those shown | 24% | 39% | 39% | – |
+| Useful among those shown (true and adds something) | 24% | 44% | 39% | – |
+| Cards with a wrong explanation | 14% | 3.9% | 3.9% | 0 |
+| Cards explained though no explanation is needed | 55% | 8% | 8% | 0 |
+| Terms that need one, given a useful one | 43% (6 of 14) | 29% (4) | 21% (3) | 0 |
+| Meaning fits (good + acceptable) | 88 | 87 | 89 | 86 (shipped 89 in the same packets) |
+| Meaning wider than the term | 36% | 15% | 23% | 32% (shipped 38 in the same packets) |
+| `sense` fits | 73 | 72 | 75 | 73 |
+| Prompt p50 / p90 (ms) | 1,893 / 2,258 | 1,927 / 2,393 | 1,996 / 2,435 | 1,220 / 1,520 |
+
+- **Few terms need an explanation**: 14 of 360 (4%; 12 in the second round), mostly jokes and slang on Netflix and YouTube ("put a sock in my mouth", "shove it up your butt", "I so smell bacon"). Even there the model was wrong half the time ("bacon", "recess", "casual Saturday" wrong in every variant).
+- The `use` category is the first gate that keeps ordinary words plain (3% of words explained against 53%), but what it still explains is wrong 4 times in 10: the model cannot tell when it is sure.
+- The scope sentence lowers meanings wider than the term (36% → 15% with `use`, 38% → 32% meaning only) without changing how many meanings fit; with `use` its phrase meanings were judged "good" less often (42 against 58), within the noise of 60 phrases and one judge.
+- Meaning only answers 0.65 s faster (no explanation to write).
+
+Decided (2026-11-16): **meaning only**, with the scope sentence. The card shows the meaning line (and "Fits here") without an explanation; the model is asked for `{meaning, sense}`.
+
+Checked in the user's Chrome with the check build (Wikipedia "Creativity", "province" in "the sole province of God"): the card shows the meaning alone with "Use this meaning" and "On-device AI", as in the mock; the error log stayed empty. The answer there, 神の独占部分, still took in "of God", and "Fits here" marked sense 1 (州) where 2 (領域) fits: the scope sentence lowers such answers, it does not end them.

@@ -229,7 +229,7 @@ function State(props: InThisSentenceProps) {
   }
 }
 
-/** The meaning, the explanation when the use is unusual, and "Use this meaning". */
+/** The meaning and "Use this meaning". */
 function AnswerCard(
   props: InThisSentenceProps & {
     view: Extract<ExplainView, { state: "answer" }>;
@@ -249,11 +249,6 @@ function AnswerCard(
       >
         {answer.meaning}
       </p>
-      {answer.unusual && answer.explanation && (
-        <p lang={props.nativeLang} style={TEXT}>
-          {answer.explanation}
-        </p>
-      )}
       {props.hasSenses && answer.sense === null && (
         <span style={META}>{t("dict.explain.noFit")}</span>
       )}

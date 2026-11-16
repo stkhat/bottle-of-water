@@ -588,7 +588,7 @@ describe("handlers: explanations", () => {
     version: "157",
   };
   const KEPT = {
-    answer: { meaning: "土手", unusual: false, explanation: null, sense: 2 },
+    answer: { meaning: "土手", sense: 2 },
     lines: 3,
   };
 

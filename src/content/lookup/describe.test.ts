@@ -1106,33 +1106,16 @@ describe("your meanings", () => {
       elsewhere: [],
       yourMeanings: [mine("k", { from: "ai", text: "折り込み" })],
     };
-    const answer = {
-      meaning: "折り込み",
-      unusual: true,
-      explanation: "パン作りの用語。",
-      sense: null,
-    };
+    const answer = { meaning: "折り込み", sense: null };
 
-    it("saves the meaning with the explanation it showed; Used here when chosen for this sentence", () => {
+    it("saves the meaning; Used here when chosen for this sentence", () => {
       expect(answerChoice(card, answer)).toEqual({
-        meaning: {
-          from: "ai",
-          text: "折り込み",
-          explanation: "パン作りの用語。",
-        },
+        meaning: { from: "ai", text: "折り込み" },
         usedHere: false,
       });
       expect(answerChoice({ ...card, chosenHere: "k" }, answer).usedHere).toBe(
         true,
       );
-    });
-
-    it("keeps no explanation for an ordinary use", () => {
-      const ordinary = { ...answer, unusual: false };
-      expect(answerChoice(card, ordinary).meaning).toEqual({
-        from: "ai",
-        text: "折り込み",
-      });
     });
   });
 });

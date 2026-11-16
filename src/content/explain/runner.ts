@@ -1,4 +1,4 @@
-import { ask, BadAnswerError } from "../../core/explain/ask";
+import { answerVersion, ask, BadAnswerError } from "../../core/explain/ask";
 import { ContextTooLongError } from "../../core/explain/context";
 import type { ExplainInput } from "../../core/explain/prompt";
 import type { ExplanationProvider } from "../../core/explain/provider";
@@ -77,7 +77,7 @@ export function createExplainRunner(o: {
     sourceUrl,
     sentence: input.sentence,
     provider: provider.name,
-    version: provider.version,
+    version: `${provider.version}.${answerVersion(input)}`,
   });
 
   /** The kept answer, or null (also when the cache cannot be read: best effort). */

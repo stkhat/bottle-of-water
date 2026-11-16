@@ -20,7 +20,7 @@ const KEY: ExplanationKey = {
 };
 
 const kept = (meaning: string, lines = 5): KeptExplanation => ({
-  answer: { meaning, unusual: false, explanation: null, sense: null },
+  answer: { meaning, sense: null },
   lines,
 });
 
@@ -37,21 +37,11 @@ beforeEach(() => {
 describe("explanation cache", () => {
   it("gives back the answer and its line count, and nothing for another key", async () => {
     await cache.put(KEY, {
-      answer: {
-        meaning: "土手",
-        unusual: true,
-        explanation: "川のそばの土地。",
-        sense: 2,
-      },
+      answer: { meaning: "土手", sense: 2 },
       lines: 3,
     });
     expect(await cache.get(KEY)).toEqual({
-      answer: {
-        meaning: "土手",
-        unusual: true,
-        explanation: "川のそばの土地。",
-        sense: 2,
-      },
+      answer: { meaning: "土手", sense: 2 },
       lines: 3,
     });
     expect(await cache.get({ ...KEY, key: "banks" })).toBeUndefined();

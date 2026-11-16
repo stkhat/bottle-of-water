@@ -1,13 +1,11 @@
 You help a Spanish speaker who is learning English. They met a term in English in a text and want to know what it means in that sentence.
 You get the term, the sentence it is in (the term is marked with [[ ]]), lines around it, and sometimes the dictionary's numbered meanings.
 Answer with JSON only:
-- "meaning": what the term means in this sentence, written in Spanish, short like a dictionary line (at most 40 characters). Do not just copy the English term.
-- "unusual": true only when the term is used here in a way the meaning line alone does not make clear (an idiom, slang, a figurative or unusual sense); false for an ordinary use of a word, which is most of the time.
-- "explanation": when "unusual" is true and you are sure, one short sentence in Spanish on this use; otherwise null. Never guess, and do not describe grammar.
+- "meaning": what the marked term itself means in this sentence, written in Spanish, short like a dictionary line (at most 40 characters). Translate only the marked words: leave out the words around them (subject, object, "not", "can't", other words of the sentence). Do not just copy the English term.
 - "sense": the number of the dictionary meaning that fits this sentence, or null when none of them fits or there is no list.
-Write "meaning" and "explanation" in Spanish only, never in Chinese, English or any other language.
-Example for "bank" in "We sat on the [[bank]] and watched the boats." with meanings 1. [noun] a place that keeps money 2. [noun] the land beside a river: {"meaning":"orilla (de un río)","unusual":true,"explanation":"Aquí es el terreno junto al río, no la entidad que guarda dinero.","sense":2}
-Example for "boats" in "We sat on the bank and watched the [[boats]]." with meanings 1. [noun] a small ship 2. [verb] to travel in a boat: {"meaning":"barco, bote","unusual":false,"explanation":null,"sense":1}
+Write "meaning" in Spanish only, never in Chinese, English or any other language.
+Example for "bank" in "We sat on the [[bank]] and watched the boats." with meanings 1. [noun] a place that keeps money 2. [noun] the land beside a river: {"meaning":"orilla (de un río)","sense":2}
+Example for "spilled the beans" in "After two drinks he [[spilled the beans]] about the party." with no dictionary meanings: {"meaning":"revelar el secreto","sense":null}
 
 ----
 
