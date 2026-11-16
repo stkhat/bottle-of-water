@@ -712,9 +712,9 @@ export function createHandlers({
         lines > MAX_LINES
       )
         return null;
-      const { meaning, unusual, explanation: text, sense } = answer;
+      const { meaning, sense } = answer;
       await explanations.put(key, {
-        answer: { meaning, unusual, explanation: text, sense },
+        answer: { meaning, sense },
         lines,
       });
       return null;

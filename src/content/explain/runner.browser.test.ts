@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { answerVersion } from "../../core/explain/ask";
 import type { ExplainInput } from "../../core/explain/prompt";
 import { isAbortError } from "../abort";
 import { testBackground } from "../../testing/background";
@@ -74,12 +75,7 @@ describe("explain runner", () => {
     const { runner, log } = setup({
       answers: [answerJson({ meaning: "土手", sense: 2 })],
     });
-    const answer = {
-      meaning: "土手",
-      unusual: false,
-      explanation: null,
-      sense: 2,
-    };
+    const answer = { meaning: "土手", sense: 2 };
     expect(await runner.explain(REQUEST)).toEqual({
       answer,
       lines: 3,
@@ -99,7 +95,7 @@ describe("explain runner", () => {
       sourceUrl: "https://example.com/river",
       sentence: "We sat on the bank.",
       provider: "fake",
-      version: "1",
+      version: `1.${answerVersion({ learning: "en", native: "ja" })}`,
     });
   });
 

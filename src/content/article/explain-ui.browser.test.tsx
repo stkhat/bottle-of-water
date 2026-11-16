@@ -114,22 +114,15 @@ describe("In this sentence", () => {
     await expect.element(section().getByText("うんざりする")).toBeVisible();
   });
 
-  it("shows the explanation only for an unusual use, and says when no dictionary meaning fits", async () => {
+  it("shows the meaning in the native language, and says when no dictionary meaning fits", async () => {
     const { provider } = fakeExplanationProvider({
-      answers: [
-        answerJson({
-          meaning: "うんざりするほど長い",
-          unusual: true,
-          explanation: "ここでは比喩的な使い方です。",
-          sense: null,
-        }),
-      ],
+      answers: [answerJson({ meaning: "うんざりするほど長い", sense: null })],
     });
     const { root } = await setup(ARTICLE, { explainProvider: provider });
     await clickOn(root, "tedious", 1);
     await explainButton().click();
     await expect
-      .element(section().getByText("ここでは比喩的な使い方です。"))
+      .element(section().getByText("うんざりするほど長い"))
       .toHaveAttribute("lang", "ja");
     await expect
       .element(
@@ -141,14 +134,7 @@ describe("In this sentence", () => {
 
   it("uses the meaning for this sentence: the word is saved as Learning and the card reads Used here", async () => {
     const { provider } = fakeExplanationProvider({
-      answers: [
-        answerJson({
-          meaning: "うんざりする",
-          unusual: true,
-          explanation: "比喩的です。",
-          sense: 1,
-        }),
-      ],
+      answers: [answerJson({ meaning: "うんざりする", sense: 1 })],
     });
     const { root, background } = await setup(ARTICLE, {
       explainProvider: provider,
@@ -169,11 +155,7 @@ describe("In this sentence", () => {
           key: "tedious",
           sentence: "Once you figure out a schedule, it is tedious no more.",
         }),
-        meaning: {
-          from: "ai",
-          text: "うんざりする",
-          explanation: "比喩的です。",
-        },
+        meaning: { from: "ai", text: "うんざりする" },
       },
     ]);
     // The AI's meaning is in its card, not again among the Meanings.

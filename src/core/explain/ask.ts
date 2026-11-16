@@ -8,6 +8,8 @@ import {
   type Answer,
   type BadAnswer,
 } from "./answer";
+import type { LanguagePair } from "../packs/pairs";
+import { fnv1a64 } from "../url";
 import { fitContext } from "./context";
 import { instructions, type ExplainInput } from "./prompt";
 import type { ExplanationProvider } from "./provider";
@@ -27,6 +29,14 @@ export interface Explained {
   /** How many lines around the sentence the prompt held. */
   lines: number;
 }
+
+/**
+ * What a pair's answers depend on in Lingo: a hash of the instructions and the schema,
+ * in the cache key next to the provider's version, so a changed prompt asks again
+ * instead of showing answers kept from the one before.
+ */
+export const answerVersion = (pair: LanguagePair) =>
+  fnv1a64(`${instructions(pair)}\n${JSON.stringify(ANSWER_SCHEMA)}`);
 
 /** Times an answer is asked for: once, and once again when it is bad. */
 const ATTEMPTS = 2;

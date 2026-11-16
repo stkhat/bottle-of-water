@@ -168,20 +168,15 @@ export const packSenses = (card: TermCard) =>
   }));
 
 /**
- * "Use this meaning" on the on-device AI's `answer`: the meaning it saves (with the
- * explanation it showed) and whether it is the one chosen for this sentence.
+ * "Use this meaning" on the on-device AI's `answer`: the meaning it saves and whether
+ * it is the one chosen for this sentence.
  */
 export function answerChoice(card: TermCard, answer: Answer): Choice {
   const kept = card.yourMeanings.find(
     (m) => m.from === "ai" && m.text === answer.meaning,
   );
   return {
-    meaning: {
-      from: "ai",
-      text: answer.meaning,
-      ...(answer.unusual &&
-        answer.explanation !== null && { explanation: answer.explanation }),
-    },
+    meaning: { from: "ai", text: answer.meaning },
     usedHere: kept !== undefined && kept.key === card.chosenHere,
   };
 }

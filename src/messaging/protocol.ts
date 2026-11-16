@@ -127,7 +127,10 @@ export interface ExplanationKey {
   sentence: string;
   /** `ExplanationProvider.name` */
   provider: string;
-  /** `ExplanationProvider.version` (the browser's major version for Chrome). */
+  /**
+   * `ExplanationProvider.version` (the browser's major version for Chrome), then
+   * `answerVersion` (the prompt's hash): `"157.<hash>"`.
+   */
   version: string;
 }
 

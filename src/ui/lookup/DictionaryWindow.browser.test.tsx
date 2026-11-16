@@ -870,12 +870,7 @@ describe("DictionaryWindow: in this sentence", () => {
     return { props, calls };
   };
   const style = (element: Element) => getComputedStyle(element);
-  const ANSWER = {
-    meaning: "（パン生地の）折り込み",
-    unusual: true,
-    explanation: "パン作りで、生地を折り重ねる作業。",
-    sense: 1,
-  };
+  const ANSWER = { meaning: "（パン生地の）折り込み", sense: 1 };
 
   test("comes after the status buttons, before Meanings, as the button", async () => {
     const { props, calls } = withExplain({ state: "idle" });
@@ -940,7 +935,7 @@ describe("DictionaryWindow: in this sentence", () => {
     expect(box(starting.element())).toEqual(before);
   });
 
-  test("shows the answer: the meaning, the explanation, Use this meaning and where it came from", async () => {
+  test("shows the answer: the meaning, Use this meaning and where it came from", async () => {
     const { props, calls } = withExplain({ state: "answer", answer: ANSWER });
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
     const meaning = screen.getByText(ANSWER.meaning);
@@ -949,8 +944,8 @@ describe("DictionaryWindow: in this sentence", () => {
       fontSize: "16px",
       fontWeight: "600",
     });
-    const explanation = screen.getByText(ANSWER.explanation);
-    expect(style(explanation.element()).fontSize).toBe("14px");
+    // The meaning alone, no explanation under it.
+    expect(meaning.element().nextElementSibling?.tagName).not.toBe("P");
     await expect
       .element(screen.getByText("On-device AI", { exact: true }))
       .toBeVisible();
@@ -1000,17 +995,16 @@ describe("DictionaryWindow: in this sentence", () => {
     );
   });
 
-  test("leaves the explanation out for an ordinary use, and reads Used here when chosen", async () => {
+  test("says when no dictionary meaning fits, and reads Used here when chosen", async () => {
     const { props } = withExplain(
       {
         state: "answer",
-        answer: { ...ANSWER, unusual: false, sense: null },
+        answer: { ...ANSWER, sense: null },
       },
       { usedHere: true },
     );
     const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
     await expect.element(screen.getByText(ANSWER.meaning)).toBeVisible();
-    expect(screen.getByText(ANSWER.explanation).query()).toBeNull();
     await expect
       .element(screen.getByText("None of the dictionary's meanings fit here."))
       .toBeVisible();

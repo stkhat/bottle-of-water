@@ -108,18 +108,18 @@ describe("instructions", () => {
     expect(en).toContain("never in Chinese, Spanish or any other language");
   });
 
-  it("gives one example with an explanation and one without, in the native language", () => {
+  it("asks for the marked words alone, with two examples in the native language", () => {
     const es = instructions({ learning: "en", native: "es" });
-    expect(es).toContain('"meaning":"orilla (de un río)","unusual":true');
-    expect(es).toContain(
-      '{"meaning":"barco, bote","unusual":false,"explanation":null,"sense":1}',
-    );
+    expect(es).toContain("Translate only the marked words");
+    expect(es).toContain('{"meaning":"orilla (de un río)","sense":2}');
+    expect(es).toContain('{"meaning":"revelar el secreto","sense":null}');
+    expect(es).not.toContain("explanation");
   });
 
   it("falls back to the English examples for a language without its own", () => {
     const fr = instructions({ learning: "en", native: "fr" });
     expect(fr).toContain("You help a French speaker");
-    expect(fr).toContain('{"meaning":"riverbank","unusual":true');
+    expect(fr).toContain('{"meaning":"riverbank","sense":2}');
   });
 });
 

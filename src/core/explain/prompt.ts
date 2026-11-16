@@ -1,7 +1,7 @@
 /**
  * The prompt that asks for a term's meaning in its sentence (architecture "Meaning in
  * context" → "Context" and "Answer"), as the M0 study tuned it: English instructions,
- * the answer in the native language, one example with an explanation and one without.
+ * the answer in the native language, two examples (a dictionary meaning, an idiom).
  * Browser-free.
  */
 import type { TermKind } from "../classify";
@@ -52,26 +52,15 @@ const DENSE = new Set(["ja", "zh", "ko"]);
 export const meaningLength = (native: string) => (DENSE.has(native) ? 25 : 40);
 
 /**
- * The two example answers in the native language: "bank" by a river (an explanation,
- * `unusual` true) and "boats" (none). English for a language without its own.
+ * The two example answers' meanings in the native language: "bank" by a river (one of
+ * several dictionary meanings) and "spilled the beans" (an idiom without an entry).
+ * English for a language without its own.
  */
-const EXAMPLES: Readonly<Record<string, { bank: string; boat: string }>> = {
-  ja: {
-    bank: '{"meaning":"川岸、土手","unusual":true,"explanation":"ここでは川のそばの土地のこと。お金を預ける銀行ではありません。","sense":2}',
-    boat: "船、ボート",
-  },
-  es: {
-    bank: '{"meaning":"orilla (de un río)","unusual":true,"explanation":"Aquí es el terreno junto al río, no la entidad que guarda dinero.","sense":2}',
-    boat: "barco, bote",
-  },
-  pt: {
-    bank: '{"meaning":"margem (de um rio)","unusual":true,"explanation":"Aqui é o terreno ao lado do rio, não a instituição que guarda dinheiro.","sense":2}',
-    boat: "barco",
-  },
-  en: {
-    bank: '{"meaning":"riverbank","unusual":true,"explanation":"Here it is the land beside the river, not a place that keeps money.","sense":2}',
-    boat: "boat",
-  },
+const EXAMPLES: Readonly<Record<string, { bank: string; beans: string }>> = {
+  ja: { bank: "川岸、土手", beans: "秘密をばらす" },
+  es: { bank: "orilla (de un río)", beans: "revelar el secreto" },
+  pt: { bank: "margem (de um rio)", beans: "revelar o segredo" },
+  en: { bank: "riverbank", beans: "revealed the secret" },
 };
 
 /**
@@ -87,13 +76,11 @@ export function instructions({ learning, native }: LanguagePair): string {
     `You help ${/^[AEIOU]/.test(N) ? "an" : "a"} ${N} speaker who is learning ${L}. They met a term in ${L} in a text and want to know what it means in that sentence.`,
     `You get the term, the sentence it is in (the term is marked with [[ ]]), lines around it, and sometimes the dictionary's numbered meanings.`,
     `Answer with JSON only:`,
-    `- "meaning": what the term means in this sentence, written in ${N}, short like a dictionary line (at most ${meaningLength(native)} characters). Do not just copy the ${L} term.`,
-    `- "unusual": true only when the term is used here in a way the meaning line alone does not make clear (an idiom, slang, a figurative or unusual sense); false for an ordinary use of a word, which is most of the time.`,
-    `- "explanation": when "unusual" is true and you are sure, one short sentence in ${N} on this use; otherwise null. Never guess, and do not describe grammar.`,
+    `- "meaning": what the marked term itself means in this sentence, written in ${N}, short like a dictionary line (at most ${meaningLength(native)} characters). Translate only the marked words: leave out the words around them (subject, object, "not", "can't", other words of the sentence). Do not just copy the ${L} term.`,
     `- "sense": the number of the dictionary meaning that fits this sentence, or null when none of them fits or there is no list.`,
-    `Write "meaning" and "explanation" in ${N} only, never in ${others} or any other language.`,
-    `Example for "bank" in "We sat on the [[bank]] and watched the boats." with meanings 1. [noun] a place that keeps money 2. [noun] the land beside a river: ${example.bank}`,
-    `Example for "boats" in "We sat on the bank and watched the [[boats]]." with meanings 1. [noun] a small ship 2. [verb] to travel in a boat: {"meaning":"${example.boat}","unusual":false,"explanation":null,"sense":1}`,
+    `Write "meaning" in ${N} only, never in ${others} or any other language.`,
+    `Example for "bank" in "We sat on the [[bank]] and watched the boats." with meanings 1. [noun] a place that keeps money 2. [noun] the land beside a river: ${JSON.stringify({ meaning: example.bank, sense: 2 })}`,
+    `Example for "spilled the beans" in "After two drinks he [[spilled the beans]] about the party." with no dictionary meanings: ${JSON.stringify({ meaning: example.beans, sense: null })}`,
   ].join("\n");
 }
 

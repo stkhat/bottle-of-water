@@ -4,7 +4,7 @@ import {
   fakeExplanationProvider,
   HANG,
 } from "../../testing/explain";
-import { ask, BadAnswerError } from "./ask";
+import { answerVersion, ask, BadAnswerError } from "./ask";
 import { ContextTooLongError } from "./context";
 import { instructions, type ExplainInput } from "./prompt";
 
@@ -32,7 +32,7 @@ describe("ask", () => {
       answers: [answerJson({ meaning: "土手", sense: 2 })],
     });
     expect(await ask(provider, INPUT, signal())).toEqual({
-      answer: { meaning: "土手", unusual: false, explanation: null, sense: 2 },
+      answer: { meaning: "土手", sense: 2 },
       lines: 2,
     });
     expect(log.sessions).toEqual([
@@ -94,5 +94,16 @@ describe("ask", () => {
     await expect(asked).rejects.toMatchObject({ name: "AbortError" });
     expect(log.sessions[0]?.destroyed).toBe(true);
     expect(log.aborted).toBe(1);
+  });
+});
+
+describe("answerVersion", () => {
+  it("is the same for a pair and differs between pairs", () => {
+    const ja = { learning: "en", native: "ja" };
+    expect(answerVersion(ja)).toBe(answerVersion({ ...ja }));
+    expect(answerVersion(ja)).toMatch(/^[0-9a-f]{16}$/);
+    expect(answerVersion({ learning: "en", native: "es" })).not.toBe(
+      answerVersion(ja),
+    );
   });
 });

@@ -34,15 +34,11 @@ export interface FakeProviderOptions {
 /** An answer's JSON as the model writes it. */
 export const answerJson = ({
   meaning = "意味",
-  unusual = false,
-  explanation = null,
   sense = null,
 }: {
   meaning?: string;
-  unusual?: boolean;
-  explanation?: string | null;
   sense?: number | null;
-} = {}) => JSON.stringify({ meaning, unusual, explanation, sense });
+} = {}) => JSON.stringify({ meaning, sense });
 
 /** Rejects with the signal's reason once it aborts. */
 const aborted = (signal: AbortSignal) =>
