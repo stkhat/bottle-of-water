@@ -49,7 +49,7 @@
         }
       ],
       "format": 4,
-      "package": "@langle-data/en",
+      "package": "@langle/en",
       "version": "2026.1113.6"
     },
     "en-defs": {
@@ -117,7 +117,7 @@
         }
       ],
       "format": 1,
-      "package": "@langle-data/en-defs",
+      "package": "@langle/en-defs",
       "version": "2026.1113.6"
     },
     "en-es": {
@@ -145,7 +145,7 @@
         }
       ],
       "format": 1,
-      "package": "@langle-data/en-es",
+      "package": "@langle/en-es",
       "version": "2026.1113.3"
     },
     "en-ja": {
@@ -193,7 +193,7 @@
         }
       ],
       "format": 4,
-      "package": "@langle-data/en-ja",
+      "package": "@langle/en-ja",
       "version": "2026.1113.7"
     },
     "en-pt": {
@@ -216,7 +216,7 @@
         }
       ],
       "format": 1,
-      "package": "@langle-data/en-pt",
+      "package": "@langle/en-pt",
       "version": "2026.1113.3"
     },
     "es": {
@@ -249,7 +249,7 @@
         }
       ],
       "format": 1,
-      "package": "@langle-data/es",
+      "package": "@langle/es",
       "version": "2026.1111.0"
     },
     "es-en": {
@@ -272,7 +272,7 @@
         }
       ],
       "format": 1,
-      "package": "@langle-data/es-en",
+      "package": "@langle/es-en",
       "version": "2026.1113.0"
     }
   },

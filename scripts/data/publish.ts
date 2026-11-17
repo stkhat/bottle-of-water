@@ -1,6 +1,6 @@
 // Writes the pack lock file (src/core/packs/packs.lock.json) and an npm package folder
-// for each pack in data/packs/ (data/publish/<pack>/, git-ignored; `npm publish` is run
-// by hand from there).
+// for each pack in data/packs/ (data/publish/<pack>/, git-ignored; npm-publish.ts
+// publishes them).
 // Usage: npm run data:publish [-- --download es,es-en]
 //   --download: the packs the extension downloads instead of bundling (data/packs/
 //   packs only). Every other pack is bundled.

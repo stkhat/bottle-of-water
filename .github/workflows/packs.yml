@@ -1,0 +1,39 @@
+name: Publish packs
+
+# Publishes the npm package of each downloadable language pack whose version in the
+# committed lock (src/core/packs/packs.lock.json) is not on npm yet
+# (scripts/data/npm-publish.ts). Run it by hand on main after a pull request that
+# changes data/packs/ is merged, and before the release that uses the new versions.
+#
+# npm trusted publishing: no token; npm checks this repository and this file's name
+# (packs.yml) against each package's trusted publisher. A package takes one only once it
+# exists, so each new package's first version is published by hand (`npm login`, then
+# `npm run data:npm-publish`). npm makes no provenance for a private repository, which
+# Langle does not need: the extension checks every file against the lock's SHA-256.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "npm publish --dry-run (publish nothing)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-packs
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Trusted publishing needs npm 11.5.1 or later, which this Node version ships.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+      # The script uses Node's built-ins only, so there is no `npm ci`.
+      - run: npm run data:npm-publish -- ${{ inputs.dry-run && '--dry-run' || '' }}

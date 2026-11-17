@@ -14,7 +14,7 @@ Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left
 Designed, not built: [architecture](../specs/architecture.md) "Sync to the user's own cloud storage" (its "Checks before building" come first).
 
 ## Pack hosting
-Needs the user: a public data repository and an npm scope (placeholder `@langle-data`). Then `npm run data:publish -- --download es,es-en`, `npm publish` each `data/publish/<pack>/`, a release, and a check of the real CDN download in the user's Chrome.
+No public data repository (user, 2026-11-17): `packs.yml` publishes from this repository with npm trusted publishing. npm scope `@langle` (user, 2026-11-18). Needs the user: the npm organization `langle`, and each package's first version published by hand (`npm login`, `npm run data:npm-publish`), then its trusted publisher set to `packs.yml`. Then `npm run data:publish -- --download …`, a release, and a check of the real CDN download in the user's Chrome.
 
 ## Store release
 See [status](../status.md) "Before publishing".
