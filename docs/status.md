@@ -68,7 +68,7 @@ Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes
 - Chinese is not offered: 91.2% of the gate (under 95%), and the zh edition writes Traditional characters. With OMW it reaches 96.1% (Simplified), pending a license decision; fr, de, ru and vi would also pass ([notes](notes/translation-data-expansion.md), [matrix](notes/language-matrix.html))
 
 ### Hosting and Firefox
-- Pack hosting is pending: npm scope, public data repository, `npm publish`, then `npm run data:publish -- --download es,es-en` and a release. The real CDN download is checked only after that
+- Pack hosting is pending: the npm organization `langle` (scope `@langle`), each package's first version published by hand and its trusted publisher (`packs.yml` publishes later versions), then `npm run data:publish -- --download es,es-en` and a release. The real CDN download is checked only after that
 - Firefox (not released): `data_collection_permissions` missing in the manifest; highlight-underline support not detected; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; the Firefox build is only built, not run as an extension (the browser tests run on Firefox: CI, and locally in Docker)
 
 ## Before publishing (Chrome Web Store)

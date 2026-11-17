@@ -3,8 +3,8 @@ import type { PackName } from "../../src/core/packs/load.ts";
 import { PACK_FORMATS } from "../../src/core/packs/formats.ts";
 import { DOWNLOAD_PACKS_DIR, PACKS_DIR } from "./common.ts";
 
-/** A placeholder until the scope exists. */
-const NPM_SCOPE = "@langle-data";
+/** The npm organization `langle` (user, 2026-11-18). */
+const NPM_SCOPE = "@langle";
 
 interface PackSource {
   title: string;

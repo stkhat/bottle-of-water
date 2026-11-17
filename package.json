@@ -45,6 +45,7 @@
     "data:es": "node scripts/data/es-frequency.ts && node scripts/data/es-kaikki.ts",
     "data:stats": "node scripts/data/stats.ts",
     "data:publish": "node scripts/data/publish.ts",
+    "data:npm-publish": "node scripts/data/npm-publish.ts",
     "prepare": "simple-git-hooks",
     "check:dead": "knip"
   },
