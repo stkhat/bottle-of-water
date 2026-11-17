@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PackLock, PackLockEntry } from "../core/packs/lock";
 import type { PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 import { createPackStore, type PackStore } from "./pack-store";
 import { freshDb } from "../testing/db";
 
@@ -30,7 +30,7 @@ async function lockEntry(
   contents: Contents,
 ): Promise<PackLockEntry> {
   return {
-    package: `@lingo-test/${name}`,
+    package: `@langle-test/${name}`,
     version,
     format: 1,
     bundled: false,
@@ -45,7 +45,7 @@ async function lockEntry(
 }
 
 const bundled = (name: string): PackLockEntry => ({
-  package: `@lingo-test/${name}`,
+  package: `@langle-test/${name}`,
   version: "2026.1111.0",
   format: 1,
   bundled: true,
@@ -133,7 +133,7 @@ function heldResponse(body: string) {
   return { respond, release };
 }
 
-let db: LingoDb;
+let db: LangleDb;
 let mirrors: ReturnType<typeof fakeMirrors>;
 let written: PackStates[];
 let time: number;
@@ -178,8 +178,8 @@ describe("pack store: downloads", () => {
     const store = storeWith(lock);
     expect(await store.ensure(["es"])).toEqual({ ready: ["es"], failed: [] });
     expect(mirrors.requests).toEqual([
-      "https://one.test/npm/@lingo-test/es@2026.1111.0/freq.json",
-      "https://one.test/npm/@lingo-test/es@2026.1111.0/lemmas.json",
+      "https://one.test/npm/@langle-test/es@2026.1111.0/freq.json",
+      "https://one.test/npm/@langle-test/es@2026.1111.0/lemmas.json",
     ]);
     expect(await store.read("es", "freq.json")).toEqual(ES_V1["freq.json"]);
     expect(await store.read("es", "lemmas.json")).toEqual(ES_V1["lemmas.json"]);

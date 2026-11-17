@@ -179,28 +179,28 @@ describe("mountVideoUi", () => {
   it("puts each part where it belongs on the watch page", async () => {
     mount();
     await expect
-      .poll(() => host("lingo-video-player")?.parentElement)
+      .poll(() => host("langle-video-player")?.parentElement)
       .toBe(page.player);
     const settings = page.player.querySelector(".ytp-settings-button")!;
-    expect(host("lingo-player-buttons").nextElementSibling).toBe(settings);
+    expect(host("langle-player-buttons").nextElementSibling).toBe(settings);
     const below = document.getElementById("below")!;
-    expect(below.firstElementChild).toBe(host("lingo-video-below"));
-    expect(host("lingo-transcript").parentElement?.id).toBe("secondary-inner");
-    expect(host("lingo-transcript").nextElementSibling?.id).toBe("related");
-    expect(host("lingo-video").parentElement).toBe(document.body);
+    expect(below.firstElementChild).toBe(host("langle-video-below"));
+    expect(host("langle-transcript").parentElement?.id).toBe("secondary-inner");
+    expect(host("langle-transcript").nextElementSibling?.id).toBe("related");
+    expect(host("langle-video").parentElement).toBe(document.body);
   });
 
   it("shows the playing line in the video, with its translation, and the transcript", async () => {
     mount();
     await expect
-      .poll(() => text("lingo-video-player"))
+      .poll(() => text("langle-video-player"))
       .toContain("The yeast smells tangy.");
-    expect(text("lingo-video-player")).toContain(
+    expect(text("langle-video-player")).toContain(
       "イーストはぴりっとした匂い。",
     );
-    expect(text("lingo-video-below")).toBe("");
-    expect(text("lingo-transcript")).toContain("Knead the dough.");
-    expect(text("lingo-player-buttons")).toContain("L");
+    expect(text("langle-video-below")).toBe("");
+    expect(text("langle-transcript")).toContain("Knead the dough.");
+    expect(text("langle-player-buttons")).toContain("L");
   });
 
   it("shows the language data line at the top of the transcript column while the data is missing", async () => {
@@ -208,11 +208,11 @@ describe("mountVideoUi", () => {
       readyState({ dataNote: { state: "downloading", percent: 45 } }),
     );
     await expect
-      .poll(() => text("lingo-transcript"))
+      .poll(() => text("langle-transcript"))
       .toContain("Downloading English data · 45%");
     const status = () =>
-      inside("lingo-transcript")!.querySelector("[role=status]")!;
-    const tabs = inside("lingo-transcript")!.querySelector("[role=tablist]")!;
+      inside("langle-transcript")!.querySelector("[role=status]")!;
+    const tabs = inside("langle-transcript")!.querySelector("[role=tablist]")!;
     expect(
       status().getBoundingClientRect().top -
         tabs.getBoundingClientRect().bottom,
@@ -220,25 +220,26 @@ describe("mountVideoUi", () => {
 
     store.set({ dataNote: { state: "failed" } });
     await expect
-      .poll(() => text("lingo-transcript"))
+      .poll(() => text("langle-transcript"))
       .toContain("Couldn't download English data");
     await userEvent.click(status().querySelector("button")!);
     expect(spy("retryPacks")).toHaveBeenCalledOnce();
 
     store.set({ dataNote: null });
     await expect
-      .poll(() => inside("lingo-transcript")!.querySelector("[role=status]"))
+      .poll(() => inside("langle-transcript")!.querySelector("[role=status]"))
       .toBeNull();
-    expect(text("lingo-transcript")).toContain("Knead the dough.");
+    expect(text("langle-transcript")).toContain("Knead the dough.");
   });
 
   it("places the subtitle over the bottom of the video", async () => {
     mount();
     await expect
-      .poll(() => inside("lingo-video-player")?.querySelector("[role=region]"))
+      .poll(() => inside("langle-video-player")?.querySelector("[role=region]"))
       .not.toBeNull();
-    const region =
-      inside("lingo-video-player")!.querySelector("[role=region]")!;
+    const region = inside("langle-video-player")!.querySelector(
+      "[role=region]",
+    )!;
     const box = region.getBoundingClientRect();
     const player = page.player.getBoundingClientRect();
     expect(box.bottom).toBeCloseTo(player.bottom - 64, 0);
@@ -255,20 +256,20 @@ describe("mountVideoUi", () => {
       ),
     });
     await expect
-      .poll(() => text("lingo-video-below"))
+      .poll(() => text("langle-video-below"))
       .toContain("The yeast smells tangy.");
-    expect(text("lingo-video-below")).not.toContain("イースト");
-    expect(text("lingo-video-player")).not.toContain("The yeast");
+    expect(text("langle-video-below")).not.toContain("イースト");
+    expect(text("langle-video-player")).not.toContain("The yeast");
     // The transcript keeps its own switch.
-    expect(text("lingo-transcript")).toContain("イースト");
+    expect(text("langle-transcript")).toContain("イースト");
   });
 
   it("off: only the player buttons stay", async () => {
     const { store } = mount();
     store.set({ enabled: false, current: -1, card: -1 });
-    await expect.poll(() => text("lingo-transcript")).toBe("");
-    expect(text("lingo-video-player")).toBe("");
-    const l = inside("lingo-player-buttons")!.querySelector<HTMLButtonElement>(
+    await expect.poll(() => text("langle-transcript")).toBe("");
+    expect(text("langle-video-player")).toBe("");
+    const l = inside("langle-player-buttons")!.querySelector<HTMLButtonElement>(
       "button",
     )!;
     expect(l.getAttribute("aria-pressed")).toBe("false");
@@ -283,16 +284,16 @@ describe("mountVideoUi", () => {
       current: -1,
       card: -1,
     });
-    await expect.poll(() => text("lingo-player-buttons")).toBe("");
-    expect(text("lingo-transcript")).toBe("");
+    await expect.poll(() => text("langle-player-buttons")).toBe("");
+    expect(text("langle-transcript")).toBe("");
   });
 
-  it("the L button turns Lingo off and ^ opens the menu above it", async () => {
+  it("the L button turns Langle off and ^ opens the menu above it", async () => {
     const { store, spy } = mount();
     await expect
-      .poll(() => inside("lingo-player-buttons")?.querySelector("button"))
+      .poll(() => inside("langle-player-buttons")?.querySelector("button"))
       .not.toBeNull();
-    const [l, menu] = inside("lingo-player-buttons")!.querySelectorAll(
+    const [l, menu] = inside("langle-player-buttons")!.querySelectorAll(
       "button",
     );
     await userEvent.click(l!);
@@ -301,12 +302,12 @@ describe("mountVideoUi", () => {
     expect(spy("setMenuOpen")).toHaveBeenCalledWith(true);
     store.set({ menuOpen: true });
     await expect
-      .poll(() => inside("lingo-video")?.querySelector("[role=dialog]"))
+      .poll(() => inside("langle-video")?.querySelector("[role=dialog]"))
       .not.toBeNull();
-    const dialog = inside("lingo-video")!
+    const dialog = inside("langle-video")!
       .querySelector("[role=dialog]")!
       .getBoundingClientRect();
-    const buttons = host("lingo-player-buttons").getBoundingClientRect();
+    const buttons = host("langle-player-buttons").getBoundingClientRect();
     expect(dialog.bottom).toBeLessThanOrEqual(buttons.top);
   });
 
@@ -316,7 +317,7 @@ describe("mountVideoUi", () => {
     spacer.style.height = `${innerHeight * 3}px`;
     document.body.append(spacer);
     const dialog = () =>
-      inside("lingo-video")?.querySelector("[role=dialog]") ?? null;
+      inside("langle-video")?.querySelector("[role=dialog]") ?? null;
     await expect.poll(dialog).not.toBeNull();
     // Something of YouTube's over the player does not cover it.
     const box = dialog()!.getBoundingClientRect();
@@ -324,14 +325,14 @@ describe("mountVideoUi", () => {
     cover.style.cssText = `position: fixed; z-index: 2147483600; left: ${box.left}px; top: ${box.top}px; width: ${box.width}px; height: ${box.height}px;`;
     document.body.append(cover);
     // Its top left: the test's viewport can be narrower than the player.
-    const top = inside("lingo-video")!.elementFromPoint(
+    const top = inside("langle-video")!.elementFromPoint(
       box.left + 20,
       box.top + 20,
     );
     expect(top !== null && dialog()!.contains(top)).toBe(true);
     cover.remove();
     const gap = () =>
-      host("lingo-player-buttons").getBoundingClientRect().top -
+      host("langle-player-buttons").getBoundingClientRect().top -
       dialog()!.getBoundingClientRect().bottom;
     const before = gap();
     expect(before).toBeGreaterThanOrEqual(0);
@@ -342,18 +343,18 @@ describe("mountVideoUi", () => {
     spacer.remove();
   });
 
-  it("clicks on Lingo's parts do not reach the player", async () => {
+  it("clicks on Langle's parts do not reach the player", async () => {
     mount();
     const clicks = vi.fn();
     page.player.addEventListener("click", clicks);
     await expect
-      .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
+      .poll(() => inside("langle-video-player")?.querySelector("[data-span]"))
       .not.toBeNull();
     await userEvent.click(
-      inside("lingo-video-player")!.querySelector<HTMLElement>("[data-span]")!,
+      inside("langle-video-player")!.querySelector<HTMLElement>("[data-span]")!,
     );
     await userEvent.click(
-      inside("lingo-player-buttons")!.querySelector("button")!,
+      inside("langle-player-buttons")!.querySelector("button")!,
     );
     expect(clicks).not.toHaveBeenCalled();
   });
@@ -361,10 +362,10 @@ describe("mountVideoUi", () => {
   it("tells the app about hovered and clicked words in the subtitle", async () => {
     const { spy } = mount();
     await expect
-      .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
+      .poll(() => inside("langle-video-player")?.querySelector("[data-span]"))
       .not.toBeNull();
     const tangy = [
-      ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+      ...inside("langle-video-player")!.querySelectorAll<HTMLElement>(
         "[data-span]",
       ),
     ].find((el) => el.textContent === "tangy")!;
@@ -383,10 +384,10 @@ describe("mountVideoUi", () => {
   it("the hover card's Details asks for the hovered word's window", async () => {
     const { store, spy } = mount();
     await expect
-      .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
+      .poll(() => inside("langle-video-player")?.querySelector("[data-span]"))
       .not.toBeNull();
     const tangy = [
-      ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+      ...inside("langle-video-player")!.querySelectorAll<HTMLElement>(
         "[data-span]",
       ),
     ].find((el) => el.textContent === "tangy")!;
@@ -399,11 +400,11 @@ describe("mountVideoUi", () => {
         card: TANGY,
       },
     });
-    await expect.poll(() => text("lingo-video")).toContain("Details");
-    expect(text("lingo-video")).not.toContain("Click the word for details");
-    const details = [...inside("lingo-video")!.querySelectorAll("button")].find(
-      (b) => b.textContent === "Details",
-    )!;
+    await expect.poll(() => text("langle-video")).toContain("Details");
+    expect(text("langle-video")).not.toContain("Click the word for details");
+    const details = [
+      ...inside("langle-video")!.querySelectorAll("button"),
+    ].find((b) => b.textContent === "Details")!;
     await userEvent.click(details);
     expect(spy("openHoverDetails")).toHaveBeenCalledOnce();
   });
@@ -411,10 +412,10 @@ describe("mountVideoUi", () => {
   it("tells the app about hovered and clicked words in the transcript", async () => {
     const { spy } = mount();
     await expect
-      .poll(() => inside("lingo-transcript")?.querySelector("[data-span]"))
+      .poll(() => inside("langle-transcript")?.querySelector("[data-span]"))
       .not.toBeNull();
     const tangy = [
-      ...inside("lingo-transcript")!.querySelectorAll<HTMLElement>(
+      ...inside("langle-transcript")!.querySelectorAll<HTMLElement>(
         "[data-span]",
       ),
     ].find((el) => el.textContent === "tangy")!;
@@ -451,12 +452,12 @@ describe("mountVideoUi", () => {
     );
     const heads = () =>
       [
-        ...(inside("lingo-transcript")?.querySelectorAll("[data-word-row]") ??
+        ...(inside("langle-transcript")?.querySelectorAll("[data-word-row]") ??
           []),
       ].map((row) => row.querySelector("[lang=en]")?.textContent);
     await expect.poll(heads).toEqual(["yeast", "tangy"]);
     // The head's card stands for its first place.
-    const head = inside("lingo-transcript")!.querySelector<HTMLElement>(
+    const head = inside("langle-transcript")!.querySelector<HTMLElement>(
       "[data-word-row] [lang=en]",
     )!;
     await userEvent.hover(head);
@@ -466,14 +467,16 @@ describe("mountVideoUi", () => {
       { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
       "words",
     );
-    (await button("lingo-transcript", "yeast, open in the dictionary")).click();
+    (
+      await button("langle-transcript", "yeast, open in the dictionary")
+    ).click();
     await userEvent.click(
-      await button("lingo-transcript", "yeast, open in the dictionary"),
+      await button("langle-transcript", "yeast, open in the dictionary"),
     );
     // A page script's click does nothing; the user's opens the first place's term.
     expect(spy("clickWord").mock.calls).toEqual([[{ cue: 0, span: 0 }]]);
     expect(spy("jumpToWord")).not.toHaveBeenCalled();
-    await userEvent.click(await button("lingo-transcript", "Jump to 1:05"));
+    await userEvent.click(await button("langle-transcript", "Jump to 1:05"));
     expect(spy("jumpToWord")).toHaveBeenLastCalledWith("word\nyeast", {
       card: 1,
       line: 1,
@@ -484,19 +487,19 @@ describe("mountVideoUi", () => {
     store.set({ wordsJump: { id: "word\nyeast", card: 1, line: 1 } });
     await expect
       .poll(async () =>
-        (await button("lingo-transcript", "Jump to 1:05")).getAttribute(
+        (await button("langle-transcript", "Jump to 1:05")).getAttribute(
           "aria-pressed",
         ),
       )
       .toBe("true");
     expect(
-      (await button("lingo-transcript", "Jump to 0:00")).getAttribute(
+      (await button("langle-transcript", "Jump to 0:00")).getAttribute(
         "aria-pressed",
       ),
     ).toBe("false");
 
     // The user's keys pick an option (a script's change is dropped).
-    inside("lingo-transcript")!.querySelector("select")!.focus();
+    inside("langle-transcript")!.querySelector("select")!.focus();
     await userEvent.keyboard("a");
     expect(spy("setWordsSort")).toHaveBeenCalledWith("az");
     store.set({ wordsSort: "az" });
@@ -506,10 +509,10 @@ describe("mountVideoUi", () => {
   it("a Words row's card goes when the list scrolls; other cards stay", async () => {
     const { store, spy } = mount(readyState({ panelTab: "words" }));
     await expect
-      .poll(() => inside("lingo-transcript")?.querySelector("[data-word-row]"))
+      .poll(() => inside("langle-transcript")?.querySelector("[data-word-row]"))
       .not.toBeNull();
     const list =
-      inside("lingo-transcript")!.querySelector(
+      inside("langle-transcript")!.querySelector(
         "[data-word-row]",
       )!.parentElement!;
     const hover = (from: "subtitle" | "words") =>
@@ -525,7 +528,7 @@ describe("mountVideoUi", () => {
     list.dispatchEvent(new Event("scroll"));
     expect(spy("dismissHover")).not.toHaveBeenCalled();
     hover("words");
-    await expect.poll(() => text("lingo-video")).toContain("Details");
+    await expect.poll(() => text("langle-video")).toContain("Details");
     list.dispatchEvent(new Event("scroll"));
     expect(spy("dismissHover")).toHaveBeenCalledOnce();
   });
@@ -533,7 +536,7 @@ describe("mountVideoUi", () => {
   it("tells the app while the pointer is on the subtitle, over the video or below it, but not on the transcript", async () => {
     const { store, spy } = mount();
     const lines = () =>
-      inside("lingo-video-player")?.querySelectorAll<HTMLElement>(
+      inside("langle-video-player")?.querySelectorAll<HTMLElement>(
         "[role='region'] p",
       ) ?? [];
     await expect.poll(() => lines().length).toBe(2);
@@ -546,7 +549,7 @@ describe("mountVideoUi", () => {
     await userEvent.hover(translation!);
     expect([enters(), leaves()]).toEqual([1, 0]);
     await userEvent.hover(
-      inside("lingo-transcript")!.querySelector<HTMLElement>("[data-span]")!,
+      inside("langle-transcript")!.querySelector<HTMLElement>("[data-span]")!,
     );
     expect([enters(), leaves()]).toEqual([1, 1]);
     await userEvent.hover(translation!);
@@ -561,7 +564,7 @@ describe("mountVideoUi", () => {
       settings: { ...store.get().settings, subtitlePosition: "belowVideo" },
     });
     const box = () =>
-      inside("lingo-video-below")?.querySelector<HTMLElement>(
+      inside("langle-video-below")?.querySelector<HTMLElement>(
         "[role='region']",
       ) ?? null;
     await expect.poll(box).not.toBeNull();
@@ -577,15 +580,15 @@ describe("mountVideoUi", () => {
     const whole = { start: cue.indexOf("yeast"), end: cue.length - 1 };
     spy("selectWords").mockImplementation(() => whole);
     await expect
-      .poll(() => inside("lingo-video-player")?.querySelector("[data-span]"))
+      .poll(() => inside("langle-video-player")?.querySelector("[data-span]"))
       .not.toBeNull();
     const word = (name: string) =>
       [
-        ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+        ...inside("langle-video-player")!.querySelectorAll<HTMLElement>(
           "[data-span]",
         ),
       ].find((el) => el.textContent === name)!;
-    const line = inside("lingo-video-player")!.querySelector("[lang=en]")!;
+    const line = inside("langle-video-player")!.querySelector("[lang=en]")!;
     const at = line.getBoundingClientRect();
     const yeast = word("yeast").getBoundingClientRect();
     // From the middle of "yeast" to just inside its line's end (the narrow test page
@@ -640,10 +643,10 @@ describe("mountVideoUi", () => {
       },
     });
     await expect
-      .poll(() => text("lingo-video"))
+      .poll(() => text("langle-video"))
       .toContain("Selected · not saved");
     const button = (label: string) =>
-      [...inside("lingo-video")!.querySelectorAll("button")].find(
+      [...inside("langle-video")!.querySelectorAll("button")].find(
         (b) => b.textContent === label,
       )!;
     // Above the words.
@@ -679,18 +682,18 @@ describe("mountVideoUi", () => {
       },
     });
     await expect
-      .poll(() => inside("lingo-video")?.querySelector("aside"))
+      .poll(() => inside("langle-video")?.querySelector("aside"))
       .not.toBeNull();
     const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
     await userEvent.click(
-      inside("lingo-video")!.querySelector<HTMLElement>("aside h2")!,
+      inside("langle-video")!.querySelector<HTMLElement>("aside h2")!,
     );
     const word = (name: string) =>
       [...inside(name)!.querySelectorAll<HTMLElement>("[data-span]")].find(
         (el) => el.textContent === "tangy",
       )!;
-    await userEvent.click(word("lingo-video-player"));
-    await userEvent.click(word("lingo-transcript"));
+    await userEvent.click(word("langle-video-player"));
+    await userEvent.click(word("langle-transcript"));
     await settle();
     expect(spy("closePanel")).not.toHaveBeenCalled();
 
@@ -719,20 +722,20 @@ describe("mountVideoUi", () => {
       }),
     );
     const subtitle = () =>
-      inside("lingo-video-player")?.querySelector("[role=region] p");
+      inside("langle-video-player")?.querySelector("[role=region] p");
     await expect.poll(() => subtitle()?.textContent).toBe("tangy.");
     const tangy = subtitle()!.querySelector<HTMLElement>("[data-span]")!;
     expect(tangy.textContent).toBe("tangy");
     await userEvent.click(tangy);
     expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 0, span: 1 });
     // The whole sentence in the transcript.
-    expect(text("lingo-transcript")).toContain("The yeast smells tangy.");
+    expect(text("langle-transcript")).toContain("The yeast smells tangy.");
   });
 
   it("keeps the player buttons in the bar when the site rebuilds its controls", async () => {
     mount();
     await expect
-      .poll(() => host("lingo-player-buttons")?.isConnected)
+      .poll(() => host("langle-player-buttons")?.isConnected)
       .toBe(true);
     const controls = page.player.querySelector(".ytp-right-controls")!;
     controls.replaceChildren(
@@ -740,15 +743,15 @@ describe("mountVideoUi", () => {
     );
     await expect
       .poll(() =>
-        host("lingo-player-buttons")?.nextElementSibling?.classList.contains(
+        host("langle-player-buttons")?.nextElementSibling?.classList.contains(
           "ytp-settings-button",
         ),
       )
       .toBe(true);
     // The transcript comes back too.
-    host("lingo-transcript").remove();
+    host("langle-transcript").remove();
     await expect
-      .poll(() => host("lingo-transcript")?.parentElement?.id)
+      .poll(() => host("langle-transcript")?.parentElement?.id)
       .toBe("secondary-inner");
   });
 
@@ -757,7 +760,7 @@ describe("mountVideoUi", () => {
     await expect
       .poll(
         () =>
-          inside("lingo-transcript")
+          inside("langle-transcript")
             ?.querySelector("aside")
             ?.getBoundingClientRect().height,
       )
@@ -766,7 +769,7 @@ describe("mountVideoUi", () => {
     await expect
       .poll(
         () =>
-          inside("lingo-transcript")
+          inside("langle-transcript")
             ?.querySelector("aside")
             ?.getBoundingClientRect().height,
       )
@@ -790,32 +793,32 @@ describe("mountVideoUi", () => {
       page.player.style.width = "400px";
       const { store, spy } = mountSaving();
       await expect
-        .poll(() => text("lingo-transcript"))
+        .poll(() => text("langle-transcript"))
         .toContain("Knead the dough.");
-      const close = await button("lingo-transcript", "Close transcript");
+      const close = await button("langle-transcript", "Close transcript");
       await userEvent.click(close);
       expect(spy("changeSettings")).toHaveBeenCalledWith({
         transcriptShown: false,
       });
-      await expect.poll(() => text("lingo-transcript")).toBe("");
+      await expect.poll(() => text("langle-transcript")).toBe("");
       // YouTube's own column (recommended videos) is all that is left there.
-      expect(host("lingo-transcript").getBoundingClientRect().height).toBe(0);
+      expect(host("langle-transcript").getBoundingClientRect().height).toBe(0);
       store.set({ menuOpen: true });
-      const sw = await button("lingo-video", "Show transcript in sidebar");
+      const sw = await button("langle-video", "Show transcript in sidebar");
       expect(sw.getAttribute("aria-checked")).toBe("false");
       await userEvent.click(sw);
       expect(store.get().settings.transcriptShown).toBe(true);
       await expect
-        .poll(() => text("lingo-transcript"))
+        .poll(() => text("langle-transcript"))
         .toContain("Knead the dough.");
     });
   });
 
   describe("the transcript sidebar in fullscreen", () => {
     const sidebar = () =>
-      document.querySelector<HTMLElement>("lingo-video-sidebar");
+      document.querySelector<HTMLElement>("langle-video-sidebar");
     const aside = () =>
-      inside("lingo-transcript")?.querySelector<HTMLElement>("aside") ?? null;
+      inside("langle-transcript")?.querySelector<HTMLElement>("aside") ?? null;
     let back: () => void;
 
     /** YouTube in fullscreen: the player in the full-bleed row, the page in fullscreen. */
@@ -833,7 +836,7 @@ describe("mountVideoUi", () => {
       await browserPage.viewport(1200, 800);
       mount();
       await expect
-        .poll(() => host("lingo-transcript").parentElement?.id)
+        .poll(() => host("langle-transcript").parentElement?.id)
         .toBe("secondary-inner");
       await fullscreen();
       // The sidebar is made on the fullscreen change, after the fullscreen element is
@@ -842,7 +845,7 @@ describe("mountVideoUi", () => {
         .poll(() => {
           const made = sidebar();
           return (
-            made !== null && host("lingo-transcript").parentElement === made
+            made !== null && host("langle-transcript").parentElement === made
           );
         })
         .toBe(true);
@@ -860,9 +863,9 @@ describe("mountVideoUi", () => {
       await expect
         .poll(() => aside()?.getBoundingClientRect().height)
         .toBe(innerHeight - 32);
-      expect(text("lingo-transcript")).toContain("Knead the dough.");
+      expect(text("langle-transcript")).toContain("Knead the dough.");
       // The subtitle stays in the narrowed player.
-      const region = inside("lingo-video-player")!
+      const region = inside("langle-video-player")!
         .querySelector("[role=region]")!
         .getBoundingClientRect();
       expect(region.right).toBeLessThan(box.left);
@@ -870,7 +873,7 @@ describe("mountVideoUi", () => {
       await document.exitFullscreen();
       back();
       await expect
-        .poll(() => host("lingo-transcript").parentElement?.id)
+        .poll(() => host("langle-transcript").parentElement?.id)
         .toBe("secondary-inner");
       expect(sidebar()).toBeNull();
     });
@@ -890,7 +893,7 @@ describe("mountVideoUi", () => {
         },
       });
       const win = () =>
-        inside("lingo-video")
+        inside("langle-video")
           ?.querySelector("aside[aria-label='Dictionary window']")
           ?.getBoundingClientRect() ?? null;
       await expect.poll(win).not.toBeNull();
@@ -912,7 +915,7 @@ describe("mountVideoUi", () => {
       expect(win()!.right).toBe(innerWidth - 32);
     });
 
-    it("no sidebar while Lingo is off, or for a video without subtitles", async () => {
+    it("no sidebar while Langle is off, or for a video without subtitles", async () => {
       const { store } = mount();
       await fullscreen();
       await expect.poll(sidebar).not.toBeNull();
@@ -972,16 +975,16 @@ describe("mountVideoUi", () => {
       },
     });
     await expect
-      .poll(() => inside("lingo-video")?.querySelector("aside"))
+      .poll(() => inside("langle-video")?.querySelector("aside"))
       .not.toBeNull();
-    const win = inside("lingo-video")!
+    const win = inside("langle-video")!
       .querySelector("aside")!
       .getBoundingClientRect();
-    const subtitle = inside("lingo-video-player")!
+    const subtitle = inside("langle-video-player")!
       .querySelector("[role=region]")!
       .getBoundingClientRect();
     expect(win.bottom).toBeLessThanOrEqual(subtitle.top);
-    expect(inside("lingo-video")!.textContent).toContain("In this video · 1");
+    expect(inside("langle-video")!.textContent).toContain("In this video · 1");
   });
 
   it("ends the dictionary window 12px into the transcript beside the video", async () => {
@@ -998,7 +1001,7 @@ describe("mountVideoUi", () => {
     page.player.style.height = "540px";
     const { store } = mount();
     await expect
-      .poll(() => inside("lingo-transcript")?.querySelector("aside"))
+      .poll(() => inside("langle-transcript")?.querySelector("aside"))
       .not.toBeNull();
     store.set({
       panel: {
@@ -1026,12 +1029,12 @@ describe("mountVideoUi", () => {
       },
     });
     await expect
-      .poll(() => inside("lingo-video")?.querySelector("aside"))
+      .poll(() => inside("langle-video")?.querySelector("aside"))
       .not.toBeNull();
-    const win = inside("lingo-video")!
+    const win = inside("langle-video")!
       .querySelector("aside")!
       .getBoundingClientRect();
-    const transcript = host("lingo-transcript").getBoundingClientRect();
+    const transcript = host("langle-transcript").getBoundingClientRect();
     const player = page.player.getBoundingClientRect();
     expect(transcript.left).toBeGreaterThan(player.right);
     expect(win.right).toBeCloseTo(transcript.left + 12, 0);
@@ -1058,35 +1061,35 @@ describe("mountVideoUi", () => {
       },
     });
     const dictionary = () =>
-      inside("lingo-video")?.querySelector<HTMLElement>(
+      inside("langle-video")?.querySelector<HTMLElement>(
         "aside[aria-label='Dictionary window']",
       ) ?? null;
     /** The subtitle's first line (the learning language). */
     const line = () =>
-      inside("lingo-video-player")?.querySelector<HTMLElement>(
+      inside("langle-video-player")?.querySelector<HTMLElement>(
         "[role=region] [lang=en]",
       ) ?? null;
 
     it("tells the app, and moves the page's parts into the fullscreen element and back", async () => {
       const { spy } = mount();
       await expect
-        .poll(() => host("lingo-video")?.parentElement)
+        .poll(() => host("langle-video")?.parentElement)
         .toBe(document.body);
       await enterFullscreen(page.player);
       await expect
         .poll(() => spy("setFullscreen").mock.calls.at(-1))
         .toEqual([true]);
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(page.player);
       // The other parts stay where they are.
-      expect(host("lingo-video-player").parentElement).toBe(page.player);
+      expect(host("langle-video-player").parentElement).toBe(page.player);
       await document.exitFullscreen();
       await expect
         .poll(() => spy("setFullscreen").mock.calls.at(-1))
         .toEqual([false]);
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(document.body);
     });
 
@@ -1094,18 +1097,18 @@ describe("mountVideoUi", () => {
       mount();
       await enterFullscreen(page.root);
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(page.root);
       await document.exitFullscreen();
       await enterFullscreen(page.video);
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(page.video.parentElement);
       await document.exitFullscreen();
       // The whole page: <body> is inside it already.
       await enterFullscreen(document.documentElement);
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(document.body);
     });
 
@@ -1118,17 +1121,17 @@ describe("mountVideoUi", () => {
         ),
       });
       await expect
-        .poll(() => text("lingo-video-below"))
+        .poll(() => text("langle-video-below"))
         .toContain("The yeast smells tangy.");
       await enterFullscreen(page.player);
       await expect
         .poll(() => line()?.textContent)
         .toBe("The yeast smells tangy.");
-      expect(text("lingo-video-below")).toBe("");
-      expect(text("lingo-transcript")).toBe("");
+      expect(text("langle-video-below")).toBe("");
+      expect(text("langle-transcript")).toBe("");
       expect(getComputedStyle(line()!).fontSize).toBe("34px");
       // 120px above the bottom, in from each side by 14% of the width (24–200px).
-      const region = inside("lingo-video-player")!
+      const region = inside("langle-video-player")!
         .querySelector("[role=region]")!
         .getBoundingClientRect();
       const player = page.player.getBoundingClientRect();
@@ -1140,10 +1143,10 @@ describe("mountVideoUi", () => {
 
       await document.exitFullscreen();
       await expect
-        .poll(() => text("lingo-video-below"))
+        .poll(() => text("langle-video-below"))
         .toContain("The yeast smells tangy.");
       expect(line()).toBeNull();
-      expect(text("lingo-transcript")).toContain("Knead the dough.");
+      expect(text("langle-transcript")).toContain("Knead the dough.");
     });
 
     it("shows the hover card and the dictionary window over the video, top right", async () => {
@@ -1152,12 +1155,12 @@ describe("mountVideoUi", () => {
       // Moved into the fullscreen element on the next frame after fullscreenchange:
       // until then it is under the top layer.
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(page.player);
       await expect.poll(() => store.get().fullscreen).toBe(true);
       await expect.poll(() => line()).not.toBeNull();
       const tangy = [
-        ...inside("lingo-video-player")!.querySelectorAll<HTMLElement>(
+        ...inside("langle-video-player")!.querySelectorAll<HTMLElement>(
           "[data-span]",
         ),
       ].find((el) => el.textContent === "tangy")!;
@@ -1175,7 +1178,7 @@ describe("mountVideoUi", () => {
           card: TANGY,
         },
       });
-      await expect.poll(() => text("lingo-video")).toContain("Learning");
+      await expect.poll(() => text("langle-video")).toContain("Learning");
       /**
        * Whether `element` is what shows at its own middle. Asked of the shadow root: its
        * `elementFromPoint` returns the element inside it, or the page's element (the
@@ -1183,14 +1186,14 @@ describe("mountVideoUi", () => {
        */
       const shown = (element: Element) => {
         const box = element.getBoundingClientRect();
-        const top = inside("lingo-video")!.elementFromPoint(
+        const top = inside("langle-video")!.elementFromPoint(
           box.left + box.width / 2,
           box.top + box.height / 2,
         );
         return top !== null && element.contains(top);
       };
       const hoverCard = [
-        ...inside("lingo-video")!.querySelectorAll("button"),
+        ...inside("langle-video")!.querySelectorAll("button"),
       ].find((b) => b.textContent?.includes("Learning"))!;
       expect(shown(hoverCard)).toBe(true);
       // Above the word.
@@ -1229,11 +1232,11 @@ describe("mountVideoUi", () => {
       );
     });
 
-    it("clicks and keys on Lingo's parts do not reach the player", async () => {
+    it("clicks and keys on Langle's parts do not reach the player", async () => {
       const { store } = mount(readyState(panelOn()));
       await enterFullscreen(page.player);
       await expect
-        .poll(() => host("lingo-video").parentElement)
+        .poll(() => host("langle-video").parentElement)
         .toBe(page.player);
       const clicks = vi.fn();
       const keys = vi.fn();
@@ -1252,7 +1255,7 @@ describe("mountVideoUi", () => {
     it("the menu has no subtitle position, and has it again after", async () => {
       const { store } = mount(readyState({ menuOpen: true }));
       const menu = () =>
-        inside("lingo-video")?.querySelector("[role=dialog]") ?? null;
+        inside("langle-video")?.querySelector("[role=dialog]") ?? null;
       await expect.poll(menu).not.toBeNull();
       expect(menu()!.querySelector("[role=group]")).not.toBeNull();
       await enterFullscreen(page.player);
@@ -1261,7 +1264,7 @@ describe("mountVideoUi", () => {
         .toBeNull();
       // Still above the L and ^ buttons.
       const dialog = menu()!.getBoundingClientRect();
-      const buttons = host("lingo-player-buttons").getBoundingClientRect();
+      const buttons = host("langle-player-buttons").getBoundingClientRect();
       expect(dialog.bottom).toBeLessThanOrEqual(buttons.top);
       await document.exitFullscreen();
       await expect
@@ -1282,7 +1285,7 @@ describe("mountVideoUi", () => {
 
     it("do not reach the L button; the user's click does", async () => {
       const { spy } = mount();
-      const l = await button("lingo-player-buttons", "Lingo on or off");
+      const l = await button("langle-player-buttons", "Langle on or off");
       syntheticClick(l);
       expect(spy("setEnabled")).not.toHaveBeenCalled();
       await userEvent.click(l);
@@ -1291,8 +1294,8 @@ describe("mountVideoUi", () => {
 
     it("do not reach the menu's switch or gear; the user's clicks do", async () => {
       const { spy } = mount(readyState({ menuOpen: true }));
-      const toggle = await button("lingo-video", "Show dual subtitles");
-      const settings = await button("lingo-video", "Open settings");
+      const toggle = await button("langle-video", "Show dual subtitles");
+      const settings = await button("langle-video", "Open settings");
       syntheticClick(toggle);
       syntheticClick(settings);
       expect(spy("changeSettings")).not.toHaveBeenCalled();
@@ -1325,7 +1328,7 @@ describe("mountVideoUi", () => {
           },
         }),
       );
-      const close = await button("lingo-video", "Close dictionary");
+      const close = await button("langle-video", "Close dictionary");
       close.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "Escape",
@@ -1351,10 +1354,10 @@ describe("mountVideoUi", () => {
           },
         }),
       );
-      await button("lingo-video", "Close dictionary");
+      await button("langle-video", "Close dictionary");
       const card = await vi.waitUntil(() =>
         document
-          .querySelector("lingo-transcript")
+          .querySelector("langle-transcript")
           ?.shadowRoot?.querySelector<HTMLElement>("[data-cue]"),
       );
       card.focus();
@@ -1375,7 +1378,7 @@ describe("mountVideoUi", () => {
     });
 
     const subtitleLine = () =>
-      inside("lingo-video-player")?.querySelector<HTMLElement>(
+      inside("langle-video-player")?.querySelector<HTMLElement>(
         "[role=region] [lang=en]",
       ) ?? null;
 
@@ -1390,15 +1393,15 @@ describe("mountVideoUi", () => {
       await expect
         .poll(() => subtitleLine()?.textContent)
         .toBe("The yeast smells tangy.");
-      expect(host("lingo-video-player").parentElement).toBe(page.player);
-      expect(host("lingo-player-buttons").nextElementSibling?.id).toBe(
+      expect(host("langle-video-player").parentElement).toBe(page.player);
+      expect(host("langle-player-buttons").nextElementSibling?.id).toBe(
         "closed-captioning-button-container",
       );
       // No subtitle box below the video and no transcript on the page.
-      expect(host("lingo-video-below")).toBeNull();
-      expect(host("lingo-transcript")).toBeNull();
+      expect(host("langle-video-below")).toBeNull();
+      expect(host("langle-transcript")).toBeNull();
       expect(getComputedStyle(subtitleLine()!).fontSize).toBe("20px");
-      const region = inside("lingo-video-player")!
+      const region = inside("langle-video-player")!
         .querySelector("[role=region]")!
         .getBoundingClientRect();
       const player = page.player.getBoundingClientRect();
@@ -1409,10 +1412,10 @@ describe("mountVideoUi", () => {
     it("opens the menu under the buttons, without the subtitle positions", async () => {
       mount(readyState({ menuOpen: true }));
       await expect
-        .poll(() => inside("lingo-video")?.querySelector("[role=dialog]"))
+        .poll(() => inside("langle-video")?.querySelector("[role=dialog]"))
         .not.toBeNull();
-      const dialog = inside("lingo-video")!.querySelector("[role=dialog]")!;
-      const buttons = host("lingo-player-buttons").getBoundingClientRect();
+      const dialog = inside("langle-video")!.querySelector("[role=dialog]")!;
+      const buttons = host("langle-player-buttons").getBoundingClientRect();
       expect(dialog.getBoundingClientRect().top).toBeCloseTo(
         buttons.bottom + 12,
         0,
@@ -1432,9 +1435,9 @@ describe("mountVideoUi", () => {
         },
       });
       await expect
-        .poll(() => inside("lingo-video")?.querySelector("aside"))
+        .poll(() => inside("langle-video")?.querySelector("aside"))
         .not.toBeNull();
-      const win = inside("lingo-video")!
+      const win = inside("langle-video")!
         .querySelector("aside")!
         .getBoundingClientRect();
       const bar = page.actionBar!.getBoundingClientRect();
@@ -1448,15 +1451,17 @@ describe("mountVideoUi", () => {
 
   it("removes everything when unmounted", async () => {
     mount();
-    await expect.poll(() => host("lingo-video-player")?.isConnected).toBe(true);
+    await expect
+      .poll(() => host("langle-video-player")?.isConnected)
+      .toBe(true);
     unmount!();
     unmount = undefined;
     for (const name of [
-      "lingo-video-player",
-      "lingo-video-below",
-      "lingo-transcript",
-      "lingo-player-buttons",
-      "lingo-video",
+      "langle-video-player",
+      "langle-video-below",
+      "langle-transcript",
+      "langle-player-buttons",
+      "langle-video",
     ])
       expect(document.querySelector(name)).toBeNull();
   });

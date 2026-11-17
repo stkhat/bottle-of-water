@@ -47,14 +47,14 @@ export default defineConfig({
   manifestVersion: 3,
   vite: () => ({ plugins: [preact()] }),
   manifest: ({ browser }) => ({
-    name: "Lingo",
+    name: "Langle",
     version: pkg.version,
     description: "Learn languages on the videos and articles you already read.",
     // alarms: retries of language data downloads (src/background/pack-downloads.ts);
     // it shows no warning at install in Chrome or Firefox.
     permissions: ["storage", "alarms"],
     ...(browser === "firefox" && {
-      browser_specific_settings: { gecko: { id: "lingo@stkhat" } },
+      browser_specific_settings: { gecko: { id: "langle@stkhat" } },
     }),
   }),
   hooks: {

@@ -1,5 +1,5 @@
 import type { TranslationItem } from "../messaging/protocol";
-import type { LingoDb, MtCacheRecord } from "./db";
+import type { LangleDb, MtCacheRecord } from "./db";
 
 /**
  * Machine translations of English definitions on this device (`mtCache`), by language
@@ -37,7 +37,7 @@ const keyOf = (pair: string, text: string) => `${pair}:${text}`;
 const USED_AT_STEP_MS = 24 * 60 * 60 * 1000;
 
 export function createTranslationCache(
-  db: LingoDb,
+  db: LangleDb,
   {
     limit = TRANSLATION_CACHE_LIMIT,
     now = Date.now,

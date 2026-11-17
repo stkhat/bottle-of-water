@@ -62,8 +62,8 @@ const TABS: readonly { id: PanelTab; label: MessageKey }[] = [
   { id: "words", label: "kind.words" },
 ];
 
-const tabId = (tab: PanelTab) => `lingo-tab-${tab}`;
-const panelId = (tab: PanelTab) => `lingo-tabpanel-${tab}`;
+const tabId = (tab: PanelTab) => `langle-tab-${tab}`;
+const panelId = (tab: PanelTab) => `langle-tabpanel-${tab}`;
 
 /** The right column beside the video: the Transcript and Words tabs. */
 export function VideoPanel<R extends WordRow>(props: VideoPanelProps<R>) {

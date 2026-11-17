@@ -1,5 +1,5 @@
 // Renders scripts/icons/icon.svg into the toolbar icons: the green L WXT picks up from
-// public/icon/<size>.png, and the gray one the background shows while Lingo is
+// public/icon/<size>.png, and the gray one the background shows while Langle is
 // switched off, public/icon-off/<size>.png (src/background/toolbar-icon.ts).
 // Run after editing the SVG: node scripts/icons/make-icons.ts
 import { mkdirSync, readFileSync } from "node:fs";

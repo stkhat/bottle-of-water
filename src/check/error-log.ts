@@ -1,7 +1,7 @@
 /**
  * Check builds only (`wxt build --mode check`, `npm run build:check`): an error log the
  * extension keeps itself, so a check in your own Chrome can read what Chrome's
- * chrome://extensions → Errors page would show without opening that page. Every Lingo
+ * chrome://extensions → Errors page would show without opening that page. Every Langle
  * context records its `console.error` / `console.warn` calls, uncaught errors and
  * unhandled rejections; the service worker keeps them in `storage.local`, and a web
  * page reads and clears them through the content script (`answerPageRequests`).
@@ -29,7 +29,7 @@ export const MAX_ENTRIES = 200;
 /** A content script or page keeps at most this many entries it could not send yet. */
 export const MAX_PENDING = 50;
 /** The `type` of every message of this log: to the background and on the page. */
-export const MESSAGE_TYPE = "lingo:check-errors";
+export const MESSAGE_TYPE = "langle:check-errors";
 
 const MAX_MESSAGE = 2000;
 const MAX_STACK = 4000;
@@ -121,8 +121,8 @@ export interface RecorderOptions {
   url?: () => string;
   now?: () => Date;
   /**
-   * Whether an uncaught error or rejection is Lingo's (content scripts share the page's
-   * window). Console calls in Lingo's scope are always Lingo's.
+   * Whether an uncaught error or rejection is Langle's (content scripts share the page's
+   * window). Console calls in Langle's scope are always Langle's.
    */
   isOurs?: (stack: string | undefined, filename: string | undefined) => boolean;
 }
@@ -206,7 +206,7 @@ export function recordErrors(options: RecorderOptions): () => void {
 /** The part of `sessionStorage` a relay keeps its pending entries in. */
 export type PendingStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 /** The `sessionStorage` key of a relay's pending entries. */
-export const PENDING_KEY = "lingo-check-errors";
+export const PENDING_KEY = "langle-check-errors";
 
 export interface Relay {
   push(entry: CheckError): void;

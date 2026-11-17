@@ -9,7 +9,7 @@ const SIZES = {
 /**
  * The "L" badge, the page's title and the language pair, for the caller's flex row.
  * `stacked` puts the pair under the title (the popup, whose header also holds its
- * buttons and the Lingo switch); a pair too long for the room left ends in "…".
+ * buttons and the Langle switch); a pair too long for the room left ends in "…".
  */
 export function BrandHeader(props: {
   size: keyof typeof SIZES;

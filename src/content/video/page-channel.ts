@@ -1,5 +1,5 @@
 /**
- * The channel between Lingo's page script on a video site (MAIN world) and its content
+ * The channel between Langle's page script on a video site (MAIN world) and its content
  * script (isolated world): `window.postMessage` to the page's own origin. The page can
  * read and forge these messages, so both sides check the shape of what they receive.
  * Imported by the page scripts: no dependencies.
@@ -124,7 +124,7 @@ export function createPageBridge<
     dispose() {
       window.removeEventListener("message", onMessage);
       listeners.clear();
-      // An abort: Lingo is leaving the page, nobody waits for the answer.
+      // An abort: Langle is leaving the page, nobody waits for the answer.
       for (const waiter of pending.values())
         waiter.reject(new DOMException("Disposed", "AbortError"));
       pending.clear();
@@ -141,7 +141,7 @@ const NETWORK_CALL_ATTEMPTS = 2;
 
 /**
  * Runs a page call that goes over the network, once more if it fails or gets no answer
- * in time; not when it was aborted (Lingo leaving the page, or `signal`).
+ * in time; not when it was aborted (Langle leaving the page, or `signal`).
  */
 export async function retryNetworkCall<T>(
   call: () => Promise<T>,

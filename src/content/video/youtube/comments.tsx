@@ -77,7 +77,7 @@ function shortsFrame(): PanelFrame | null {
 }
 
 /**
- * Whether Lingo runs in YouTube's comments: YouTube and its comments are switched on
+ * Whether Langle runs in YouTube's comments: YouTube and its comments are switched on
  * and the host is not blocked. The player's L button does not matter.
  */
 export const commentsAllowedOn = (hostname: string, settings: Settings) =>
@@ -218,7 +218,7 @@ export function startYouTubeComments(
  */
 export function mountCommentsUi(app: ArticleApp): () => void {
   const { host, root } = createShadowHost(
-    "lingo-comments",
+    "langle-comments",
     "position: static;",
   );
   render(<ArticleUi app={app} panelFrame={shortsFrame} />, root);

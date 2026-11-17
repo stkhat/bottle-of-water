@@ -1,5 +1,5 @@
 {
-  "name": "lingo",
+  "name": "langle",
   "description": "Language learning on the videos and articles you already read",
   "private": true,
   "version": "0.1.0",
@@ -27,7 +27,7 @@
     "test:manifest": "vitest run --project manifest",
     "test:e2e": "playwright test",
     "test:e2e:build": "npm run build && wxt build --mode check && npm run build:check-download && playwright test",
-    "test:e2e:real": "LINGO_REAL_SITES=1 playwright test e2e/extension-errors.spec.ts -g \"real sites\"",
+    "test:e2e:real": "LANGLE_REAL_SITES=1 playwright test e2e/extension-errors.spec.ts -g \"real sites\"",
     "test:all": "npm test && npm run test:browser",
     "verify": "node scripts/verify.ts",
     "postinstall": "wxt prepare",

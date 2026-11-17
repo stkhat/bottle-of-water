@@ -272,7 +272,7 @@ describe("publish", () => {
     expect(JSON.parse(read("publish/es/package.json"))).toEqual({
       name: "@test-scope/es",
       version: "2026.1111.0",
-      description: "The es pack, for the Lingo browser extension",
+      description: "The es pack, for the Langle browser extension",
       license: "CC-BY-SA-4.0",
       files: ["freq.json", "sub/dict-1.json"],
       publishConfig: { access: "public" },
@@ -289,7 +289,7 @@ describe("publish", () => {
     const readme = read("publish/es/README.md");
     expect(readme).toMatch(/^# @test-scope\/es\n/);
     expect(readme).toContain("es data");
-    expect(readme).toContain("Lingo");
+    expect(readme).toContain("Langle");
     expect(readme).toContain(
       "[Some Wiktionary](https://example.org/wiktionary)",
     );

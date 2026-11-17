@@ -141,13 +141,13 @@ function fake(options: FakeOptions = {}) {
 afterEach(cleanup);
 
 const siteSwitch = (screen: Awaited<ReturnType<typeof render>>) =>
-  screen.getByRole("switch", { name: "Use Lingo on this site" });
+  screen.getByRole("switch", { name: "Use Langle on this site" });
 
 describe("Popup", () => {
   it("shows the header, the word counts and the highlight chips from the settings", async () => {
     const f = fake({ page: ARTICLE });
     const screen = await render(<Popup deps={f.deps} />);
-    await expect.element(screen.getByText("Lingo")).toBeVisible();
+    await expect.element(screen.getByText("Langle")).toBeVisible();
     await expect.element(screen.getByText("English → Japanese")).toBeVisible();
     await expect.element(screen.getByText("2,341")).toBeVisible();
     await expect.element(screen.getByText("128")).toBeVisible();
@@ -194,34 +194,34 @@ describe("Popup", () => {
       .toHaveAttribute("aria-pressed", "true");
   });
 
-  describe("Lingo switch", () => {
-    const lingoSwitch = (screen: Awaited<ReturnType<typeof render>>) =>
-      screen.getByRole("switch", { name: "Use Lingo", exact: true });
+  describe("Langle switch", () => {
+    const langleSwitch = (screen: Awaited<ReturnType<typeof render>>) =>
+      screen.getByRole("switch", { name: "Use Langle", exact: true });
 
     it("sits in the header, after the settings button", async () => {
       const f = fake({ page: ARTICLE });
       const screen = await render(<Popup deps={f.deps} />);
-      await expect.element(lingoSwitch(screen)).toBeChecked();
+      await expect.element(langleSwitch(screen)).toBeChecked();
       const gear = screen.getByRole("button", { name: "Open settings" });
       expect(
-        gear.element().compareDocumentPosition(lingoSwitch(screen).element()) &
+        gear.element().compareDocumentPosition(langleSwitch(screen).element()) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       expect(
-        lingoSwitch(screen)
+        langleSwitch(screen)
           .element()
           .compareDocumentPosition(siteSwitch(screen).element()) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });
 
-    it("switches Lingo off everywhere, leaving only the header and sync, and back on", async () => {
+    it("switches Langle off everywhere, leaving only the header and sync, and back on", async () => {
       const f = fake({ page: ARTICLE });
       const screen = await render(<Popup deps={f.deps} />);
       await expect.element(screen.getByText("2,341")).toBeVisible();
 
-      await lingoSwitch(screen).click();
-      await expect.element(lingoSwitch(screen)).not.toBeChecked();
+      await langleSwitch(screen).click();
+      await expect.element(langleSwitch(screen)).not.toBeChecked();
       expect(f.settings().enabled).toBe(false);
       await expect.element(siteSwitch(screen)).not.toBeInTheDocument();
       await expect
@@ -238,8 +238,8 @@ describe("Popup", () => {
         .element(screen.getByText("English → Japanese"))
         .toBeVisible();
 
-      await lingoSwitch(screen).click();
-      await expect.element(lingoSwitch(screen)).toBeChecked();
+      await langleSwitch(screen).click();
+      await expect.element(langleSwitch(screen)).toBeChecked();
       expect(f.settings().enabled).toBe(true);
       await expect.element(siteSwitch(screen)).toBeVisible();
       await expect.element(screen.getByText("2,341")).toBeVisible();
@@ -255,22 +255,22 @@ describe("Popup", () => {
           ),
       });
       const screen = await render(<Popup deps={f.deps} />);
-      await expect.element(lingoSwitch(screen)).not.toBeChecked();
+      await expect.element(langleSwitch(screen)).not.toBeChecked();
       await expect.element(screen.getByRole("status")).not.toBeInTheDocument();
     });
 
     it("follows a switch made elsewhere", async () => {
       const f = fake({ page: ARTICLE });
       const screen = await render(<Popup deps={f.deps} />);
-      await expect.element(lingoSwitch(screen)).toBeChecked();
+      await expect.element(langleSwitch(screen)).toBeChecked();
       f.changeSettings({ enabled: false });
-      await expect.element(lingoSwitch(screen)).not.toBeChecked();
+      await expect.element(langleSwitch(screen)).not.toBeChecked();
       await expect.element(siteSwitch(screen)).not.toBeInTheDocument();
     });
   });
 
   describe("On this site", () => {
-    it("shows the tab's host and switches Lingo off and on for it", async () => {
+    it("shows the tab's host and switches Langle off and on for it", async () => {
       const f = fake({ page: ARTICLE });
       const screen = await render(<Popup deps={f.deps} />);
       await expect
@@ -400,7 +400,7 @@ describe("Popup", () => {
       ).toBeNull();
     });
 
-    it("is hidden where Lingo does not run, until it does", async () => {
+    it("is hidden where Langle does not run, until it does", async () => {
       const f = fake({ page: { ...ARTICLE, supported: false }, refreshMs: 50 });
       const screen = await render(<Popup deps={f.deps} />);
       await expect

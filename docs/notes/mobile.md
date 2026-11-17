@@ -1,6 +1,6 @@
 # Mobile (iOS / Android): direction (investigated 2026-11-12 to 11-13)
 
-Not part of any phase yet. A record of what was considered for bringing Lingo to phones, what was chosen, and what is still unverified.
+Not part of any phase yet. A record of what was considered for bringing Langle to phones, what was chosen, and what is still unverified.
 
 ## Decided
 - **Build our own browser app.** YouTube and articles open as ordinary web pages, and the extension's scripts are injected into them.

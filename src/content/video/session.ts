@@ -213,7 +213,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const hold = holdPlayback({ store, adapter });
 
   /**
-   * Our subtitles replace the site's exactly while there are some and Lingo is on
+   * Our subtitles replace the site's exactly while there are some and Langle is on
    * (fullscreen too): a video without captions, or the next one while it loads, shows the
    * site's own again.
    */

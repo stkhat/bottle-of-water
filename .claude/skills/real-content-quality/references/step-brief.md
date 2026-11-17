@@ -3,7 +3,7 @@
 Launch each step with the Agent tool: `isolation: "worktree"`, `run_in_background: true`. The subagent cannot see this conversation, so the brief carries everything it needs. Fill in the brackets:
 
 ```
-You are implementing step [N] ("[rule ids and name]") of the [topic] fixes for Lingo, an MV3 browser extension (WXT + Preact, TypeScript) for learning [learning language] from YouTube/Netflix/articles. Read the repo's CLAUDE.md first and follow it. Work on a new branch `claude/[slug]` cut from `origin/main` (currently [sha]; steps [..] are merged as PRs [..]).
+You are implementing step [N] ("[rule ids and name]") of the [topic] fixes for Langle, an MV3 browser extension (WXT + Preact, TypeScript) for learning [learning language] from YouTube/Netflix/articles. Read the repo's CLAUDE.md first and follow it. Work on a new branch `claude/[slug]` cut from `origin/main` (currently [sha]; steps [..] are merged as PRs [..]).
 
 ## Background
 The report is `docs/notes/[topic].md` on the local branch `[report branch]` (read it with `git show`); the rule(s) are in its [section]. [Quote the rule and its evidence.]

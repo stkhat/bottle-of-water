@@ -291,7 +291,7 @@ describe("loading captions", () => {
       lang: "ja",
       cues: parseYouTubeJson3(ja),
     });
-    // Only the player asked for a track; Lingo fetched just the Japanese one.
+    // Only the player asked for a track; Langle fetched just the Japanese one.
     expect(page.player.fake.setOption).toHaveLength(1);
     const fetched = timedtextRequests();
     expect(fetched.map((u) => u.searchParams.get("lang"))).toEqual([

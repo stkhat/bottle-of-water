@@ -81,7 +81,7 @@ export function createYouTubeAdapter(
     isEvent: isTimedtextMessage,
   });
   const hideCaptions = styleSwitch(
-    "lingo-hide-site-captions",
+    "langle-hide-site-captions",
     "#ytp-caption-window-container { display: none !important; }",
   );
   const cleanups: (() => void)[] = [];
@@ -184,8 +184,8 @@ export function createYouTubeAdapter(
       // Put YouTube's own caption choice back as it was.
       await call({ type: "restoreCaptions", previous }).catch(
         (error: unknown) => {
-          // Aborted when Lingo leaves the page: nothing to put back.
-          if (!isAbortError(error)) console.warn("Lingo:", error);
+          // Aborted when Langle leaves the page: nothing to put back.
+          if (!isAbortError(error)) console.warn("Langle:", error);
         },
       );
     }

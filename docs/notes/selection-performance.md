@@ -3,8 +3,8 @@
 Measured on 2026-11-14 for the report "selecting words sometimes freezes: the whole page gets heavy and stops responding" (PR #68). Dev Mac (Apple Silicon), the user's Chrome, the check build, videos muted.
 
 ## How
-- Real pages, in the page through Claude in Chrome: a `PerformanceObserver` for `longtask` (50 ms and more), and a 4 ms `setInterval` that records every gap over 14 ms (a busy main thread, Lingo's or the site's). Flow: drag-select 2–3 words in a transcript card or the subtitle, wait for the card, press "+ Learning", then remove the phrase from the dictionary window. Hovers over words.
-- Lingo's own render cost, which the page samplers cannot tell from the site's: `Transcript` with 420 cards of 10 words each, rendered with Preact in Vitest's Chromium, the time of one render per kind of store change (30 runs, median and max).
+- Real pages, in the page through Claude in Chrome: a `PerformanceObserver` for `longtask` (50 ms and more), and a 4 ms `setInterval` that records every gap over 14 ms (a busy main thread, Langle's or the site's). Flow: drag-select 2–3 words in a transcript card or the subtitle, wait for the card, press "+ Learning", then remove the phrase from the dictionary window. Hovers over words.
+- Langle's own render cost, which the page samplers cannot tell from the site's: `Transcript` with 420 cards of 10 words each, rendered with Preact in Vitest's Chromium, the time of one render per kind of store change (30 runs, median and max).
 - Articles: how many `CSS.highlights` ranges are new objects after a save (each new range is repainted).
 
 ## Before (25d658e)
@@ -20,6 +20,6 @@ Measured on 2026-11-14 for the report "selecting words sometimes freezes: the wh
 - `Transcript` render, 420 cards: unrelated change 0.1 ms (max 0.5), line change 0.3 ms (max 1.0), one cue changed 0.1 ms (max 0.4). A save applies one store change; only the cues whose spans changed render.
 
 ## Reading
-- The freeze did not reproduce on the dev Mac: no long task from Lingo before or after, and the page samplers' gaps are mostly the sites' own work (they did not move with the fix).
-- Lingo's own cost per store change fell about 30× and no longer grows with the transcript; a save no longer renders the transcript once per 50 cues, and an article save repaints only the blocks that changed. On a CPU 4–6× slower than the dev Mac the old cost (3–12 ms per change, several changes per hover or selection, 9 after a save on a 20-minute episode) reaches long tasks, which fits "the whole page gets heavy".
+- The freeze did not reproduce on the dev Mac: no long task from Langle before or after, and the page samplers' gaps are mostly the sites' own work (they did not move with the fix).
+- Langle's own cost per store change fell about 30× and no longer grows with the transcript; a save no longer renders the transcript once per 50 cues, and an article save repaints only the blocks that changed. On a CPU 4–6× slower than the dev Mac the old cost (3–12 ms per change, several changes per hover or selection, 9 after a save on a 20-minute episode) reaches long tasks, which fits "the whole page gets heavy".
 - Selections that stayed after their card could not show (a failed lookup, no box for the card, a play from another card) kept the video paused and hover cards away, which also reads as frozen; they are now dropped (`src/content/video/selection.ts`).

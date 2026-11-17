@@ -116,7 +116,7 @@ test("a broken file on the mirror: Couldn't download, then Retry in Settings dow
     });
   const row = await openDataRow(context, extensionId);
   await expect(row).toContainText(en["settings.languages.dataFailed"]);
-  expect(await highlighted(page, "lingo-new")).toEqual([]);
+  expect(await highlighted(page, "langle-new")).toEqual([]);
 
   await mirror({ broken: false });
   await row.getByRole("button", { name: en["action.retry"] }).click();
@@ -124,6 +124,6 @@ test("a broken file on the mirror: Couldn't download, then Retry in Settings dow
   await expect(row).toContainText(SPANISH_SIZE);
   await expect(note).toHaveCount(0);
   await expect
-    .poll(() => highlighted(page, "lingo-new"), { timeout: 15_000 })
+    .poll(() => highlighted(page, "langle-new"), { timeout: 15_000 })
     .toEqual(expect.arrayContaining(["a escondidas"]));
 });

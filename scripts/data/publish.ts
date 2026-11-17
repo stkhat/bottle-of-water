@@ -176,7 +176,7 @@ function packageJson(info: PackInfo, entry: PackLockEntry) {
   return {
     name: info.package,
     version: entry.version,
-    description: `${info.description}, for the Lingo browser extension`,
+    description: `${info.description}, for the Langle browser extension`,
     license: info.license.spdx,
     files: entry.files.map((file) => file.path),
     publishConfig: { access: "public" },
@@ -204,7 +204,7 @@ function readme(info: PackInfo) {
   return [
     `# ${info.package}`,
     "",
-    `${info.title} for the Lingo browser extension: ${info.description}.`,
+    `${info.title} for the Langle browser extension: ${info.description}.`,
     "",
     "The files are JSON data that the extension downloads, checks against the SHA-256 values it ships with and reads. They contain no code.",
     "",

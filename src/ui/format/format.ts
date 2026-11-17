@@ -62,9 +62,9 @@ export function formatTime(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${s}` : `${m}:${s}`;
 }
 
-/** `lingo-backup-YYYY-MM-DD.json`, by the local date. */
+/** `langle-backup-YYYY-MM-DD.json`, by the local date. */
 export function backupFileName(date: Date): string {
-  return `lingo-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
+  return `langle-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
 }
 
 export function sameDay(a: number, b: number): boolean {

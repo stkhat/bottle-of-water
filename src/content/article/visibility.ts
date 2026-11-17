@@ -99,7 +99,7 @@ export function watchVisibleBlocks(
         try {
           await analyze(batch);
         } catch (error) {
-          console.warn("Lingo:", error);
+          console.warn("Langle:", error);
         }
       }
     } finally {

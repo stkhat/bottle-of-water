@@ -61,7 +61,7 @@ function Outline({ box }: { box: Box }) {
   );
 }
 
-/** Everything Lingo shows on an article page, inside its shadow root. */
+/** Everything Langle shows on an article page, inside its shadow root. */
 export function ArticleUi({
   app,
   panelFrame,

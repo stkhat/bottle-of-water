@@ -39,7 +39,7 @@ test("the subtitle shows the playing line with its Japanese line; Netflix's own 
     .getByRole("button", { name: LINE })
     .click({ position: ON_TIME });
 
-  const subtitle = page.locator("lingo-video-player").getByRole("region", {
+  const subtitle = page.locator("langle-video-player").getByRole("region", {
     name: en["video.subtitle"],
   });
   await expect(subtitle).toContainText(LINE);
@@ -114,12 +114,12 @@ test("× closes the transcript sidebar for good, the player takes the whole wind
     })
     .toBe(false);
   await page.reload();
-  await expect(page.locator("lingo-player-buttons")).toBeAttached();
+  await expect(page.locator("langle-player-buttons")).toBeAttached();
   await expect(transcript).toBeHidden();
   await expect.poll(playerWidth).toBe(windowWidth);
 
   // Netflix shows its control bar, with the L and ^ buttons, while the pointer moves;
-  // Lingo lets it show once the pointer has stayed 1 s in the bar's area at the bottom
+  // Langle lets it show once the pointer has stayed 1 s in the bar's area at the bottom
   // (the click waits for the L menu button to show).
   const height = page.viewportSize()!.height;
   await page.mouse.move(200, height - 60);

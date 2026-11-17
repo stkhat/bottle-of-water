@@ -38,7 +38,7 @@ export function SyncSection(
   const refreshLastExport = () =>
     deps
       .send({ type: "lastExport" })
-      .then(setLastExport, (error: unknown) => console.warn("Lingo:", error));
+      .then(setLastExport, (error: unknown) => console.warn("Langle:", error));
   useEffect(() => void refreshLastExport(), []);
 
   const { used, quota, share } = syncSpace(sync);

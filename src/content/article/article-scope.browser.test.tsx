@@ -29,7 +29,7 @@ beforeAll(async () => {
 });
 afterEach(cleanUp);
 
-const newWords = () => highlighted("lingo-new").sort();
+const newWords = () => highlighted("langle-new").sort();
 const historySentences = (
   background: Awaited<ReturnType<typeof setup>>["background"],
 ) =>

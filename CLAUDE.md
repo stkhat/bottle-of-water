@@ -1,4 +1,4 @@
-# Lingo (working name) — language-learning browser extension (Chrome first)
+# Langle — language-learning browser extension (Chrome first)
 
 A browser extension (MV3) for learning a language right on top of the videos (YouTube / Netflix) and web articles you like. Only the Chrome version is published first; Firefox, Edge and others come later.
 Core features: highlights by category (New / Learning / Known), meaning on hover, dictionary window on click, saving phrases, recording sources and re-occurrences.

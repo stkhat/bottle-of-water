@@ -1,4 +1,4 @@
-// Copies the "check" build (`wxt build --mode check`) into .output/lingo-check, the
+// Copies the "check" build (`wxt build --mode check`) into .output/langle-check, the
 // folder loaded unpacked in your own Chrome. The build reloads itself when the
 // build-id.txt written here changes (src/background/self-reload.ts).
 // Usage: npm run build:check
@@ -51,7 +51,7 @@ function commit() {
 
 if (import.meta.main) {
   const from = resolve(".output/chrome-mv3-check");
-  const to = resolve(".output/lingo-check");
+  const to = resolve(".output/langle-check");
   const id = buildId(new Date(), commit());
   syncBuild(from, to, id);
   console.log(`${to} updated (build ${id})`);

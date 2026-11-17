@@ -133,7 +133,7 @@ describe("the Transcript tab", () => {
   test("has the header: L badge, the tabs, Translation switch and Highlight chips", async () => {
     const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     await expect
-      .element(screen.getByRole("complementary", { name: "Lingo" }))
+      .element(screen.getByRole("complementary", { name: "Langle" }))
       .toBeVisible();
     await expect
       .element(screen.getByRole("tab", { name: "Transcript" }))
@@ -468,7 +468,7 @@ describe("the Transcript tab", () => {
 describe("the tabs", () => {
   test("a segmented control of Transcript and Words beside the L badge", async () => {
     const screen = await mountInShadowRoot(<VideoPanel {...base} />);
-    const list = screen.getByRole("tablist", { name: "Lingo panel" });
+    const list = screen.getByRole("tablist", { name: "Langle panel" });
     const tabs = [...list.element().querySelectorAll("[role=tab]")];
     expect(tabs.map((tab) => tab.textContent)).toEqual(["Transcript", "Words"]);
     const selected = getComputedStyle(tabs[0]!);
@@ -493,7 +493,9 @@ describe("the tabs", () => {
     );
     const close = screen.getByRole("button", { name: "Close transcript" });
     await expect.element(close).toHaveAttribute("title", "Close transcript");
-    const list = screen.getByRole("tablist", { name: "Lingo panel" }).element();
+    const list = screen
+      .getByRole("tablist", { name: "Langle panel" })
+      .element();
     expect(list.nextElementSibling).toBe(close.element());
     const box = close.element().getBoundingClientRect();
     expect([box.width, box.height]).toEqual([36, 36]);
@@ -508,7 +510,7 @@ describe("the tabs", () => {
   test("no × without onClose", async () => {
     const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     await expect
-      .element(screen.getByRole("tablist", { name: "Lingo panel" }))
+      .element(screen.getByRole("tablist", { name: "Langle panel" }))
       .toBeVisible();
     expect(
       screen.container.querySelector("[aria-label='Close transcript']"),

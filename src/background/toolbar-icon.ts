@@ -4,7 +4,7 @@ import type { Settings } from "../core/settings";
 const SIZES = [16, 32, 48, 128] as const;
 
 /**
- * The toolbar icon's files: the green L (the manifest's icons) while Lingo is on, the
+ * The toolbar icon's files: the green L (the manifest's icons) while Langle is on, the
  * gray one from `public/icon-off/` while it is switched off.
  */
 export function toolbarIconPaths(enabled: boolean): Record<number, string> {
@@ -25,7 +25,7 @@ export interface ToolbarIconDeps {
 }
 
 /**
- * Keeps the toolbar icon gray while Lingo is switched off: set from the stored
+ * Keeps the toolbar icon gray while Langle is switched off: set from the stored
  * settings now and at each browser start, and again whenever `enabled` changes (on
  * any device). Registers its listeners synchronously, so a change that wakes the
  * worker is heard. Returns an unwatch.

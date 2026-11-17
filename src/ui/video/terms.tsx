@@ -33,7 +33,7 @@ export function visibleSpans(spans: readonly Span[]): [Span, number][] {
   return out;
 }
 
-/** A cue's text as Lingo shows it: line breaks become spaces. */
+/** A cue's text as Langle shows it: line breaks become spaces. */
 export const lineBreaksAsSpaces = (text: string) => text.replaceAll("\n", " ");
 
 /**

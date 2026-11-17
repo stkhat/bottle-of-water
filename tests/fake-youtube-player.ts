@@ -1,6 +1,6 @@
 // A stand-in for YouTube's player API on `#movie_player` (or Shorts' `#shorts-player`), for the browser tests (called
 // directly) and the E2E tests (passed to `addInitScript`, so it must not use imports or
-// anything outside the function). It behaves like the parts of the real player Lingo
+// anything outside the function). It behaves like the parts of the real player Langle
 // uses (see docs/notes/youtube-captions.md): `setOption("captions", "track", …)` makes
 // an XMLHttpRequest to the track's `baseUrl` plus a PO token and client params.
 

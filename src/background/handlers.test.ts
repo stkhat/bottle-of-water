@@ -333,7 +333,7 @@ describe("handlers: routing", () => {
       request: { type: "exportJson" },
       method: "exportJson",
       args: [],
-      result: '{"format":"lingo-export"}',
+      result: '{"format":"langle-export"}',
     },
     {
       request: { type: "importJson", json: "{}" },

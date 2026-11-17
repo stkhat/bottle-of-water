@@ -8,9 +8,9 @@ const CATEGORIES: readonly WordStatus[] = ["new", "learning", "known"];
 
 /** The names the highlights are registered under in `CSS.highlights`. */
 export const HIGHLIGHT_NAMES: Readonly<Record<WordStatus, string>> = {
-  new: "lingo-new",
-  learning: "lingo-learning",
-  known: "lingo-known",
+  new: "langle-new",
+  learning: "langle-learning",
+  known: "langle-known",
 };
 
 /** Backgrounds where highlights cannot be underlined (the chip swatches). */
@@ -34,7 +34,7 @@ const INK_ON_BACKGROUND = palettes.light.ink;
 const UNDERLINE_OFFSET = "0.2em";
 
 /**
- * The page's highlight styles: only `::highlight(lingo-*)` rules. The mock draws a
+ * The page's highlight styles: only `::highlight(langle-*)` rules. The mock draws a
  * 2px inset bar at the bottom of each word, which `::highlight()` cannot (no
  * box-shadow), so a 2px underline stands in for it. Without underlines, every
  * category gets a background color instead. Text on a background is drawn dark.
@@ -79,7 +79,7 @@ const isHighlighted = (category: Span["category"]): category is WordStatus =>
 
 /**
  * Highlights spans with the CSS Custom Highlight API: one `Highlight` per category,
- * registered as `lingo-new`, `lingo-learning`, `lingo-known` while that category is
+ * registered as `langle-new`, `langle-learning`, `langle-known` while that category is
  * on. The styles live in one constructed stylesheet in `document.adoptedStyleSheets`;
  * nothing is added to the page's DOM.
  */

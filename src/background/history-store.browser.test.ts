@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { normalizeUrl, sourceId } from "../core/url";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 import type { SourceInput } from "../messaging/protocol";
 import {
   createHistoryStore,
@@ -47,7 +47,7 @@ const pageBytes = (source: SourceInput) =>
 const pageId = (source: SourceInput) =>
   sourceId(source.platform, normalizeUrl(source.url));
 
-let db: LingoDb;
+let db: LangleDb;
 let history: HistoryStore;
 let clock: ReturnType<typeof fakeClock>;
 

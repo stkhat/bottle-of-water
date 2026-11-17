@@ -36,7 +36,7 @@ export function BackupStatus(props: { note: BackupNote; lineHeight?: number }) {
 }
 
 /**
- * Export (downloads `lingo-backup-YYYY-MM-DD.json`) and Import (a file input →
+ * Export (downloads `langle-backup-YYYY-MM-DD.json`) and Import (a file input →
  * `importJson`) buttons, shared by the settings page and the word list. Each press
  * clears the note first; failures and the import's count come back through `onNote`.
  */

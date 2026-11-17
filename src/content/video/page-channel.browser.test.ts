@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createPageBridge } from "./page-channel";
 
 /**
- * Disposing the bridge (Lingo leaves the page, as after an extension reload) ends the
+ * Disposing the bridge (Langle leaves the page, as after an extension reload) ends the
  * calls still waiting as aborted: the session ignores aborts instead of reporting them.
  */
 describe("disposing a page bridge", () => {

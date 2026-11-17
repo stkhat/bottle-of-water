@@ -11,7 +11,7 @@ Follow-up measurements of more native languages and sources (OMW, Wikidata Lexem
 - Selecting several words should show the meaning of the phrase or idiom they form. Before M9a only contiguous phrases without "one's / someone" match, a selection shows no meaning at all (the bar over it only saves it), and a saved phrase that is in no dictionary is machine-translated literally ("spill the beans" comes out as 豆をこぼす, "to spill beans").
 
 ## How other tools do it
-| Approach | Examples | Fit for Lingo |
+| Approach | Examples | Fit for Langle |
 |---|---|---|
 | Server lookup per word | Language Reactor (`getFullDict`, [notes](language-reactor.md)), Relingo, Migaku, Readlang (accounts) | No: needs a developer server and sends the words the user reads |
 | User imports dictionary files | Yomitan (zip files into IndexedDB) | No: too much work for a general audience |

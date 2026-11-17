@@ -1,6 +1,6 @@
 import { translationPair } from "../core/packs/pairs";
 import type { ExplanationKey, KeptExplanation } from "../messaging/protocol";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 
 /**
  * The on-device AI's answers on this device (`explanations`), by pair, term, place and
@@ -40,7 +40,7 @@ const keyOf = (k: ExplanationKey) =>
   ]);
 
 export function createExplanationCache(
-  db: LingoDb,
+  db: LangleDb,
   {
     limit = EXPLANATION_CACHE_LIMIT,
     now = Date.now,

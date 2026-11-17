@@ -40,7 +40,7 @@ function useOnDeviceModel(
   const [row, setRow] = useState<ModelRow>("none");
   /** Counts the pairs read: a late answer for another pair is dropped. */
   const reads = useRef(0);
-  const warn = (error: unknown) => console.warn("Lingo:", error);
+  const warn = (error: unknown) => console.warn("Langle:", error);
 
   useEffect(() => {
     if (!provider) return;

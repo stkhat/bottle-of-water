@@ -50,13 +50,13 @@ function record(isOurs?: (stack?: string, file?: string) => boolean) {
 describe("recordErrors", () => {
   it("records console errors and warnings and still prints them", () => {
     const { scope, printed, entries } = record();
-    scope.console.error("Lingo:", new TypeError("bad"));
+    scope.console.error("Langle:", new TypeError("bad"));
     scope.console.warn("careful", { n: 1 });
     expect(printed).toHaveLength(2);
     expect(entries).toEqual([
       expect.objectContaining({
         level: "error",
-        message: "Lingo: TypeError: bad",
+        message: "Langle: TypeError: bad",
         // Firefox's stacks hold the frames only, not the message.
         stack: expect.stringMatching(/\S/),
         context: "content script youtube",

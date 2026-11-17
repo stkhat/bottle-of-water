@@ -39,7 +39,7 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
     .getByRole("button", { name: LINE })
     .click({ position: ON_TIME });
 
-  const subtitle = page.locator("lingo-video-player").getByRole("region", {
+  const subtitle = page.locator("langle-video-player").getByRole("region", {
     name: en["video.subtitle"],
   });
   await expect(subtitle).toContainText(LINE);
@@ -53,7 +53,7 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { lingoViolations: string[] }).lingoViolations,
+        (window as unknown as { langleViolations: string[] }).langleViolations,
     ),
   ).toEqual([]);
 });
@@ -85,7 +85,7 @@ test("words selected in the transcript are saved as a phrase from their card", a
     .getByText("extraordinary", { exact: true })
     .dragTo(card.getByText("evidence", { exact: true }));
 
-  const selection = page.locator("lingo-video");
+  const selection = page.locator("langle-video");
   await expect(selection).toContainText(en["lookup.status.selected"]);
   await selection
     .getByRole("button", { name: en["hover.addLearning"] })
@@ -131,7 +131,7 @@ test("a Short shows the subtitle over it and highlights its comments panel", asy
   // The L and ^ group sits in the Short's own buttons, before its captions button.
   await expect(
     page.locator(
-      "#right-controls > lingo-player-buttons + #closed-captioning-button-container",
+      "#right-controls > langle-player-buttons + #closed-captioning-button-container",
     ),
   ).toHaveCount(1);
   await page.evaluate(
@@ -143,7 +143,7 @@ test("a Short shows the subtitle over it and highlights its comments panel", asy
     },
     (LINE_CUE.startMs + 200) / 1000,
   );
-  const subtitle = page.locator("lingo-video-player").getByRole("region", {
+  const subtitle = page.locator("langle-video-player").getByRole("region", {
     name: en["video.subtitle"],
   });
   await expect(subtitle).toContainText(LINE);
@@ -151,14 +151,14 @@ test("a Short shows the subtitle over it and highlights its comments panel", asy
     "font-size",
     "20px",
   );
-  await expect(page.locator("lingo-transcript")).toHaveCount(0);
+  await expect(page.locator("langle-transcript")).toHaveCount(0);
   await expect
-    .poll(() => highlighted(page, "lingo-new"), { timeout: 10_000 })
+    .poll(() => highlighted(page, "langle-new"), { timeout: 10_000 })
     .toContain("profound");
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { lingoViolations: string[] }).lingoViolations,
+        (window as unknown as { langleViolations: string[] }).langleViolations,
     ),
   ).toEqual([]);
 });

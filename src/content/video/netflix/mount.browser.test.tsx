@@ -123,7 +123,7 @@ afterEach(async () => {
 });
 
 const buttons = () =>
-  document.querySelector<HTMLElement>("lingo-player-buttons");
+  document.querySelector<HTMLElement>("langle-player-buttons");
 const menuButton = () =>
   buttons()!.shadowRoot!.querySelector<HTMLButtonElement>(
     "button[aria-expanded]",
@@ -154,7 +154,7 @@ describe("the L and ^ buttons on Netflix", () => {
     await expect.poll(() => host.nextElementSibling).toBe(audioWrapper());
     expect(buttons()).toBe(host);
     expect(menuButton().getAttribute("aria-expanded")).toBe("true");
-    expect(document.querySelector("lingo-netflix-controls")).toBeNull();
+    expect(document.querySelector("langle-netflix-controls")).toBeNull();
   });
 
   it("line up with Netflix's buttons in the row", async () => {
@@ -184,7 +184,7 @@ describe("the L and ^ buttons on Netflix", () => {
     await expect.poll(menu).not.toBeNull();
     const box = menu()!.getBoundingClientRect();
     const panel = document
-      .querySelector("lingo-video-sidebar")!
+      .querySelector("langle-video-sidebar")!
       .getBoundingClientRect();
     // Over the narrowed player, clear of the sidebar.
     expect(box.right).toBeLessThanOrEqual(panel.left);
@@ -231,7 +231,7 @@ describe("the L and ^ buttons on Netflix", () => {
   it("float at the player's bottom right, visible while the pointer moves, on a page without a bar", async () => {
     start({ controls: false });
     const group = () =>
-      document.querySelector<HTMLElement>("lingo-netflix-controls");
+      document.querySelector<HTMLElement>("langle-netflix-controls");
     await expect.poll(() => buttons()?.parentElement).toBe(group());
     expect(group()!.parentElement).toBe(page.player);
     page.video.dispatchEvent(
@@ -250,7 +250,7 @@ describe("the L and ^ buttons on Netflix", () => {
 describe("the subtitle over Netflix's video", () => {
   const subtitle = () =>
     document
-      .querySelector("lingo-video-player")
+      .querySelector("langle-video-player")
       ?.shadowRoot?.querySelector<HTMLElement>("[role='region']") ?? null;
   const bottomOf = () => subtitle()!.getBoundingClientRect().bottom;
   const barTop = () => page.controls()!.getBoundingClientRect().top;
@@ -294,7 +294,7 @@ describe("the subtitle over Netflix's video", () => {
 
   // The bar goes a few seconds after the pointer stops on a word: the word must stay
   // under it, or the hover card closes and the video plays again.
-  it("keeps its height while Lingo is in use, and follows the bar once it is not", async () => {
+  it("keeps its height while Langle is in use, and follows the bar once it is not", async () => {
     start();
     moveOver("bottom");
     await expect.poll(() => subtitle()).not.toBeNull();
@@ -314,7 +314,7 @@ describe("the subtitle over Netflix's video", () => {
     await expect.poll(bottomOf).toBeCloseTo(player.bottom - 64, 0);
   });
 
-  it("does not rise for the bar while Lingo is in use", async () => {
+  it("does not rise for the bar while Langle is in use", async () => {
     start();
     page.showControls(false);
     await expect.poll(() => subtitle()).not.toBeNull();
@@ -355,13 +355,13 @@ describe("the subtitle over Netflix's video", () => {
 
 // Netflix shows its bar on any move, and the subtitle rises above it: moving to a word
 // would move the word.
-describe("Netflix's control bar while Lingo's subtitle is over the video", () => {
+describe("Netflix's control bar while Langle's subtitle is over the video", () => {
   const shown = () =>
     page.controls() !== null &&
     getComputedStyle(page.controls()!).visibility === "visible";
   const subtitleBottom = () =>
     document
-      .querySelector("lingo-video-player")!
+      .querySelector("langle-video-player")!
       .shadowRoot!.querySelector("[role='region']")!
       .getBoundingClientRect().bottom;
   const down = () => page.player.getBoundingClientRect().bottom - 64;
@@ -485,7 +485,7 @@ describe("Netflix's control bar while Lingo's subtitle is over the video", () =>
     expect(subtitleBottom()).toBeCloseTo(lifted, 0);
   });
 
-  it("never shows while Lingo is in use, and goes when it comes into use", async () => {
+  it("never shows while Langle is in use, and goes when it comes into use", async () => {
     start();
     moveOver("bottom");
     await expect.poll(shown).toBe(true);
@@ -496,7 +496,7 @@ describe("Netflix's control bar while Lingo's subtitle is over the video", () =>
     expect(shown()).toBe(false);
   });
 
-  it("shows after the delay when Lingo's use ends with the pointer in the bar's area", async () => {
+  it("shows after the delay when Langle's use ends with the pointer in the bar's area", async () => {
     start({}, {}, 200);
     app.store.set({ selecting: true });
     moveOver("bottom");
@@ -509,7 +509,7 @@ describe("Netflix's control bar while Lingo's subtitle is over the video", () =>
     await expect.poll(shown).toBe(true);
   });
 
-  it("shows as Netflix shows it while Lingo is off or its subtitle is below the video", async () => {
+  it("shows as Netflix shows it while Langle is off or its subtitle is below the video", async () => {
     start({}, { enabled: false });
     await wait(100);
     expect(shown()).toBe(true);
@@ -527,14 +527,14 @@ describe("Netflix's control bar while Lingo's subtitle is over the video", () =>
 });
 
 describe("the transcript sidebar on Netflix", () => {
-  const lingo = () => document.querySelector<HTMLElement>("lingo-video");
+  const langle = () => document.querySelector<HTMLElement>("langle-video");
   const sidebar = () =>
-    document.querySelector<HTMLElement>("lingo-video-sidebar");
+    document.querySelector<HTMLElement>("langle-video-sidebar");
   const transcript = () =>
-    document.querySelector<HTMLElement>("lingo-transcript");
+    document.querySelector<HTMLElement>("langle-transcript");
   const line = () =>
     document
-      .querySelector("lingo-video-player")
+      .querySelector("langle-video-player")
       ?.shadowRoot?.querySelector<HTMLElement>("[role='region'] [lang]") ??
     null;
 
@@ -570,11 +570,11 @@ describe("the transcript sidebar on Netflix", () => {
 
   it("moves into the fullscreen element with the page's parts, and stays beside the player", async () => {
     start();
-    await expect.poll(() => lingo()?.parentElement).toBe(document.body);
+    await expect.poll(() => langle()?.parentElement).toBe(document.body);
     await expect.poll(() => sidebar()?.parentElement).toBe(document.body);
     await enterFullscreen(page.root);
 
-    await expect.poll(() => lingo()?.parentElement).toBe(page.root);
+    await expect.poll(() => langle()?.parentElement).toBe(page.root);
     await expect.poll(() => sidebar()?.parentElement).toBe(page.root);
     expect(transcript()!.parentElement).toBe(sidebar());
     expect(page.player.getBoundingClientRect().right).toBe(innerWidth - 392);
@@ -584,7 +584,7 @@ describe("the transcript sidebar on Netflix", () => {
     await expect.poll(() => buttons()?.nextElementSibling).toBe(audioWrapper());
 
     await document.exitFullscreen();
-    await expect.poll(() => lingo()?.parentElement).toBe(document.body);
+    await expect.poll(() => langle()?.parentElement).toBe(document.body);
     await expect.poll(() => sidebar()?.parentElement).toBe(document.body);
     await expect
       .poll(() => line() && getComputedStyle(line()!).fontSize)

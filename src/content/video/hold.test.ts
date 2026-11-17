@@ -178,7 +178,7 @@ describe("holdPlayback", () => {
     expect(t.calls).toEqual(["pause"]);
   });
 
-  it("does not pause during an ad, while Lingo is off, or before the subtitles are ready", async () => {
+  it("does not pause during an ad, while Langle is off, or before the subtitles are ready", async () => {
     const t = setup();
     t.setAd(true);
     t.store.set({ panel: OPEN });
@@ -210,7 +210,7 @@ describe("holdPlayback", () => {
     t.hold.stop();
     t.store.set({ panel: OPEN });
     await later(0);
-    // The site paused it meanwhile: still not Lingo's to play.
+    // The site paused it meanwhile: still not Langle's to play.
     t.video().paused = true;
     t.store.set({ panel: null });
     await later();

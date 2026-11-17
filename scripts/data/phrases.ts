@@ -85,7 +85,7 @@ const HINT_LENGTH = 60;
 
 /**
  * The pattern key of a headword (words lowercased, slot spellings normalized, joined by
- * single spaces), or undefined when it is not a pattern Lingo can match: each word must
+ * single spaces), or undefined when it is not a pattern Langle can match: each word must
  * be a slot word or a word `isWord` accepts (made of letters and apostrophes), and at
  * least one must not be a slot.
  */
@@ -277,7 +277,7 @@ function readWord(
 }
 
 export interface PhraseInputs {
-  /** The words Lingo knows. */
+  /** The words Langle knows. */
   vocab: Iterable<string>;
   lemmas: LemmaPack;
   /** EJDict, whose multi-word headwords are patterns too. */

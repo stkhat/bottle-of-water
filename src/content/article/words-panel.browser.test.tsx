@@ -31,7 +31,7 @@ afterEach(async () => {
   scrollTo(0, 0);
 });
 
-const panel = () => page.getByRole("complementary", { name: "Lingo words" });
+const panel = () => page.getByRole("complementary", { name: "Langle words" });
 const heads = () =>
   [
     ...panel()
@@ -40,7 +40,7 @@ const heads = () =>
   ].map((head) => head.textContent);
 
 /** The UI's shadow root (the test host's, open). */
-const ui = () => document.querySelector("lingo-test-ui")!.shadowRoot!;
+const ui = () => document.querySelector("langle-test-ui")!.shadowRoot!;
 const outlines = () => ui().querySelectorAll("[data-outline]").length;
 /** The hover card's "Details" button: there is one only while the card shows. */
 const details = () => page.getByRole("button", { name: "Details" });

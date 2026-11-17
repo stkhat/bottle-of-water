@@ -29,7 +29,7 @@ describe("unsaved new words at the end of the article", () => {
       settings: { unsavedAtEnd: "known", highlight: SHOW_ALL },
     });
     await expect
-      .poll(() => highlighted("lingo-new"))
+      .poll(() => highlighted("langle-new"))
       .toEqual(["knead", "loaves"]);
     toEnd();
     await expect.poll(() => background.sent("saveAll").length).toBe(1);
@@ -47,8 +47,8 @@ describe("unsaved new words at the end of the article", () => {
         },
       },
     ]);
-    await expect.poll(() => highlighted("lingo-new")).toEqual([]);
-    expect(highlighted("lingo-known")).toEqual(
+    await expect.poll(() => highlighted("langle-new")).toEqual([]);
+    expect(highlighted("langle-known")).toEqual(
       expect.arrayContaining(NEW_WORDS),
     );
     // Nothing shows on the page, and scrolling back and down again saves nothing more.
@@ -66,7 +66,7 @@ describe("unsaved new words at the end of the article", () => {
       { settings: { unsavedAtEnd: "known", highlight: SHOW_ALL } },
     );
     await expect
-      .poll(() => highlighted("lingo-new").sort())
+      .poll(() => highlighted("langle-new").sort())
       .toEqual(["knead", "loaves"]);
     toEnd();
     await expect.poll(() => background.sent("saveAll").length).toBe(1);
@@ -83,7 +83,9 @@ describe("unsaved new words at the end of the article", () => {
       settings: { highlight: SHOW_ALL },
     });
     toEnd();
-    await expect.poll(() => highlighted("lingo-new").sort()).toEqual(NEW_WORDS);
+    await expect
+      .poll(() => highlighted("langle-new").sort())
+      .toEqual(NEW_WORDS);
     await new Promise((r) => setTimeout(r, 300));
     expect(background.sent("saveAll")).toEqual([]);
   });
@@ -95,7 +97,9 @@ describe("the popup's Mark all as Learning / Known", () => {
       settings: { highlight: SHOW_ALL },
     });
     toEnd();
-    await expect.poll(() => highlighted("lingo-new").sort()).toEqual(NEW_WORDS);
+    await expect
+      .poll(() => highlighted("langle-new").sort())
+      .toEqual(NEW_WORDS);
     expect(await session.handlePageRequest({ type: "pageSummary" })).toEqual({
       supported: true,
       hostname: "example.com",
@@ -122,8 +126,8 @@ describe("the popup's Mark all as Learning / Known", () => {
         status: "learning",
       }),
     ]);
-    expect(highlighted("lingo-new")).toEqual([]);
-    expect(highlighted("lingo-learning").sort()).toEqual(NEW_WORDS);
+    expect(highlighted("langle-new")).toEqual([]);
+    expect(highlighted("langle-learning").sort()).toEqual(NEW_WORDS);
 
     expect(await session.handlePageRequest({ type: "pageUndo" })).toEqual({
       supported: true,
@@ -133,7 +137,7 @@ describe("the popup's Mark all as Learning / Known", () => {
       done: null,
     });
     expect(background.sent("undoSaveAll")).toHaveLength(1);
-    expect(highlighted("lingo-new").sort()).toEqual(NEW_WORDS);
-    expect(highlighted("lingo-learning")).toEqual([]);
+    expect(highlighted("langle-new").sort()).toEqual(NEW_WORDS);
+    expect(highlighted("langle-learning")).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { isLingoHost } from "../../ui/lingo-host";
+import { isLangleHost } from "../../ui/langle-host";
 
 /**
  * The page's prose as blocks of text: the text nodes under one block-level element,
@@ -48,7 +48,9 @@ const isDropCap = (element: Element, style: CSSStyleDeclaration) =>
 
 function isSkipped(element: Element, style: CSSStyleDeclaration): boolean {
   return (
-    isLingoHost(element) || element.matches(SKIPPED) || style.display === "none"
+    isLangleHost(element) ||
+    element.matches(SKIPPED) ||
+    style.display === "none"
   );
 }
 
@@ -119,7 +121,7 @@ function isExcluded(element: Element): boolean {
 /**
  * The blocks of `root` (taken as a block) and of the blocks nested in it, in document
  * order. Skips `script, style, noscript, textarea, input, select, code, pre,
- * [contenteditable], svg` and the like, hidden elements and text, Lingo's own hosts,
+ * [contenteditable], svg` and the like, hidden elements and text, Langle's own hosts,
  * and blocks with only whitespace. Nothing is collected when `root` or an ancestor
  * is skipped or hidden. Only text nodes `accept` takes are read (all by default).
  */
@@ -237,7 +239,7 @@ export interface PageTextOptions {
  * The blocks under `root`, kept up to date: a MutationObserver gathers changed
  * subtrees for `debounceMs` (300 ms) after the first change, then re-collects their
  * blocks. Blocks whose element, text and nodes are unchanged stay the same objects.
- * Lingo's own hosts coming and going cause no change.
+ * Langle's own hosts coming and going cause no change.
  */
 export function createPageText(
   root: Element,
@@ -288,7 +290,7 @@ export function createPageText(
     for (const record of records) {
       if (record.type === "childList") {
         const nodes = [...record.addedNodes, ...record.removedNodes];
-        if (nodes.length > 0 && nodes.every(isLingoHost)) continue;
+        if (nodes.length > 0 && nodes.every(isLangleHost)) continue;
       }
       if (!root.contains(record.target)) continue;
       dirty.add(nearestBlock(record.target, root));

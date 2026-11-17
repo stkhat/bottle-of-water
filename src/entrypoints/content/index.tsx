@@ -22,7 +22,7 @@ export default defineContentScript({
       ...contentDeps(ctx),
       async mountUi(app) {
         const ui = await createShadowRootUi(ctx, {
-          name: "lingo-article",
+          name: "langle-article",
           mode: shadowRootMode(),
           position: "inline",
           anchor: "body",

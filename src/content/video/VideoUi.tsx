@@ -11,7 +11,7 @@ import {
 import { formatTime } from "../../ui/format/format";
 import { elsewhereItems } from "../../ui/lookup/elsewhere";
 import { HoverCard } from "../../ui/lookup/HoverCard";
-import { LingoMenu } from "../../ui/video/LingoMenu";
+import { LangleMenu } from "../../ui/video/LangleMenu";
 import { PlayerButtons } from "../../ui/video/PlayerButtons";
 import { SubtitleOverlay } from "../../ui/video/SubtitleOverlay";
 import { VideoPanel } from "../../ui/video/VideoPanel";
@@ -36,7 +36,7 @@ export interface VideoGeometry {
   player(): Box | null;
   /** The L and ^ buttons. */
   buttons(): Box | null;
-  /** Lingo's transcript, while it shows. */
+  /** Langle's transcript, while it shows. */
   transcript(): Box | null;
   /** What the dictionary window goes to the right of beside a vertical video. */
   beside(): Box | null;
@@ -80,11 +80,11 @@ const NO_WORDS: readonly VideoWord[] = [];
 
 /** The transcript is never shorter than this (px). */
 const MIN_TRANSCRIPT_HEIGHT = 320;
-/** Lingo shows its subtitles and transcript for this video. */
+/** Langle shows its subtitles and transcript for this video. */
 const showing = (state: VideoState) =>
   state.enabled && state.status === "ready";
 
-/** Lingo's subtitle is over the video (not in the box below it). */
+/** Langle's subtitle is over the video (not in the box below it). */
 export const subtitleOverVideo = (state: VideoState, vertical: boolean) =>
   showing(state) &&
   (state.fullscreen ||
@@ -136,7 +136,7 @@ function Subtitle(props: {
     cue: line?.card ?? -1,
     span: line?.index[span] ?? -1,
   });
-  // A subtitle that goes (between lines, Lingo off) is no longer under the pointer.
+  // A subtitle that goes (between lines, Langle off) is no longer under the pointer.
   useEffect(() => app.leaveSubtitle, [app]);
   const selected =
     line && panel?.ref.cue === line.card
@@ -258,7 +258,7 @@ export function InPlayerUi(props: {
 }
 
 /**
- * The Lingo menu, above the L and ^ buttons. Over the page, in the top layer like the
+ * The Langle menu, above the L and ^ buttons. Over the page, in the top layer like the
  * dictionary window: inside the player, the site's own layers (Netflix's transcript
  * panel over the player) would cover it. Placed again while the page scrolls or resizes.
  */
@@ -306,7 +306,7 @@ export function MenuUi(props: {
         pointerEvents: "auto",
       }}
     >
-      <LingoMenu
+      <LangleMenu
         enabled={state.enabled}
         position={settings.subtitlePosition}
         showPositions={!fullscreen && !vertical}
@@ -511,7 +511,7 @@ export function PlayerBarUi({ app }: { app: VideoApp }) {
 
 /**
  * While the dictionary window is open, a press anywhere else closes it: on the video,
- * the page or Lingo's other controls. Presses on the window, the hover card and words
+ * the page or Langle's other controls. Presses on the window, the hover card and words
  * are marked by them (`keepOpen`): a word's click opens it in the same window. Escape
  * closes it wherever the focus is: after a click on a word it stays in the subtitle or
  * the transcript, whose shadow host keeps keys from the page (read here, capturing).
@@ -521,7 +521,7 @@ const useClosedByPressAway = (app: VideoApp, open: boolean) =>
 
 /**
  * While words are selected, Escape or a press anywhere else drops the selection and its
- * card. Presses on Lingo's cards and windows (`keepOpen`) keep it, and a press on a
+ * card. Presses on Langle's cards and windows (`keepOpen`) keep it, and a press on a
  * text words are selected in makes a new selection.
  */
 const useSelectionDroppedByPressAway = (app: VideoApp, selecting: boolean) =>

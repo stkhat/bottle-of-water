@@ -19,12 +19,12 @@ const rgb = (hex: string) => {
 const added: Element[] = [];
 afterEach(() => {
   added.splice(0).forEach((el) => el.remove());
-  document.documentElement.removeAttribute("data-lingo-theme");
+  document.documentElement.removeAttribute("data-langle-theme");
 });
 
 /** An extension page as its index.html starts: "system" until the settings answer. */
 function extensionPage() {
-  document.documentElement.dataset.lingoTheme = "system";
+  document.documentElement.dataset.langleTheme = "system";
   const style = document.createElement("style");
   style.textContent = `body{background:${color.surface}}`;
   document.head.append(style);

@@ -1,7 +1,7 @@
 import type { Settings } from "../core/settings";
 
 /**
- * Lingo's UI colors, light (the mock) and dark (spec: "Theme"). Over-video subtitles
+ * Langle's UI colors, light (the mock) and dark (spec: "Theme"). Over-video subtitles
  * and the highlights painted into a website's own text are not themed.
  */
 export const palettes = {
@@ -71,10 +71,10 @@ export type ColorToken = keyof (typeof palettes)["light"];
 export type Theme = Settings["theme"];
 
 const varName = (token: string) =>
-  `--lingo-${token.replace(/[A-Z0-9]/g, (c) => `-${c.toLowerCase()}`)}`;
+  `--langle-${token.replace(/[A-Z0-9]/g, (c) => `-${c.toLowerCase()}`)}`;
 
 /**
- * Each token as `var(--lingo-…, <light value>)`: the light palette applies wherever no
+ * Each token as `var(--langle-…, <light value>)`: the light palette applies wherever no
  * theme scope sets the variables (tests, and before settings load).
  */
 export const tokens = Object.fromEntries(
@@ -89,9 +89,9 @@ const declarations = (palette: Record<ColorToken, string>) =>
     .map(([token, value]) => `${varName(token)}:${value}`)
     .join(";");
 
-/** Sets the dark variables under `data-lingo-theme="dark"`, or "system" in a dark browser. */
+/** Sets the dark variables under `data-langle-theme="dark"`, or "system" in a dark browser. */
 export const THEME_CSS = [
-  `[data-lingo-theme]{color-scheme:light}`,
-  `[data-lingo-theme="dark"]{color-scheme:dark;${declarations(palettes.dark)}}`,
-  `@media (prefers-color-scheme: dark){[data-lingo-theme="system"]{color-scheme:dark;${declarations(palettes.dark)}}}`,
+  `[data-langle-theme]{color-scheme:light}`,
+  `[data-langle-theme="dark"]{color-scheme:dark;${declarations(palettes.dark)}}`,
+  `@media (prefers-color-scheme: dark){[data-langle-theme="system"]{color-scheme:dark;${declarations(palettes.dark)}}}`,
 ].join("\n");

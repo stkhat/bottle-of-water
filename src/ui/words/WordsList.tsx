@@ -117,13 +117,13 @@ export function WordsSortSelect(props: WordsSortProps) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
       <label
-        for="lingo-words-sort"
+        for="langle-words-sort"
         style={{ fontSize: "13px", color: color.muted }}
       >
         {t("words.sort")}
       </label>
       <select
-        id="lingo-words-sort"
+        id="langle-words-sort"
         value={props.sort}
         onChange={(event) =>
           props.onSort(event.currentTarget.value as WordsSort)

@@ -3,8 +3,8 @@ import { isObject, isString, type PageChannel } from "../page-channel";
 import type { NetflixTextTrack } from "./manifest";
 
 export const CHANNEL = {
-  fromPage: "lingo-nf",
-  toPage: "lingo-nf-request",
+  fromPage: "langle-nf",
+  toPage: "langle-nf-request",
 } as const satisfies PageChannel;
 
 /** The subtitle tracks of a manifest the player parsed, posted as it is parsed. */

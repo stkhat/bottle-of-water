@@ -5,7 +5,7 @@ import {
   mergeSettings,
   type Settings,
 } from "../core/settings";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 import { createHandlers, type Handle } from "./handlers";
 import { createHistoryStore } from "./history-store";
 import { createLanguageResources } from "./language-resources";
@@ -36,7 +36,7 @@ const ARTICLE_C: SourceInput = {
   lang: "en",
 };
 
-let db: LingoDb;
+let db: LangleDb;
 let store: TermStore;
 let handle: Handle;
 let clock: ReturnType<typeof fakeClock>;

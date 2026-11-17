@@ -221,7 +221,7 @@ export function createHandlers({
     try {
       return await translations.get(pair, texts);
     } catch (error) {
-      console.error("Lingo: could not read the translation cache", error);
+      console.error("Langle: could not read the translation cache", error);
       return {};
     }
   }
@@ -362,7 +362,7 @@ export function createHandlers({
       const kept = await history.find(id, { limit: MAX_OCCURRENCES });
       if (kept.length > 0) await store.importOccurrences(id, kept);
     } catch (error) {
-      console.error("Lingo: could not import the sentence history", error);
+      console.error("Langle: could not import the sentence history", error);
     }
   }
 
@@ -449,7 +449,7 @@ export function createHandlers({
           });
           elsewhere.push(...kept.map((o) => view(o)));
         } catch (error) {
-          console.error("Lingo: could not read the sentence history", error);
+          console.error("Langle: could not read the sentence history", error);
         }
       }
       const entry = dictionary.entry(

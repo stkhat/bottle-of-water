@@ -50,13 +50,13 @@ async function useArticle(page: Page) {
     .getByRole("button", { name: en["status.learning"], exact: true })
     .click();
   await expect
-    .poll(() => highlighted(page, "lingo-learning"))
+    .poll(() => highlighted(page, "langle-learning"))
     .toContain("tangy");
   await panel
     .getByRole("button", { name: en["status.known"], exact: true })
     .click();
   await expect
-    .poll(() => highlighted(page, "lingo-learning"))
+    .poll(() => highlighted(page, "langle-learning"))
     .not.toContain("tangy");
   await page.keyboard.press("Escape");
 
@@ -79,7 +79,7 @@ async function useArticle(page: Page) {
     .getByRole("button", { name: en["hover.addLearning"], exact: true })
     .click();
   await expect
-    .poll(() => highlighted(page, "lingo-learning"))
+    .poll(() => highlighted(page, "langle-learning"))
     .toContain("rise and fall");
 
   await page.evaluate(() =>
@@ -90,7 +90,7 @@ async function useArticle(page: Page) {
 }
 
 /**
- * The production build's `useArticle`: Lingo's UI is behind closed shadow roots there,
+ * The production build's `useArticle`: Langle's UI is behind closed shadow roots there,
  * so the article is used through the mouse and keyboard only (a word's card and
  * dictionary, Escape, the end of the article), without reading or pressing the UI.
  */
@@ -100,7 +100,7 @@ async function useArticleBlindly(page: Page) {
   // The first hover waits for the dictionary.
   await expect
     .poll(() => hostAt(page, tangy.x, tangy.y - 40), COLD_LOAD)
-    .toBe("lingo-article");
+    .toBe("langle-article");
   await page.mouse.click(tangy.x, tangy.y);
   await page.keyboard.press("Escape");
   await page.evaluate(() =>
@@ -195,10 +195,10 @@ async function usePopup(
 for (const build of ["production", "check"] as const)
   test.describe(`${build} build`, () => {
     test.use({ build });
-    // The production build closes the shadow roots of Lingo's UI on web pages
+    // The production build closes the shadow roots of Langle's UI on web pages
     // (shadow-host.ts): Playwright cannot reach into the UI there. On that build the
     // flows load the pages and use them through the mouse and keyboard, and leave out
-    // the steps that read or press Lingo's UI; the check build does every step.
+    // the steps that read or press Langle's UI; the check build does every step.
     const reachesUi = build === "check";
     // What differs between the builds is the UI on web pages (and the reload), so the
     // production build runs only the flows on web pages; the rest runs once, on the
@@ -213,18 +213,18 @@ for (const build of ["production", "check"] as const)
       }) => {
         const worker = context.serviceWorkers()[0]!;
         await worker.evaluate(() => {
-          console.warn("lingo-test: a warning");
+          console.warn("langle-test: a warning");
           setTimeout(() => {
-            throw new Error("lingo-test: thrown");
+            throw new Error("langle-test: thrown");
           });
-          void Promise.reject(new Error("lingo-test: rejected"));
+          void Promise.reject(new Error("langle-test: rejected"));
         });
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/popup.html`);
         await page.evaluate(() => {
-          console.error("lingo-test: a page error");
+          console.error("langle-test: a page error");
           setTimeout(() => {
-            throw new Error("lingo-test: thrown on the page");
+            throw new Error("langle-test: thrown on the page");
           });
         });
         const texts = () => errors.reports.map((r) => `${r.source}: ${r.text}`);
@@ -232,15 +232,15 @@ for (const build of ["production", "check"] as const)
           .poll(texts)
           .toEqual(
             expect.arrayContaining([
-              "service worker: lingo-test: a warning",
+              "service worker: langle-test: a warning",
               expect.stringMatching(
-                /^service worker: Uncaught.*lingo-test: thrown/,
+                /^service worker: Uncaught.*langle-test: thrown/,
               ),
               expect.stringMatching(
-                /^service worker: Uncaught \(in promise\).*lingo-test: rejected/,
+                /^service worker: Uncaught \(in promise\).*langle-test: rejected/,
               ),
-              "extension page /popup.html: lingo-test: a page error",
-              "extension page /popup.html: Uncaught Error: lingo-test: thrown on the page",
+              "extension page /popup.html: langle-test: a page error",
+              "extension page /popup.html: Uncaught Error: langle-test: thrown on the page",
             ]),
           );
         errors.reports.length = 0;
@@ -253,16 +253,16 @@ for (const build of ["production", "check"] as const)
         errors,
       }) => {
         const worker = context.serviceWorkers()[0]!;
-        await worker.evaluate(() => console.warn("lingo-test: a warning"));
+        await worker.evaluate(() => console.warn("langle-test: a warning"));
         const popup = await context.newPage();
         await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-        await popup.evaluate(() => console.error("lingo-test: a page error"));
+        await popup.evaluate(() => console.error("langle-test: a page error"));
         await showNewWords(context, extensionId);
         const article = await openArticle(context);
-        // The page's own errors are not Lingo's.
+        // The page's own errors are not Langle's.
         await article.evaluate(() =>
           setTimeout(() => {
-            throw new Error("lingo-test: the site's own");
+            throw new Error("langle-test: the site's own");
           }),
         );
         const messages = async () =>
@@ -273,8 +273,8 @@ for (const build of ["production", "check"] as const)
           .poll(messages)
           .toEqual(
             expect.arrayContaining([
-              "service worker: lingo-test: a warning",
-              "extension page /popup.html: lingo-test: a page error",
+              "service worker: langle-test: a warning",
+              "extension page /popup.html: langle-test: a page error",
             ]),
           );
         expect((await messages()).join("\n")).not.toContain("the site's own");
@@ -300,7 +300,7 @@ for (const build of ["production", "check"] as const)
       if (reachesUi) {
         await videoCard(video, YT_LINE).click({ position: ON_TIME });
         await expect(inVideo(video)).toContainText(YT_LINE);
-      } else await expect(video.locator("lingo-video-player")).toHaveCount(1);
+      } else await expect(video.locator("langle-video-player")).toHaveCount(1);
 
       // Loading the folder again reloads the extension, as the check build does when
       // a new build is copied in (runtime.reload() does not bring back an extension
@@ -319,14 +319,14 @@ for (const build of ["production", "check"] as const)
           .querySelector("article")!
           .lastElementChild!.scrollIntoView({ block: "center" }),
       );
-      await expect(article.locator("lingo-article")).toHaveCount(0);
+      await expect(article.locator("langle-article")).toHaveCount(0);
       const box = (await video.locator("video").boundingBox())!;
       await video.mouse.move(box.x + box.width / 2, box.y + box.height - 40);
       await video.mouse.click(box.x + box.width / 2, box.y + box.height - 40);
       await video.evaluate(() => {
         document.querySelector("video")!.currentTime = 10;
       });
-      await expect(video.locator("lingo-video-player")).toHaveCount(0);
+      await expect(video.locator("langle-video-player")).toHaveCount(0);
     });
 
     test("articles: reading, saving, the end of the article, other languages, the popup", async ({
@@ -338,11 +338,11 @@ for (const build of ["production", "check"] as const)
       await (reachesUi ? useArticle(page) : useArticleBlindly(page));
       await usePopup(context, extensionId, page, { toggleSite: true });
       await expect
-        .poll(async () => (await highlighted(page, "lingo-new")).length)
+        .poll(async () => (await highlighted(page, "langle-new")).length)
         .toBeGreaterThan(0);
       await useArticleWords(context, extensionId, page, reachesUi);
 
-      // A page in another language: Lingo stays out, quietly.
+      // A page in another language: Langle stays out, quietly.
       const ja = await context.newPage();
       await ja.goto("/article-ja.html");
       await ja.waitForLoadState("load");
@@ -350,7 +350,7 @@ for (const build of ["production", "check"] as const)
       // The page with hostile styles.
       const hostile = await context.newPage();
       await hostile.goto("/hostile.html");
-      await expect(hostile.locator("lingo-article")).toHaveCount(1);
+      await expect(hostile.locator("langle-article")).toHaveCount(1);
       if (reachesUi) await useSpanishArticle(context, extensionId);
     });
 
@@ -374,7 +374,7 @@ for (const build of ["production", "check"] as const)
         .getByRole("button", { name: en["status.learning"], exact: true })
         .click();
       await expect
-        .poll(() => highlighted(page, "lingo-learning"))
+        .poll(() => highlighted(page, "langle-learning"))
         .toContain("comiendo");
       await usePopup(context, extensionId, page, { toggleSite: false });
     }
@@ -382,7 +382,7 @@ for (const build of ["production", "check"] as const)
     const transcript = (page: Page) =>
       page.getByRole("complementary", { name: en["app.name"] });
     const inVideo = (page: Page) =>
-      page.locator("lingo-video-player").getByRole("region", {
+      page.locator("langle-video-player").getByRole("region", {
         name: en["video.subtitle"],
       });
     const lButton = (page: Page) =>
@@ -426,14 +426,14 @@ for (const build of ["production", "check"] as const)
       const page = await context.newPage();
       await page.goto(YOUTUBE_WATCH);
       if (reachesUi) await useYouTube(page);
-      else await expect(page.locator("lingo-video-player")).toHaveCount(1);
+      else await expect(page.locator("langle-video-player")).toHaveCount(1);
       await usePopup(context, extensionId, page, {
         toggleSite: true,
         answeredBy: new URL(YOUTUBE_WATCH).hostname,
       });
       if (reachesUi) await playToEnd(context, extensionId, page);
 
-      // YouTube's single-page navigation to a video without captions for Lingo.
+      // YouTube's single-page navigation to a video without captions for Langle.
       await page.evaluate((response) => {
         const other = structuredClone(response) as {
           captions?: {
@@ -460,7 +460,7 @@ for (const build of ["production", "check"] as const)
       await usePopup(context, extensionId, page, { toggleSite: false });
     });
 
-    /** The YouTube flow through Lingo's UI (check build). */
+    /** The YouTube flow through Langle's UI (check build). */
     async function useYouTube(page: Page) {
       await videoCard(page, YT_LINE).click({ position: ON_TIME });
       await expect(inVideo(page)).toContainText(YT_LINE);
@@ -546,11 +546,11 @@ for (const build of ["production", "check"] as const)
       await page.locator("ytd-comments#comments").scrollIntoViewIfNeeded();
       const at = await page.evaluate(async () => {
         const has = () =>
-          [...(CSS.highlights.get("lingo-new") ?? [])].some(
+          [...(CSS.highlights.get("langle-new") ?? [])].some(
             (r) => (r as Range).toString() === "profound",
           );
         while (!has()) await new Promise((r) => setTimeout(r, 50));
-        const range = [...CSS.highlights.get("lingo-new")!].find(
+        const range = [...CSS.highlights.get("langle-new")!].find(
           (r) => (r as Range).toString() === "profound",
         ) as Range;
         const box = range.getBoundingClientRect();
@@ -558,7 +558,7 @@ for (const build of ["production", "check"] as const)
       });
       await page.mouse.click(at.x, at.y);
       const comments = page
-        .locator("lingo-comments")
+        .locator("langle-comments")
         .getByRole("complementary");
       await comments
         .getByRole("button", { name: en["status.known"], exact: true })
@@ -620,7 +620,7 @@ for (const build of ["production", "check"] as const)
       const page = await context.newPage();
       await page.goto(NETFLIX_WATCH);
       if (reachesUi) await useNetflix(page);
-      else await expect(page.locator("lingo-video-player")).toHaveCount(1);
+      else await expect(page.locator("langle-video-player")).toHaveCount(1);
       await usePopup(context, extensionId, page, {
         toggleSite: true,
         answeredBy: new URL(NETFLIX_WATCH).hostname,
@@ -638,18 +638,18 @@ for (const build of ["production", "check"] as const)
       await page.evaluate(
         (next) => {
           (
-            window as unknown as { lingoFakeNetflix: FakeNetflixControl }
-          ).lingoFakeNetflix.navigate(next);
+            window as unknown as { langleFakeNetflix: FakeNetflixControl }
+          ).langleFakeNetflix.navigate(next);
         },
         { movieId: "80000002", manifest: JSON.stringify(manifest) },
       );
       if (reachesUi) {
         await videoCard(page, NF_LINE).click({ position: ON_TIME });
         await expect(inVideo(page)).toContainText(NF_LINE);
-      } else await expect(page.locator("lingo-video-player")).toHaveCount(1);
+      } else await expect(page.locator("langle-video-player")).toHaveCount(1);
     });
 
-    /** The Netflix flow through Lingo's UI (check build). */
+    /** The Netflix flow through Langle's UI (check build). */
     async function useNetflix(page: Page) {
       await videoCard(page, NF_LINE).click({ position: ON_TIME });
       await expect(inVideo(page)).toContainText(NF_LINE);
@@ -662,7 +662,7 @@ for (const build of ["production", "check"] as const)
       await expect(inVideo(page)).toContainText(NF_LINE);
 
       const controlBar = page.locator("[data-uia='controls-standard']");
-      // In the bar's area: Lingo lets Netflix's bar show once the pointer stayed 1 s there.
+      // In the bar's area: Langle lets Netflix's bar show once the pointer stayed 1 s there.
       const moveOverVideo = async () => {
         const viewport = page.viewportSize()!;
         await page.mouse.move(viewport.width / 3, viewport.height - 60);
@@ -916,14 +916,16 @@ for (const build of ["production", "check"] as const)
           .getByRole("switch", { name: "Highlight Known words" })
           .click();
         await expect
-          .poll(() => article.evaluate(() => CSS.highlights.has("lingo-known")))
+          .poll(() =>
+            article.evaluate(() => CSS.highlights.has("langle-known")),
+          )
           .toBe(true);
         await stop();
         const restart = Date.now();
         await article.reload();
         await expect
           .poll(
-            async () => (await highlighted(article, "lingo-new")).length,
+            async () => (await highlighted(article, "langle-new")).length,
             COLD_LOAD,
           )
           .toBeGreaterThan(0);
@@ -988,11 +990,11 @@ for (const build of ["production", "check"] as const)
           .toBe(true);
       });
 
-    // Real sites need the network and change under us: opt in with LINGO_REAL_SITES=1
+    // Real sites need the network and change under us: opt in with LANGLE_REAL_SITES=1
     // (`npm run test:e2e:real`). They run on the production build, the one users get.
     if (!reachesUi)
       test.describe("real sites (network)", () => {
-        test.skip(!process.env.LINGO_REAL_SITES, "set LINGO_REAL_SITES=1");
+        test.skip(!process.env.LANGLE_REAL_SITES, "set LANGLE_REAL_SITES=1");
         test.setTimeout(120_000);
 
         for (const url of [
@@ -1010,9 +1012,11 @@ for (const build of ["production", "check"] as const)
             });
             const host = new URL(url).hostname;
             if (url.includes("wikipedia")) {
-              await expect(page.locator("lingo-article")).toHaveCount(1);
+              await expect(page.locator("langle-article")).toHaveCount(1);
               await expect
-                .poll(async () => (await highlighted(page, "lingo-new")).length)
+                .poll(
+                  async () => (await highlighted(page, "langle-new")).length,
+                )
                 .toBeGreaterThan(0);
               await page.mouse.wheel(0, 20_000);
               await usePopup(context, extensionId, page, {
@@ -1021,8 +1025,8 @@ for (const build of ["production", "check"] as const)
               });
             }
             if (url.includes("youtube")) {
-              // Captions come back empty under Playwright: Lingo waits quietly.
-              await expect(page.locator("lingo-video-player")).toBeAttached({
+              // Captions come back empty under Playwright: Langle waits quietly.
+              await expect(page.locator("langle-video-player")).toBeAttached({
                 timeout: 30_000,
               });
             }

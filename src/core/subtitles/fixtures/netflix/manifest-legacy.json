@@ -1,7 +1,7 @@
 {
   "_synthetic": "SYNTHETIC fixture of the OLDER manifest shape (not the one seen on netflix.com on 2026-11-10, see manifest.json), which other titles or accounts may still get. Modeled on public descriptions of the manifest the Netflix web player parses (open-source subtitle downloaders): result.movieId, result.timedtexttracks with language, languageDescription, rawTrackType, trackType, isNoneTrack, isForcedNarrative, new_track_id and ttDownloadables (format -> urls[].url, or the older downloadUrls map). Ids, hosts and tokens are made up.",
   "version": 2,
-  "from": "lingo-fixture",
+  "from": "langle-fixture",
   "result": {
     "movieId": 80000001,
     "packageId": 1234567,

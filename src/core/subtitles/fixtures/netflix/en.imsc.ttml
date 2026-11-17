@@ -2,7 +2,7 @@
 <!--
   SYNTHETIC fixture, modeled on the real structure seen 2026-11-10. The same English
   closed captions as en.dfxp in the imsc1.1 profile, which the English track also offers
-  and Lingo prefers. Only the Japanese imsc1.1 file was seen on netflix.com, so this one
+  and Langle prefers. Only the Japanese imsc1.1 file was seen on netflix.com, so this one
   follows its markup (ja.imsc.ttml: tick times, xml:space="preserve" on <p>, <br/> line
   breaks); lines shown together may also come as <p> elements with the same times. The
   text is made up and gives the same cues as en.dfxp.

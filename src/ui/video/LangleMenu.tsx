@@ -10,13 +10,13 @@ import {
 } from "../../core/settings";
 import { t } from "../../i18n/t";
 import { GearIcon } from "../icons";
-import { isLingoHost } from "../lingo-host";
+import { isLangleHost } from "../langle-host";
 import { usePressAway } from "../press-away";
 import { Segmented } from "../Segmented";
 import { badge, color, root } from "../styles";
 import { Switch } from "../Switch";
 
-export interface LingoMenuProps {
+export interface LangleMenuProps {
   enabled: boolean;
   position: Settings["subtitlePosition"];
   /** The subtitle position group; not in fullscreen (mock Fullscreen). Default: shown. */
@@ -103,18 +103,18 @@ function MenuSlider(props: {
   );
 }
 
-/** Elements marked `data-lingo-menu` (the menu and its buttons) are inside. */
+/** Elements marked `data-langle-menu` (the menu and its buttons) are inside. */
 const isMenuElement = (n: EventTarget) =>
-  n instanceof HTMLElement && n.dataset.lingoMenu !== undefined;
+  n instanceof HTMLElement && n.dataset.langleMenu !== undefined;
 
 /**
- * A press on the menu or its buttons keeps it, one outside Lingo's UI closes it at once;
- * in Lingo's UI behind a closed shadow root it is known once the press reached it.
+ * A press on the menu or its buttons keeps it, one outside Langle's UI closes it at once;
+ * in Langle's UI behind a closed shadow root it is known once the press reached it.
  */
 const pressedNow = (event: PointerEvent) => {
   const path = event.composedPath();
   if (path.some(isMenuElement)) return true;
-  if (!path.some(isLingoHost)) return false;
+  if (!path.some(isLangleHost)) return false;
   return undefined;
 };
 
@@ -122,7 +122,7 @@ const pressedNow = (event: PointerEvent) => {
 const pressesInside = new WeakSet<Event>();
 
 /**
- * The `onPointerDown` of the menu and its buttons (with `data-lingo-menu`). In a closed
+ * The `onPointerDown` of the menu and its buttons (with `data-langle-menu`). In a closed
  * shadow root (production builds) a listener on the document sees only the root's host,
  * so they say themselves that a press is inside.
  */
@@ -131,7 +131,7 @@ export function keepMenuOpen(event: Event) {
 }
 
 /** The menu above the ^ button (mock Main). The caller positions it. */
-export function LingoMenu(props: LingoMenuProps) {
+export function LangleMenu(props: LangleMenuProps) {
   usePressAway(true, props.onClose, (event) => pressesInside.has(event), {
     target: document,
     now: pressedNow,
@@ -141,7 +141,7 @@ export function LingoMenu(props: LingoMenuProps) {
     <div
       role="dialog"
       aria-label={t("video.menu")}
-      data-lingo-menu
+      data-langle-menu
       onPointerDown={keepMenuOpen}
       style={root({
         width: "300px",

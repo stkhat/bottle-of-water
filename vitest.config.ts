@@ -15,7 +15,7 @@ const browsers = (process.env.VITEST_BROWSERS ?? "chromium,firefox")
 /** Answers /api/timedtext from the recorded fixtures, like YouTube (see tests/youtube-timedtext.ts). */
 function timedtextFixtures(): Plugin {
   return {
-    name: "lingo-timedtext-fixtures",
+    name: "langle-timedtext-fixtures",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url ?? "/", "http://localhost");
@@ -29,15 +29,15 @@ function timedtextFixtures(): Plugin {
 
 /**
  * Answers Netflix subtitle URLs from the synthetic fixtures (see tests/netflix-subtitles.ts).
- * The browser tests point the manifest's CDN URLs at /lingo-nflx/ on the test server.
+ * The browser tests point the manifest's CDN URLs at /langle-nflx/ on the test server.
  */
 function netflixFixtures(): Plugin {
   return {
-    name: "lingo-netflix-fixtures",
+    name: "langle-netflix-fixtures",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url ?? "/", "http://localhost");
-        if (url.pathname !== "/lingo-nflx/") return next();
+        if (url.pathname !== "/langle-nflx/") return next();
         const body = netflixSubtitleBody(url);
         res.statusCode = body === undefined ? 404 : 200;
         res.setHeader("content-type", "text/plain; charset=UTF-8");

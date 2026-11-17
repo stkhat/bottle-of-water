@@ -31,7 +31,7 @@ export interface Explained {
 }
 
 /**
- * What a pair's answers depend on in Lingo: a hash of the instructions and the schema,
+ * What a pair's answers depend on in Langle: a hash of the instructions and the schema,
  * in the cache key next to the provider's version, so a changed prompt asks again
  * instead of showing answers kept from the one before.
  */

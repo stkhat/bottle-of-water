@@ -28,7 +28,7 @@ export interface VideoCaptions {
   };
 }
 
-/** Where Lingo puts an element: inside `parent`, before `before` (at the end when null). */
+/** Where Langle puts an element: inside `parent`, before `before` (at the end when null). */
 export interface InsertionPoint {
   parent: Element;
   before: Element | null;
@@ -97,7 +97,7 @@ export interface PlatformAdapter {
   /**
    * How the site's control bar may show (Netflix): "free" as the site shows it; "delay"
    * held back until the pointer has kept moving over the player or reaches the bar's
-   * area, so short moves to a word do not move the subtitle; "hidden" while Lingo is in
+   * area, so short moves to a word do not move the subtitle; "hidden" while Langle is in
    * use. Called on every change to the page: does nothing when nothing changed.
    */
   holdBackControlBar?(mode: ControlBarMode): void;
@@ -111,7 +111,7 @@ export interface PlatformAdapter {
    */
   loadCaptions(request: CaptionRequest): Promise<VideoCaptions | undefined>;
   seek(ms: number): Promise<void>;
-  /** Pauses and plays the video through the site's player (spec: "Pausing while Lingo is in use"). */
+  /** Pauses and plays the video through the site's player (spec: "Pausing while Langle is in use"). */
   pause(): Promise<void>;
   play(): Promise<void>;
   /** Calls `listener` after the site moved to another page or video; returns an unsubscribe. */

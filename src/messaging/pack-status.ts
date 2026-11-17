@@ -64,7 +64,7 @@ export function followPackStatus(
         emit();
       },
       (error: unknown) => {
-        if (!stopped) console.warn("Lingo:", error);
+        if (!stopped) console.warn("Langle:", error);
       },
     );
   }

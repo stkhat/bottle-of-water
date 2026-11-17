@@ -1,7 +1,7 @@
 import { guardShadowRoot } from "../ui/from-user";
 
 /**
- * The mode of the shadow roots that hold Lingo's UI on web pages. Production builds
+ * The mode of the shadow roots that hold Langle's UI on web pages. Production builds
  * close them, so page scripts cannot reach the UI (`host.shadowRoot` is null) and read
  * what it shows, such as sentences kept from other sites. The check build
  * (`wxt build --mode check`), development and tests keep them open so the E2E tests,
@@ -28,7 +28,7 @@ const PRIVATE_EVENTS = [
 ] as const;
 
 /**
- * A `name` element styled `style`, with a guarded shadow root for Lingo's UI: presses
+ * A `name` element styled `style`, with a guarded shadow root for Langle's UI: presses
  * and keys inside do not reach the site. The root is returned because a closed one
  * (production) is not reachable as `host.shadowRoot`.
  */

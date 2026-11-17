@@ -39,7 +39,7 @@ describe("commentsAllowedOn", () => {
     ).toBe(false);
   });
 
-  it("stays off while Lingo is switched off", () => {
+  it("stays off while Langle is switched off", () => {
     expect(
       commentsAllowedOn("www.youtube.com", settings({ enabled: false })),
     ).toBe(false);

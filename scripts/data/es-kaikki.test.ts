@@ -184,7 +184,7 @@ describe("writeEsPacks", () => {
   let dir: string;
   let written: string[];
   beforeAll(async () => {
-    dir = mkdtempSync(join(tmpdir(), "lingo-es-"));
+    dir = mkdtempSync(join(tmpdir(), "langle-es-"));
     written = writeEsPacks(await buildEsPacks(fixture, forms, options), dir);
   });
   afterAll(() => rmSync(dir, { recursive: true, force: true }));

@@ -4,7 +4,7 @@ import { PACK_FORMATS } from "../../src/core/packs/formats.ts";
 import { DOWNLOAD_PACKS_DIR, PACKS_DIR } from "./common.ts";
 
 /** A placeholder until the scope exists. */
-const NPM_SCOPE = "@lingo-data";
+const NPM_SCOPE = "@langle-data";
 
 interface PackSource {
   title: string;

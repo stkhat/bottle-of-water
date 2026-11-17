@@ -120,11 +120,11 @@ describe("collectBlocks", () => {
     expect(texts(collectBlocks(root))).toEqual(["Shown text", "Also shown"]);
   });
 
-  it("skips Lingo's own elements", () => {
+  it("skips Langle's own elements", () => {
     const root = fixture(
-      "<p>Page text</p><lingo-page-card><p>Lingo</p></lingo-page-card>",
+      "<p>Page text</p><langle-page-card><p>Langle</p></langle-page-card>",
     );
-    const host = root.querySelector("lingo-page-card")!;
+    const host = root.querySelector("langle-page-card")!;
     host.attachShadow({ mode: "open" }).innerHTML = "<p>Shadow text</p>";
     expect(texts(collectBlocks(root))).toEqual(["Page text"]);
   });
@@ -272,13 +272,13 @@ describe("createPageText", () => {
     text.disconnect();
   });
 
-  it("ignores Lingo's own elements being added", async () => {
+  it("ignores Langle's own elements being added", async () => {
     const root = fixture("<p>One</p>");
     const { text, changes } = watch(root);
-    root.append(document.createElement("lingo-page-card"));
+    root.append(document.createElement("langle-page-card"));
     const p = document.createElement("p");
     p.textContent = "Two";
-    // A later change proves the observer ran; the Lingo host alone caused none.
+    // A later change proves the observer ran; the Langle host alone caused none.
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(changes).toEqual([]);
     root.append(p);

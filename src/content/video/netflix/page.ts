@@ -2,7 +2,7 @@
  * netflix.com's MAIN world, from document_start: watches `JSON.parse` for the manifests
  * the player reads (each lists the title's subtitle tracks and their download URLs) and
  * answers the adapter's calls to Netflix's player API. `JSON.parse` returns exactly what
- * it would without Lingo, and nothing is stored outside this page's memory: the URLs
+ * it would without Langle, and nothing is stored outside this page's memory: the URLs
  * carry tokens.
  */
 import { createRecent } from "../recent";

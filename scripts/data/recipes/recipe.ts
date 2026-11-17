@@ -19,7 +19,7 @@ export interface SourceTerm {
 type TermKey = (headword: string) => string | undefined;
 
 /**
- * The key a headword is filed under, or undefined when it is not one Lingo looks up: a
+ * The key a headword is filed under, or undefined when it is not one Langle looks up: a
  * single word must be a vocabulary word written in lowercase (names and inflected forms
  * are left out); several words must form one of the phrase patterns.
  */

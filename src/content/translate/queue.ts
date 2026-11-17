@@ -121,7 +121,7 @@ export function createTranslationQueue(
         try {
           listener(job.text, job.pair, translated);
         } catch (error) {
-          console.warn("Lingo: a translation listener failed", error);
+          console.warn("Langle: a translation listener failed", error);
         }
   }
 

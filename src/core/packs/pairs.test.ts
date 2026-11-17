@@ -9,7 +9,7 @@ describe("packsFor", () => {
     expect(packsFor("es", "en")).toEqual(["es", "es-en"]);
   });
 
-  it("lists what has a recipe of a pair Lingo does not offer", () => {
+  it("lists what has a recipe of a pair Langle does not offer", () => {
     expect(packsFor("en", "fr")).toEqual(["en"]);
     expect(packsFor("fr", "ja")).toEqual([]);
     expect(packsFor("constructor", "toString")).toEqual([]);

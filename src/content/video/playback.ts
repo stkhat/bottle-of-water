@@ -14,7 +14,7 @@ const LOOP_EDGE_S = 1;
 
 /**
  * What plays at `ms`: the line, its card, the transcript's card and the translation the
- * subtitle shows. Nothing (-1, "") while not `following` (Lingo off, an ad).
+ * subtitle shows. Nothing (-1, "") while not `following` (Langle off, an ad).
  */
 export function playingAt(
   state: VideoState,

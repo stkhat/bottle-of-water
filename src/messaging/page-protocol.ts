@@ -15,7 +15,7 @@ export type PageRequest =
   | { type: "pageShowWords" };
 
 export interface PageSummary {
-  /** False when Lingo does not run on this page (another language, switched off). */
+  /** False when Langle does not run on this page (another language, switched off). */
   supported: boolean;
   /** The page's host, for the popup's "On this site" (the popup cannot read tab URLs). */
   hostname: string;
@@ -27,7 +27,7 @@ export interface PageSummary {
   done: { count: number; target: TermStatus } | null;
 }
 
-/** The answer for a page Lingo does not run on. */
+/** The answer for a page Langle does not run on. */
 export function unsupportedPage(
   hostname: string,
   scope: PageSummary["scope"],

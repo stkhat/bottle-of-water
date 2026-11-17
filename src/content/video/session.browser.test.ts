@@ -870,7 +870,7 @@ describe("the transcript card", () => {
     await expect.poll(() => state().card).toBe(2);
   });
 
-  it("is -1 while Lingo is off", async () => {
+  it("is -1 while Langle is off", async () => {
     const { state, app } = await start();
     await ready(state);
     await expect.poll(() => state().card).toBe(0);
@@ -1531,7 +1531,7 @@ describe("selecting words over a highlighted phrase", () => {
   });
 });
 
-describe("pausing while Lingo is in use", () => {
+describe("pausing while Langle is in use", () => {
   /** Plays from the start, slowly, so the first line lasts while a card opens. */
   async function playSlowly(video: HTMLVideoElement) {
     await seekTo(video, 0);
@@ -1925,7 +1925,7 @@ describe("settings from the video UI", () => {
   });
 });
 
-describe("where Lingo runs", () => {
+describe("where Langle runs", () => {
   it("not on a site in Never run on", async () => {
     const { state, site } = await start(undefined, {
       settings: { neverRunOn: ["youtube.com"] },
@@ -1947,7 +1947,7 @@ describe("where Lingo runs", () => {
     expect(site.log.hidden.at(-1)).toBe(false);
   });
 
-  it("not while Lingo is switched off, and again once it is back on", async () => {
+  it("not while Langle is switched off, and again once it is back on", async () => {
     const { state, site, bg } = await start();
     await ready(state);
     bg.changeSettings({ enabled: false });
@@ -1996,7 +1996,7 @@ describe("fullscreen", () => {
     expect(site.log.hidden).toEqual([true, false]);
   });
 
-  it("gives the site's captions back when Lingo is turned off in fullscreen", async () => {
+  it("gives the site's captions back when Langle is turned off in fullscreen", async () => {
     const { state, app, site } = await start();
     await ready(state);
     app.setFullscreen(true);
@@ -2356,7 +2356,7 @@ describe("meaning in context", () => {
       .toBe(state().panel?.card.yourMeanings[0]?.key);
   });
 
-  it("stops explaining when the window closes or Lingo is switched off", async () => {
+  it("stops explaining when the window closes or Langle is switched off", async () => {
     const { provider, log } = fakeExplanationProvider({ answers: [HANG] });
     const { state, app } = await start(undefined, {
       explainProvider: provider,

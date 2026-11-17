@@ -115,9 +115,9 @@ const headerButton = {
 } as const;
 
 /**
- * The toolbar popup (mock Toolbar): the header's switch for Lingo as a whole, the
+ * The toolbar popup (mock Toolbar): the header's switch for Langle as a whole, the
  * language data while it is missing (mock LanguageData), this site, this page,
- * highlights, counts, sync. While Lingo is switched off, only the header and sync.
+ * highlights, counts, sync. While Langle is switched off, only the header and sync.
  */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
@@ -128,7 +128,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
   const [data, setData] = useState<DataNote | null>(null);
   const [now, setNow] = useState(deps.now);
 
-  const warn = (error: unknown) => console.warn("Lingo:", error);
+  const warn = (error: unknown) => console.warn("Langle:", error);
 
   function refreshCounts(lang: string) {
     deps.send({ type: "counts", lang }).then(setCounts, warn);
@@ -176,10 +176,10 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     patch(change);
   }
 
-  /** Lingo runs at all (the header's switch); while off only the header and sync show. */
-  const lingoOn = settings?.enabled !== false;
+  /** Langle runs at all (the header's switch); while off only the header and sync show. */
+  const langleOn = settings?.enabled !== false;
 
-  function toggleLingo() {
+  function toggleLangle() {
     if (!settings) return;
     const enabled = !settings.enabled;
     update({ enabled }, { enabled });
@@ -261,9 +261,9 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           <span style={{ display: "flex", padding: "0 8px 0 4px" }}>
             <Switch
               size="large"
-              checked={lingoOn}
-              label={t("popup.lingoSwitch")}
-              onToggle={toggleLingo}
+              checked={langleOn}
+              label={t("popup.langleSwitch")}
+              onToggle={toggleLangle}
             />
           </span>
         )}
@@ -277,7 +277,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           gap: "16px",
         }}
       >
-        {lingoOn && data && settings && (
+        {langleOn && data && settings && (
           <LanguageDataNote
             note={data}
             language={languageName(settings.learningLang)}
@@ -287,7 +287,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           />
         )}
 
-        {lingoOn && summary && (
+        {langleOn && summary && (
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div
               style={{
@@ -322,7 +322,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           </div>
         )}
 
-        {lingoOn && summary?.supported && siteOn && (
+        {langleOn && summary?.supported && siteOn && (
           <SaveAll
             scope={summary.scope}
             unsavedCount={summary.unsaved}
@@ -345,7 +345,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           />
         )}
 
-        {lingoOn && settings && (
+        {langleOn && settings && (
           <HighlightChips
             look="popup"
             highlight={settings.highlight}
@@ -359,7 +359,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           />
         )}
 
-        {lingoOn && counts && (
+        {langleOn && counts && (
           <div
             style={{
               display: "grid",

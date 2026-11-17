@@ -1,10 +1,10 @@
-# Lingo — design
+# Langle — design
 
 Spec files: this one (context, decisions, phases, risks), [ui.md](ui.md) (follows the mock) and [architecture.md](architecture.md).
 
 ## UI mock (canonical)
 - **https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS** (Claude Design, private, owner only). **When the spec and the mock disagree, the mock wins**; [ui.md](ui.md) mirrors it
-- Working name of the extension: **Lingo**
+- Working name of the extension: **Langle**
 
 ## Context
 A browser extension (Chrome first) that turns the videos (YouTube / Netflix) and articles you already like into study material, right on the page. The video UI takes cues from Language Reactor ([notes](../notes/language-reactor.md)); article highlighting takes cues from Relingo.
@@ -27,7 +27,7 @@ Development pair: learning language = English, native language = Japanese, sites
 ## Phases
 1. **Phase 1 (MVP)** and **phase 2** — built: article and video UI (YouTube, Netflix), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen, Spanish → English, definitions translated at display time, downloadable packs, Spanish and Portuguese as native languages, YouTube comments, YouTube Shorts. What is left is in [status.md](../status.md)
 2. **Phase 3**
-   - Not done: "Ask AI" links that open ChatGPT / Claude with the word and sentence (user, 2026-11-15): their answers never come back to Lingo, so they cannot become "your meanings"
+   - Not done: "Ask AI" links that open ChatGPT / Claude with the word and sentence (user, 2026-11-15): their answers never come back to Langle, so they cannot become "your meanings"
    - **Meaning in context** (designed 2026-11-15, mock approved, built and checked with the real model 2026-11-16; [ui](ui.md) "Meaning in context and your meanings", [architecture](architecture.md) "Meaning in context"): the dictionary window's "In this sentence" asks an on-device model what the term means in the sentence it was met in. The prompt holds the sentence, up to 5 lines around it (learning language only: the site's translation did not help) and the dictionary's meanings, numbered; the answer is JSON: the meaning of the term alone here, and which dictionary meaning fits (no explanation since 2026-11-16: the model's were wrong a quarter of the time and rarely needed). Cached per term + sentence
      - When: a term with a dictionary entry only when the user presses "Explain in context"; a term the dictionary does not have as soon as its dictionary window opens (opening it is a click; Settings can turn this off). Hover cards and highlights never use the model: measured on real videos and articles, Gemini Nano choosing the sense fit 72% of hovers against 70% for the dictionary rules, and as a yes/no checker it rejected 3 of 4 good meanings
      - The model only suggests ("Fits here"); nothing is saved until the user chooses a meaning

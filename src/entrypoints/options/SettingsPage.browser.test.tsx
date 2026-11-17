@@ -71,7 +71,7 @@ function fake(options: FakeOptions = {}) {
           return lastExport;
         case "exportJson":
           lastExport = NOW;
-          return '{"format":"lingo-export"}';
+          return '{"format":"langle-export"}';
         case "historyStatus":
           return history;
         case "clearHistory":
@@ -331,7 +331,7 @@ describe("SettingsPage", () => {
       await expect
         .element(
           languages.getByText(
-            "Words and dictionaries Lingo keeps on this device.",
+            "Words and dictionaries Langle keeps on this device.",
           ),
         )
         .toBeVisible();
@@ -652,16 +652,16 @@ describe("SettingsPage", () => {
   });
 
   describe("sites", () => {
-    it("switches Lingo off for a kind of site", async () => {
+    it("switches Langle off for a kind of site", async () => {
       const f = await open();
       await f.screen
-        .getByRole("switch", { name: "Run Lingo on Netflix" })
+        .getByRole("switch", { name: "Run Langle on Netflix" })
         .click();
       await expect.poll(() => f.settings().sites.netflix).toBe(false);
       await expect
         .element(
           f.screen.getByRole("switch", {
-            name: "Run Lingo on Articles on other sites",
+            name: "Run Langle on Articles on other sites",
           }),
         )
         .toBeChecked();
@@ -670,7 +670,7 @@ describe("SettingsPage", () => {
     it("switches the YouTube comments on their own", async () => {
       const f = await open();
       const comments = f.screen.getByRole("switch", {
-        name: "Run Lingo on YouTube comments",
+        name: "Run Langle on YouTube comments",
       });
       await expect.element(comments).toBeChecked();
       await expect
@@ -753,7 +753,7 @@ describe("SettingsPage", () => {
       await expect
         .element(
           history.getByText(
-            "Sentences from pages and videos you open with Lingo on, kept on this device so the dictionary can show where you met a word before you saved it.",
+            "Sentences from pages and videos you open with Langle on, kept on this device so the dictionary can show where you met a word before you saved it.",
           ),
         )
         .toBeVisible();
@@ -859,8 +859,8 @@ describe("SettingsPage", () => {
         .toBeVisible();
       expect(f.downloads).toEqual([
         {
-          name: "lingo-backup-2026-11-10.json",
-          text: '{"format":"lingo-export"}',
+          name: "langle-backup-2026-11-10.json",
+          text: '{"format":"langle-export"}',
         },
       ]);
     });
@@ -879,7 +879,7 @@ describe("SettingsPage", () => {
     it("imports a backup file and says how many words came in", async () => {
       const f = await open();
       const sync = section(f.screen, "Sync and backup");
-      const file = new File(['{"format":"lingo-export"}'], "backup.json", {
+      const file = new File(['{"format":"langle-export"}'], "backup.json", {
         type: "application/json",
       });
       const input =
@@ -890,12 +890,12 @@ describe("SettingsPage", () => {
       await expect.element(sync.getByText("Imported 3 words")).toBeVisible();
       expect(f.sent).toContainEqual({
         type: "importJson",
-        json: '{"format":"lingo-export"}',
+        json: '{"format":"langle-export"}',
       });
     });
 
     it("shows why an import failed", async () => {
-      const f = await open({ importResult: new Error("Not a Lingo export") });
+      const f = await open({ importResult: new Error("Not a Langle export") });
       const input =
         f.screen.container.querySelector<HTMLInputElement>(
           'input[type="file"]',
@@ -907,7 +907,7 @@ describe("SettingsPage", () => {
       await expect
         .element(
           section(f.screen, "Sync and backup").getByText(
-            "Could not import: Not a Lingo export",
+            "Could not import: Not a Langle export",
           ),
         )
         .toBeVisible();
@@ -938,7 +938,7 @@ describe("SettingsPage", () => {
       const f = await open();
       const articles = section(f.screen, "Articles");
       await expect
-        .element(articles.getByText("How Lingo works on web articles."))
+        .element(articles.getByText("How Langle works on web articles."))
         .toBeVisible();
       const toggle = articles.getByRole("switch", {
         name: "Highlight only the article",
@@ -965,7 +965,7 @@ describe("SettingsPage", () => {
     await expect
       .element(
         section(f.screen, "About").getByText(
-          "Lingo 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the Spanish and Portuguese dictionaries: Wiktionary, Wikcionario and Wikcionário (CC BY-SA)",
+          "Langle 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the Spanish and Portuguese dictionaries: Wiktionary, Wikcionario and Wikcionário (CC BY-SA)",
         ),
       )
       .toBeVisible();

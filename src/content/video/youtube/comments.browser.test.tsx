@@ -125,7 +125,7 @@ function start(
   return { background, runner, navigate: fake.navigate };
 }
 
-const newWords = () => highlighted("lingo-new").sort();
+const newWords = () => highlighted("langle-new").sort();
 
 describe("YouTube comments", () => {
   it("highlights the words of comments and replies only", async () => {
@@ -135,7 +135,7 @@ describe("YouTube comments", () => {
       .poll(newWords, { timeout: 5000 })
       .toEqual(["knead", "tedious"]);
     // Not the author "@knead_fan", the header or the buttons.
-    for (const range of CSS.highlights.get("lingo-new") ?? [])
+    for (const range of CSS.highlights.get("langle-new") ?? [])
       expect(
         (range as Range).startContainer.parentElement?.closest("#content-text"),
       ).not.toBeNull();
@@ -192,7 +192,9 @@ describe("YouTube comments", () => {
     const [saved] = background.sent("saveTerm");
     expect(saved!.source).toEqual(video);
     expect(saved!.pos).toEqual({ textQuote: "It can feel tedious at first." });
-    await expect.poll(() => highlighted("lingo-learning")).toEqual(["tedious"]);
+    await expect
+      .poll(() => highlighted("langle-learning"))
+      .toEqual(["tedious"]);
   });
 
   it("starts over on another video, recording under that video", async () => {
@@ -220,7 +222,7 @@ describe("YouTube comments", () => {
     await expect.poll(newWords, { timeout: 5000 }).toHaveLength(2);
     background.changeSettings({ sites: { youtubeComments: false } });
     await expect.poll(newWords).toEqual([]);
-    expect(document.querySelector("lingo-comments")).toBeNull();
+    expect(document.querySelector("langle-comments")).toBeNull();
 
     background.changeSettings({ sites: { youtubeComments: true } });
     await expect.poll(newWords, { timeout: 5000 }).toHaveLength(2);

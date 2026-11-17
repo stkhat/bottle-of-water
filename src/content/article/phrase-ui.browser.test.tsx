@@ -93,7 +93,7 @@ describe("selection card", () => {
       },
     ]);
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["rise and fall"]);
   });
 
@@ -106,14 +106,14 @@ describe("selection card", () => {
       <p>Prices rise and fall with the seasons.</p>`,
       { settings: { highlight: { new: true, learning: true, known: true } } },
     );
-    await expect.poll(() => highlighted("lingo-new")).toContain("knead");
+    await expect.poll(() => highlighted("langle-new")).toContain("knead");
     const ranges = () =>
-      [...(CSS.highlights.get("lingo-new") ?? [])] as Range[];
+      [...(CSS.highlights.get("langle-new") ?? [])] as Range[];
     const knead = ranges().find((r) => r.toString() === "knead");
     selectText(root, "rise", 0, "fall", 4);
     await (await cardButton("rise and fall", "+ Learning")).click();
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["rise and fall", "rise and fall"]);
     // The first block, classified again unchanged, kept its ranges.
     expect(ranges().find((r) => r.toString() === "knead")).toBe(knead);
@@ -178,7 +178,7 @@ describe("selection card", () => {
     selectText(root, "rise", 0, "fall", 4);
     await (await cardButton("rise and fall", "+ Learning")).click();
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["rise and fall"]);
 
     await pointAt(root, "and fall");
@@ -225,7 +225,7 @@ describe("selection card", () => {
       status: "learning",
     });
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["rise and fall"]);
     await expect
       .element(panel.getByRole("button", { name: "Learning", exact: true }))
@@ -321,7 +321,7 @@ describe("selection card: the pattern a selection stands for", () => {
     });
     // Saved with a slot, it is found with other words in the slot.
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["made up her mind", "made up his mind"]);
   });
 
@@ -410,7 +410,7 @@ describe("selection card: the pattern a selection stands for", () => {
       sentence: FIRST,
     });
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["made up her mind", "made up his mind"]);
     await expect.element(panel.getByText("On this page · 2")).toBeVisible();
   });
@@ -425,7 +425,7 @@ describe("selection card: words partly over a highlighted phrase", () => {
     const { root, background } = await setup(CRUST, {
       settings: { highlight: { new: true, learning: true, known: false } },
     });
-    await expect.poll(() => highlighted("lingo-new")).toContain("gave up");
+    await expect.poll(() => highlighted("langle-new")).toContain("gave up");
     selectText(root, "up the", 0, "crust", 5);
     await (await cardButton("up the crust", "+ Learning")).click();
     await expect.poll(() => background.sent("saveTerm")).toHaveLength(1);
@@ -436,9 +436,9 @@ describe("selection card: words partly over a highlighted phrase", () => {
       status: "learning",
     });
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["up the crust"]);
-    expect(highlighted("lingo-new")).not.toContain("gave up");
+    expect(highlighted("langle-new")).not.toContain("gave up");
   });
 
   it("saves words partly over a saved phrase and draws them when they are longer", async () => {
@@ -462,7 +462,9 @@ describe("selection card: words partly over a highlighted phrase", () => {
         });
       },
     });
-    await expect.poll(() => highlighted("lingo-learning")).toEqual(["gave up"]);
+    await expect
+      .poll(() => highlighted("langle-learning"))
+      .toEqual(["gave up"]);
     selectText(root, "up the", 0, "crust", 5);
     expect(getSelection()!.toString()).toBe("up the crust");
     await (await cardButton("up the crust", "+ Learning")).click();
@@ -471,7 +473,7 @@ describe("selection card: words partly over a highlighted phrase", () => {
       key: "up the crust",
     });
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["up the crust"]);
   });
 
@@ -485,7 +487,7 @@ describe("selection card: words partly over a highlighted phrase", () => {
       display: "gave up the crust",
     });
     await expect
-      .poll(() => highlighted("lingo-learning"))
+      .poll(() => highlighted("langle-learning"))
       .toEqual(["gave up the crust"]);
   });
 });

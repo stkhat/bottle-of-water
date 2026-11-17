@@ -25,7 +25,7 @@ export type PosPack = Readonly<Record<string, readonly string[]>>;
  */
 export type NamesPack = Readonly<Record<string, string>>;
 /**
- * en/vocab.json: the words Lingo knows (EJDict's single-word headwords and the words in
+ * en/vocab.json: the words Langle knows (EJDict's single-word headwords and the words in
  * use that Wiktionary adds, rule E), sorted.
  */
 export type VocabPack = readonly string[];

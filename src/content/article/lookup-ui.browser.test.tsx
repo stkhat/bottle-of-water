@@ -110,7 +110,7 @@ describe("hover card", () => {
     });
   });
 
-  it("shows nothing over words Lingo does not know", async () => {
+  it("shows nothing over words Langle does not know", async () => {
     const { root } = await setup("<p>Zorbles wibble the dough.</p>");
     await pointAt(root, "wibble");
     await new Promise((r) => setTimeout(r, 400));
@@ -124,8 +124,8 @@ describe("hover card", () => {
        <p>Yesterday Mark baked a loaf in Japan. The dough was tedious for Mark.</p>`,
       { settings: { highlight: { new: true, learning: true, known: false } } },
     );
-    await expect.poll(() => highlighted("lingo-new")).toContain("Japan");
-    expect(highlighted("lingo-new")).not.toContain("Mark");
+    await expect.poll(() => highlighted("langle-new")).toContain("Japan");
+    expect(highlighted("langle-new")).not.toContain("Mark");
     await pointAt(root, "Mark");
     await new Promise((r) => setTimeout(r, 400));
     expect(hoverCard().query()).toBeNull();
@@ -143,12 +143,12 @@ describe("hover card", () => {
       "<p>Yesterday Mark baked a loaf. The dough was tedious.</p>",
       { settings: { highlight: { new: true, learning: true, known: false } } },
     );
-    await expect.poll(() => highlighted("lingo-new")).toContain("loaf");
-    expect(highlighted("lingo-new")).not.toContain("Mark");
+    await expect.poll(() => highlighted("langle-new")).toContain("loaf");
+    expect(highlighted("langle-new")).not.toContain("Mark");
     const added = document.createElement("p");
     added.textContent = "The knife left a mark on the loaf.";
     root.append(added);
-    await expect.poll(() => highlighted("lingo-new")).toContain("Mark");
+    await expect.poll(() => highlighted("langle-new")).toContain("Mark");
   });
 
   it("+ Learning saves the word and updates the card and the highlights", async () => {
@@ -164,7 +164,7 @@ describe("hover card", () => {
     await expect
       .element(card.getByText("Learning", { exact: true }))
       .toBeVisible();
-    expect(highlighted("lingo-learning")).toEqual(["tedious", "tedious"]);
+    expect(highlighted("langle-learning")).toEqual(["tedious", "tedious"]);
     expect(background.sent("saveTerm")).toEqual([
       {
         type: "saveTerm",
@@ -242,7 +242,7 @@ describe("dictionary panel", () => {
     await clickOn(root, "tedious");
     await expect.element(dictionary()).toBeVisible();
     const outline = document
-      .querySelector("lingo-test-ui")!
+      .querySelector("langle-test-ui")!
       .shadowRoot!.querySelector("[data-outline]")!;
     expect(outline).not.toBeNull();
     const word = rectOf(root, "tedious");
@@ -256,7 +256,7 @@ describe("dictionary panel", () => {
     const { root, background } = await setup(ARTICLE, {
       settings: { highlight: { new: true, learning: true, known: true } },
     });
-    await expect.poll(() => highlighted("lingo-new")).toContain("tedious");
+    await expect.poll(() => highlighted("langle-new")).toContain("tedious");
     await clickOn(root, "tedious");
     const panel = dictionary();
 
@@ -264,8 +264,8 @@ describe("dictionary panel", () => {
     await expect
       .element(panel.getByRole("button", { name: "Learning" }))
       .toHaveAttribute("aria-pressed", "true");
-    expect(highlighted("lingo-learning")).toEqual(["tedious", "tedious"]);
-    expect(highlighted("lingo-new")).not.toContain("tedious");
+    expect(highlighted("langle-learning")).toEqual(["tedious", "tedious"]);
+    expect(highlighted("langle-new")).not.toContain("tedious");
     // Saved: the panel offers Remove and lists occurrences elsewhere (none yet).
     await expect
       .element(panel.getByRole("button", { name: "Remove" }))
@@ -276,10 +276,10 @@ describe("dictionary panel", () => {
     await expect
       .element(panel.getByRole("button", { name: "Known" }))
       .toHaveAttribute("aria-pressed", "true");
-    expect(highlighted("lingo-known")).toEqual(
+    expect(highlighted("langle-known")).toEqual(
       expect.arrayContaining(["tedious", "tedious"]),
     );
-    expect(highlighted("lingo-learning")).toEqual([]);
+    expect(highlighted("langle-learning")).toEqual([]);
     expect(background.sent("setStatus")).toEqual([
       { type: "setStatus", id: "en:tedious", status: "known" },
     ]);
@@ -292,7 +292,7 @@ describe("dictionary panel", () => {
       { type: "removeTerm", id: "en:tedious" },
     ]);
     await expect
-      .poll(() => highlighted("lingo-new").filter((w) => w === "tedious"))
+      .poll(() => highlighted("langle-new").filter((w) => w === "tedious"))
       .toHaveLength(2);
   });
 
@@ -300,7 +300,7 @@ describe("dictionary panel", () => {
     const { root, background } = await setup(ARTICLE, {
       settings: { highlight: { new: true, learning: true, known: true } },
     });
-    await expect.poll(() => highlighted("lingo-new")).toContain("tedious");
+    await expect.poll(() => highlighted("langle-new")).toContain("tedious");
     await clickOn(root, "tedious", 1);
     const panel = dictionary();
     const meaning = "退屈な；うんざりする；面倒な";
@@ -312,7 +312,7 @@ describe("dictionary panel", () => {
       .element(panel.getByRole("button", { name: "Learning" }))
       .toHaveAttribute("aria-pressed", "true");
     await expect.element(panel.getByText("1 sentence")).toBeVisible();
-    expect(highlighted("lingo-learning")).toEqual(["tedious", "tedious"]);
+    expect(highlighted("langle-learning")).toEqual(["tedious", "tedious"]);
     expect(background.sent("chooseMeaning")).toEqual([
       {
         type: "chooseMeaning",
@@ -374,7 +374,7 @@ describe("dictionary panel", () => {
     const title = document.title;
     const visit = (page: string, pageTitle: string) => {
       const url = new URL(address);
-      url.searchParams.set("lingo-page", page);
+      url.searchParams.set("langle-page", page);
       history.replaceState(null, "", url);
       document.title = pageTitle;
     };
@@ -605,12 +605,12 @@ describe("events a page script makes", () => {
 });
 
 describe("the page", () => {
-  it("has no Lingo card, and highlights follow settings changed elsewhere", async () => {
+  it("has no Langle card, and highlights follow settings changed elsewhere", async () => {
     const { background } = await setup(ARTICLE);
     background.changeSettings({
       highlight: { new: true, learning: true, known: false },
     });
-    await expect.poll(() => highlighted("lingo-new")).toContain("tedious");
+    await expect.poll(() => highlighted("langle-new")).toContain("tedious");
     expect(page.getByRole("button", { name: "New", exact: true }).query()).toBe(
       null,
     );
@@ -630,7 +630,7 @@ describe("dictionary phrases", () => {
   it("highlights a detected phrase as one new term with its Japanese meaning", async () => {
     const { root } = await setup(PHRASES, { settings: withNew });
     await expect
-      .poll(() => highlighted("lingo-new"))
+      .poll(() => highlighted("langle-new"))
       .toEqual(["from scratch", "figure out", "schedule"]);
 
     await pointAt(root, "scratch");

@@ -1,4 +1,4 @@
-// A trimmed Netflix watch page (the parts Lingo uses, as in
+// A trimmed Netflix watch page (the parts Langle uses, as in
 // e2e/fixtures/netflix-watch.html) with the fake player API on `window.netflix`.
 import {
   FIXTURE_METADATA,
@@ -27,7 +27,7 @@ export function testManifest(movieId = MOVIE_ID, drop?: RegExp): string {
   copy.result.movieId = Number(movieId);
   return JSON.stringify(copy).replace(
     /https:\/\/ipv4-c00\d-test00\d-ix\.1\.oca\.nflxvideo\.net\//g,
-    `${location.origin}/lingo-nflx/`,
+    `${location.origin}/langle-nflx/`,
   );
 }
 
@@ -128,8 +128,8 @@ export function createTestPage(
           },
         }),
   });
-  const fake = (window as unknown as { lingoFakeNetflix: FakeNetflixControl })
-    .lingoFakeNetflix;
+  const fake = (window as unknown as { langleFakeNetflix: FakeNetflixControl })
+    .langleFakeNetflix;
   if (options.controls !== false) fake.showControls(true);
   return {
     root,

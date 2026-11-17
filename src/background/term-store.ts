@@ -26,7 +26,7 @@ import type {
   TermRecord,
 } from "../messaging/protocol";
 import type {
-  LingoDb,
+  LangleDb,
   MeaningChoiceRecord,
   MeaningRecord,
   MetaKey,
@@ -63,8 +63,8 @@ interface LiveChoice extends MeaningChoiceRecord {
  * The JSON export (version 2). Version 1, which import still reads, had no meanings
  * and no meaning choices.
  */
-export interface LingoExport {
-  format: "lingo-export";
+export interface LangleExport {
+  format: "langle-export";
   version: 2;
   exportedAt: number;
   /** Every term, tombstones included. */
@@ -144,7 +144,7 @@ export interface TermStore {
   /** Newest first. */
   occurrencesOf(termId: string): Promise<OccurrenceWithSource[]>;
   occurrenceStats(lang: string): Promise<Map<string, OccurrenceStats>>;
-  /** All data as `LingoExport` JSON; records `lastExportAt`. */
+  /** All data as `LangleExport` JSON; records `lastExportAt`. */
   exportJson(): Promise<string>;
   /**
    * Merges an export (version 1 or 2): per term the newer `updatedAt` wins (equal keeps
@@ -182,7 +182,9 @@ export interface TermStoreOptions {
  */
 export const MAX_OCCURRENCES = 50;
 
-const EXPORT_FORMAT = "lingo-export";
+const EXPORT_FORMAT = "langle-export";
+/** Exports made before the rename to Langle (2026-11-18) still import. */
+const LEGACY_EXPORT_FORMAT = "lingo-export";
 const EXPORT_VERSION = 2;
 /** Versions `importJson` reads. */
 const IMPORT_VERSIONS: ReadonlySet<unknown> = new Set([1, 2]);
@@ -305,7 +307,7 @@ function oneDevice() {
 }
 
 export function createTermStore(
-  db: LingoDb,
+  db: LangleDb,
   {
     now = Date.now,
     newBatchId = () => crypto.randomUUID(),
@@ -788,7 +790,7 @@ export function createTermStore(
             db.meanings.toArray(),
             db.meaningChoices.toArray(),
           ]);
-        const exported: LingoExport = {
+        const exported: LangleExport = {
           format: EXPORT_FORMAT,
           version: EXPORT_VERSION,
           exportedAt,
@@ -812,7 +814,7 @@ export function createTermStore(
         data.meanings.map((m) => meaningKey(m.termId, m.from, m.text)),
       );
       if (keys.some((key, i) => key !== data.meanings[i]!.key))
-        throw new Error("The Lingo export is damaged");
+        throw new Error("The Langle export is damaged");
       return mutate(async (changes) => {
         const result: ImportResult = { terms: 0, sources: 0, occurrences: 0 };
 
@@ -1093,13 +1095,16 @@ function isOccurrence(o: unknown): o is Omit<OccurrenceRecord, "id"> {
   );
 }
 
-function parseExport(json: string): LingoExport {
+function parseExport(json: string): LangleExport {
   const data: unknown = JSON.parse(json);
-  if (!isObject(data) || data.format !== EXPORT_FORMAT)
-    throw new Error("This file is not a Lingo export");
+  if (
+    !isObject(data) ||
+    (data.format !== EXPORT_FORMAT && data.format !== LEGACY_EXPORT_FORMAT)
+  )
+    throw new Error("This file is not a Langle export");
   if (!IMPORT_VERSIONS.has(data.version))
     throw new Error(
-      `Unsupported Lingo export version: ${String(data.version)}`,
+      `Unsupported Langle export version: ${String(data.version)}`,
     );
   const { terms, sources, occurrences } = data;
   // Version 1 had neither.
@@ -1117,9 +1122,9 @@ function parseExport(json: string): LingoExport {
     !meanings.every(isMeaningRecord) ||
     !meaningChoices.every(isChoice)
   )
-    throw new Error("The Lingo export is damaged");
+    throw new Error("The Langle export is damaged");
   return {
-    ...(data as unknown as LingoExport),
+    ...(data as unknown as LangleExport),
     occurrences: occurrences.map((o) => omit(o as OccurrenceRecord, "id")),
     meanings,
     meaningChoices,
