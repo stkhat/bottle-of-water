@@ -3,6 +3,7 @@ import {
   cleanDefinition,
   definitionPointer,
   definitionTexts,
+  shortDefinitionText,
   isUsageNote,
   isUsageNoteShort,
   MAX_TRANSLATED_SENSES,
@@ -238,7 +239,7 @@ describe("definitionPointer", () => {
 });
 
 describe("definitionTexts", () => {
-  it("gives the cleaned short meaning and first senses, each once", () => {
+  it("gives the short meaning (the sense it was cut from) and the cleaned first senses, each once", () => {
     expect(MAX_TRANSLATED_SENSES).toBe(4);
     expect(
       definitionTexts({
@@ -251,10 +252,26 @@ describe("definitionTexts", () => {
           { pos: "verb", text: "To spill something edible." },
         ],
       }),
-    ).toEqual(["To reveal a secret", "To reveal a secret.", "To confess."]);
+    ).toEqual(["To reveal a secret.", "To confess."]);
   });
 });
 
+describe("shortDefinitionText", () => {
+  const senses = [
+    { text: "(idiomatic) To reveal a secret." },
+    { text: "To confess; to own up." },
+  ];
+  it("gives the sense a short meaning was cut from, with its period", () => {
+    expect(shortDefinitionText("To reveal a secret", senses)).toBe(
+      "To reveal a secret.",
+    );
+  });
+  it("gives any other short meaning cleaned, as it is", () => {
+    expect(shortDefinitionText("To confess", senses)).toBe("To confess");
+    expect(shortDefinitionText("(informal) To blab", senses)).toBe("To blab");
+    expect(shortDefinitionText("Plural of bean", senses)).toBeUndefined();
+  });
+});
 describe("isUsageNote", () => {
   it("finds definitions that say how an expression is used", () => {
     expect(isUsageNote("Used to express surprise.")).toBe(true);

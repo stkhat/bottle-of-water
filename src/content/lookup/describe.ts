@@ -4,11 +4,13 @@ import {
   cleanDefinition,
   isUsageNoteShort,
   MAX_TRANSLATED_SENSES,
+  shortDefinitionText,
 } from "../../core/lexicon/definitions";
 import type { Sense, Written } from "../../core/lexicon/dictionary";
 import {
   MAX_SHORT_LINES,
   translatedLine,
+  withoutFinalStop,
 } from "../../core/lexicon/short-lines";
 import { matchSense, type Meaning } from "../../core/meanings";
 import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
@@ -383,7 +385,8 @@ export async function describeTerm(
 
   /** The short meaning translated from its English definition, when it is one. */
   async function translatedShort() {
-    const english = pair && entry && cleanDefinition(entry.short);
+    const english =
+      pair && entry && shortDefinitionText(entry.short, entry.senses);
     if (!pair || !english || usageNote) return undefined;
     const hit = cached(english);
     if (hit !== undefined || shownIn === "window") return hit;
@@ -416,7 +419,7 @@ export async function describeTerm(
   let shortLang = entry?.glossLang;
   let machineTranslated: TermCard["machineTranslated"];
   if (definition !== undefined) {
-    short = definition;
+    short = withoutFinalStop(definition);
     shortLang = undefined;
     machineTranslated = "definition";
   } else if (literal !== undefined) {
@@ -487,7 +490,7 @@ export async function translateSenses(
       short: card.short,
       senses: card.senses,
     })
-      ? cleanDefinition(card.short)
+      ? shortDefinitionText(card.short, card.senses)
       : undefined;
   const senseTexts = card.senses.map((sense, i) =>
     i < MAX_TRANSLATED_SENSES && sense.translated === undefined
@@ -522,7 +525,7 @@ export async function translateSenses(
   };
   const short = shortText !== undefined && translations.get(shortText);
   if (short) {
-    result.short = short;
+    result.short = withoutFinalStop(short);
     result.machineTranslated = "definition";
     delete result.shortLang;
   }

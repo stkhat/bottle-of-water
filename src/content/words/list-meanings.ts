@@ -1,3 +1,4 @@
+import { withoutFinalStop } from "../../core/lexicon/short-lines";
 import type { send as sendFn } from "../../messaging/client";
 import type { ShortMeaning } from "../../messaging/protocol";
 import { keepTranslations } from "../lookup/describe";
@@ -54,7 +55,11 @@ export function withTranslation<T extends ShortMeaning>(
   item: T,
   translated: string,
 ): T {
-  const next = { ...item, short: translated, machineTranslated: true as const };
+  const next = {
+    ...item,
+    short: withoutFinalStop(translated),
+    machineTranslated: true as const,
+  };
   delete next.glossLang;
   delete next.definition;
   delete next.usageNote;

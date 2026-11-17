@@ -6,7 +6,7 @@
 /*
  * The data scripts import this file under plain Node: it has no value imports.
  */
-import type { DictionaryEntry } from "./dictionary";
+import type { DictionaryEntry, Sense } from "./dictionary";
 import type { Pointer } from "./short-lines";
 
 /** The dictionary window translates up to this many senses (the hover card: the short meaning). */
@@ -308,15 +308,45 @@ export function cleanDefinition(text: string): string | undefined {
 }
 
 /**
- * The cleaned texts of an entry that are translated: its short meaning and its first
- * senses (`MAX_TRANSLATED_SENSES`), each once, pointers left out.
+ * A short meaning in English as it is translated: cleaned (`cleanDefinition`), or the
+ * cleaned sense it was cut from when it is that sense without its final period
+ * (`shortOfDefinition`). The window then shows one translation for both, the
+ * sentence's: without the period the translator can read a definition differently
+ * ("To cancel a subscription" → 〜をキャンセルするため, a purpose, where the sense
+ * reads 〜をキャンセルする。). Adding a period to every short meaning is no better
+ * on the whole (docs/notes/definition-translation.md).
+ */
+export function shortDefinitionText(
+  short: string,
+  senses: readonly Pick<Sense, "text">[],
+): string | undefined {
+  const cleaned = cleanDefinition(short);
+  if (cleaned === undefined) return undefined;
+  for (const sense of senses) {
+    const text = cleanDefinition(sense.text);
+    if (
+      text !== undefined &&
+      /[.!?]$/.test(text) &&
+      text.slice(0, -1) === cleaned
+    )
+      return text;
+  }
+  return cleaned;
+}
+
+/**
+ * The cleaned texts of an entry that are translated: its short meaning
+ * (`shortDefinitionText`) and its first senses (`MAX_TRANSLATED_SENSES`), each once,
+ * pointers left out.
  */
 export function definitionTexts(
   entry: Pick<DictionaryEntry, "short" | "senses">,
 ): string[] {
   const texts = [
-    entry.short,
-    ...entry.senses.slice(0, MAX_TRANSLATED_SENSES).map((sense) => sense.text),
-  ].map(cleanDefinition);
+    shortDefinitionText(entry.short, entry.senses),
+    ...entry.senses
+      .slice(0, MAX_TRANSLATED_SENSES)
+      .map((sense) => cleanDefinition(sense.text)),
+  ];
   return [...new Set(texts.filter((text) => text !== undefined))];
 }
