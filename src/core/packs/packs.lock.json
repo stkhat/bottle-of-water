@@ -121,7 +121,7 @@
       "version": "2026.1113.6"
     },
     "en-es": {
-      "bundled": true,
+      "bundled": false,
       "files": [
         {
           "path": "dict-1.json",
@@ -197,7 +197,7 @@
       "version": "2026.1113.7"
     },
     "en-pt": {
-      "bundled": true,
+      "bundled": false,
       "files": [
         {
           "path": "dict-1.json",
@@ -220,7 +220,7 @@
       "version": "2026.1113.3"
     },
     "es": {
-      "bundled": true,
+      "bundled": false,
       "files": [
         {
           "path": "freq.json",
@@ -253,7 +253,7 @@
       "version": "2026.1111.0"
     },
     "es-en": {
-      "bundled": true,
+      "bundled": false,
       "files": [
         {
           "path": "dict-1.json",
