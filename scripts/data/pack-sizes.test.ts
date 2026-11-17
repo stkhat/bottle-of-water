@@ -32,8 +32,8 @@ describe.each(
   );
 });
 
-// Every pack is bundled while pack hosting is not live: together they stay under 50 MB
-// (the size decision for the phrase data, docs/notes/data-sizes.md).
+// All packs together, bundled or downloaded, stay under 50 MB (the size decision for
+// the phrase data, docs/notes/data-sizes.md).
 const TOTAL_BYTES = 50_000_000;
 it("keeps all pack files together under 50 MB", () => {
   const total = [PACKS_DIR, DOWNLOAD_PACKS_DIR]

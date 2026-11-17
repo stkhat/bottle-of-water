@@ -78,14 +78,17 @@ describe("applyOverrides", () => {
 });
 
 describe("readLock", () => {
-  it("is the committed lock: every pack bundled, jsDelivr then unpkg", () => {
+  it("is the committed lock: English and en-ja bundled, the rest downloaded, jsDelivr then unpkg", () => {
     const { v, mirrors, packs } = readLock();
     expect(v).toBe(1);
     expect(mirrors).toEqual(lock.mirrors);
     expect(Object.keys(packs).sort()).toEqual(Object.keys(lock.packs).sort());
-    for (const pack of Object.values(packs)) {
-      expect(pack.bundled).toBe(true);
+    const bundled = Object.entries(packs)
+      .filter(([, pack]) => pack.bundled)
+      .map(([name]) => name)
+      .sort();
+    expect(bundled).toEqual(["en", "en-defs", "en-ja"]);
+    for (const pack of Object.values(packs))
       expect(pack.files.length).toBeGreaterThan(0);
-    }
   });
 });

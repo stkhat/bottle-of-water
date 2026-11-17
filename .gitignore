@@ -9,3 +9,6 @@ data/raw
 data/publish
 .stryker-tmp
 .vitest
+
+# macOS Finder metadata
+.DS_Store

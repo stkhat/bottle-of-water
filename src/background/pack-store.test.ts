@@ -60,15 +60,17 @@ describe("createPackSource", () => {
     expect(store.read).toHaveBeenCalledTimes(2);
   });
 
-  it("reads every pack from the extension with the committed lock", async () => {
+  it("with the committed lock, reads English from the extension and Spanish from the store", async () => {
     const fetch = vi.fn(async () => Response.json({}));
     vi.stubGlobal("fetch", fetch);
     const store = fakeStore();
     const fetchJson = createPackSource({ lock: readLock(), store });
+    await fetchJson("/packs/en/freq.json");
+    await fetchJson("/packs/en-ja/index.json");
     await fetchJson("/packs/es/freq.json");
     await fetchJson("/packs/es-en/index.json");
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(store.read).not.toHaveBeenCalled();
+    expect(store.read).toHaveBeenCalledTimes(2);
   });
 
   it("passes on that a downloaded pack is not on the device", async () => {

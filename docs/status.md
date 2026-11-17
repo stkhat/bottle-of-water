@@ -3,7 +3,7 @@
 Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes/data-sizes.md](notes/data-sizes.md).
 
 ## Where we are
-- Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, YouTube Shorts (subtitles and comments), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (tested against a local mirror)
+- Phases 1 and 2 and M9 (language data that scales) are built and merged: article UI, YouTube and Netflix video UI, YouTube comments, YouTube Shorts (subtitles and comments), popup, settings, word list; phrase detection and patterns, sentence history, Words tab, fullscreen; Spanish → English; English → Spanish and Portuguese; definitions translated at display time; downloadable packs (`es`, `es-en`, `en-es`, `en-pt` from npm `@langle/<pack>` via jsDelivr and unpkg since 2026-11-18; checked in the user's Chrome on Spanish Wikipedia)
 - Checked in the user's Chrome on YouTube (TED talk), Netflix (Friends `watch/70274124`) and Wikipedia
 - Video ([ui](specs/ui.md) "Video UI"): phrases saved from subtitles and the transcript, pause while a card, the dictionary window, a selection or the pointer is on the subtitle, transcript sidebar beside a full-window player, Netflix's bar held back 1 s, Shorts tracks and ASR cards of at most 30 words that a speaker change always ends ([notes](notes/youtube-captions.md)). Checked on YouTube and Netflix on 2026-11-13 and 11-14; the "Below video" box only in browser tests. Manual tracks' cards as whole sentences of whole cues that follow the site's translation (2026-11-15; [ui](specs/ui.md) "Transcript"): measured offline on 38 YouTube videos and 10 Netflix episodes, not yet checked in the user's Chrome
 - Highlight and video UI fixes (PR #68): "Details" on every hover card, white outline on the L / ^ group, selections partly over a highlight saved as selected, cheaper renders ([notes](notes/selection-performance.md)). Checked on YouTube and Netflix on 2026-11-14
@@ -67,8 +67,7 @@ Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes
 - Names (rule D): ALL-CAPS captions and lower-case speech recognition have no names (CHANDLER keeps ろうそく製造販売人); a place or organisation alone or after a name can still be taken for a name (Congress; "Bad Bunny" is a person); a run makes a few title words names after a name (Princess Diaries, Household Division); a capitalised word with a Title Case headword shows it even inside a title (Man → マン島 in a book title)
 - Chinese is not offered: 91.2% of the gate (under 95%), and the zh edition writes Traditional characters. With OMW it reaches 96.1% (Simplified), pending a license decision; fr, de, ru and vi would also pass ([notes](notes/translation-data-expansion.md), [matrix](notes/language-matrix.html))
 
-### Hosting and Firefox
-- Pack hosting is pending: the npm organization `langle` (scope `@langle`), each package's first version published by hand and its trusted publisher (`packs.yml` publishes later versions), then `npm run data:publish -- --download es,es-en` and a release. The real CDN download is checked only after that
+### Firefox
 - Firefox (not released): `data_collection_permissions` missing in the manifest; highlight-underline support not detected; check `adoptedStyleSheets` / `CSS.highlights` from a Firefox content script; the Firefox build is only built, not run as an extension (the browser tests run on Firefox: CI, and locally in Docker)
 
 ## Before publishing (Chrome Web Store)
