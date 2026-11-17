@@ -480,7 +480,8 @@ describe("describeTerm with an English definition", () => {
     const { translator } = recordingTranslator();
     const card = await describeTerm(BEANS, deps(send, translator));
     expect(hoverView(card).meanings).toEqual(["組み立て、構築、または定式化"]);
-    expect(windowView(card).short).toBe(whole);
+    // Whole, as a short meaning: without the sentence's final period.
+    expect(windowView(card).short).toBe("組み立て、構築、構築、または定式化");
   });
 
   it("translates a phrase whose definition is only a usage note as it is written", async () => {
@@ -528,10 +529,33 @@ describe("describeTerm with an English definition", () => {
       { key: "umbrella term", kind: "phrase", surface: "umbrella term" },
       deps(send, translator),
     );
+    // The short meaning is its sense without the period: the sense is translated,
+    // so the window shows the same translation for both.
     expect(calls).toEqual([
-      ["A word used to cover a broad category of things", "hover", EN_JA],
+      ["A word used to cover a broad category of things.", "hover", EN_JA],
     ]);
     expect(card).toMatchObject({ machineTranslated: "definition" });
+  });
+
+  it("shows the translation of the sense a short meaning was cut from, without its final period", async () => {
+    const { send } = fakeSend("new", {
+      "A word used to cover a broad category of things.":
+        "幅広いカテゴリのものをカバーするために使用される単語。",
+    });
+    const { calls, translator } = recordingTranslator();
+    const card = await describeTerm(
+      { key: "umbrella term", kind: "phrase", surface: "umbrella term" },
+      deps(send, translator),
+    );
+    expect(calls).toEqual([]);
+    expect(card).toMatchObject({
+      short: "幅広いカテゴリのものをカバーするために使用される単語",
+      senses: [
+        {
+          translated: "幅広いカテゴリのものをカバーするために使用される単語。",
+        },
+      ],
+    });
   });
 
   it("uses the cached translations without the translator", async () => {

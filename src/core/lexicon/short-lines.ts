@@ -427,6 +427,10 @@ function japaneseTranslation(line: string): string {
   return displayWidth(tail) >= displayWidth(head) ? tail : head;
 }
 
+/** A translated sentence as a short meaning: without its final period (。 or .). */
+export const withoutFinalStop = (text: string) =>
+  text.trim().replace(/[。．.]+$/, "");
+
 /**
  * A meaning the browser's translator gave (an English definition translated into
  * `lang`) as a hover line, like the dictionaries' lines: without a final period, each
@@ -436,7 +440,7 @@ function japaneseTranslation(line: string): string {
  * its last clauses. The dictionary window shows the whole translation.
  */
 export function translatedLine(text: string, lang: string): string {
-  const line = withoutRepeatedItems(text.trim().replace(/[。．.]+$/, ""));
+  const line = withoutRepeatedItems(withoutFinalStop(text));
   return lang === "ja"
     ? japaneseTranslation(line)
     : capLine(line, DEFINITION_CAP);

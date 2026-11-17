@@ -5,10 +5,11 @@ import {
   type TermStatus,
 } from "../core/classify";
 import {
-  cleanDefinition,
   definitionTexts,
   isUsageNoteShort,
+  shortDefinitionText,
 } from "../core/lexicon/definitions";
+import { withoutFinalStop } from "../core/lexicon/short-lines";
 import type {
   DictionaryEntry,
   DictionaryProvider,
@@ -244,7 +245,7 @@ export function createHandlers({
     );
     const cleaned = entries.map((entry, i) =>
       glossedInOtherLanguage(entry, nativeLang) && !notes[i]
-        ? cleanDefinition(entry.short)
+        ? shortDefinitionText(entry.short, entry.senses)
         : undefined,
     );
     const found = await cachedTranslations(translationPair(lang, nativeLang), [
@@ -254,7 +255,10 @@ export function createHandlers({
       if (entry === undefined) return {};
       const text = cleaned[i];
       if (text !== undefined && Object.hasOwn(found, text))
-        return { short: found[text]!, machineTranslated: true };
+        return {
+          short: withoutFinalStop(found[text]!),
+          machineTranslated: true,
+        };
       return {
         short: entry.short,
         ...(entry.glossLang !== undefined && { glossLang: entry.glossLang }),
