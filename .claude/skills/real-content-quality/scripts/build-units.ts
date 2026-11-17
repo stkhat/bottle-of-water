@@ -187,7 +187,7 @@ for (const f of filesOf("netflix")) {
     );
     continue;
   }
-  // Only the cards Lingo rendered: their text and lines as they were.
+  // Only the cards Langle rendered: their text and lines as they were.
   (d.cards ?? []).forEach((c, i) => {
     const native = c[NATIVE] ?? "";
     units.push({

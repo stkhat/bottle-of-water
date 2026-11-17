@@ -315,7 +315,7 @@ export function keepTranslations(
       lang,
       items: items.slice(i, i + MAX_CACHED_TRANSLATIONS),
     }).catch((error: unknown) =>
-      console.warn("Lingo: could not keep the translations", error),
+      console.warn("Langle: could not keep the translations", error),
     );
 }
 

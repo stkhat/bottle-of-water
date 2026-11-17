@@ -10,7 +10,7 @@ import {
 import type { PackState, PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
 import { errorText, listeners, own, promiseCache, serial } from "../core/util";
-import type { LingoDb, PackVersionRecord } from "./db";
+import type { LangleDb, PackVersionRecord } from "./db";
 
 /** What `ensure` did: the packs now at their lock version, and those that failed. */
 export interface EnsureResult {
@@ -71,7 +71,7 @@ export interface PackStore {
 }
 
 export interface PackStoreOptions {
-  db: LingoDb;
+  db: LangleDb;
   /** The lock this build uses (`readLock()`). */
   lock: PackLock;
   fetch?: typeof globalThis.fetch;
@@ -173,7 +173,7 @@ export function createPackStore({
     writes
       .run(() => setState(snapshot))
       .catch((error: unknown) =>
-        console.error("Lingo: could not write the pack state", error),
+        console.error("Langle: could not write the pack state", error),
       );
   }
 

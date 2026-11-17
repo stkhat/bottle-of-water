@@ -53,7 +53,7 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
       expect(existsSync(`.output/${dir}/${file}`)).toBe(true);
   });
 
-  test("ships the gray toolbar icon shown while Lingo is off, in every size", () => {
+  test("ships the gray toolbar icon shown while Langle is off, in every size", () => {
     for (const size of [16, 32, 48, 128])
       expect(existsSync(`.output/${dir}/icon-off/${size}.png`)).toBe(true);
   });
@@ -117,7 +117,7 @@ describe("chrome-mv3 manifest specifics", () => {
 describe("firefox-mv3 manifest specifics", () => {
   test("has the Gecko id and background scripts", () => {
     const m = readManifest("firefox-mv3");
-    expect(m.browser_specific_settings?.gecko?.id).toBe("lingo@stkhat");
+    expect(m.browser_specific_settings?.gecko?.id).toBe("langle@stkhat");
     expect(m.background?.scripts).toBeDefined();
   });
 });
@@ -146,15 +146,15 @@ describe("check build", () => {
     "%s (production) has no error log",
     (dir) => {
       const scripts = scriptsOf(dir);
-      expect(scripts).not.toContain("lingo:check-errors");
+      expect(scripts).not.toContain("langle:check-errors");
       expect(scripts).not.toContain("checkErrorLog");
     },
   );
 
   test("the check build records errors in the worker, every content script and the pages", () => {
-    const dir = ".output/lingo-check";
+    const dir = ".output/langle-check";
     const has = (file: string) =>
-      readFileSync(`${dir}/${file}`, "utf8").includes("lingo:check-errors");
+      readFileSync(`${dir}/${file}`, "utf8").includes("langle:check-errors");
     for (const file of [
       "background.js",
       "content-scripts/content.js",
@@ -170,13 +170,13 @@ describe("check build", () => {
     expect(scripts.some(has)).toBe(true);
   });
 
-  test("npm run build:check writes the build id into .output/lingo-check", () => {
-    const path = ".output/lingo-check/build-id.txt";
+  test("npm run build:check writes the build id into .output/langle-check", () => {
+    const path = ".output/langle-check/build-id.txt";
     if (!existsSync(path)) {
       throw new Error(`${path} not found. Build first: npm run build:check`);
     }
     expect(readFileSync(path, "utf8")).toMatch(/^\d{4}-\d\d-\d\dT\S+ \S+\n$/);
-    expect(backgroundOf("lingo-check")).toContain("build-id.txt");
-    expect(readManifest("lingo-check").manifest_version).toBe(3);
+    expect(backgroundOf("langle-check")).toContain("build-id.txt");
+    expect(readManifest("langle-check").manifest_version).toBe(3);
   });
 });

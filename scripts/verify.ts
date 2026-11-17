@@ -57,7 +57,7 @@ const LANES: Record<string, Stage[]> = {
   ],
 };
 
-const VERIFIED_FILE = "lingo-verified";
+const VERIFIED_FILE = "langle-verified";
 const VERIFIED_KEEP = 50;
 
 // Kept stripped of colour codes so the excerpts read as plain text.
@@ -101,7 +101,7 @@ function git(args: string[], env?: NodeJS.ProcessEnv): string {
 
 /** The tree `git add -A && git commit` would record now, without touching the index. */
 export function workingTree(): string {
-  const dir = mkdtempSync(join(tmpdir(), "lingo-verify-"));
+  const dir = mkdtempSync(join(tmpdir(), "langle-verify-"));
   try {
     const index = join(dir, "index");
     const current = git(["rev-parse", "--git-path", "index"]);
@@ -233,7 +233,7 @@ function stopOthers(except: string): void {
 
 async function main(): Promise<number> {
   const started = Date.now();
-  const logDir = resolve(git(["rev-parse", "--git-path", "lingo-verify"]));
+  const logDir = resolve(git(["rev-parse", "--git-path", "langle-verify"]));
   mkdirSync(logDir, { recursive: true });
   const tree = workingTree();
 

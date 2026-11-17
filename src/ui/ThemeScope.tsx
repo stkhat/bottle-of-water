@@ -12,7 +12,7 @@ export function ThemeScope(props: {
   return (
     <>
       <style>{THEME_CSS}</style>
-      <div data-lingo-theme={props.theme} style={{ display: "contents" }}>
+      <div data-langle-theme={props.theme} style={{ display: "contents" }}>
         {props.children}
       </div>
     </>

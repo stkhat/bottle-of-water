@@ -1,4 +1,4 @@
-// What the specs do on a web page with Lingo on it.
+// What the specs do on a web page with Langle on it.
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, sendToBackground } from "./fixtures";
 
@@ -65,7 +65,7 @@ export async function openArticle(
   const page = await context.newPage();
   await page.goto(url);
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length, COLD_LOAD)
+    .poll(async () => (await highlighted(page, "langle-new")).length, COLD_LOAD)
     .toBeGreaterThan(0);
   return page;
 }

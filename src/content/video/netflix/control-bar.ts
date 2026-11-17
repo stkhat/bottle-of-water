@@ -10,9 +10,9 @@ import {
 } from "./site";
 
 /**
- * Netflix's control bar is held back while Lingo's subtitle is over the video
+ * Netflix's control bar is held back while Langle's subtitle is over the video
  * (docs/notes/netflix.md, "Layout decisions"): it shows once the pointer has stayed in
- * the bar's area for a while, or at once in the top strip; never while Lingo is in use.
+ * the bar's area for a while, or at once in the top strip; never while Langle is in use.
  * Each new bar is held back again. The adapter hands over the pointer's moves.
  */
 export function createControlBar(o: {
@@ -20,7 +20,7 @@ export function createControlBar(o: {
   /** How long the pointer stays in the bar's area before the bar shows. */
   delayMs: number;
 }) {
-  const hideBar = styleSwitch("lingo-hide-netflix-bar", HIDE_CONTROL_BAR_CSS);
+  const hideBar = styleSwitch("langle-hide-netflix-bar", HIDE_CONTROL_BAR_CSS);
   let barMode: ControlBarMode = "free";
   let revealed = false;
   let barPresent = false;
@@ -53,7 +53,7 @@ export function createControlBar(o: {
   }
 
   return {
-    /** Lingo keeps the bar hidden now. */
+    /** Langle keeps the bar hidden now. */
     hidden: barHidden,
 
     /** The pointer moved. */
@@ -98,7 +98,7 @@ export function createControlBar(o: {
         }, BAR_GONE_MS);
       barPresent = present;
       barMode = mode;
-      // The pointer may already be in an area (the move that ended Lingo's use, say).
+      // The pointer may already be in an area (the move that ended Langle's use, say).
       revealForPointer();
       hideBar(barHidden());
     },

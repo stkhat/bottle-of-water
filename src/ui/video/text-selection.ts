@@ -29,7 +29,7 @@ export interface TextSelectionProps {
 
 /**
  * Presses on a text words are selected in. They do not drop the selection: the press
- * makes a new one, read when it ends. Lingo's parts sit in closed shadow roots, so each
+ * makes a new one, read when it ends. Langle's parts sit in closed shadow roots, so each
  * marks its own presses.
  */
 const onText = new WeakSet<Event>();
@@ -39,7 +39,7 @@ export function pressedOnText(event: Event): boolean {
 }
 
 /**
- * Selecting words in a text of Lingo's UI (a shadow root): from a press on the text,
+ * Selecting words in a text of Langle's UI (a shadow root): from a press on the text,
  * the first selection calls `onSelectStart`, and the press's end `onSelect`, whose
  * snapped words are then selected. Returns the text's ref, its pointerdown handler and
  * whether words are selected in it (a click after a drag opens no word).

@@ -1,6 +1,6 @@
 # Collecting the corpus
 
-All collection happens in the user's Chrome through Claude in Chrome, with Lingo's check build loaded. Each source gets one JSON file in the study folder (`data/raw/quality/<study>/corpus/<kind>/<id>.json`, git-ignored). Nothing here goes into the repo.
+All collection happens in the user's Chrome through Claude in Chrome, with Langle's check build loaded. Each source gets one JSON file in the study folder (`data/raw/quality/<study>/corpus/<kind>/<id>.json`, git-ignored). Nothing here goes into the repo.
 
 ## Getting a big JSON from the page to disk
 
@@ -29,10 +29,10 @@ If `tlang` comes back empty, grab again later. YouTube sometimes refuses it for 
 
 ## Netflix — `scripts/netflix-grab.js`
 
-Last time this read the cards from Lingo's own transcript (`lingo-transcript` shadow root, `[data-cue]`): time, English line, Japanese line. It waits until the card count stops growing, then pauses the video. Show and episode titles come from `netflix.appContext` metadata.
+Last time this read the cards from Langle's own transcript (`langle-transcript` shadow root, `[data-cue]`): time, English line, Japanese line. It waits until the card count stops growing, then pauses the video. Show and episode titles come from `netflix.appContext` metadata.
 
 Two caveats:
-- It needs the check build: Lingo's shadow roots are open there and closed in production builds. If it finds no `lingo-transcript` root, the check build isn't loaded or the panel isn't open.
+- It needs the check build: Langle's shadow roots are open there and closed in production builds. If it finds no `langle-transcript` root, the check build isn't loaded or the panel isn't open.
 - Rendered cards are not enough to measure alignment changes. Also save the timed subtitle files the player downloads (not done yet; `build-units.ts` reads them as `timed: {<lang>: TTML or WebVTT text}`, untested), for English and Japanese: read the timed-text requests with `read_network_requests`, or with a fetch hook like the YouTube one. With them, the runner can re-align offline.
 
 **Choosing shows: you pick them; the user doesn't name them.** Choose about 5 shows that differ in what they test, and confirm each has English and Japanese subtitles before using it. Useful kinds:
@@ -48,7 +48,7 @@ Use shows already in the account's catalogue page or search; don't open a differ
 
 ## Articles — `scripts/article-grab.js`
 
-Set `ID` (a short slug) in the snippet. The snippet takes the main story body (`p`, `h2`, `li` outside nav, footer, promos and related links), keeps paragraphs longer than 30 characters, and records whether Lingo mounted (`lingo-article`).
+Set `ID` (a short slug) in the snippet. The snippet takes the main story body (`p`, `h2`, `li` outside nav, footer, promos and related links), keeps paragraphs longer than 30 characters, and records whether Langle mounted (`langle-article`).
 - Check that the first and last paragraphs in the summary belong to the story.
 - Skip pages behind an ad-block or consent wall, and leave cookie banners unanswered.
 

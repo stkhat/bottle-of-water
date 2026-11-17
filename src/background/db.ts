@@ -132,7 +132,7 @@ interface MetaRecord {
   value: number;
 }
 
-export type LingoDb = Dexie & {
+export type LangleDb = Dexie & {
   terms: EntityTable<TermRecord, "id">;
   sources: EntityTable<SourceRecord, "id">;
   occurrences: EntityTable<OccurrenceRecord, "id">;
@@ -152,8 +152,8 @@ export type LingoDb = Dexie & {
  * merged into 4: Dexie upgrades an older database by comparing the schemas. Version 5
  * adds your meanings and 6 the on-device AI's answers (phase 3).
  */
-export function openLingoDb(name = "lingo"): LingoDb {
-  const db = new Dexie(name) as LingoDb;
+export function openLangleDb(name = "langle"): LangleDb {
+  const db = new Dexie(name) as LangleDb;
   db.version(4).stores({
     terms: "id, lang, status, updatedAt, batchId, [lang+status]",
     sources: "id",

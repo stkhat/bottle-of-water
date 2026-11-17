@@ -68,7 +68,7 @@ export async function routeYouTube(context: BrowserContext) {
     const html = readFileSync(
       path.join(here, "fixtures/youtube-watch.html"),
       "utf8",
-    ).replace("<video", '<video src="/lingo-test/talk.webm" muted');
+    ).replace("<video", '<video src="/langle-test/talk.webm" muted');
     return route.fulfill({
       contentType: "text/html; charset=utf-8",
       headers: {
@@ -81,7 +81,7 @@ export async function routeYouTube(context: BrowserContext) {
     const html = readFileSync(
       path.join(here, "fixtures/youtube-shorts.html"),
       "utf8",
-    ).replace("<video", '<video src="/lingo-test/talk.webm" muted');
+    ).replace("<video", '<video src="/langle-test/talk.webm" muted');
     return route.fulfill({
       contentType: "text/html; charset=utf-8",
       headers: {
@@ -90,7 +90,10 @@ export async function routeYouTube(context: BrowserContext) {
       body: html,
     });
   });
-  await routeTalkVideo(context, "https://www.youtube.com/lingo-test/talk.webm");
+  await routeTalkVideo(
+    context,
+    "https://www.youtube.com/langle-test/talk.webm",
+  );
   await context.route("https://www.youtube.com/api/timedtext*", (route) =>
     route.fulfill({
       contentType: "application/json; charset=UTF-8",
@@ -105,7 +108,8 @@ export async function routeYouTube(context: BrowserContext) {
   // Trusted Types violations in the page (e.g. an innerHTML assignment).
   await context.addInitScript(() => {
     const seen: string[] = [];
-    (window as unknown as { lingoViolations: string[] }).lingoViolations = seen;
+    (window as unknown as { langleViolations: string[] }).langleViolations =
+      seen;
     document.addEventListener("securitypolicyviolation", (event) =>
       seen.push(`${event.violatedDirective}: ${event.sample}`),
     );
@@ -127,10 +131,13 @@ export async function routeNetflix(context: BrowserContext) {
       body: readFileSync(
         path.join(here, "fixtures/netflix-watch.html"),
         "utf8",
-      ).replace("<video", '<video src="/lingo-test/talk.webm" muted'),
+      ).replace("<video", '<video src="/langle-test/talk.webm" muted'),
     }),
   );
-  await routeTalkVideo(context, "https://www.netflix.com/lingo-test/talk.webm");
+  await routeTalkVideo(
+    context,
+    "https://www.netflix.com/langle-test/talk.webm",
+  );
   await context.route("https://*.nflxvideo.net/**", (route) => {
     const body = netflixSubtitleBody(new URL(route.request().url()));
     return route.fulfill({
@@ -145,7 +152,7 @@ export async function routeNetflix(context: BrowserContext) {
     manifest: fixtureManifest(),
     metadata: FIXTURE_METADATA,
     // Built while the pointer moves, removed 3 s after it stops, as on netflix.com.
-    controlBar: { idleMs: 3000, title: ["Lingo Test Show", "E1", "Pilot"] },
+    controlBar: { idleMs: 3000, title: ["Langle Test Show", "E1", "Pilot"] },
   };
   // Only on netflix.com (the init script runs on extension pages too).
   await context.addInitScript({

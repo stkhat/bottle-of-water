@@ -3,7 +3,7 @@ import { pickTrack } from "../adapter-kit";
 import type { NetflixTextTrack } from "./manifest";
 
 /**
- * The track Lingo shows as the original: a non-forced track in the learning language,
+ * The track Langle shows as the original: a non-forced track in the learning language,
  * subtitles before closed captions, the exact language before a regional one.
  */
 export const pickOriginalTrack = (

@@ -87,7 +87,7 @@ const downloads = () =>
   performance
     .getEntriesByType("resource")
     .map((entry) => new URL(entry.name))
-    .filter((url) => url.pathname === "/lingo-nflx/")
+    .filter((url) => url.pathname === "/langle-nflx/")
     .map((url) => url.searchParams.get("t"));
 
 describe("the watch page", () => {
@@ -222,7 +222,7 @@ describe("the watch page", () => {
     adapter.belowVideoElement();
     adapter.hideSiteCaptions(true);
     adapter.dispose();
-    expect(page.player.querySelector("lingo-netflix-below")).toBeNull();
+    expect(page.player.querySelector("langle-netflix-below")).toBeNull();
     expect(getComputedStyle(page.captions).display).toBe("block");
   });
 });

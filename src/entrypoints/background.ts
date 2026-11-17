@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { openLingoDb } from "../background/db";
+import { openLangleDb } from "../background/db";
 import { deviceId } from "../background/device-id";
 import { createHandlers } from "../background/handlers";
 import {
@@ -37,7 +37,7 @@ export default defineBackground(() => {
   // The mode is a constant at build time, so other builds leave it out.
   if (import.meta.env.MODE === "check") startWorkerErrorLog();
 
-  const db = openLingoDb();
+  const db = openLangleDb();
   const store = createTermStore(db, { deviceId: deviceId() });
   const history = createHistoryStore(db);
   const sync = createBrowserSyncBackend({ store });
@@ -87,7 +87,7 @@ export default defineBackground(() => {
   // Registered synchronously too, so a change that wakes the worker is heard.
   forgetNeverRunOnHosts(history);
 
-  // Gray while Lingo is switched off (the popup header's switch).
+  // Gray while Langle is switched off (the popup header's switch).
   followToolbarIcon({
     setIcon: (path) => browser.action.setIcon({ path }),
     getSettings,

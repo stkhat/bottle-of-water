@@ -15,7 +15,7 @@ import type {
   HistoryStatus,
   SourceInput,
 } from "../messaging/protocol";
-import type { HistoryPageRecord, HistorySentenceRecord, LingoDb } from "./db";
+import type { HistoryPageRecord, HistorySentenceRecord, LangleDb } from "./db";
 import type { ImportedOccurrence } from "./term-store";
 
 export interface HistoryItem extends HistorySentenceInput {
@@ -127,7 +127,7 @@ export function forgetNeverRunOnHosts(
 }
 
 export function createHistoryStore(
-  db: LingoDb,
+  db: LangleDb,
   { now = Date.now, capBytes = HISTORY_CAP_BYTES }: HistoryStoreOptions = {},
 ): HistoryStore {
   const tables = [db.historyPages, db.historySentences, db.meta];

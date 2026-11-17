@@ -96,7 +96,7 @@ export function SearchIcon() {
   );
 }
 
-/** The ^ of the Lingo menu button. */
+/** The ^ of the Langle menu button. */
 export function ChevronUpIcon() {
   return (
     <Outline size={16} stroke={2.2} cap join>

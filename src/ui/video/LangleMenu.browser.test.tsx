@@ -3,10 +3,10 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { useState } from "preact/hooks";
 import { userEvent } from "vitest/browser";
 import { cleanUpMounts, mountInShadowRoot } from "../../testing/shadow-root";
-import { LingoMenu, type LingoMenuProps } from "./LingoMenu";
+import { LangleMenu, type LangleMenuProps } from "./LangleMenu";
 import { PlayerButtons } from "./PlayerButtons";
 
-const base: LingoMenuProps = {
+const base: LangleMenuProps = {
   enabled: true,
   position: "inVideo",
   showTranslation: true,
@@ -38,20 +38,20 @@ function outside(): HTMLButtonElement {
   return button;
 }
 
-describe("LingoMenu", () => {
+describe("LangleMenu", () => {
   test("shows the state for this video", async () => {
-    const screen = await mountInShadowRoot(<LingoMenu {...base} />);
-    const menu = screen.getByRole("dialog", { name: "Lingo menu" });
+    const screen = await mountInShadowRoot(<LangleMenu {...base} />);
+    const menu = screen.getByRole("dialog", { name: "Langle menu" });
     await expect.element(menu).toBeVisible();
     await expect.element(screen.getByText("On for this video")).toBeVisible();
-    await screen.rerender(<LingoMenu {...base} enabled={false} />);
+    await screen.rerender(<LangleMenu {...base} enabled={false} />);
     await expect.element(screen.getByText("Off for this video")).toBeVisible();
   });
 
   test("the subtitle position is a two-way choice", async () => {
     const onPosition = vi.fn();
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} onPosition={onPosition} />,
+      <LangleMenu {...base} onPosition={onPosition} />,
     );
     const group = screen.getByRole("group", { name: "Subtitle position" });
     await expect.element(group).toBeVisible();
@@ -61,24 +61,24 @@ describe("LingoMenu", () => {
     await expect.element(below).toHaveAttribute("aria-pressed", "false");
     await below.click();
     expect(onPosition).toHaveBeenCalledWith("belowVideo");
-    await screen.rerender(<LingoMenu {...base} position="belowVideo" />);
+    await screen.rerender(<LangleMenu {...base} position="belowVideo" />);
     await expect.element(below).toHaveAttribute("aria-pressed", "true");
     await expect.element(inVideo).toHaveAttribute("aria-pressed", "false");
   });
 
   test("in fullscreen: no subtitle position (mock Fullscreen)", async () => {
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} showPositions={false} />,
+      <LangleMenu {...base} showPositions={false} />,
     );
     await expect
-      .element(screen.getByRole("dialog", { name: "Lingo menu" }))
+      .element(screen.getByRole("dialog", { name: "Langle menu" }))
       .toBeVisible();
     expect(screen.container.textContent).not.toContain("Subtitle position");
     expect(screen.container.querySelector("[role=group]")).toBeNull();
     const dual = screen.getByRole("switch", { name: "Show dual subtitles" });
     await expect.element(dual).toBeVisible();
     // The last row there.
-    const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
+    const menu = screen.getByRole("dialog", { name: "Langle menu" }).element();
     expect(menu.lastElementChild!.contains(dual.element())).toBe(true);
     await expect
       .element(
@@ -91,15 +91,15 @@ describe("LingoMenu", () => {
     await expect
       .element(screen.getByRole("button", { name: "Open settings" }))
       .toBeVisible();
-    await screen.rerender(<LingoMenu {...base} showPositions />);
+    await screen.rerender(<LangleMenu {...base} showPositions />);
     await expect
       .element(screen.getByRole("group", { name: "Subtitle position" }))
       .toBeVisible();
   });
 
   test("the rows from the top, as in mock Main", async () => {
-    const screen = await mountInShadowRoot(<LingoMenu {...base} />);
-    const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
+    const screen = await mountInShadowRoot(<LangleMenu {...base} />);
+    const menu = screen.getByRole("dialog", { name: "Langle menu" }).element();
     expect(
       [...menu.children].map(
         (row) =>
@@ -120,7 +120,7 @@ describe("LingoMenu", () => {
   test("the transcript switch", async () => {
     const onToggleTranscript = vi.fn();
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} onToggleTranscript={onToggleTranscript} />,
+      <LangleMenu {...base} onToggleTranscript={onToggleTranscript} />,
     );
     const sw = screen.getByRole("switch", {
       name: "Show transcript in sidebar",
@@ -128,13 +128,17 @@ describe("LingoMenu", () => {
     await expect.element(sw).toHaveAttribute("aria-checked", "true");
     await sw.click();
     expect(onToggleTranscript).toHaveBeenCalledTimes(1);
-    await screen.rerender(<LingoMenu {...base} transcriptShown={false} />);
+    await screen.rerender(<LangleMenu {...base} transcriptShown={false} />);
     await expect.element(sw).toHaveAttribute("aria-checked", "false");
   });
 
   test("over a Short: no transcript switch", async () => {
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} transcriptShown={undefined} showPositions={false} />,
+      <LangleMenu
+        {...base}
+        transcriptShown={undefined}
+        showPositions={false}
+      />,
     );
     await expect
       .element(screen.getByRole("switch", { name: "Show dual subtitles" }))
@@ -145,20 +149,20 @@ describe("LingoMenu", () => {
   test("the dual subtitles switch", async () => {
     const onToggleTranslation = vi.fn();
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} onToggleTranslation={onToggleTranslation} />,
+      <LangleMenu {...base} onToggleTranslation={onToggleTranslation} />,
     );
     const sw = screen.getByRole("switch", { name: "Show dual subtitles" });
     await expect.element(sw).toHaveAttribute("aria-checked", "true");
     await sw.click();
     expect(onToggleTranslation).toHaveBeenCalledTimes(1);
-    await screen.rerender(<LingoMenu {...base} showTranslation={false} />);
+    await screen.rerender(<LangleMenu {...base} showTranslation={false} />);
     await expect.element(sw).toHaveAttribute("aria-checked", "false");
   });
 
   test("opens the settings from the gear in its header, with no settings button below", async () => {
     const onOpenSettings = vi.fn();
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} onOpenSettings={onOpenSettings} />,
+      <LangleMenu {...base} onOpenSettings={onOpenSettings} />,
     );
     const gear = screen.getByRole("button", { name: "Open settings" });
     // The gear is the last thing in the header row, after the state.
@@ -171,8 +175,8 @@ describe("LingoMenu", () => {
   });
 
   test("the subtitle position is the last row: its label, then the choice under it at full width", async () => {
-    const screen = await mountInShadowRoot(<LingoMenu {...base} />);
-    const menu = screen.getByRole("dialog", { name: "Lingo menu" }).element();
+    const screen = await mountInShadowRoot(<LangleMenu {...base} />);
+    const menu = screen.getByRole("dialog", { name: "Langle menu" }).element();
     const group = screen.getByRole("group", { name: "Subtitle position" });
     const row = group.element().parentElement!;
     expect(menu.lastElementChild).toBe(row);
@@ -208,7 +212,7 @@ describe("LingoMenu", () => {
     const onSize = vi.fn();
     const onOpacity = vi.fn();
     const screen = await mountInShadowRoot(
-      <LingoMenu
+      <LangleMenu
         {...base}
         size={120}
         opacity={40}
@@ -243,7 +247,7 @@ describe("LingoMenu", () => {
   test("closes with Escape and on a click outside it", async () => {
     const onClose = vi.fn();
     const screen = await mountInShadowRoot(
-      <LingoMenu {...base} onClose={onClose} />,
+      <LangleMenu {...base} onClose={onClose} />,
     );
     await screen.getByRole("button", { name: "In video" }).click();
     expect(onClose).not.toHaveBeenCalled();
@@ -255,7 +259,7 @@ describe("LingoMenu", () => {
 
   test("ignores an Escape and a press outside that a page script dispatches", async () => {
     const onClose = vi.fn();
-    await mountInShadowRoot(<LingoMenu {...base} onClose={onClose} />);
+    await mountInShadowRoot(<LangleMenu {...base} onClose={onClose} />);
     const page = outside();
     page.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -280,11 +284,11 @@ describe("LingoMenu", () => {
       const [open, setOpen] = useState(false);
       return (
         <>
-          <button type="button" data-lingo-menu onClick={() => setOpen(true)}>
+          <button type="button" data-langle-menu onClick={() => setOpen(true)}>
             Open
           </button>
           {open && (
-            <LingoMenu
+            <LangleMenu
               {...base}
               onClose={() => {
                 onClose();
@@ -320,9 +324,9 @@ describe("LingoMenu", () => {
 
   test("a click on the menu button is not a click outside", async () => {
     const onClose = vi.fn();
-    await mountInShadowRoot(<LingoMenu {...base} onClose={onClose} />);
+    await mountInShadowRoot(<LangleMenu {...base} onClose={onClose} />);
     const toggle = outside();
-    toggle.dataset.lingoMenu = "";
+    toggle.dataset.langleMenu = "";
     await userEvent.click(toggle);
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -330,7 +334,7 @@ describe("LingoMenu", () => {
   test("in closed shadow roots, as in production, presses on the menu and its buttons are inside", async () => {
     const onClose = vi.fn();
     const onPosition = vi.fn();
-    /** Renders into a closed shadow root of a Lingo host, as the content script does. */
+    /** Renders into a closed shadow root of a Langle host, as the content script does. */
     function closed(name: string, ui: JSX.Element) {
       const host = document.createElement(name);
       host.style.display = "block";
@@ -356,11 +360,11 @@ describe("LingoMenu", () => {
       });
     };
     const menu = closed(
-      "lingo-test-player",
-      <LingoMenu {...base} onClose={onClose} onPosition={onPosition} />,
+      "langle-test-player",
+      <LangleMenu {...base} onClose={onClose} onPosition={onPosition} />,
     );
     const buttons = closed(
-      "lingo-test-buttons",
+      "langle-test-buttons",
       <PlayerButtons enabled menuOpen onToggle={() => {}} onMenu={() => {}} />,
     );
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 import { translationPair } from "../core/packs/pairs";
 import {
   createTranslationCache,
@@ -12,7 +12,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const EN_JA = translationPair("en", "ja");
 const ES_JA = translationPair("es", "ja");
 
-let db: LingoDb;
+let db: LangleDb;
 let cache: TranslationCache;
 let clock: ReturnType<typeof fakeClock>;
 

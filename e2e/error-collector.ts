@@ -32,7 +32,7 @@ export function freePort(): Promise<number> {
 /**
  * Chrome's own warnings when a page asks `LanguageModel.availability()` while its
  * built-in AI is turned off (a feature flag in Playwright's Chromium, or
- * chrome://settings/ai): they describe the browser, not a fault of Lingo, which has to
+ * chrome://settings/ai): they describe the browser, not a fault of Langle, which has to
  * ask to know whether to show "On-device AI". Chrome writes them at the page itself,
  * not from a script.
  */

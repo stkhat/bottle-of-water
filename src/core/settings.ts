@@ -4,7 +4,7 @@ import { onHost } from "./url";
 export const SETTINGS_KEY = "settings";
 
 export interface Settings {
-  /** Lingo runs at all: the popup header's switch turns it off everywhere for a while. */
+  /** Langle runs at all: the popup header's switch turns it off everywhere for a while. */
   enabled: boolean;
   learningLang: string;
   nativeLang: string;
@@ -41,7 +41,7 @@ export interface Settings {
    * L menu's switch (menu only, not on the settings page).
    */
   transcriptShown: boolean;
-  /** Where Lingo runs; `youtubeComments` also needs `youtube`. */
+  /** Where Langle runs; `youtubeComments` also needs `youtube`. */
   sites: {
     youtube: boolean;
     youtubeComments: boolean;
@@ -230,7 +230,7 @@ export function mergeSettings(
 }
 
 /**
- * Lingo must not run on the host: it is switched off everywhere (`enabled`), or the
+ * Langle must not run on the host: it is switched off everywhere (`enabled`), or the
  * host is in `neverRunOn` or `disabledSites` (an entry covers its subdomains too).
  */
 export function hostBlocked(hostname: string, settings: Settings): boolean {

@@ -1,6 +1,6 @@
 # YouTube transcript cards and their translations (studied 2026-11-15)
 
-How well Lingo cuts YouTube captions into transcript cards and puts the right translation under each card, measured on 58 real videos, with the root causes and the fixes prototyped against them. Method: [translation-quality.md](translation-quality.md) and the `real-content-quality` skill.
+How well Langle cuts YouTube captions into transcript cards and puts the right translation under each card, measured on 58 real videos, with the root causes and the fixes prototyped against them. Method: [translation-quality.md](translation-quality.md) and the `real-content-quality` skill.
 
 ## Method
 - **Corpus**: 28 new videos collected in the user's Chrome for this study (study `2026-11-cards`: 6 with a manual English and a human Japanese track, 11 manual English only, 11 auto-generated; UK, Australian and US speakers; talks, documentaries, sketches, stand-up, interviews, press conferences, vlogs, a 2013 let's-play, a lyric video, two Shorts; 338 minutes), plus the 30 videos of round 2 of the 2026-11 study as a second sample. Each video has its raw json3 tracks: English, the human Japanese track if any, and YouTube's translation into Japanese (`tlang`).
@@ -92,7 +92,7 @@ In the user's Chrome, after PRs #87 and #89:
 - YouTube, human track (`fxbCHn6gE3U`): sentence cards with their human lines.
 - Netflix (Peaky Blinders S1E4): a two-speaker cue stays one card ("- How much? - Two hundred pounds." / 金額は？２００ポンド); the transcript shows its line break as a space, as before.
 - Error logs on YouTube and Netflix: empty, cleared.
-- Found on the way, not caused by these steps: some YouTube manual tracks carry `<i>…</i>` in the caption text, and Lingo shows the tags literally in the card and the subtitle ("this <i>Craigslist</i> ad"); YouTube itself renders them as italics. **Fixed** (PR #90): the json3 parser drops tags whose name starts with a letter; English cards with a tag 21 → 0, translations 4 → 0, every other card unchanged. Sound labels in auto-generated tracks get word highlights ("[applause]" as New).
+- Found on the way, not caused by these steps: some YouTube manual tracks carry `<i>…</i>` in the caption text, and Langle shows the tags literally in the card and the subtitle ("this <i>Craigslist</i> ad"); YouTube itself renders them as italics. **Fixed** (PR #90): the json3 parser drops tags whose name starts with a letter; English cards with a tag 21 → 0, translations 4 → 0, every other card unchanged. Sound labels in auto-generated tracks get word highlights ("[applause]" as New).
 
 ## Still open
 - Auto-generated tracks without punctuation and fast Shorts (cause 6): about 1 card in 4 has part of a neighbour's translation or misses part of its own. Time cannot fix it; a lexical anchor (dictionary or loanword matches between the English and the translation) might.

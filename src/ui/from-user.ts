@@ -1,6 +1,6 @@
 /**
  * True for an event the user caused. A page script can dispatch synthetic events on the
- * page and on Lingo's UI (`isTrusted` is false for them); those must not open a card or
+ * page and on Langle's UI (`isTrusted` is false for them); those must not open a card or
  * the dictionary (which shows sentences kept from other sites) or change a word's status.
  */
 export const fromUser = (event: Event): boolean => event.isTrusted;
@@ -14,7 +14,7 @@ export function onlyFromUser<E extends Event>(
   };
 }
 
-/** The events Lingo's controls listen to, or could. */
+/** The events Langle's controls listen to, or could. */
 const UI_EVENTS = [
   "click",
   "dblclick",
@@ -43,8 +43,8 @@ const UI_EVENTS = [
 const CANCELED = new Set<string>(["click", "submit", "keydown"]);
 
 /**
- * Stops every event a page script dispatches inside `root` (one of Lingo's shadow roots
- * on a web page) as it enters the root, so none reaches Lingo's handlers: they listen on
+ * Stops every event a page script dispatches inside `root` (one of Langle's shadow roots
+ * on a web page) as it enters the root, so none reaches Langle's handlers: they listen on
  * the elements inside, after the root's capture listeners. The user's events go through.
  * Handlers that open the dictionary or change a word still check `fromUser` themselves.
  */

@@ -1,9 +1,9 @@
 import { onTestFinished } from "vitest";
-import { openLingoDb, type LingoDb } from "../background/db";
+import { openLangleDb, type LangleDb } from "../background/db";
 
 /** An empty database of its own, deleted when the test ends. */
-export function freshDb(): LingoDb {
-  const db = openLingoDb(`lingo-test-${crypto.randomUUID()}`);
+export function freshDb(): LangleDb {
+  const db = openLangleDb(`langle-test-${crypto.randomUUID()}`);
   onTestFinished(async () => {
     db.close();
     await db.delete();

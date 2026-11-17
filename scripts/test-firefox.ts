@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { playwrightImage } from "./playwright-image.ts";
 
-const VOLUME_PREFIX = "lingo-firefox-node-modules-";
+const VOLUME_PREFIX = "langle-firefox-node-modules-";
 
 // `--shards=N` (scripts/verify.ts) splits the files over N containers run side by side;
 // every other argument goes to Vitest.
@@ -82,8 +82,8 @@ try {
   // Install once per volume; the mark is written only after a complete install. No
   // install scripts: they set up git hooks and .wxt, which belong to the checkout here.
   const install =
-    "[ -f node_modules/.lingo-installed ] || " +
-    "{ npm ci --ignore-scripts --no-audit --no-fund && touch node_modules/.lingo-installed; }";
+    "[ -f node_modules/.langle-installed ] || " +
+    "{ npm ci --ignore-scripts --no-audit --no-fund && touch node_modules/.langle-installed; }";
   const test = 'VITEST_BROWSERS=firefox npx vitest run --project browser "$@"';
   if (shards === 1) {
     status =

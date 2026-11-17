@@ -84,8 +84,8 @@ const META: Style = { fontSize: "12px", color: color.muted };
 
 const CSS = [
   `[data-explain]:hover{background:${color.hlLearning}}`,
-  `@keyframes lingo-pulse{0%,100%{opacity:1}50%{opacity:.45}}`,
-  `[data-pulse]{animation:lingo-pulse 1.2s ease-in-out infinite}`,
+  `@keyframes langle-pulse{0%,100%{opacity:1}50%{opacity:.45}}`,
+  `[data-pulse]{animation:langle-pulse 1.2s ease-in-out infinite}`,
   `@media (prefers-reduced-motion: reduce){[data-pulse]{animation:none}}`,
 ].join("\n");
 

@@ -6,7 +6,7 @@ import type { EnsureResult, PackStore } from "./pack-store";
 import { watchSettings } from "../messaging/storage";
 
 /** The alarm that tries the chosen pair's downloads again after a failure. */
-export const PACKS_RETRY_ALARM = "lingo-packs-retry";
+export const PACKS_RETRY_ALARM = "langle-packs-retry";
 /** `storage.local`: how many tries in a row have failed. */
 export const PACKS_RETRY_FAILURES_KEY = "packRetryFailures";
 
@@ -77,7 +77,10 @@ export function createPackDownloads({
       if (result.failed.length > 0) await scheduleRetry();
       else await clearRetry();
     } catch (error) {
-      console.error("Lingo: could not schedule the language data retry", error);
+      console.error(
+        "Langle: could not schedule the language data retry",
+        error,
+      );
     }
     return result;
   }
@@ -133,7 +136,7 @@ export function startPackDownloads(
     downloads
       .ensurePair()
       .catch((error: unknown) =>
-        console.error("Lingo: could not download the language data", error),
+        console.error("Langle: could not download the language data", error),
       );
   };
   browser.alarms.onAlarm.addListener((alarm) => {
@@ -155,7 +158,7 @@ export function startPackDownloads(
       try {
         await downloads.retryPending();
       } catch (error) {
-        console.error("Lingo: could not write the language data state", error);
+        console.error("Langle: could not write the language data state", error);
       }
     });
   return { retry: trigger, started };

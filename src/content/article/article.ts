@@ -60,7 +60,7 @@ const DETECT_SAMPLE = 2000;
 
 export interface ArticleDeps extends LookupDeps {
   detectLanguage: DetectLanguage;
-  /** Mounts Lingo's UI for the page once it qualifies; returns an unmount. */
+  /** Mounts Langle's UI for the page once it qualifies; returns an unmount. */
   mountUi(app: ArticleApp): (() => void) | Promise<() => void>;
 }
 

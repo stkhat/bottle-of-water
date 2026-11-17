@@ -213,7 +213,7 @@ export function createSelection(o: {
     },
     /**
      * The video started playing (the user's play, or a transcript card's): words
-     * selected in the transcript go, as Lingo paused the video for them.
+     * selected in the transcript go, as Langle paused the video for them.
      */
     played() {
       if (pressFrom === "transcript") clear();

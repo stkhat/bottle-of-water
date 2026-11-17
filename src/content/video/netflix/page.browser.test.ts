@@ -154,7 +154,7 @@ describe("answering the content script", () => {
     expect(await call({ type: "fetchText", url })).toEqual(
       expect.objectContaining({ ok: true, value: enImsc }),
     );
-    const other = `${location.origin}/lingo-nflx/?t=SYNTHETIC-ja-image`;
+    const other = `${location.origin}/langle-nflx/?t=SYNTHETIC-ja-image`;
     expect(await call({ type: "fetchText", url: other })).toEqual(
       expect.objectContaining({ ok: false }),
     );

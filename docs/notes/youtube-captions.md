@@ -40,7 +40,7 @@ p.getOption("captions", "track");        // current track ({} or a track object)
 p.unloadModule("captions");              // captions off
 ```
 - Each `setOption("captions", "track", …)` triggers one capturable XHR. `getOptions("captions")` lists `reload, fontSize, track, tracklist, translationLanguages, sampleSubtitle, stickyLoading, serverDefaultTrack`.
-- Side effect: this turns on YouTube's own captions and may persist as the user's sticky caption choice. The adapter should hide `.ytp-caption-window-container` while Lingo is on and, when it switched captions on itself, restore the previous state (`unloadModule("captions")` or the previous track).
+- Side effect: this turns on YouTube's own captions and may persist as the user's sticky caption choice. The adapter should hide `.ytp-caption-window-container` while Langle is on and, when it switched captions on itself, restore the previous state (`unloadModule("captions")` or the previous track).
 - Simplest flow: if no timedtext response was seen for this video shortly after playback starts, ask the player for the original track once, capture the URL, then fetch `lang=<native>` and `tlang=<native>` ourselves from that URL.
 
 ## json3 format (`fmt=json3`)
@@ -56,7 +56,7 @@ Videos: `GLNVMi_4Khw` (gaming commentary, 2018, ASR without punctuation), `1w5R5
 - `kind=asr&tlang=ja` keeps the English word events' `tStartMs` (some events get no text and are left out). YouTube translates **whole sentences**, punctuating them itself even when the English track has none, and spreads each translation over the events, with `tOffsetMs` interpolated evenly over the English words' span. So the Japanese of one English event is often half of one sentence and half of the next ("…変えます。それは"), and sentence ends drift by a few words, sometimes an event.
 - Every 。！？ in the translation is a sentence end YouTube saw; marks inside 「」 are not (「いいね！」を押して…). One English sentence is sometimes translated as two (", which is crazy." → "…。それはとんでもない金額だ。").
 - `tlang=en` on an English ASR track gives the raw words in one event, without punctuation: no way to get YouTube's punctuation directly.
-- Lingo follows the translation's sentences (`alignAsrSentences`, `src/core/subtitles/asr.ts`). Fixtures (first 150 s, English ASR and `tlang=ja`) in `src/core/subtitles/fixtures/youtube/`: `asr-plain-*` (`GLNVMi_4Khw`), `asr-punctuated-*` (`1w5R5QOjbVY`), `asr-interview-*` (`P30_ec_t0Y8`).
+- Langle follows the translation's sentences (`alignAsrSentences`, `src/core/subtitles/asr.ts`). Fixtures (first 150 s, English ASR and `tlang=ja`) in `src/core/subtitles/fixtures/youtube/`: `asr-plain-*` (`GLNVMi_4Khw`), `asr-punctuated-*` (`1w5R5QOjbVY`), `asr-interview-*` (`P30_ec_t0Y8`).
 
 ## Watch page DOM (desktop, default two-column layout)
 - Player: `#movie_player.html5-video-player` (inside `ytd-player#ytd-player > #container`, under `#primary-inner > #player > #player-container-outer > #player-container-inner > #player-container`). Player API methods live on this element.
@@ -78,14 +78,14 @@ Videos: `GLNVMi_4Khw` (gaming commentary, 2018, ASR without punctuation), `1w5R5
 - Skeleton for E2E routing: `e2e/fixtures/youtube-watch.html` (scripts stripped, trimmed).
 
 ## Fullscreen and the transcript sidebar (seen on youtube.com, 2026-11-13)
-- YouTube's fullscreen button calls `requestFullscreen()` on `<html>`: the whole page is the fullscreen element, so Lingo's parts stay in `body`. `ytd-watch-flexy` moves the player into `#full-bleed-container` (a flex row) > `#player-full-bleed-container` (`flex: 1 1 0%`) > `#player-container` (absolute, inset 0) > … > `#movie_player`. The row's other child, `#panels-full-bleed-container`, is hidden (`display: none`).
+- YouTube's fullscreen button calls `requestFullscreen()` on `<html>`: the whole page is the fullscreen element, so Langle's parts stay in `body`. `ytd-watch-flexy` moves the player into `#full-bleed-container` (a flex row) > `#player-full-bleed-container` (`flex: 1 1 0%`) > `#player-container` (absolute, inset 0) > … > `#movie_player`. The row's other child, `#panels-full-bleed-container`, is hidden (`display: none`).
 - `width` on `#player-full-bleed-container` has no effect (it is a growing flex item); `margin-right: 392px` narrows it, and with it the player, its title bar and its control bar.
 - The `<video>`'s size is set inline by the player (`width`, `height`, `left`, `top`) and is not updated when only its container changes: after a dispatched window `resize` it fitted the narrower player (a 4:3 talk: 986 × 740 at top 32 in a 986 × 804 player). Undoing it needs another `resize`. Leaving fullscreen puts the player back in `#player` and sizes the video again by itself.
-- Theater mode uses the same full-bleed container, so Lingo narrows it only while the page is in fullscreen.
+- Theater mode uses the same full-bleed container, so Langle narrows it only while the page is in fullscreen.
 
 ## Shorts track URL and long ASR cards (fixed 2026-11-14)
 
-A track's URL is built from its own `baseUrl` (its `variant`) plus the player's token, so Shorts load when the player first asked for another caption language (an empty body before, so no subtitles); YouTube's own captions show again for a video Lingo has no subtitles for (they stayed hidden after a video with subtitles); with YouTube's auto-translation a bracket that never closes no longer hides every later sentence end, and an auto-generated card holds at most 30 words, its translation cut at a clause end. Over the 14 auto-generated videos of the corpus: cards over 30 words 203 → 1 (31 by whitespace), the longest 7,615 → 31 words, cards 2,673 → 4,153. Checked in the user's Chrome on 2026-11-14 (Short `mzYMZGrIml4` with the caption language Japanese, SPA moves between Shorts, `7C9gSIvAn9I`: longest card 67 → 30 words)
+A track's URL is built from its own `baseUrl` (its `variant`) plus the player's token, so Shorts load when the player first asked for another caption language (an empty body before, so no subtitles); YouTube's own captions show again for a video Langle has no subtitles for (they stayed hidden after a video with subtitles); with YouTube's auto-translation a bracket that never closes no longer hides every later sentence end, and an auto-generated card holds at most 30 words, its translation cut at a clause end. Over the 14 auto-generated videos of the corpus: cards over 30 words 203 → 1 (31 by whitespace), the longest 7,615 → 31 words, cards 2,673 → 4,153. Checked in the user's Chrome on 2026-11-14 (Short `mzYMZGrIml4` with the caption language Japanese, SPA moves between Shorts, `7C9gSIvAn9I`: longest card 67 → 30 words)
 
 ## Speaker changes and translated sentence ends in ASR cards (fixed 2026-11-15)
 

@@ -12,7 +12,7 @@ import {
   type TimedtextMessage,
 } from "./messages";
 
-/** The parts of YouTube's player API (on `#movie_player` and `#shorts-player`) Lingo calls. */
+/** The parts of YouTube's player API (on `#movie_player` and `#shorts-player`) Langle calls. */
 interface PlayerApi {
   getPlayerResponse?(): { videoDetails?: unknown; captions?: unknown } | null;
   getVideoData?(): { video_id?: string } | null;

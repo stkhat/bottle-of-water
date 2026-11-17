@@ -7,7 +7,7 @@ page's title and body, measured on real article pages, and what was changed.
 - One current article per site (from the site's RSS/Atom feed, or a fixed URL for references), 108 pages
   measured. Headless Chromium (Playwright), 3 sites at a time, one page per site, images, video and fonts
   not loaded. The page was scrolled to the bottom once so lazy parts load.
-- Lingo's own `collectBlocks` and `findMainContent` were bundled and injected into the page; Mozilla
+- Langle's own `collectBlocks` and `findMainContent` were bundled and injected into the page; Mozilla
   Readability ran on a clone of the same DOM as an independent reference (its own misses: cookie text,
   `<code>` text, video fallbacks, which were read past).
 - Per page: the blocks kept and left out, the title found, `last` (the end-of-article trigger), and for

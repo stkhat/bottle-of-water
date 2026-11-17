@@ -19,7 +19,7 @@ interface RootWithSelection {
 }
 
 /**
- * The selection's range inside `root` (one of Lingo's shadow roots, closed in
+ * The selection's range inside `root` (one of Langle's shadow roots, closed in
  * production): `getComposedRanges` where the browser has it, else the root's own
  * `getSelection` (older Chrome). Undefined when there is no selection or neither exists.
  */
@@ -61,7 +61,7 @@ function offsetOf(container: Element, node: Node, offset: number): number {
 }
 
 /**
- * The selected part of the container's text (in one of Lingo's shadow roots), clipped
+ * The selected part of the container's text (in one of Langle's shadow roots), clipped
  * to the container. Undefined when nothing in it is selected, when the selection starts
  * or ends outside the shadow root, or when the browser cannot read it.
  */
@@ -109,7 +109,7 @@ function rangeOfOffsets(
   return range;
 }
 
-/** Selects a part of the container's text (in one of Lingo's shadow roots). */
+/** Selects a part of the container's text (in one of Langle's shadow roots). */
 export function selectOffsets(container: Element, from: number, to: number) {
   const range = rangeOfOffsets(container, from, to);
   if (!range) return;

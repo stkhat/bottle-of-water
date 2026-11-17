@@ -194,7 +194,7 @@ describe("hostBlocked", () => {
     expect(hostBlocked("example.net", settings)).toBe(false);
   });
 
-  it("blocks every host while Lingo is switched off", () => {
+  it("blocks every host while Langle is switched off", () => {
     const settings = mergeSettings({ enabled: false });
     expect(hostBlocked("example.com", settings)).toBe(true);
     expect(hostBlocked("www.youtube.com", settings)).toBe(true);

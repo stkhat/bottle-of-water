@@ -5,11 +5,11 @@ import { interpolate, t } from "./t";
 describe("t", () => {
   it("returns the en.json value for a key", () => {
     expect(t("app.name")).toBe(en["app.name"]);
-    expect(t("app.name")).toBe("Lingo");
+    expect(t("app.name")).toBe("Langle");
   });
 
   it("accepts vars for keys without placeholders", () => {
-    expect(t("app.name", { unused: 1 })).toBe("Lingo");
+    expect(t("app.name", { unused: 1 })).toBe("Langle");
   });
 
   it("rejects unknown keys at type level", () => {

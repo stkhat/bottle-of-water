@@ -87,7 +87,7 @@ const FILL_LIMIT = 0.9;
 const SYNC_VERSION: SyncMeta["v"] = 1;
 
 const NEWER_VERSION =
-  "The synced data was written by a newer version of Lingo. Update Lingo on this device.";
+  "The synced data was written by a newer version of Langle. Update Langle on this device.";
 const UNREADABLE = "The synced data could not be read.";
 
 const isMeta = (value: unknown): value is SyncMeta => {

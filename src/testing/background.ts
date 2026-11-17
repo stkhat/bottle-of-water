@@ -2,7 +2,7 @@
 // over a small stub pack, answering in-process instead of through messaging.
 import { createHandlers } from "../background/handlers";
 import { createLanguageResources } from "../background/language-resources";
-import { openLingoDb } from "../background/db";
+import { openLangleDb } from "../background/db";
 import { createHistoryStore } from "../background/history-store";
 import { createTermStore } from "../background/term-store";
 import { createTranslationCache } from "../background/translation-cache";
@@ -219,7 +219,7 @@ export function testBackground(
   let packStates: PackStates = {};
   const packListeners = new Set<(states: PackStates) => void>();
   let retries = 0;
-  const db = openLingoDb(`lingo-content-test-${Date.now()}-${dbCount++}`);
+  const db = openLangleDb(`langle-content-test-${Date.now()}-${dbCount++}`);
   const store = createTermStore(db);
   let optionsOpened = 0;
   const handle = createHandlers({

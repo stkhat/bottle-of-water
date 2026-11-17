@@ -527,7 +527,7 @@ describe("DictionaryWindow", () => {
     await expect
       .element(
         screen.getByText(
-          "Not saved yet. Save it as Learning or Known and Lingo will remember where you see it next.",
+          "Not saved yet. Save it as Learning or Known and Langle will remember where you see it next.",
         ),
       )
       .toBeVisible();

@@ -25,14 +25,14 @@ test("a word saved from the dictionary is Learning, and in every form after a re
     .getByRole("button", { name: en["status.learning"], exact: true })
     .click();
   await expect
-    .poll(() => highlighted(page, "lingo-learning"))
+    .poll(() => highlighted(page, "langle-learning"))
     .toContain("loaf");
 
   await page.reload();
   await expect
-    .poll(async () => (await highlighted(page, "lingo-learning")).sort())
+    .poll(async () => (await highlighted(page, "langle-learning")).sort())
     .toEqual(["loaf", "loaves"]);
-  expect(await highlighted(page, "lingo-new")).not.toContain("loaves");
+  expect(await highlighted(page, "langle-new")).not.toContain("loaves");
 });
 
 test("choosing a meaning in the dictionary saves the word as Learning, and the export holds it", async ({
@@ -64,7 +64,7 @@ test("choosing a meaning in the dictionary saves the word as Learning, and the e
     panel.getByRole("button", { name: en["status.learning"], exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect
-    .poll(() => highlighted(page, "lingo-learning"))
+    .poll(() => highlighted(page, "langle-learning"))
     .toContain("loaf");
 
   const reply = (await sendToBackground(context, extensionId, {
@@ -118,7 +118,7 @@ test("a name the page always capitalises is no word: not highlighted", async ({
   const page = await openArticle(context);
   // "Maya" is a vocabulary word (EJDict's マヤ人), capitalised inside a sentence.
   await expect
-    .poll(() => highlighted(page, "lingo-new"))
+    .poll(() => highlighted(page, "langle-new"))
     .toContain("sourdough");
-  expect(await highlighted(page, "lingo-new")).not.toContain("Maya");
+  expect(await highlighted(page, "langle-new")).not.toContain("Maya");
 });

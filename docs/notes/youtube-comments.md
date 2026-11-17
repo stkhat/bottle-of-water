@@ -14,7 +14,7 @@ Video: `iG9CE55wbtY` (TED, "Do schools kill creativity?"), then an SPA navigatio
 - Replies: "N replies" is a button in `ytd-comment-replies-renderer`. Opened, its replies are `… > ytd-comment-replies-renderer > div#expanded-threads > yt-sub-thread > div > ytd-comment-thread-renderer > … > ytd-comment-view-model`, with the same `#content-text` body.
 - The header (`ytd-comments-header-renderer`): the count ("13,054 comments"), "Sort by", the "Add a comment…" box.
 
-## What Lingo uses
+## What Langle uses
 - Root: `ytd-comments#comments` (watch pages only).
 - Text: only text nodes inside `#content-text`, so each comment body (and each reply) is one block, and names, times, buttons and the header are never blocks.
 - `<html lang>` is the YouTube UI's language, not the comments' language: comments are checked one by one with `i18n.detectLanguage`.

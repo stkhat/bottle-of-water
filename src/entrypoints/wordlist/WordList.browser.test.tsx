@@ -254,7 +254,7 @@ function fake(options: FakeOptions = {}) {
         case "cacheTranslations":
           return null;
         case "exportJson":
-          return '{"format":"lingo-export"}';
+          return '{"format":"langle-export"}';
         case "importJson":
           if (options.importError) throw options.importError;
           terms = [...terms, term("overnight", "known", 1, NOW - 3 * HOUR)];
@@ -734,11 +734,11 @@ describe("WordList", () => {
       .poll(() => downloads)
       .toEqual([
         {
-          name: "lingo-backup-2026-11-10.json",
-          text: '{"format":"lingo-export"}',
+          name: "langle-backup-2026-11-10.json",
+          text: '{"format":"langle-export"}',
         },
       ]);
-    const file = new File(['{"format":"lingo-export"}'], "backup.json", {
+    const file = new File(['{"format":"langle-export"}'], "backup.json", {
       type: "application/json",
     });
     await userEvent.upload(

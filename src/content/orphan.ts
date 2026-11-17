@@ -14,7 +14,7 @@ export interface ScriptContext {
  * `send()` for a content script that can outlive its extension. When the extension is
  * reloaded or updated (in development, `npm run build:check` reloads it), the content
  * scripts already on pages stay, cut off: every call fails with "Extension context
- * invalidated". Once that is so, the context is invalidated (taking Lingo off the page)
+ * invalidated". Once that is so, the context is invalidated (taking Langle off the page)
  * and the request never settles, so nothing reports a failure nobody can act on.
  */
 export function sendWhileConnected(

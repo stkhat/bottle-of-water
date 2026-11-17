@@ -20,7 +20,7 @@ import {
  * build loaded in your own Chrome, with WXT's dev logging and the self-reload), or
  * `npm run build:check-download` (the check build without the self-reload, whose
  * Spanish data comes from the local mirror in serve.ts; see .env.check-download).
- * Production closes the shadow roots of Lingo's UI on web pages, so Playwright cannot
+ * Production closes the shadow roots of Langle's UI on web pages, so Playwright cannot
  * reach into it there: tests that drive the UI use a check build.
  */
 export type Build = "production" | "check" | "download";
@@ -116,7 +116,7 @@ export const testWithErrors = test.extend<{
       // A last round trip: whatever the background was doing has been reported.
       await sendToBackground(context, extensionId, { type: "getSettings" });
       errors.stop();
-      expect(errors.format(), "Lingo's reports on the Errors page").toBe("");
+      expect(errors.format(), "Langle's reports on the Errors page").toBe("");
     },
     { auto: true },
   ],

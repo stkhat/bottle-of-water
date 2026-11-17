@@ -1,5 +1,5 @@
 import { fromUser } from "../../ui/from-user";
-import { isLingoHost } from "../../ui/lingo-host";
+import { isLangleHost } from "../../ui/langle-host";
 import type { Box } from "../lookup/geometry";
 import { createHoverIntent } from "../lookup/hover-intent";
 import type { SpanRef } from "./locate";
@@ -44,9 +44,9 @@ export interface Interactions {
 const INTERACTIVE =
   "a[href], button, input, textarea, select, label, summary, [role=button], [role=link], [contenteditable]";
 
-/** True when the event happened inside Lingo's own UI (a `lingo-*` shadow host). */
-function inLingoUi(event: Event): boolean {
-  return event.composedPath().some(isLingoHost);
+/** True when the event happened inside Langle's own UI (a `langle-*` shadow host). */
+function inLangleUi(event: Event): boolean {
+  return event.composedPath().some(isLangleHost);
 }
 
 /** How long the selection must stay unchanged before it is read (ms). */
@@ -94,7 +94,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
   }
 
   function track(event: PointerEvent) {
-    if (inLingoUi(event)) return;
+    if (inLangleUi(event)) return;
     const ref =
       event.buttons === 0 ? cb.spanAt(event.clientX, event.clientY) : undefined;
     if (same(ref, candidate)) return;
@@ -113,7 +113,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
   }
 
   function onPointerDown(event: PointerEvent) {
-    if (!fromUser(event) || inLingoUi(event)) return;
+    if (!fromUser(event) || inLangleUi(event)) return;
     pressed = true;
     hideNow();
     if (event.button === 0 && !event.shiftKey && cb.selecting())
@@ -152,7 +152,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
   }
 
   function onClick(event: MouseEvent) {
-    if (!fromUser(event) || event.button !== 0 || inLingoUi(event)) return;
+    if (!fromUser(event) || event.button !== 0 || inLangleUi(event)) return;
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     if (getSelection()?.isCollapsed === false) return;
@@ -163,7 +163,7 @@ export function watchInteractions(cb: InteractionCallbacks): Interactions {
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    if (fromUser(event) && event.key === "Escape" && !inLingoUi(event))
+    if (fromUser(event) && event.key === "Escape" && !inLangleUi(event))
       cb.escape();
   }
 

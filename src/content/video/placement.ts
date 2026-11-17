@@ -139,7 +139,7 @@ export function verticalDictionaryFrame(
 }
 
 /**
- * Where the Lingo menu opens in the viewport (its fixed `right` and `bottom`): just
+ * Where the Langle menu opens in the viewport (its fixed `right` and `bottom`): just
  * above the L and ^ buttons, as in mock Main, and inside the player.
  */
 export function menuPlacement(
@@ -158,7 +158,7 @@ export function menuPlacement(
 }
 
 /**
- * Where the Lingo menu opens over a vertical video (its fixed `right` and `top`): under
+ * Where the Langle menu opens over a vertical video (its fixed `right` and `top`): under
  * the L and ^ buttons at the video's top, 16px in from the video's right edge (mock
  * `YouTube Shorts — subtitles`).
  */

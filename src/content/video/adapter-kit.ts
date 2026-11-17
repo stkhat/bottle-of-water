@@ -22,7 +22,7 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** Adds or removes a style element of Lingo's (hiding the site's captions or control bar). */
+/** Adds or removes a style element of Langle's (hiding the site's captions or control bar). */
 export function styleSwitch(id: string, css: string) {
   return (hidden: boolean) => {
     const existing = document.getElementById(id);

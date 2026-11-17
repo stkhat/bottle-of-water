@@ -2,8 +2,8 @@
 import { isObject, isString, type PageChannel } from "../page-channel";
 
 export const CHANNEL = {
-  fromPage: "lingo-yt",
-  toPage: "lingo-yt-request",
+  fromPage: "langle-yt",
+  toPage: "langle-yt-request",
 } as const satisfies PageChannel;
 
 /** A /api/timedtext response the player received, posted as it arrives. */

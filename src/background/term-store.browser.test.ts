@@ -7,10 +7,10 @@ import type {
   SaveTermInput,
   SourceInput,
 } from "../messaging/protocol";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 import {
   createTermStore,
-  type LingoExport,
+  type LangleExport,
   type TermStore,
 } from "./term-store";
 import { fakeClock } from "../testing/clock";
@@ -20,7 +20,10 @@ import { ARTICLE as BREAD, VIDEO } from "../testing/sources";
 const ARTICLE: SourceInput = { ...BREAD, url: "https://example.com/bread#top" };
 
 /** A file of export version 1: no meanings and no meaning choices. */
-type ExportV1 = Omit<LingoExport, "version" | "meanings" | "meaningChoices"> & {
+type ExportV1 = Omit<
+  LangleExport,
+  "version" | "meanings" | "meaningChoices"
+> & {
   version: 1;
 };
 
@@ -46,7 +49,7 @@ const figureOut = (overrides: Partial<SaveTermInput> = {}): SaveTermInput =>
     ...overrides,
   });
 
-let db: LingoDb;
+let db: LangleDb;
 let store: TermStore;
 let clock: ReturnType<typeof fakeClock>;
 
@@ -899,9 +902,9 @@ describe("meta", () => {
 describe("exportJson", () => {
   it("writes every term, source and occurrence in the versioned format", async () => {
     await store.saveTerm(dough());
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     expect(data).toMatchObject({
-      format: "lingo-export",
+      format: "langle-export",
       version: 2,
       exportedAt: clock.time,
       meanings: [],
@@ -919,7 +922,7 @@ describe("exportJson", () => {
   it("includes tombstones", async () => {
     await store.saveTerm(dough());
     await store.removeTerm("en:dough");
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     expect(data.terms).toEqual([
       expect.objectContaining({ id: "en:dough", status: "removed" }),
     ]);
@@ -967,7 +970,7 @@ describe("importJson", () => {
 
   it("drops a learned time on a term that is not known", async () => {
     await store.saveTerm(dough());
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     data.terms[0]!.learnedAt = clock.time;
     await withOtherStore(async (other) => {
       await other.importJson(JSON.stringify(data));
@@ -977,7 +980,7 @@ describe("importJson", () => {
 
   it("rejects a learned time that is not a number", async () => {
     await store.saveTerm(dough({ status: "known" }));
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     (data.terms[0] as unknown as Record<string, unknown>).learnedAt = "soon";
     await expect(store.importJson(JSON.stringify(data))).rejects.toThrow();
   });
@@ -1062,7 +1065,7 @@ describe("importJson", () => {
     const term = (await store.listTerms("en"))[0]!;
     // Version 1: no meanings.
     const file: ExportV1 = {
-      format: "lingo-export",
+      format: "langle-export",
       version: 1,
       exportedAt: 1000,
       terms: [
@@ -1154,15 +1157,33 @@ describe("importJson", () => {
     });
   });
 
-  it("rejects a file that is not a Lingo export", async () => {
+  it("rejects a file that is not a Langle export", async () => {
     await expect(store.importJson('{"format":"other"}')).rejects.toThrow(
-      /Lingo export/,
+      /Langle export/,
     );
+  });
+
+  it("imports a file exported before the rename to Langle", async () => {
+    await store.saveTerm(dough());
+    const term = (await store.listTerms("en"))[0]!;
+    const json = JSON.stringify({
+      format: "lingo-export",
+      version: 1,
+      exportedAt: 0,
+      terms: [{ ...term, id: "en:crust", key: "crust", display: "crust" }],
+      sources: [],
+      occurrences: [],
+    });
+    await store.importJson(json);
+    expect((await store.listTerms("en")).map((t) => t.key).sort()).toEqual([
+      "crust",
+      "dough",
+    ]);
   });
 
   it("rejects a damaged file", async () => {
     const json = JSON.stringify({
-      format: "lingo-export",
+      format: "langle-export",
       version: 1,
       exportedAt: 0,
       terms: [{ id: "en:x", lang: "en", key: "y" }],
@@ -1174,7 +1195,7 @@ describe("importJson", () => {
 
   it("rejects a newer export version", async () => {
     const json = JSON.stringify({
-      format: "lingo-export",
+      format: "langle-export",
       version: 3,
       exportedAt: 0,
       terms: [],
@@ -1189,7 +1210,7 @@ describe("importJson", () => {
   it("rejects a version 2 file without its meanings, or with damaged ones", async () => {
     await store.saveTerm(dough());
     await store.chooseMeaning(choose(PIECE));
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     const damaged = [
       { ...data, meanings: undefined },
       { ...data, meaningChoices: [{ ...data.meaningChoices[0], at: "now" }] },
@@ -1537,7 +1558,7 @@ describe("export and import of your meanings", () => {
     await store.chooseMeaning(choose(PIECE, { sentence: "Undone." }));
     await store.chooseMeaning(choose(null, { sentence: "Undone." }));
     const json = await store.exportJson();
-    const data = JSON.parse(json) as LingoExport;
+    const data = JSON.parse(json) as LangleExport;
     expect(data.meanings).toHaveLength(2);
     expect(data.meaningChoices).toHaveLength(3);
     await withOtherStore(async (other) => {
@@ -1550,7 +1571,7 @@ describe("export and import of your meanings", () => {
 
   it("reads a version 1 file: no meanings", async () => {
     await store.saveTerm(dough());
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     const rest = omit(data, "meanings", "meaningChoices");
     const v1: ExportV1 = { ...rest, version: 1 };
     await withOtherStore(async (other) => {
@@ -1658,7 +1679,7 @@ describe("export and import of your meanings", () => {
         },
       ]);
     }
-    const data = JSON.parse(await store.exportJson()) as LingoExport;
+    const data = JSON.parse(await store.exportJson()) as LangleExport;
     // The oldest encounter of the file, chosen on another device.
     const a = otherDevice("a");
     await a.chooseMeaning(
@@ -1668,8 +1689,8 @@ describe("export and import of your meanings", () => {
         pos: { textQuote: "2" },
       }),
     );
-    const theirs = JSON.parse(await a.exportJson()) as LingoExport;
-    const file: LingoExport = {
+    const theirs = JSON.parse(await a.exportJson()) as LangleExport;
+    const file: LangleExport = {
       ...data,
       occurrences: [
         ...data.occurrences,

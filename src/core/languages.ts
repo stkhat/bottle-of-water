@@ -2,7 +2,7 @@ import lockFile from "./packs/packs.lock.json";
 import { own } from "./util";
 
 /**
- * The language pairs Lingo offers: each learning language (one with a language pack)
+ * The language pairs Langle offers: each learning language (one with a language pack)
  * with the native languages it has a dictionary into, the default first. They are the
  * pairs whose dictionaries pass the quality gate, as `npm run data:publish` writes them
  * into the lock (scripts/data/gate.ts). The background's registry

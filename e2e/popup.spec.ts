@@ -37,7 +37,7 @@ test("the page's unsaved words: Mark all, Undo, and On this site off and on", as
 }) => {
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
-  const fresh = await highlighted(page, "lingo-new");
+  const fresh = await highlighted(page, "langle-new");
   const newWords = fresh.length;
   // Detected phrases are saved too, and counted as Phrases rather than Learning.
   const phrases = new Set(
@@ -62,22 +62,22 @@ test("the page's unsaved words: Mark all, Undo, and On this site off and on", as
   await expect(
     popup.getByText(String(unsaved - phrases), { exact: true }),
   ).toBeVisible();
-  await expect.poll(() => highlighted(page, "lingo-new")).toEqual([]);
-  expect((await highlighted(page, "lingo-learning")).length).toBe(newWords);
+  await expect.poll(() => highlighted(page, "langle-new")).toEqual([]);
+  expect((await highlighted(page, "langle-learning")).length).toBe(newWords);
 
   await popup.getByRole("button", { name: en["saveAll.undo"] }).click();
   await expect(popup.getByText(`${unsaved} words not saved yet`)).toBeVisible();
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "langle-new")).length)
     .toBe(newWords);
-  expect(await highlighted(page, "lingo-learning")).toEqual([]);
+  expect(await highlighted(page, "langle-learning")).toEqual([]);
 
   const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
   await expect(site).toBeChecked();
   await site.click();
   await expect(site).not.toBeChecked();
-  await expect(page.locator("lingo-article")).toHaveCount(0);
-  expect(await highlighted(page, "lingo-new")).toEqual([]);
+  await expect(page.locator("langle-article")).toHaveCount(0);
+  expect(await highlighted(page, "langle-new")).toEqual([]);
   await expect(
     popup.getByText(en["saveAll.scope.page"], { exact: true }),
   ).toHaveCount(0);
@@ -85,7 +85,7 @@ test("the page's unsaved words: Mark all, Undo, and On this site off and on", as
   await site.click();
   await expect(site).toBeChecked();
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "langle-new")).length)
     .toBe(newWords);
   await expect(
     popup.getByText(en["saveAll.scope.page"], { exact: true }),
@@ -99,7 +99,7 @@ test("Show words on this page opens the article's Words panel and closes the pop
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "langle-new")).length)
     .toBeGreaterThan(0);
   const popup = await openPopupFor(context, extensionId, page);
   const closed = popup.waitForEvent("close");
@@ -115,37 +115,37 @@ test("Show words on this page opens the article's Words panel and closes the pop
   await expect(panel.locator("[data-word-row]").first()).toBeVisible();
 });
 
-test("the header's switch turns Lingo off on the page, leaving only the header and sync, and back on", async ({
+test("the header's switch turns Langle off on the page, leaving only the header and sync, and back on", async ({
   context,
   extensionId,
 }) => {
   await showNewWords(context, extensionId);
   const page = await openArticle(context);
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "langle-new")).length)
     .toBeGreaterThan(0);
-  const newWords = (await highlighted(page, "lingo-new")).length;
+  const newWords = (await highlighted(page, "langle-new")).length;
   const popup = await openPopupFor(context, extensionId, page);
-  const lingo = popup.getByRole("switch", {
-    name: en["popup.lingoSwitch"],
+  const langle = popup.getByRole("switch", {
+    name: en["popup.langleSwitch"],
     exact: true,
   });
   const site = popup.getByRole("switch", { name: en["popup.siteSwitch"] });
   await expect(site).toBeVisible();
 
-  await lingo.click();
-  await expect(lingo).not.toBeChecked();
-  await expect(page.locator("lingo-article")).toHaveCount(0);
-  expect(await highlighted(page, "lingo-new")).toEqual([]);
+  await langle.click();
+  await expect(langle).not.toBeChecked();
+  await expect(page.locator("langle-article")).toHaveCount(0);
+  expect(await highlighted(page, "langle-new")).toEqual([]);
   await expect(site).toHaveCount(0);
   await expect(
     popup.getByText(en["saveAll.scope.page"], { exact: true }),
   ).toHaveCount(0);
 
-  await lingo.click();
-  await expect(lingo).toBeChecked();
+  await langle.click();
+  await expect(langle).toBeChecked();
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "langle-new")).length)
     .toBe(newWords);
   await expect(site).toBeVisible();
 });

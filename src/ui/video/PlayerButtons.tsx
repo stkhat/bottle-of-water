@@ -1,7 +1,7 @@
 import { t } from "../../i18n/t";
 import { ChevronUpIcon } from "../icons";
 import { color, root } from "../styles";
-import { keepMenuOpen } from "./LingoMenu";
+import { keepMenuOpen } from "./LangleMenu";
 
 export interface PlayerButtonsProps {
   enabled: boolean;
@@ -15,7 +15,7 @@ export interface PlayerButtonsProps {
 /**
  * Mock Main's group in the player bar: the L toggle and the ^ menu button in one
  * translucent white outline over a faint white tint, so they are not taken for the
- * site's own buttons. Both carry `data-lingo-menu` and `keepMenuOpen`: pressing them is
+ * site's own buttons. Both carry `data-langle-menu` and `keepMenuOpen`: pressing them is
  * not a click outside the menu.
  */
 export function PlayerButtons(props: PlayerButtonsProps) {
@@ -37,7 +37,7 @@ export function PlayerButtons(props: PlayerButtonsProps) {
     >
       <button
         type="button"
-        data-lingo-menu
+        data-langle-menu
         onPointerDown={keepMenuOpen}
         aria-label={t("video.toggle")}
         aria-pressed={on}
@@ -77,7 +77,7 @@ export function PlayerButtons(props: PlayerButtonsProps) {
       ></span>
       <button
         type="button"
-        data-lingo-menu
+        data-langle-menu
         onPointerDown={keepMenuOpen}
         aria-label={t("video.menu")}
         aria-expanded={props.menuOpen}

@@ -12,13 +12,13 @@ export function checkErrorLog(page: Page, action: "read" | "clear") {
         const replies: PageReply[] = [];
         addEventListener("message", (e: MessageEvent<PageReply>) => {
           if (
-            e.data?.type === "lingo:check-errors" &&
+            e.data?.type === "langle:check-errors" &&
             e.data.reply &&
             e.data.id === id
           )
             replies.push(e.data);
         });
-        postMessage({ type: "lingo:check-errors", action, id }, "*");
+        postMessage({ type: "langle:check-errors", action, id }, "*");
         setTimeout(() => done(replies), 1000);
       }),
     action,

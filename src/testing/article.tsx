@@ -89,7 +89,7 @@ export async function setup(html: string, options: SetupOptions = {}) {
       watchPackState: background.watchPackState,
       detectLanguage: detectEnglish,
       mountUi(app) {
-        const { host, root } = createShadowHost("lingo-test-ui", "");
+        const { host, root } = createShadowHost("langle-test-ui", "");
         document.body.append(host);
         render(<ArticleUi app={app} />, root);
         return () => {

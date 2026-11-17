@@ -41,7 +41,7 @@ describe("articlesAllowedOn", () => {
     ).toBe(false);
   });
 
-  it("stays off everywhere while Lingo is switched off", () => {
+  it("stays off everywhere while Langle is switched off", () => {
     const s = settings({ enabled: false });
     expect(articlesAllowedOn("example.com", s)).toBe(false);
     expect(articlesAllowedOn("example.org", s)).toBe(false);

@@ -24,7 +24,7 @@ export interface FakeNetflixOptions {
 
 /** The synthetic title's show, as the player's metadata gives it. */
 export const FIXTURE_METADATA = {
-  title: "Lingo Test Show",
+  title: "Langle Test Show",
   seasons: [
     {
       seq: 1,
@@ -36,7 +36,7 @@ export const FIXTURE_METADATA = {
   ],
 };
 
-/** What the fake records, on `window.lingoFakeNetflix.log`. */
+/** What the fake records, on `window.langleFakeNetflix.log`. */
 interface FakeNetflixLog {
   seek: number[];
   /** `pause` and `play` calls, in order. */
@@ -242,8 +242,8 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
       "pointermove",
       () => {
         // A fake installed later (the next browser test) has taken over.
-        const current = (window as unknown as { lingoFakeNetflix?: unknown })
-          .lingoFakeNetflix;
+        const current = (window as unknown as { langleFakeNetflix?: unknown })
+          .langleFakeNetflix;
         if (current === control) showControls(true);
       },
       { capture: true, passive: true },
@@ -268,8 +268,8 @@ export function installFakeNetflixPlayer(options: FakeNetflixOptions): void {
     controls: () => bar,
   };
   (
-    window as unknown as { lingoFakeNetflix: FakeNetflixControl }
-  ).lingoFakeNetflix = control;
+    window as unknown as { langleFakeNetflix: FakeNetflixControl }
+  ).langleFakeNetflix = control;
 
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", () => load(options), {

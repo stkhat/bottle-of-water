@@ -9,5 +9,5 @@ import { isAbortError } from "../abort";
 export function warn(error: unknown) {
   if (error instanceof PacksUnavailableError) return;
   if (isAbortError(error)) return;
-  console.warn("Lingo:", error);
+  console.warn("Langle:", error);
 }

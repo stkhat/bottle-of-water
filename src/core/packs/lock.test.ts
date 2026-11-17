@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyOverrides, readLock, type PackLock } from "./lock";
 
 const entry = (name: string) => ({
-  package: `@lingo-data/${name}`,
+  package: `@langle-data/${name}`,
   version: "2026.1111.0",
   format: 1,
   bundled: true,

@@ -26,8 +26,8 @@ test("a settings change reaches an open article page at once", async ({
 }) => {
   const page = await context.newPage();
   await page.goto("/article-en.html");
-  await expect(page.locator("lingo-article")).toHaveCount(1);
-  expect(await highlighted(page, "lingo-new")).toEqual([]);
+  await expect(page.locator("langle-article")).toHaveCount(1);
+  expect(await highlighted(page, "langle-new")).toEqual([]);
 
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
@@ -38,6 +38,6 @@ test("a settings change reaches an open article page at once", async ({
   await newSwitch.click();
   await expect(newSwitch).toBeChecked();
   await expect
-    .poll(async () => (await highlighted(page, "lingo-new")).length)
+    .poll(async () => (await highlighted(page, "langle-new")).length)
     .toBeGreaterThan(0);
 });

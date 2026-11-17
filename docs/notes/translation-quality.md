@@ -1,6 +1,6 @@
 # Translation quality on real content (2026-11-13)
 
-How good are the meanings, phrases and translations Lingo shows on real videos and articles, which fixes work, and how they are layered so they carry over to other language pairs. Learning language English, native language Japanese, default settings (known level 3000, nothing saved).
+How good are the meanings, phrases and translations Langle shows on real videos and articles, which fixes work, and how they are layered so they carry over to other language pairs. Learning language English, native language Japanese, default settings (known level 3000, nothing saved).
 
 Two rounds:
 - **Round 1** measured the current build and proposed fixes.
@@ -15,8 +15,8 @@ Two rounds:
   - 30 YouTube videos in 14 genres. 14 are ASR-only and 4 have a human Japanese track. They include US, UK and Australian speakers, vlogs, gaming, podcasts, stand-up and sports.
   - 30 articles from 10 outlets: BBC, Guardian, AP, NPR, Al Jazeera, The Conversation, Sky, CBS, PBS and CNN.
   - 15 Netflix episodes (63,800 tokens): 3 random episodes each (seeded) of Suits, The Office (US), Breaking Bad, Brooklyn Nine-Nine and The Crown. Two of them have ALL-CAPS captions.
-- **Collection**: everything was collected in the user's Chrome with the check build. Captions are the player's own tracks (`en`, `ja`, `tlang=ja`); Netflix cards come from Lingo's transcript. Copyrighted text stays out of the repo.
-- **Pipeline**: Lingo's own code ran offline over the corpus (`createLanguagePack`, `createClassifier`, `createEnJaDictionary`, `captionCards`). Spot checks of highlights and hover cards in the real UI matched it. The check build's error log was empty after every session.
+- **Collection**: everything was collected in the user's Chrome with the check build. Captions are the player's own tracks (`en`, `ja`, `tlang=ja`); Netflix cards come from Langle's transcript. Copyrighted text stays out of the repo.
+- **Pipeline**: Langle's own code ran offline over the corpus (`createLanguagePack`, `createClassifier`, `createEnJaDictionary`, `captionCards`). Spot checks of highlights and hover cards in the real UI matched it. The check build's error log was empty after every session.
 - **Judging**: Claude judged every sample against its sentence.
   - Round 1: 480 hovers, 185 cards/paragraphs, 471 phrase keys, 272 machine-translated definitions, 100 subtitle lines.
   - Round 2: two blind A/B rounds of about 780 hovers and 330 units each on YouTube and articles, current build against prototype. The second A/B used a fresh sample, so the rules were not tested on the items they were tuned on.

@@ -5,7 +5,7 @@ import { THEME_CSS } from "./theme";
 /**
  * An extension page (popup, settings, word list) follows the theme setting: the
  * variables go on `<html>`, so the page's own background is themed too. Until the
- * settings answer, the page's `data-lingo-theme="system"` (index.html) applies.
+ * settings answer, the page's `data-langle-theme="system"` (index.html) applies.
  */
 export function followTheme(deps: {
   send: typeof Send;
@@ -15,7 +15,7 @@ export function followTheme(deps: {
   style.textContent = THEME_CSS;
   document.head.append(style);
   const apply = (settings: Settings) => {
-    document.documentElement.dataset.lingoTheme = settings.theme;
+    document.documentElement.dataset.langleTheme = settings.theme;
   };
   deps.send({ type: "getSettings" }).then(apply, () => {});
   deps.watchSettings(apply);

@@ -46,7 +46,7 @@ export function trackUrl(
 }
 
 /**
- * The track Lingo shows as the original: the manual track in the learning language,
+ * The track Langle shows as the original: the manual track in the learning language,
  * else its auto-generated one. A regional code (`en-GB`) counts as its language.
  */
 export const pickOriginalTrack = (

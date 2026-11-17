@@ -97,7 +97,7 @@ export interface VideoState {
    * the learning language (or they could not be read).
    */
   status: "idle" | "loading" | "ready" | "unavailable";
-  /** Lingo is on for this video (the L button). */
+  /** Langle is on for this video (the L button). */
   enabled: boolean;
   /**
    * The transcript's cards: the original subtitles as sentences (cues that go on joined,
@@ -132,7 +132,7 @@ export interface VideoState {
   selecting: boolean;
   /** The pointer is on the subtitle (over the video or in the box below it). */
   subtitleHover: boolean;
-  /** The Lingo menu above the ^ button. */
+  /** The Langle menu above the ^ button. */
   menuOpen: boolean;
   /** The player is in fullscreen: no transcript, the subtitle always in the video. */
   fullscreen: boolean;
@@ -161,7 +161,7 @@ export interface VideoState {
 /** The UI's view of the video: its state and what its controls do. */
 export interface VideoApp extends ExplainActions {
   readonly store: Store<VideoState>;
-  /** The L button: Lingo on or off for this video. */
+  /** The L button: Langle on or off for this video. */
   setEnabled(on: boolean): void;
   /** A transcript card was clicked: the video plays from its start. */
   seekToCue(index: number): void;

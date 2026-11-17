@@ -122,7 +122,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const active = useSectionInView();
   const packStatus = useRef<PackStatusFollower>(undefined);
 
-  const warn = (error: unknown) => console.warn("Lingo:", error);
+  const warn = (error: unknown) => console.warn("Langle:", error);
   const refreshSync = () =>
     deps.send({ type: "syncStatus" }).then(setSync, warn);
   const refreshHistory = () =>

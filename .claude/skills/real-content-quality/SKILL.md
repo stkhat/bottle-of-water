@@ -1,9 +1,9 @@
 ---
 name: real-content-quality
-description: Measure and improve what Lingo shows on real content — hover meanings, phrase highlights, names, site and machine translations, alignment — by collecting real YouTube/Netflix/article text in the user's Chrome, running Lingo's own code over it offline, judging samples blind, fixing root causes with general rules layered by language part, shipping the fixes in steps, and checking them on the real sites. Use this whenever the user asks how good Lingo's translations, meanings or highlights are on real videos or articles, wants them improved or measured, wants a quality study for a new language pair or site, or says things like "実コンテンツで翻訳の質を調べて", "ホバーの意味が変", "熟語のハイライトを良くしたい", even if they don't name a method. Not for a single reported bug (debug that directly) or for adding a site adapter.
+description: Measure and improve what Langle shows on real content — hover meanings, phrase highlights, names, site and machine translations, alignment — by collecting real YouTube/Netflix/article text in the user's Chrome, running Langle's own code over it offline, judging samples blind, fixing root causes with general rules layered by language part, shipping the fixes in steps, and checking them on the real sites. Use this whenever the user asks how good Langle's translations, meanings or highlights are on real videos or articles, wants them improved or measured, wants a quality study for a new language pair or site, or says things like "実コンテンツで翻訳の質を調べて", "ホバーの意味が変", "熟語のハイライトを良くしたい", even if they don't name a method. Not for a single reported bug (debug that directly) or for adding a site adapter.
 ---
 
-# Improving Lingo's output on real content
+# Improving Langle's output on real content
 
 This is the loop used for the 2026-11 translation-quality work ([docs/notes/translation-quality.md](../../../docs/notes/translation-quality.md); PRs #53–#63). It goes: real corpus → offline runner → blind judging → root causes → prototype and blind A/B → report and user decisions → one PR per step → real-site check. Each phase exists because skipping it produced a wrong conclusion at least once; the reasons are given so you can adapt a phase rather than drop it.
 
@@ -30,14 +30,14 @@ Use Claude in Chrome with the check build (`docs/development.md` "Checking in yo
 - Size: round 1 was ~50k tokens (10 videos, 5 episodes, 10 articles). Round 2 was 3× larger with different content: 30 videos in 14 genres, 30 articles from 10 outlets, 15 Netflix episodes from 5 shows (3 seeded-random episodes each).
 - Write a `manifest.json`: kind, id, title, channel or show, genre, caption kind, has a human native-language track, has `tlang`, minutes, url.
 - What to save per source, and how to get it from the page to disk: [references/collection.md](references/collection.md).
-- Save the **raw timed tracks** (learning language, the site's native-language track, YouTube `tlang`), not only what Lingo rendered. Last time Netflix kept only rendered cards, so the alignment fix could not be measured offline afterwards; `netflix-grab.js` still saves only cards, so extend it first (collection.md).
+- Save the **raw timed tracks** (learning language, the site's native-language track, YouTube `tlang`), not only what Langle rendered. Last time Netflix kept only rendered cards, so the alignment fix could not be measured offline afterwards; `netflix-grab.js` still saves only cards, so extend it first (collection.md).
 - Choose the videos, shows and articles yourself; the user doesn't name them. Choose for variety in what they test (see collection.md).
 - A site the grab scripts don't cover (a podcast page, another video site): write a grab in the same style that saves the raw text or tracks plus an `id`, and add the site to `build-units.ts`.
 - Etiquette: don't choose a Netflix profile or change account or site settings. Leave cookie banners unanswered or decline them. If a site walls you (an ad-block notice), pick another article.
 - When collection is done, remove every Netflix title you opened from the "Continue Watching" row (collection.md, "Clean up afterwards").
-- End every Chrome session by reading and clearing the `lingo:check-errors` log.
+- End every Chrome session by reading and clearing the `langle:check-errors` log.
 
-## Phase 2 — Run Lingo's own code offline
+## Phase 2 — Run Langle's own code offline
 
 The scripts in `scripts/` run a checkout's own code with `npx jiti`, so a fix measured here is the fix that ships. Study data lives in the main checkout's git-ignored `data/raw/quality/<study>/` (worktrees symlink `data/raw` to it): `corpus/` with `manifest.json`, `runs/<label>/`, `packets/`. The first study is `2026-11`: `corpus/` is round 2, `corpus-r1/` round 1, and `runs/out2`, `runs/out3` its units and outputs. Settings are `--name=value` or environment variables; the usage is at the top of each script.
 
@@ -84,7 +84,7 @@ When reporting:
 ## Phase 4 — Root causes, prototypes, blind A/B
 
 1. Group failures by cause, not by symptom. For example, "the hover is one string chosen at build time" explains just → 正しい, decided → 明白な and the 300-character dumps at once.
-2. Prototype fixes **outside the repo** (in the study folder's `proto/`, so the next session finds them), still calling Lingo's code where possible.
+2. Prototype fixes **outside the repo** (in the study folder's `proto/`, so the next session finds them), still calling Langle's code where possible.
 3. Run a blind A/B of the current build against the prototype. Then run a second A/B on a **fresh** sample. Then judge the held-out site with the prototype frozen.
 4. Keep a "What was tested" table: idea, result with numbers, decision (Recommended, Refined or Dropped).
    - Dropped ideas are findings too. For example, Gemini Nano picking senses (72% vs 70%) or verifying them (it rejected 3 of 4 good ones) is why the on-device model is kept to user-initiated "Ask AI".
@@ -127,15 +127,15 @@ CI notes:
 ## Phase 7 — Check on the real sites
 
 After the user-visible steps, and once at the end:
-1. Build the check build in a worktree that matches `origin/main` (`npx wxt build --mode check`), then copy it into the folder Chrome loaded, the **main checkout's** `.output/lingo-check`:
-   `node --input-type=module -e "import {syncBuild,buildId} from './scripts/build-check.ts'; syncBuild('.output/chrome-mv3-check','<main checkout>/.output/lingo-check', buildId(new Date(),'<sha>'))"`
+1. Build the check build in a worktree that matches `origin/main` (`npx wxt build --mode check`), then copy it into the folder Chrome loaded, the **main checkout's** `.output/langle-check`:
+   `node --input-type=module -e "import {syncBuild,buildId} from './scripts/build-check.ts'; syncBuild('.output/chrome-mv3-check','<main checkout>/.output/langle-check', buildId(new Date(),'<sha>'))"`
    (`npm run build:check` writes only to its own checkout's `.output`.)
 2. Reload the tabs. The extension reloads itself, so a page opened before that answers `connected:false`; reload that page.
 3. On one article, one YouTube video and one Netflix episode, hover what the steps changed.
 
 Hints:
 - Pause videos first with `document.querySelector('video').pause()`; the transcript follows playback and moves the targets.
-- The check build keeps Lingo's shadow roots open, but the browser tools sometimes withhold page text; hover and use `zoom` screenshots to read hover cards.
+- The check build keeps Langle's shadow roots open, but the browser tools sometimes withhold page text; hover and use `zoom` screenshots to read hover cards.
 - Look especially at:
   - text that skips the build-time rules (meanings machine-translated at display time escaped the short-line cap);
   - interactions between steps (adding vocabulary turned "Nov" into a clipping of novice).

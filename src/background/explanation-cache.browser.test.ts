@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { LingoDb } from "./db";
+import type { LangleDb } from "./db";
 import {
   createExplanationCache,
   type ExplanationCache,
@@ -24,7 +24,7 @@ const kept = (meaning: string, lines = 5): KeptExplanation => ({
   lines,
 });
 
-let db: LingoDb;
+let db: LangleDb;
 let cache: ExplanationCache;
 let clock: ReturnType<typeof fakeClock>;
 

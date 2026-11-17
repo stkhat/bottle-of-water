@@ -1,8 +1,8 @@
 /**
- * What Lingo reads from the manifest the Netflix player parses for each title: its
+ * What Langle reads from the manifest the Netflix player parses for each title: its
  * subtitle tracks and where to download them. Every assumption about the manifest's
  * shape is here (see docs/notes/netflix.md); a manifest that does not match gives
- * nothing, and Lingo then leaves the video alone.
+ * nothing, and Langle then leaves the video alone.
  */
 
 /** One way to download a track, with every CDN's URL (they carry tokens: memory only). */
@@ -20,7 +20,7 @@ export interface NetflixTextTrack {
   kind: "subtitles" | "closedcaptions";
   /** A forced-narrative track (only the foreign-language lines). */
   forced: boolean;
-  /** Text formats Lingo reads, in order of preference; never empty. */
+  /** Text formats Langle reads, in order of preference; never empty. */
   downloads: NetflixDownload[];
 }
 

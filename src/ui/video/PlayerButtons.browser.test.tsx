@@ -12,13 +12,13 @@ const base: PlayerButtonsProps = {
 afterEach(cleanUpMounts);
 
 describe("PlayerButtons", () => {
-  test("the L button shows Lingo is on", async () => {
+  test("the L button shows Langle is on", async () => {
     const screen = await mountInShadowRoot(<PlayerButtons {...base} />);
-    const l = screen.getByRole("button", { name: "Lingo on or off" });
+    const l = screen.getByRole("button", { name: "Langle on or off" });
     await expect.element(l).toHaveAttribute("aria-pressed", "true");
     await expect
       .element(l)
-      .toHaveAttribute("title", "Lingo is on — click to turn off");
+      .toHaveAttribute("title", "Langle is on — click to turn off");
     const style = getComputedStyle(l.element());
     expect(style.backgroundColor).toBe("rgb(11, 138, 108)");
     expect(style.textDecorationLine).toBe("none");
@@ -28,11 +28,11 @@ describe("PlayerButtons", () => {
     const screen = await mountInShadowRoot(
       <PlayerButtons {...base} enabled={false} />,
     );
-    const l = screen.getByRole("button", { name: "Lingo on or off" });
+    const l = screen.getByRole("button", { name: "Langle on or off" });
     await expect.element(l).toHaveAttribute("aria-pressed", "false");
     await expect
       .element(l)
-      .toHaveAttribute("title", "Lingo is off — click to turn on");
+      .toHaveAttribute("title", "Langle is off — click to turn on");
     const style = getComputedStyle(l.element());
     expect(style.borderTopStyle).toBe("dashed");
     expect(style.textDecorationLine).toBe("line-through");
@@ -40,7 +40,7 @@ describe("PlayerButtons", () => {
 
   test("both buttons sit in one translucent white outline", async () => {
     const screen = await mountInShadowRoot(<PlayerButtons {...base} />);
-    const group = screen.getByRole("group", { name: "Lingo" });
+    const group = screen.getByRole("group", { name: "Langle" });
     const style = getComputedStyle(group.element());
     expect(style.borderTopColor).toBe("rgba(255, 255, 255, 0.55)");
     expect(style.backgroundColor).toBe("rgba(255, 255, 255, 0.12)");
@@ -48,25 +48,27 @@ describe("PlayerButtons", () => {
     expect(
       group
         .element()
-        .contains(screen.getByRole("button", { name: "Lingo menu" }).element()),
+        .contains(
+          screen.getByRole("button", { name: "Langle menu" }).element(),
+        ),
     ).toBe(true);
   });
 
-  test("the buttons ask to toggle Lingo and the menu", async () => {
+  test("the buttons ask to toggle Langle and the menu", async () => {
     const onToggle = vi.fn();
     const onMenu = vi.fn();
     const screen = await mountInShadowRoot(
       <PlayerButtons {...base} onToggle={onToggle} onMenu={onMenu} />,
     );
-    await screen.getByRole("button", { name: "Lingo on or off" }).click();
-    await screen.getByRole("button", { name: "Lingo menu" }).click();
+    await screen.getByRole("button", { name: "Langle on or off" }).click();
+    await screen.getByRole("button", { name: "Langle menu" }).click();
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onMenu).toHaveBeenCalledTimes(1);
   });
 
   test("the menu button tells whether the menu is open", async () => {
     const screen = await mountInShadowRoot(<PlayerButtons {...base} />);
-    const menu = screen.getByRole("button", { name: "Lingo menu" });
+    const menu = screen.getByRole("button", { name: "Langle menu" });
     await expect.element(menu).toHaveAttribute("aria-expanded", "false");
     await screen.rerender(<PlayerButtons {...base} menuOpen />);
     await expect.element(menu).toHaveAttribute("aria-expanded", "true");

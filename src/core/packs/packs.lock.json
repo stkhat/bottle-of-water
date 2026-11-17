@@ -49,7 +49,7 @@
         }
       ],
       "format": 4,
-      "package": "@lingo-data/en",
+      "package": "@langle-data/en",
       "version": "2026.1113.6"
     },
     "en-defs": {
@@ -117,7 +117,7 @@
         }
       ],
       "format": 1,
-      "package": "@lingo-data/en-defs",
+      "package": "@langle-data/en-defs",
       "version": "2026.1113.6"
     },
     "en-es": {
@@ -145,7 +145,7 @@
         }
       ],
       "format": 1,
-      "package": "@lingo-data/en-es",
+      "package": "@langle-data/en-es",
       "version": "2026.1113.3"
     },
     "en-ja": {
@@ -193,7 +193,7 @@
         }
       ],
       "format": 4,
-      "package": "@lingo-data/en-ja",
+      "package": "@langle-data/en-ja",
       "version": "2026.1113.7"
     },
     "en-pt": {
@@ -216,7 +216,7 @@
         }
       ],
       "format": 1,
-      "package": "@lingo-data/en-pt",
+      "package": "@langle-data/en-pt",
       "version": "2026.1113.3"
     },
     "es": {
@@ -249,7 +249,7 @@
         }
       ],
       "format": 1,
-      "package": "@lingo-data/es",
+      "package": "@langle-data/es",
       "version": "2026.1111.0"
     },
     "es-en": {
@@ -272,7 +272,7 @@
         }
       ],
       "format": 1,
-      "package": "@lingo-data/es-en",
+      "package": "@langle-data/es-en",
       "version": "2026.1113.0"
     }
   },

@@ -13,7 +13,7 @@ import {
 } from "./error-log";
 
 /**
- * Check builds only: starts the error log in each kind of Lingo context (error-log.ts).
+ * Check builds only: starts the error log in each kind of Langle context (error-log.ts).
  * Callers guard every call with `import.meta.env.MODE === "check"`, so other builds
  * leave this module out.
  */
@@ -72,7 +72,7 @@ export function startPageErrorLog(): void {
 }
 
 /** A flag on the content scripts' shared global: one recorder per isolated world. */
-const STARTED = Symbol.for("lingo.checkErrorLog");
+const STARTED = Symbol.for("langle.checkErrorLog");
 
 /**
  * In a content script (`name`: "article", "youtube", "netflix"): records the script's

@@ -79,7 +79,7 @@ describe("megabytes", () => {
 describe("backupFileName", () => {
   it("names the file after the local date", () => {
     expect(backupFileName(new Date(2026, 0, 5, 23, 59))).toBe(
-      "lingo-backup-2026-01-05.json",
+      "langle-backup-2026-01-05.json",
     );
   });
 });

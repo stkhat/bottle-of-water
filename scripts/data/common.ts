@@ -226,7 +226,7 @@ export const posLabel = (pos: string) =>
   Object.hasOwn(POS_LABELS, pos) ? POS_LABELS[pos]! : pos.replaceAll("_", " ");
 
 const USER_AGENT =
-  "LingoDataImport/0.1 (https://github.com/stkhat/bottle-of-water)";
+  "LangleDataImport/0.1 (https://github.com/stkhat/bottle-of-water)";
 
 export async function fetchText(url: string) {
   const response = await fetch(url, { headers: { "User-Agent": USER_AGENT } });

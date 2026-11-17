@@ -158,10 +158,10 @@ describe("startArticle", () => {
     expect(fake.mounted()).toBe(1);
 
     await expect
-      .poll(() => highlighted("lingo-new"))
+      .poll(() => highlighted("langle-new"))
       .toEqual(["knead", "tangy"]);
-    expect(highlighted("lingo-learning")).toEqual(["heavy"]);
-    expect(CSS.highlights.has("lingo-known")).toBe(false);
+    expect(highlighted("langle-learning")).toEqual(["heavy"]);
+    expect(CSS.highlights.has("langle-known")).toBe(false);
 
     const analyze = fake.requests.filter((r) => r.type === "analyze");
     expect(analyze).toEqual([
@@ -184,15 +184,15 @@ describe("startArticle", () => {
     const fake = fakeDeps(settings());
     const root = fixture(ARTICLE);
     await start(fake, root);
-    await expect.poll(() => highlighted("lingo-learning")).toEqual(["heavy"]);
-    expect(CSS.highlights.has("lingo-new")).toBe(false);
+    await expect.poll(() => highlighted("langle-learning")).toEqual(["heavy"]);
+    expect(CSS.highlights.has("langle-new")).toBe(false);
 
     fake.changeSettings(
       settings({ highlight: { new: true, learning: false, known: true } }),
     );
-    expect(highlighted("lingo-new")).toEqual(["knead", "tangy"]);
-    expect(highlighted("lingo-known")).toEqual(["loaves", "yeast"]);
-    expect(CSS.highlights.has("lingo-learning")).toBe(false);
+    expect(highlighted("langle-new")).toEqual(["knead", "tangy"]);
+    expect(highlighted("langle-known")).toEqual(["loaves", "yeast"]);
+    expect(CSS.highlights.has("langle-learning")).toBe(false);
   });
 
   it("re-analyzes blocks that change and drops highlights of removed ones", async () => {
@@ -200,7 +200,7 @@ describe("startArticle", () => {
     const root = fixture(ARTICLE);
     await start(fake, root);
     await expect
-      .poll(() => highlighted("lingo-new"))
+      .poll(() => highlighted("langle-new"))
       .toEqual(["knead", "tangy"]);
 
     root.querySelectorAll("p")[2]!.remove();
@@ -208,7 +208,7 @@ describe("startArticle", () => {
     added.textContent = "Knead it again.";
     root.append(added);
     await expect
-      .poll(() => highlighted("lingo-new").sort())
+      .poll(() => highlighted("langle-new").sort())
       .toEqual(["Knead", "knead"]);
   });
 
@@ -288,7 +288,7 @@ describe("startArticle", () => {
     );
     const root = fixture(ARTICLE);
     await start(fake, root);
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
     expect(fake.requests.filter((r) => r.type === "recordHistory")).toEqual([]);
   });
 
@@ -298,7 +298,7 @@ describe("startArticle", () => {
     );
     const root = fixture(ARTICLE);
     await start(fake, root);
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
     const history = () =>
       fake.requests.filter((r) => r.type === "recordHistory");
     const analyzed = () =>
@@ -366,9 +366,9 @@ describe("startArticle", () => {
     const root = fixture(ARTICLE);
     const sheets = document.adoptedStyleSheets.length;
     const session = (await start(fake, root)) as ArticleSession;
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
     session.stop();
-    expect(CSS.highlights.has("lingo-new")).toBe(false);
+    expect(CSS.highlights.has("langle-new")).toBe(false);
     expect(document.adoptedStyleSheets.length).toBe(sheets);
     expect(fake.mounted()).toBe(0);
     expect(fake.settingsWatchers()).toBe(0);
@@ -400,11 +400,11 @@ describe("startArticle without its language data", () => {
     await pause();
     expect(analyzed(fake)).toBe(1);
     expect(session.spans.size).toBe(0);
-    expect(highlighted("lingo-new")).toEqual([]);
+    expect(highlighted("langle-new")).toEqual([]);
 
     fake.setPackStates({ en: READY });
     await expect
-      .poll(() => highlighted("lingo-new"))
+      .poll(() => highlighted("langle-new"))
       .toEqual(["knead", "tangy"]);
     // The blocks that waited, in one request; nothing watched any more.
     expect(analyzed(fake)).toBe(2);
@@ -425,7 +425,7 @@ describe("startArticle without its language data", () => {
       }
     }) as typeof send;
     await start(fake, fixture(ARTICLE));
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
     expect(analyzed(fake)).toBe(2);
     noWarnings();
   });
@@ -443,7 +443,7 @@ describe("startArticle without its language data", () => {
 
     fake.setPackStates({ en: DOWNLOADING });
     fake.setPackStates({ en: READY });
-    await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+    await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
     expect(analyzed(fake)).toBe(3);
     noWarnings();
   });
@@ -477,26 +477,26 @@ describe("runArticle", () => {
 
   it.each([
     ["the site is", { disabledSites: ["www.example.com"] }],
-    ["Lingo is", { enabled: false }],
+    ["Langle is", { enabled: false }],
   ])(
-    "removes Lingo when %s switched off and brings it back when switched on",
+    "removes Langle when %s switched off and brings it back when switched on",
     async (_, offPatch) => {
       const on = settings({ highlight: { new: true } });
       const fake = fakeDeps(on);
       const runner = run(fake);
-      await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+      await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
       expect(fake.mounted()).toBe(1);
 
       fake.changeSettings({ ...on, ...offPatch });
       await expect.poll(() => fake.mounted()).toBe(0);
-      expect(CSS.highlights.has("lingo-new")).toBe(false);
+      expect(CSS.highlights.has("langle-new")).toBe(false);
       expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
         off(),
       );
 
       fake.changeSettings(on);
       await expect.poll(() => fake.mounted()).toBe(1);
-      await expect.poll(() => highlighted("lingo-new")).toHaveLength(2);
+      await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
       expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual({
         supported: true,
         hostname: "www.example.com",

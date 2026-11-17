@@ -25,7 +25,7 @@ const light = palettes.light;
 
 /**
  * Highlight colors: `page` is painted into a website's own text (never themed), `ui`
- * is in Lingo's own panels (themed), `onVideo` is brighter for subtitles over a dark
+ * is in Langle's own panels (themed), `onVideo` is brighter for subtitles over a dark
  * video (mock Main `hlStyle` / `ovStyle`).
  */
 export const highlight = {

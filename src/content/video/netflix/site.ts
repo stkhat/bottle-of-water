@@ -1,14 +1,14 @@
 /**
- * Everything Lingo assumes about Netflix's watch page and player API (manifest fields are
+ * Everything Langle assumes about Netflix's watch page and player API (manifest fields are
  * in `manifest.ts`). None of it is documented by Netflix; see docs/notes/netflix.md.
  * Each lookup tries its candidates in order and gives null when none matches, so a
- * changed page means "no Lingo on this video", never a broken page. Imported by the
+ * changed page means "no Langle on this video", never a broken page. Imported by the
  * page script: no runtime dependencies.
  */
 
 /** CSS selectors, most likely first. */
 export const SELECTORS = {
-  /** The player area; Lingo's in-video parts go inside it (it covers the video). */
+  /** The player area; Langle's in-video parts go inside it (it covers the video). */
   player: [
     ".watch-video--player-view",
     "[data-uia='player']",
@@ -51,12 +51,12 @@ export const SELECTORS = {
   title: ["[data-uia='video-title']", ".video-title"],
 } as const;
 
-/** Hides Netflix's own subtitles while Lingo shows its own. */
+/** Hides Netflix's own subtitles while Langle shows its own. */
 export const HIDE_CAPTIONS_CSS = `${SELECTORS.captions.join(", ")} { display: none !important; }`;
 
 /**
  * Keeps Netflix's control bar and the back arrow and flag shown with it out of sight
- * until Lingo lets them show (see `CONTROL_BAR_DELAY_MS`). Opacity cannot be undone by
+ * until Langle lets them show (see `CONTROL_BAR_DELAY_MS`). Opacity cannot be undone by
  * the children; hidden, they let clicks through to the video.
  */
 export const HIDE_CONTROL_BAR_CSS = `${[...SELECTORS.controlBar, ...SELECTORS.topButtons].join(", ")} { opacity: 0 !important; visibility: hidden !important; }`;
@@ -81,7 +81,7 @@ export const TOP_STRIP = 80;
 /** Titles whose tracks are kept: the playing one, the next episode (prefetched), a few before. */
 export const KEEP_TITLES = 6;
 
-/** Lingo's parts over the player keep clear of the control bar at the bottom (px). */
+/** Langle's parts over the player keep clear of the control bar at the bottom (px). */
 export const CONTROL_BAR_HEIGHT = 120;
 
 /**

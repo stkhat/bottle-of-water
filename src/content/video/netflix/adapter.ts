@@ -77,7 +77,7 @@ export function createNetflixAdapter(
     isEvent: isTracksMessage,
   });
   const hideCaptions = styleSwitch(
-    "lingo-hide-netflix-captions",
+    "langle-hide-netflix-captions",
     HIDE_CAPTIONS_CSS,
   );
   const tracksTimeoutMs = options.tracksTimeoutMs ?? 15_000;
@@ -219,7 +219,7 @@ export function createNetflixAdapter(
   };
 
   /**
-   * One element of Lingo's own, made once: `place` puts it back where it belongs when
+   * One element of Langle's own, made once: `place` puts it back where it belongs when
    * the page re-renders; `shown` is it while it is on the page.
    */
   function own(name: string, style: string, parent: () => Element | null) {
@@ -241,7 +241,7 @@ export function createNetflixAdapter(
   }
 
   const below = own(
-    "lingo-netflix-below",
+    "langle-netflix-below",
     `position: absolute; z-index: 60; left: 50%; transform: translateX(-50%);
      width: min(880px, calc(100% - 48px)); bottom: ${CONTROL_BAR_HEIGHT}px;`,
     player,
@@ -257,7 +257,7 @@ export function createNetflixAdapter(
   cleanups.push(() => narrowPlayer(0));
 
   const floating = own(
-    "lingo-netflix-controls",
+    "langle-netflix-controls",
     `position: absolute; z-index: 61; right: 24px; bottom: ${CONTROL_BAR_HEIGHT}px;
      height: 40px; display: flex; visibility: hidden;`,
     player,
@@ -281,7 +281,7 @@ export function createNetflixAdapter(
     showFloating();
   };
   const onPointerOut = (event: Event) => controlBar.pointerOut(event);
-  // On the window, capturing: the page cannot keep the moves from Lingo.
+  // On the window, capturing: the page cannot keep the moves from Langle.
   const POINTER = ["pointermove", "mousemove"] as const;
   for (const type of POINTER)
     window.addEventListener(type, onPointerMove, {

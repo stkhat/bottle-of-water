@@ -63,13 +63,13 @@ describe("createHighlighter", () => {
       }),
     );
     h.set(second!, spans(second!, { yeast: "known", bacteria: "new" }));
-    expect(registered("lingo-new")).toEqual(["bacteria", "knead"]);
-    expect(registered("lingo-learning")).toEqual(["bake"]);
-    expect(registered("lingo-known")).toEqual(["loaves", "yeast"]);
+    expect(registered("langle-new")).toEqual(["bacteria", "knead"]);
+    expect(registered("langle-learning")).toEqual(["bake"]);
+    expect(registered("langle-known")).toEqual(["loaves", "yeast"]);
     expect(HIGHLIGHT_NAMES).toEqual({
-      new: "lingo-new",
-      learning: "lingo-learning",
-      known: "lingo-known",
+      new: "langle-new",
+      learning: "langle-learning",
+      known: "langle-known",
     });
   });
 
@@ -88,7 +88,7 @@ describe("createHighlighter", () => {
         category: "learning",
       },
     ]);
-    expect(registered("lingo-learning")).toEqual(["rise and fall"]);
+    expect(registered("langle-learning")).toEqual(["rise and fall"]);
   });
 
   it("replaces a block's ranges when it is set again, and drops them on remove", () => {
@@ -97,11 +97,11 @@ describe("createHighlighter", () => {
     h.set(first!, spans(first!, { knead: "new", loaves: "new" }));
     h.set(second!, spans(second!, { yeast: "new" }));
     h.set(first!, spans(first!, { knead: "learning" }));
-    expect(registered("lingo-new")).toEqual(["yeast"]);
-    expect(registered("lingo-learning")).toEqual(["knead"]);
+    expect(registered("langle-new")).toEqual(["yeast"]);
+    expect(registered("langle-learning")).toEqual(["knead"]);
     h.remove(second!);
-    expect(registered("lingo-new")).toEqual([]);
-    expect(registered("lingo-learning")).toEqual(["knead"]);
+    expect(registered("langle-new")).toEqual([]);
+    expect(registered("langle-learning")).toEqual(["knead"]);
   });
 
   it("registers only the categories switched on, and follows changes", () => {
@@ -111,19 +111,19 @@ describe("createHighlighter", () => {
       block!,
       spans(block!, { knead: "new", bake: "learning", loaves: "known" }),
     );
-    expect(registered("lingo-new")).toBeUndefined();
-    expect(registered("lingo-learning")).toEqual(["bake"]);
-    expect(registered("lingo-known")).toBeUndefined();
+    expect(registered("langle-new")).toBeUndefined();
+    expect(registered("langle-learning")).toEqual(["bake"]);
+    expect(registered("langle-known")).toBeUndefined();
 
     h.setEnabled({ new: true, learning: false, known: true });
-    expect(registered("lingo-new")).toEqual(["knead"]);
-    expect(registered("lingo-learning")).toBeUndefined();
-    expect(registered("lingo-known")).toEqual(["loaves"]);
+    expect(registered("langle-new")).toEqual(["knead"]);
+    expect(registered("langle-learning")).toBeUndefined();
+    expect(registered("langle-known")).toEqual(["loaves"]);
 
     // Ranges set while a category is off show when it comes back on.
     h.set(block!, spans(block!, { wait: "learning" }));
     h.setEnabled({ new: false, learning: true, known: false });
-    expect(registered("lingo-learning")).toEqual(["wait"]);
+    expect(registered("langle-learning")).toEqual(["wait"]);
   });
 
   it("styles the highlights from one adopted stylesheet and adds nothing to the DOM", () => {
@@ -153,9 +153,9 @@ describe("createHighlighter", () => {
       (r) => (r as CSSStyleRule).selectorText,
     );
     expect(selectors.sort()).toEqual([
-      "::highlight(lingo-known)",
-      "::highlight(lingo-learning)",
-      "::highlight(lingo-new)",
+      "::highlight(langle-known)",
+      "::highlight(langle-learning)",
+      "::highlight(langle-new)",
     ]);
   });
 
@@ -166,21 +166,21 @@ describe("createHighlighter", () => {
       [...sheet.cssRules].find(
         (r) => (r as CSSStyleRule).selectorText === `::highlight(${name})`,
       ) as CSSStyleRule;
-    const learning = rule("lingo-learning").style;
+    const learning = rule("langle-learning").style;
     expect(learning.backgroundColor).toBe("rgb(211, 241, 229)");
     expect(learning.textDecorationColor).toBe("rgb(15, 159, 126)");
     expect(learning.textDecorationLine).toBe("underline");
-    expect(rule("lingo-new").style.textDecorationColor).toBe(
+    expect(rule("langle-new").style.textDecorationColor).toBe(
       "rgb(47, 111, 228)",
     );
-    expect(rule("lingo-new").style.backgroundColor).toBe("rgb(234, 240, 253)");
-    expect(rule("lingo-known").style.textDecorationColor).toBe(
+    expect(rule("langle-new").style.backgroundColor).toBe("rgb(234, 240, 253)");
+    expect(rule("langle-known").style.textDecorationColor).toBe(
       "rgb(163, 168, 183)",
     );
     // Every underline sits flush with the bottom of the text.
     expect(learning.textUnderlineOffset).toBe("0.2em");
-    expect(rule("lingo-new").style.textUnderlineOffset).toBe("0.2em");
-    expect(rule("lingo-known").style.textUnderlineOffset).toBe("0.2em");
+    expect(rule("langle-new").style.textUnderlineOffset).toBe("0.2em");
+    expect(rule("langle-known").style.textUnderlineOffset).toBe("0.2em");
     expect(learning.textDecorationThickness).toBe("2px");
   });
 
@@ -192,11 +192,11 @@ describe("createHighlighter", () => {
         (r) => (r as CSSStyleRule).selectorText === `::highlight(${name})`,
       ) as CSSStyleRule;
     // The mock's ink on the light chips; Known has no background and keeps the page's.
-    expect(rule("lingo-new").style.color).toBe("rgb(20, 24, 43)");
-    expect(rule("lingo-learning").style.color).toBe("rgb(20, 24, 43)");
-    expect(rule("lingo-known").style.color).toBe("");
+    expect(rule("langle-new").style.color).toBe("rgb(20, 24, 43)");
+    expect(rule("langle-learning").style.color).toBe("rgb(20, 24, 43)");
+    expect(rule("langle-known").style.color).toBe("");
     expect(highlightCss(false)).toMatch(
-      /::highlight\(lingo-known\)\s*\{[^}]*color: #14182B/,
+      /::highlight\(langle-known\)\s*\{[^}]*color: #14182B/,
     );
   });
 
@@ -207,7 +207,7 @@ describe("createHighlighter", () => {
     h.set(block!, spans(block!, { knead: "new" }));
     h.destroy();
     expect(document.adoptedStyleSheets.length).toBe(before);
-    expect(registered("lingo-new")).toBeUndefined();
+    expect(registered("langle-new")).toBeUndefined();
   });
 });
 
@@ -215,7 +215,9 @@ describe("highlightCss", () => {
   it("uses background colors only where highlights cannot be underlined", () => {
     const css = highlightCss(false);
     expect(css).not.toContain("text-decoration");
-    expect(css).toMatch(/::highlight\(lingo-new\)\s*\{[^}]*background-color/);
-    expect(css).toMatch(/::highlight\(lingo-known\)\s*\{[^}]*background-color/);
+    expect(css).toMatch(/::highlight\(langle-new\)\s*\{[^}]*background-color/);
+    expect(css).toMatch(
+      /::highlight\(langle-known\)\s*\{[^}]*background-color/,
+    );
   });
 });

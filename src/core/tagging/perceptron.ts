@@ -32,7 +32,7 @@ const END = ["-END-", "-END2-"];
 const normalized = (word: string) =>
   /^\d[\d,.:/-]*$/.test(word) ? "!DIGITS" : word.toLowerCase();
 
-/** Letter classes: "Lingo" → "Xxx", "2026" → "dd". */
+/** Letter classes: "Langle" → "Xxx", "2026" → "dd". */
 const shapeOf = (word: string) =>
   word
     .replace(/[A-Z]/g, "X")

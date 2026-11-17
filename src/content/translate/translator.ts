@@ -115,7 +115,7 @@ export async function builtInTranslatorAvailable(
 }
 
 /**
- * Starts downloading the models Lingo translates with for `learning` → `native`: the
+ * Starts downloading the models Langle translates with for `learning` → `native`: the
  * English definitions' (en → native) and the subtitles' (learning → native). Called
  * when the user chooses a language in Settings, a user activation that a download
  * needs (hover cards never start one). Models already there, or not offered, are left

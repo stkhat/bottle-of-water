@@ -1,4 +1,4 @@
-// A trimmed YouTube watch page (the parts Lingo uses, as in
+// A trimmed YouTube watch page (the parts Langle uses, as in
 // e2e/fixtures/youtube-watch.html) with the fake player API on #movie_player, or a
 // trimmed Short (docs/notes/youtube-shorts.md) with it on #shorts-player.
 import {

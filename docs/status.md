@@ -22,10 +22,10 @@ Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes
 - Netflix: the ^ menu goes away with Netflix's control bar when the pointer stops (it shows again with the bar)
 - YouTube: real-site layout in theater mode and the narrow single-column layout not checked
 - YouTube Shorts: ASR lines are split for the watch page's width (up to 60 characters), so a long one wraps into two or three lines over the narrow video; the dictionary window covers the comments panel while that is open
-- YouTube: after using L or ^ the focus stays on Lingo's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked
+- YouTube: after using L or ^ the focus stays on Langle's buttons, whose event isolation keeps YouTube's shortcuts (f, k) from reaching the player until the video is clicked
 - YouTube ASR: where the English has no punctuation, a card boundary can be 1–3 words off (YouTube's own translation drifts). Where YouTube translates one English sentence as two, the card holds both, or the English is split at a comma. A card split for length (over 30 words) cuts its translation at the clause end said nearest the split; Japanese word order puts some clauses on the other part ("DDR5メモリの現在の価格を考えると、" under the English before it), and 7 of 199 split cards in the corpus show the whole translation on each part (no clause end there). A card cut at a speaker change ">>" cuts its translation the same way; 2% of round 2's cards show no translation (mostly sound labels such as "[laughter]" before a ">>", some short replies whose translation YouTube put after the change)
 - Manual tracks: a card never splits a cue, so where the track's sentences end inside its cues a card ends at a cue's end instead: 10–20% of YouTube cards end mid-sentence with the next going on in lower case (Netflix 0.2%). With YouTube's translation, 0.1–0.4% of whole-sentence cards show a Japanese cut mid-sentence (was 11%)
-- YouTube Shorts: once, a full load with the user's caption language set to Japanese made no caption request at all, also not after Lingo asked the player for the English track ([notes](notes/youtube-shorts.md)); not seen again
+- YouTube Shorts: once, a full load with the user's caption language set to Japanese made no caption request at all, also not after Langle asked the player for the English track ([notes](notes/youtube-shorts.md)); not seen again
 - Subtitles: the outline of the term whose dictionary window is open goes around the clicked part of a gap phrase only
 - Video lines that play while the language data is missing are classified later but not kept in the sentence history
 
@@ -49,7 +49,7 @@ Last update: 2026-11-16. Merged work is in git history; data sizes are in [notes
 - Popup: "On this site" reflects only `disabledSites` (a "Never run on" host still shows the switch on); relative times read "2 minutes ago" where the mock says "2 min ago"
 - Word list: re-saving a removed word brings back one occurrence (removal deletes the others)
 - A saved phrase only finds history sentences recorded after it was saved (index keys are fixed when a sentence is kept)
-- The 50 MB history figure is Lingo's own estimate; IndexedDB's indexes take more space on disk
+- The 50 MB history figure is Langle's own estimate; IndexedDB's indexes take more space on disk
 - `storage.sync` holds about 12,400 English terms; demotion of "save all" terms keeps it working
 
 ### Phrases and language data

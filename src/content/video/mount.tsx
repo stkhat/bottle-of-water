@@ -67,7 +67,7 @@ function fullscreenHost(): Element | null {
 const SIDEBAR = { width: 360, inset: 16 };
 /** How much narrower the player gets for the sidebar. */
 const SIDEBAR_ROOM = SIDEBAR.width + 2 * SIDEBAR.inset;
-/** Above the site's player, below Lingo's menu, hover card and dictionary window. */
+/** Above the site's player, below Langle's menu, hover card and dictionary window. */
 const SIDEBAR_LAYER = 2147483600;
 
 /** The most a part is moved back into the same parent in one second. */
@@ -90,7 +90,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     vertical: adapter.vertical?.() ?? false,
     sidebar: false,
   });
-  const sidebar = document.createElement("lingo-video-sidebar");
+  const sidebar = document.createElement("langle-video-sidebar");
   sidebar.style.cssText = `position: fixed; z-index: ${SIDEBAR_LAYER};
     top: ${SIDEBAR.inset}px; right: ${SIDEBAR.inset}px; bottom: ${SIDEBAR.inset}px;
     width: ${SIDEBAR.width}px; overflow: hidden;`;
@@ -123,13 +123,13 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   };
 
   part(
-    "lingo-video-player",
+    "langle-video-player",
     "position: absolute; inset: 0; pointer-events: none; z-index: 60;",
     (player) => (player ? { parent: player, before: null } : null),
     <InPlayerUi app={app} layout={layout} />,
   );
   part(
-    "lingo-video-below",
+    "langle-video-below",
     "display: block;",
     () => {
       const below = adapter.belowVideoElement();
@@ -138,7 +138,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     <BelowVideoUi app={app} />,
   );
   made.transcript = part(
-    "lingo-transcript",
+    "langle-transcript",
     // Clickable inside a frame that lets clicks through to the video (Netflix).
     "display: block; margin-bottom: 12px; pointer-events: auto;",
     () =>
@@ -148,14 +148,14 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     <TranscriptUi app={app} layout={layout} />,
   );
   made.buttons = part(
-    "lingo-player-buttons",
+    "langle-player-buttons",
     "display: inline-flex; align-items: center; height: 100%; vertical-align: top;" +
       (adapter.controlsStyle ?? ""),
     () => adapter.controlsPoint(),
     <PlayerBarUi app={app} />,
   );
   part(
-    "lingo-video",
+    "langle-video",
     "display: contents;",
     () => {
       const parent = fullscreenHost() ?? document.body;
@@ -175,7 +175,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
 
   /**
    * Keeps the in-video subtitle clear of the site's control bar while it shows. While
-   * Lingo is in use the subtitle stays where it is: Netflix takes its bar away a few
+   * Langle is in use the subtitle stays where it is: Netflix takes its bar away a few
    * seconds after the pointer stops on a word, and moving the word from under it would
    * close the hover card (and play the video again).
    */
@@ -195,8 +195,8 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
   }
 
   /**
-   * While Lingo's subtitle is over the video, the site's control bar shows only after a
-   * longer move (it lifts the subtitle), and never while Lingo is in use.
+   * While Langle's subtitle is over the video, the site's control bar shows only after a
+   * longer move (it lifts the subtitle), and never while Langle is in use.
    */
   function holdBackControlBar() {
     const state = app.store.get();
@@ -281,7 +281,7 @@ export function mountVideoUi({ adapter, app }: MountOptions): () => void {
     schedule();
   };
   document.addEventListener("fullscreenchange", onFullscreen);
-  // Lingo on or off, the video's subtitles, the menu's switch and the column's ×.
+  // Langle on or off, the video's subtitles, the menu's switch and the column's ×.
   const offStore = app.store.subscribe(schedule);
 
   return () => {

@@ -94,7 +94,7 @@ it("one dictionary at a time, and a term saved in the comments reaches the video
   const state = () => video.app.store.get();
   await expect.poll(() => state().status, { timeout: 5000 }).toBe("ready");
   await expect
-    .poll(() => highlighted("lingo-new"), { timeout: 5000 })
+    .poll(() => highlighted("langle-new"), { timeout: 5000 })
     .toEqual(["tedious"]);
 
   video.app.clickWord(aWord(video));
