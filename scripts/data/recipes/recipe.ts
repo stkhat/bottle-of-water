@@ -545,7 +545,7 @@ export async function readTranslationTables(
 export type CapitalMeaning = "word" | "name";
 
 /** A capitalised headword's entry: a merged term and what it means, when it means something. */
-export type CapitalEntry =
+type CapitalEntry =
   | [short: string, senses: PairSense[], source: number]
   | [
       short: string,
