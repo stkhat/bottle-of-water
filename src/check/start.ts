@@ -1,4 +1,8 @@
 import { browser } from "wxt/browser";
+import { downloadTranslationModels } from "../content/translate/translator";
+import { PACK_STATE_KEY, type PackStates } from "../core/packs/state";
+import { send } from "../messaging/client";
+import { answerSettingsRequests } from "./settings-channel";
 import {
   answerLogRequest,
   answerPageRequests,
@@ -13,7 +17,8 @@ import {
 } from "./error-log";
 
 /**
- * Check builds only: starts the error log in each kind of Langle context (error-log.ts).
+ * Check builds only: starts the error log in each kind of Langle context (error-log.ts),
+ * and the settings channel in the content scripts (settings-channel.ts).
  * Callers guard every call with `import.meta.env.MODE === "check"`, so other builds
  * leave this module out.
  */
@@ -76,9 +81,10 @@ const STARTED = Symbol.for("langle.checkErrorLog");
 
 /**
  * In a content script (`name`: "article", "youtube", "netflix"): records the script's
- * errors (not the page's) and answers a page's requests to read or clear the log.
+ * errors (not the page's) and answers a page's requests to read or clear the log, and
+ * (top frame only) to get or set the settings (settings-channel.ts).
  */
-export function startContentErrorLog(name: string): void {
+export function startContentCheck(name: string): void {
   const flags = globalThis as { [STARTED]?: true };
   if (flags[STARTED]) return;
   flags[STARTED] = true;
@@ -92,5 +98,21 @@ export function startContentErrorLog(name: string): void {
     context,
     relay,
     ask: (action) => ask({ type: MESSAGE_TYPE, action }),
+  });
+  // One answer per tab: a frame's script (if one ever runs there) stays silent. The
+  // flag above already keeps it to one script per frame.
+  if (window.top !== window) return;
+  answerSettingsRequests({
+    window,
+    getSettings: () => send({ type: "getSettings" }),
+    // What Settings sends: the background's one write, which packs and pages follow.
+    setSettings: (patch) => send({ type: "setSettings", patch }),
+    packStates: async () =>
+      ((await browser.storage.local.get(PACK_STATE_KEY))[PACK_STATE_KEY] ??
+        {}) as PackStates,
+    // Settings starts the translator's models on a choice; without a user activation
+    // Chrome may refuse, and the dictionary window's click starts them later.
+    pairChosen: (learning, native) =>
+      void downloadTranslationModels(learning, native),
   });
 }

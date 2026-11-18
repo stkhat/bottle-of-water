@@ -122,8 +122,8 @@ describe("firefox-mv3 manifest specifics", () => {
   });
 });
 
-// The self-reload (src/background/self-reload.ts) and the error log (src/check/) of
-// `npm run build:check` are dev only.
+// The self-reload (src/background/self-reload.ts), the error log and the settings
+// channel (src/check/) of `npm run build:check` are dev only.
 describe("check build", () => {
   const backgroundOf = (dir: string) =>
     readFileSync(`.output/${dir}/background.js`, "utf8");
@@ -150,6 +150,28 @@ describe("check build", () => {
       expect(scripts).not.toContain("checkErrorLog");
     },
   );
+
+  test.each(["chrome-mv3", "firefox-mv3"])(
+    "%s (production) has no settings channel",
+    (dir) => {
+      const scripts = scriptsOf(dir);
+      expect(scripts).not.toContain("langle:check-settings");
+      // Its refusal text, so a renamed message type cannot slip through.
+      expect(scripts).not.toContain("is not an offered pair");
+    },
+  );
+
+  test("the check build answers settings requests in every content script", () => {
+    for (const file of [
+      "content-scripts/content.js",
+      "content-scripts/youtube.js",
+      "content-scripts/netflix.js",
+    ])
+      expect(
+        readFileSync(`.output/langle-check/${file}`, "utf8"),
+        file,
+      ).toContain("langle:check-settings");
+  });
 
   test("the check build records errors in the worker, every content script and the pages", () => {
     const dir = ".output/langle-check";
