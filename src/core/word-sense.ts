@@ -123,10 +123,11 @@ export function readWords(
  * 0. An auxiliary ("has" in "has spent") keeps its own entry while that starts with a
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
  *    with a meaning of its own goes to the base ("being" → be), and so does one whose
- *    pointer names a word that is not mainly a verb ("does": plural of doe → do).
+ *    pointer names a word that is not mainly a verb ("does": plural of doe → do). An
+ *    auxiliary without an entry keeps its key (no meaning rather than its verb's).
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
- *    for (en-es "told", "has": only some sources have inflected forms): the base whose
- *    part of speech fits the tag, then the most frequent ("arises" → arise).
+ *    for (en-es "told", "says": only some sources have inflected forms): the base
+ *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
  * 2. A participle keeps its own entry when the word is not used as a verb and the
  *    entry has a meaning: before a noun ("demanding work"), a state ("was
  *    established", "are we done": "doの過去分詞", then "仕上がった"); or when it is
@@ -168,8 +169,10 @@ export function chooseKey(
     return best === first ? undefined : best;
   };
   const own = outline(first);
-  // A headword this dictionary has no entry for is, to it, a form that is not one.
-  if (!own) return likeliest();
+  // A headword this dictionary has no entry for is, to it, a form that is not one;
+  // except an auxiliary, whose base's meanings are not what it means ("has been" is
+  // not "to own"): it keeps its key until the dictionary has a form entry for it.
+  if (!own) return use.auxiliary ? undefined : likeliest();
   if (use.auxiliary) {
     // An auxiliary is a verb: an entry whose first sense is a form of a word that is
     // not mainly one ("does": plural of doe) is another word's, so the verb base.

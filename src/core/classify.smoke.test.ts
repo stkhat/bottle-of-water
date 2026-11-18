@@ -480,11 +480,16 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
       lines: expect.arrayContaining(["Contar"]),
     });
     expect(hover("She told me the truth.", "told").key).toBe("told");
-    // An auxiliary without an entry goes to its verb.
+    // The same word as a verb goes to its base; as an auxiliary it keeps its key.
     expect(enPt.outline("did")).toBeUndefined();
-    const did = hover("Why did you go?", "did", enPt);
+    const did = hover("It's not what he did.", "did", enPt);
     expect(did.key).toBe("do");
     expect(did.lines[0]).toMatch(/^fazer/);
+    expect(hover("Why did you go?", "did", enPt)).toEqual({
+      key: "did",
+      pos: undefined,
+      lines: [],
+    });
     expect(hover("The children played.", "children", enEs)).toMatchObject({
       key: "child",
       pos: "noun",

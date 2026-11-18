@@ -212,13 +212,14 @@ describe("chooseKey (rule A1)", () => {
         ),
       ).toBe(undefined);
     });
-    it("takes an auxiliary's base, with or without a tag", () => {
+    it("keeps an auxiliary's key, and takes the base of the same word used as a verb", () => {
       const aux = { auxiliary: true };
       const has = ["has", "have"];
-      expect(pairKey("has", has, reading(tag("verb", "VBZ"), aux))).toBe(
-        "have",
-      );
-      expect(pairKey("has", has, reading(undefined, aux))).toBe("have");
+      // "has been": have's meanings ("to own") are not what it means.
+      expect(pairKey("has", has, reading(tag("verb", "VBZ"), aux))).toBe("has");
+      expect(pairKey("has", has, reading(undefined, aux))).toBe("has");
+      // "has a dog".
+      expect(pairKey("has", has, reading(tag("verb", "VBZ")))).toBe("have");
     });
   });
   it("takes an auxiliary's verb base when its entry's pointer names a word that is not mainly a verb", () => {
