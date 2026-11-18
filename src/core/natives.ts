@@ -50,7 +50,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: { bank: "orilla (de un río)", beans: "revelar el secreto" },
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   pt: {
     option: "language.pt",
@@ -58,7 +58,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: { bank: "margem (de um rio)", beans: "revelar o segredo" },
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   // Chrome's Prompt API has no Russian (it answers in en, ja, es, de, fr): meaning in
   // context is unavailable, so no examples of its own.
@@ -68,7 +68,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: null,
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   fr: {
     option: "language.fr",
@@ -76,7 +76,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: { bank: "rive (d'une rivière)", beans: "révéler le secret" },
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   de: {
     option: "language.de",
@@ -84,7 +84,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: { bank: "Ufer (eines Flusses)", beans: "das Geheimnis verraten" },
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   // Simplified Chinese (the pack converts traditional characters at build time). Like
   // Japanese: no spaces, a dense script. Chrome's Prompt API has no Chinese, Italian
@@ -95,7 +95,7 @@ export const NATIVE_LANGUAGES = {
     spaces: false,
     dense: true,
     examples: null,
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   it: {
     option: "language.it",
@@ -103,7 +103,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: null,
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   pl: {
     option: "language.pl",
@@ -111,7 +111,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: null,
-    englishPair: { format: 1 },
+    englishPair: { format: 2 },
   },
   en: {
     option: "languageName.en",

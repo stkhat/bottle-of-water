@@ -79,9 +79,10 @@ export interface Span {
    */
   name?: true;
   /**
-   * The part of speech the word's trusted tag gives it here (rule A2, `sensePos`), or a
-   * discourse marker's ("interjection" for "you know" at a clause start, `markerPos`):
-   * its lookup shows the senses of that part of speech first.
+   * The part of speech the word's trusted tag gives it here (rule A2, `sensePos`; an
+   * auxiliary's is "auxiliary"), or a discourse marker's ("interjection" for "you
+   * know" at a clause start, `markerPos`): its lookup shows the senses of that part of
+   * speech first.
    */
   pos?: string;
 }

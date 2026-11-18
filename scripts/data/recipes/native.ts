@@ -56,7 +56,10 @@ export async function buildPairDictionary(
   const { edition, tables, wordnets = [], simplified } = recipe;
   const [editionTerms, tableTerms] = await Promise.all([
     edition
-      ? readEdition(join(rawDir, edition.file), termKey, { trimPeriod: true })
+      ? readEdition(join(rawDir, edition.file), termKey, {
+          trimPeriod: true,
+          native,
+        })
       : undefined,
     readTranslationTables(englishPath, {
       ...tables,
@@ -93,6 +96,8 @@ export async function buildPairDictionary(
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
       terms: Object.keys(merged.dict).length,
+      pointers: editionTerms?.stats.pointers ?? 0,
+      templates: editionTerms?.stats.templates ?? 0,
     },
   };
 }
@@ -123,7 +128,7 @@ async function main() {
         Object.entries(counts)
           .map(([tag, n]) => `${n} ${tag}`)
           .join(", ") +
-        `) in ${index.shards.length} shards; ${stats.unparsable} unparsable lines`,
+        `) in ${index.shards.length} shards; ${stats.pointers} pointer senses read in ${stats.templates} templates; ${stats.unparsable} unparsable lines`,
     );
     if (stats.unparsable > 0) process.exitCode = 1;
   }

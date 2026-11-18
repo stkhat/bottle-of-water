@@ -59,14 +59,21 @@ export type DefsPack = Readonly<
  * en-<native>/dict-<n>.json, merged (en-es): term → [short meaning, senses, source],
  * built by a recipe from human-made sources in order, the first one with the term
  * supplying all of it. A sense from a translation table or a wordnet carries its English
- * sense as a hint ("source of illumination"). `source` indexes the index's `sources`.
+ * sense as a hint ("source of illumination"). A pointer sense (format 2), an edition's
+ * form of another word ("Pasado simple del verbo (to) tell" on told), has a null hint
+ * and names its target term. `source` indexes the index's `sources`.
  */
 export type PairPack = Readonly<
   Record<
     string,
     readonly [
       short: string,
-      senses: readonly (readonly [pos: string, text: string, hint?: string])[],
+      senses: readonly (readonly [
+        pos: string,
+        text: string,
+        hint?: string | null,
+        target?: string,
+      ])[],
       source: number,
     ]
   >

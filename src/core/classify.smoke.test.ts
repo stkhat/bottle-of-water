@@ -458,12 +458,12 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
   it("keeps an auxiliary's grammar pointer, and its verb's base", () => {
     const has = hover("She has spent all her money.", "has");
     expect(has.key).toBe("has");
-    expect(has.pos).toBeUndefined();
+    expect(has.pos).toBe("auxiliary");
     expect(has.lines[0]).toMatch(/^haveの/);
     expect(hover("She has spent all her money.", "spent").key).toBe("spend");
     expect(hover("The house is being built.", "being").key).toBe("be");
   });
-  it("looks a form the pair dictionary has no entry for up by its base", async () => {
+  it("reads a pair's edition forms as pointers, and looks a form it lacks up by its base", async () => {
     const pair = async (name: "en-es" | "en-pt") =>
       createPairDictionary({
         dict: (await loadPack(name)).dict,
@@ -472,27 +472,30 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
       });
     const enEs = await pair("en-es");
     const enPt = await pair("en-pt");
-    // Neither has "told"; EJDict has it, so en-ja keeps its own entry.
-    expect(enEs.outline("told")).toBeUndefined();
-    expect(hover("She told me the truth.", "told", enEs)).toMatchObject({
-      key: "tell",
-      pos: "verb",
-      lines: expect.arrayContaining(["Contar"]),
-    });
+    // The editions' forms are pointers: told shows tell's verb, then its grammar.
+    expect(enEs.outline("told")?.formOf).toBe("tell");
+    const told = hover("She told me the truth.", "told", enEs);
+    expect(told).toMatchObject({ key: "told", pos: "verb" });
+    expect(told.lines[1]).toBe("Pasado simple del verbo tell");
+    expect(told.lines).toContain("Contar");
     expect(hover("She told me the truth.", "told").key).toBe("told");
-    // The same word as a verb goes to its base; as an auxiliary it keeps its key.
-    expect(enPt.outline("did")).toBeUndefined();
-    const did = hover("It's not what he did.", "did", enPt);
-    expect(did.key).toBe("do");
-    expect(did.lines[0]).toMatch(/^fazer/);
-    expect(hover("Why did you go?", "did", enPt)).toEqual({
+    // An auxiliary keeps its pointer however wide; a main verb, wider than the cap,
+    // shows its base's meanings.
+    const has = hover("She has spent all her money.", "has", enEs);
+    expect(has).toMatchObject({ key: "has", pos: "auxiliary" });
+    expect(has.lines[0]).toMatch(/^Tercera persona .* de have$/);
+    expect(has.lines[1]).toBe("Tener");
+    expect(hover("She has a dog.", "has", enEs).lines[0]).toBe("Tener");
+    expect(hover("Why did you go?", "did", enPt)).toMatchObject({
       key: "did",
-      pos: undefined,
-      lines: [],
+      pos: "auxiliary",
+      lines: ["passado simples do verbo do", "fazer", expect.any(String)],
     });
-    expect(hover("The children played.", "children", enEs)).toMatchObject({
-      key: "child",
-      pos: "noun",
+    // A form the pair lacks goes to its base.
+    expect(enPt.outline("took")).toBeUndefined();
+    expect(hover("He took the bus.", "took", enPt)).toMatchObject({
+      key: "take",
+      pos: "verb",
     });
   });
   it("keeps a participle used otherwise than as a verb", () => {

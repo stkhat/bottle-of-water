@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"$","last":"generating function"},{"file":"dict-2.json","first":"generation","last":"rephrase"},{"file":"dict-3.json","first":"replace","last":"épée"}],
+"shards":[{"file":"dict-1.json","first":"$","last":"full sail"},{"file":"dict-2.json","first":"full screen","last":"random walk"},{"file":"dict-3.json","first":"randomise","last":"épée"}],
 "sources":["frwiktionary","enwiktionary-translations"]
 }

@@ -7,7 +7,7 @@
  */
 import type { EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
-import { accepts } from "./lexicon/sense-order";
+import { accepts, AUXILIARY } from "./lexicon/sense-order";
 import type { MatchWord } from "./phrases/matcher";
 import {
   trustedTag,
@@ -129,6 +129,8 @@ export function readWords(
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
  *    for (en-es "told", "says": only some sources have inflected forms): the base
  *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
+ *    So too a word without a tag whose entry is only pointers, the first to a word
+ *    that is none of its bases (a homograph's: de "is" → "Plural des Substantivs i").
  * 1b. A headword whose entry has no sense of the tagged part of speech, unless it is
  *    an inflected verb form (rules 2 and 3) or its entry starts with a pointer to
  *    one of its bases ("dying": dieの現在分詞): the first other base whose entry has
@@ -195,6 +197,16 @@ export function chooseKey(
     return others.find((base) => outline(base));
   }
   if (first !== form) return likeliest();
+  // Without a tag, an entry of nothing but pointers, starting as a form of a word that
+  // is none of its bases, is a homograph's ("is": de "Plural des Substantivs i"): the
+  // bases decide.
+  if (
+    !tag &&
+    !own.meaning &&
+    own.formOf !== undefined &&
+    !bases.includes(own.formOf)
+  )
+    return likeliest() ?? others.find((base) => outline(base));
   // Rule 1b: a headword whose entry has no sense of the tagged part of speech goes to
   // a base whose entry has one (Spanish "los" as an article → el). An inflected
   // verb form follows rules 2 and 3, which read its use too; an entry that says
@@ -240,17 +252,19 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
 
 /**
  * The part of speech rule A2 shows senses of first (`Span.pos`), from a trusted tag:
- * not for an auxiliary, nor for a participle not used as a verb or kept as its own
- * entry where a preposition can stand ("Including …"): its verb tag says nothing of
- * which of its adjective or preposition senses fits. A use may give another part of
- * speech than the tag (a gerund noun).
+ * not for a participle not used as a verb or kept as its own entry where a preposition
+ * can stand ("Including …"): its verb tag says nothing of which of its adjective or
+ * preposition senses fits. A use may give another part of speech than the tag (a
+ * gerund noun). An auxiliary's is AUXILIARY, whatever its tag: no sense is labelled
+ * so, and a pair dictionary shows its grammar pointer ("has been").
  */
 export function sensePos(
   form: string,
   key: string,
   { tag, use }: WordReading,
 ): string | undefined {
-  if (!tag || use.auxiliary) return undefined;
+  if (use.auxiliary) return AUXILIARY;
+  if (!tag) return undefined;
   if (
     tag.label === "verb" &&
     tag.inflected &&

@@ -23,6 +23,13 @@ const ACCEPTS: Readonly<Record<string, readonly string[]>> = {
   adverb: ["adverb", "particle"],
 };
 
+/**
+ * The part of speech of a word used as an auxiliary ("has" in "has been"): no source
+ * labels a sense so, so rule A2 keeps the dictionary's order for it, and a pair
+ * dictionary shows its grammar pointer however wide ("Pair pointers").
+ */
+export const AUXILIARY = "auxiliary";
+
 /** Whether a sense labelled `label` can be what a word tagged `pos` means. */
 export const accepts = (pos: string, label: string | undefined) =>
   label !== undefined &&

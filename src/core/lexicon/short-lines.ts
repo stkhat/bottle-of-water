@@ -154,6 +154,10 @@ export interface ShortLineOptions {
   pointer?: (line: string) => Pointer | undefined;
   /** The short lines of the entry a pointer names, when there is one. */
   follow?: (target: string) => readonly string[] | undefined;
+  /** A pointer line that is left out while a meaning shows. */
+  quiet?: (line: string) => boolean;
+  /** A first form shown after its target's first meaning, not before it. */
+  second?: (line: string) => boolean;
 }
 
 /**
@@ -169,7 +173,10 @@ export interface ShortLineOptions {
  * Pointers are followed one hop (a target's own pointers are not), and only from a
  * form that is the first sense or from an entry with no meaning of its own: a pointer
  * listed after the entry's own meanings marks a lesser use ("them": "=those").
- * Pointers themselves are left out while a meaning remains. Without any meaning the
+ * Pointers themselves are left out while a meaning remains, and so is a first form
+ * that is `quiet` (a pair's pointer wider than its cap); a first form that comes
+ * `second` follows its target's first meaning (a pair's verb form in a spaced script:
+ * sold → vender, "pasado simple del verbo sell"). Without any meaning the
  * lines are the pointers as they are. When every line is empty, `fallback` (the
  * entry's short meaning) stands for them ("were": its senses are only notes).
  */
@@ -180,6 +187,8 @@ export function shortLines(
     head,
     pointer = () => undefined,
     follow = () => undefined,
+    quiet = () => false,
+    second = () => false,
   }: ShortLineOptions = {},
 ): string[] {
   const nonEmpty = lines.filter((line) => line !== "");
@@ -196,17 +205,22 @@ export function shortLines(
     if (followAll || (i === 0 && found?.kind === "form"))
       followed.set(target, (follow(target) ?? []).filter(isMeaning));
   });
+  const meaningFirst = followed.get(first?.target ?? "")?.slice(0, 1) ?? [];
   const leading =
-    first?.kind === "form"
-      ? [kept[0]!, ...(followed.get(first.target ?? "")?.slice(0, 1) ?? [])]
-      : [];
-  const shown = [
+    first?.kind !== "form"
+      ? []
+      : second(kept[0]!)
+        ? [...meaningFirst, kept[0]!]
+        : [kept[0]!, ...meaningFirst];
+  const all = [
     ...new Set([
       ...leading,
       ...kept.filter((_, i) => pointers[i] === undefined),
       ...[...followed.values()].flat(),
     ]),
-  ].slice(0, MAX_SHORT_LINES);
+  ];
+  const heard = all.filter((line) => !quiet(line));
+  const shown = (heard.some(isMeaning) ? heard : all).slice(0, MAX_SHORT_LINES);
   return shown.some(isMeaning) ? shown : kept.slice(0, MAX_SHORT_LINES);
 }
 
@@ -497,3 +511,18 @@ export function definitionLine(
   const short = shortOfDefinition(text);
   return pointer(short) ? short : capLine(short, DEFINITION_CAP);
 }
+
+// Pair dictionaries' pointer senses
+
+/**
+ * A pair dictionary's pointer sense (an edition's form of another word) as a hover
+ * line: its first sense without notes in brackets and closing punctuation ("Pasado
+ * simple del verbo (to) tell." → "Pasado simple del verbo tell"), whole, since a cut
+ * would lose the word it names.
+ */
+export const pointerLine = (text: string) =>
+  withoutParentheses(shortOfDefinition(text)).replace(/[\s.:;。：；]+$/u, "");
+
+/** Whether a pair dictionary's line fits its cap, the English definitions' (40). */
+export const fitsPairCap = (line: string) =>
+  displayWidth(line) <= DEFINITION_CAP;
