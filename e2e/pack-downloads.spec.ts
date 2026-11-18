@@ -100,8 +100,17 @@ test("a broken file on the mirror: Couldn't download, then Retry in Settings dow
   context,
   extensionId,
 }) => {
-  // The new install's English → Japanese data is there before the mirror breaks.
+  // The new install's English → Japanese data is there before the mirror breaks, and
+  // no Spanish data is: a browser whose UI language chose Spanish → English at install
+  // downloaded it first.
   await pairDownloaded(context, extensionId);
+  for (const pack of ["es", "es-en"])
+    expect(
+      await sendToBackground(context, extensionId, {
+        type: "removePack",
+        pack,
+      }),
+    ).toMatchObject({ ok: true });
   await mirror({ broken: true });
   await learnSpanish(context, extensionId);
   const page = await context.newPage();

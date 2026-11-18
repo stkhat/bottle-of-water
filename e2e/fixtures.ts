@@ -64,13 +64,16 @@ async function launchWithExtension(
     // Playwright turns extensions off; --disable-extensions-except would load this one
     // at launch, before the routes.
     ignoreDefaultArgs: ["--disable-extensions"],
+    // A Japanese UI, so a new install starts with English → Japanese and downloads
+    // nothing else: Linux reads the UI language from LANGUAGE (it ignores --lang),
+    // Windows from --lang; macOS from the system's languages (`startPair` sees to the
+    // pair there, and specs that need it take the other pair's data away).
+    env: { ...process.env, LANGUAGE: "ja" },
     args: [
       // For the error collector's CDP connection.
       `--remote-debugging-port=${port}`,
       // For CDP's Extensions.loadUnpacked, which loads and reloads the extension.
       "--enable-unsafe-extension-debugging",
-      // A Japanese UI, so a new install starts with English → Japanese (macOS ignores
-      // it and uses the system's languages; `startPair` sees to the rest).
       "--lang=ja",
       BLOCK_MIRROR_HOSTS,
     ],

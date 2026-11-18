@@ -104,16 +104,26 @@ export function createCards(o: {
       const [from, cue, span] = id.split(":") as [HoverPlace, string, string];
       const ref = { cue: Number(cue), span: Number(span) };
       const anchor = pendingAnchor;
-      const isLatest = hoverTicket.next();
-      void describe(ref)
-        .then((card) => {
-          if (!isLatest() || !card || !anchor) return;
-          store.set({ hover: { ref, from, anchor, card } });
-        })
-        .catch(warn);
+      // Without the language data (the first download), the card shows once it is
+      // there, while the pointer is still on the word.
+      const show = () => {
+        const isLatest = hoverTicket.next();
+        void describe(ref)
+          .then((card) => {
+            if (!isLatest() || !card || !anchor) return;
+            store.set({ hover: { ref, from, anchor, card } });
+          })
+          .catch((error: unknown) => {
+            if (!isLatest() || lookup.showWhenReady("hover", error, show))
+              return;
+            warn(error);
+          });
+      };
+      show();
     },
     hide() {
       hoverTicket.drop();
+      lookup.dropShow("hover");
       onCard = false;
       if (store.get().hover) store.set({ hover: null });
     },
@@ -123,9 +133,24 @@ export function createCards(o: {
   /** How many times the window opened. */
   let opened = 0;
 
-  async function openPanel(ref: WordRef) {
+  /** The window for `ref`; without the language data it needs, once that is there. */
+  async function openPanel(ref: WordRef): Promise<void> {
     const isLatest = panelTicket.next();
-    const card = await describe(ref, "window");
+    let card: TermCard | undefined;
+    try {
+      card = await describe(ref, "window");
+    } catch (error) {
+      if (!isLatest()) return;
+      if (
+        lookup.showWhenReady(
+          "window",
+          error,
+          () => void openPanel(ref).catch(warn),
+        )
+      )
+        return;
+      throw error;
+    }
     if (!isLatest() || !card) return;
     if (!store.get().panel) opened++;
     showPanel(ref, card, opened);
@@ -198,6 +223,7 @@ export function createCards(o: {
     },
     closePanel() {
       panelTicket.drop();
+      lookup.dropShow("window");
       store.set({ panel: null });
       o.closed?.();
     },

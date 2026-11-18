@@ -2281,6 +2281,58 @@ describe("a video without its language data", () => {
     noWarnings();
   });
 
+  it("shows the card asked for while the dictionary's data was missing once it is there", async () => {
+    const noWarnings = quiet();
+    const { state, app, bg } = await start(undefined, {
+      missingPacks: ["en-ja"],
+    });
+    await ready(state);
+    await classified(state);
+    // The pointer rests on the word: it does not move again.
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => bg.sent("lookup").length).toBeGreaterThan(0);
+    expect(state().hover).toBeNull();
+    // The lookup's answer (the data is missing) comes back before the data does.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    bg.setPackStates({ "en-ja": READY });
+    await expect.poll(() => state().hover?.card.head).toBe("tangy");
+    noWarnings();
+  });
+
+  it("opens the window clicked while the dictionary's data was missing once it is there", async () => {
+    const noWarnings = quiet();
+    const { state, app, bg } = await start(undefined, {
+      missingPacks: ["en-ja"],
+    });
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "yeast"));
+    await expect.poll(() => bg.sent("lookup").length).toBeGreaterThan(0);
+    expect(state().panel).toBeNull();
+    // The lookup's answer (the data is missing) comes back before the data does.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    bg.setPackStates({ "en-ja": READY });
+    await expect.poll(() => state().panel?.card.head).toBe("yeast");
+    noWarnings();
+  });
+
+  it("drops the card asked for while the data was missing once the pointer left", async () => {
+    const { state, app, bg } = await start(undefined, {
+      missingPacks: ["en-ja"],
+    });
+    await ready(state);
+    await classified(state);
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => bg.sent("lookup").length).toBeGreaterThan(0);
+    app.leaveWord();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    bg.setPackStates({ "en-ja": READY });
+    await expect.poll(() => state().summaries.tangy?.short).toBeDefined();
+    expect(state().hover).toBeNull();
+  });
+
   it("keeps the download line for the next video", async () => {
     const { state, site } = await start(
       { vid1: captionsOf(CUES), vid2: captionsOf(CUES) },

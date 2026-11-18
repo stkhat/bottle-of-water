@@ -92,6 +92,9 @@ export function latest() {
 
 export type Lookup = ReturnType<typeof createLookup>;
 
+/** Where a term's card shows: the hover card or the dictionary window. */
+type CardPlace = "hover" | "window";
+
 /**
  * The card of `span`'s term, written as `surface` in `sentence` ("this sentence": the
  * line, card or article sentence, as saving the term from there records it).
@@ -142,8 +145,16 @@ export function createLookup(
   let casing: DocumentCasing | undefined;
   /** An analysis found language data missing: none is asked for until it is there. */
   let waits = false;
+  /**
+   * The hover card and the window that could not show for language data not on the
+   * device: shown once it is there, unless the pointer left or the window closed first.
+   */
+  const retries = new Map<CardPlace, () => void>();
   const packs = createPackWait(deps.watchPackState, () => {
     waits = false;
+    const shows = [...retries.values()];
+    retries.clear();
+    for (const show of shows) show();
     page.packsReady();
   });
 
@@ -255,7 +266,23 @@ export function createLookup(
     },
     /** Another request found these packs missing: `packsReady` runs once they are there. */
     waitFor: (missing: readonly string[]) => packs.add(missing),
-    stop: () => packs.stop(),
+    /**
+     * A card's lookup failed with `error`: when it is language data not on the device
+     * (the first download, say), runs `show` once the data is there (the latest `show`
+     * of each place) and returns true; else returns false.
+     */
+    showWhenReady(place: CardPlace, error: unknown, show: () => void): boolean {
+      if (!(error instanceof PacksUnavailableError)) return false;
+      retries.set(place, show);
+      packs.add(error.packs);
+      return true;
+    },
+    /** The card at `place` is not wanted any more: a pending `showWhenReady` is dropped. */
+    dropShow: (place: CardPlace) => retries.delete(place),
+    stop() {
+      retries.clear();
+      packs.stop();
+    },
   };
 }
 

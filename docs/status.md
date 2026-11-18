@@ -44,7 +44,7 @@ Last update: 2026-11-18. Merged work is in git history; data sizes are in [notes
 - A word saved in another tab shows on an open page only after it is classified again (reload or a known-level change)
 - Wikipedia sentences keep citation brackets ("5] …", "…[") in "On this page" and the history
 - A page whose first analysis ends just as the language pair changes can log "No dictionary from en to en": `warmDictionary` pairs the page's language with the new native language (a rare E2E flake in `extension-errors.spec.ts`)
-- On an article whose language pack is there but whose dictionary is not (one of the pair's packs failed), hovering a word shows nothing and logs nothing
+- On an article or video whose language pack is there but whose dictionary is not (still downloading, or failed), hovering a word shows nothing and logs nothing; since 2026-11-18 the hover card (and a window clicked meanwhile) shows once the data is there, while the pointer is still on the word. If the lookup's "data missing" answer comes back after the data became ready, it still waits for the next change (the pack wait's guard against asking again on the same states)
 
 ### Popup, word list, history, sync
 - Popup: "On this site" reflects only `disabledSites` (a "Never run on" host still shows the switch on); relative times read "2 minutes ago" where the mock says "2 min ago"
