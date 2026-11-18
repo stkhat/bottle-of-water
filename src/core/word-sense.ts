@@ -120,7 +120,8 @@ export function readWords(
 /**
  * Rule A1: the key a word is looked up by, among its base forms (`bases`, the word
  * itself first when it is a headword). Undefined keeps the first one.
- * 0. An auxiliary ("has" in "has spent") keeps its own entry while that starts with a
+ * 0. An auxiliary written as a headword ("has" in "has spent"; another form follows
+ *    rule 1: "podemos" → poder) keeps its own entry while that starts with a
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
  *    with a meaning of its own goes to the base ("being" → be), and so does one whose
  *    pointer names a word that is not mainly a verb ("does": plural of doe → do). An
@@ -128,6 +129,10 @@ export function readWords(
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
  *    for (en-es "told", "says": only some sources have inflected forms): the base
  *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
+ * 1b. A headword whose entry has no sense of the tagged part of speech, unless it is
+ *    an inflected verb form (rules 2 and 3) or its entry starts with a pointer to
+ *    one of its bases ("dying": dieの現在分詞): the first other base whose entry has
+ *    one (Spanish "los" as an article → el).
  * 2. A participle keeps its own entry when the word is not used as a verb and the
  *    entry has a meaning: before a noun ("demanding work"), a state ("was
  *    established", "are we done": "doの過去分詞", then "仕上がった"); or when it is
@@ -169,11 +174,15 @@ export function chooseKey(
     return best === first ? undefined : best;
   };
   const own = outline(first);
+  // Rule 0 reads an auxiliary's own entry: only one written as a headword has one
+  // ("has"). A form that is not one ("podemos", Spanish "es" before an infinitive)
+  // goes to its base by rule 1, like any other form.
+  const auxiliary = use.auxiliary && first === form;
   // A headword this dictionary has no entry for is, to it, a form that is not one;
   // except an auxiliary, whose base's meanings are not what it means ("has been" is
   // not "to own"): it keeps its key until the dictionary has a form entry for it.
-  if (!own) return use.auxiliary ? undefined : likeliest();
-  if (use.auxiliary) {
+  if (!own) return auxiliary ? undefined : likeliest();
+  if (auxiliary) {
     // An auxiliary is a verb: an entry whose first sense is a form of a word that is
     // not mainly one ("does": plural of doe) is another word's, so the verb base.
     if (own.formOf !== undefined && !mainlyVerb(own.formOf, pack)) {
@@ -186,6 +195,25 @@ export function chooseKey(
     return others.find((base) => outline(base));
   }
   if (first !== form) return likeliest();
+  // Rule 1b: a headword whose entry has no sense of the tagged part of speech goes to
+  // a base whose entry has one (Spanish "los" as an article → el). An inflected
+  // verb form follows rules 2 and 3, which read its use too; an entry that says
+  // which base it is a form of keeps saying so ("dying": dieの現在分詞, read as a
+  // noun, is no die "dice").
+  const tagged = tag?.label;
+  if (
+    tagged !== undefined &&
+    tagged !== "other" &&
+    !(tagged === "verb" && tag?.inflected) &&
+    !(own.formOf !== undefined && bases.includes(own.formOf)) &&
+    own.pos.length > 0 &&
+    !own.pos.some((pos) => accepts(tagged, pos))
+  ) {
+    const fitting = others.find(
+      (base) => outline(base)?.pos.some((pos) => accepts(tagged, pos)) === true,
+    );
+    if (fitting) return fitting;
+  }
   // Only verb forms: a comparative keeps its own entry ("later": 後で).
   if (!tag?.inflected || tag.label !== "verb") return undefined;
   // Used as an adjective, with a meaning of its own ("was established"; "are we

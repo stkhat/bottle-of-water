@@ -1,7 +1,9 @@
 // UD English-EWT (CC BY-SA 4.0) → public/packs/en/tagger.json: the English
 // part-of-speech tagger, an averaged perceptron over Penn Treebank tags
 // (src/core/tagging/perceptron.ts). Training is deterministic: the same treebank gives
-// the same file.
+// the same file. The shipped file was trained before word shapes read non-ASCII letters
+// (2026-11-18) and is kept until the next English data rebuild: retraining changes only
+// training-order noise (architecture "Tags").
 // Usage: node scripts/data/tagger.ts   (downloads missing raw files into data/raw/ud-english-ewt/)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

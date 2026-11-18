@@ -32,12 +32,16 @@ const END = ["-END-", "-END2-"];
 const normalized = (word: string) =>
   /^\d[\d,.:/-]*$/.test(word) ? "!DIGITS" : word.toLowerCase();
 
-/** Letter classes: "Langle" → "Xxx", "2026" → "dd". */
+/**
+ * Letter classes over letters of any script: "Langle" → "Xxx", "Ángel" → "Xxx",
+ * "2026" → "dd". An upper-case or title-case letter is X, any other letter x (with
+ * the combining marks after it), a decimal digit d.
+ */
 const shapeOf = (word: string) =>
   word
-    .replace(/[A-Z]/g, "X")
-    .replace(/[a-z]/g, "x")
-    .replace(/\d/g, "d")
+    .replace(/(\p{L})\p{M}*|\p{Nd}/gu, (_, letter?: string) =>
+      letter === undefined ? "d" : /[\p{Lu}\p{Lt}]/u.test(letter) ? "X" : "x",
+    )
     .replace(/(.)\1+/g, "$1$1");
 
 /**
