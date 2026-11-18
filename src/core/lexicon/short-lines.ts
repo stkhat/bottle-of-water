@@ -7,16 +7,24 @@
  * - language-independent: the cut at the first sense separator outside brackets, the
  *   cap by display width, the hover's lines and the pointers they follow;
  * - per gloss language: what separates senses, readings, pointer syntax and the cap
- *   (Japanese here, English definitions in `shortOfDefinition` and `definitions.ts`);
+ *   (Japanese here, English definitions in `shortOfDefinition` and `definitions.ts`,
+ *   the recipe pairs' edition glosses in `editionLine`);
  * - per dictionary source: its own markup (EJDict's 〈C〉/〈U〉 and {形}).
  *
- * The data scripts import this file under plain Node: its only value import is the
- * native-language registry, which has none.
+ * The data scripts import this file under plain Node: it has no value imports.
  */
-import { nativeLanguage } from "../natives.ts";
 
 /** The hover card shows at most this many senses. */
 export const MAX_SHORT_LINES = 3;
+
+/**
+ * A native-language line's cap, in display width: 25 wide characters or 50 Latin or
+ * Cyrillic ones. In the mock's hover card (260 px of 15 px Inter) both take at most two
+ * rows: a row holds 17 wide characters, and the editions' and the translator's Latin
+ * lines of up to 60 characters (Cyrillic, wider, 58) fit two rows
+ * (docs/notes/native-quality.md "Suggested order", step 4).
+ */
+const NATIVE_CAP = 50;
 
 // Language-independent
 
@@ -175,7 +183,29 @@ export interface ShortLineOptions {
 }
 
 /**
- * The hover card's lines, at most MAX_SHORT_LINES, each once, empty ones left out:
+ * What a line says, to tell repeats: without spaces and the punctuation of a sentence
+ * ("davvero" and "davvero?", "Gracias" and "¡Gracias!", "的" and "...的" say the same).
+ * Case counts (German "Morgen", morning, and "morgen", tomorrow; Russian "Бог", God,
+ * and "бог", a god), and so do brackets: "(…を)研究する" says more than "…を研究する".
+ */
+const sayingOf = (line: string) =>
+  line.replace(/[\s.,;:!?¡¿…"“”«»。、，；：！？]+/gu, "") || line;
+
+/** Each line once: the first of those that say the same (`sayingOf`). */
+function onceEach(lines: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return lines.filter((line) => {
+    const saying = sayingOf(line);
+    if (seen.has(saying)) return false;
+    seen.add(saying);
+    return true;
+  });
+}
+
+/**
+ * The hover card's lines, at most MAX_SHORT_LINES, each once (`onceEach`: a line that
+ * says what one before it says, with other punctuation, is left out), empty ones left
+ * out:
  * - a form pointer that is the first sense stays first, followed by its target's first
  *   meaning: the word on the page is most likely that form ("went" → "goの過去", then
  *   go's meanings; "found" → "findの過去・過去分詞", find's first meaning, then
@@ -211,7 +241,7 @@ export function shortLines(
   }: ShortLineOptions = {},
 ): string[] {
   const nonEmpty = lines.filter((line) => line !== "");
-  const kept = [...new Set(nonEmpty.length > 0 ? nonEmpty : [fallback])];
+  const kept = onceEach(nonEmpty.length > 0 ? nonEmpty : [fallback]);
   const pointers = kept.map(pointer);
   const isMeaning = (line: string) =>
     line !== "" && pointer(line) === undefined;
@@ -240,16 +270,13 @@ export function shortLines(
           ...[...own, ...targets].filter((line) => !aside(line)),
           ...[...own, ...targets].filter(aside),
         ];
-  const all = [...new Set([...leading, ...meanings])];
+  const all = onceEach([...leading, ...meanings]);
   const heard = all.filter((line) => !quiet(line));
   const shown = (heard.some(isMeaning) ? heard : all).slice(0, MAX_SHORT_LINES);
   return shown.some(isMeaning) ? shown : kept.slice(0, MAX_SHORT_LINES);
 }
 
 // Japanese glosses
-
-/** A Japanese line's cap: 25 Japanese characters. */
-const JAPANESE_CAP = 50;
 
 const KATAKANA = /[\u30a1-\u30faー]/;
 /** A character of Japanese text: kana, kanji, full-width forms, and …〈〉. */
@@ -444,12 +471,12 @@ function afterParticle(
  * 入れようとする"); else its longest tail after a particle; else cut hard.
  */
 function japaneseTranslation(line: string): string {
-  if (displayWidth(line) <= JAPANESE_CAP) return line;
+  if (displayWidth(line) <= NATIVE_CAP) return line;
   const sentence = line.split("。")[0]!;
   const text =
     withoutRepeatedItems(withoutJapaneseNotes(sentence)) || sentence.trim();
-  if (displayWidth(text) <= JAPANESE_CAP) return text;
-  const fits = (cut: string) => cut !== "" && displayWidth(cut) <= JAPANESE_CAP;
+  if (displayWidth(text) <= NATIVE_CAP) return text;
+  const fits = (cut: string) => cut !== "" && displayWidth(cut) <= NATIVE_CAP;
   const commas = indicesOutside(text, isComma);
   const head = commas
     .map((i) => text.slice(0, i).trimEnd())
@@ -460,7 +487,7 @@ function japaneseTranslation(line: string): string {
     .find(fits);
   if (head === undefined || tail === undefined)
     return (
-      head ?? tail ?? afterParticle(text, fits) ?? capLine(text, JAPANESE_CAP)
+      head ?? tail ?? afterParticle(text, fits) ?? capLine(text, NATIVE_CAP)
     );
   return displayWidth(tail) >= displayWidth(head) ? tail : head;
 }
@@ -472,19 +499,170 @@ export const withoutFinalStop = (text: string) =>
 /**
  * A meaning the browser's translator gave (an English definition translated into
  * `lang`) as a hover line, like the dictionaries' lines: without a final period, each
- * comma item once ("組み立て、構築、構築" → "組み立て、構築"), within the cap: 25 wide
- * characters in a dense script (`NativeLanguage.dense`), as Japanese, else 40. A
- * Japanese line keeps its main verb, which comes last: a long line loses its notes in
- * brackets, then is cut after a clause that does not depend on what follows, else keeps
- * its last clauses. The dictionary window shows the whole translation.
+ * comma item once ("組み立て、構築、構築" → "組み立て、構築"), within the native cap
+ * (NATIVE_CAP: 25 wide characters, 50 Latin or Cyrillic ones). A Japanese line keeps
+ * its main verb, which comes last: a long line loses its notes in brackets, then is cut
+ * after a clause that does not depend on what follows, else keeps its last clauses.
+ * Another language's line is its first sentence (up to "。" or `firstSentence`), cut
+ * at its end (`capLine`). The dictionary window shows the whole translation.
  */
 export function translatedLine(text: string, lang: string): string {
   const line = withoutRepeatedItems(withoutFinalStop(text));
   if (lang === "ja") return japaneseTranslation(line);
-  return capLine(
-    line,
-    nativeLanguage(lang)?.dense ? JAPANESE_CAP : DEFINITION_CAP,
-  );
+  return capLine(firstSentence(line.split("。")[0]!), NATIVE_CAP);
+}
+
+// Native glosses in other languages (a recipe pair's edition)
+
+/**
+ * The text up to its first sentence end in a spaced script: a period followed by a
+ * capital or an arrow ("Más. Comparativo de much" → "Más"; "Enfant . Note d'usage : …"
+ * → "Enfant"; "Coche. → voir check mark" → "Coche"). Not after an abbreviation: a
+ * single letter or a word in capitals ("J. C.", "EE. UU."), a number ("3. Person").
+ */
+export function firstSentence(text: string): string {
+  const end = indicesOutside(text, (t, i) => {
+    if (t[i] !== "." || !/^\s+[\p{Lu}→]/u.test(t.slice(i + 1))) return false;
+    return /\s$/.test(t.slice(0, i)) || !endsAbbreviation(t.slice(0, i));
+  }).find((i) => i > 0);
+  return end === undefined ? text : text.slice(0, end).trim();
+}
+
+/**
+ * Whether text ends with an abbreviation's word: a single letter, capitals, a number.
+ * A closing bracket or quote does not ("maison (famille). Note d'usage : …").
+ */
+function endsAbbreviation(text: string): boolean {
+  if (/[)）\]］"”»’]$/u.test(text)) return false;
+  const word = /[\p{L}\p{N}]+$/u.exec(text)?.[0] ?? "";
+  return [...word].length < 2 || !/\p{Ll}/u.test(word);
+}
+
+/** Without closing marks, a period too unless it ends an abbreviation ("EE. UU."). */
+const withoutClosingMarks = (text: string): string => {
+  const bare = text.replace(/[\s:;,。：；]+$/u, "");
+  return bare.endsWith(".") && !endsAbbreviation(bare.replace(/[.\s]+$/, ""))
+    ? withoutClosingMarks(bare.replace(/[.\s]+$/, ""))
+    : bare;
+};
+
+const wordsOf = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+/**
+ * Most words a translation has: 1 to 3 words are 90–97% of the translation tables'
+ * first words in every recipe pair (fr 90%); a gloss of more describes.
+ */
+const TRANSLATION_WORDS = 3;
+
+/** Whether a gloss part is a list of translations: each comma item of at most `words` words. */
+const translationItems = (part: string, words = TRANSLATION_WORDS) =>
+  part
+    .split(",")
+    .map((item) => item.trim())
+    .every((item) => item !== "" && wordsOf(item) <= words);
+
+/**
+ * Whether an edition's line describes its word rather than translating it: its first
+ * comma item outside brackets has more than TRANSLATION_WORDS words ("el, la, los, las"
+ * translates).
+ */
+export const describes = (line: string) =>
+  wordsOf(withoutParentheses(line).split(/[,，]/)[0]!) > TRANSLATION_WORDS;
+
+/**
+ * What a qualifier introduces: "De un recurso o sustancia, generalmente alimento:
+ * consumir, usar" → "consumir, usar"; "często przed gerund: mój, swój" → "mój, swój";
+ * de "„you are, 2. Person Singular:“ du bist" → "du bist". A qualifier is the text
+ * before the first colon outside brackets that a space follows (a closing quote may
+ * come between), of two words or more, and no shorter than the first item after it: a
+ * translation followed by its explanation stays ("Mil millones: un 1 seguido por 9
+ * ceros", "Foro: una plaza…"). A line written "X → Y" is Y ("United States → Stany
+ * Zjednoczone").
+ */
+function afterQualifier(text: string): string {
+  const colon = indicesOutside(text, (t, i) => t[i] === ":")[0];
+  if (colon !== undefined) {
+    const before = text.slice(0, colon).replace(/["“”„«»]/g, " ");
+    const after = text
+      .slice(colon + 1)
+      .replace(/^["“”»’]*\s+/, "")
+      .trim();
+    const first = after.split(",")[0]!;
+    if (
+      after !== "" &&
+      /^["“”»’]*\s/.test(text.slice(colon + 1)) &&
+      wordsOf(before) >= 2 &&
+      wordsOf(first) <= wordsOf(before)
+    )
+      return after;
+  }
+  const arrow = indicesOutside(text, (t, i) => t[i] === "→").at(-1);
+  const pointed = arrow === undefined ? "" : text.slice(arrow + 1).trim();
+  return pointed !== "" ? pointed : text;
+}
+
+/**
+ * The translations a description is followed by: "Pronombre de segunda persona
+ * singular y plural; tú, vos, usted" → "tú, vos, usted"; pt "caso nominativo da
+ * segunda pessoa do singular, tu, você" → "tu, você". The first sense (up to ";") is
+ * its first comma item when that describes (`describes`), and the translations are the
+ * sense after it when each of its items is a translation, or its two or more other
+ * items when each is one word (an item of more words after a description qualifies it:
+ * "…, especialmente en grupo"). Undefined when the gloss has no such translations.
+ */
+function translationsAfter(text: string): string | undefined {
+  const [first = "", ...rest] = sensesOf(text);
+  const items = first.split(",").map((item) => item.trim());
+  if (!describes(items[0]!)) return undefined;
+  const others = items.slice(1).join(", ");
+  if (items.length >= 3 && translationItems(others, 1)) return others;
+  const next = rest.find((sense) => sense !== "");
+  return next !== undefined && translationItems(next) ? next : undefined;
+}
+
+/** A gloss's senses: its parts between semicolons outside brackets. */
+function sensesOf(text: string): string[] {
+  const cuts = indicesOutside(text, (t, i) => t[i] === ";" || t[i] === "；");
+  let from = 0;
+  return [...cuts, text.length].map((at) => {
+    const sense = trimItems(text.slice(from, at));
+    from = at + 1;
+    return sense;
+  });
+}
+
+/**
+ * A recipe pair's edition gloss (in the native language, any script) as a hover line
+ * (NATIVE, every language but Japanese, whose dictionary is EJDict):
+ * - without the source's sense subscripts after a word ("Pedir₁", "Ley₁₋₉"; not O₂),
+ *   an ellipsis that opens it, which stands for the word in use ("…służący do
+ *   tworzenia pytań"), and a label of several words in brackets that opens it ("(w
+ *   religiach monoteistycznych) Bóg" → "Bóg"); one word in brackets is part of the
+ *   meaning ("(Ne) … pas") or, in a script without spaces, a note judges kept
+ *   ("（现多）点燃");
+ * - its first sentence (`firstSentence`), which leaves out usage notes ("Tout à
+ *   l'heure. Note d'usage : …");
+ * - what a qualifier introduces (`afterQualifier`);
+ * - the translations a description is followed by (`translationsAfter`), else its first
+ *   sense (up to ";");
+ * - without closing marks ("dizer:" → "dizer"; a period, unless it ends an
+ *   abbreviation: "EE. UU."), each comma item once, within the native cap (`capLine`,
+ *   NATIVE_CAP).
+ */
+export function editionLine(text: string): string {
+  const clean = text
+    .replace(/(?<=[\p{Ll}.])[₀-₉₋]+/gu, "")
+    .replace(/^\s*(?:…|\.{3})+\s*/u, "")
+    .replace(
+      /^\s*[(（[［]([^()（）[\]［］]*)[)）\]］]\s*(?=[^\s:：])/u,
+      (label, inside: string) => (/\S\s+\S/u.test(inside) ? "" : label),
+    );
+  const meaning = afterQualifier(firstSentence(clean));
+  const sense =
+    translationsAfter(meaning) ??
+    sensesOf(meaning).find((part) => part !== "") ??
+    "";
+  return capLine(withoutRepeatedItems(withoutClosingMarks(sense)), NATIVE_CAP);
 }
 
 // EJDict
@@ -503,7 +681,7 @@ export function cleanShort(sense: string): string {
   if (japanesePointer(text)) return text;
   return capLine(
     withoutRepeatedItems(firstSense(text, isJapaneseSeparator)),
-    JAPANESE_CAP,
+    NATIVE_CAP,
   );
 }
 
@@ -545,6 +723,13 @@ export function definitionLine(
 export const pointerLine = (text: string) =>
   withoutParentheses(shortOfDefinition(text)).replace(/[\s.:;。：；]+$/u, "");
 
-/** Whether a pair dictionary's line fits its cap, the English definitions' (40). */
-export const fitsPairCap = (line: string) =>
-  displayWidth(line) <= DEFINITION_CAP;
+/**
+ * Whether a pair dictionary's pointer line is short enough to show beside meanings. One
+ * that comes `second`, after its base's first meaning (a verb inflection), takes the
+ * native cap: judged better shown than left out (pl, es, fr "said": mówić, "forma czasu
+ * przeszłego prostego czasownika to say"). One that comes first (a plural, a degree)
+ * keeps 40, as it holds back the meaning: at 50, judges preferred the base's meaning
+ * alone (ru teeth: "форма множественного числа существительного tooth", зуб). U1-4.
+ */
+export const fitsPairCap = (line: string, second = false) =>
+  displayWidth(line) <= (second ? NATIVE_CAP : DEFINITION_CAP);

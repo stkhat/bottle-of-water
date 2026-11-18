@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"flue gas"},{"file":"dict-2.json","first":"flue pipe","last":"prov."},{"file":"dict-3.json","first":"prove","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"fluency"},{"file":"dict-2.json","first":"fluent","last":"providence"},{"file":"dict-3.json","first":"province","last":"épée"}],
 "sources":["enwiktionary-translations","zhwiktionary","omw-cmn"]
 }

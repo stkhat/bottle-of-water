@@ -3,6 +3,9 @@
 // docs/specs/architecture.md "Native meanings and the quality gate".
 import {
   capitalKey,
+  describes,
+  editionLine,
+  keyOf,
   shortOfDefinition,
 } from "../../../src/core/lexicon/short-lines.ts";
 import type { LemmaPack } from "../../../src/core/packs/types.ts";
@@ -245,6 +248,104 @@ function markedTarget(
     : written.at(-1);
 }
 
+/**
+ * A letter of a native language's own script (`NativeLanguage.scripts`), for one not
+ * written in Latin letters, the learning language's (English); undefined for one that
+ * is, where English words cannot be told from native ones.
+ */
+export const nativeLetterOf = (scripts: readonly string[]) =>
+  scripts.includes("Latin")
+    ? undefined
+    : new RegExp(
+        scripts.map((script) => `\\p{Script=${script}}`).join("|"),
+        "u",
+      );
+
+/**
+ * A source's terms with only their meanings in the native script (`letter`, from
+ * `nativeLetterOf`), where a term has such meanings: beside them, an edition's gloss or
+ * a translation table's word with no letter of the script is no meaning (en-zh be: "or
+ * implied", a parse artifact, beside 是; ru would: "We sat on the bench, опоздает ли
+ * автобус" keeps its Russian part). A word that is the headword itself stays (zh "DNA",
+ * a loanword written alike), and so do pointers. A term with no meaning in the script
+ * keeps what it has (ru, zh "that's": "that is", "that has", the English it stands
+ * for). Gives how many glosses and words were left out.
+ */
+function keepNativeScript(
+  terms: Map<string, SourceTerm>,
+  letter: RegExp | undefined,
+): number {
+  if (letter === undefined) return 0;
+  let left = 0;
+  for (const [key, item] of terms) {
+    const native = (text: string) =>
+      letter.test(text) || keyOf(text) === key.toLowerCase();
+    if (
+      !item.senses.some((sense) => !isPointerSense(sense) && native(sense[1]))
+    )
+      continue;
+    item.senses = item.senses.flatMap((sense): PairSense[] => {
+      if (isPointerSense(sense)) return [sense];
+      if (!native(sense[1])) {
+        left++;
+        return [];
+      }
+      if (sense[2] == null) return [sense];
+      const words = sense[1].split(", ");
+      const kept = words.filter(native);
+      left += words.length - kept.length;
+      return [[sense[0], kept.join(", "), sense[2]]];
+    });
+  }
+  return left;
+}
+
+/**
+ * A word opening a gloss (after a label in brackets that opens it) or what a colon
+ * introduces, capitalised: "Ser", "(con ciertos sustantivos) Denota…", "Dicho de:
+ * Profundo".
+ */
+const OPENING_WORD =
+  /(^\s*(?:[(（[][^()（）[\]]*[)）\]]\s*)?|:\s+)(\p{Lu}[\p{L}\p{M}'’-]*)/gu;
+
+/**
+ * NATIVE: an edition's gloss in the case the edition writes its own words in
+ * (Wikcionario and Wiktionnaire capitalise every gloss: "Ser", "Y", "Adquirir"). The
+ * word that opens it, or that a colon introduces, goes to lower case when the edition
+ * has it in lower case as a common word (es ser, y), and, in an edition that
+ * capitalises its common nouns (`capitalNouns`, German), not also as written ("Sein", a
+ * noun, and "Haus" stay; elsewhere a capitalised entry is a letter, a symbol or an
+ * abbreviation: es "A", fr "Ce"). Not an acronym ("EE. UU.") or the first word of a
+ * name of several ("Reino Unido", "Gran Bretagna"). For a capitalised headword
+ * (`capital`), also not a word the edition has as written as a proper noun (es
+ * "Holanda", the country; "holanda" is a cloth) or that is the headword itself
+ * ("China" of China).
+ */
+export function inNativeCase(
+  gloss: string,
+  entries: NativeEntries,
+  {
+    head,
+    capital = false,
+    capitalNouns = false,
+  }: { head: string; capital?: boolean; capitalNouns?: boolean },
+): string {
+  return gloss.replace(
+    OPENING_WORD,
+    (found, before: string, word: string, at: number) => {
+      const next = gloss.slice(at + found.length);
+      if (/^\p{Lu}{2}/u.test(word) || /^\s+\p{Lu}/u.test(next)) return found;
+      const lower = word.charAt(0).toLowerCase() + word.slice(1);
+      const asWritten = entries(word);
+      const keep =
+        !entries(lower).common ||
+        (capitalNouns && asWritten.common) ||
+        (capital && (asWritten.name || bare(word) === bare(head)));
+      return keep ? found : before + lower;
+    },
+  );
+}
+
 /** An edition's gloss as the recipes read it: without page markup and stress marks. */
 const cleanGloss = (sense: KaikkiSense) => {
   const last: unknown = Array.isArray(sense.glosses)
@@ -286,6 +387,7 @@ export async function readEdition(
     trimPeriod = false,
     native,
     nativeForm = (word) => word,
+    letter,
   }: {
     trimPeriod?: boolean;
     native?: string;
@@ -294,6 +396,8 @@ export async function readEdition(
      * the zh edition files 倫敦 and 倫敦's simplified form alike), for `nativeKind`.
      */
     nativeForm?: (word: string) => string;
+    /** A letter of the native script (`nativeLetterOf`): a gloss with none is no meaning. */
+    letter?: RegExp;
   } = {},
 ) {
   const isTerm = (word: string) => termKey(word) === word;
@@ -304,6 +408,10 @@ export async function readEdition(
   /** The edition's own language's headwords as written: proper nouns, and the rest. */
   const nativeNames = new Set<string>();
   const nativeCommon = new Set<string>();
+  /** The forms its common words' entries list, in lower case. */
+  const nativeForms = new Set<string>();
+  /** How the edition's glosses of English words open: with a capital or not. */
+  const glossOpenings = { upper: 0, lower: 0 };
   let nouns = 0;
   let capitalisedNouns = 0;
   interface Read {
@@ -325,10 +433,22 @@ export async function readEdition(
         nouns++;
         if (/^\p{Lu}/u.test(written)) capitalisedNouns++;
       }
+      // The forms a common word's entry lists, as the edition writes them in lower
+      // case (es instantánea of instantáneo), for the gloss case (`inNativeCase`).
+      if (entry.pos !== "name")
+        for (const { form } of entry.forms ?? [])
+          if (
+            typeof form === "string" &&
+            /^\p{Ll}[\p{L}\p{M}'’-]*$/u.test(form)
+          )
+            nativeForms.add(form);
     }
     if (entry.lang_code !== "en") return;
     const head = entry.word.trim().toLowerCase();
     for (const sense of entry.senses ?? []) {
+      const opening = /\p{L}/u.exec(cleanGloss(sense)?.gloss ?? "")?.[0];
+      if (opening !== undefined)
+        glossOpenings[/\p{Lu}/u.test(opening) ? "upper" : "lower"]++;
       const found = isMarkedForm(sense) ? cleanGloss(sense) : undefined;
       if (!found) continue;
       const target = markedTarget(
@@ -382,7 +502,26 @@ export async function readEdition(
     );
   };
   let pointers = 0;
-  const termsOf = (entries: readonly Read[]) => {
+  let cased = 0;
+  let foreign = 0;
+  // The edition writes most of its common nouns capitalised (German).
+  const capitalNouns = capitalisedNouns > nouns / 2;
+  // The edition opens most of its glosses with a capital, as a sentence (es, fr): only
+  // its capitals are put in its own case. Where a gloss opens with a capital otherwise
+  // (pl "Meksykanin", ru "Чин"), the capital says something.
+  // In an edition that capitalises its nouns (German), a capital that opens a gloss
+  // may be the noun's, so nothing is put in case there.
+  const sentenceCase = glossOpenings.upper > glossOpenings.lower;
+  const cases = native !== undefined && sentenceCase && !capitalNouns;
+  // A common word, for the case: a headword or a form a headword's entry lists.
+  const entriesOf: NativeEntries = (word) => ({
+    name: nativeNames.has(nativeForm(word)),
+    common: nativeCommon.has(nativeForm(word)) || nativeForms.has(word),
+  });
+  // Capitalised headwords' glosses keep the edition's case here: what each one means is
+  // read from them as written (`capitalDictionary`), and `capitalCase` puts them in the
+  // edition's case after that.
+  const termsOf = (entries: readonly Read[], capital: boolean) => {
     const terms = new Map<string, SourceTerm>();
     for (const { key, head, pos, senses } of entries)
       for (const sense of senses) {
@@ -395,25 +534,43 @@ export async function readEdition(
         // gloss; a gloss that is the headword itself is (a loanword: "pizza").
         if (!gloss || (gloss !== written && gloss.toLowerCase() === head))
           continue;
-        const text =
+        const trimmed =
           trimPeriod && /^[^.。]+[.。]$/.test(gloss)
             ? gloss.slice(0, -1)
             : gloss;
+        const text =
+          !cases || capital
+            ? trimmed
+            : inNativeCase(trimmed, entriesOf, { head, capitalNouns });
+        if (text !== trimmed) cased++;
         const target = pointerOf(gloss, head, sense);
         if (target !== undefined) {
           pointers++;
           addSense(termOf(terms, key), [pos, text, null, target]);
         } else if (isUsable(sense)) addSense(termOf(terms, key), [pos, text]);
       }
+    foreign += keepNativeScript(terms, letter);
     return finish(terms, shortOfDefinition);
   };
-  const terms = termsOf(read);
-  const capital = termsOf(capitalRead);
+  const terms = termsOf(read, false);
+  const capital = termsOf(capitalRead, true);
   return {
     terms,
     capital,
-    stats: { ...stats, pointers, templates: templates.size },
+    stats: {
+      ...stats,
+      pointers,
+      templates: templates.size,
+      cased,
+      foreign,
+      sentenceCase,
+    },
     templates,
+    /** A capitalised headword's gloss in the edition's case (`inNativeCase`). */
+    capitalCase: (text: string, head: string) =>
+      !cases
+        ? text
+        : inNativeCase(text, entriesOf, { head, capital: true, capitalNouns }),
     nativeKind: (item: string) =>
       nativeKindOf(
         item,
@@ -421,8 +578,7 @@ export async function readEdition(
           name: nativeNames.has(word),
           common: nativeCommon.has(word),
         }),
-        // The edition writes most of its common nouns capitalised (German).
-        { capitalNouns: capitalisedNouns > nouns / 2 },
+        { capitalNouns },
       ),
   };
 }
@@ -471,7 +627,9 @@ const senseLabel = (text: unknown) =>
  * languages (kaikki's names), for a language whose tables nest varieties under it
  * ("Chinese Mandarin", not "Chinese" rows tagged Hokkien or Dungan). A word loses its
  * stress marks (`withoutStressMarks`: the Russian tables mark stress); `word` then
- * rewrites it, or drops it by returning undefined.
+ * rewrites it, or drops it by returning undefined. With a native script (`letter`),
+ * words with no letter of it are left out beside words that have one
+ * (`keepNativeScript`).
  */
 export async function readTranslationTables(
   path: string,
@@ -480,11 +638,14 @@ export async function readTranslationTables(
     langs,
     termKey,
     word: rewrite = (w) => w,
+    letter,
   }: {
     langCodes: string[];
     langs?: string[];
     termKey: TermKey;
     word?: (word: string) => string | undefined;
+    /** A letter of the native script (`nativeLetterOf`). */
+    letter?: RegExp;
   },
 ) {
   const codes = new Set(langCodes);
@@ -534,10 +695,12 @@ export async function readTranslationTables(
   });
   // The short meaning is the first sense's first word.
   const firstWord = (text: string) => text.split(", ")[0]!;
+  const foreign =
+    keepNativeScript(terms, letter) + keepNativeScript(capital, letter);
   return {
     terms: finish(terms, firstWord),
     capital: finish(capital, firstWord),
-    stats,
+    stats: { ...stats, foreign },
   };
 }
 
@@ -673,6 +836,35 @@ export function capitalDictionary(
 }
 
 /**
+ * The capitalised headwords that came from source `source` (an edition), once what
+ * each means is decided (`capitalDictionary`), with their glosses in the edition's case
+ * (`capitalCase`: January → "enero"; Birmingham's "Ciudad de Inglaterra" stays the
+ * name it was read as). Gives how many glosses changed.
+ */
+export function inCapitalCase(
+  capital: Record<string, CapitalEntry>,
+  source: number,
+  capitalCase: (text: string, head: string) => string,
+): number {
+  let cased = 0;
+  for (const [key, entry] of Object.entries(capital)) {
+    if (entry[2] !== source) continue;
+    const first = entry[1][0]![1];
+    entry[1] = entry[1].map((sense): PairSense => {
+      const text = capitalCase(sense[1], key);
+      if (text === sense[1]) return sense;
+      cased++;
+      const copy: PairSense = [...sense];
+      copy[1] = text;
+      return copy;
+    });
+    if (entry[1][0]![1] !== first)
+      entry[0] = shortOfDefinition(entry[1][0]![1]);
+  }
+  return cased;
+}
+
+/**
  * A translation-table word in the last of the scripts it is written in: Chinese rows
  * give the traditional form, then the simplified one ("麵包 /面包" → "面包"; a word
  * the same in both is written once).
@@ -707,31 +899,94 @@ export function convertTerms(
   return terms;
 }
 
+/** A sense that describes its word rather than translating it: an edition's gloss whose line describes (`describes`). */
+const describing = ([, text, hint]: PairSense) =>
+  hint == null && describes(editionLine(text));
+
+/**
+ * The closed classes (kaikki's labels): the grammar words a language translates rather
+ * than defines, where an edition may describe their use instead.
+ */
+const CLOSED_CLASSES: readonly string[] = [
+  "pronoun",
+  "determiner",
+  "article",
+  "preposition",
+  "postposition",
+  "conjunction",
+  "particle",
+];
+
+/**
+ * The parts of speech a term only describes: every sense of it that is no pointer is
+ * of a closed class (CLOSED_CLASSES) and describes its word (pl the: "stosowany przed
+ * wyrazem znanym z kontekstu", "used before a word known from the context"); undefined
+ * for a term with a translation or a sense of another class, whose description is its
+ * meaning ("Persona que dirige un avión", an interjection's "Expresión de dolor").
+ */
+function describedOnly(senses: readonly PairSense[]) {
+  const meanings = senses.filter((sense) => !isPointerSense(sense));
+  if (meanings.length === 0) return undefined;
+  if (
+    meanings.some(
+      (sense) => !CLOSED_CLASSES.includes(sense[0]) || !describing(sense),
+    )
+  )
+    return undefined;
+  return new Set(meanings.map(([pos]) => pos));
+}
+
 /**
  * Merges the sources (in order of preference): each term comes whole from the first
  * source that has it, as [short, senses, source index]. A term that only points
  * (every sense of it a pointer: pt "used", "passado … do verbo use") comes whole from
  * the first later source that has a meaning for it (the tables' "usado,
- * acostumado"), and stays with its pointers when none has.
+ * acostumado"), and stays with its pointers when none has. Likewise a term of a closed
+ * class that a source only describes (`describedOnly`: pl "the") comes whole from the
+ * first later source that translates it in one of those parts of speech (a sense of
+ * that part of speech that does not describe), and stays described when none does
+ * (pl "a": the tables have only the letter's name).
  */
 export function mergeSources(
   sources: { tag: string; terms: Map<string, SourceTerm> }[],
 ) {
   const dict: Record<string, [string, PairSense[], number]> = {};
   const counts: Record<string, number> = {};
+  const described: string[] = [];
   const means = (senses: readonly PairSense[]) =>
     senses.some((sense) => !isPointerSense(sense));
+  /** Whether `later` replaces `taken`, a term a former source gave. */
+  const yields = (taken: readonly PairSense[], later: readonly PairSense[]) => {
+    if (!means(taken)) return means(later);
+    const described = describedOnly(taken);
+    return (
+      described !== undefined &&
+      later.some(
+        (sense) =>
+          !isPointerSense(sense) &&
+          described.has(sense[0]) &&
+          !describing(sense),
+      )
+    );
+  };
   sources.forEach(({ tag, terms }, index) => {
     counts[tag] = 0;
     for (const [key, { short, senses }] of terms) {
       if (Object.hasOwn(dict, key)) {
         const [, taken, from] = dict[key]!;
-        if (means(taken) || !means(senses)) continue;
+        if (!yields(taken, senses)) continue;
         counts[sources[from]!.tag]!--;
+        if (means(taken)) described.push(key);
       }
       dict[key] = [short, senses, index];
       counts[tag]++;
     }
   });
-  return { dict, sources: sources.map(({ tag }) => tag), counts };
+  return {
+    dict,
+    sources: sources.map(({ tag }) => tag),
+    counts,
+    /** The terms a later source took from one that only described them. */
+    described,
+  };
 }

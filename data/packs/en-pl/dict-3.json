@@ -15776,7 +15776,7 @@
 "thatcher":["strzecharz, robotnik kryjący dach strzechą",[["noun","strzecharz, robotnik kryjący dach strzechą"],["noun","wertykulator (urządzenie do oczyszczania i napowietrzania trawy)"]],0],
 "thaw":["odwilż",[["noun","odwilż"],["verb","tajać, topnieć"],["verb","odmrażać, rozmrażać"]],0],
 "thaw out":["rozmrozić",[["verb","rozmrozić"],["verb","odtajać"],["verb","przełamać lody, zaprzyjaźnić się"]],0],
-"the":["stosowany przed wyrazem znanym z kontekstu",[["article","stosowany przed wyrazem znanym z kontekstu"],["article","stosowany przed wyrazem jedynym w swoim rodzaju"],["article","stosowany do zaznaczenia wyrazu do którego odnosi się zdanie podrzędne"],["article","stosowany przed nazwą geograficzną"]],0],
+"the":["ten",[["article","ten","this"]],1],
 "the apple does not fall far from the tree":["niedaleko pada jabłko od jabłoni",[["proverb","niedaleko pada jabłko od jabłoni","a child is similar to its parents"]],1],
 "the ayes have it":["głosujący na \"tak\" wygrali",[["phrase","głosujący na \"tak\" wygrali"]],0],
 "the ball is in someone's court":["piłka jest po czyjejś stronie",[["phrase","piłka jest po czyjejś stronie","Translations"]],1],
@@ -15860,7 +15860,7 @@
 "theatrically":["teatralnie",[["adverb","teatralnie"]],0],
 "theca":["pylnik",[["noun","pylnik"]],0],
 "thecodont":["tekodontyczny",[["adjective","tekodontyczny","having teeth with roots &/or alveoli/sockets"]],1],
-"thee":["przypadek zależny od thou",[["pronoun","przypadek zależny od thou"]],0],
+"thee":["cię",[["pronoun","cię, ciebie","Objective case of 'thou'"]],1],
 "theft":["kradzież",[["noun","kradzież"]],0],
 "theft by finding":["kradzież przez znalezienie",[["noun","kradzież przez znalezienie","crime"]],1],
 "thegn":["tan, lennik królewski (tytuł arystokratyczny w anglosaskiej Anglii, odpowiednik barona)",[["noun","tan, lennik królewski (tytuł arystokratyczny w anglosaskiej Anglii, odpowiednik barona)"]],0],
@@ -18770,5 +18770,7 @@
 "unmemorable":["niezapadający w pamięć",[["adjective","niezapadający w pamięć"]],0],
 "unmentionable":["o temacie: tabu, nieporuszany",[["adjective","o temacie: tabu, nieporuszany"]],0],
 "unmerciful":["bezlitosny",[["adjective","bezlitosny"]],0],
-"unmercifully":["bezlitośnie",[["adverb","bezlitośnie"]],0]
+"unmercifully":["bezlitośnie",[["adverb","bezlitośnie"]],0],
+"unmindful":["niepomny czegoś, niezważający na coś",[["adjective","niepomny czegoś, niezważający na coś"]],0],
+"unmistakable":["niewątpliwy",[["adjective","niewątpliwy"],["adjective","oczywisty"],["adjective","wyraźny"]],0]
 }

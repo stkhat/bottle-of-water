@@ -5,9 +5,12 @@ import {
   capitalDictionary,
   capitalTermOf,
   convertTerms,
+  inCapitalCase,
+  inNativeCase,
   lastScriptForm,
   mergeSources,
   nativeKindOf,
+  nativeLetterOf,
   pointerTemplates,
   readEdition,
   readTranslationTables,
@@ -145,6 +148,10 @@ describe("readEdition", () => {
       unparsable: 1,
       pointers: 0,
       templates: 0,
+      cased: 0,
+      foreign: 0,
+      // Its glosses open in lower case.
+      sentenceCase: false,
     });
   });
 
@@ -180,6 +187,57 @@ describe("readEdition", () => {
       ["verb", "Chatear"],
       ["verb", "Fazer algo. Depois outra coisa."],
     ]);
+  });
+});
+
+describe("readEdition: native case and script", () => {
+  it("writes glosses in the edition's own case", async () => {
+    const { terms, stats } = await readEdition(
+      join(FIXTURES, "edition-case.jsonl"),
+      termKey,
+      { native: "es" },
+    );
+    // A form an entry lists counts as the edition writes it (clara of claro), after
+    // a label in brackets too.
+    expect(terms.get("light")?.senses).toEqual([
+      ["adjective", "ser leve."],
+      ["adjective", "Dicho del color: claro."],
+      ["adjective", "Japón"],
+      ["adjective", "(de una bebida) clara"],
+    ]);
+    expect(stats).toMatchObject({ cased: 3, sentenceCase: true });
+  });
+  it("keeps the case of an edition whose glosses do not open with capitals", async () => {
+    // Wikisłownik opens its glosses in lower case: a capital is the word's own
+    // (Meksykanin, a noun of nationality), though "meksykanin" is a headword.
+    const { terms, stats } = await readEdition(
+      join(FIXTURES, "edition-lower.jsonl"),
+      termKeyOf({
+        vocab: new Set(["mexican", "go"]),
+        lemmas: {},
+        phrases: new Set(),
+      }),
+      { native: "pl" },
+    );
+    expect(stats).toMatchObject({ sentenceCase: false, cased: 0 });
+    expect(terms.get("mexican")?.senses[0]).toEqual([
+      "noun",
+      "Meksykanin, Meksykanka",
+    ]);
+  });
+  it("leaves out a gloss with no letter of the native script beside one with, unless it is the headword", async () => {
+    const { terms, stats } = await readEdition(
+      join(FIXTURES, "edition-case.jsonl"),
+      termKey,
+      { native: "ru", letter: nativeLetterOf(["Cyrillic"]) },
+    );
+    expect(terms.get("upset")?.senses).toEqual([
+      ["verb", "расстроить"],
+      ["verb", "upset"],
+    ]);
+    // No gloss of "light" is in the script: it keeps them.
+    expect(terms.get("light")?.senses).toHaveLength(4);
+    expect(stats.foreign).toBe(1);
   });
 });
 
@@ -321,6 +379,21 @@ describe("readTranslationTables", () => {
       ["noun", "灯, 燈光", "source of illumination"],
     ]);
   });
+  it("keeps only the parts of a word in the native script, or the headword itself", async () => {
+    const { terms, stats } = await readTranslationTables(
+      join(FIXTURES, "tables-en.jsonl"),
+      { langCodes: ["ru"], termKey, letter: nativeLetterOf(["Cyrillic"]) },
+    );
+    expect(terms.get("light")?.senses).toEqual([
+      ["noun", "свет", "electromagnetic radiation"],
+      ["noun", "лампа, light", "source of illumination"],
+    ]);
+    // A term with no word in the script keeps what it has.
+    expect(terms.get("upset")?.senses).toEqual([
+      ["verb", "or implied", "to make unhappy"],
+    ]);
+    expect(stats.foreign).toBe(1);
+  });
   it("rewrites or drops a translated word with `word`", async () => {
     const { terms } = await readTranslationTables(
       join(FIXTURES, "tables-en.jsonl"),
@@ -359,7 +432,61 @@ describe("mergeSources", () => {
       },
       sources: ["ptwiktionary", "enwiktionary-translations"],
       counts: { ptwiktionary: 1, "enwiktionary-translations": 1 },
+      described: [],
     });
+  });
+  it("takes a closed-class term a source only describes from the next that translates it", () => {
+    const edition = new Map<string, SourceTerm>([
+      [
+        "the",
+        {
+          short: "stosowany przed wyrazem znanym z kontekstu",
+          senses: [
+            ["article", "stosowany przed wyrazem znanym z kontekstu"],
+            ["article", "stosowany przed nazwą geograficzną"],
+          ],
+        },
+      ],
+      [
+        "a",
+        {
+          short: "używany przed spółgłoską",
+          senses: [["article", "używany przed spółgłoską i rzeczownikiem"]],
+        },
+      ],
+      // A description that is followed by translations translates.
+      [
+        "you",
+        {
+          short: "Pronombre de segunda persona",
+          senses: [["pronoun", "Pronombre de segunda persona; tú, usted"]],
+        },
+      ],
+      // An open class's description is its meaning.
+      [
+        "pilot",
+        {
+          short: "Persona que dirige un avión",
+          senses: [["noun", "Persona que dirige un avión"]],
+        },
+      ],
+    ]);
+    const tables = new Map<string, SourceTerm>([
+      ["the", { short: "ten", senses: [["article", "ten", "this"]] }],
+      // Only the letter's name: no article.
+      ["a", { short: "a", senses: [["noun", "a", "name of the letter A"]] }],
+      ["you", { short: "ty", senses: [["pronoun", "ty", "you"]] }],
+      ["pilot", { short: "piloto", senses: [["noun", "piloto", "pilot"]] }],
+    ]);
+    const { dict, described } = mergeSources([
+      { tag: "plwiktionary", terms: edition },
+      { tag: "enwiktionary-translations", terms: tables },
+    ]);
+    expect(dict["the"]).toEqual(["ten", [["article", "ten", "this"]], 1]);
+    expect(dict["a"]?.[2]).toBe(0);
+    expect(dict["you"]?.[2]).toBe(0);
+    expect(dict["pilot"]?.[2]).toBe(0);
+    expect(described).toEqual(["the"]);
   });
   it("takes a term that only points from the next source with a meaning for it", () => {
     const pointer = (target: string) =>
@@ -406,6 +533,104 @@ describe("capitalTermOf", () => {
     expect(capitalTermOf("light", termKey, { proper: true })).toBe("Light");
     expect(capitalTermOf("Lights", termKey)).toBeUndefined();
     expect(capitalTermOf("Give Up", termKey)).toBeUndefined();
+  });
+});
+
+describe("nativeLetterOf", () => {
+  it("knows a script other than Latin, the learning language's", () => {
+    expect(nativeLetterOf(["Latin"])).toBeUndefined();
+    expect(nativeLetterOf(["Han"])?.test("是")).toBe(true);
+    expect(nativeLetterOf(["Han"])?.test("or implied")).toBe(false);
+    expect(nativeLetterOf(["Cyrillic"])?.test("We sat, опоздает")).toBe(true);
+  });
+});
+
+describe("inNativeCase", () => {
+  const entries = (names: string[], common: string[]) => (word: string) => ({
+    name: names.includes(word),
+    common: common.includes(word),
+  });
+  const es = entries(
+    ["Holanda", "China"],
+    ["ser", "y", "pronombre", "profundo", "enero", "holanda", "china"],
+  );
+  it("writes an opening word, and one a colon introduces, as the edition does", () => {
+    expect(inNativeCase("Ser", es, { head: "be" })).toBe("ser");
+    expect(inNativeCase("Y", es, { head: "and" })).toBe("y");
+    expect(
+      inNativeCase("Pronombre de segunda persona", es, { head: "you" }),
+    ).toBe("pronombre de segunda persona");
+    expect(
+      inNativeCase("Dicho del sueño: Profundo", es, { head: "deep" }),
+    ).toBe("Dicho del sueño: profundo");
+  });
+  it("keeps a word the edition writes capitalised, and acronyms", () => {
+    expect(inNativeCase("Japón", es, { head: "japan" })).toBe("Japón");
+    expect(inNativeCase("EE. UU.", es, { head: "us" })).toBe("EE. UU.");
+    // The first word of a name of several.
+    const it = entries([], ["gran"]);
+    expect(
+      inNativeCase("Gran Bretagna", it, { head: "Britain", capital: true }),
+    ).toBe("Gran Bretagna");
+    // German capitalises its nouns: "Sein" is one, "sein" a verb.
+    const de = entries([], ["sein", "Sein"]);
+    expect(
+      inNativeCase("Sein", de, { head: "being", capitalNouns: true }),
+    ).toBe("Sein");
+    // Elsewhere a capitalised entry is no word of its own (fr "Ce", a symbol).
+    const fr = entries([], ["ce", "Ce"]);
+    expect(inNativeCase("Ce … -ci", fr, { head: "this" })).toBe("ce … -ci");
+  });
+  it("keeps a capitalised headword's proper noun or the headword itself", () => {
+    expect(inNativeCase("Enero", es, { head: "January", capital: true })).toBe(
+      "enero",
+    );
+    expect(
+      inNativeCase("Holanda", es, { head: "Holland", capital: true }),
+    ).toBe("Holanda");
+    expect(inNativeCase("China", es, { head: "China", capital: true })).toBe(
+      "China",
+    );
+  });
+});
+
+describe("inCapitalCase", () => {
+  it("puts one source's capitalised glosses in the edition's case, their meaning as read", () => {
+    const capital = capitalDictionary(
+      {
+        January: ["Enero", [["proper noun", "Enero"]], 0],
+        Birmingham: [
+          "Ciudad de Inglaterra",
+          [["proper noun", "Ciudad de Inglaterra"]],
+          0,
+        ],
+        Japan: ["Japón", [["proper noun", "Japón", "country"]], 1],
+      },
+      {
+        nativeKind: (item) => (item === "Enero" ? "word" : undefined),
+        personFirst: () => false,
+      },
+    ).capital;
+    const entries = (word: string) => ({
+      name: false,
+      common: ["enero", "ciudad"].includes(word),
+    });
+    expect(
+      inCapitalCase(capital, 0, (text, head) =>
+        inNativeCase(text, entries, { head, capital: true }),
+      ),
+    ).toBe(2);
+    expect(capital["January"]).toEqual([
+      "enero",
+      [["proper noun", "enero"]],
+      0,
+      "word",
+    ]);
+    // Read as a name from its capitals before.
+    expect(capital["Birmingham"]?.[3]).toBe("name");
+    expect(capital["Birmingham"]?.[1][0]?.[1]).toBe("ciudad de Inglaterra");
+    // Another source's words stay as written.
+    expect(capital["Japan"]?.[0]).toBe("Japón");
   });
 });
 

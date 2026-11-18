@@ -1,7 +1,4 @@
 {
-"locksmith":["chaveiro",[["noun","chaveiro","one who practices locksmithing"]],1],
-"locomotion":["locomoção",[["noun","locomoção","ability to move"]],1],
-"locomotive":["locomotiva, máquina",[["noun","locomotiva, máquina"]],0],
 "locus":["lugar",[["noun","lugar, sítio","place or locality"],["noun","lócus","portion of a DNA or RNA string"]],1],
 "locust":["gafanhoto",[["noun","gafanhoto","type of grasshopper"]],1],
 "lodestar":["estrela guia",[["noun","estrela guia","guiding tenet"]],1],
@@ -16080,7 +16077,7 @@
 "yours":["seu, seus",[["pronoun","seu, seus"]],0],
 "yours sincerely":["atenciosamente",[["adjective","atenciosamente","polite formulaic end to letters"]],1],
 "yours truly":["atenciosamente",[["phrase","atenciosamente","closing in a note or letter"]],1],
-"yourself":["pronome reflexivo da segunda pessoa do singular",[["pronoun","pronome reflexivo da segunda pessoa do singular"]],0],
+"yourself":["te",[["pronoun","te, se","(reflexive) your own self"],["pronoun","você/tu mesmo","you, used emphatically"]],1],
 "yourselves":["vós/vocês mesmos",[["pronoun","vós/vocês mesmos, vós/vocês mesmas","you (referring to the people being spoken to, previously mentioned)"]],1],
 "youth":["juventude",[["noun","juventude"],["noun","jovem"]],0],
 "youth detention centre":["reformatório",[["noun","reformatório","secure residential facility for young people"]],1],

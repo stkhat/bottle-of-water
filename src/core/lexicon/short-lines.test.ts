@@ -3,7 +3,10 @@ import {
   capLine,
   cleanShort,
   definitionLine,
+  describes,
   displayWidth,
+  editionLine,
+  firstSentence,
   fitsPairCap,
   japaneseForm,
   japanesePointer,
@@ -249,6 +252,18 @@ describe("shortLines", () => {
     ]);
   });
 
+  it("leaves out a line that says what one before it says", () => {
+    expect(shortLines(["davvero", "veramente", "davvero?"], "x")).toEqual([
+      "davvero",
+      "veramente",
+    ]);
+    expect(shortLines(["Gracias", "¡Gracias!"], "x")).toEqual(["Gracias"]);
+    expect(shortLines(["的", "...的"], "x")).toEqual(["的"]);
+    // Case and brackets say something.
+    expect(shortLines(["Morgen", "morgen"], "x")).toEqual(["Morgen", "morgen"]);
+    expect(shortLines(["…を研究する", "(…を)研究する"], "x")).toHaveLength(2);
+  });
+
   it("follows a form to the word it names", () => {
     expect(shortLines(["goの過去"], "goの過去", options("went"))).toEqual([
       "goの過去",
@@ -397,11 +412,124 @@ describe("pointerLine", () => {
     ).toBe("Tercera persona del singular del presente simple de have");
     expect(pointerLine("（非正式）does的紧缩")).toBe("does的紧缩");
   });
-  it("fits a pair line's cap of 40", () => {
-    expect(fitsPairCap("Pasado simple del verbo tell")).toBe(true);
+  it("fits 40 for a pointer that comes first, the native cap for one second", () => {
+    expect(fitsPairCap("pasado simple del verbo tell")).toBe(true);
+    expect(fitsPairCap("passado simples e particípio do verbo tell")).toBe(
+      false,
+    );
     expect(
-      fitsPairCap("Tercera persona del singular del presente simple de have"),
+      fitsPairCap("passado simples e particípio do verbo tell", true),
+    ).toBe(true);
+    expect(
+      fitsPairCap(
+        "Tercera persona del singular del presente simple de have",
+        true,
+      ),
     ).toBe(false);
+  });
+});
+
+describe("firstSentence", () => {
+  it("ends at a period before a capital or an arrow", () => {
+    expect(firstSentence("Más. Comparativo de much")).toBe("Más");
+    expect(firstSentence("Enfant . Note d’usage : Utilisé…")).toBe("Enfant");
+    expect(firstSentence("Coche. → voir check mark")).toBe("Coche");
+    expect(
+      firstSentence("maison (famille). Note d’usage : le « h » est…"),
+    ).toBe("maison (famille)");
+  });
+  it("does not end after an abbreviation or a number", () => {
+    expect(firstSentence("EE. UU.")).toBe("EE. UU.");
+    expect(firstSentence("a. de J. C. (antes de Jesucristo)")).toBe(
+      "a. de J. C. (antes de Jesucristo)",
+    );
+    expect(firstSentence("3. Person Singular")).toBe("3. Person Singular");
+    expect(firstSentence("Más. comparativo")).toBe("Más. comparativo");
+  });
+});
+
+describe("editionLine", () => {
+  it("drops sense subscripts after a word and an opening ellipsis", () => {
+    expect(editionLine("Exigir, pedir₃")).toBe("Exigir, pedir");
+    expect(editionLine("Ley₁₋₉")).toBe("Ley");
+    expect(editionLine("Dioxígeno (O₂)")).toBe("Dioxígeno (O₂)");
+    expect(editionLine("…służący do tworzenia pytań")).toBe(
+      "służący do tworzenia pytań",
+    );
+    expect(editionLine("……上")).toBe("上");
+  });
+  it("drops a label of several words in brackets that opens it", () => {
+    expect(editionLine("(w religiach monoteistycznych) Bóg")).toBe("Bóg");
+    expect(
+      editionLine("（同 are not, aren’t; is not, isn’t; am not）不是"),
+    ).toBe("不是");
+    // One word in brackets is part of the meaning, or a note kept.
+    expect(editionLine("(Ne) … pas")).toBe("(Ne) … pas");
+    expect(editionLine("（现多）点燃，燃烧")).toBe("（现多）点燃，燃烧");
+    // A gloss that is only a note stays.
+    expect(editionLine("(neutro)")).toBe("(neutro)");
+  });
+  it("is the first sentence, without usage notes and closing marks", () => {
+    expect(editionLine("Más. Comparativo de much")).toBe("Más");
+    expect(editionLine("Tout à l’heure. Note d’usage : Placé…")).toBe(
+      "Tout à l’heure",
+    );
+    expect(editionLine("equivalente à conjunção e:")).toBe(
+      "equivalente à conjunção e",
+    );
+    expect(editionLine("Luz.")).toBe("Luz");
+    expect(editionLine("EE. UU.")).toBe("EE. UU.");
+  });
+  it("is what a qualifier introduces", () => {
+    expect(
+      editionLine(
+        "De un recurso o sustancia, generalmente alimento: consumir, usar",
+      ),
+    ).toBe("consumir, usar");
+    expect(editionLine("często przed gerund: mój, swój")).toBe("mój, swój");
+    expect(editionLine("„you are, 2. Person Singular:“ du bist")).toBe(
+      "du bist",
+    );
+    expect(editionLine("United States → Stany Zjednoczone, USA")).toBe(
+      "Stany Zjednoczone, USA",
+    );
+    // A translation and its explanation, or one word before the colon, stay.
+    expect(editionLine("Mil millones: un 1 seguido por 9 ceros")).toBe(
+      "Mil millones: un 1 seguido por 9 ceros",
+    );
+    expect(editionLine("tudo: todas as coisas")).toBe("tudo: todas as coisas");
+    expect(editionLine("hora 10:30")).toBe("hora 10:30");
+  });
+  it("is the translations a description is followed by", () => {
+    expect(
+      editionLine(
+        "Pronombre de segunda persona singular y plural; tú, vos, usted",
+      ),
+    ).toBe("tú, vos, usted");
+    expect(
+      editionLine("caso nominativo da segunda pessoa do singular, tu, você"),
+    ).toBe("tu, você");
+    // Items of more words after a description qualify it.
+    expect(
+      editionLine("Acción y efecto de comer, especialmente en grupo, juntos"),
+    ).toBe("Acción y efecto de comer, especialmente en grupo");
+    expect(editionLine("Nosotros, pronombre personal de primera persona")).toBe(
+      "Nosotros, pronombre personal de primera persona",
+    );
+  });
+  it("is cut to the native cap of 50", () => {
+    expect(
+      editionLine("służący do tworzenia czasów typu continuous i perfect"),
+    ).toBe("służący do tworzenia czasów typu continuous i…");
+  });
+});
+
+describe("describes", () => {
+  it("knows a first item of more than three words outside brackets", () => {
+    expect(describes("stosowany przed wyrazem znanym z kontekstu")).toBe(true);
+    expect(describes("eles ou elas")).toBe(false);
+    expect(describes("el, la, los, las")).toBe(false);
+    expect(describes("on (do osoby lub zwierzęcia płci męskiej)")).toBe(false);
   });
 });
 
@@ -471,12 +599,19 @@ describe("translatedLine", () => {
     ).toBe("通路を通って部屋またはその他のスペースに入る");
   });
 
-  it("caps a line in another language at 40 characters", () => {
+  it("caps a line in another language at 50 characters, its first sentence", () => {
     expect(
       translatedLine(
-        "Ensamblar, construir, construir o formular algo nuevo.",
+        "Ensamblar, construir, construir o formular algo nuevo y distinto.",
         "es",
       ),
     ).toBe("Ensamblar, construir");
+    expect(
+      translatedLine("Aumentar la velocidad de un motor parado.", "es"),
+    ).toBe("Aumentar la velocidad de un motor parado");
+    expect(translatedLine("Un saludo. Se usa por la mañana.", "es")).toBe(
+      "Un saludo",
+    );
+    expect(translatedLine("问候。早上使用。", "zh")).toBe("问候");
   });
 });
