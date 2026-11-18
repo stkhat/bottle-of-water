@@ -430,55 +430,65 @@
       "files": [
         {
           "path": "freq.json",
-          "sha256": "47f10d1d16f509788046670d820b588171cbbb07934fe0b2931c74ba003c42d9",
-          "size": 380154
+          "sha256": "23be07cc7007976ba43fac9d5ba1a9a626c03a6a989acd9c3fe81853a1cd8590",
+          "size": 380110
         },
         {
           "path": "ipa.json",
-          "sha256": "58bb9f5ac9b46c1f1d53e11bc03f0ece44355dae05af7ca59300f56313344b08",
-          "size": 857355
+          "sha256": "48db689aa65a6cd2a21a55a4aa3e23552f75bbcc9c5a2bb669d63867ab9a6e3e",
+          "size": 859906
         },
         {
           "path": "lemmas.json",
-          "sha256": "d4f5721d8e772c621577df7dde981fe107246418d4ed052993cd2516547bc85b",
-          "size": 1307365
+          "sha256": "32dd9ae190870cf686051cf7924c6cb1995fc146f9763313ef36b8d3e78cf549",
+          "size": 1308584
         },
         {
           "path": "phrases.json",
-          "sha256": "594fdeffc1742c41adcc3344fece5a48a5c3a18b85855fb63237cb203b948816",
-          "size": 50456
+          "sha256": "c936995f49400e445cd53c682912a7492b931cdb6120a704d6c987994e6e8f03",
+          "size": 50500
+        },
+        {
+          "path": "pos.json",
+          "sha256": "27697867ace09490862bd4ed4489451cad3d619a423cf56319667669340c244d",
+          "size": 820131
+        },
+        {
+          "path": "tagger.json",
+          "sha256": "f4b4fb07ef7ddf48fbba9856346d45f743c9d30545ec72ea163cd3f54692fefd",
+          "size": 323015
         },
         {
           "path": "vocab.json",
-          "sha256": "b6727532c31b8c153b0bdcb7dfe25f4cbc0196268083e13c07e01679fc0ff4d3",
-          "size": 431431
+          "sha256": "926fa75f22687dad8d565339d78b9d08ee2381f9b8b81ab50cab2efe2fd208bb",
+          "size": 432606
         }
       ],
-      "format": 1,
+      "format": 2,
       "package": "@langle/es",
-      "version": "2026.1111.0"
+      "version": "2026.1118.0"
     },
     "es-en": {
       "files": [
         {
           "path": "dict-1.json",
-          "sha256": "a23bcc36b64b2bb10ead826a90704b33f580214848e394404f149b3f109562f6",
-          "size": 1999950
+          "sha256": "7f41fa69ed6e20cbe6ec807626cec805e988e8283f61836749c19a4717c1a106",
+          "size": 1999980
         },
         {
           "path": "dict-2.json",
-          "sha256": "2870a2ee8969246a5dc79f6cfd7d8514bfdbe43aab842184abce97b6d7a2c182",
-          "size": 1514401
+          "sha256": "7c84252afb7eb7769515c06062016a6b0694f5db46b4bbd106f4de5838463bed",
+          "size": 1527945
         },
         {
           "path": "index.json",
-          "sha256": "6f593941894646e97011986675ef304355494a733301078dac35b0b3861a698f",
-          "size": 119
+          "sha256": "4e572747902ec6b9d1f9698604337909d95fd169b956ad20dcab6990b896b3f8",
+          "size": 130
         }
       ],
       "format": 1,
       "package": "@langle/es-en",
-      "version": "2026.1113.0"
+      "version": "2026.1118.0"
     }
   },
   "pairs": {

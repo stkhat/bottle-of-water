@@ -2,7 +2,25 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildEsPacks, writeEsPacks, type EsPacks } from "./es-kaikki.ts";
+import {
+  buildEsPacks,
+  byTreebank,
+  byTreebankTags,
+  pointerMeaning,
+  writeEsPacks,
+  type EsPacks,
+} from "./es-kaikki.ts";
+import type { LemmaCounts } from "./es-tagger.ts";
+
+const counts = (
+  byForm: Record<string, number> = {},
+  byLemma: Record<string, number> = {},
+  byTag: Record<string, number> = {},
+): LemmaCounts => ({
+  byForm: new Map(Object.entries(byForm)),
+  byLemma: new Map(Object.entries(byLemma)),
+  byTag: new Map(Object.entries(byTag)),
+});
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-es.jsonl");
 // Frequency-list forms in rank order. "casar" and "hablar" are reached only through
@@ -166,6 +184,36 @@ describe("buildEsPacks", () => {
       ["phrase", "of the House (parliament)"],
     ]);
   });
+  it("lists each vocabulary word's parts of speech with a meaning, in the source's order", () => {
+    expect(packs.pos.comer).toEqual(["verb", "noun"]);
+    // casa's verb entry only points to casar.
+    expect(packs.pos.casa).toEqual(["noun"]);
+    expect(packs.pos.de).toEqual(["preposition"]);
+    expect(Object.keys(packs.pos).sort()).toEqual(packs.vocab);
+  });
+  it("orders a form's bases and a word's parts of speech by the treebanks", async () => {
+    const { lemmas, pos } = await buildEsPacks(fixture, forms, {
+      ...options,
+      treebank: counts({ "casas casar": 2 }, {}, { "comer NOUN": 5 }),
+    });
+    expect(lemmas.casas).toEqual(["casar", "casa"]);
+    expect(pos.comer).toEqual(["noun", "verb"]);
+  });
+  it("gives a form the meaning its form-of senses gloss after their pointer", async () => {
+    const { vocab, lemmas, defs, pos } = await buildEsPacks(fixture, ["les"]);
+    expect(vocab).toEqual(["les", "ustedes"]);
+    expect(lemmas.les).toBe("ustedes");
+    // The obsolete sense gives none; the multi-word target is no base.
+    expect(defs.les).toEqual([
+      "to them, for them",
+      [
+        ["pronoun", "to them, for them; dative of ellos and ellas"],
+        ["pronoun", "to you all; dative of ustedes"],
+        ["article", "the (plural)"],
+      ],
+    ]);
+    expect(pos.les).toEqual(["pronoun", "article"]);
+  });
   it("counts what it built", () => {
     expect(packs.stats).toMatchObject({
       unparsable: 0,
@@ -177,6 +225,61 @@ describe("buildEsPacks", () => {
       more: 1,
       terms: 15,
     });
+  });
+});
+
+describe("pointerMeaning", () => {
+  it("puts the meaning after a pointer first", () => {
+    expect(pointerMeaning("dative of ellos and ellas; to them, for them")).toBe(
+      "to them, for them; dative of ellos and ellas",
+    );
+    expect(pointerMeaning("female equivalent of chico: girl")).toBe(
+      "girl; female equivalent of chico",
+    );
+    expect(
+      pointerMeaning(
+        "accusative of ustedes (when referring to more than one man); you all",
+      ),
+    ).toBe(
+      "you all; accusative of ustedes (when referring to more than one man)",
+    );
+  });
+  it("finds none in a gloss that only points, or in its target's quoted gloss", () => {
+    expect(pointerMeaning("plural of casa")).toBeUndefined();
+    expect(
+      pointerMeaning(
+        "first-person singular present indicative of colar (“to sift; to dupe”)",
+      ),
+    ).toBeUndefined();
+    expect(pointerMeaning("inflection of aquellar:")).toBeUndefined();
+    expect(pointerMeaning("to him; for him")).toBeUndefined();
+  });
+});
+
+describe("byTreebank", () => {
+  it("orders bases by how often the treebanks lemmatize the form so, then by the lemma's count", () => {
+    expect(
+      byTreebank("creo", ["crear", "creer"], counts({ "creo creer": 40 })),
+    ).toEqual(["creer", "crear"]);
+    expect(
+      byTreebank("les", ["elles", "ustedes"], counts({}, { ustedes: 3 })),
+    ).toEqual(["ustedes", "elles"]);
+    expect(byTreebank("x", ["b", "a"], counts())).toEqual(["b", "a"]);
+  });
+});
+
+describe("byTreebankTags", () => {
+  it("puts the part of speech the treebanks tag the word with most often first", () => {
+    const tags = counts({}, {}, { "la DET": 9, "la PRON": 2 });
+    expect(byTreebankTags("la", ["noun", "pronoun", "article"], tags)).toEqual([
+      "article",
+      "pronoun",
+      "noun",
+    ]);
+    expect(byTreebankTags("zzz", ["noun", "verb"], tags)).toEqual([
+      "noun",
+      "verb",
+    ]);
   });
 });
 
@@ -205,6 +308,7 @@ describe("writeEsPacks", () => {
       "es/ipa.json",
       "es/lemmas.json",
       "es/phrases.json",
+      "es/pos.json",
       "es/vocab.json",
     ]);
     expect([...written].sort()).toEqual(filesUnder(dir).sort());

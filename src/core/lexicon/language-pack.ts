@@ -15,6 +15,7 @@ import {
 import { rulesFor } from "../phrases/rules";
 import { tokenize, type Token } from "../text/tokenize";
 import { englishTagger } from "../tagging/en";
+import { spanishTagger } from "../tagging/es";
 import type { Tagger, TaggerModel } from "../tagging/tagger";
 import { ipaFor } from "./ipa";
 import { lemmatize } from "./lemmatize";
@@ -25,9 +26,17 @@ import { lemmatize } from "./lemmatize";
  */
 const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es"]);
 
+/**
+ * Languages whose lemma table lists an inflected form's likelier base first, from a
+ * treebank's lemmas (Spanish "creo": creer before crear). English lists them in
+ * code-unit order.
+ */
+const BASES_IN_ORDER: ReadonlySet<string> = new Set(["es"]);
+
 /** Each language's tagger over its pack's model. */
 const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
   en: englishTagger,
+  es: spanishTagger,
 };
 
 /** How many words' base forms a pack keeps (`lemmas`), as written; then it starts over. */
@@ -42,6 +51,11 @@ export interface LanguagePack {
    * Shared between calls: not to be changed.
    */
   lemmas(word: string): readonly string[];
+  /**
+   * `lemmas` lists a form's bases likeliest first (from a treebank), so rule A1 reads a
+   * form as the first base that fits its tag; otherwise as the most frequent one.
+   */
+  readonly basesInOrder: boolean;
   /** 1-based frequency rank of a base form; Infinity when it is not ranked. */
   rank(base: string): number;
   /** IPA of a word, or of a phrase's words inside one pair of slashes. */
@@ -75,7 +89,7 @@ export interface LanguagePack {
   intransitive(key: string): boolean;
   /**
    * The language's part-of-speech tagger and grammar (rules A1 and A2,
-   * `word-sense.ts`), when the pack has a model for it (English so far).
+   * `word-sense.ts`), when the pack has a model for it (English, Spanish).
    */
   readonly tagger?: Tagger;
 }
@@ -120,6 +134,7 @@ export function createLanguagePack(
     lang,
     tokenize: (text) => tokenize(text, lang),
     lemmas,
+    basesInOrder: BASES_IN_ORDER.has(lang),
     rank: (base) => ranks.get(base.toLowerCase()) ?? Infinity,
     // English -s forms ("beans") take their base's IPA with the English ending.
     ipa: (term) => ipaFor(term, data.ipa, lang === "en" ? lemmas : undefined),

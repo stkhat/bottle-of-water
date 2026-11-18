@@ -164,6 +164,22 @@ describe("chooseKey (rule A1)", () => {
     );
     expect(key("arises", ["aris", "arise"], reading(undefined))).toBe("aris");
   });
+  it("chooses the first fitting base where the pack lists the likeliest first", () => {
+    const ordered = { ...lang, basesInOrder: true };
+    // "arise" ranks after "aris": the order decides, not the rank.
+    expect(
+      chooseKey(
+        "arises",
+        ["arise", "aris"],
+        reading(undefined),
+        outline,
+        ordered,
+      ),
+    ).toBeUndefined();
+    expect(
+      chooseKey("arises", ["arise", "aris"], reading(undefined), outline, lang),
+    ).toBe("aris");
+  });
   describe("a headword the dictionary has no entry for", () => {
     /** A pair dictionary with base forms only (en-es: no "told", "has", "lives"). */
     const PAIR: Record<string, EntryOutline> = {

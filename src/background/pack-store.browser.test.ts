@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PACK_FORMATS } from "../core/packs/formats";
+import type { PackName } from "../core/packs/load";
 import type { PackLock, PackLockEntry } from "../core/packs/lock";
 import type { PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
@@ -29,14 +31,14 @@ async function sha256(value: unknown) {
 }
 
 async function lockEntry(
-  name: string,
+  name: PackName,
   version: string,
   contents: Contents,
 ): Promise<PackLockEntry> {
   return {
     package: `@langle-test/${name}`,
     version,
-    format: 1,
+    format: PACK_FORMATS[name],
     files: await Promise.all(
       Object.entries(contents).map(async ([path, value]) => ({
         path,
@@ -48,10 +50,10 @@ async function lockEntry(
 }
 
 /** A pack these tests do not download. */
-const unused = (name: string): PackLockEntry => ({
+const unused = (name: PackName): PackLockEntry => ({
   package: `@langle-test/${name}`,
   version: "2026.1111.0",
-  format: 1,
+  format: PACK_FORMATS[name],
   files: [],
 });
 
@@ -198,7 +200,7 @@ describe("pack store: downloads", () => {
     expect(await db.packVersions.get("es")).toEqual({
       pack: "es",
       version: "2026.1111.0",
-      format: 1,
+      format: PACK_FORMATS.es,
       files: es.files.map(({ path, sha256 }) => ({ path, sha256 })),
     });
     const total = sizeOf(es);

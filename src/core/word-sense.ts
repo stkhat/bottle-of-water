@@ -130,7 +130,8 @@ export function readWords(
  *    some, else no meaning beside the card's "has → have" (`sensePos`, AUXILIARY_BASE).
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
  *    for (en-es "told", "says": only some sources have inflected forms): the base
- *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
+ *    whose part of speech fits the tag, then the most frequent ("arises" → arise), or
+ *    the first where the pack lists the likeliest first (Spanish "creo" → creer).
  *    So too a word without a tag whose entry is only pointers, the first to a word
  *    that is none of its bases (a homograph's: de "is" → "Plural des Substantivs i").
  * 1b. A headword whose entry has no sense of the tagged part of speech, unless it is
@@ -154,7 +155,8 @@ export function chooseKey(
   bases: readonly string[],
   { tag, use }: WordReading,
   outline: (key: string) => EntryOutline | undefined,
-  pack: Pick<LanguagePack, "partsOfSpeech" | "rank">,
+  pack: Pick<LanguagePack, "partsOfSpeech" | "rank"> &
+    Partial<Pick<LanguagePack, "basesInOrder">>,
 ): string | undefined {
   if (bases.length < 2) return undefined;
   const first = bases.includes(form) ? form : bases[0]!;
@@ -162,19 +164,24 @@ export function chooseKey(
   const fits = (base: string) =>
     tag !== undefined &&
     pack.partsOfSpeech(base).some((pos) => accepts(tag.label, pos));
-  /** Rule 1: the base the tag fits, then the most frequent, among those with an entry. */
+  /**
+   * Rule 1: the base the tag fits, then the likeliest (the first, where the pack lists
+   * them so) or the most frequent, among those with an entry.
+   */
   const likeliest = () => {
     const fitting = bases.filter(fits);
     const pool = (fitting.length > 0 ? fitting : bases).filter((base) =>
       outline(base),
     );
-    const best = pool.reduce<string | undefined>(
-      (found, base) =>
-        found === undefined || pack.rank(base) < pack.rank(found)
-          ? base
-          : found,
-      undefined,
-    );
+    const best = pack.basesInOrder
+      ? pool[0]
+      : pool.reduce<string | undefined>(
+          (found, base) =>
+            found === undefined || pack.rank(base) < pack.rank(found)
+              ? base
+              : found,
+          undefined,
+        );
     return best === first ? undefined : best;
   };
   const own = outline(first);
