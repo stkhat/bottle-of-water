@@ -122,9 +122,12 @@ export function readWords(
  * itself first when it is a headword). Undefined keeps the first one.
  * 0. An auxiliary ("has" in "has spent") keeps its own entry while that starts with a
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
- *    with a meaning of its own goes to the base ("being" → be).
- * 1. A written form that is not a headword: the base whose part of speech fits the
- *    tag, then the most frequent ("arises" → arise).
+ *    with a meaning of its own goes to the base ("being" → be), and so does one whose
+ *    pointer names a word that is not mainly a verb ("does": plural of doe → do). An
+ *    auxiliary without an entry keeps its key (no meaning rather than its verb's).
+ * 1. A written form that is not a headword, or a headword the dictionary has no entry
+ *    for (en-es "told", "says": only some sources have inflected forms): the base
+ *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
  * 2. A participle keeps its own entry when the word is not used as a verb and the
  *    entry has a meaning: before a noun ("demanding work"), a state ("was
  *    established", "are we done": "doの過去分詞", then "仕上がった"); or when it is
@@ -150,12 +153,8 @@ export function chooseKey(
   const fits = (base: string) =>
     tag !== undefined &&
     pack.partsOfSpeech(base).some((pos) => accepts(tag.label, pos));
-  const own = outline(first);
-  if (use.auxiliary) {
-    if (!own || own.formOf !== undefined || !own.firstMeaning) return undefined;
-    return others.find((base) => outline(base));
-  }
-  if (first !== form) {
+  /** Rule 1: the base the tag fits, then the most frequent, among those with an entry. */
+  const likeliest = () => {
     const fitting = bases.filter(fits);
     const pool = (fitting.length > 0 ? fitting : bases).filter((base) =>
       outline(base),
@@ -168,9 +167,27 @@ export function chooseKey(
       undefined,
     );
     return best === first ? undefined : best;
+  };
+  const own = outline(first);
+  // A headword this dictionary has no entry for is, to it, a form that is not one;
+  // except an auxiliary, whose base's meanings are not what it means ("has been" is
+  // not "to own"): it keeps its key until the dictionary has a form entry for it.
+  if (!own) return use.auxiliary ? undefined : likeliest();
+  if (use.auxiliary) {
+    // An auxiliary is a verb: an entry whose first sense is a form of a word that is
+    // not mainly one ("does": plural of doe) is another word's, so the verb base.
+    if (own.formOf !== undefined && !mainlyVerb(own.formOf, pack)) {
+      const verb = others.find(
+        (base) => mainlyVerb(base, pack) && outline(base),
+      );
+      if (verb) return verb;
+    }
+    if (own.formOf !== undefined || !own.firstMeaning) return undefined;
+    return others.find((base) => outline(base));
   }
+  if (first !== form) return likeliest();
   // Only verb forms: a comparative keeps its own entry ("later": 後で).
-  if (!own || !tag?.inflected || tag.label !== "verb") return undefined;
+  if (!tag?.inflected || tag.label !== "verb") return undefined;
   // Used as an adjective, with a meaning of its own ("was established"; "are we
   // done": "doの過去分詞", then "仕上がった").
   if (use.verbal === false && own.meaning) return undefined;
@@ -188,6 +205,10 @@ export function chooseKey(
   }
   return others.find((base) => fits(base) && outline(base));
 }
+
+/** A word whose main part of speech in the language pack is a verb. */
+const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
+  pack.partsOfSpeech(word)[0] === "verb";
 
 /**
  * The part of speech rule A2 shows senses of first (`Span.pos`), from a trusted tag:
