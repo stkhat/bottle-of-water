@@ -70,7 +70,7 @@ By layer (the layer that has to supply the fix):
 | Rank bases by the summed frequency of their unambiguous forms | Words New per 1,000 tokens 98.9 → 124.7: "un", "pero", "cosa" become New (their forms are shared) | Dropped |
 | Alt-of senses give a meaning (the gloss after "apocopic form of mucho;") and a base; an abbreviation of a multi-word term does not; a word that is a form ("os") keeps its form | Unknown tokens −621 (muy → very, tu → your, vídeo → video) | **Recommended** |
 | A register tag on every sense of an entry is the head line's, ignored for a word among the list's 50,000 most frequent forms | −31 tokens (fin, vosotros, os) | **Recommended** |
-| Every kaikki form-of entry of a vocabulary word is a lemma form (incl. clitic forms) | −681 tokens; lemmas 1.3 → 9.7 MB raw (1.16 MB gzipped, needs 3 shards); learning pack load ~35 → ~115 ms | Option (size; see decisions) |
+| Every kaikki form-of entry of a vocabulary word is a lemma form (incl. clitic forms) | −681 tokens; lemmas 1.3 → 9.7 MB raw (1.16 MB gzipped, needs 3 shards); learning pack load ~35 → ~115 ms | **Recommended** (user, 2026-11-18) |
 | Names lexicon from kaikki-es proper-name entries (vocabulary words, their forms and given names: 2,467) and rule D | 401 tokens become names (Marina, Mercedes, Sosa, Polo, Rosa); 399 had a common meaning before | **Recommended** |
 | Names written capitalised in the example corpus at least twice as often as in lower case count as rare (the case-folded list ranks "chile" < 3,000) | Chile, Japón, Brasil, Argentina become names | **Recommended** |
 | B1/B2/B2b/B4 phrase build for Spanish (accent-aware word pattern, Spanish slots, kaikki parts of speech) | Patterns 2,470 → 7,393 (4,294 detected); highlights 4.3 → 14.8 per 1,000 tokens; "buenos días", "por supuesto", "a través de" in | **Recommended** |
@@ -79,7 +79,7 @@ By layer (the layer that has to supply the fix):
 | Patterns made only of pronouns, articles, determiners and conjunctions are not detected | "lo que" (232 highlights; judged useful 4, low-value 19, wrong-match 5) and "que lo que" gone | **Recommended** |
 | BASE (CORE): a pattern word matched through a base of an inflected verb must be the base A1 chooses | "ir de" 16 → 4 ("fue de" is ser) | **Recommended** |
 | LONGEST (CORE): a longer selectable pattern that starts earlier and holds the detected one wins | de vista (in punto de vista), de vestir; 0.2 ms per 1,000 tokens | **Recommended** |
-| Example corpus: English edition only (0.46M tokens) vs + Spanish edition (0.98M) | English edition only: +3 highlights per 1,000 tokens (de verdad, acabar de, llevar a cabo, por lo que, a pesar de) but also con todo, por muy, querer decir + object. Judged: useful 33 → 115, wrong-match 11 → 51; units preferred 81 vs 40 (YouTube 36:7, articles 17:16, Netflix 28:17) | Kept both editions (precision first); option below |
+| Example corpus: English edition only (0.46M tokens) vs + Spanish edition (0.98M) | English edition only: +3 highlights per 1,000 tokens (de verdad, acabar de, llevar a cabo, por lo que, a pesar de) but also con todo, por muy, querer decir + object. Judged: useful 33 → 115, wrong-match 11 → 51; units preferred 81 vs 40 (YouTube 36:7, articles 17:16, Netflix 28:17) | Both editions (decided 2026-11-18: precision first) |
 
 ### The prototype against main, judged
 | | YouTube | Articles | Netflix (held out) |
@@ -138,12 +138,15 @@ A checklist for French and German, in the order the Spanish work found them:
 - [ ] Captions: the SDH track's sound labels have no line in the native track (Netflix); count them apart.
 - [ ] Measure with this study's scripts on a corpus of the same shape before shipping.
 
-## Costs and decisions for you
-- **Every inflected form (ALLFORMS)**: −681 unknown tokens (0.9 points; most are clitic forms and rarer verb forms: suspira, cuéntales, debías). Lemmas 1.3 → 9.7 MB raw (1.16 MB gzipped, three shards); the Spanish packs go 6.54 → 17.6 MB raw (3.2 MB gzipped), within the 40 MB per-pair guard; learning pack load ~35 → ~115 ms in Node. Without it: 9.1 MB raw. Alternative: generate regular forms by rule at runtime (small, more code, irregular verbs still need data).
-- **Tagger size**: weights ≥ 2: 304 KB gzipped, 97.3% / 95.0%; ≥ 3: 98 KB, 96.8% / 94.5%; ≥ 5: 31 KB, 94.5% / 91.8%. The judged rows used ≥ 2; ≥ 3 is the suggested default.
-- **Highlight density vs precision (example corpus)**: both editions: 12.3 highlights per 1,000 tokens, useful share 73–79% of judged highlights; English edition only: ~15.3 per 1,000 tokens, more useful highlights (useful 33 → 115 in round 4) and many more wrong matches (11 → 51), units preferred 81 vs 40. English is at 26.7 per 1,000 tokens. With the pronominal and contraction rules and a context rule for adverbial patterns before a noun phrase ("con todo el…"), the English-edition setting may become the better one; measure again then.
-- **Licence**: the tagger model is CC BY-SA (GSD) and CC BY (AnCora), like the English model; THIRD_PARTY_NOTICES needs the treebanks.
-- **Classify time**: 0.8 → 4.2 ms per 1,000 tokens in Node (English ~3.8).
+## Decisions (2026-11-18)
+- **Every inflected form: kept** (user). Every kaikki form-of entry of a vocabulary word, clitic forms included, is a lemma form: −681 unknown tokens (0.9 points; suspira, cuéntales, debías). Lemmas 1.3 → 9.7 MB raw (1.16 MB gzipped), sharded so that every file stays under 4 MB; the Spanish packs go 6.54 → 17.6 MB raw (3.2 MB gzipped), within the per-pair guard of 40 MB raw (after D0); learning pack load ~35 → ~115 ms in Node. Measured alternatives: without it 9.1 MB raw; regular forms generated by rule at runtime (smaller, more code, irregular verbs still need data).
+- **Tagger weights ≥ 3**: 98 KB gzipped (325 KB raw), test accuracy 96.8% AnCora / 94.5% GSD. Measured: ≥ 2 304 KB gzipped, 97.3% / 95.0% (the judged rows used it); ≥ 5 31 KB, 94.5% / 91.8%.
+- **Example corpus: both kaikki editions** (precision before recall, user rule of 2026-11-13): 12.3 highlights per 1,000 tokens, useful share 73–79% of judged highlights. Measured alternative, English edition only: ~15.3 per 1,000 tokens, useful 33 → 115 and wrong-match 11 → 51 in round 4, units preferred 81 vs 40. With the pronominal and contraction rules and a context rule for adverbial patterns before a noun phrase ("con todo el…"), measure the English-edition setting again.
+- **Licences**: THIRD_PARTY_NOTICES names UD Spanish AnCora (CC BY 4.0) and GSD (CC BY-SA 4.0); both are allowed, like the English model's EWT (CC BY-SA 4.0).
+
+## Costs
+- **Classify time**: 0.8 → 4.2 ms per 1,000 tokens in Node (English ~3.8); the tagger is 2.2 of it.
+- **Pack load**: the learning pack ~35 → ~115 ms in Node, mostly the lemma table.
 
 ## Still open
 - **Within-part-of-speech senses** ("hace 20 años" → to do, "se trata de" → to treat, "pinche" → kitchen servant, "vale" as OK): the same class as English's; "se trata de" and "hace … años" are pronominal / impersonal constructions the phrase rules could cover.
@@ -155,11 +158,11 @@ A checklist for French and German, in the order the Spanish work found them:
 
 ## Suggested order
 1. **CORE fixes** (small, deterministic, no data): A1 auxiliary branch for non-headwords, A1b, BASE, LONGEST, Unicode word shapes (retrain the English tagger with them and confirm it is unchanged on EWT). Effect on Spanish appears only with step 2's tagger; on English expect few changes (measure on the 2026-11 corpus).
-2. **Spanish tagger and grammar** (LEARNING: `es/tagger.json`, `src/core/tagging/es.ts`, `es/pos.json`, lemma order from the treebanks; `scripts/data/es-tagger.ts`, licence notices). Expected: hovers good +11–14 points, wrong or misleading −10–15 points (rounds 1–3).
-3. **Vocabulary rules** (alt-of senses, head-line tags; ALLFORMS if chosen): unknown tokens 5.3% → 4.4% (3.5% with ALLFORMS).
+2. **Spanish tagger and grammar** (LEARNING: `es/tagger.json` with weights ≥ 3, `src/core/tagging/es.ts`, `es/pos.json`, lemma order from the treebanks; `scripts/data/es-tagger.ts`; THIRD_PARTY_NOTICES names AnCora and GSD). Expected: hovers good +11–14 points, wrong or misleading −10–15 points (rounds 1–3).
+3. **Vocabulary rules** (alt-of senses, head-line tags, every kaikki inflected form with the lemma table sharded under 4 MB per file): unknown tokens 5.3% → 3.5%; Spanish packs 6.54 → 17.6 MB raw.
 4. **Names lexicon and the capitalised-in-examples rule**: ~400 names per 73k tokens, ~400 common meanings on names gone.
-5. **Phrase data rebuild for Spanish** (B1/B2/B2b/B4 with LEARNING settings, phrase parts of speech so P1 and the context checks run, closed-class patterns, 3-sense gloss bags): highlights 4.3 → 12.3 per 1,000 tokens, useful share of judged highlights ~75%.
-6. **Pronominal verbs, contractions, ALL-CAPS accents** (not prototyped): recall of darse cuenta and friends, −9 wrong matches, ~60 tokens; then re-run the example-corpus decision.
+5. **Phrase data rebuild for Spanish** (B1/B2/B2b/B4 with LEARNING settings, the example corpus of both kaikki editions, phrase parts of speech so P1 and the context checks run, closed-class patterns, 3-sense gloss bags): highlights 4.3 → 12.3 per 1,000 tokens, useful share of judged highlights ~75%.
+6. **Pronominal verbs, contractions, ALL-CAPS accents** (not prototyped): recall of darse cuenta and friends, −9 wrong matches, ~60 tokens; then measure the English-edition example corpus again.
 7. **Real-site check** (Phase 7) on one Spanish article, one YouTube video and one Netflix episode.
 
 ## Measuring
