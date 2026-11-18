@@ -13,7 +13,11 @@ import {
 } from "../../testing/explain";
 import { noTranslation } from "../../testing/stubs";
 import type { TranslationProvider } from "../translate/translator";
-import type { PlatformAdapter, VideoCaptions } from "./platform";
+import type {
+  CaptionRequest,
+  PlatformAdapter,
+  VideoCaptions,
+} from "./platform";
 import { startVideo, type VideoDeps } from "./session";
 import type { VideoSession, VideoState } from "./state";
 import { videoWords } from "./words";
@@ -72,10 +76,14 @@ async function createVideo() {
   return video;
 }
 
+/** A video's captions, or what it gives for the request (its language pair). */
+type SiteCaptions =
+  VideoCaptions | ((request: CaptionRequest) => VideoCaptions) | undefined;
+
 /** A site with one video element and captions per video id. */
 function fakeSite(
   video: HTMLVideoElement,
-  captions: Record<string, VideoCaptions | undefined>,
+  captions: Record<string, SiteCaptions>,
 ) {
   let id: string | undefined = "vid1";
   let ad = false;
@@ -85,6 +93,8 @@ function fakeSite(
     seeks: [] as number[],
     playback: [] as ("pause" | "play")[],
     loads: 0,
+    /** The language pair of each `loadCaptions`. */
+    pairs: [] as [string, string][],
   };
   const adapter: PlatformAdapter = {
     platform: "youtube",
@@ -98,9 +108,11 @@ function fakeSite(
     sideColumn: () => null,
     adShowing: () => ad,
     tracks: async () => [],
-    async loadCaptions() {
+    async loadCaptions(request) {
       log.loads++;
-      return id === undefined ? undefined : captions[id];
+      log.pairs.push([request.learningLang, request.nativeLang]);
+      const found = id === undefined ? undefined : captions[id];
+      return typeof found === "function" ? found(request) : found;
     },
     async seek(ms) {
       log.seeks.push(ms);
@@ -135,7 +147,7 @@ function fakeSite(
 }
 
 async function start(
-  captions: Record<string, VideoCaptions | undefined> = {
+  captions: Record<string, SiteCaptions> = {
     vid1: captionsOf(CUES),
   },
   options: {
@@ -1956,6 +1968,50 @@ describe("where Langle runs", () => {
     bg.changeSettings({ enabled: true });
     await ready(state);
     expect(site.log.hidden.at(-1)).toBe(true);
+  });
+});
+
+describe("changing the language pair while a video is open", () => {
+  const FR: Cue[] = [
+    { startMs: 0, endMs: 1400, text: "La levure sent l'acidulé." },
+    { startMs: 2400, endMs: 3600, text: "C'est un pain acidulé." },
+  ];
+  /** The site's track in the request's native language. */
+  const byNative = (request: CaptionRequest) =>
+    captionsOf(CUES, {
+      source: "siteTrack",
+      lang: request.nativeLang,
+      cues: request.nativeLang === "fr" ? FR : JA,
+    });
+
+  it("loads the translation in the new native language", async () => {
+    const { state, site, bg } = await start(
+      { vid1: byNative },
+      { missingPacks: ["en-fr"] },
+    );
+    await ready(state);
+    expect(state().translations[0]).toBe(JA[0]!.text);
+    bg.changeSettings({ nativeLang: "fr" });
+    await expect.poll(() => state().translations[0]).toBe(FR[0]!.text);
+    expect(state()).toMatchObject({ status: "ready", cues: CARDS });
+    expect(site.log.pairs).toEqual([
+      ["en", "ja"],
+      ["en", "fr"],
+    ]);
+    // Other settings keep the loaded captions.
+    bg.changeSettings({ highlight: { known: true } });
+    expect(site.log.loads).toBe(2);
+  });
+
+  it("loads the original track in the new learning language", async () => {
+    const { state, site, bg } = await start(
+      { vid1: byNative },
+      { missingPacks: ["es", "es-en"] },
+    );
+    await ready(state);
+    bg.changeSettings({ learningLang: "es", nativeLang: "en" });
+    await expect.poll(() => site.log.pairs.at(-1)).toEqual(["es", "en"]);
+    expect(site.log.loads).toBe(2);
   });
 });
 

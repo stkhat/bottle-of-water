@@ -23,6 +23,7 @@ import {
 } from "../../../testing/youtube-page";
 import { enterFullscreen } from "../../../testing/fullscreen";
 import { holdBackPageCalls, type HeldCalls } from "../../../testing/page-calls";
+import { FAKE_CAPTION_STORAGE } from "../../../../tests/fake-youtube-player";
 import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
@@ -334,6 +335,40 @@ describe("loading captions", () => {
     ]);
     // Captions were off before: they are switched off again.
     expect(page.player.fake.unloadModule).toEqual(["captions"]);
+  });
+
+  it("leaves the caption track YouTube keeps for the next load as it was", async () => {
+    // youtube.com keeps the track Langle asked for and starts the next load of the tab
+    // with it on (2026-11-18): the reload then found no request to capture.
+    start();
+    await adapter.loadCaptions(REQUEST);
+    expect(page.player.fake.requests).toHaveLength(1);
+    for (const key of Object.values(FAKE_CAPTION_STORAGE))
+      expect(localStorage.getItem(key)).toBeNull();
+  });
+
+  it("gets the player to request the original track it already shows without having requested it", async () => {
+    // A load that starts with a track left on (the user's own choice, or Langle's before
+    // 2026-11-19): the player shows it without a request, and setting it again does
+    // nothing (youtube.com, 2026-11-18).
+    const english = { languageCode: "en", kind: "" };
+    start({ storedTrack: english });
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.cues).toEqual(parseYouTubeJson3(en));
+    expect(captions?.translation).toEqual({
+      source: "siteTrack",
+      lang: "ja",
+      cues: parseYouTubeJson3(ja),
+    });
+    expect(page.player.fake.requests).toHaveLength(1);
+    // English captions were on: they still are, and stay kept for the next load.
+    const player = page.player as unknown as {
+      getOption(module: string, key: string): unknown;
+    };
+    expect(player.getOption("captions", "track")).toMatchObject(english);
+    expect(localStorage.getItem(FAKE_CAPTION_STORAGE.track)).toBe(
+      JSON.stringify(english),
+    );
   });
 
   it("uses YouTube's auto-translation without a Japanese track", async () => {
