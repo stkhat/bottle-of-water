@@ -1,6 +1,6 @@
 # Translation data: ways to add more language pairs
 
-Research notes from 2026-11-12–13. They measure which sources could add native languages (and later learning languages) under the current rules of [architecture.md](../specs/architecture.md) "Language data" (earlier research: [language-data-research.md](language-data-research.md)): human-made sources only, one source per term, and the quality gate (a pair is offered when human-made sources give a native meaning for at least **95% of the learning language's 5,000 most frequent content words**). The matrix for the Ethnologue 200 top 20 is in [language-matrix.html](language-matrix.html). How many people learn each pair (by native language) is in [learner-matrix.md](learner-matrix.md).
+Research notes from 2026-11-12–13. They measure which sources could add native languages (and later learning languages) under the current rules of [architecture.md](../specs/architecture.md) "Language data" (earlier research: [language-data-research.md](language-data-research.md)): human-made sources only, one source per term, and the quality gate (a pair is offered when human-made sources give a native meaning for at least **95% of the learning language's 5,000 most frequent content words**). How many people learn each pair (by native language) is in [learner-matrix.md](learner-matrix.md).
 
 ## How it was measured
 - Words: the gate's 5,000 English content words (`contentWords` in `scripts/data/content-words.mjs`, the same list `npm run data:stats` uses).
