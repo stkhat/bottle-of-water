@@ -83,6 +83,7 @@ const pairRecipe = (pair: RecipePairPack) =>
         dict: files[pair].dict,
         defs: files["en-defs"].defs,
         ipa: files.en.ipa,
+        native: pair.slice("en-".length),
       }),
   );
 

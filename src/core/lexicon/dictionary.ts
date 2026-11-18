@@ -6,6 +6,7 @@ import type {
   PosPack,
   SensePosPack,
 } from "../packs/types";
+import { nativeLanguage } from "../natives";
 import { kindOfKey } from "../term-id";
 import { own } from "../util";
 import { cleanDefinition, definitionPointer } from "./definitions";
@@ -496,19 +497,32 @@ type PairSenses = PairPack[string][1];
  * parsing its glosses: the hover follows one to its target's meanings, in rule A2's
  * order for the pointer sense's own part of speech, else for the word's tag (told →
  * contar before tell's noun "a tell", also where the tagger reads "made" as a noun).
- * A pointer wider than the line cap is left out while a meaning shows (is → ser,
- * estar), except for an auxiliary ("has been"), whose pointer is what it means there
- * and shows whole.
+ *
+ * Where a first pointer shows, by the pointer sense's grammatical kind (its part of
+ * speech: a verb's form is an inflection, an adjective's or adverb's a comparative or
+ * superlative), while a meaning shows (2026-11-18):
+ * - an auxiliary ("has been"): first and whole, as it is what the word means there;
+ * - a verb inflection in a spaced script: second, after its base's first meaning
+ *   (sold → vender, "pasado simple del verbo sell"): meaning first, form second; in a
+ *   dense script (`native` Chinese), first, as Japanese shows its pointers;
+ * - any other form (best → "superlativo de good", bueno; children → "plural de
+ *   child"): first.
+ * Except for an auxiliary's, a pointer wider than the line cap is left out (is → ser /
+ * estar). The dictionary window keeps every pointer (`senses`).
  */
 export function createPairDictionary({
   dict,
   defs,
   ipa,
+  native,
 }: {
   dict: PairPack;
   defs: DefsPack;
   ipa: IpaPack;
+  /** The native language (`NATIVE_LANGUAGES`); without one, a spaced script. */
+  native?: string;
 }): DictionaryProvider {
+  const dense = native !== undefined && nativeLanguage(native)?.dense === true;
   const sensesOf = (senses: PairSenses): Sense[] =>
     senses.map(([pos, text, hint]) => ({
       pos,
@@ -537,11 +551,15 @@ export function createPairDictionary({
       const lines = raw.map(lineOf);
       const pointers = new Map<string, Pointer>();
       const pointerPos = new Map<string, string>();
+      const linePos = new Map<string, string>();
       raw.forEach(([sensePos, , , target], i) => {
         if (target === undefined) return;
         pointers.set(lines[i]!, { kind: "form", target });
+        if (!linePos.has(lines[i]!)) linePos.set(lines[i]!, sensePos);
         if (!pointerPos.has(target)) pointerPos.set(target, sensePos);
       });
+      const quiet = (line: string) => linePos.has(line) && !fitsPairCap(line);
+      const second = (line: string) => !dense && linePos.get(line) === "verb";
       const order =
         pos === undefined
           ? undefined
@@ -553,9 +571,7 @@ export function createPairDictionary({
           pointer: (line) => pointers.get(line),
           follow: (target) =>
             meaningLines(target, pointerPos.get(target) ?? pos),
-          ...(pos !== AUXILIARY && {
-            quiet: (line) => pointers.has(line) && !fitsPairCap(line),
-          }),
+          ...(pos !== AUXILIARY && { quiet, second }),
         }),
         senses,
       };

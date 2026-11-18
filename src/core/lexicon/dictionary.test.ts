@@ -4,6 +4,7 @@ import {
   createEnJaDictionary,
   createPairDictionary,
 } from "./dictionary";
+import type { PairPack } from "../packs/types";
 
 const dictionary = createEnJaDictionary({
   dict: {
@@ -586,48 +587,79 @@ describe("createPairDictionary", () => {
 
   describe("pointer senses", () => {
     const THIRD = "Tercera persona del singular del presente simple de";
-    const forms = createPairDictionary({
-      dict: {
-        told: [
-          "Pasado simple",
-          [["verb", "Pasado simple del verbo (to) tell.", null, "tell"]],
-          0,
+    const dict: PairPack = {
+      best: [
+        "Superlativo",
+        [
+          ["adjective", "Superlativo de good.", null, "good"],
+          ["verb", "Vencer."],
         ],
-        tell: [
-          "Señal",
-          [
-            ["noun", "Señal."],
-            ["verb", "Contar."],
-            ["verb", "Decir."],
-          ],
-          0,
+        0,
+      ],
+      good: ["Bueno", [["adjective", "Bueno."]], 0],
+      children: [
+        "Plural",
+        [["noun", "Forma del plural de child.", null, "child"]],
+        0,
+      ],
+      child: ["Niño", [["noun", "Niño."]], 0],
+      told: [
+        "Pasado simple",
+        [["verb", "Pasado simple del verbo (to) tell.", null, "tell"]],
+        0,
+      ],
+      tell: [
+        "Señal",
+        [
+          ["noun", "Señal."],
+          ["verb", "Contar."],
+          ["verb", "Decir."],
         ],
-        has: ["Tercera", [["verb", `${THIRD} (to) have.`, null, "have"]], 0],
-        have: ["Tener", [["verb", "Tener."]], 0],
-        does: [
-          "Plural",
-          [
-            ["noun", "Plural de doe.", null, "doe"],
-            ["verb", `${THIRD} do.`, null, "do"],
-          ],
-          0,
+        0,
+      ],
+      has: ["Tercera", [["verb", `${THIRD} (to) have.`, null, "have"]], 0],
+      have: ["Tener", [["verb", "Tener."]], 0],
+      does: [
+        "Plural",
+        [
+          ["noun", "Plural de doe.", null, "doe"],
+          ["verb", `${THIRD} do.`, null, "do"],
         ],
-      },
-      defs: {},
-      ipa: {},
-    });
+        0,
+      ],
+    };
+    const forms = createPairDictionary({ dict, defs: {}, ipa: {} });
 
-    it("follows a pointer to its target's meanings, in the order the tag asks for", () => {
-      expect(forms.entry("told", undefined, "verb")?.lines).toEqual([
+    it("shows a verb form second, after its base's first meaning, in the order of the pointer's part of speech", () => {
+      // told → tell's verbs before its noun, also when the tag says a noun.
+      for (const pos of ["verb", "noun", undefined])
+        expect(forms.entry("told", undefined, pos)?.lines).toEqual([
+          "Contar",
+          "Pasado simple del verbo tell",
+          "Decir",
+        ]);
+      // A dense script (Chinese) shows it first, as Japanese does.
+      const zh = createPairDictionary({
+        dict,
+        defs: {},
+        ipa: {},
+        native: "zh",
+      });
+      expect(zh.entry("told", undefined, "verb")?.lines).toEqual([
         "Pasado simple del verbo tell",
         "Contar",
         "Decir",
       ]);
-      // Without a tag, in the order of the pointer sense's part of speech.
-      expect(forms.entry("told")?.lines).toEqual([
-        "Pasado simple del verbo tell",
-        "Contar",
-        "Decir",
+    });
+    it("shows other forms that fit the cap first: comparatives, plurals", () => {
+      expect(forms.entry("best", undefined, "adjective")?.lines).toEqual([
+        "Superlativo de good",
+        "Bueno",
+        "Vencer",
+      ]);
+      expect(forms.entry("children", undefined, "noun")?.lines).toEqual([
+        "Forma del plural de child",
+        "Niño",
       ]);
     });
     it("leaves a pointer wider than the cap out while a meaning shows, but for an auxiliary", () => {

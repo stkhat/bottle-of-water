@@ -336,6 +336,15 @@ describe("shortLines", () => {
     ]);
   });
 
+  it("shows a first form that comes second after its target's first meaning", () => {
+    expect(
+      shortLines(["goの過去"], "goの過去", {
+        ...options("went"),
+        second: () => true,
+      }),
+    ).toEqual(["行く", "goの過去", "去る"]);
+  });
+
   it("leaves a quiet first form out while a meaning shows", () => {
     const quiet = {
       ...options("went"),

@@ -472,11 +472,11 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
       });
     const enEs = await pair("en-es");
     const enPt = await pair("en-pt");
-    // The editions' forms are pointers: told shows its grammar, then tell's verbs.
+    // The editions' forms are pointers: told shows tell's verb, then its grammar.
     expect(enEs.outline("told")?.formOf).toBe("tell");
     const told = hover("She told me the truth.", "told", enEs);
     expect(told).toMatchObject({ key: "told", pos: "verb" });
-    expect(told.lines[0]).toBe("Pasado simple del verbo tell");
+    expect(told.lines[1]).toBe("Pasado simple del verbo tell");
     expect(told.lines).toContain("Contar");
     expect(hover("She told me the truth.", "told").key).toBe("told");
     // An auxiliary keeps its pointer however wide; a main verb, wider than the cap,

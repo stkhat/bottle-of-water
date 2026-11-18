@@ -156,6 +156,8 @@ export interface ShortLineOptions {
   follow?: (target: string) => readonly string[] | undefined;
   /** A pointer line that is left out while a meaning shows. */
   quiet?: (line: string) => boolean;
+  /** A first form shown after its target's first meaning, not before it. */
+  second?: (line: string) => boolean;
 }
 
 /**
@@ -172,7 +174,9 @@ export interface ShortLineOptions {
  * form that is the first sense or from an entry with no meaning of its own: a pointer
  * listed after the entry's own meanings marks a lesser use ("them": "=those").
  * Pointers themselves are left out while a meaning remains, and so is a first form
- * that is `quiet` (a pair's pointer wider than its cap). Without any meaning the
+ * that is `quiet` (a pair's pointer wider than its cap); a first form that comes
+ * `second` follows its target's first meaning (a pair's verb form in a spaced script:
+ * sold → vender, "pasado simple del verbo sell"). Without any meaning the
  * lines are the pointers as they are. When every line is empty, `fallback` (the
  * entry's short meaning) stands for them ("were": its senses are only notes).
  */
@@ -184,6 +188,7 @@ export function shortLines(
     pointer = () => undefined,
     follow = () => undefined,
     quiet = () => false,
+    second = () => false,
   }: ShortLineOptions = {},
 ): string[] {
   const nonEmpty = lines.filter((line) => line !== "");
@@ -200,10 +205,13 @@ export function shortLines(
     if (followAll || (i === 0 && found?.kind === "form"))
       followed.set(target, (follow(target) ?? []).filter(isMeaning));
   });
+  const meaningFirst = followed.get(first?.target ?? "")?.slice(0, 1) ?? [];
   const leading =
-    first?.kind === "form"
-      ? [kept[0]!, ...(followed.get(first.target ?? "")?.slice(0, 1) ?? [])]
-      : [];
+    first?.kind !== "form"
+      ? []
+      : second(kept[0]!)
+        ? [...meaningFirst, kept[0]!]
+        : [kept[0]!, ...meaningFirst];
   const all = [
     ...new Set([
       ...leading,
