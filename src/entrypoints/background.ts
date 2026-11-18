@@ -33,9 +33,11 @@ import { watchSettings } from "../messaging/storage";
  * language), and sync pulls what other devices wrote while the worker was stopped.
  */
 export default defineBackground(() => {
-  // `npm run build:check` only: the error log a check reads (src/check/error-log.ts).
-  // The mode is a constant at build time, so other builds leave it out.
-  if (import.meta.env.MODE === "check") startWorkerErrorLog();
+  // `npm run build:check` only: the error log a check reads (src/check/error-log.ts),
+  // with the pack mirrors' tries. The mode is a constant at build time, so other
+  // builds leave it out.
+  const checkLog =
+    import.meta.env.MODE === "check" ? startWorkerErrorLog() : undefined;
 
   const db = openLangleDb();
   const store = createTermStore(db, { deviceId: deviceId() });
@@ -48,6 +50,7 @@ export default defineBackground(() => {
     lock,
     setState: (states) =>
       browser.storage.local.set({ [PACK_STATE_KEY]: states }),
+    ...(checkLog && { onMirror: checkLog.onMirror }),
   });
   const loadPack = createPackLoader(createPackSource(packStore));
   const resources = createLanguageResources(loadPack);

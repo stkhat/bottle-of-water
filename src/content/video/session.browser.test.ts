@@ -1313,6 +1313,33 @@ describe("selecting words", () => {
     expect(warned).toHaveBeenCalled();
   });
 
+  it("shows the card of words no dictionary on the device has once the dictionary's fallback is there", async () => {
+    const { state, app, bg } = await start(
+      { vid1: captionsOf(MIND) },
+      { missingPacks: ["en-defs"] },
+    );
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    const words = {
+      cue: 1,
+      start: at(1, "Knead") + 1,
+      end: at(1, "dough") + 2,
+      place: "transcript" as const,
+    };
+    expect(app.selectWords(words, boxOf)).toBeDefined();
+    await expect.poll(() => bg.sent("lookup").length).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The English definitions may have them: the selection waits for them.
+    expect(state().phrase).toBeNull();
+    expect(state().selecting).toBe(true);
+
+    bg.setPackStates({
+      "en-defs": { state: "ready", received: 100, total: 100 },
+    });
+    await expect.poll(() => state().phrase?.card.key).toBe("knead the dough");
+  });
+
   it("selects nothing where the card has nowhere to show", async () => {
     const { state, app } = await start({ vid1: captionsOf(MIND) });
     await ready(state);
@@ -2315,6 +2342,40 @@ describe("a video without its language data", () => {
 
     bg.setPackStates({ "en-ja": READY });
     await expect.poll(() => state().panel?.card.head).toBe("yeast");
+    noWarnings();
+  });
+
+  it("shows cards while the dictionary's fallback downloads, and a term only it has once it is there", async () => {
+    const noWarnings = quiet();
+    const { state, app, bg } = await start(
+      {
+        vid1: captionsOf([
+          { startMs: 0, endMs: 1000, text: "We figure out the tangy loaf." },
+        ]),
+      },
+      { missingPacks: ["en-defs"] },
+    );
+    await ready(state);
+    await classified(state);
+    // Pages work: no download line while only the fallback downloads.
+    await expect.poll(() => bg.sent("packStatus").length).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(state().dataNote).toBeNull();
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover?.card.head).toBe("tangy");
+    app.leaveWord();
+    await expect.poll(() => state().hover).toBeNull();
+
+    // Only the English definitions have "figure out".
+    const asked = bg.sent("lookup").length;
+    app.enterWord(refOf(state, 0, "figure out"), BOX);
+    await expect.poll(() => bg.sent("lookup").length).toBe(asked + 1);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(state().hover).toBeNull();
+
+    bg.setPackStates({ "en-defs": READY });
+    await expect.poll(() => state().hover?.card.head).toBe("figure out");
+    expect(state().hover?.card.short).toBe("To come to understand");
     noWarnings();
   });
 

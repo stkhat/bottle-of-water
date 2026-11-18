@@ -15,6 +15,8 @@ import {
   type LogRequest,
   type RecorderScope,
 } from "./error-log";
+import { mirrorEntry } from "./pack-mirrors";
+import type { MirrorEvent } from "../background/pack-store";
 
 /**
  * Check builds only: starts the error log in each kind of Langle context (error-log.ts),
@@ -33,23 +35,38 @@ const sessionStore = () => {
   }
 };
 
+/** What the service worker records in the log besides its console. */
+export interface WorkerLog {
+  /** Each try of a pack mirror (`PackStoreOptions.onMirror`). */
+  onMirror(event: MirrorEvent): void;
+}
+
 /**
  * In the service worker, first thing: records its own errors into the log and answers
  * the other contexts' messages. Call `isCheckLogMessage` in the worker's other
  * `onMessage` listener to leave these to this one.
  */
-export function startWorkerErrorLog(): void {
+export function startWorkerErrorLog(): WorkerLog {
   const log = createErrorLog(browser.storage.local);
-  recordErrors({
-    scope,
-    context: "service worker",
-    sink: (entry) => void log.append([entry]),
-  });
+  const context = "service worker";
+  recordErrors({ scope, context, sink: (entry) => void log.append([entry]) });
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!isLogRequest(message)) return;
     void answerLogRequest(log, message).then(sendResponse);
     return true;
   });
+  return {
+    onMirror(event) {
+      void log.append([
+        {
+          ...mirrorEntry(event),
+          context,
+          url: String(globalThis.location?.href ?? ""),
+          time: new Date().toISOString(),
+        },
+      ]);
+    },
+  };
 }
 
 export const isCheckLogMessage = isLogRequest;

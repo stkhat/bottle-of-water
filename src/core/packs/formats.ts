@@ -39,6 +39,19 @@ export const LANGUAGE_PACKS = [
   "es",
 ] as const satisfies readonly PackName[];
 
+/**
+ * The definitions packs (English Wiktionary's definitions, loaded as `{ defs }`), by the
+ * language their definitions are written in. In a dictionary into another native
+ * language such a pack is a fallback (`fallbacksOf`): it gives the meanings of the
+ * terms the dictionary's own pack lacks, translated at display time.
+ */
+export const DEFINITION_PACKS = {
+  "en-defs": "en",
+  "es-en": "en",
+} as const satisfies Partial<Record<PackName, string>>;
+
+export type DefinitionPack = keyof typeof DEFINITION_PACKS;
+
 /** The dictionaries no recipe builds: EJDict's, and English Wiktionary's for Spanish. */
 const BUILT_OTHERWISE = {
   "en-ja": ["en", "en-ja", "en-defs"],

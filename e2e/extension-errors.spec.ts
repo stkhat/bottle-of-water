@@ -278,6 +278,16 @@ for (const build of ["production", "check"] as const)
             ]),
           );
         expect((await messages()).join("\n")).not.toContain("the site's own");
+        // The pair's last pack may still be downloading after the page is highlighted:
+        // its mirror lines come first, so the log stays empty after the clear.
+        await expect
+          .poll(async () => {
+            const reply = (await sendToBackground(context, extensionId, {
+              type: "packStatus",
+            })) as { value?: { pair: { packs: { state: string }[] } } };
+            return reply.value?.pair.packs.every((p) => p.state === "ready");
+          }, COLD_LOAD)
+          .toBe(true);
         const [cleared] = await checkErrorLog(article, "clear");
         expect(cleared).toMatchObject({
           context: "content script article",

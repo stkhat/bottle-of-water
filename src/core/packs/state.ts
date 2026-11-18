@@ -47,20 +47,27 @@ export type DataNote =
   { state: "downloading"; percent: number } | { state: "failed" };
 
 /**
- * The note on the data of `packs`: none once every one can be used (`packUsable`);
- * else failed when one that cannot be used failed, else downloading. The share counts
- * usable packs whole. A pack without a state counts as downloading with nothing
- * received (every start of the background brings the pair's packs to the device).
+ * The note on the data of `packs`: failed when one that cannot be used failed; else
+ * downloading while one of them cannot be used (`packUsable`), with the share of their
+ * bytes received; else none. Those of `packs` in `fallbacks` (`fallbacksOf`) are packs
+ * pages work without: they count only when they failed. The share counts usable packs
+ * whole. A
+ * pack without a state counts as downloading with nothing received (every start of
+ * the background brings the pair's packs to the device).
  */
 export function dataNote(
   states: PackStates,
   packs: readonly string[],
+  fallbacks: readonly string[] = [],
 ): DataNote | null {
-  const list = [...new Set(packs)].map((pack) => own(states, pack));
-  const missing = list.filter((state) => !packUsable(state));
-  if (missing.length === 0) return null;
-  if (missing.some((state) => state?.state === "failed"))
+  const failed = (state: PackState | undefined) =>
+    state?.state === "failed" && !packUsable(state);
+  if (packs.some((pack) => failed(own(states, pack))))
     return { state: "failed" };
+  const list = [...new Set(packs)]
+    .filter((pack) => !fallbacks.includes(pack))
+    .map((pack) => own(states, pack));
+  if (list.every(packUsable)) return null;
   let received = 0;
   let total = 0;
   for (const state of list) {

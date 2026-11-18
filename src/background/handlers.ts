@@ -20,7 +20,12 @@ import { isAnswer } from "../core/explain/answer";
 import { MAX_LINES } from "../core/explain/context";
 import { learningLanguages, nativeLanguages } from "../core/languages";
 import { packBytes, type PackLock } from "../core/packs/lock";
-import { packsFor, pairsOfPack, translationPair } from "../core/packs/pairs";
+import {
+  fallbacksOf,
+  packsFor,
+  pairsOfPack,
+  translationPair,
+} from "../core/packs/pairs";
 import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
 import type { MatchWord } from "../core/phrases/matcher";
 import {
@@ -657,6 +662,9 @@ export function createHandlers({
     async packStatus() {
       const { learningLang, nativeLang } = await settings.get();
       const needed = packsFor(learningLang, nativeLang);
+      const fallbacks: readonly string[] = fallbacksOf(
+        `${learningLang}-${nativeLang}`,
+      );
       const [states, stored] = await Promise.all([
         packs.store.states(needed),
         packs.store.downloaded(),
@@ -667,6 +675,7 @@ export function createHandlers({
             pack,
             size: packBytes(packs.lock.packs[pack]),
             ...states[pack]!,
+            ...(fallbacks.includes(pack) && { fallback: true as const }),
           })),
         },
         others: stored
