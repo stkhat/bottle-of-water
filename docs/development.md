@@ -61,6 +61,7 @@ Every build downloads every pack, so no E2E test may reach the real CDNs (jsDeli
 1. Once: `chrome://extensions` → Developer mode → Load unpacked → `.output/langle-check`.
 2. After that, run `npm run build:check`; the extension reloads itself (no click on reload).
 3. Reload the pages you check on after the copy: until then they keep the old content scripts.
+   A check that needs other settings (another language pair, New highlighted, any field of the settings object) changes them itself through the settings channel ("Changing settings in a check" below), and restores the user's settings at the end; it does not ask the user to open Settings.
 4. **Every check in your own Chrome ends with reading the check build's error log** on a web page Langle runs on (a YouTube watch page, an article), with Claude in Chrome's `javascript_tool`:
    ```js
    await new Promise((done) => {
@@ -87,6 +88,42 @@ Limits:
 - Open pages keep the old content scripts until they are reloaded.
 - A build that breaks the service worker cannot reload itself again: fix it and click reload.
 - Check builds include WXT's debug logging (`[wxt]` in the console).
+
+### Changing settings in a check
+This is the standard way to change settings during a check in your own Chrome: the check build's content scripts answer the page's `langle:check-settings` messages (`src/check/settings-channel.ts`), so `javascript_tool` on any web page Langle runs on (an article, a YouTube or Netflix page) can do what Settings does. Each snippet starts with the same helper:
+```js
+var langle = (action, settings) => new Promise((done) => {
+  const id = String(Math.random());
+  addEventListener("message", (e) => {
+    if (e.data?.type === "langle:check-settings" && e.data.reply && e.data.id === id) done(e.data);
+  });
+  postMessage({ type: "langle:check-settings", action, id, settings }, "*");
+  setTimeout(() => done("No answer: Langle's check build does not run on this page"), 5000);
+});
+```
+1. First, save the user's settings: `await langle("get")`. Keep the reply's `settings` object (the whole of it) in your notes.
+2. Change what the check needs, for example a pair: `await langle("set", { learningLang: "en", nativeLang: "fr" })`, or any other fields: `await langle("set", { highlight: { new: true }, knownLevel: 5000 })`. The reply is `{ ok: true, settings }` (what is now stored) or `{ ok: false, error }`, and nothing is written then.
+3. After a pair change, wait for its language data (rerun while it says it is still downloading):
+   ```js
+   await (async () => {
+     for (let i = 0; i < 25; i++) {
+       const r = await langle("packs");
+       if (!r.ok || r.ready || r.failed) return r;
+       await new Promise((ok) => setTimeout(ok, 1000));
+     }
+     return "Still downloading: run this again";
+   })()
+   ```
+   The reply holds `packs` (the chosen pair's), `ready` (each can be used), `failed` and `packState` (every pack's `state`, `received`, `total`). Then reload the pages under check, or wait for them to analyze again.
+4. At the end, restore: `await langle("set", <the saved settings object>)`, and check that the reply's `settings` equal the saved ones.
+
+`set` merges a partial settings object, nested groups key by key, as Settings does. It refuses rather than drops or clamps: an unknown key, an ill-typed value or a slider value off its range or step (`mergeSettings`, `src/core/settings.ts`, decides), and a pair Langle does not offer (the error names the offered native languages). A new learning language without `nativeLang` gets its first native language, as in Settings. The change goes through the background's `setSettings`, the one `storage.sync` write Settings makes, so packs download and open pages analyze again the same way.
+
+Limits:
+- Settings live in `storage.sync`: while the check runs, the change reaches the user's other signed-in browsers too. Always restore.
+- Settings also starts Chrome's translation models for the new pair, which needs a user activation; the channel tries, and where Chrome refuses, the dictionary window's click starts them later.
+- Only the top frame answers, once per tab. Any page can change the settings of a check build: only load it in your own browser profile.
+- `e2e/settings.spec.ts` drives the channel like the snippets; `npm run test:manifest` checks that production builds have none of it.
 
 ## Firefox in Docker
 - Playwright's Firefox does not launch on the dev Mac (macOS 27), so `npm run test:browser:firefox` runs the browser tests in the image CI uses (`mcr.microsoft.com/playwright:v<@playwright/test version>-noble`, from `scripts/playwright-image.ts`, which `scripts/check-playwright-image.ts` also checks CI against). Install once: `brew install colima docker`.

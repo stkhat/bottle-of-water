@@ -1,5 +1,5 @@
 import { render } from "preact";
-import { startContentErrorLog } from "../../check/start";
+import { startContentCheck } from "../../check/start";
 import { ArticleUi } from "../../content/article/ArticleUi";
 import { runArticle } from "../../content/article/article";
 import { leaveWhenOrphaned } from "../../content/orphan";
@@ -16,8 +16,8 @@ export default defineContentScript({
   async main(ctx) {
     // The video UI runs there and answers the popup.
     if (isVideoSite(location.hostname)) return;
-    // `npm run build:check` only (src/check/error-log.ts).
-    if (import.meta.env.MODE === "check") startContentErrorLog("article");
+    // `npm run build:check` only: the error log and the settings channel (src/check/).
+    if (import.meta.env.MODE === "check") startContentCheck("article");
     const runner = runArticle({
       ...contentDeps(ctx),
       async mountUi(app) {
