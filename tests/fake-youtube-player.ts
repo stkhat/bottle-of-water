@@ -2,7 +2,10 @@
 // directly) and the E2E tests (passed to `addInitScript`, so it must not use imports or
 // anything outside the function). It behaves like the parts of the real player Langle
 // uses (see docs/notes/youtube-captions.md): `setOption("captions", "track", …)` makes
-// an XMLHttpRequest to the track's `baseUrl` plus a PO token and client params.
+// an XMLHttpRequest to the track's `baseUrl` plus a PO token and client params, unless
+// that track is already the one on; the track set is kept in localStorage, and the next
+// load of the page starts with it on, without requesting it (seen on youtube.com,
+// 2026-11-18).
 
 export interface FakePlayerOptions {
   videoId: string;
@@ -14,6 +17,12 @@ export interface FakePlayerOptions {
   /** The player element's id. Default: `shorts-player` on a Short's URL, else `movie_player`. */
   playerId?: string;
 }
+
+/** The localStorage keys where the fake keeps the caption track set (as YouTube's player does). */
+export const FAKE_CAPTION_STORAGE = {
+  language: "yt-player-caption-sticky-language",
+  track: "yt-player-caption-persistence",
+} as const;
 
 /** What the fake records, on `player.fake`. */
 export interface FakePlayerLog {
@@ -39,6 +48,10 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
     translationLanguage?: { languageCode: string };
   }
 
+  // Inline, not FAKE_CAPTION_STORAGE: this function runs on its own in the E2E page.
+  const STORED_LANGUAGE = "yt-player-caption-sticky-language";
+  const STORED_TRACK = "yt-player-caption-persistence";
+
   const setup = () => {
     const player = document.getElementById(
       options.playerId ??
@@ -55,7 +68,7 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
         playerCaptionsTracklistRenderer?: { captionTracks?: RawTrack[] };
       };
     };
-    let track: TrackOption = {};
+    let track: TrackOption = storedTrack();
     const log: FakePlayerLog = {
       setOption: [],
       unloadModule: [],
@@ -63,6 +76,22 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       playback: [],
       requests: [],
     };
+
+    /** The track set on an earlier load: on again, without a request for it. */
+    function storedTrack(): TrackOption {
+      try {
+        const stored = localStorage.getItem(STORED_TRACK);
+        return stored ? (JSON.parse(stored) as TrackOption) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    const sameTrack = (a: TrackOption, b: TrackOption) =>
+      (a.languageCode ?? "") === (b.languageCode ?? "") &&
+      (a.kind ?? "") === (b.kind ?? "") &&
+      (a.translationLanguage?.languageCode ?? "") ===
+        (b.translationLanguage?.languageCode ?? "");
 
     const captionTracks = () =>
       response.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
@@ -92,8 +121,22 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
     function setOption(module: string, key: string, value: TrackOption) {
       log.setOption.push([module, key, value]);
       if (module !== "captions" || key !== "track") return;
+      // The track already on: nothing to load.
+      if (sameTrack(value, track)) return;
       track = value;
-      if (value.languageCode) request(value);
+      if (!value.languageCode) return;
+      localStorage.setItem(STORED_LANGUAGE, value.languageCode);
+      localStorage.setItem(
+        STORED_TRACK,
+        JSON.stringify({
+          languageCode: value.languageCode,
+          kind: value.kind ?? "",
+          ...(value.translationLanguage && {
+            translationLanguage: value.translationLanguage,
+          }),
+        }),
+      );
+      request(value);
     }
 
     Object.assign(player, {
