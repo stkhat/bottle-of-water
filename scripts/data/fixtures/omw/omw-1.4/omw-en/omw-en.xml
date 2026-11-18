@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE LexicalResource SYSTEM "http://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd">
+<LexicalResource xmlns:dc="https://globalwordnet.github.io/schemas/dc/">
+  <Lexicon id="omw-en" label="OMW English Wordnet based on WordNet 3.0" language="en" email="bond@ieee.org" license="https://wordnet.princeton.edu/license-and-commercial-use" version="1.4">
+    <LexicalEntry id="omw-en-Bank-n">
+      <Lemma writtenForm="Bank" partOfSpeech="n" />
+      <Sense id="omw-en-Bank-11111111-n" synset="omw-en-11111111-n" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-en-bank-n">
+      <Lemma writtenForm="bank" partOfSpeech="n" />
+      <Sense id="omw-en-bank-09213565-n" synset="omw-en-09213565-n" dc:identifier="bank%1:17:01::">
+        <SenseRelation target="omw-en-bank-01587705-v" relType="derivation" />
+        <Count>25</Count>
+      </Sense>
+      <Sense id="omw-en-bank-08420278-n" synset="omw-en-08420278-n" dc:identifier="bank%1:14:00::">
+        <Count>20</Count>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="omw-en-bank-v">
+      <Lemma writtenForm="bank" partOfSpeech="v" />
+      <Sense id="omw-en-bank-02343374-v" synset="omw-en-02343374-v">
+        <Count>2</Count>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="omw-en-give_up-v">
+      <Lemma writtenForm="give up" partOfSpeech="v" />
+      <Sense id="omw-en-give_up-02367032-v" synset="omw-en-02367032-v" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-en-light-n">
+      <Lemma writtenForm="light" partOfSpeech="n" />
+      <Sense id="omw-en-light-11473954-n" synset="omw-en-11473954-n">
+        <Count>10</Count>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="omw-en-light-a">
+      <Lemma writtenForm="light" partOfSpeech="s" />
+      <Sense id="omw-en-light-01186408-s" synset="omw-en-01186408-s">
+        <Count>5</Count>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry id="omw-en-upset-v">
+      <Lemma writtenForm="upset" partOfSpeech="v" />
+      <Sense id="omw-en-upset-01803380-v" synset="omw-en-01803380-v" />
+      <Sense id="omw-en-upset-01775535-v" synset="omw-en-01775535-v" />
+    </LexicalEntry>
+    <Synset id="omw-en-01803380-v" ili="i8" partOfSpeech="v" members="omw-en-upset-01803380-v">
+      <Definition>disturb the balance or stability of</Definition>
+    </Synset>
+    <Synset id="omw-en-01775535-v" ili="i9" partOfSpeech="v" members="omw-en-upset-01775535-v">
+      <Definition>cause to lose one's composure</Definition>
+    </Synset>
+    <Synset id="omw-en-11111111-n" ili="i1" partOfSpeech="n" members="omw-en-Bank-11111111-n">
+      <Definition>a surname</Definition>
+    </Synset>
+    <Synset id="omw-en-09213565-n" ili="i85041" partOfSpeech="n" members="omw-en-bank-09213565-n" lexfile="noun.object">
+      <Definition>sloping land (especially the slope beside a body of water)</Definition>
+      <SynsetRelation target="omw-en-09437454-n" relType="hypernym" />
+      <Example>&quot;they pulled the canoe up on the bank&quot;</Example>
+    </Synset>
+    <Synset id="omw-en-08420278-n" ili="i2" partOfSpeech="n" members="omw-en-bank-08420278-n">
+      <Definition>a financial institution that accepts deposits and channels the money into lending activities</Definition>
+    </Synset>
+    <Synset id="omw-en-02343374-v" ili="i3" partOfSpeech="v" members="omw-en-bank-02343374-v">
+      <Definition>put into a bank account</Definition>
+    </Synset>
+    <Synset id="omw-en-02367032-v" ili="i4" partOfSpeech="v" members="omw-en-give_up-02367032-v">
+      <Definition>stop maintaining or insisting on; of ideas or claims</Definition>
+    </Synset>
+    <Synset id="omw-en-11473954-n" ili="i5" partOfSpeech="n" members="omw-en-light-11473954-n">
+      <Definition>(physics) electromagnetic radiation that can produce a visual sensation</Definition>
+    </Synset>
+    <Synset id="omw-en-01186408-s" ili="i6" partOfSpeech="s" members="omw-en-light-01186408-s">
+      <Definition>of comparatively little physical weight or density; &apos;light&apos; as a feather</Definition>
+    </Synset>
+  </Lexicon>
+</LexicalResource>

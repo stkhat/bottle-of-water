@@ -17,7 +17,7 @@ import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
 import { GATE_DIR, readDictPacks, readPack } from "./common.ts";
 import { contentWords } from "./content-words.ts";
 import { PACKS } from "./formats.ts";
-import { TABLES_TAG } from "./recipes/native.ts";
+import { TABLES_TAG } from "./recipes/recipes.ts";
 
 /** Confirmed with the user on 2026-11-11. */
 export const GATE = { top: 5000, share: 0.95 };

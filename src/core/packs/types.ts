@@ -58,8 +58,8 @@ export type DefsPack = Readonly<
 /**
  * en-<native>/dict-<n>.json, merged (en-es): term → [short meaning, senses, source],
  * built by a recipe from human-made sources in order, the first one with the term
- * supplying all of it. A sense from a translation table carries its English sense as a
- * hint ("source of illumination"). `source` indexes the index's `sources`.
+ * supplying all of it. A sense from a translation table or a wordnet carries its English
+ * sense as a hint ("source of illumination"). `source` indexes the index's `sources`.
  */
 export type PairPack = Readonly<
   Record<

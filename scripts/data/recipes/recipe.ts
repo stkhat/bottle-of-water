@@ -10,13 +10,13 @@ const MAX_SENSES = 4;
 /** Translated words kept per translation-table sense. */
 const MAX_WORDS = 3;
 
-/** Part of speech, text, and for translation-table senses the English sense label. */
-type PairSense = [pos: string, text: string, hint?: string];
+/** Part of speech, text, and for translation-table and wordnet senses the English sense. */
+export type PairSense = [pos: string, text: string, hint?: string];
 export interface SourceTerm {
   short: string;
   senses: PairSense[];
 }
-type TermKey = (headword: string) => string | undefined;
+export type TermKey = (headword: string) => string | undefined;
 
 /**
  * The key a headword is filed under, or undefined when it is not one Langle looks up: a
@@ -42,7 +42,7 @@ export function termKeyOf({
   };
 }
 
-function addSense(item: SourceTerm, sense: PairSense) {
+export function addSense(item: SourceTerm, sense: PairSense) {
   if (item.senses.length >= MAX_SENSES) return;
   if (item.senses.some(([, text]) => text === sense[1])) return;
   item.senses.push(sense);
@@ -55,7 +55,7 @@ function termOf(terms: Map<string, SourceTerm>, key: string) {
 }
 
 /** Drops terms that ended up without senses and sets each one's short meaning. */
-function finish(
+export function finish(
   terms: Map<string, SourceTerm>,
   shortOfFirst: (text: string) => string,
 ) {

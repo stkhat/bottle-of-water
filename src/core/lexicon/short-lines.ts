@@ -10,8 +10,10 @@
  *   (Japanese here, English definitions in `shortOfDefinition` and `definitions.ts`);
  * - per dictionary source: its own markup (EJDict's 〈C〉/〈U〉 and {形}).
  *
- * The data scripts import this file under plain Node: it has no value imports.
+ * The data scripts import this file under plain Node: its only value import is the
+ * native-language registry, which has none.
  */
+import { nativeLanguage } from "../natives.ts";
 
 /** The hover card shows at most this many senses. */
 export const MAX_SHORT_LINES = 3;
@@ -434,16 +436,19 @@ export const withoutFinalStop = (text: string) =>
 /**
  * A meaning the browser's translator gave (an English definition translated into
  * `lang`) as a hover line, like the dictionaries' lines: without a final period, each
- * comma item once ("組み立て、構築、構築" → "組み立て、構築"), within the cap. A
+ * comma item once ("組み立て、構築、構築" → "組み立て、構築"), within the cap: 25 wide
+ * characters in a dense script (`NativeLanguage.dense`), as Japanese, else 40. A
  * Japanese line keeps its main verb, which comes last: a long line loses its notes in
  * brackets, then is cut after a clause that does not depend on what follows, else keeps
  * its last clauses. The dictionary window shows the whole translation.
  */
 export function translatedLine(text: string, lang: string): string {
   const line = withoutRepeatedItems(withoutFinalStop(text));
-  return lang === "ja"
-    ? japaneseTranslation(line)
-    : capLine(line, DEFINITION_CAP);
+  if (lang === "ja") return japaneseTranslation(line);
+  return capLine(
+    line,
+    nativeLanguage(lang)?.dense ? JAPANESE_CAP : DEFINITION_CAP,
+  );
 }
 
 // EJDict

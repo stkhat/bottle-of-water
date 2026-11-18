@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE LexicalResource SYSTEM "http://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd">
+<LexicalResource xmlns:dc="https://globalwordnet.github.io/schemas/dc/">
+  <Lexicon id="omw-it" label="MultiWordNet (Italian)" language="it" email="bond@ieee.org" license="https://creativecommons.org/licenses/by/3.0/" version="1.4">
+    <Requires id="omw-en" version="1.4" />
+    <LexicalEntry id="omw-it-5-v">
+      <Lemma writtenForm="5" partOfSpeech="v" />
+      <Sense id="omw-it-5-02367032-v" synset="omw-it-02367032-v" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-GAP!-n">
+      <Lemma writtenForm="GAP!" partOfSpeech="n" />
+      <Sense id="omw-it-GAP!-09213565-n" synset="omw-it-09213565-n" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-V-v">
+      <Lemma writtenForm="V" partOfSpeech="v" />
+      <Sense id="omw-it-V-02367032-v" synset="omw-it-02367032-v" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-banca-n">
+      <Lemma writtenForm="banca" partOfSpeech="n" />
+      <Sense id="omw-it-banca-08420278-n" synset="omw-it-08420278-n" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-depositare-v">
+      <Lemma writtenForm="depositare (in banca)" partOfSpeech="v" />
+      <Sense id="omw-it-depositare-02343374-v" synset="omw-it-02343374-v" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-istituto_di_credito-n">
+      <Lemma writtenForm="istituto_di_credito" partOfSpeech="n" />
+      <Sense id="omw-it-istituto_di_credito-08420278-n" synset="omw-it-08420278-n" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-leggero-a">
+      <Lemma writtenForm="leggero" partOfSpeech="a" />
+      <Sense id="omw-it-leggero-01186408-a" synset="omw-it-01186408-a" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-rinunciare-v">
+      <Lemma writtenForm="rinunciare" partOfSpeech="v" />
+      <Sense id="omw-it-rinunciare-02367032-v" synset="omw-it-02367032-v" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-riva-n">
+      <Lemma writtenForm="riva" partOfSpeech="n" />
+      <Sense id="omw-it-riva-09213565-n" synset="omw-it-09213565-n" />
+      <Sense id="omw-it-riva-09335240-n" synset="omw-it-09335240-n" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-sponda-n">
+      <Lemma writtenForm="sponda" partOfSpeech="n" />
+      <Sense id="omw-it-sponda-09213565-n" synset="omw-it-09213565-n" />
+    </LexicalEntry>
+    <LexicalEntry id="omw-it-sconvolgere-v">
+      <Lemma writtenForm="sconvolgere" partOfSpeech="v" />
+      <Sense id="omw-it-sconvolgere-01775535-v" synset="omw-it-01775535-v" />
+    </LexicalEntry>
+    <Synset id="omw-it-01775535-v" ili="i9" partOfSpeech="v" members="omw-it-sconvolgere-01775535-v" />
+    <Synset id="omw-it-02367032-v" ili="i4" partOfSpeech="v" members="omw-it-5-02367032-v omw-it-V-02367032-v omw-it-rinunciare-02367032-v" />
+    <Synset id="omw-it-09213565-n" ili="i85041" partOfSpeech="n" members="omw-it-GAP!-09213565-n omw-it-sponda-09213565-n omw-it-riva-09213565-n" />
+    <Synset id="omw-it-09335240-n" ili="i7" partOfSpeech="n" members="omw-it-riva-09335240-n" />
+    <Synset id="omw-it-08420278-n" ili="i2" partOfSpeech="n" members="omw-it-banca-08420278-n omw-it-istituto_di_credito-08420278-n" />
+    <Synset id="omw-it-02343374-v" ili="i3" partOfSpeech="v" members="omw-it-depositare-02343374-v">
+      <Definition>versare denaro in banca</Definition>
+    </Synset>
+    <Synset id="omw-it-01186408-a" ili="i6" partOfSpeech="a" members="omw-it-leggero-01186408-a" />
+  </Lexicon>
+</LexicalResource>
