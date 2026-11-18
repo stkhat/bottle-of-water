@@ -12,12 +12,16 @@ import {
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
 import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/formats";
 import { recipeNatives, type RecipePairPack } from "../core/natives";
-import { allOf } from "../core/packs/unavailable";
+import { fallbacksOf } from "../core/packs/pairs";
+import type { DefsPack } from "../core/packs/types";
+import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
 import { own, promiseCache } from "../core/util";
 
 /**
  * The language pack, classifier and dictionary of each language, built on first use.
- * A resource whose packs are not on the device rejects with `PacksUnavailableError`.
+ * A resource whose packs are not on the device rejects with `PacksUnavailableError`,
+ * except that a dictionary is built without its fallbacks (`fallbacksOf`) while they
+ * download: it then answers a term its other packs lack with that error, naming them.
  */
 export interface LanguageResources {
   pack(lang: string): Promise<LanguagePack>;
@@ -34,23 +38,79 @@ interface Recipe<T> {
 
 type Loaded<P extends PackName> = { [K in P]: PackFiles[K] };
 
-/** Loads `packs` (all of them, so one `PacksUnavailableError` names every missing one), then makes the resource. */
+/** What a definitions pack that is not on the device yet stands in with. */
+const NO_DEFINITIONS: { defs: DefsPack } = { defs: {} };
+
+/**
+ * Loads `packs` (all of them, so one `PacksUnavailableError` names every missing one),
+ * then makes the resource. A pack of `fallbacks` (definitions packs, `fallbacksOf`)
+ * that is not on the device stands in with no definitions, and `make` is told it is
+ * `pending`.
+ */
 function recipe<P extends PackName, T>(
   packs: readonly P[],
-  make: (files: Loaded<P>) => T,
+  make: (files: Loaded<P>, pending: readonly PackName[]) => T,
+  fallbacks: readonly PackName[] = [],
 ): Recipe<T> {
   return {
     packs,
     async build(loadPack) {
       const files = {} as Loaded<P>;
+      const pending: PackName[] = [];
       await allOf(
         packs.map(async (name) => {
-          files[name] = await loadPack(name);
+          try {
+            files[name] = await loadPack(name);
+          } catch (error) {
+            if (
+              !(error instanceof PacksUnavailableError) ||
+              !fallbacks.includes(name)
+            )
+              throw error;
+            (files as Record<string, unknown>)[name] = NO_DEFINITIONS;
+            pending.push(name);
+          }
         }),
       );
-      return make(files);
+      return make(files, pending);
     },
   };
+}
+
+/**
+ * `dictionary` built without its fallbacks `pending`: a term it does not have may be
+ * theirs, so its entry throws `PacksUnavailableError` naming them (a card waits for
+ * them and shows once they are there). Outlines and names read what is on the device:
+ * pages analyze meanwhile.
+ */
+function awaitingFallbacks(
+  dictionary: DictionaryProvider,
+  pending: readonly PackName[],
+): DictionaryProvider {
+  if (pending.length === 0) return dictionary;
+  return {
+    entry(term, written, pos) {
+      const found = dictionary.entry(term, written, pos);
+      if (found === undefined) throw new PacksUnavailableError(pending);
+      return found;
+    },
+    outline: (term) => dictionary.outline(term),
+    capitalMeaning: (term) => dictionary.capitalMeaning(term),
+    senseLine: (sense, glossLang) => dictionary.senseLine(sense, glossLang),
+  };
+}
+
+/** A dictionary's recipe from its packs, built without its fallbacks while they download. */
+function dictionaryRecipe<P extends PackName>(
+  name: keyof typeof DICTIONARY_PACKS,
+  packs: readonly P[],
+  make: (files: Loaded<P>) => DictionaryProvider,
+): Recipe<DictionaryProvider> {
+  return recipe(
+    packs,
+    (files, pending) => awaitingFallbacks(make(files), pending),
+    fallbacksOf(name),
+  );
 }
 
 const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
@@ -76,7 +136,8 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
 
 /** A recipe pair (en-es): the recipe's meanings, then English Wiktionary's definitions. */
 const pairRecipe = (pair: RecipePairPack) =>
-  recipe<"en" | RecipePairPack | "en-defs", DictionaryProvider>(
+  dictionaryRecipe<"en" | RecipePairPack | "en-defs">(
+    pair,
     DICTIONARY_PACKS[pair],
     (files) =>
       createPairDictionary({
@@ -89,7 +150,7 @@ const pairRecipe = (pair: RecipePairPack) =>
 
 const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
   {
-    "en-ja": recipe(DICTIONARY_PACKS["en-ja"], (files) =>
+    "en-ja": dictionaryRecipe("en-ja", DICTIONARY_PACKS["en-ja"], (files) =>
       createEnJaDictionary({
         ...files["en-ja"],
         defs: files["en-defs"].defs,
@@ -97,7 +158,7 @@ const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
         ipa: files.en.ipa,
       }),
     ),
-    "es-en": recipe(DICTIONARY_PACKS["es-en"], (files) =>
+    "es-en": dictionaryRecipe("es-en", DICTIONARY_PACKS["es-en"], (files) =>
       createDefsDictionary({ defs: files["es-en"].defs, ipa: files.es.ipa }),
     ),
     ...Object.fromEntries(

@@ -74,6 +74,36 @@ describe("dataNote", () => {
     ).toEqual({ state: "failed" });
   });
 
+  it("shows nothing while only fallbacks download, and counts the other packs alone", () => {
+    const packs = ["en", "en-ja", "en-defs"];
+    const fallbacks = ["en-defs"];
+    expect(
+      dataNote(
+        { en: ready(10), "en-ja": ready(10), "en-defs": downloading(0, 30) },
+        packs,
+        fallbacks,
+      ),
+    ).toBeNull();
+    expect(
+      dataNote(
+        { en: ready(10), "en-ja": downloading(5, 10) },
+        packs,
+        fallbacks,
+      ),
+    ).toEqual({ state: "downloading", percent: 75 });
+  });
+
+  it("is failed when a fallback failed, though the pages work without it", () => {
+    const packs = ["en", "en-ja", "en-defs"];
+    expect(
+      dataNote(
+        { en: ready(10), "en-ja": ready(10), "en-defs": failed(3, 30) },
+        packs,
+        ["en-defs"],
+      ),
+    ).toEqual({ state: "failed" });
+  });
+
   it("ignores the states of other packs", () => {
     expect(dataNote({ en: failed(0, 10), es: ready(30) }, ["es"])).toBeNull();
   });

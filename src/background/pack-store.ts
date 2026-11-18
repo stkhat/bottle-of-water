@@ -35,11 +35,13 @@ export interface DownloadedPack {
  */
 export interface PackStore {
   /**
-   * Brings each pack of `packs` to its lock version. Files already stored
-   * are not fetched again; the others are fetched one at a time, each from the mirrors
-   * in order until one sends bytes with the lock's SHA-256, and stored at once. Once
-   * all are there the pack switches to the version, and files no pack refers to are
-   * deleted. Never rejects: a pack that cannot be downloaded is `failed`.
+   * Brings each pack of `packs` to its lock version, one pack after another in the
+   * order given (`packsFor`: the packs pages need first). Files already stored are not
+   * fetched again; the others are fetched one at a time, each from the mirrors in
+   * order until one sends bytes with the lock's SHA-256, and stored at once. Once all
+   * are there the pack switches to the version, and files no pack refers to are
+   * deleted (not those of the packs still to come). A pack that fails does not stop
+   * the next one. Never rejects: a pack that cannot be downloaded is `failed`.
    */
   ensure(packs: readonly string[]): Promise<EnsureResult>;
   /**
@@ -77,7 +79,28 @@ export interface PackStoreOptions {
   /** Writes the state of the packs (`packState` in `storage.local`). */
   setState(states: PackStates): Promise<void> | void;
   now?: () => number;
+  /**
+   * Hears each try of a mirror: which one served a file, and each one that failed,
+   * also when a later one served it (the check build's log, `src/check/`).
+   */
+  onMirror?: (event: MirrorEvent) => void;
 }
+
+/** One try of one mirror for one file of a pack. */
+export type MirrorEvent = {
+  pack: string;
+  /** The file's path in the pack ("dict-1.json"). */
+  file: string;
+  url: string;
+} & (
+  | {
+      served: true;
+      bytes: number;
+      /** From the request to the last byte checked. */
+      ms: number;
+    }
+  | { served: false; error: string }
+);
 
 /** Progress within a file is written at most this often. */
 const PROGRESS_INTERVAL_MS = 250;
@@ -142,11 +165,19 @@ export function createPackStore({
   fetch = globalThis.fetch.bind(globalThis),
   setState,
   now = Date.now,
+  onMirror,
 }: PackStoreOptions): PackStore {
   /** The state of the packs this worker brought to their lock version, or tried to. */
   const states = new Map<string, PackState>();
   /** Downloads in progress: one at a time per pack. */
   const inflight = promiseCache<boolean>({ keep: false });
+  /** Packs an `ensure` will bring after the one in progress: how many runs wait for each. */
+  const queued = new Map<string, number>();
+  const queue = (pack: string, by: number) => {
+    const count = (queued.get(pack) ?? 0) + by;
+    if (count > 0) queued.set(pack, count);
+    else queued.delete(pack);
+  };
   const switched = listeners<[string]>();
   let lastWrite = -Infinity;
   const writes = serial();
@@ -196,13 +227,14 @@ export function createPackStore({
 
   /**
    * Deletes the files no pack version refers to, except those of downloads in
-   * progress (stored files of a version not switched to yet). Runs in a transaction.
+   * progress or still to come in an `ensure` (stored files of a version not switched
+   * to yet: a stopped download carries on). Runs in a transaction.
    */
   async function collectGarbage() {
     const keep = new Set<string>();
     for (const version of await db.packVersions.toArray())
       for (const file of version.files) keep.add(file.sha256);
-    for (const pack of inflight.keys())
+    for (const pack of [...inflight.keys(), ...queued.keys()])
       for (const file of lockEntry(pack)?.files ?? []) keep.add(file.sha256);
     const all = await db.packFiles.toCollection().primaryKeys();
     await db.packFiles.bulkDelete(all.filter((key) => !keep.has(key)));
@@ -245,6 +277,7 @@ export function createPackStore({
    * lists. `onBytes` counts bytes received (negative: those of an attempt that failed).
    */
   async function download(
+    pack: string,
     entry: PackLockEntry,
     file: PackLockFile,
     onBytes: (count: number) => void,
@@ -252,6 +285,8 @@ export function createPackStore({
     const errors: string[] = [];
     for (const template of lock.mirrors) {
       const url = mirrorUrl(template, entry, file.path);
+      const tried = { pack, file: file.path, url };
+      const start = now();
       let received = 0;
       try {
         const response = await fetch(url, { cache: "no-store" });
@@ -262,10 +297,17 @@ export function createPackStore({
         });
         if ((await sha256Hex(bytes)) !== file.sha256)
           throw new Error("SHA-256 does not match the lock");
+        onMirror?.({
+          ...tried,
+          served: true,
+          bytes: bytes.byteLength,
+          ms: now() - start,
+        });
         return new Blob([bytes], { type: "application/json" });
       } catch (error) {
         onBytes(-received);
         errors.push(`${url}: ${errorText(error)}`);
+        onMirror?.({ ...tried, served: false, error: errorText(error) });
       }
     }
     throw new Error(
@@ -298,7 +340,7 @@ export function createPackStore({
       if (state.state === "ready") return true;
       for (const file of entry.files) {
         if (stored.has(file.sha256)) continue;
-        const blob = await download(entry, file, (count) => {
+        const blob = await download(pack, entry, file, (count) => {
           received += count;
           set("downloading");
           publish(false);
@@ -331,9 +373,13 @@ export function createPackStore({
   return {
     async ensure(packs) {
       const names = [...new Set(packs)];
-      const done = await Promise.all(
-        names.map((pack) => inflight.get(pack, () => bring(pack))),
-      );
+      for (const pack of names) queue(pack, 1);
+      const done: boolean[] = [];
+      for (const pack of names) {
+        const brought = inflight.get(pack, () => bring(pack));
+        queue(pack, -1);
+        done.push(await brought);
+      }
       await writes.idle;
       return {
         ready: names.filter((_, i) => done[i]),

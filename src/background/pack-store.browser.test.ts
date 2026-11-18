@@ -3,7 +3,11 @@ import type { PackLock, PackLockEntry } from "../core/packs/lock";
 import type { PackStates } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
 import type { LangleDb } from "./db";
-import { createPackStore, type PackStore } from "./pack-store";
+import {
+  createPackStore,
+  type MirrorEvent,
+  type PackStore,
+} from "./pack-store";
 import { freshDb } from "../testing/db";
 
 const MIRRORS = [
@@ -229,6 +233,53 @@ describe("pack store: downloads", () => {
     expect(await store.states(["xx"])).toEqual({});
   });
 
+  it("tells which mirror served each file, and each mirror that failed before", async () => {
+    const lock = await testLock();
+    const es = lock.packs.es;
+    mirrors.serve(0, es, ES_V1);
+    mirrors.served.set(urlOf(0, es, "lemmas.json"), () =>
+      Promise.reject(new TypeError("Failed to fetch")),
+    );
+    mirrors.serve(1, es, ES_V1);
+    const events: MirrorEvent[] = [];
+    clock = () => (time += 5);
+    const store = createPackStore({
+      db,
+      lock,
+      fetch: mirrors.fetch,
+      setState: () => {},
+      now: () => clock(),
+      onMirror: (event) => events.push(event),
+    });
+    expect(await store.ensure(["es"])).toEqual({ ready: ["es"], failed: [] });
+    expect(events).toEqual([
+      {
+        pack: "es",
+        file: "freq.json",
+        url: urlOf(0, es, "freq.json"),
+        served: true,
+        bytes: fileOf(es, "freq.json").size,
+        ms: expect.any(Number),
+      },
+      {
+        pack: "es",
+        file: "lemmas.json",
+        url: urlOf(0, es, "lemmas.json"),
+        served: false,
+        error: "Failed to fetch",
+      },
+      {
+        pack: "es",
+        file: "lemmas.json",
+        url: urlOf(1, es, "lemmas.json"),
+        served: true,
+        bytes: fileOf(es, "lemmas.json").size,
+        ms: expect.any(Number),
+      },
+    ]);
+    expect((events[0] as { ms: number }).ms).toBeGreaterThan(0);
+  });
+
   it("takes a file from the next mirror when the first one sends other bytes, an error or nothing", async () => {
     const lock = await testLock();
     const [es, esEn] = [lock.packs.es, lock.packs["es-en"]];
@@ -358,6 +409,59 @@ describe("pack store: downloads", () => {
     expect(new Set(mirrors.requests).size).toBe(4);
   });
 
+  it("brings the packs one after another, in the order given, and goes on after one fails", async () => {
+    const lock = await testLock();
+    const [es, esEn] = [lock.packs.es, lock.packs["es-en"]];
+    mirrors.serve(0, esEn, ES_EN);
+    mirrors.serve(0, es, ES_V1);
+    const freq = heldResponse(text(ES_V1["freq.json"]));
+    mirrors.served.set(urlOf(0, es, "freq.json"), freq.respond);
+    const store = storeWith(lock);
+    const both = store.ensure(["es", "es-en"]);
+    await vi.waitFor(() =>
+      expect(mirrors.requests).toEqual([urlOf(0, es, "freq.json")]),
+    );
+    // es-en waits for es.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mirrors.requests).toEqual([urlOf(0, es, "freq.json")]);
+    freq.release();
+    expect(await both).toEqual({ ready: ["es", "es-en"], failed: [] });
+    expect(mirrors.requests).toEqual([
+      urlOf(0, es, "freq.json"),
+      urlOf(0, es, "lemmas.json"),
+      urlOf(0, esEn, "index.json"),
+      urlOf(0, esEn, "dict-1.json"),
+    ]);
+
+    // Another worker, with es's new version on no mirror: es-en still comes.
+    await db.packVersions.delete("es-en");
+    const v2 = await testLock({
+      es: await lockEntry("es", "2026.1112.0", ES_V2),
+      "es-en": esEn,
+    });
+    expect(await storeWith(v2).ensure(["es", "es-en"])).toEqual({
+      ready: ["es-en"],
+      failed: ["es"],
+    });
+  });
+
+  it("keeps the stored files of a pack still to come when the one before it switches", async () => {
+    const lock = await testLock();
+    const [es, esEn] = [lock.packs.es, lock.packs["es-en"]];
+    // An earlier worker stored es-en's index.json, then stopped.
+    await db.packFiles.put({
+      sha256: fileOf(esEn, "index.json").sha256,
+      blob: new Blob([text(ES_EN["index.json"])]),
+    });
+    mirrors.serve(0, es, ES_V1);
+    mirrors.serve(0, esEn, ES_EN);
+    expect(await storeWith(lock).ensure(["es", "es-en"])).toEqual({
+      ready: ["es", "es-en"],
+      failed: [],
+    });
+    expect(requestsOf(esEn)).toEqual([urlOf(0, esEn, "dict-1.json")]);
+  });
+
   it("keeps the files of a pack still downloading when another pack switches", async () => {
     const lock = await testLock();
     const [es, esEn] = [lock.packs.es, lock.packs["es-en"]];
@@ -368,7 +472,14 @@ describe("pack store: downloads", () => {
     mirrors.served.set(urlOf(0, es, "lemmas.json"), lemmas.respond);
     mirrors.served.set(urlOf(0, esEn, "dict-1.json"), dict.respond);
     const store = storeWith(lock);
-    const both = store.ensure(["es", "es-en"]);
+    // Two runs (a pair chosen while another downloads): their packs come side by side.
+    const both = Promise.all([
+      store.ensure(["es"]),
+      store.ensure(["es-en"]),
+    ]).then(([a, b]) => ({
+      ready: [...a.ready, ...b.ready],
+      failed: [...a.failed, ...b.failed],
+    }));
     // es-en has stored index.json and waits for dict-1.json when es switches
     // (and deletes the files nothing refers to).
     await vi.waitFor(async () =>

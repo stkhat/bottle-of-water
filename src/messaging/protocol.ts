@@ -395,8 +395,11 @@ export interface HistoryStatus {
 
 export interface PackStatus {
   pair: {
-    /** The pair's packs, in `packsFor` order, with their size in the lock. */
-    packs: (PackState & { pack: string; size: number })[];
+    /**
+     * The pair's packs, in `packsFor` order, with their size in the lock; `fallback`:
+     * pages work without it (`fallbacksOf`).
+     */
+    packs: (PackState & { pack: string; size: number; fallback?: true })[];
   };
   /** Stored packs the chosen pair does not use (Settings offers to remove them). */
   others: { pack: string; size: number }[];

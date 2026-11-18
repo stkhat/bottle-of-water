@@ -217,6 +217,13 @@ export function testBackground(
   const db = openLangleDb(`langle-content-test-${Date.now()}-${dbCount++}`);
   const store = createTermStore(db);
   let optionsOpened = 0;
+  const loadPack = createPackLoader(async (path) => {
+    const pack = path.split("/")[2]!;
+    if (missing.has(pack)) throw new PacksUnavailableError([pack]);
+    if (!Object.hasOwn(FILES, path)) throw new Error(`not found: ${path}`);
+    return FILES[path];
+  });
+  const resources = createLanguageResources(loadPack);
   const handle = createHandlers({
     store,
     history: createHistoryStore(db),
@@ -229,14 +236,7 @@ export function testBackground(
         return settings;
       },
     },
-    resources: createLanguageResources(
-      createPackLoader(async (path) => {
-        const pack = path.split("/")[2]!;
-        if (missing.has(pack)) throw new PacksUnavailableError([pack]);
-        if (!Object.hasOwn(FILES, path)) throw new Error(`not found: ${path}`);
-        return FILES[path];
-      }),
-    ),
+    resources,
     packs: {
       lock,
       store: {
@@ -324,12 +324,15 @@ export function testBackground(
     },
     /**
      * The background writes `packState`: the packs it says are usable are on the
-     * device from now on.
+     * device from now on (switched to, as the pack store's `onSwitch` tells).
      */
     setPackStates(states: PackStates) {
       packStates = states;
       for (const [pack, state] of Object.entries(states))
-        if (packUsable(state)) missing.delete(pack);
+        if (packUsable(state) && missing.delete(pack)) {
+          loadPack.forget(pack);
+          resources.forget(pack);
+        }
       for (const listener of [...packListeners]) listener(states);
     },
     packWatchers: () => packListeners.size,

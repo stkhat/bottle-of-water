@@ -28,7 +28,12 @@ function withStates(status: PackStatus, states: PackStates): PackStatus {
       ...status.pair,
       packs: status.pair.packs.map((entry) =>
         Object.hasOwn(states, entry.pack)
-          ? { pack: entry.pack, size: entry.size, ...states[entry.pack]! }
+          ? {
+              pack: entry.pack,
+              size: entry.size,
+              ...(entry.fallback && { fallback: entry.fallback }),
+              ...states[entry.pack]!,
+            }
           : entry,
       ),
     },
@@ -91,11 +96,15 @@ export function followPackStatus(
   };
 }
 
-/** The note on the chosen pair's data (popup, video column); none when it is all usable. */
+/**
+ * The note on the chosen pair's data (popup, video column): none once pages can use it,
+ * while its fallbacks may still be downloading (`dataNote`).
+ */
 export const pairNote = (status: PackStatus | undefined): DataNote | null =>
   status
     ? dataNote(
         Object.fromEntries(status.pair.packs.map((p) => [p.pack, p])),
         status.pair.packs.map((p) => p.pack),
+        status.pair.packs.filter((p) => p.fallback).map((p) => p.pack),
       )
     : null;

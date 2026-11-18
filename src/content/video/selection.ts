@@ -95,10 +95,30 @@ export function createSelection(o: {
     });
   }
 
+  /**
+   * Describes the selected words; a card whose language data is not on the device yet
+   * (a fallback still downloading) shows once it is there.
+   */
+  function describeOrWait(selected: Selected) {
+    describe(selected).catch((error: unknown) => {
+      if (
+        phrase === selected &&
+        o.lookup.showWhenReady("selection", error, () =>
+          describeOrWait(selected),
+        )
+      )
+        return;
+      warn(error);
+      // No card: the selection goes rather than holding the video and the hovers.
+      if (phrase === selected) drop();
+    });
+  }
+
   /** The selection's card goes (the page's selection stays). */
   function drop() {
     phrase = undefined;
     pressFrom = undefined;
+    o.lookup.dropShow("selection");
     const { phrase: card, selecting } = store.get();
     if (card || selecting) store.set({ phrase: null, selecting: false });
   }
@@ -187,11 +207,7 @@ export function createSelection(o: {
         phrase = selected;
         pressFrom = words.place;
         if (!state.selecting) store.set({ selecting: true });
-        describe(selected).catch((error: unknown) => {
-          warn(error);
-          // No card: the selection goes rather than holding the video and the hovers.
-          if (phrase === selected) drop();
-        });
+        describeOrWait(selected);
       }
       return { start, end };
     },
