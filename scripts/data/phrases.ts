@@ -1,6 +1,6 @@
 // Phrase patterns from EJDict and the kaikki.org English Wiktionary extract (CC BY-SA)
-// → public/packs/en/phrases.json ({ detect, more, gap, pos, intransitive }) and
-// public/packs/en-ja/phrases.json (Japanese meanings from Wiktionary's translation
+// → data/packs/en/phrases.json ({ detect, more, gap, pos, intransitive }) and
+// data/packs/en-ja/phrases.json (Japanese meanings from Wiktionary's translation
 // tables). See docs/specs/architecture.md "Phrase data".
 //
 // - B1: every multi-word entry with a sense of its own is a pattern, at any word rank,

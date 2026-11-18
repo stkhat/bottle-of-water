@@ -2,8 +2,8 @@ import { own } from "../util";
 /**
  * The state of downloaded packs, which the background keeps in `storage.local` under
  * this key for pages, the popup and Settings to watch: `{ [pack]: PackState }`. Only
- * packs that are downloaded (not bundled) and that the background has brought to their
- * lock version since its worker started have an entry.
+ * packs that the background has brought to their lock version (or tried to) since its
+ * worker started have an entry.
  */
 export const PACK_STATE_KEY = "packState";
 

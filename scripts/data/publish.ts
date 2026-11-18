@@ -1,9 +1,8 @@
 // Writes the pack lock file (src/core/packs/packs.lock.json) and an npm package folder
 // for each pack in data/packs/ (data/publish/<pack>/, git-ignored; npm-publish.ts
 // publishes them).
-// Usage: npm run data:publish [-- --download es,es-en]
-//   --download: the packs the extension downloads instead of bundling (data/packs/
-//   packs only). Every other pack is bundled.
+// Usage: npm run data:publish
+// The extension downloads every pack from the lock's mirrors; none is bundled.
 import { createHash } from "node:crypto";
 import {
   cpSync,
@@ -15,7 +14,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
-import { parseArgs } from "node:util";
 import type {
   PackLock,
   PackLockEntry,
@@ -27,7 +25,7 @@ import { gateReport, offeredPairs } from "./gate.ts";
 
 type Packs = Readonly<Record<string, PackInfo>>;
 
-/** Where the extension fetches a downloaded pack's files from, tried in order. */
+/** Where the extension fetches a pack's files from, tried in order. */
 export const MIRRORS = [
   "https://cdn.jsdelivr.net/npm/{package}@{version}/{file}",
   "https://unpkg.com/{package}@{version}/{file}",
@@ -102,32 +100,22 @@ function checkFolders(packs: Packs) {
 
 /**
  * The lock for the packs' files as they are now. `previous` is the current lock (its
- * versions are kept for unchanged packs); `download` names the packs that are not
- * bundled, which must be downloadable (data/packs/); `pairs` are the language pairs
- * offered (learning language → native languages, the default first), those passing
- * the quality gate.
+ * versions are kept for unchanged packs); `pairs` are the language pairs offered
+ * (learning language → native languages, the default first), those passing the
+ * quality gate.
  */
 export function buildLock(
   packs: Packs,
   {
     previous,
-    download = [],
     now = new Date(),
     pairs = {},
   }: {
     previous?: PackLock;
-    download?: readonly string[];
     now?: Date;
     pairs?: PackLock["pairs"];
   } = {},
 ): PackLock {
-  for (const name of download) {
-    if (!Object.hasOwn(packs, name)) throw new Error(`Unknown pack: ${name}`);
-    if (!packs[name]!.downloadable)
-      throw new Error(
-        `${name} is always bundled: only the packs in data/packs/ can be downloaded`,
-      );
-  }
   checkFolders(packs);
   const entries = Object.keys(packs)
     .sort()
@@ -144,7 +132,6 @@ export function buildLock(
           now,
         ),
         format: info.format,
-        bundled: !download.includes(name),
         files,
       };
       return [name, entry];
@@ -222,7 +209,7 @@ function readme(info: PackInfo) {
   ].join("\n");
 }
 
-/** Writes data/publish/<pack>/ for each downloadable pack (the folder is replaced). */
+/** Writes data/publish/<pack>/ for each pack (the folder is replaced). */
 export function writePackages(
   packs: Packs,
   lock: PackLock,
@@ -231,7 +218,6 @@ export function writePackages(
   rmSync(publishDir, { recursive: true, force: true });
   const written = [];
   for (const [name, info] of Object.entries(packs)) {
-    if (!info.downloadable) continue;
     const entry = lock.packs[name as keyof PackLock["packs"]];
     const out = join(publishDir, name);
     mkdirSync(out, { recursive: true });
@@ -253,41 +239,34 @@ export function publish({
   packs = PACKS,
   lockPath = LOCK_PATH,
   publishDir = PUBLISH_DIR,
-  download = [],
   now = new Date(),
   pairs = {},
 }: {
   packs?: Packs;
   lockPath?: string;
   publishDir?: string;
-  download?: readonly string[];
   now?: Date;
   pairs?: PackLock["pairs"];
 } = {}) {
   const previous = existsSync(lockPath)
     ? (JSON.parse(readFileSync(lockPath, "utf8")) as PackLock)
     : undefined;
-  const lock = buildLock(packs, { previous, download, now, pairs });
+  const lock = buildLock(packs, { previous, now, pairs });
   mkdirSync(dirname(lockPath), { recursive: true });
   writeFileSync(lockPath, stringifyLock(lock));
   return { lock, previous, packages: writePackages(packs, lock, publishDir) };
 }
 
 function main() {
-  const { values } = parseArgs({ options: { download: { type: "string" } } });
-  const download = (values.download ?? "")
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
   const pairs = offeredPairs(gateReport());
-  const { lock, previous, packages } = publish({ download, pairs });
+  const { lock, previous, packages } = publish({ pairs });
   for (const [name, entry] of Object.entries(lock.packs)) {
     const was = previous?.packs[name as keyof PackLock["packs"]]?.version;
     const change = was === entry.version ? "unchanged" : `was ${was ?? "new"}`;
     const size = entry.files.reduce((n, f) => n + f.size, 0);
     console.log(
       `${name} ${entry.version} (${change}), format ${entry.format}, ` +
-        `${entry.bundled ? "bundled" : "downloaded"}, ${entry.files.length} files, ${(size / 1e6).toFixed(2)} MB`,
+        `${entry.files.length} files, ${(size / 1e6).toFixed(2)} MB`,
     );
   }
   console.log(

@@ -1,4 +1,4 @@
-// Smoke test of the classifier over the generated pack files (public/packs/, data/packs/).
+// Smoke test of the classifier over the generated pack files (data/packs/).
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.ts";

@@ -1,4 +1,3 @@
-import { browser, type PublicPath } from "wxt/browser";
 import { PACK_FORMATS } from "../core/packs/formats";
 import type { FetchJson } from "../core/packs/load";
 import {
@@ -14,7 +13,7 @@ import type { LangleDb, PackVersionRecord } from "./db";
 
 /** What `ensure` did: the packs now at their lock version, and those that failed. */
 export interface EnsureResult {
-  /** Bundled packs, and downloaded ones at their lock version. */
+  /** Packs at their lock version. */
   ready: string[];
   /** Packs whose download failed (their state says why), or that the lock lacks. */
   failed: string[];
@@ -32,11 +31,11 @@ export interface DownloadedPack {
 /**
  * Downloaded packs in IndexedDB (`packFiles`, `packVersions`): fetched from the
  * lock's mirrors, checked against the lock's SHA-256, switched to a new version in one
- * transaction. Bundled packs are not its business (`ensure` reports them ready).
+ * transaction. Every pack is downloaded: none is bundled with the extension.
  */
 export interface PackStore {
   /**
-   * Brings each downloaded pack of `packs` to its lock version. Files already stored
+   * Brings each pack of `packs` to its lock version. Files already stored
    * are not fetched again; the others are fetched one at a time, each from the mirrors
    * in order until one sends bytes with the lock's SHA-256, and stored at once. Once
    * all are there the pack switches to the version, and files no pack refers to are
@@ -54,13 +53,13 @@ export interface PackStore {
   /** Every stored pack, by name. */
   downloaded(): Promise<DownloadedPack[]>;
   /**
-   * The state of each downloaded pack of `packs` (bundled ones are left out): as this
+   * The state of each pack of `packs` that the lock has: as this
    * worker last wrote it, else from what is stored (a pack not yet at its lock version
    * counts as downloading: every start of the worker brings its pair's packs there).
    */
   states(packs: readonly string[]): Promise<Record<string, PackState>>;
   /**
-   * Records each downloaded pack of `packs` that is not at its lock version as failed
+   * Records each pack of `packs` that is not at its lock version as failed
    * with `error`, and the others as ready, then writes the state; packs downloading in
    * this worker are left as they are. For a start of the worker that leaves the
    * download to a scheduled retry: what a stopped download wrote then shows as failed.
@@ -154,11 +153,11 @@ export function createPackStore({
 
   const lockEntry = (pack: string) => own<PackLockEntry>(lock.packs, pack);
 
-  /** The packs (each once, in order) that are downloaded rather than bundled. */
-  const downloadable = (packs: readonly string[]) =>
+  /** The packs (each once, in order) that the lock has, with their entries. */
+  const inLock = (packs: readonly string[]) =>
     [...new Set(packs)].flatMap((pack) => {
       const entry = lockEntry(pack);
-      return entry && !entry.bundled ? [[pack, entry] as const] : [];
+      return entry ? [[pack, entry] as const] : [];
     });
 
   /**
@@ -278,7 +277,6 @@ export function createPackStore({
   async function bring(pack: string): Promise<boolean> {
     const entry = lockEntry(pack);
     if (!entry) return false;
-    if (entry.bundled) return true;
     const total = packBytes(entry);
     let received = 0;
     let updating = false;
@@ -396,14 +394,14 @@ export function createPackStore({
 
     async states(packs) {
       const result: Record<string, PackState> = {};
-      for (const [pack, entry] of downloadable(packs))
+      for (const [pack, entry] of inLock(packs))
         result[pack] =
           states.get(pack) ?? (await storedState(pack, entry)).state;
       return result;
     },
 
     async markFailed(packs, error) {
-      for (const [pack, entry] of downloadable(packs)) {
+      for (const [pack, entry] of inLock(packs)) {
         if (inflight.peek(pack)) continue;
         const { state } = await storedState(pack, entry);
         states.set(
@@ -421,34 +419,15 @@ export function createPackStore({
   };
 }
 
-/** Reads a JSON file bundled with the extension (not web-accessible; background only). */
-export async function fetchPackJson(path: string): Promise<unknown> {
-  const response = await fetch(browser.runtime.getURL(path as PublicPath));
-  if (!response.ok)
-    throw new Error(`Could not load ${path} (HTTP ${response.status})`);
-  return response.json();
-}
-
 /**
- * What the pack loader reads through: a bundled pack's file from the extension, a
- * downloaded pack's from the store, which rejects with `PacksUnavailableError` while
- * that pack is not on the device.
+ * What the pack loader reads through: a pack's file ("/packs/<pack>/<file>") from the
+ * store, which rejects with `PacksUnavailableError` while that pack is not on the device.
  */
-export function createPackSource({
-  lock,
-  store,
-}: {
-  lock: PackLock;
-  store: Pick<PackStore, "read">;
-}): FetchJson {
-  return (path) => {
+export function createPackSource(store: Pick<PackStore, "read">): FetchJson {
+  return async (path) => {
     const [, pack, file] = /^\/packs\/([^/]+)\/(.+)$/.exec(path) ?? [];
-    if (
-      pack !== undefined &&
-      file !== undefined &&
-      own(lock.packs, pack)?.bundled === false
-    )
-      return store.read(pack, file);
-    return fetchPackJson(path);
+    if (pack === undefined || file === undefined)
+      throw new Error(`Not a pack file: ${path}`);
+    return store.read(pack, file);
   };
 }

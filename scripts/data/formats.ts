@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import type { PackName } from "../../src/core/packs/load.ts";
 import { PACK_FORMATS } from "../../src/core/packs/formats.ts";
-import { DOWNLOAD_PACKS_DIR, PACKS_DIR } from "./common.ts";
+import { PACKS_DIR } from "./common.ts";
 
 /** The npm organization `langle` (user, 2026-11-18). */
 const NPM_SCOPE = "@langle";
@@ -19,8 +19,6 @@ interface PackSource {
 
 export interface PackInfo {
   dir: string;
-  /** In data/packs/: bundled or downloaded as the lock says. */
-  downloadable: boolean;
   format: number;
   package: string;
   license: { spdx: string; name: string; url: string };
@@ -98,11 +96,9 @@ const SOURCES = {
 
 const pack = (
   name: PackName,
-  downloadable: boolean,
   fields: Pick<PackInfo, "title" | "description" | "sources">,
 ): PackInfo => ({
-  dir: join(downloadable ? DOWNLOAD_PACKS_DIR : PACKS_DIR, name),
-  downloadable,
+  dir: join(PACKS_DIR, name),
   format: PACK_FORMATS[name],
   package: `${NPM_SCOPE}/${name}`,
   license: CC_BY_SA,
@@ -112,7 +108,7 @@ const pack = (
 
 /** Each pack holds Wiktionary-derived files, so each is CC BY-SA 4.0 as a whole. */
 export const PACKS: Readonly<Record<PackName, PackInfo>> = {
-  en: pack("en", false, {
+  en: pack("en", {
     title: "English word data",
     description:
       "English base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names and a part-of-speech tagger",
@@ -129,7 +125,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       },
     ],
   }),
-  "en-ja": pack("en-ja", false, {
+  "en-ja": pack("en-ja", {
     title: "English–Japanese dictionary",
     description: "Japanese meanings of English words and phrases",
     sources: [
@@ -140,12 +136,12 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       },
     ],
   }),
-  "en-defs": pack("en-defs", false, {
+  "en-defs": pack("en-defs", {
     title: "English definitions",
     description: "English definitions of English words and phrases",
     sources: [{ ...SOURCES.wiktionaryEn, used: "the definitions" }],
   }),
-  es: pack("es", true, {
+  es: pack("es", {
     title: "Spanish word data",
     description:
       "Spanish base forms, frequency ranks, IPA, vocabulary and phrase patterns",
@@ -157,7 +153,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       { ...SOURCES.freqEs, used: "frequency ranks" },
     ],
   }),
-  "en-es": pack("en-es", true, {
+  "en-es": pack("en-es", {
     title: "English–Spanish dictionary",
     description: "Spanish meanings of English words and phrases",
     sources: [
@@ -168,7 +164,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       },
     ],
   }),
-  "en-pt": pack("en-pt", true, {
+  "en-pt": pack("en-pt", {
     title: "English–Portuguese dictionary",
     description: "Portuguese meanings of English words and phrases",
     sources: [
@@ -179,7 +175,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       },
     ],
   }),
-  "es-en": pack("es-en", true, {
+  "es-en": pack("es-en", {
     title: "Spanish–English dictionary",
     description: "English meanings of Spanish words and phrases",
     sources: [{ ...SOURCES.wiktionaryEs, used: "the English meanings" }],

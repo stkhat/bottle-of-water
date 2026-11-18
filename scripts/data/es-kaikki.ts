@@ -9,7 +9,7 @@ import type { DefsPack } from "../../src/core/packs/types.ts";
 import { SPANISH_RULES } from "../../src/core/phrases/es.ts";
 import {
   byCodeUnit,
-  DOWNLOAD_PACKS_DIR,
+  PACKS_DIR,
   eachEntry,
   posLabel,
   RAW_DIR,
@@ -245,7 +245,7 @@ export async function buildEsPacks(
  */
 export function writeEsPacks(
   { freq, vocab, lemmas, ipa, phrases, defs }: EsPacks,
-  dir = DOWNLOAD_PACKS_DIR,
+  dir = PACKS_DIR,
 ) {
   const index = writeShards("es-en", defs, dir);
   writePack("es/freq.json", freq, dir);

@@ -1,11 +1,12 @@
-// Tiny packs served through the real pack loader, as the bundled files would be.
+// Tiny packs served through the real pack loader, as the downloaded files would be.
 import { vi } from "vitest";
 import {
   createPackLoader,
   type PackFiles,
   type PackName,
 } from "../core/packs/load";
-import { readLock } from "../core/packs/lock";
+import { packBytes, readLock } from "../core/packs/lock";
+import type { PackState } from "../core/packs/state";
 import { PacksUnavailableError } from "../core/packs/unavailable";
 import type { HandlerDeps } from "../background/handlers";
 
@@ -154,7 +155,7 @@ const { crust, ferment, loaf, rise, rose, the, yeast } =
 const { comer, ...esDefs1 } = TEST_PACKS["es-en"].defs;
 
 /**
- * The bundled files behind TEST_PACKS, by path: the EJDict dictionary and the Spanish →
+ * The files behind TEST_PACKS, by path: the EJDict dictionary and the Spanish →
  * English one are each split into two shards.
  */
 const TEST_FILES: Readonly<Record<string, unknown>> = {
@@ -206,7 +207,7 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
 };
 
 /**
- * The real pack loader over a stub of the extension's files (the boundary). Packs in
+ * The real pack loader over a stub of the downloaded files (the boundary). Packs in
  * `fail` cannot be read; packs in `missing` are not on the device (not downloaded);
  * `fetchJson` records every file read.
  */
@@ -229,12 +230,20 @@ export function filesRead(loadPack: ReturnType<typeof stubPackLoader>) {
   return loadPack.fetchJson.mock.calls.map(([path]) => path).sort();
 }
 
-/** The downloaded packs of a build that bundles every pack: none stored, none fetched. */
-export function bundledPacks(): HandlerDeps["packs"] {
+/** Every pack on the device at its lock version; none fetched. */
+export function packsOnDevice(): HandlerDeps["packs"] {
+  const lock = readLock();
   return {
-    lock: readLock(),
+    lock,
     store: {
-      states: async () => ({}),
+      states: async (packs) => {
+        const states: Record<string, PackState> = {};
+        for (const pack of packs) {
+          const total = packBytes(lock.packs[pack as PackName]);
+          states[pack] = { state: "ready", received: total, total };
+        }
+        return states;
+      },
       downloaded: async () => [],
       remove: async () => {},
     },

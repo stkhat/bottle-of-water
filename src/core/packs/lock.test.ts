@@ -5,7 +5,6 @@ const entry = (name: string) => ({
   package: `@langle/${name}`,
   version: "2026.1111.0",
   format: 1,
-  bundled: true,
   files: [{ path: "freq.json", size: 3, sha256: "ab" }],
 });
 const lock = {
@@ -28,67 +27,40 @@ const lock = {
 const LOCAL = "http://localhost:4719/mirror/{package}@{version}/{file}";
 
 describe("applyOverrides", () => {
-  it("downloads the listed packs and replaces the mirrors outside production", () => {
+  it("replaces the mirrors outside production", () => {
     const result = applyOverrides(
       lock,
-      {
-        WXT_PACKS_DOWNLOAD: " es, es-en ,",
-        WXT_PACK_MIRRORS: `${LOCAL}, https://example.test/{file}`,
-      },
+      { WXT_PACK_MIRRORS: ` ${LOCAL}, https://example.test/{file} ,` },
       "check",
     );
-    expect(result.packs.es).toEqual({ ...lock.packs.es, bundled: false });
-    expect(result.packs["es-en"].bundled).toBe(false);
-    expect(result.packs.en).toBe(lock.packs.en);
     expect(result.mirrors).toEqual([LOCAL, "https://example.test/{file}"]);
-    expect(lock.packs.es.bundled).toBe(true);
+    expect(result.packs).toBe(lock.packs);
+    expect(lock.mirrors).toHaveLength(2);
   });
 
-  it("keeps the mirrors without WXT_PACK_MIRRORS, and the packs without WXT_PACKS_DOWNLOAD", () => {
-    expect(
-      applyOverrides(lock, { WXT_PACKS_DOWNLOAD: "es" }, "development").mirrors,
-    ).toBe(lock.mirrors);
-    const mirrorsOnly = applyOverrides(
-      lock,
-      { WXT_PACK_MIRRORS: LOCAL },
-      "test",
-    );
-    expect(mirrorsOnly.packs).toEqual(lock.packs);
+  it("keeps the lock without WXT_PACK_MIRRORS", () => {
     expect(applyOverrides(lock, {}, "check")).toBe(lock);
-    expect(applyOverrides(lock, { WXT_PACKS_DOWNLOAD: "" }, "check")).toBe(
+    expect(applyOverrides(lock, { WXT_PACK_MIRRORS: "" }, "development")).toBe(
       lock,
     );
   });
 
   it("ignores the environment in production", () => {
     expect(
-      applyOverrides(
-        lock,
-        { WXT_PACKS_DOWNLOAD: "es,es-en,zz", WXT_PACK_MIRRORS: LOCAL },
-        "production",
-      ),
+      applyOverrides(lock, { WXT_PACK_MIRRORS: LOCAL }, "production"),
     ).toBe(lock);
-  });
-
-  it("refuses a pack the lock does not have", () => {
-    expect(() =>
-      applyOverrides(lock, { WXT_PACKS_DOWNLOAD: "es,zz" }, "check"),
-    ).toThrow("WXT_PACKS_DOWNLOAD: unknown pack zz");
   });
 });
 
 describe("readLock", () => {
-  it("is the committed lock: English and en-ja bundled, the rest downloaded, jsDelivr then unpkg", () => {
+  it("is the committed lock: every pack downloaded from jsDelivr, then unpkg", () => {
     const { v, mirrors, packs } = readLock();
     expect(v).toBe(1);
     expect(mirrors).toEqual(lock.mirrors);
     expect(Object.keys(packs).sort()).toEqual(Object.keys(lock.packs).sort());
-    const bundled = Object.entries(packs)
-      .filter(([, pack]) => pack.bundled)
-      .map(([name]) => name)
-      .sort();
-    expect(bundled).toEqual(["en", "en-defs", "en-ja"]);
-    for (const pack of Object.values(packs))
+    for (const pack of Object.values(packs)) {
       expect(pack.files.length).toBeGreaterThan(0);
+      expect(pack).not.toHaveProperty("bundled");
+    }
   });
 });

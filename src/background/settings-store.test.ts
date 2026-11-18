@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { DEFAULT_SETTINGS } from "../core/settings";
-import { getSettings, setSettings } from "./settings-store";
+import {
+  getSettings,
+  setSettings,
+  settingsStored,
+  storeStartingPair,
+} from "./settings-store";
 
 beforeEach(() => {
   fakeBrowser.reset();
@@ -54,5 +59,45 @@ describe("settings store", () => {
     const settings = await getSettings();
     expect(settings.knownLevel).toBe(1000);
     expect(settings).not.toHaveProperty("bogus");
+  });
+});
+
+describe("storeStartingPair", () => {
+  const pair = async () => {
+    const { learningLang, nativeLang } = await getSettings();
+    return `${learningLang}>${nativeLang}`;
+  };
+
+  it("stores the pair the UI language suggests on a new install", async () => {
+    expect(await settingsStored()).toBe(false);
+    await storeStartingPair("install", "es-419");
+    expect(await settingsStored()).toBe(true);
+    expect(await pair()).toBe("en>es");
+    const stored = await browser.storage.sync.get("settings");
+    expect(stored.settings).toEqual({
+      ...DEFAULT_SETTINGS,
+      learningLang: "en",
+      nativeLang: "es",
+    });
+  });
+
+  it("stores the default pair after an update", async () => {
+    await storeStartingPair("update", "en-US");
+    expect(await settingsStored()).toBe(true);
+    expect(await pair()).toBe("en>ja");
+  });
+
+  it("keeps the settings stored already, from this device or another", async () => {
+    await setSettings({ knownLevel: 5000 });
+    await storeStartingPair("install", "en-US");
+    expect(await pair()).toBe("en>ja");
+    expect((await getSettings()).knownLevel).toBe(5000);
+
+    fakeBrowser.reset();
+    await browser.storage.sync.set({
+      settings: { learningLang: "en", nativeLang: "pt" },
+    });
+    await storeStartingPair("install", "ja");
+    expect(await pair()).toBe("en>pt");
   });
 });

@@ -102,9 +102,8 @@ function PairDataState(props: {
 }
 
 /**
- * Mock LanguageData: the chosen pair's downloaded data with its state, then other
- * downloaded data, which can be removed. None when the chosen pair's data is bundled
- * and nothing else is downloaded.
+ * Mock LanguageData: the chosen pair's data with its state (every pack is downloaded),
+ * then other downloaded data, which can be removed.
  */
 function LanguageData(props: {
   status: PackStatus;
@@ -115,7 +114,6 @@ function LanguageData(props: {
 }) {
   const { pair } = props.status;
   const others = otherData(props.status.others);
-  if (pair.bundled && others.length === 0) return null;
   const pairSize = pair.packs.reduce((sum, p) => sum + p.size, 0);
   return (
     <div
@@ -132,18 +130,16 @@ function LanguageData(props: {
         desc={t("settings.languages.dataDesc")}
         style={{ paddingBottom: "10px" }}
       />
-      {!pair.bundled && (
-        <div class="sub">
-          <RowLabel
-            small
-            title={languagePair(props.learning, props.native)}
-            desc={t("settings.languages.dataSize", {
-              size: megabytesTenths(pairSize),
-            })}
-          />
-          <PairDataState packs={pair.packs} onRetry={props.onRetry} />
-        </div>
-      )}
+      <div class="sub">
+        <RowLabel
+          small
+          title={languagePair(props.learning, props.native)}
+          desc={t("settings.languages.dataSize", {
+            size: megabytesTenths(pairSize),
+          })}
+        />
+        <PairDataState packs={pair.packs} onRetry={props.onRetry} />
+      </div>
       {others.map((other) => (
         <div key={other.label} class="sub">
           <RowLabel

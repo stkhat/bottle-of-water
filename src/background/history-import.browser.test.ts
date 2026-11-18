@@ -14,7 +14,7 @@ import { createTermStore, MAX_OCCURRENCES, type TermStore } from "./term-store";
 import { fakeClock } from "../testing/clock";
 import { freshDb } from "../testing/db";
 import { replyValue } from "../testing/handlers";
-import { bundledPacks, stubPackLoader } from "../testing/packs";
+import { packsOnDevice, stubPackLoader } from "../testing/packs";
 import { ARTICLE } from "../testing/sources";
 import { createTranslationCache } from "./translation-cache";
 import { createExplanationCache } from "./explanation-cache";
@@ -56,7 +56,7 @@ beforeEach(() => {
       set: async (patch) => (settings = mergeSettings(patch, settings)),
     },
     resources: createLanguageResources(stubPackLoader()),
-    packs: bundledPacks(),
+    packs: packsOnDevice(),
     sync: { status: () => Promise.reject(new Error("not used")) },
     openOptionsPage: async () => {},
   });

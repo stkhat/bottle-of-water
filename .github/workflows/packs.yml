@@ -1,6 +1,6 @@
 name: Publish packs
 
-# Publishes the npm package of each downloadable language pack whose version in the
+# Publishes the npm package of each language pack whose version in the
 # committed lock (src/core/packs/packs.lock.json) is not on npm yet
 # (scripts/data/npm-publish.ts). Run it by hand on main after a pull request that
 # changes data/packs/ is merged, and before the release that uses the new versions.

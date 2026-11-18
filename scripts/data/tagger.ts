@@ -1,4 +1,4 @@
-// UD English-EWT (CC BY-SA 4.0) → public/packs/en/tagger.json: the English
+// UD English-EWT (CC BY-SA 4.0) → data/packs/en/tagger.json: the English
 // part-of-speech tagger, an averaged perceptron over Penn Treebank tags
 // (src/core/tagging/perceptron.ts). Training is deterministic: the same treebank gives
 // the same file. The shipped file was trained before word shapes read non-ASCII letters

@@ -395,9 +395,7 @@ export interface HistoryStatus {
 
 export interface PackStatus {
   pair: {
-    /** Every pack of the pair is bundled: there is no language data to show. */
-    bundled: boolean;
-    /** The pair's downloaded packs, in `packsFor` order, with their size in the lock. */
+    /** The pair's packs, in `packsFor` order, with their size in the lock. */
     packs: (PackState & { pack: string; size: number })[];
   };
   /** Stored packs the chosen pair does not use (Settings offers to remove them). */

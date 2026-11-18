@@ -1,5 +1,5 @@
 // English definitions of English words and phrases from the kaikki.org English
-// Wiktionary extract (CC BY-SA) → public/packs/en-defs/{index,dict-<n>}.json: the
+// Wiktionary extract (CC BY-SA) → data/packs/en-defs/{index,dict-<n>}.json: the
 // fallback of every English dictionary (shown in English, or translated at display
 // time by the browser's translator).
 //

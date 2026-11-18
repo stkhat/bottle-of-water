@@ -37,11 +37,9 @@ interface FakeOptions {
   lastExport?: number | null;
   importResult?: ImportResult | Error;
   history?: HistoryStatus;
-  /** What `packStatus` answers for the settings (default: every pack bundled). */
+  /** What `packStatus` answers for the settings (default: `japanese()`). */
   packStatus?: (settings: Settings) => PackStatus;
 }
-
-const BUNDLED: PackStatus = { pair: { bundled: true, packs: [] }, others: [] };
 
 const MB = 1024 * 1024;
 const HISTORY: HistoryStatus = { bytes: 18 * MB, cap: 50 * MB, pages: 1240 };
@@ -78,7 +76,7 @@ function fake(options: FakeOptions = {}) {
           history = { ...history, bytes: 0, pages: 0 };
           return null;
         case "packStatus": {
-          const status = options.packStatus?.(settings) ?? BUNDLED;
+          const status = options.packStatus?.(settings) ?? japanese();
           return {
             ...status,
             others: status.others.filter((o) => !removed.has(o.pack)),
@@ -146,10 +144,20 @@ const spanish = (
   others: PackStatus["others"] = [],
 ): PackStatus => ({
   pair: {
-    bundled: false,
     packs: [
       { pack: "es", size: 3 * MB_, ...es },
       { pack: "es-en", size: 3.4 * MB_, ...esEn },
+    ],
+  },
+  others,
+});
+/** The default pair's packs (English → Japanese, 32 MB), downloaded. */
+const japanese = (others: PackStatus["others"] = []): PackStatus => ({
+  pair: {
+    packs: [
+      { pack: "en", size: 6 * MB_, ...ready(6 * MB_) },
+      { pack: "en-ja", size: 7 * MB_, ...ready(7 * MB_) },
+      { pack: "en-defs", size: 19 * MB_, ...ready(19 * MB_) },
     ],
   },
   others,
@@ -391,13 +399,11 @@ describe("SettingsPage", () => {
 
     it("lists data the chosen pair does not use, by its pair, and Remove deletes its packs", async () => {
       const f = await open({
-        packStatus: () => ({
-          ...BUNDLED,
-          others: [
+        packStatus: () =>
+          japanese([
             { pack: "es", size: 3 * MB_ },
             { pack: "es-en", size: 6.1 * MB_ },
-          ],
-        }),
+          ]),
       });
       const languages = section(f.screen, "Languages");
       await expect.element(dataRow(f.screen)).toBeVisible();
@@ -407,13 +413,18 @@ describe("SettingsPage", () => {
       await expect
         .element(languages.getByText("Not used by your languages now · 9.1 MB"))
         .toBeVisible();
-      // The chosen pair's data is bundled: it has no row.
-      expect(languages.getByText("English → Japanese").query()).toBeNull();
+      await expect
+        .element(languages.getByText("English → Japanese"))
+        .toBeVisible();
 
       await languages
         .getByRole("button", { name: "Remove Spanish → English data" })
         .click();
-      await expect.element(dataRow(f.screen)).not.toBeInTheDocument();
+      await expect
+        .element(languages.getByText("Spanish → English"))
+        .not.toBeInTheDocument();
+      // The chosen pair's data stays.
+      await expect.element(languages.getByText("Downloaded")).toBeVisible();
       expect(
         f.sent.flatMap((r) => (r.type === "removePack" ? [r.pack] : [])),
       ).toEqual(["es", "es-en"]);
@@ -437,22 +448,31 @@ describe("SettingsPage", () => {
       ).toBeTruthy();
     });
 
-    it("has no Language data row for a pair whose data is bundled, and asks again for another pair", async () => {
+    it("shows the default pair's data, and asks again for another pair", async () => {
       const f = await open({
         packStatus: (s) =>
           s.learningLang === "es"
-            ? spanish(ready(3 * MB_), ready(3.4 * MB_))
-            : BUNDLED,
+            ? spanish(ready(3 * MB_), {
+                state: "downloading",
+                received: 0,
+                total: 3.4 * MB_,
+              })
+            : japanese(),
       });
-      expect(dataRow(f.screen).query()).toBeNull();
+      const languages = section(f.screen, "Languages");
+      await expect
+        .element(languages.getByText("English → Japanese"))
+        .toBeVisible();
+      await expect.element(languages.getByText("32.0 MB")).toBeVisible();
+      await expect.element(languages.getByText("Downloaded")).toBeVisible();
       await userEvent.selectOptions(
         f.screen.getByRole("combobox", { name: /Learning language/ }),
         "Spanish (Español)",
       );
-      await expect.element(dataRow(f.screen)).toBeVisible();
       await expect
-        .element(section(f.screen, "Languages").getByText("Downloaded"))
+        .element(languages.getByText("Downloading · 46%"))
         .toBeVisible();
+      expect(languages.getByText("English → Japanese").query()).toBeNull();
     });
   });
 

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { LemmaPack } from "../../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../../src/core/phrases/pattern.ts";
 import {
-  DOWNLOAD_PACKS_DIR,
+  PACKS_DIR,
   KAIKKI_PATH,
   RAW_DIR,
   readPack,
@@ -96,7 +96,7 @@ async function main() {
     const { dict, sources, counts, stats } = await buildPairDictionary(native, {
       termKey,
     });
-    const index = writeShards(`en-${native}`, dict, DOWNLOAD_PACKS_DIR, {
+    const index = writeShards(`en-${native}`, dict, PACKS_DIR, {
       sources,
     });
     console.log(

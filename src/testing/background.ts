@@ -12,7 +12,7 @@ import {
   type PackFiles,
   type PackName,
 } from "../core/packs/load";
-import { applyOverrides, readLock } from "../core/packs/lock";
+import { readLock } from "../core/packs/lock";
 import {
   packUsable,
   type PackState,
@@ -210,12 +210,7 @@ export function testBackground(
   let settings = mergeSettings(initial, DEFAULT_SETTINGS);
   const settingsWatchers = settingsListeners(settings);
   const missing = new Set<string>(options.missingPacks);
-  // A build that downloads the missing packs; the others are bundled.
-  const lock = applyOverrides(
-    readLock(),
-    { WXT_PACKS_DOWNLOAD: [...missing].join(",") },
-    "test",
-  );
+  const lock = readLock();
   let packStates: PackStates = {};
   const packListeners = new Set<(states: PackStates) => void>();
   let retries = 0;
@@ -247,12 +242,15 @@ export function testBackground(
       store: {
         async states(names) {
           const result: Record<string, PackState> = {};
+          // The missing packs are downloading until `setPackStates` says otherwise; the
+          // others are on the device.
           for (const name of names)
             if (Object.hasOwn(lock.packs, name))
-              if (!lock.packs[name as PackName].bundled)
-                result[name] = Object.hasOwn(packStates, name)
-                  ? packStates[name]!
-                  : { state: "downloading", received: 0, total: 0 };
+              result[name] = Object.hasOwn(packStates, name)
+                ? packStates[name]!
+                : missing.has(name)
+                  ? { state: "downloading", received: 0, total: 0 }
+                  : { state: "ready", received: 0, total: 0 };
           return result;
         },
         downloaded: async () =>

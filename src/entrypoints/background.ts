@@ -28,9 +28,9 @@ import { watchSettings } from "../messaging/storage";
 /**
  * Runs each time the service worker starts. Everything is created again on a restart:
  * the database opens on first use, packs load on the first request that needs them,
- * the chosen pair's downloaded packs are brought to their lock version (a download the
- * worker stopped carries on), and sync pulls what other devices wrote while the worker
- * was stopped.
+ * the chosen pair's packs are brought to their lock version (a download the worker
+ * stopped carries on; a new install first chooses its pair from the browser's UI
+ * language), and sync pulls what other devices wrote while the worker was stopped.
  */
 export default defineBackground(() => {
   // `npm run build:check` only: the error log a check reads (src/check/error-log.ts).
@@ -49,9 +49,7 @@ export default defineBackground(() => {
     setState: (states) =>
       browser.storage.local.set({ [PACK_STATE_KEY]: states }),
   });
-  const loadPack = createPackLoader(
-    createPackSource({ lock, store: packStore }),
-  );
+  const loadPack = createPackLoader(createPackSource(packStore));
   const resources = createLanguageResources(loadPack);
   // A pack whose version switched (or that was removed) is read again when next used.
   packStore.onSwitch((pack) => {
@@ -61,6 +59,7 @@ export default defineBackground(() => {
   // Registers its listeners synchronously, so an event that wakes the worker is heard.
   const { retry: retryPacks } = startPackDownloads(
     createPackDownloads({ store: packStore, getSettings }),
+    () => browser.i18n.getUILanguage(),
   );
 
   const handle = createHandlers({

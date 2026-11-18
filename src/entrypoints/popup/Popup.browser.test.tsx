@@ -40,16 +40,28 @@ interface FakeOptions {
   counts?: Counts;
   sync?: SyncStatus;
   refreshMs?: number;
-  /** What `packStatus` answers for the settings (default: every pack bundled). */
+  /** What `packStatus` answers for the settings (default: `JAPANESE`). */
   packStatus?: (settings: Settings) => PackStatus;
 }
 
-const BUNDLED: PackStatus = { pair: { bundled: true, packs: [] }, others: [] };
+const readyPack = (pack: string, size: number) =>
+  ({ pack, size, state: "ready", received: size, total: size }) as const;
+
+/** The default pair's packs (English → Japanese), downloaded. */
+const JAPANESE: PackStatus = {
+  pair: {
+    packs: [
+      readyPack("en", 6_500_000),
+      readyPack("en-ja", 7_700_000),
+      readyPack("en-defs", 20_500_000),
+    ],
+  },
+  others: [],
+};
 
 /** The Spanish pair's packs, downloaded, in these states. */
 const spanish = (es: PackState, esEn: PackState): PackStatus => ({
   pair: {
-    bundled: false,
     packs: [
       { pack: "es", size: 3_000_000, ...es },
       { pack: "es-en", size: 3_500_000, ...esEn },
@@ -82,7 +94,7 @@ function fake(options: FakeOptions = {}) {
         case "syncStatus":
           return options.sync ?? SYNC;
         case "packStatus":
-          return options.packStatus?.(settings) ?? BUNDLED;
+          return options.packStatus?.(settings) ?? JAPANESE;
         case "retryPacks":
           return null;
         default:
@@ -533,7 +545,7 @@ describe("Popup", () => {
       expect(screen.getByRole("status").query()).toBeNull();
     });
 
-    it("shows nothing for a pair whose data is bundled, and asks again for another pair", async () => {
+    it("shows nothing for a pair whose data is on the device, and asks again for another pair", async () => {
       const f = fake({
         packStatus: (s) =>
           s.learningLang === "es"
@@ -542,7 +554,7 @@ describe("Popup", () => {
                 received: 0,
                 total: 3_500_000,
               })
-            : BUNDLED,
+            : JAPANESE,
       });
       const screen = await render(<Popup deps={f.deps} />);
       await expect.element(screen.getByText("2,341")).toBeVisible();

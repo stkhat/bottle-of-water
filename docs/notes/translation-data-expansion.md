@@ -40,8 +40,8 @@ Tiers: **T1** a dedicated bilingual dictionary is the main source and the pair p
 ### 1. Native languages the current recipe already passes: fr, de, ru
 English Wiktionary's translation tables alone reach 95.0% (fr), 95.4% (de) and 95.3% (ru). Each needs only a recipe entry (`RECIPES` in `scripts/data/recipes/native.mjs`). The fr, de and ru Wiktionary editions are in kaikki's extracts and would add margin; they were not downloaded.
 
-### 2. Vietnamese through its own Wiktionary edition
-The Vietnamese edition defines 98.5% of the words in Vietnamese by itself (99.0% with the tables), with dictionary-like entries ("deserve" → "Đáng, xứng đáng"; "available" → "Sẵn có để dùng…"). Many of these English entries use the edition's old entry structure and look bulk-imported from an earlier English–Vietnamese dictionary. **Before use: confirm where they came from and under which license they were imported.**
+### 2. Vietnamese through its own Wiktionary edition: not used (user, 2026-11-18)
+The Vietnamese edition defines 98.5% of the words in Vietnamese by itself (99.0% with the tables), with dictionary-like entries ("deserve" → "Đáng, xứng đáng"; "available" → "Sẵn có để dùng…"). Provenance, checked 2026-11-18: these English entries (about 98% of the gate's 5,000 words have a sense from them) were imported in 2006 by the bot PiedBot from the Free Vietnamese Dictionary Project's English–Vietnamese database (Hồ Ngọc Đức, GNU GPL; [Wiktionary:Nguồn gốc/FVDP](https://vi.wiktionary.org/wiki/Wiktionary:Nguồn_gốc/FVDP), [Thành viên:PiedBot](https://vi.wiktionary.org/wiki/Thành_viên:PiedBot)). The only permission for GFDL use is a one-line email from the author (2006-05-19), with no explicit CC BY-SA grant. Without those entries the edition covers about 0.4–2%. **Decision: not used; revisit only with a written CC BY-SA or CC BY grant from the author.**
 
 ### 3. Open Multilingual Wordnet (OMW 1.4) as a new source
 OMW links languages through WordNet synsets, so a translation keeps the sense it was made for (unlike pivoting through English words). Measured gain on top of tables + edition:
@@ -92,7 +92,7 @@ Two of the top 20 are special: Nigerian Pidgin has no settled spelling, and Egyp
 
 ## Next steps, in order of payoff
 1. Add fr, de and ru recipes (no new source).
-2. Check the Vietnamese edition's provenance; if clean, add vi.
+2. ~~Check the Vietnamese edition's provenance; if clean, add vi.~~ Checked 2026-11-18: its English entries come from a GPL dictionary with no CC BY-SA grant, so vi is dropped (section 2).
 3. Decide on the "wordnet" license and OMW's place in the source order; then add zh (and re-measure id with its edition and OMW together).
 4. Measure the T2? cells for the learning languages planned next.
 

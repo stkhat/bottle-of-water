@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import type { TermIndex } from "../core/classify";
 import type { PackName } from "../core/packs/load";
-import { applyOverrides, readLock, type PackLock } from "../core/packs/lock";
+import { readLock, type PackLock } from "../core/packs/lock";
 import type { PackState } from "../core/packs/state";
 import { blockCasing, documentCasing } from "../core/text/casing";
 import { tokenize } from "../core/text/tokenize";
@@ -133,21 +133,17 @@ type FakePacks = {
   retry: Mock<() => void>;
 };
 
-/** The lock of a build that downloads es and es-en. */
-const DOWNLOAD_LOCK = applyOverrides(
-  readLock(),
-  { WXT_PACKS_DOWNLOAD: "es,es-en" },
-  "test",
-);
+/** The committed lock: every pack is downloaded. */
+const LOCK = readLock();
 
 /** A pack's size in the lock. */
 const lockSize = (pack: PackName) =>
-  DOWNLOAD_LOCK.packs[pack].files.reduce((sum, file) => sum + file.size, 0);
+  LOCK.packs[pack].files.reduce((sum, file) => sum + file.size, 0);
 
 /** Downloaded packs: none stored and no state unless a test says so. */
 function fakePacks(): FakePacks {
   return {
-    lock: DOWNLOAD_LOCK,
+    lock: LOCK,
     store: {
       states: vi.fn(async () => ({})),
       downloaded: vi.fn(async (): Promise<DownloadedPack[]> => []),
@@ -495,13 +491,20 @@ describe("handlers: language data", () => {
     });
   });
 
-  it("gives no data row for a pair whose packs are all bundled, and lists the other downloaded packs", async () => {
+  it("gives the default pair's packs with their sizes, and lists the other downloaded packs", async () => {
     packs.store.downloaded.mockResolvedValue([
       { pack: "es", version: "2026.1111.0", size: 120 },
       { pack: "es-en", version: "2026.1111.0", size: 80 },
     ]);
+    packs.store.states.mockResolvedValue({ en: ready("en") });
     expect(await value({ type: "packStatus" })).toEqual({
-      pair: { bundled: true, packs: [] },
+      pair: {
+        packs: [
+          { pack: "en", size: lockSize("en"), ...ready("en") },
+          { pack: "en-ja", size: lockSize("en-ja") },
+          { pack: "en-defs", size: lockSize("en-defs") },
+        ],
+      },
       others: [
         { pack: "es", size: 120 },
         { pack: "es-en", size: 80 },
@@ -509,7 +512,7 @@ describe("handlers: language data", () => {
     });
   });
 
-  it("gives the state and size of each downloaded pack of the pair", async () => {
+  it("gives the state and size of each pack of the pair", async () => {
     await setSettings({ learningLang: "es", nativeLang: "en" });
     const downloading: PackState = {
       state: "downloading",
@@ -525,7 +528,6 @@ describe("handlers: language data", () => {
     ]);
     expect(await value({ type: "packStatus" })).toEqual({
       pair: {
-        bundled: false,
         packs: [
           { pack: "es", size: lockSize("es"), ...ready("es") },
           { pack: "es-en", size: lockSize("es-en"), ...downloading },

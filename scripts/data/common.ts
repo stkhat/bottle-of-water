@@ -14,10 +14,8 @@ import type { ShardIndex } from "../../src/core/packs/types.ts";
 
 export const ROOT = resolve(import.meta.dirname, "..", "..");
 export const RAW_DIR = join(ROOT, "data", "raw");
-/** Packs that are always bundled (en, en-ja, en-defs). */
-export const PACKS_DIR = join(ROOT, "public", "packs");
-/** Packs that can be downloaded: bundled or not as their lock entry says. */
-export const DOWNLOAD_PACKS_DIR = join(ROOT, "data", "packs");
+/** The packs, one folder each: the extension downloads every one (none is bundled). */
+export const PACKS_DIR = join(ROOT, "data", "packs");
 /** Word lists the quality gate reads; not part of any pack. */
 export const GATE_DIR = join(ROOT, "data", "gate");
 export const KAIKKI_PATH = join(RAW_DIR, "kaikki-en.jsonl");
@@ -56,7 +54,7 @@ export function stringifyPack(
   return `${open}\n${lines.join(",\n")}\n${close}\n`;
 }
 
-/** Writes `value` to <dir>/<relPath> (public/packs/ by default). */
+/** Writes `value` to <dir>/<relPath> (data/packs/ by default). */
 export function writePack(
   relPath: string,
   value: object,
@@ -68,7 +66,7 @@ export function writePack(
   writeFileSync(path, stringifyPack(value, options));
 }
 
-/** Reads <dir>/<relPath> (public/packs/ by default). */
+/** Reads <dir>/<relPath> (data/packs/ by default). */
 export function readPack<T>(relPath: string, dir = PACKS_DIR): T {
   return JSON.parse(readFileSync(join(dir, relPath), "utf8")) as T;
 }

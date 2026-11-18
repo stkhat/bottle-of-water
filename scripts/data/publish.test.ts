@@ -33,9 +33,8 @@ const read = (path: string) => readFileSync(join(dir, path), "utf8");
 const sha256 = (text: string) =>
   createHash("sha256").update(text).digest("hex");
 
-const info = (name: string, downloadable: boolean): PackInfo => ({
-  dir: join(dir, downloadable ? "data" : "public", name),
-  downloadable,
+const info = (name: string): PackInfo => ({
+  dir: join(dir, "data", name),
   format: name === "es" ? 2 : 1,
   package: `@test-scope/${name}`,
   license: {
@@ -63,8 +62,8 @@ const NOV_12 = new Date("2026-11-12T09:00:00Z");
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "publish-"));
-  packs = { en: info("en", false), es: info("es", true) };
-  put("public/en/freq.json", '["the"]\n');
+  packs = { en: info("en"), es: info("es") };
+  put("data/en/freq.json", '["the"]\n');
   put("data/es/freq.json", '["de"]\n');
   put("data/es/sub/dict-1.json", '{"comer":1}\n');
 });
@@ -103,7 +102,6 @@ describe("nextVersion", () => {
     package: "@test-scope/es",
     version,
     format: 1,
-    bundled: true,
     files: [{ path: "a.json", size: 1, sha256: sha }],
   });
   const changed = (version: string, now: Date) =>
@@ -163,7 +161,7 @@ describe("nextVersion", () => {
 });
 
 describe("buildLock", () => {
-  it("lists each pack's package, version, format and files, every pack bundled", () => {
+  it("lists each pack's package, version, format and files", () => {
     const lock = buildLock(packs, { now: NOV_11 });
     expect(lock).toEqual({
       v: 1,
@@ -173,14 +171,12 @@ describe("buildLock", () => {
           package: "@test-scope/en",
           version: "2026.1111.0",
           format: 1,
-          bundled: true,
           files: [{ path: "freq.json", size: 8, sha256: sha256('["the"]\n') }],
         },
         es: {
           package: "@test-scope/es",
           version: "2026.1111.0",
           format: 2,
-          bundled: true,
           files: [
             { path: "freq.json", size: 7, sha256: sha256('["de"]\n') },
             {
@@ -198,19 +194,6 @@ describe("buildLock", () => {
     expect(
       buildLock(packs, { now: NOV_11, pairs: { en: ["ja", "es"] } }).pairs,
     ).toEqual({ en: ["ja", "es"] });
-  });
-  it("marks the packs to download as not bundled", () => {
-    const lock = buildLock(packs, { download: ["es"], now: NOV_11 });
-    expect(lock.packs.es?.bundled).toBe(false);
-    expect(lock.packs.en?.bundled).toBe(true);
-  });
-  it("refuses to download a pack from public/packs or an unknown pack", () => {
-    expect(() => buildLock(packs, { download: ["en"] })).toThrow(
-      /en is always bundled/,
-    );
-    expect(() => buildLock(packs, { download: ["fr"] })).toThrow(
-      /Unknown pack: fr/,
-    );
   });
   it("refuses a pack without files and a folder without a pack", () => {
     rmSync(join(dir, "data/es"), { recursive: true });
@@ -237,7 +220,6 @@ describe("publish", () => {
     expect(text).toBe(`${JSON.stringify(sortKeys(lock), null, 2)}\n`);
     expect(Object.keys(lock)).toEqual(["mirrors", "packs", "pairs", "v"]);
     expect(Object.keys(lock.packs.es!)).toEqual([
-      "bundled",
       "files",
       "format",
       "package",
@@ -255,17 +237,10 @@ describe("publish", () => {
     expect(lockOf().packs.es?.version).toBe("2026.1111.1");
     expect(lockOf().packs.en?.version).toBe("2026.1111.0");
   });
-  it("sets bundled from the download option on each run", () => {
-    publish({ ...options(), download: ["es"], now: NOV_11 });
-    expect(lockOf().packs.es?.bundled).toBe(false);
-    publish({ ...options(), now: NOV_11 });
-    expect(lockOf().packs.es?.bundled).toBe(true);
-    expect(lockOf().packs.es?.version).toBe("2026.1111.0");
-  });
-  it("writes an npm package folder for each pack in data/packs", () => {
+  it("writes an npm package folder for each pack", () => {
     put("publish/es/stale.json", "{}");
     publish({ ...options(), now: NOV_11 });
-    expect(existsSync(join(dir, "publish/en"))).toBe(false);
+    expect(read("publish/en/freq.json")).toBe('["the"]\n');
     expect(existsSync(join(dir, "publish/es/stale.json"))).toBe(false);
     expect(read("publish/es/freq.json")).toBe('["de"]\n');
     expect(read("publish/es/sub/dict-1.json")).toBe('{"comer":1}\n');
@@ -300,13 +275,9 @@ describe("the committed lock", () => {
   const lock = JSON.parse(readFileSync(LOCK_PATH, "utf8")) as PackLock;
 
   it("matches the pack files and formats (else run npm run data:publish)", () => {
-    const download = Object.entries(lock.packs)
-      .filter(([, entry]) => !entry.bundled)
-      .map(([name]) => name);
     expect(
       buildLock(PACKS, {
         previous: lock,
-        download,
         pairs: offeredPairs(gateReport()),
       }),
     ).toEqual(lock);

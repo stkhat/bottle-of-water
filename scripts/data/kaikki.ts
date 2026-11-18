@@ -1,4 +1,4 @@
-// kaikki.org English Wiktionary extract (CC BY-SA) → public/packs/en/{vocab,lemmas,ipa,pos,names}.json
+// kaikki.org English Wiktionary extract (CC BY-SA) → data/packs/en/{vocab,lemmas,ipa,pos,names}.json
 // The vocabulary is EJDict's single-word headwords and the words rule E adds
 // (`vocabulary.ts`), listed in data/gate/en-wiktionary-words.json (the frequency list
 // ranks those it lacks, the quality gate leaves them out); the example counts that

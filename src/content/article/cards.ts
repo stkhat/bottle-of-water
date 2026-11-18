@@ -1,5 +1,6 @@
 import { collapseSpaces } from "../../core/text/sentences";
 import type { TermCard } from "../lookup/describe";
+import { warn } from "../lookup/warn";
 import { wordBoxes, type Box } from "../lookup/geometry";
 import {
   describeSpan,
@@ -94,6 +95,65 @@ export function createCards(o: {
     });
   }
 
+  /**
+   * The hover card for `ref`, over `over` when given, else over the word. Without the
+   * language data it needs (the first download), it shows once the data is there,
+   * while the pointer is still on the word.
+   */
+  async function showHover(ref: SpanRef, over?: Box): Promise<void> {
+    if (o.selecting()) return;
+    const isLatest = hoverTicket.next();
+    let card: TermCard;
+    try {
+      card = await describe(ref);
+    } catch (error) {
+      if (!isLatest()) return;
+      if (
+        lookup.showWhenReady(
+          "hover",
+          error,
+          () => void showHover(ref, over).catch(warn),
+        )
+      )
+        return;
+      throw error;
+    }
+    if (!isLatest()) return;
+    const anchor = over ?? boxesOf(ref)[0];
+    if (!anchor) return;
+    hoverRef = ref;
+    store.set({ hover: { anchor, card } });
+  }
+
+  /**
+   * The panel for `ref`; `outline` false when the word was not clicked on the page.
+   * Without the language data it needs, it opens once the data is there.
+   */
+  async function openPanel(ref: SpanRef, outline = true): Promise<void> {
+    const isLatest = panelTicket.next();
+    let card: TermCard;
+    try {
+      card = await describe(ref, "window");
+    } catch (error) {
+      if (!isLatest()) return;
+      if (
+        lookup.showWhenReady(
+          "window",
+          error,
+          () => void openPanel(ref, outline).catch(warn),
+        )
+      )
+        return;
+      throw error;
+    }
+    if (!isLatest()) return;
+    panelRef = ref;
+    outlined = outline;
+    showPanel(ref, card);
+    o.opened?.(ref, card);
+    o.onPanelOpen?.();
+  }
+
   /** Looks the term up again where the hover card or the panel shows it. */
   async function refresh(term: Term) {
     const { hover, panel } = store.get();
@@ -120,35 +180,17 @@ export function createCards(o: {
       const refs = [hoverRef, panelRef].filter((r) => r !== undefined);
       for (const { span } of refs) await refresh(span);
     },
-    /** The hover card for `ref`, over `over` when given, else over the word. */
-    async showHover(ref: SpanRef, over?: Box) {
-      if (o.selecting()) return;
-      const isLatest = hoverTicket.next();
-      const card = await describe(ref);
-      if (!isLatest()) return;
-      const anchor = over ?? boxesOf(ref)[0];
-      if (!anchor) return;
-      hoverRef = ref;
-      store.set({ hover: { anchor, card } });
-    },
+    showHover,
     hideHover() {
       hoverTicket.drop();
+      lookup.dropShow("hover");
       hoverRef = undefined;
       if (store.get().hover) store.set({ hover: null });
     },
-    /** The panel for `ref`; `outline` false when the word was not clicked on the page. */
-    async openPanel(ref: SpanRef, outline = true) {
-      const isLatest = panelTicket.next();
-      const card = await describe(ref, "window");
-      if (!isLatest()) return;
-      panelRef = ref;
-      outlined = outline;
-      showPanel(ref, card);
-      o.opened?.(ref, card);
-      o.onPanelOpen?.();
-    },
+    openPanel,
     closePanel() {
       panelTicket.drop();
+      lookup.dropShow("window");
       panelRef = undefined;
       panelRanges = [];
       store.set({ panel: null });
