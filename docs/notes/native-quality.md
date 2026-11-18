@@ -146,19 +146,14 @@ A checklist for the D2/D3 steps (ru, fr, de, zh, it, pl), in the order to do it:
 7. **Judge**: a baseline packet with ja as reference (`base_packets.py`), then a blind A/B of the fixes (`ab_packets_ci.py`, which ignores case-only changes) on a fresh sample.
 8. **Site translations**: collect the native language's caption tracks (YouTube human tracks and `tlang`, Netflix subtitles) for a few videos and episodes, so cards with no native line can be measured; this study could not.
 
-## Costs and decisions for you
-- **Bundle size**: the prototype packs grow en-es 4.65 → 5.00 MB and en-pt 3.69 → 4.05 MB (+0.08 / +0.10 MB gzipped). Of that, 0.27 MB are lowercase copies of capitalised entries that the lookup can avoid; without them +0.45 MB in all, which takes all packs from 49.65 to about 50.1 MB, just over the 50 MB guard. Options, measured:
-  - keep at most 2 senses per capitalised entry (most have 1);
-  - move selection-only phrase definitions out of `en-defs` when pack hosting exists (translation-quality.md);
-  - raise the guard (not recommended; AMO and store limits are per file, the guard is ours).
-- **Pointer lines for Latin-script natives**: the A/B losses are mostly the pointer line.
-  - Option A (prototype): show a pointer when it fits 40 characters ("pasado simple del verbo sell / vender"), drop it when longer ("is" → ser / estar).
-  - Option B: never show verb-inflection pointers; keep comparative and superlative ones ("superlativo de good"), whose target alone misleads (best → bom).
-  - Option C: show pointers as Japanese does, whatever their length.
-  - Round 3 (Option A) preferred the prototype 221 vs 37 overall; 20 of the 37 were a verb-form pointer line the learner did not need (sold, knew, been, telling).
-- **Width cap for translated lines in Latin scripts**: 40 characters today; 50 matches the Japanese cap's width better (25 wide characters ≈ 50 Latin). Over the stand-in translations, lines cut 46 → 38% (es) and 49 → 37% (pt). Not judged; the mock decides the card width.
-- **One source per term**: Portuguese closed-class words are better translated by the tables, but the table senses' order is arbitrary. Mixing sources per sense would break the one-source-per-term rule (attribution per term).
-- **Names in caseless text** are unchanged (a learning-side rule).
+## Costs and decisions
+Decided by the user (2026-11-18):
+- **Bundle size is no longer a constraint**. The prototype packs grow en-es 4.65 → 5.00 MB and en-pt 3.69 → 4.05 MB (+0.08 / +0.10 MB gzipped). Step D0 (PR #113) makes every pack downloaded and replaces the 50 MB all-packs guard with a per-pair guard of 40 MB raw; en→es is 31.67 MB and en→pt 30.70 MB today, so the capitalised entries fit. Still recommended: the lookup falls back to the capitalised entry when there is no lowercase one, instead of storing lowercase copies (saves 0.27 MB across the two pairs).
+- **Pointer lines for Latin-script natives: Option A**, as the prototype does: a pointer line shows when it fits the line cap ("pasado simple del verbo sell / vender") and is left out when it is wider, while a meaning shows ("is" → ser / estar). Measured alternatives: never showing verb-inflection pointers but keeping comparative and superlative ones (best → bom alone misleads); always showing them, as Japanese does. In round 3 (Option A) the prototype was preferred 221 vs 37; 20 of the 37 were a verb-form pointer line the learner did not need (sold, knew, been, telling).
+- **Width cap for translated lines in Latin scripts**: set by the mock's hover card. The fix step measures how many Latin characters fit the card's width and uses that number (40 today; 25 wide characters ≈ 50 Latin). For reference, over the stand-in translations a cap of 40 cuts 46% (es) and 49% (pt) of lines, a cap of 50 cuts 38% and 37%.
+- **One source per term stays**. Portuguese closed-class words would be better translated by the tables, but their senses come in an arbitrary order, and mixing sources per sense would break attribution per term.
+
+Unchanged: names in caseless text (a learning-side rule).
 
 ## Still open
 - Wrong sense within the right part of speech: the same as en-ja, now the largest remaining class for es/pt too (Netflix good 48–55%).
@@ -169,10 +164,11 @@ A checklist for the D2/D3 steps (ru, fr, de, zh, it, pl), in the order to do it:
 - Classify time doubled in the prototype runs (5.2 → 9.8 ms per 1,000 tokens): the prototype reads `process.env` and rebuilds senses per call; a real build should not cost this, but measure it.
 
 ## Suggested order
+Step 1 starts now, from main. Steps 2–5 run after D1 (`claude/native-infra`: a native-language registry and recipe changes, in progress), since they change the recipes and the pair dictionary D1 reworks.
 1. **CORE A1 fallback and auxiliary base** (small, deterministic; ja unchanged): measured alone on today's packs, no-hover tokens es 2,635 → 1,849 and pt 3,386 → 1,859 (`runs/proto-{es,pt}-a1only`); the rest needs steps 2 and 3. Every future native benefits.
-2. **Form-of pointers in the data build, learned pointer templates, followed lines in A2's order, pointer-only terms yield** (data rebuild of en-es and en-pt, the pair dictionary reads pointer senses): are → ser/estar, told → contar; expected changed hovers ~10% (es) and ~15% (pt) of tokens, preferred as in round 3. Includes the pointer-line decision.
-3. **Capitalised headwords for pairs** (`capital.json` per pair, `capitalMeaning`, `written`, class glosses, persons rule for Wiktionary-derived meanings): Japan → Japón, months and nationalities shown; names es 1,496 → ~1,310, pt → ~1,240. Needs the size decision.
-4. **Latin-script short lines** (first sentence, closing marks, subscripts, native case): cosmetic but on every Wikcionario gloss (25,000 in es); with the cap decision for translated lines.
+2. **Form-of pointers in the data build, learned pointer templates, followed lines in A2's order, pointer-only terms yield** (data rebuild of en-es and en-pt, the pair dictionary reads pointer senses): are → ser/estar, told → contar; expected changed hovers ~10% (es) and ~15% (pt) of tokens, preferred as in round 3. Pointer lines as decided (Option A).
+3. **Capitalised headwords for pairs** (`capital.json` per pair, `capitalMeaning`, `written`, class glosses, persons rule for Wiktionary-derived meanings; the lookup falls back to the capitalised entry instead of lowercase copies): Japan → Japón, months and nationalities shown; names es 1,496 → ~1,310, pt → ~1,240. Fits the per-pair guard of D0.
+4. **Latin-script short lines** (first sentence, closing marks, subscripts, native case): cosmetic but on every Wikcionario gloss (25,000 in es); the translated-line cap is the number of Latin characters that fit the mock's hover card, measured in this step.
 5. **Contractions and sentence-start lookup** (CORE): pt we're/they're (~900 tokens); measure the sentence-start rule on ja too.
 6. **Then the next natives** with the checklist above, starting with fr, de, ru (recipes only, per translation-data-expansion.md).
 
