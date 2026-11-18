@@ -19,6 +19,12 @@ export interface NativeLanguage {
    */
   readonly dense: boolean;
   /**
+   * The Unicode scripts its words are written in (`\p{Script=…}`). In a language not
+   * written in Latin letters, a meaning with no letter of its own script is no meaning
+   * (en-zh "be" → "or implied", a translation table's parse artifact).
+   */
+  readonly scripts: readonly string[];
+  /**
    * The meaning-in-context prompt's two example answers written in the language: "bank"
    * by a river (one of several dictionary meanings) and "spilled the beans" (an idiom
    * without an entry). Null: English's.
@@ -42,6 +48,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.ja",
     spaces: false,
     dense: true,
+    scripts: ["Han", "Hiragana", "Katakana"],
     examples: { bank: "川岸、土手", beans: "秘密をばらす" },
   },
   es: {
@@ -49,6 +56,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.es",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: { bank: "orilla (de un río)", beans: "revelar el secreto" },
     englishPair: { format: 3 },
   },
@@ -57,6 +65,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.pt",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: { bank: "margem (de um rio)", beans: "revelar o segredo" },
     englishPair: { format: 3 },
   },
@@ -67,6 +76,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.ru",
     spaces: true,
     dense: false,
+    scripts: ["Cyrillic"],
     examples: null,
     englishPair: { format: 3 },
   },
@@ -75,6 +85,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.fr",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: { bank: "rive (d'une rivière)", beans: "révéler le secret" },
     englishPair: { format: 3 },
   },
@@ -83,6 +94,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.de",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: { bank: "Ufer (eines Flusses)", beans: "das Geheimnis verraten" },
     englishPair: { format: 3 },
   },
@@ -94,6 +106,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.zh",
     spaces: false,
     dense: true,
+    scripts: ["Han"],
     examples: null,
     englishPair: { format: 3 },
   },
@@ -102,6 +115,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.it",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: null,
     englishPair: { format: 3 },
   },
@@ -110,6 +124,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.pl",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: null,
     englishPair: { format: 3 },
   },
@@ -118,6 +133,7 @@ export const NATIVE_LANGUAGES = {
     name: "languageName.en",
     spaces: true,
     dense: false,
+    scripts: ["Latin"],
     examples: { bank: "riverbank", beans: "revealed the secret" },
   },
 } as const satisfies Readonly<Record<string, NativeLanguage>>;

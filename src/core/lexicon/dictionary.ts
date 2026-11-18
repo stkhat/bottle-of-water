@@ -25,6 +25,7 @@ import {
   capitalKey,
   cleanShort,
   definitionLine,
+  editionLine,
   fitsPairCap,
   japaneseForm,
   japanesePointer,
@@ -46,8 +47,9 @@ export interface DictionaryEntry {
   short: string;
   /**
    * The hover card's meanings, one per line: up to three senses as short lines
-   * (`shortLines`), a pointer followed to the entry it names. Only `short` for an
-   * entry glossed in another language, which is translated at display time.
+   * (`shortLines`), a pointer followed to the entry it names. For an entry glossed in
+   * another language, which is translated at display time: `short` as a line of that
+   * language (within its cap), shown until it is translated.
    */
   lines: string[];
   senses: Sense[];
@@ -444,8 +446,10 @@ function definitionLines(
 /**
  * An English definition from en-defs, translated at display time (`glossLang: "en"`):
  * its short meaning alone, from the sense rule A2 puts first for a word tagged `pos`.
- * A short meaning that only points to another term is not translated, so the card
- * shows it as written, with that term's definitions.
+ * Until it is translated (no translator, or not yet), the card shows the short meaning
+ * as a definition's line (`definitionLine`: within the English cap) in its `lines`. A
+ * short meaning that only points to another term is not translated, so the card shows
+ * it as written, with that term's definitions.
  */
 function definitionInEnglish(
   head: string,
@@ -465,9 +469,10 @@ function definitionInEnglish(
     ...found,
     short,
     glossLang: "en",
-    ...(definitionPointer(short) !== undefined && {
-      lines: definitionLines(head, found, linesOf(), defs, order),
-    }),
+    lines:
+      definitionPointer(short) !== undefined
+        ? definitionLines(head, found, linesOf(), defs, order)
+        : [definitionLine(short, definitionPointerOf)],
   };
 }
 
@@ -647,8 +652,8 @@ export function createPairDictionary({
       // irregular de good").
       const points = (sense: PairSenses[number]) =>
         sense[3] !== undefined && (sense === first || !degrees.has(sense));
-      // A line a meaning shows too is that meaning's (es later: "Comparativo de late:
-      // más tarde" is an adverb's meaning and, cut, an adjective's unmarked degree).
+      // A line a meaning shows too is that meaning's (a degree's line that is also the
+      // line of a meaning of another part of speech).
       const meaningLine = new Set(lines.filter((_, i) => !points(raw[i]!)));
       const pointers = new Map<string, Pointer>();
       const pointerPos = new Map<string, string>();
@@ -660,8 +665,9 @@ export function createPairDictionary({
         if (!linePos.has(lines[i]!)) linePos.set(lines[i]!, sensePos);
         if (!pointerPos.has(target!)) pointerPos.set(target!, sensePos);
       });
-      const quiet = (line: string) => linePos.has(line) && !fitsPairCap(line);
       const second = (line: string) => !dense && linePos.get(line) === "verb";
+      const quiet = (line: string) =>
+        linePos.has(line) && !fitsPairCap(line, second(line));
       // With a tag, after a first form that is a verb's or a degree, the word's own
       // meanings of another part of speech than the form's come after its base's
       // (needs/VBZ: necesitar before the noun "carencia"). Not after a plural: its own
@@ -749,17 +755,21 @@ const DEGREES: readonly string[] = ["adjective", "adverb"];
  * but often not comparatives and superlatives): a sense with no target and no hint (an
  * edition's, not a table's) of an adjective or adverb that writes, after other words,
  * one of its headword's base forms (`bases`, the learning language's lemmas: better →
- * good, well) whose main part of speech is the sense's own. A gloss that starts with
- * the base is a native word spelt the same (fr contented: "Content, satisfait").
+ * good, well) whose main part of speech is the sense's own, in its line
+ * (`editionLine`). A gloss that starts with the base is a native word spelt the same
+ * (fr contented: "Content, satisfait"); one whose line is the meaning a qualifier
+ * introduces is that meaning (es later: "Comparativo de late: más tarde" → "más
+ * tarde").
  */
 function degreeOf(
-  [pos, text, hint, target]: PairSenses[number],
+  [pos, gloss, hint, target]: PairSenses[number],
   head: string,
   bases: readonly string[],
   learningPos: PosPack,
 ): string | undefined {
   if (target !== undefined || hint != null || !DEGREES.includes(pos))
     return undefined;
+  const text = editionLine(gloss);
   return bases.find((base) => {
     if (base === head || own(learningPos, base)?.[0] !== pos) return false;
     const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -770,9 +780,12 @@ function degreeOf(
   });
 }
 
-/** A translation table's sense is a list of words: its line is the first one. */
+/**
+ * A pair sense's line: an edition's gloss as `editionLine` makes it; a translation
+ * table's sense is a list of words, and its line is the first one.
+ */
 const pairLine = ({ text, hint }: Pick<Sense, "text" | "hint">) =>
-  hint === undefined ? definitionLine(text) : text.split(", ")[0]!.trim();
+  hint === undefined ? editionLine(text) : text.split(", ")[0]!.trim();
 
 /** The outline of a headword's English definitions, when it has some. */
 function definitionOutline(

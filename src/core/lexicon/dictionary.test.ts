@@ -385,6 +385,31 @@ describe("createEnJaDictionary", () => {
     });
   });
 
+  it("shows a long English definition, until it is translated, within the English cap", () => {
+    const long = createEnJaDictionary({
+      dict: {},
+      sensePos: {},
+      capital: {},
+      phrases: {},
+      pos: {},
+      ipa: {},
+      defs: {
+        "hold out": [
+          "To keep resisting an attack or a demand for a long time without giving in",
+          [
+            [
+              "verb",
+              "To keep resisting an attack or a demand for a long time without giving in.",
+            ],
+          ],
+        ],
+      },
+    });
+    expect(long.entry("hold out")?.lines).toEqual([
+      "To keep resisting an attack or a…",
+    ]);
+  });
+
   it("follows an English definition that only points to another term to that term's definitions", () => {
     expect(dictionary.entry("search for")).toMatchObject({
       short: "Synonym of look for",
@@ -721,7 +746,8 @@ describe("createPairDictionary", () => {
       // A capitalised "And" is no acronym.
       expect(acronyms.entry("And", "capital")?.lines).toEqual(["y"]);
       expect(acronyms.entry("AND", "upper")?.lines).toEqual(["Y lógico", "y"]);
-      expect(acronyms.entry("US", "upper")?.lines).toEqual(["EE. UU", "nos"]);
+      // An abbreviation keeps its period.
+      expect(acronyms.entry("US", "upper")?.lines).toEqual(["EE. UU.", "nos"]);
       expect(acronyms.capitalMeaning("us")).toBeUndefined();
     });
     it("shows the lowercase entry alone for a word in lower case or where the page does not say", () => {
@@ -843,6 +869,25 @@ describe("createPairDictionary", () => {
       expect(
         dictionary.entry("contented", undefined, "adjective")?.lines,
       ).toEqual(["Content, satisfait"]);
+    });
+    it("reads a degree whose line is the meaning a qualifier introduces as that meaning", () => {
+      const later = createPairDictionary({
+        dict: {
+          later: [
+            "Más tarde",
+            [["adverb", "Comparativo de late: más tarde"]],
+            0,
+          ],
+          late: ["Tarde", [["adverb", "Tarde"]], 0],
+        },
+        defs: {},
+        ipa: {},
+        lemmas: { later: "late" },
+        pos: { late: ["adverb"] },
+      });
+      expect(later.entry("later", undefined, "adverb")?.lines).toEqual([
+        "más tarde",
+      ]);
     });
     it("shows an auxiliary's senses its source calls auxiliary first", () => {
       expect(dictionary.entry("have", undefined, "auxiliary")?.lines).toEqual([
