@@ -56,7 +56,7 @@ OMW links languages through WordNet synsets, so a translation keeps the sense it
 
 - zh passes the gate with OMW, and OMW's Chinese wordnet is in Simplified characters (the zh edition writes Traditional).
 - Quality, sampled: zh is good (basically → 基本上, setback → 挫折, gravity → 重力) but needs clean-up of markers such as "婚姻+的". id is uneven (manner → cara is right, lawsuit → "sebab, hal" and don → "mengira" are wrong; the wordnet mixes in Malay). ja needs a choice among lemmas: the first lemmas are sometimes archaic (官衙, 出立ち).
-- **Decisions needed:** the license policy lists public domain, MIT and CC BY-SA; the "wordnet" license (attribution only) would have to be added for zh / ja / th. Where OMW sits in the source order (after the tables, before the English definition) and how its lemmas are chosen.
+- **Decided** (user, 2026-11-18; built in D1): attribution-only licenses (CC BY, ODC-BY, WordNet-style) are allowed; OMW sits after the tables, before the English definition; lemma choice and clean-up are general rules (architecture "Native meanings and the quality gate"). OMW's French wordnet (WOLF) is CeCILL-C, which is not allowed, so fr goes without it.
 - OMW 1.4 has no wordnet for hi, bn, ur, mr, te, sw, ha, ko, tr, fa or vi, so it does not help those languages.
 
 ### 4. Learning languages other than English: licensed bilingual dictionaries

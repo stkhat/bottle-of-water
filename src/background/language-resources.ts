@@ -11,6 +11,7 @@ import {
 } from "../core/lexicon/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
 import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/formats";
+import { recipeNatives, type RecipePairPack } from "../core/natives";
 import { allOf } from "../core/packs/unavailable";
 import { own, promiseCache } from "../core/util";
 
@@ -73,14 +74,16 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
     ]),
   );
 
-/** en-es, en-pt: the recipe's meanings, then English Wiktionary's definitions. */
-const pairRecipe = (pair: "en-es" | "en-pt") =>
-  recipe(DICTIONARY_PACKS[pair], (files) =>
-    createPairDictionary({
-      dict: files[pair].dict,
-      defs: files["en-defs"].defs,
-      ipa: files.en.ipa,
-    }),
+/** A recipe pair (en-es): the recipe's meanings, then English Wiktionary's definitions. */
+const pairRecipe = (pair: RecipePairPack) =>
+  recipe<"en" | RecipePairPack | "en-defs", DictionaryProvider>(
+    DICTIONARY_PACKS[pair],
+    (files) =>
+      createPairDictionary({
+        dict: files[pair].dict,
+        defs: files["en-defs"].defs,
+        ipa: files.en.ipa,
+      }),
   );
 
 const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
@@ -96,8 +99,12 @@ const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
     "es-en": recipe(DICTIONARY_PACKS["es-en"], (files) =>
       createDefsDictionary({ defs: files["es-en"].defs, ipa: files.es.ipa }),
     ),
-    "en-es": pairRecipe("en-es"),
-    "en-pt": pairRecipe("en-pt"),
+    ...Object.fromEntries(
+      recipeNatives().map((native) => [
+        `en-${native}`,
+        pairRecipe(`en-${native}`),
+      ]),
+    ),
   };
 
 /**

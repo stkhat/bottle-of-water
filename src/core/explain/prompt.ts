@@ -5,6 +5,7 @@
  * Browser-free.
  */
 import type { TermKind } from "../classify";
+import { NATIVE_LANGUAGES, nativeLanguage } from "../natives";
 import type { LanguagePair } from "../packs/pairs";
 
 /** Where the term is in its sentence: [start, end), one per part of a phrase with a gap. */
@@ -45,23 +46,12 @@ const NAMES = new Intl.DisplayNames(["en"], { type: "language" });
 /** A language's English name: "ja" → "Japanese". */
 const nameOf = (lang: string) => NAMES.of(lang) ?? lang;
 
-/** Native languages written without spaces get a shorter meaning line. */
-const DENSE = new Set(["ja", "zh", "ko"]);
-
-/** The hover line's length: about 25 characters in Japanese, 40 in Latin scripts. */
-export const meaningLength = (native: string) => (DENSE.has(native) ? 25 : 40);
-
 /**
- * The two example answers' meanings in the native language: "bank" by a river (one of
- * several dictionary meanings) and "spilled the beans" (an idiom without an entry).
- * English for a language without its own.
+ * The hover line's length: about 25 characters in a dense script (Japanese), 40 in
+ * Latin and other scripts.
  */
-const EXAMPLES: Readonly<Record<string, { bank: string; beans: string }>> = {
-  ja: { bank: "川岸、土手", beans: "秘密をばらす" },
-  es: { bank: "orilla (de un río)", beans: "revelar el secreto" },
-  pt: { bank: "margem (de um rio)", beans: "revelar o segredo" },
-  en: { bank: "riverbank", beans: "revealed the secret" },
-};
+export const meaningLength = (native: string) =>
+  nativeLanguage(native)?.dense ? 25 : 40;
 
 /**
  * The instructions, the same for every prompt of a pair: the provider gives them
@@ -70,7 +60,8 @@ const EXAMPLES: Readonly<Record<string, { bank: string; beans: string }>> = {
 export function instructions({ learning, native }: LanguagePair): string {
   const L = nameOf(learning);
   const N = nameOf(native);
-  const example = EXAMPLES[native] ?? EXAMPLES.en!;
+  const example =
+    nativeLanguage(native)?.examples ?? NATIVE_LANGUAGES.en.examples;
   const others = ["Chinese", L].filter((name) => name !== N).join(", ");
   return [
     `You help ${/^[AEIOU]/.test(N) ? "an" : "a"} ${N} speaker who is learning ${L}. They met a term in ${L} in a text and want to know what it means in that sentence.`,

@@ -13,13 +13,18 @@ import type {
   VocabPack,
 } from "./types";
 import type { PhrasePatterns } from "../phrases/pattern";
+import { recipeNatives, type RecipePairPack } from "../natives";
 import { promiseCache } from "../util";
 
 /**
  * The packs (built into data/packs/<name>/, downloaded, read at /packs/<name>/…) and
  * what each one holds once loaded.
  */
-export interface PackFiles {
+export type PackFiles = BuiltOtherwise & {
+  readonly [P in RecipePairPack]: { dict: PairPack };
+};
+
+interface BuiltOtherwise {
   en: {
     lemmas: LemmaPack;
     freq: FreqPack;
@@ -46,8 +51,6 @@ export interface PackFiles {
     phrases: PhrasePatterns;
   };
   "es-en": { defs: DefsPack };
-  "en-es": { dict: PairPack };
-  "en-pt": { dict: PairPack };
 }
 export type PackName = keyof PackFiles;
 
@@ -96,11 +99,15 @@ const LOADERS: {
   "es-en": async (fetchJson) => ({
     defs: await loadShards("/packs/es-en", fetchJson),
   }),
-  "en-es": async (fetchJson) => ({
-    dict: await loadShards("/packs/en-es", fetchJson),
-  }),
-  "en-pt": async (fetchJson) => ({
-    dict: await loadShards("/packs/en-pt", fetchJson),
+  ...(Object.fromEntries(
+    recipeNatives().map((native) => [
+      `en-${native}`,
+      async (fetchJson: FetchJson) => ({
+        dict: await loadShards(`/packs/en-${native}`, fetchJson),
+      }),
+    ]),
+  ) as {
+    [P in RecipePairPack]: (fetchJson: FetchJson) => Promise<PackFiles[P]>;
   }),
 };
 

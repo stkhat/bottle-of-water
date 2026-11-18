@@ -20,7 +20,7 @@ import type {
   PackLockFile,
 } from "../../src/core/packs/lock.ts";
 import { byCodeUnit, ROOT } from "./common.ts";
-import { PACKS, type PackInfo } from "./formats.ts";
+import { NOTICES_DIR, PACKS, type PackInfo } from "./formats.ts";
 import { gateReport, offeredPairs } from "./gate.ts";
 
 type Packs = Readonly<Record<string, PackInfo>>;
@@ -170,7 +170,19 @@ function packageJson(info: PackInfo, entry: PackLockEntry) {
   };
 }
 
+/** A source's license as the notices name it: "CC BY 3.0 (https://…)". */
+const sourceLicense = ({ license }: PackInfo["sources"][number]) =>
+  license.url ? `${license.name} (${license.url})` : license.name;
+
+/**
+ * The package's LICENSE: the pack's license, every source with its authors and
+ * license, the changes, then the full notice of each source whose license asks every
+ * copy to carry one (WordNet-style licenses).
+ */
 function licenseText(info: PackInfo) {
+  const notices = [
+    ...new Set(info.sources.flatMap((s) => s.license.notice ?? [])),
+  ];
   return [
     `The data files in this package (${info.package}) are licensed under the`,
     `${info.license.name}:`,
@@ -179,11 +191,17 @@ function licenseText(info: PackInfo) {
     "They are derived from:",
     ...info.sources.map(
       (s) =>
-        `- ${s.title} (${s.url})${s.via ? `, ${s.via}` : ""}. By ${s.by}. License: ${s.license}.`,
+        `- ${s.title} (${s.url})${s.via ? `, ${s.via}` : ""}. By ${s.by}. License: ${sourceLicense(s)}.`,
     ),
     "",
     `Changes from the sources: ${info.changes}.`,
     "",
+    ...notices.flatMap((file) => [
+      "-".repeat(79),
+      "",
+      readFileSync(join(NOTICES_DIR, file), "utf8").trimEnd(),
+      "",
+    ]),
   ].join("\n");
 }
 
@@ -199,7 +217,7 @@ function readme(info: PackInfo) {
     "",
     ...info.sources.map(
       (s) =>
-        `- [${s.title}](${s.url})${s.via ? `, ${s.via}` : ""}: ${s.used}. By ${s.by}. License: ${s.license}.`,
+        `- [${s.title}](${s.url})${s.via ? `, ${s.via}` : ""}: ${s.used}. By ${s.by}. License: ${s.license.url ? `[${s.license.name}](${s.license.url})` : s.license.name}.`,
     ),
     "",
     "## License",

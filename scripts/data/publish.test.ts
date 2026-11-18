@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PACK_FORMATS } from "../../src/core/packs/formats.ts";
 import type { PackLock } from "../../src/core/packs/lock.ts";
-import { PACKS, type PackInfo } from "./formats.ts";
+import { PACKS, recipePack, type PackInfo } from "./formats.ts";
 import { gateReport, offeredPairs } from "./gate.ts";
 import {
   buildLock,
@@ -50,7 +50,7 @@ const info = (name: string): PackInfo => ({
       title: "Some Wiktionary",
       url: "https://example.org/wiktionary",
       by: "its contributors",
-      license: "CC BY-SA 4.0",
+      license: { name: "CC BY-SA 4.0", shareAlike: true },
       used: "everything",
     },
   ],
@@ -268,6 +268,54 @@ describe("publish", () => {
     expect(readme).toContain(
       "[Some Wiktionary](https://example.org/wiktionary)",
     );
+  });
+  it("names each source's license with its link, and carries the notices WordNet-style licenses ask for", () => {
+    packs.es = recipePack("it", {
+      tables: { langCodes: ["it"] },
+      wordnets: ["omw-it", "omw-iwn"],
+    });
+    packs.es.dir = join(dir, "data", "es");
+    publish({ ...options(), now: NOV_11 });
+    const license = read("publish/es/LICENSE");
+    expect(license).toContain(
+      "- MultiWordNet (Italian) (https://multiwordnet.fbk.eu/), as packaged in the Open Multilingual Wordnet 1.4 (https://omwn.org/). By Emanuele Pianta, Luisa Bentivogli and Christian Girardi, Fondazione Bruno Kessler. License: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).",
+    );
+    expect(license).toContain(
+      "License: ODC-BY 1.0 (https://opendatacommons.org/licenses/by/1-0/).",
+    );
+    expect(license).toContain(
+      "WordNet 3.0 Copyright 2006 by Princeton University.  All rights reserved.",
+    );
+    expect(read("publish/es/README.md")).toContain(
+      "Italian words of WordNet's synsets. By Emanuele Pianta",
+    );
+  });
+});
+
+describe("recipePack", () => {
+  it("lists the recipe's sources in order, the English wordnet after the wordnets", () => {
+    const info = recipePack("it", {
+      tables: { langCodes: ["it"] },
+      wordnets: ["omw-it"],
+    });
+    expect(info.title).toBe("English–Italian dictionary");
+    expect(info.license.spdx).toBe("CC-BY-SA-4.0");
+    expect(info.sources.map((s) => [s.title, s.used])).toEqual([
+      [
+        "English Wiktionary, English entries",
+        "Italian translations (translation tables)",
+      ],
+      ["MultiWordNet (Italian)", "Italian words of WordNet's synsets"],
+      [
+        "Princeton WordNet 3.0",
+        "the English synsets that link the terms to the other wordnets, their definitions as sense hints",
+      ],
+    ]);
+  });
+  it("refuses a source it has no license record of", () => {
+    expect(() =>
+      recipePack("fr", { tables: { langCodes: ["fr"] }, wordnets: ["omw-fr"] }),
+    ).toThrow("en-fr: no source for omw-fr");
   });
 });
 

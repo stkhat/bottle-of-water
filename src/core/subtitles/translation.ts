@@ -1,4 +1,5 @@
 import { primary } from "../languages";
+import { nativeLanguage } from "../natives";
 import { isSoundLabel, lowerBound, type SentenceCards } from "./cues";
 import type { Cue, Track } from "./types";
 
@@ -38,12 +39,12 @@ export function chooseTranslation(input: TranslationInput): TranslationChoice {
   return { source: "none" };
 }
 
-/** Languages written without spaces between words or sentences. */
-const NO_SPACE_LANGS = new Set(["ja", "zh", "yue", "th", "lo", "km", "my"]);
-
-/** What goes between two joined translated lines in `lang`. */
+/**
+ * What goes between two joined lines in `lang` (a native or learning language): nothing
+ * in a language written without spaces (`NativeLanguage.spaces`), else a space.
+ */
 export function joinerFor(lang: string): string {
-  return NO_SPACE_LANGS.has(primary(lang)) ? "" : " ";
+  return nativeLanguage(primary(lang))?.spaces === false ? "" : " ";
 }
 
 export interface AlignOptions {
