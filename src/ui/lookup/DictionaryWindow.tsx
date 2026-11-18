@@ -6,13 +6,13 @@ import { keepOpen } from "../keep-open";
 import {
   SERIF_FONT,
   aiTag,
-  badge,
   color,
   iconButton,
   root,
   sectionHeading,
   termMark,
 } from "../styles";
+import { LangleMark } from "../LangleMark";
 import { useDrag } from "../useDrag";
 import { ElsewhereRow, type ElsewhereItem } from "./ElsewhereRow";
 import { EntryHeader } from "./EntryHeader";
@@ -213,7 +213,7 @@ export function DictionaryWindow(props: DictionaryWindowProps) {
           >
             <GripIcon />
           </button>
-          <span style={badge(22, 6, 11)}>L</span>
+          <LangleMark size={22} />
           <span style={{ flex: 1, fontSize: "13px", fontWeight: 600 }}>
             {t("dict.title")}
           </span>

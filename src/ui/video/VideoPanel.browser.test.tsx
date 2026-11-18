@@ -130,7 +130,7 @@ async function listAtRest(screen: { container: HTMLElement }) {
 }
 
 describe("the Transcript tab", () => {
-  test("has the header: L badge, the tabs, Translation switch and Highlight chips", async () => {
+  test("has the header: Langle's mark, the tabs, Translation switch and Highlight chips", async () => {
     const screen = await mountInShadowRoot(<VideoPanel {...base} />);
     await expect
       .element(screen.getByRole("complementary", { name: "Langle" }))
@@ -138,7 +138,11 @@ describe("the Transcript tab", () => {
     await expect
       .element(screen.getByRole("tab", { name: "Transcript" }))
       .toHaveAttribute("aria-selected", "true");
-    await expect.element(screen.getByText("L", { exact: true })).toBeVisible();
+    await expect
+      .element(
+        screen.container.querySelector<SVGElement>("[data-langle-mark] svg")!,
+      )
+      .toBeVisible();
     await expect
       .element(
         screen.getByRole("switch", {

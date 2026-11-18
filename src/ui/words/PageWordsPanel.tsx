@@ -1,6 +1,7 @@
 import { t } from "../../i18n/t";
 import { CloseIcon } from "../icons";
-import { badge, color, iconButton, root } from "../styles";
+import { color, iconButton, root } from "../styles";
+import { LangleMark } from "../LangleMark";
 import {
   WordsFilterChips,
   WordsList,
@@ -74,7 +75,7 @@ export function PageWordsPanel<R extends WordRow>(
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={badge(24, 7, 12)}>L</span>
+          <LangleMark size={24} />
           <h2
             style={{
               margin: 0,

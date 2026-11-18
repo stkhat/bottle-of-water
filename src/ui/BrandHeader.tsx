@@ -1,13 +1,14 @@
-import { badge, color } from "./styles";
+import { LangleMark } from "./LangleMark";
+import { color } from "./styles";
 
 const SIZES = {
-  popup: { badge: badge(28, 8, 14), title: "15px", pair: "13px" },
-  settings: { badge: badge(32, 9, 16), title: "18px", pair: "14px" },
-  page: { badge: badge(32, 9, 16), title: "22px", pair: "14px" },
+  popup: { mark: 28, title: "15px", pair: "13px" },
+  settings: { mark: 32, title: "18px", pair: "14px" },
+  page: { mark: 32, title: "22px", pair: "14px" },
 };
 
 /**
- * The "L" badge, the page's title and the language pair, for the caller's flex row.
+ * Langle's mark, the page's title and the language pair, for the caller's flex row.
  * `stacked` puts the pair under the title (the popup, whose header also holds its
  * buttons and the Langle switch); a pair too long for the room left ends in "…".
  */
@@ -35,7 +36,7 @@ export function BrandHeader(props: {
     );
   return (
     <>
-      <span style={size.badge}>L</span>
+      <LangleMark size={size.mark} />
       {props.stacked ? (
         <span
           style={{

@@ -41,7 +41,7 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
     expect(manifest().permissions).toEqual(["storage", "alarms"]);
   });
 
-  test("has the green toolbar icon in every size", () => {
+  test("has the colored toolbar icon in every size", () => {
     const icons = manifest().icons;
     expect(icons).toEqual({
       16: "icon/16.png",

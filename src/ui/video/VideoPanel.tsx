@@ -5,7 +5,8 @@ import { t, type MessageKey } from "../../i18n/t";
 import { LanguageDataNote } from "../packs/LanguageDataNote";
 import { segment, segmentGroup } from "../Segmented";
 import { CloseIcon } from "../icons";
-import { badge, color, iconButton, root } from "../styles";
+import { color, iconButton, root } from "../styles";
+import { LangleMark } from "../LangleMark";
 import {
   Transcript,
   TranscriptControls,
@@ -90,7 +91,7 @@ export function VideoPanel<R extends WordRow>(props: VideoPanelProps<R>) {
           padding: "16px 16px 0",
         }}
       >
-        <span style={badge(24, 7, 12)}>L</span>
+        <LangleMark size={24} />
         <Tabs tab={props.tab} onTab={props.onTab} />
         {props.onClose && (
           <button
