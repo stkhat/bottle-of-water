@@ -2,16 +2,23 @@
 // directly) and the E2E tests (passed to `addInitScript`, so it must not use imports or
 // anything outside the function). It behaves like the parts of the real player Langle
 // uses (see docs/notes/youtube-captions.md): `setOption("captions", "track", …)` makes
-// an XMLHttpRequest to the track's `baseUrl` plus a PO token and client params, unless
-// that track is already the one on; the track set is kept in localStorage, and the next
-// load of the page starts with it on, without requesting it (seen on youtube.com,
-// 2026-11-18).
+// an XMLHttpRequest to the track's `baseUrl` plus client params and, when the `baseUrl`
+// names `exp=xpe`, a PO token, unless that track is already the one on; the track set is
+// kept in localStorage, and the next load of the page starts with it on, without
+// requesting it (seen on youtube.com, 2026-11-18). It can also replace its player
+// response before its first caption request, as youtube.com's player did on a first
+// load (2026-11-18).
 
 export interface FakePlayerOptions {
   videoId: string;
   title: string;
   /** A player response with `captions` (like `captionTracks.json`). */
   playerResponse: unknown;
+  /**
+   * The response the player swaps in for `playerResponse` just before its first caption
+   * request (see `refreshedPlayerResponse`).
+   */
+  refreshedResponse?: unknown;
   /** The player requests the first caption track itself once the video plays. */
   captionsOn?: boolean;
   /** The player element's id. Default: `shorts-player` on a Short's URL, else `movie_player`. */
@@ -23,6 +30,40 @@ export const FAKE_CAPTION_STORAGE = {
   language: "yt-player-caption-sticky-language",
   track: "yt-player-caption-persistence",
 } as const;
+
+/**
+ * `response` as youtube.com's player replaced the page's initial one on a first load
+ * (2026-11-18): every `baseUrl` without `exp=xpe` (so the player's request carries no PO
+ * token) and with the new response's own `ei` and `signature`.
+ */
+export function refreshedPlayerResponse<T>(response: T, ei = "REFRESHED"): T {
+  const copy = structuredClone(response) as T & {
+    captions?: {
+      playerCaptionsTracklistRenderer?: {
+        captionTracks?: { baseUrl: string }[];
+      };
+    };
+  };
+  for (const track of copy.captions?.playerCaptionsTracklistRenderer
+    ?.captionTracks ?? []) {
+    const url = new URL(track.baseUrl);
+    const q = url.searchParams;
+    q.delete("exp");
+    q.set("ei", ei);
+    q.set("signature", `${ei}-SIGNATURE`);
+    const signed = q.get("sparams");
+    if (signed)
+      q.set(
+        "sparams",
+        signed
+          .split(",")
+          .filter((name) => name !== "exp")
+          .join(","),
+      );
+    track.baseUrl = url.href;
+  }
+  return copy;
+}
 
 /** What the fake records, on `player.fake`. */
 export interface FakePlayerLog {
@@ -63,11 +104,13 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
     const video = player.querySelector("video");
     let videoId = options.videoId;
     let title = options.title;
-    let response = options.playerResponse as {
+    type Response = {
       captions?: {
         playerCaptionsTracklistRenderer?: { captionTracks?: RawTrack[] };
       };
     };
+    let response = options.playerResponse as Response;
+    let refreshed = options.refreshedResponse as Response | undefined;
     let track: TrackOption = storedTrack();
     const log: FakePlayerLog = {
       setOption: [],
@@ -97,6 +140,10 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       response.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
 
     function request(option: TrackOption) {
+      if (refreshed) {
+        response = refreshed;
+        refreshed = undefined;
+      }
       const raw = captionTracks().find(
         (t) =>
           t.languageCode === option.languageCode &&
@@ -105,8 +152,11 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       if (!raw) return;
       const base = new URL(raw.baseUrl, location.href);
       const url = new URL(base.pathname + base.search, location.origin);
-      url.searchParams.set("potc", "1");
-      url.searchParams.set("pot", "FAKE-PO-TOKEN");
+      // youtube.com's player adds its PO token to a baseUrl naming exp=xpe only.
+      if (url.searchParams.get("exp")?.split(",").includes("xpe")) {
+        url.searchParams.set("potc", "1");
+        url.searchParams.set("pot", "FAKE-PO-TOKEN");
+      }
       url.searchParams.set("fmt", "json3");
       if (option.translationLanguage)
         url.searchParams.set("tlang", option.translationLanguage.languageCode);
@@ -176,6 +226,11 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
         log.playback.push("play");
         void video?.play().catch(() => {});
       },
+      /** Replaces the current video's player response (keeping the track on). */
+      fakeReplaceResponse(next: unknown) {
+        response = next as Response;
+        refreshed = undefined;
+      },
       /** Switches to another video as YouTube's SPA navigation does. */
       fakeNavigate(next: {
         videoId: string;
@@ -184,7 +239,8 @@ export function installFakeYouTubePlayer(options: FakePlayerOptions): void {
       }) {
         videoId = next.videoId;
         title = next.title;
-        response = next.playerResponse as typeof response;
+        response = next.playerResponse as Response;
+        refreshed = undefined;
         track = {};
         document.dispatchEvent(
           new CustomEvent("yt-navigate-finish", {

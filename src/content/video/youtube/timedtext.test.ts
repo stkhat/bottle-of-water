@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import captionTracks from "../../../core/subtitles/fixtures/youtube/captionTracks.json";
 import { youtubeCaptionInfo } from "../../../core/subtitles/youtube-json3";
-import { autoTranslateCode, pickOriginalTrack, trackUrl } from "./timedtext";
+import { refreshedPlayerResponse } from "../../../../tests/fake-youtube-player";
+import {
+  autoTranslateCode,
+  pickOriginalTrack,
+  sameResponse,
+  trackUrl,
+} from "./timedtext";
 
 const info = youtubeCaptionInfo(captionTracks);
 const track = (id: string) => info.tracks.find((t) => t.id === id)!;
@@ -95,6 +101,33 @@ describe("pickOriginalTrack", () => {
 
   it("finds nothing when the video has no track in the learning language", () => {
     expect(pickOriginalTrack(info.tracks, "fr")).toBeUndefined();
+  });
+});
+
+describe("sameResponse", () => {
+  const refreshed = youtubeCaptionInfo(refreshedPlayerResponse(captionTracks));
+  const replaced = (url: string, ei: string | null) => {
+    const copy = new URL(url);
+    if (ei === null) copy.searchParams.delete("ei");
+    else copy.searchParams.set("ei", ei);
+    return copy.href;
+  };
+
+  it("matches a request to the tracks of the response it was made from, by ei", () => {
+    expect(sameResponse(captured, info.tracks)).toBe(true);
+    expect(sameResponse(captured, refreshed.tracks)).toBe(false);
+    expect(
+      sameResponse(replaced(captured, "REFRESHED"), refreshed.tracks),
+    ).toBe(true);
+  });
+
+  it("cannot tell them apart without an ei", () => {
+    expect(sameResponse(replaced(captured, null), refreshed.tracks)).toBe(true);
+    const bare = refreshed.tracks.map((t) => ({
+      ...t,
+      baseUrl: replaced(t.baseUrl, null),
+    }));
+    expect(sameResponse(captured, bare)).toBe(true);
   });
 });
 
