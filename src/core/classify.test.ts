@@ -968,6 +968,17 @@ describe("keys and parts of speech by tags (rules A1 and A2)", () => {
     expect(fine).toMatchObject({ key: "fine", capital: true });
     expect(fine).not.toHaveProperty("pos");
   });
+  it("gives a phrase's words their parts of speech by their key's words", () => {
+    const [, phrase] = run("We decided fine.", {
+      terms: terms({ "decided fine": "learning" }),
+    });
+    expect(phrase).toMatchObject({
+      kind: "phrase",
+      key: "decided fine",
+      wordPos: { decided: "verb", fine: "adjective" },
+    });
+    expect(phrase).not.toHaveProperty("pos");
+  });
   it("does nothing without the dictionary's outlines", () => {
     const spans = run("We decided fine.", { outline: undefined });
     expect(spans.map((s) => s.key)).toEqual(["we", "decided", "fine"]);

@@ -6,7 +6,12 @@ import {
   MAX_TRANSLATED_SENSES,
   shortDefinitionText,
 } from "../../core/lexicon/definitions";
-import type { Sense, Written } from "../../core/lexicon/dictionary";
+import type {
+  DictionaryEntry,
+  Sense,
+  Written,
+} from "../../core/lexicon/dictionary";
+import { lacksSenseOf } from "../../core/lexicon/sense-order";
 import {
   MAX_SHORT_LINES,
   translatedLine,
@@ -254,6 +259,22 @@ export function mainWord(
   );
 }
 
+/**
+ * A phrase's word line ("figure — 姿,形"): its main word's first hover line, for the
+ * part of speech the word's tag gives it in the phrase (rule A2), as the word's own
+ * hover shows it; none when the entry has no sense of that part of speech (pt "other"
+ * in "in other words" is no verb "tratar como diferente").
+ */
+function wordLine(
+  word: string,
+  entry: DictionaryEntry | undefined,
+  pos?: string,
+): string | undefined {
+  if (!entry || (pos !== undefined && lacksSenseOf(entry.senses, pos)))
+    return undefined;
+  return `${word} — ${entry.lines[0] ?? entry.short}`;
+}
+
 /** "loaves → loaf" when the form on the page is not its base form. */
 export function inflectionNote(
   surface: string,
@@ -340,6 +361,8 @@ export async function describeTerm(
     written?: Written;
     /** The part of speech its tag gives it on the page (`Span.pos`). */
     pos?: string;
+    /** A phrase's: what its words' tags give them on the page (`Span.wordPos`). */
+    wordPos?: Readonly<Record<string, string>>;
     /** The sentence it is in there ("this sentence"), as saving it records it. */
     sentence?: string;
   },
@@ -401,6 +424,8 @@ export async function describeTerm(
 
   const main =
     term.kind === "phrase" ? mainWord(term.key, rulesFor(lang)) : undefined;
+  const mainPos =
+    main === undefined ? undefined : term.wordPos?.[normalizeWord(main)];
   const [definition, literal, word] = await Promise.all([
     translatedShort(),
     (term.kind === "phrase" && entry?.short === undefined) || usageNote
@@ -412,7 +437,9 @@ export async function describeTerm(
           translationWaitMs,
         )
       : undefined,
-    main !== undefined ? lookup(main) : undefined,
+    main !== undefined
+      ? lookup(main, mainPos === undefined ? {} : { pos: mainPos })
+      : undefined,
   ]);
 
   let short = entry?.short;
@@ -435,7 +462,7 @@ export async function describeTerm(
       : [translatedLine(short, nativeLang)];
   const sub =
     main !== undefined
-      ? word?.entry && `${main} — ${word.entry.short}`
+      ? wordLine(main, word?.entry, mainPos)
       : inflectionNote(term.surface, term.key);
   const senses = (entry?.senses ?? []).map((sense, i): CardSense => {
     const translated =

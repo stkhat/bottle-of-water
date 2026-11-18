@@ -85,6 +85,12 @@ export interface Span {
    * speech first.
    */
   pos?: string;
+  /**
+   * A phrase's words by its key's words: the part of speech each one's trusted tag
+   * gives it here (rule A2, `sensePos`), so the card's word line ("other" in "in
+   * other words") shows a sense of that part of speech, as the word's own hover does.
+   */
+  wordPos?: Readonly<Record<string, string>>;
 }
 
 /** Two values of a span's field are the same: equal, or objects with equal fields. */
@@ -181,8 +187,9 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   phrase takes its status; an unsaved dictionary phrase is new (the known level
  *   applies to words only) and does not match over a word saved as learning, which
  *   keeps its own span.
- * - A phrase's words get no spans of their own. A phrase with a gap gets one span per
- *   run of its words (`part`); the words in the gap are classified as words.
+ * - A phrase's words get no spans of their own; with a tagger, the phrase's spans
+ *   carry the part of speech of each (`wordPos`). A phrase with a gap gets one span
+ *   per run of its words (`part`); the words in the gap are classified as words.
  * - A word with several base forms ("better" → better, good, well) takes a saved base
  *   when there is one, a learning one before a known one. Otherwise its key is the
  *   first base form (the word itself when it is in the vocabulary), and it is known
@@ -424,7 +431,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const key = terms.has(word.key)
           ? word.key
           : (chooseKey(form, bases, reading, outline, pack) ?? word.key);
-        const pos = sensePos(form, key, reading);
+        // A headword this dictionary has no entry for ("has" in en-ru); a form that is
+        // no headword ("gets") is looked up by its base like any form.
+        const ownEntry = !bases.includes(form) || outline(form) !== undefined;
+        const pos = sensePos(form, key, reading, ownEntry);
         return { key, ...(pos !== undefined && { pos }) };
       };
 
@@ -465,6 +475,14 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const slot = match.words.some(
           (j, n) => !words[j]!.forms.includes(keyWords[n]!),
         );
+        const wordPos: Record<string, string> = {};
+        match.words.forEach((j, n) => {
+          const reading = readings[j];
+          const word = keyWords[n]!;
+          const found = reading && sensePos(words[j]!.form, word, reading);
+          if (found !== undefined && !Object.hasOwn(wordPos, word))
+            wordPos[word] = found;
+        });
         const whole = {
           start: words[i]!.token.start,
           end: words[last]!.token.end,
@@ -480,6 +498,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             kind: "phrase",
             category,
             ...(pos !== undefined && { pos }),
+            ...(Object.keys(wordPos).length > 0 && { wordPos }),
             ...(slot && { slot }),
             ...(runs.length > 1 && {
               part: { index, count: runs.length, ...whole },

@@ -145,6 +145,8 @@ const pairRecipe = (pair: RecipePairPack) =>
         defs: files["en-defs"].defs,
         ipa: files.en.ipa,
         native: pair.slice("en-".length),
+        lemmas: files.en.lemmas,
+        pos: files.en.pos,
       }),
   );
 
