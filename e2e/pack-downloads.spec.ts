@@ -49,6 +49,8 @@ const test = testWithErrors.extend<{
   ],
 });
 const expect = test.expect;
+// One mirror serves every test of this file, and a test breaks it: one at a time.
+test.describe.configure({ mode: "default" });
 
 /** Spanish → English, with New highlighted ("comer" is new at the lowest level). */
 async function learnSpanish(context: BrowserContext, extensionId: string) {
@@ -95,6 +97,39 @@ async function pairDownloaded(context: BrowserContext, extensionId: string) {
     }, COLD_LOAD)
     .toBe(true);
 }
+
+test("choosing a native language a recipe builds downloads its dictionary from the mirror", async ({
+  context,
+  extensionId,
+}) => {
+  await pairDownloaded(context, extensionId);
+  expect(
+    await sendToBackground(context, extensionId, {
+      type: "setSettings",
+      patch: { nativeLang: "de" },
+    }),
+  ).toMatchObject({ ok: true });
+  // English and its definitions were there; the German dictionary is downloaded.
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "packStatus",
+      })) as { value?: { pair: { packs: { pack: string; state: string }[] } } };
+      return reply.value?.pair.packs.map(({ pack, state }) => [pack, state]);
+    }, COLD_LOAD)
+    .toEqual([
+      ["en", "ready"],
+      ["en-de", "ready"],
+      ["en-defs", "ready"],
+    ]);
+  const reply = (await sendToBackground(context, extensionId, {
+    type: "lookup",
+    lang: "en",
+    key: "bread",
+  })) as { value?: { entry?: { short: string; lines: string[] } } };
+  expect(reply.value?.entry).toMatchObject({ short: "Brot" });
+  expect(reply.value?.entry).not.toHaveProperty("glossLang");
+});
 
 test("a broken file on the mirror: Couldn't download, then Retry in Settings downloads it and the page is highlighted", async ({
   context,

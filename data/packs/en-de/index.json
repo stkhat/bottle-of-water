@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"dict-1.json","first":"'s","last":"folk medicine"},{"file":"dict-2.json","first":"folk music","last":"princeps"},{"file":"dict-3.json","first":"princess","last":"éclair"}],
+"sources":["enwiktionary-translations","dewiktionary"]
+}

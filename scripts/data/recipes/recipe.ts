@@ -68,13 +68,40 @@ export function finish(
 
 const posOf = (pos: unknown) => (typeof pos === "string" ? posLabel(pos) : "");
 
+/** A stress mark: a combining acute or grave accent. */
+const STRESS_MARK = /[\u0300\u0301]/u;
+
+/** Cyrillic vowels, whose acute or grave accent marks stress (primary or secondary). */
+const CYRILLIC_VOWEL = /[аеиоуыэюяіїєѣ]/iu;
+
+/**
+ * Native text as its readers write it: without the stress marks Wiktionary puts over
+ * Cyrillic vowels for learners ("деньги" with an acute over its е, "идолопоклоннический"
+ * with a grave over its и). A consonant's accent that makes a letter of its own
+ * (Macedonian ѓ, ќ) stays.
+ */
+export function withoutStressMarks(text: string): string {
+  const parts = text.normalize("NFD");
+  if (!STRESS_MARK.test(parts)) return text;
+  return parts
+    .replace(
+      /(\p{Script=Cyrillic})([\u0300\u0301])/gu,
+      (marked, letter: string) =>
+        !CYRILLIC_VOWEL.test(letter) && marked.normalize("NFC").length === 1
+          ? marked
+          : letter,
+    )
+    .normalize("NFC");
+}
+
 /**
  * A native-language Wiktionary edition (kaikki's extract of it): its entries for English
  * words, whose glosses are in the native language. Each term
  * gets up to MAX_SENSES distinct usable senses, in file order; single-word proper-noun
  * entries and non-constituents are left out. Read over English Wiktionary itself, it
  * gives the English definitions (en-defs). `trimPeriod` drops the period that ends a
- * gloss made of one sentence (Wikcionario's "Luz." → "Luz").
+ * gloss made of one sentence (Wikcionario's "Luz." → "Luz"). Glosses lose their stress
+ * marks (`withoutStressMarks`).
  */
 export async function readEdition(
   path: string,
@@ -93,7 +120,7 @@ export async function readEdition(
     const pos = posOf(entry.pos);
     for (const sense of entry.senses ?? []) {
       if (!isUsable(sense)) continue;
-      const gloss = glossOf(sense).trim();
+      const gloss = withoutStressMarks(glossOf(sense).trim());
       const text =
         trimPeriod && /^[^.]+\.$/.test(gloss) ? gloss.slice(0, -1) : gloss;
       addSense(termOf(terms, key), [pos, text]);
@@ -109,7 +136,8 @@ const senseLabel = (text: unknown) =>
  * English Wiktionary's translation tables (kaikki's English extract) into the native
  * language (`langCodes`, such as ["pt"] or ["cmn"]): per English sense, its words in
  * that language, at most MAX_WORDS, with the English sense label as the hint (the
- * table's own label, else the sense's gloss). `word` rewrites a translated word, or
+ * table's own label, else the sense's gloss). A word loses its stress marks
+ * (`withoutStressMarks`: the Russian tables mark stress); `word` then rewrites it, or
  * drops it by returning undefined.
  */
 export async function readTranslationTables(
@@ -140,7 +168,7 @@ export async function readTranslationTables(
       for (const translation of translations ?? []) {
         if (!codes.has(translation?.lang_code as string)) continue;
         if (typeof translation.word !== "string") continue;
-        const written = rewrite(translation.word.trim());
+        const written = rewrite(withoutStressMarks(translation.word.trim()));
         if (!written) continue;
         const hint = senseLabel(translation.sense) ?? fallbackHint;
         if (!hint) continue;

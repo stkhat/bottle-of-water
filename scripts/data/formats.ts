@@ -142,6 +142,27 @@ const SOURCES = {
     by: "the contributors to Wikcionário, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
+  wiktionaryRuEdition: {
+    title: "Russian Wiktionary (Викисловарь), English entries",
+    via: KAIKKI,
+    url: "https://ru.wiktionary.org/",
+    by: "the contributors to Викисловарь, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryFrEdition: {
+    title: "French Wiktionary (Wiktionnaire), English entries",
+    via: KAIKKI,
+    url: "https://fr.wiktionary.org/",
+    by: "the contributors to Wiktionnaire, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryDeEdition: {
+    title: "German Wiktionary, English entries",
+    via: KAIKKI,
+    url: "https://de.wiktionary.org/",
+    by: "the contributors to the German Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
   udEwt: {
     title: "Universal Dependencies English Web Treebank (UD_English-EWT)",
     url: "https://github.com/UniversalDependencies/UD_English-EWT",
@@ -195,6 +216,9 @@ const SOURCES = {
 const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   eswiktionary: SOURCES.wiktionaryEsEdition,
   ptwiktionary: SOURCES.wiktionaryPtEdition,
+  ruwiktionary: SOURCES.wiktionaryRuEdition,
+  frwiktionary: SOURCES.wiktionaryFrEdition,
+  dewiktionary: SOURCES.wiktionaryDeEdition,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,
@@ -236,7 +260,9 @@ export function recipePack(
     if (!source) throw new Error(`en-${native}: no source for ${tag}`);
     const used =
       tag === recipe.edition?.tag
-        ? `${name} definitions`
+        ? recipe.edition.afterTables
+          ? `${name} definitions of the terms the translation tables lack`
+          : `${name} definitions`
         : tag === TABLES_TAG
           ? `${name} translations (translation tables)`
           : `${name} words of WordNet's synsets`;

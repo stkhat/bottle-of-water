@@ -15,7 +15,7 @@ More native languages for English learners, and Spanish learning brought to Engl
 ## Checklist
 - [x] D0 unbundle: packs moved to `data/packs/`, lock without `bundled`, first pair from the UI language, install-time download, E2E through routed mirrors, per-pair size guard, docs. Before merging: `@langle/en`, `@langle/en-ja`, `@langle/en-defs` published to npm by hand
 - [x] D1 recipe infrastructure: recipes without an edition and with OMW wordnets (`recipes/omw.ts`), the native-language registry (`src/core/natives.ts`), attribution-only licenses with their notices in the packages, the new-native checklist ([architecture](../specs/architecture.md) "Adding a native language"). Trial runs, not committed: fr from the tables alone 95.0%, it 91.5% → 96.9% with MultiWordNet and ItalWordNet
-- [ ] D2 natives ru, fr, de
+- [x] D2 natives ru, fr, de: recipes over the tables and the ru, fr, de editions (fr edition first; ru and de tables first, judged blind), Cyrillic stress marks dropped, names, prompt examples (fr, de), smoke and E2E download tests. Before merging: `@langle/en-ru`, `@langle/en-fr`, `@langle/en-de` (new packages) and the new `@langle/en-defs` version published to npm by hand
 - [ ] D3 zh (tables + OMW + zh edition in Simplified via OpenCC data), it, pl (tables + OMW)
 - [x] D4 vi: dropped
 - [ ] D5 measure tr, uk, ko, id, th

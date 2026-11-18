@@ -58,9 +58,11 @@ export async function buildPairDictionary(
     readTranslationTables(englishPath, { ...tables, termKey }),
   ]);
   const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
-  if (edition && editionTerms)
-    sources.push({ tag: edition.tag, terms: editionTerms.terms });
+  const editionSource = edition &&
+    editionTerms && { tag: edition.tag, terms: editionTerms.terms };
+  if (editionSource && !edition.afterTables) sources.push(editionSource);
   sources.push({ tag: TABLES_TAG, terms: tableTerms.terms });
+  if (editionSource && edition.afterTables) sources.push(editionSource);
   if (wordnets.length > 0) {
     const english = readWordnet(wordnetPath(rawDir, ENGLISH_WORDNET));
     for (const id of wordnets)

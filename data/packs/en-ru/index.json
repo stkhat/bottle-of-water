@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"dict-1.json","first":"a","last":"educated guess"},{"file":"dict-2.json","first":"education","last":"mind"},{"file":"dict-3.json","first":"mind control","last":"strainer"},{"file":"dict-4.json","first":"strait","last":"éclair"}],
+"sources":["enwiktionary-translations","ruwiktionary"]
+}

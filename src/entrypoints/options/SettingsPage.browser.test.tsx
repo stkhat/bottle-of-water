@@ -243,6 +243,9 @@ describe("SettingsPage", () => {
       "Japanese (日本語)",
       "Spanish (Español)",
       "Portuguese (Português)",
+      "Russian (Русский)",
+      "French (Français)",
+      "German (Deutsch)",
     ]);
     const ui = screen.getByRole("combobox", { name: /Interface language/ });
     await expect.element(ui).toHaveDisplayValue("English");
@@ -985,7 +988,7 @@ describe("SettingsPage", () => {
     await expect
       .element(
         section(f.screen, "About").getByText(
-          "Langle 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the Spanish and Portuguese dictionaries: Wiktionary, Wikcionario and Wikcionário (CC BY-SA)",
+          "Langle 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the other dictionaries: Wiktionary in English, Spanish, Portuguese, Russian, French and German (CC BY-SA)",
         ),
       )
       .toBeVisible();

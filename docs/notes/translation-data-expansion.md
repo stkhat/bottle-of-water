@@ -16,9 +16,9 @@ Coverage in %, over the 5,000 words. "All" is tables + edition + OMW.
 | ja | 86.3 | – | 92.6 | 97.3 | 96.9 | T1 (EJDict, 100%, offered) |
 | es | 95.1 | 78.3 | 83.1 | 98.7 | 98.5 | T2 (offered) |
 | pt | 93.6 | 60.8 | 91.5 | 98.3 | 98.0 | T2 (offered) |
-| fr | 95.0 | – | 92.5 | 98.7 | 98.5 | T2 |
-| de | 95.4 | – | – | 95.4 | 95.4 | T2 |
-| ru | 95.3 | – | – | 95.3 | 95.3 | T2 |
+| fr | 95.0 | 98.0 | 92.5 | 98.7 | 98.5 | T2 (offered, D2: tables and edition, 98.7; WOLF not allowed) |
+| de | 95.4 | 56.4 | – | 96.1 | – | T2 (offered, D2) |
+| ru | 95.3 | 91.2 | – | 97.8 | – | T2 (offered, D2) |
 | vi | 68.4 | 98.5 | – | 99.0 | 99.0 | T2 |
 | zh | 88.1 | 36.1 | 78.7 | 96.1 | 95.1 | T2 (with OMW) |
 | id | 60.1 | 4.2 | 89.2 | 93.2 | 91.2 | T3 |
@@ -38,7 +38,17 @@ Tiers: **T1** a dedicated bilingual dictionary is the main source and the pair p
 ## Promising
 
 ### 1. Native languages the current recipe already passes: fr, de, ru
-English Wiktionary's translation tables alone reach 95.0% (fr), 95.4% (de) and 95.3% (ru). Each needs only a recipe entry (`RECIPES` in `scripts/data/recipes/native.mjs`). The fr, de and ru Wiktionary editions are in kaikki's extracts and would add margin; they were not downloaded.
+English Wiktionary's translation tables alone reach 95.0% (fr), 95.4% (de) and 95.3% (ru). Each needs only a recipe entry (`RECIPES` in `scripts/data/recipes/recipes.ts`). The fr, de and ru Wiktionary editions are in kaikki's extracts and would add margin; they were not downloaded.
+
+**Built in D2 (2026-11-18)**, with the editions (kaikki extracts of 2026-10-30: ru 2.6 GB, fr 6.3 GB, de 3.1 GB unpacked). Top 5,000 / 2,000 / phrases, by recipe:
+
+| Native | Tables alone | Edition alone | Edition first | Tables first | Chosen |
+|---|---|---|---|---|---|
+| ru | 95.32 / 96.80 / 17.45 | 91.16 / 94.50 / 4.37 | 97.78 / 98.30 / 18.67 | 97.78 / 98.30 / 18.67 | tables first |
+| fr | 95.04 / 96.65 / 23.08 | 97.98 / 98.55 / 11.55 | 98.70 / 98.95 / 27.54 | 98.70 / 98.95 / 27.54 | edition first |
+| de | 95.36 / 96.60 / 23.88 | 56.38 / 70.05 / 1.53 | 96.14 / 97.20 / 24.35 | 96.14 / 97.20 / 24.35 | tables first |
+
+Both orders cover the same terms, so the order was judged blind, X/Y in random order, by a hover's first three lines: 50 random words of the top 5,000 that both sources have (edition preferred / tables preferred / alike: ru 10 / 18 / 22, fr 5 / 3 / 42, de 4 / 18 / 28), then for ru and de 60 tokens sampled from the 2026-11 corpus where the order changes the hover (79% of shown word tokens in ru, 70% in de; tokens: ru 7 / 15 / 38, de 16 / 19 / 25). The German edition defines English words by description ("eine unangenehme Empfindung auf der Haut" for itch, where the tables say Jucken); the Russian one writes labels, abbreviations and sense references into the gloss ("неисч. время [1]", "воен. полковник", "то же, что night owl"). Wiktionnaire translates, like Wikcionario. Seen with the tables first: their sense order on common verbs ("go" → говорить / machen, "to say" first), tables whose items are example sentences ("would" → "We sat on the bench, опоздает ли автобус."), a few dialect words under German (Alemannic "Huus", "Zit" in a list's later items).
 
 ### 2. Vietnamese through its own Wiktionary edition: not used (user, 2026-11-18)
 The Vietnamese edition defines 98.5% of the words in Vietnamese by itself (99.0% with the tables), with dictionary-like entries ("deserve" → "Đáng, xứng đáng"; "available" → "Sẵn có để dùng…"). Provenance, checked 2026-11-18: these English entries (about 98% of the gate's 5,000 words have a sense from them) were imported in 2006 by the bot PiedBot from the Free Vietnamese Dictionary Project's English–Vietnamese database (Hồ Ngọc Đức, GNU GPL; [Wiktionary:Nguồn gốc/FVDP](https://vi.wiktionary.org/wiki/Wiktionary:Nguồn_gốc/FVDP), [Thành viên:PiedBot](https://vi.wiktionary.org/wiki/Thành_viên:PiedBot)). The only permission for GFDL use is a one-line email from the author (2006-05-19), with no explicit CC BY-SA grant. Without those entries the edition covers about 0.4–2%. **Decision: not used; revisit only with a written CC BY-SA or CC BY grant from the author.**
@@ -91,7 +101,7 @@ Result: 2 T1~ and 16 T2? cells, mostly major languages → English, Chinese or F
 Two of the top 20 are special: Nigerian Pidgin has no settled spelling, and Egyptian Arabic speakers usually write Standard Arabic.
 
 ## Next steps, in order of payoff
-1. Add fr, de and ru recipes (no new source).
+1. ~~Add fr, de and ru recipes (no new source).~~ Done in D2 (2026-11-18), with their editions (section 1).
 2. ~~Check the Vietnamese edition's provenance; if clean, add vi.~~ Checked 2026-11-18: its English entries come from a GPL dictionary with no CC BY-SA grant, so vi is dropped (section 2).
 3. Decide on the "wordnet" license and OMW's place in the source order; then add zh (and re-measure id with its edition and OMW together).
 4. Measure the T2? cells for the learning languages planned next.

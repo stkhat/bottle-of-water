@@ -16,9 +16,12 @@ export interface Recipe {
   /**
    * The native language's Wiktionary edition (kaikki's extract of it), first: when it
    * defines the English words in the language. A language whose translation tables
-   * pass the gate needs none.
+   * pass the gate needs none. `afterTables`: the edition only fills the terms the
+   * tables lack, for an edition whose glosses describe more than they translate, or
+   * carry its own labels and markup, where the tables' words read better (judged
+   * blind per language: docs/notes/translation-data-expansion.md).
    */
-  edition?: { tag: string; file: string };
+  edition?: { tag: string; file: string; afterTables?: boolean };
   /** English Wiktionary's translation tables: the codes kaikki gives the language's translations. */
   tables: { langCodes: string[] };
   /**
@@ -42,11 +45,34 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
     edition: { tag: "ptwiktionary", file: "kaikki-pt-edition.jsonl" },
     tables: { langCodes: ["pt"] },
   },
+  ru: {
+    edition: {
+      tag: "ruwiktionary",
+      file: "kaikki-ru-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["ru"] },
+  },
+  fr: {
+    edition: { tag: "frwiktionary", file: "kaikki-fr-edition.jsonl" },
+    tables: { langCodes: ["fr"] },
+  },
+  de: {
+    edition: {
+      tag: "dewiktionary",
+      file: "kaikki-de-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["de"] },
+  },
 };
 
 /** A recipe's source tags, in order. */
 export const recipeTags = (recipe: Recipe) => [
-  ...(recipe.edition ? [recipe.edition.tag] : []),
+  ...(recipe.edition && !recipe.edition.afterTables
+    ? [recipe.edition.tag]
+    : []),
   TABLES_TAG,
+  ...(recipe.edition?.afterTables ? [recipe.edition.tag] : []),
   ...(recipe.wordnets ?? []),
 ];
