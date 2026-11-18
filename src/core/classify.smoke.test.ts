@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.ts";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
-import { createEnJaDictionary } from "./lexicon/dictionary";
+import {
+  createEnJaDictionary,
+  createPairDictionary,
+  type DictionaryProvider,
+} from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { createPackLoader } from "./packs/load";
 import { blockCasing, documentCasing } from "./text/casing";
@@ -421,18 +425,22 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     ipa: en.ipa,
   });
   /** The word's span in `text` with its hover lines. */
-  const hover = (text: string, word: string) => {
+  const hover = (
+    text: string,
+    word: string,
+    over: DictionaryProvider = dictionary,
+  ) => {
     const span = classifier
       .classify(tagged.tokenize(text), {
         terms: new Map(),
         knownLevel: 3000,
-        outline: (key) => dictionary.outline(key),
+        outline: (key) => over.outline(key),
       })
       .find((s) => text.slice(s.start, s.end) === word)!;
     return {
       key: span.key,
       pos: span.pos,
-      lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+      lines: over.entry(span.key, undefined, span.pos)?.lines ?? [],
     };
   };
 
@@ -454,6 +462,38 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     expect(has.lines[0]).toMatch(/^haveの/);
     expect(hover("She has spent all her money.", "spent").key).toBe("spend");
     expect(hover("The house is being built.", "being").key).toBe("be");
+  });
+  it("looks a form the pair dictionary has no entry for up by its base", async () => {
+    const pair = async (name: "en-es" | "en-pt") =>
+      createPairDictionary({
+        dict: (await loadPack(name)).dict,
+        defs: defs.defs,
+        ipa: en.ipa,
+      });
+    const enEs = await pair("en-es");
+    const enPt = await pair("en-pt");
+    // Neither has "told"; EJDict has it, so en-ja keeps its own entry.
+    expect(enEs.outline("told")).toBeUndefined();
+    expect(hover("She told me the truth.", "told", enEs)).toMatchObject({
+      key: "tell",
+      pos: "verb",
+      lines: expect.arrayContaining(["Contar"]),
+    });
+    expect(hover("She told me the truth.", "told").key).toBe("told");
+    // The same word as a verb goes to its base; as an auxiliary it keeps its key.
+    expect(enPt.outline("did")).toBeUndefined();
+    const did = hover("It's not what he did.", "did", enPt);
+    expect(did.key).toBe("do");
+    expect(did.lines[0]).toMatch(/^fazer/);
+    expect(hover("Why did you go?", "did", enPt)).toEqual({
+      key: "did",
+      pos: undefined,
+      lines: [],
+    });
+    expect(hover("The children played.", "children", enEs)).toMatchObject({
+      key: "child",
+      pos: "noun",
+    });
   });
   it("keeps a participle used otherwise than as a verb", () => {
     const established = hover(
