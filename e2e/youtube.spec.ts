@@ -81,6 +81,24 @@ test("a reload of the tab shows the Japanese line again", async ({
   await expect(subtitle.getByText(LINE_JA)).toBeVisible();
 });
 
+test("a first load whose player replaces its response before requesting its track shows the Japanese line", async ({
+  context,
+}) => {
+  // youtube.com, 2026-11-18: the player swapped the page's initial response (baseUrls
+  // that need a PO token) for a refreshed one and requested its track from that.
+  await routeYouTube(context, { refreshResponse: true });
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_WATCH);
+  await page
+    .getByRole("complementary", { name: en["app.name"] })
+    .getByRole("button", { name: LINE })
+    .click({ position: ON_TIME });
+  const subtitle = page.locator("langle-video-player").getByRole("region", {
+    name: en["video.subtitle"],
+  });
+  await expect(subtitle.getByText(LINE_JA)).toBeVisible();
+});
+
 test("words selected in the transcript are saved as a phrase from their card", async ({
   context,
   extensionId,

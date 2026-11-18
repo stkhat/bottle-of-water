@@ -17,6 +17,7 @@ export function createRecent<V>(keep: number) {
         values.delete(values.keys().next().value as string);
       for (const waiter of [...waiters]) waiter(key);
     },
+    delete: (key: string) => values.delete(key),
     /** The key's value, waiting up to `ms` for it to be set; undefined after that. */
     wait(
       key: string,

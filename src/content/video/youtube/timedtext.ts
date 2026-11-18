@@ -46,6 +46,24 @@ export function trackUrl(
 }
 
 /**
+ * Whether `tracks` come from the player response the `captured` request was made from:
+ * the request carries its track's `baseUrl` params, and `ei` names the response (it is
+ * signed into every `baseUrl`). The player can replace its response (youtube.com did on a
+ * first load, 2026-11-18), and one response's baseUrls with another's request params get
+ * empty bodies. True when either side has no `ei`.
+ */
+export function sameResponse(
+  captured: string,
+  tracks: readonly YouTubeTrack[],
+): boolean {
+  const ei = new URL(captured).searchParams.get("ei");
+  const theirs = tracks
+    .map((t) => new URL(t.baseUrl, captured).searchParams.get("ei"))
+    .filter((id) => id !== null);
+  return ei === null || theirs.length === 0 || theirs.includes(ei);
+}
+
+/**
  * The track Langle shows as the original: the manual track in the learning language,
  * else its auto-generated one. A regional code (`en-GB`) counts as its language.
  */

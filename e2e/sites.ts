@@ -20,7 +20,10 @@ import {
   installFakeNetflixPlayer,
   type FakeNetflixOptions,
 } from "../tests/fake-netflix-player";
-import { installFakeYouTubePlayer } from "../tests/fake-youtube-player";
+import {
+  installFakeYouTubePlayer,
+  refreshedPlayerResponse,
+} from "../tests/fake-youtube-player";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,9 +61,14 @@ export const NETFLIX_WATCH = `https://www.netflix.com/watch/${FIXTURE_MOVIE_ID}?
 /**
  * Serves youtube.com from fixtures: the watch-page and Short skeletons (with Trusted Types
  * enforced, as on the real site), a local 140-second video (the recorded captions end
- * at 2:15), the recorded /api/timedtext answers, and a fake player API.
+ * at 2:15), the recorded /api/timedtext answers, and a fake player API. With
+ * `refreshResponse`, the player replaces the page's player response before its first
+ * caption request (`refreshedPlayerResponse`), as on a first load on youtube.com.
  */
-export async function routeYouTube(context: BrowserContext) {
+export async function routeYouTube(
+  context: BrowserContext,
+  options: { refreshResponse?: boolean } = {},
+) {
   await context.route("https://www.youtube.com/**", (route) =>
     route.fulfill({ status: 404, body: "" }),
   );
@@ -104,6 +112,9 @@ export async function routeYouTube(context: BrowserContext) {
     videoId: FIXTURE_VIDEO_ID,
     title: "Do schools kill creativity?",
     playerResponse: fixturePlayerResponse(),
+    ...(options.refreshResponse && {
+      refreshedResponse: refreshedPlayerResponse(fixturePlayerResponse()),
+    }),
   });
   // Trusted Types violations in the page (e.g. an innerHTML assignment).
   await context.addInitScript(() => {
