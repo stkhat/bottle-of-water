@@ -125,6 +125,7 @@ export function writeShards(
   dict: Readonly<Record<string, unknown>>,
   dir: string,
   extra: Readonly<Record<string, unknown>> = {},
+  capital?: Readonly<Record<string, unknown>>,
 ): ShardIndex {
   const packDir = join(dir, pack);
   if (existsSync(packDir))
@@ -133,8 +134,33 @@ export function writeShards(
   const { index, shards } = shardDict(dict);
   for (const shard of shards)
     writePack(`${pack}/${shard.file}`, shard.dict, dir);
-  writePack(`${pack}/index.json`, { ...index, ...extra }, dir);
-  return index;
+  const written: ShardIndex = capital
+    ? { shards: [capitalShard(pack, capital, dir), ...index.shards] }
+    : index;
+  writePack(`${pack}/index.json`, { ...written, ...extra }, dir);
+  return written;
+}
+
+/**
+ * A recipe pair's capitalised headwords (keys with a capital first letter, which sort
+ * before the lowercase ones) in capital.json, one shard listed first in index.json, so
+ * they load with the rest. Like en-ja's capital.json, they are kept apart.
+ */
+function capitalShard(
+  pack: string,
+  capital: Readonly<Record<string, unknown>>,
+  dir: string,
+): ShardIndex["shards"][number] {
+  const { index, shards } = shardDict(capital);
+  if (shards.length > 1)
+    throw new Error(`${pack}/capital.json is over ${SHARD_MAX_BYTES} bytes`);
+  writePack(`${pack}/capital.json`, shards[0]?.dict ?? {}, dir);
+  const [shard] = index.shards;
+  return {
+    file: "capital.json",
+    first: shard?.first ?? "",
+    last: shard?.last ?? "",
+  };
 }
 
 /** A sharded dictionary in `packDir` (as writeShards wrote it), as one object. */

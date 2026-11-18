@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"a","last":"edible"},{"file":"dict-2.json","first":"edible dormouse","last":"milkshake"},{"file":"dict-3.json","first":"milksop","last":"storage"},{"file":"dict-4.json","first":"store","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zymurgy"},{"file":"dict-1.json","first":"a","last":"edible"},{"file":"dict-2.json","first":"edible dormouse","last":"milkshake"},{"file":"dict-3.json","first":"milksop","last":"storage"},{"file":"dict-4.json","first":"store","last":"éclair"}],
 "sources":["enwiktionary-translations","ruwiktionary"]
 }

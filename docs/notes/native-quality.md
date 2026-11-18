@@ -186,6 +186,38 @@ Step 1 starts now, from main. Steps 2–5 run after D1 (`claude/native-infra`: a
 
      ("best" counts a version for every item where it shows the display the judge chose, so an item where Option A and meaning-first show the same lines counts for both.) Meaning-first keeps most of Option A's fixes and gets the "good" back; where it loses to Option A on wrong senses, the base's first meaning is the wrong sense of the base, which the pointer first had hidden (could → "Boîte de conserve", tin). Corpus-weighted, good es 78.7 / 77.6 / 79.0%, fr 78.4 / 76.8 / 78.5%, wrong es 10.6 / 9.9 / 9.9%.
 3. **Capitalised headwords for pairs** (`capital.json` per pair, `capitalMeaning`, `written`, class glosses, persons rule for Wiktionary-derived meanings; the lookup falls back to the capitalised entry instead of lowercase copies): Japan → Japón, months and nationalities shown; names es 1,496 → ~1,310, pt → ~1,240. Fits the per-pair guard of D0.
+   - **Done in U1-3** (PR on `claude/native-capitals`, all eight recipe natives; outputs in `steps/u1-3/`; architecture "Capitalised headwords of the recipe pairs"). Built as the study recommended, plus what the other natives needed: "word" or "name" is read from the native edition's own entry for the gloss (a capitalised gloss the edition has in lower case is a word: Wikcionario's "Mayo" is the month, not the place; a capitalised common noun is a word only where the edition capitalises its nouns, German, and the name where it does not, Russian files Япония as a noun; zh headwords compared in simplified characters), the shape only where the edition has neither (and never in a caseless script: zh "Oh" → "a surname from Korean"); a class gloss is compared whole when it is only a note ("(английская фамилия)" ×656); acronyms are kept apart from capitalised headwords as en-ja keeps EJDict's. Pair format 3: `capital.json`, the first shard.
+   - Measured (`measure.ts`, before = main at e99c76c), per native: names; capitalised words that are no names with no hover; shown words with no hover; hovers changed:
+
+     | | names | capitalised, no hover | shown, no hover | changed |
+     |---|---|---|---|---|
+     | ja | 1,051 → 1,051 | 0 → 0 | 0 → 0 | 0 |
+     | es | 1,496 → 1,310 | 1,625 → 70 | 1,847 → 126 | 2,601 (1.75%) |
+     | pt | 1,496 → 1,231 | 1,630 → 46 | 1,858 → 69 | 2,768 (1.86%) |
+     | fr | 1,496 → 1,218 | 1,617 → 179 | 2,058 → 442 | 2,578 (1.73%) |
+     | de | 1,496 → 1,316 | 1,627 → 161 | 1,913 → 267 | 2,385 (1.60%) |
+     | ru | 1,496 → 1,041 | 1,605 → 958 | 2,250 → 1,504 | 1,920 (1.29%) |
+     | zh | 1,496 → 1,040 | 1,606 → 207 | 2,419 → 847 | 2,741 (1.84%) |
+     | it | 1,496 → 1,282 | 1,619 → 205 | 2,283 → 699 | 2,489 (1.67%) |
+     | pl | 1,496 → 1,125 | 1,620 → 784 | 2,064 → 1,093 | 2,122 (1.42%) |
+
+     Capitalised words shown as an English definition translated at display drop too (es 403 → 147, fr 309 → 119, pl 259 → 33). What stays without a hover is mostly contractions no source of the pair has: ru and pl lack I'm (764 tokens), fr, de, it, zh, ru lack I'll (128), and ru, zh, it has/did, pl gonna (step 5). The changed hovers: I'm (764: contracción de I y am, chuis, ich bin, 我是), I've, I'll, British, American, England, Thursday, US (EE. UU.), CEO (PDG), Dr, York, Japan (Japón; de keeps Japan a name, as German writes it so), London (Лондон, Londres).
+   - Judged blind on changed hovers (a fresh sample, seed 1903, 60 changed + 20 unchanged words per language from YouTube and articles; Netflix held out, 40 + 15; code frozen; the judged build merged acronyms into the capitalised headwords, fixed after it, below). Changed words before → after:
+
+     | | good | wrong + misleading + missing | preferred after vs before |
+     |---|---|---|---|
+     | es YT+art. (60) | 13 → 46 | 42 → 3 | 49 vs 1 |
+     | es Netflix (40) | 6 → 27 | 33 → 2 | 36 vs 1 |
+     | fr YT+art. (60) | 15 → 39 | 41 → 1 | 48 vs 11 |
+     | fr Netflix (40) | 12 → 22 | 26 → 9 | 24 vs 7 |
+     | de YT+art. (60) | 13 → 44 | 44 → 8 | 48 vs 4 |
+     | de Netflix (40) | 16 → 24 | 21 → 6 | 23 vs 7 |
+     | zh YT+art. (60) | 18 → 39 | 40 → 6 | 52 vs 6 |
+     | zh Netflix (40) | 11 → 33 | 23 → 4 | 32 vs 2 |
+
+     Missing goes to 0 on changed words everywhere. Corpus-weighted, the change is about a point of "good" (es YouTube and articles 69.2 → 70.1%, Netflix 91.8 → 92.8%; fr 74.2 → 74.8%, de 74.2 → 75.0%, zh 54.5 → 55.2%), as only 1.5–2% of tokens change. Where judges preferred before: a capitalised function word shown as an acronym (And → ET, It's → IT, If → Indice de citations, Who → OMS, His → KIS: fr 6 of 18, de 4 of 11, so acronyms were kept apart, which changes 18–157 tokens per native from the judged build, all of them such words); a capitalised noun's proper sense first where the common one was meant (West → Occident, City → Cité de Londres, Crown); a person's or place's name now shown with a native gloss or description (Michael → "Prénom masculin équivalent à Michel", Windsor → "Ville d'Angleterre", Washington → 华盛顿州) where "(name)" was judged better.
+   - Presentation choices for non-Japanese natives (ours to make, user 2026-11-18), by language-learning practice and the judging above: (1) a capitalised word shows its capitalised meaning first, then the common word's, as en-ja does (Turkey → Turquía, pavo; May → mayo, poder): a learner reading "Turkey" mid-sentence means the country; (2) a place whose native name differs is a word with that name (London → Londres, Japan → Japón), as ja's Germany → ドイツ: country, city and nationality names are early vocabulary, and judges rated them good; a place written the same (Paris → París aside from accents, German Japan) stays a name: nothing to learn; (3) a person's name stays a name ("(name)"), whatever gloss the source gives (Frank → franco, Einstein → gênio); (4) where the page does not say how a word is written, the lowercase entry alone: joined, "It's" showed IT on 332 es tokens and "And" ET on 887 fr tokens (the study's recommendation, now taken for the pairs; ja still joins, to measure in step 5); (5) acronyms only for words written in capitals.
+   - Not done: contractions the sources lack (step 5); a few names whose native spelling the edition also files as a common word stay words and show it (ru Einstein → Эйнштейн, zh Helen → 海伦); pt God shows the edition's interjection sense first; en-defs still keeps the English definitions of words every pair now covers through a capitalised entry (thursday, january): a later `data:en-defs` could leave them out.
 4. **Latin-script short lines** (first sentence, closing marks, subscripts, native case): cosmetic but on every Wikcionario gloss (25,000 in es); the translated-line cap is the number of Latin characters that fit the mock's hover card, measured in this step.
 5. **Contractions and sentence-start lookup** (CORE): pt we're/they're (~900 tokens); measure the sentence-start rule on ja too.
 6. **Then the next natives** with the checklist above, starting with fr, de, ru (recipes only, per translation-data-expansion.md).

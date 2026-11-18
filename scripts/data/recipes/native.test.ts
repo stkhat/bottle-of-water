@@ -32,6 +32,40 @@ describe("buildPairDictionary", () => {
     expect(result.counts).toEqual({ eswiktionary: 2, [TABLES_TAG]: 1 });
     expect(result.stats).toMatchObject({ unparsable: 1, terms: 3 });
   });
+  it("keeps capitalised headwords apart, from the same sources in the same order", async () => {
+    const build = (names = {}) =>
+      buildPairDictionary("es", {
+        termKey,
+        rawDir: FIXTURES,
+        englishPath: join(FIXTURES, "tables-en.jsonl"),
+        names,
+      });
+    const { capital, dict, stats } = await build();
+    expect(capital).toEqual({
+      Light: [
+        "sobrenome",
+        [
+          ["proper noun", "sobrenome"],
+          ["proper noun", "apelido"],
+        ],
+        0,
+        "word",
+      ],
+      Upset: ["Revés", [["proper noun", "Revés", "village"]], 1, "name"],
+    });
+    // No lowercase copies: "upset" is the tables' verb.
+    expect(dict["upset"]?.[0]).toBe("molestar");
+    expect(stats.capitals).toEqual({
+      classSenses: 0,
+      word: 1,
+      name: 1,
+      none: 0,
+    });
+    // A surname first: "sobrenome" is a use of the name, not what Light means.
+    expect((await build({ light: "sx" })).capital["Light"]?.[3]).toBe(
+      undefined,
+    );
+  });
   it("builds a recipe without an edition from the tables, then its wordnets", async () => {
     const result = await buildPairDictionary("pt", {
       termKey: termKeyOf({
@@ -111,5 +145,26 @@ describe("writeShards", () => {
       shards: [{ file: "dict-1.json", first: "luz", last: "luz" }],
       sources: ["eswiktionary"],
     });
+  });
+  it("writes capitalised headwords to capital.json, listed first", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pair-pack-"));
+    const japan = ["Japón", [["proper noun", "Japón"]], 0, "name"];
+    writeShards(
+      "en-es",
+      { luz: ["luz", [["noun", "luz"]], 0] },
+      dir,
+      { sources: ["eswiktionary"] },
+      { Japan: japan },
+    );
+    const read = (file: string) =>
+      JSON.parse(readFileSync(join(dir, "en-es", file), "utf8")) as unknown;
+    expect(read("index.json")).toEqual({
+      shards: [
+        { file: "capital.json", first: "Japan", last: "Japan" },
+        { file: "dict-1.json", first: "luz", last: "luz" },
+      ],
+      sources: ["eswiktionary"],
+    });
+    expect(read("capital.json")).toEqual({ Japan: japan });
   });
 });

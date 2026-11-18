@@ -686,4 +686,61 @@ describe("createPairDictionary", () => {
       ]);
     });
   });
+
+  describe("capitalised headwords", () => {
+    // Capitalised headwords sit under their capital key, with what they mean (format 3).
+    const dict = {
+      japan: ["laca", [["noun", "laca japonesa"]], 0],
+      Japan: ["Japón", [["proper noun", "Japón"]], 0, "name"],
+      Thursday: ["jueves", [["noun", "jueves", "day of the week"]], 1, "word"],
+      china: ["porcelana", [["noun", "porcelana"]], 0],
+      China: ["China", [["proper noun", "China"]], 0],
+    } as unknown as PairPack;
+    const capitals = createPairDictionary({ dict, defs: {}, ipa: {} });
+
+    it("shows a capitalised word's meaning first when it has one", () => {
+      expect(capitals.entry("Japan", "capital")?.lines).toEqual([
+        "Japón",
+        "laca japonesa",
+      ]);
+      expect(capitals.entry("japan", "upper")?.lines[0]).toBe("Japón");
+      // The gloss is the headword itself: the lowercase entry alone.
+      expect(capitals.entry("China", "capital")?.lines).toEqual(["porcelana"]);
+    });
+    it("keeps acronyms for words written in capitals", () => {
+      const acronyms = createPairDictionary({
+        dict: {
+          and: ["y", [["conjunction", "y"]], 0],
+          AND: ["Y", [["noun", "Y lógico"]], 0, "word"],
+          us: ["nos", [["pronoun", "nos"]], 0],
+          US: ["EE. UU.", [["proper noun", "EE. UU."]], 1, "name"],
+        } as unknown as PairPack,
+        defs: {},
+        ipa: {},
+      });
+      // A capitalised "And" is no acronym.
+      expect(acronyms.entry("And", "capital")?.lines).toEqual(["y"]);
+      expect(acronyms.entry("AND", "upper")?.lines).toEqual(["Y lógico", "y"]);
+      expect(acronyms.entry("US", "upper")?.lines).toEqual(["EE. UU", "nos"]);
+      expect(acronyms.capitalMeaning("us")).toBeUndefined();
+    });
+    it("shows the lowercase entry alone for a word in lower case or where the page does not say", () => {
+      expect(capitals.entry("japan", "lower")?.lines).toEqual([
+        "laca japonesa",
+      ]);
+      // A sentence start, a caseless document: "It's" is not IT.
+      expect(capitals.entry("Japan")?.lines).toEqual(["laca japonesa"]);
+    });
+    it("takes the capitalised entry for a word with no lowercase one, however written", () => {
+      for (const written of ["capital", "lower", undefined] as const)
+        expect(capitals.entry("thursday", written)?.lines).toEqual(["jueves"]);
+      expect(capitals.outline("thursday")).toMatchObject({ meaning: true });
+    });
+    it("says what a capitalised headword means, as the data build found", () => {
+      expect(capitals.capitalMeaning("Japan")).toBe("name");
+      expect(capitals.capitalMeaning("thursday")).toBe("word");
+      expect(capitals.capitalMeaning("China")).toBeUndefined();
+      expect(capitals.capitalMeaning("light")).toBeUndefined();
+    });
+  });
 });
