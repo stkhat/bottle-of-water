@@ -265,6 +265,69 @@ describe("chooseKey (rule A1)", () => {
       undefined,
     );
   });
+  describe("a Spanish-like pack: forms that are no headwords, and articles", () => {
+    const ES: Record<string, EntryOutline> = {
+      poder: { firstMeaning: true, meaning: true, pos: ["verb", "noun"] },
+      podar: { firstMeaning: true, meaning: true, pos: ["verb"] },
+      // los: only the pronoun ("them"); el: the article.
+      los: { firstMeaning: true, meaning: true, pos: ["pronoun"] },
+      el: { firstMeaning: true, meaning: true, pos: ["article"] },
+      // dying: dieの現在分詞, then adjective senses; die: verb, and the noun "dice".
+      dying: {
+        formOf: "die",
+        firstMeaning: false,
+        meaning: true,
+        pos: ["verb", "adjective"],
+      },
+      die: { firstMeaning: true, meaning: true, pos: ["verb", "noun"] },
+      // veces: an entry whose source gives no part of speech.
+      veces: { formOf: "vez", firstMeaning: false, meaning: false, pos: [] },
+      vez: { firstMeaning: true, meaning: true, pos: ["noun"] },
+    };
+    const esLang = {
+      partsOfSpeech: (word: string) =>
+        ({
+          poder: ["verb", "noun"],
+          podar: ["verb"],
+          los: ["pronoun"],
+          el: ["article"],
+        })[word] ?? [],
+      rank: (word: string) => (word === "poder" ? 1 : 2),
+    };
+    const esKey = (form: string, bases: string[], r: WordReading) =>
+      chooseKey(form, bases, r, (word) => ES[word], esLang) ?? bases[0];
+
+    it("takes an auxiliary that is no headword to its likeliest base, not to the other one", () => {
+      const aux = { auxiliary: true };
+      // "podemos hacer": the form's bases are poder and podar.
+      expect(
+        esKey("podemos", ["poder", "podar"], reading(tag("verb", "VBP"), aux)),
+      ).toBe("poder");
+      expect(
+        esKey("podemos", ["podar", "poder"], reading(tag("verb", "VBP"), aux)),
+      ).toBe("poder");
+    });
+    it("takes a headword whose entry lacks the tagged part of speech to a base that has it", () => {
+      const article = reading(tag("determiner", "DT", false));
+      expect(esKey("los", ["los", "el"], article)).toBe("el");
+      // As a pronoun its own entry fits.
+      expect(
+        esKey("los", ["los", "el"], reading(tag("noun", "PRP", false))),
+      ).toBe("los");
+      // An entry with no part of speech says nothing against the tag.
+      expect(
+        esKey("veces", ["veces", "vez"], reading(tag("noun", "NNS"))),
+      ).toBe("veces");
+      // An entry that names the base it is a form of keeps it, whatever the tag.
+      expect(
+        esKey("dying", ["dying", "die"], reading(tag("noun", "NN", false))),
+      ).toBe("dying");
+      // No base has it: the word keeps its entry.
+      expect(
+        esKey("los", ["los", "el"], reading(tag("adverb", "RB", false))),
+      ).toBe("los");
+    });
+  });
 });
 
 describe("sensePos (rule A2's part of speech)", () => {
