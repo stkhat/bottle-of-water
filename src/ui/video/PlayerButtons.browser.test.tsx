@@ -12,30 +12,34 @@ const base: PlayerButtonsProps = {
 afterEach(cleanUpMounts);
 
 describe("PlayerButtons", () => {
-  test("the L button shows Langle is on", async () => {
+  /** The on/off button's mark, its text (none) and its filter. */
+  function mark(button: Element) {
+    const svg = button.querySelector("[data-langle-mark] svg")!;
+    return { text: button.textContent, filter: getComputedStyle(svg).filter };
+  }
+
+  test("on: Langle's mark in color, with no outline", async () => {
     const screen = await mountInShadowRoot(<PlayerButtons {...base} />);
-    const l = screen.getByRole("button", { name: "Langle on or off" });
-    await expect.element(l).toHaveAttribute("aria-pressed", "true");
+    const button = screen.getByRole("button", { name: "Langle on or off" });
+    await expect.element(button).toHaveAttribute("aria-pressed", "true");
     await expect
-      .element(l)
+      .element(button)
       .toHaveAttribute("title", "Langle is on — click to turn off");
-    const style = getComputedStyle(l.element());
-    expect(style.backgroundColor).toBe("rgb(11, 138, 108)");
-    expect(style.textDecorationLine).toBe("none");
+    expect(mark(button.element())).toEqual({ text: "", filter: "none" });
+    expect(getComputedStyle(button.element()).borderTopStyle).toBe("none");
   });
 
-  test("off: a dashed outline and a line through the L", async () => {
+  test("off: the mark in gray inside a dashed outline", async () => {
     const screen = await mountInShadowRoot(
       <PlayerButtons {...base} enabled={false} />,
     );
-    const l = screen.getByRole("button", { name: "Langle on or off" });
-    await expect.element(l).toHaveAttribute("aria-pressed", "false");
+    const button = screen.getByRole("button", { name: "Langle on or off" });
+    await expect.element(button).toHaveAttribute("aria-pressed", "false");
     await expect
-      .element(l)
+      .element(button)
       .toHaveAttribute("title", "Langle is off — click to turn on");
-    const style = getComputedStyle(l.element());
-    expect(style.borderTopStyle).toBe("dashed");
-    expect(style.textDecorationLine).toBe("line-through");
+    expect(mark(button.element()).filter).toContain("grayscale(1)");
+    expect(getComputedStyle(button.element()).borderTopStyle).toBe("dashed");
   });
 
   test("both buttons sit in one translucent white outline", async () => {
