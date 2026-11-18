@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { byCodeUnit } from "../../../scripts/data/common.ts";
 import { packSourcePath } from "../../../scripts/data/formats.ts";
+import { simplifiedConverter } from "../../../scripts/data/recipes/simplified.ts";
 import {
   createDefsDictionary,
   createEnJaDictionary,
@@ -445,5 +446,70 @@ describe.each([
       (term) => !Object.hasOwn(dict, term),
     );
     expect(dictionary.entry(englishOnly!)?.glossLang).toBe("en");
+  });
+});
+
+// The pairs D3 added: Chinese and Italian take the translation tables first, then
+// their own Wiktionary, then wordnets; Polish takes its own Wiktionary first.
+describe.each([
+  {
+    pack: "en-zh",
+    sources: ["enwiktionary-translations", "zhwiktionary", "omw-cmn"],
+    bread: "面包",
+  },
+  {
+    pack: "en-it",
+    sources: ["enwiktionary-translations", "itwiktionary", "omw-it", "omw-iwn"],
+    bread: "pane",
+  },
+  {
+    pack: "en-pl",
+    sources: ["plwiktionary", "enwiktionary-translations", "omw-pl"],
+    bread: "chleb",
+  },
+] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
+  const index = read(`packs/${pack}/index.json`) as ShardIndex;
+  const load = loadPack(pack).then(({ dict }) => ({
+    dict,
+    dictionary: createPairDictionary({ dict, defs, ipa }),
+  }));
+
+  it("names its sources in the recipe's order and takes terms from each", async () => {
+    expect(index.sources).toEqual(sources);
+    const { dict } = await load;
+    const bySource = sources.map(() => 0);
+    for (const [, , source] of Object.values(dict)) bySource[source]!++;
+    expect(bySource.every((n) => n > 500)).toBe(true);
+  });
+
+  it("has native meanings within the cap for common words", async () => {
+    const { dictionary } = await load;
+    expect(dictionary.entry("bread")).toMatchObject({ short: bread });
+    for (const word of ["bread", "house", "money", "give up"])
+      expect(dictionary.entry(word), word).not.toHaveProperty("glossLang");
+    for (const word of ["light", "go", "time", "people", "think"])
+      for (const line of dictionary.entry(word)?.lines ?? [])
+        expect(displayWidth(line), line).toBeLessThanOrEqual(40);
+  });
+
+  it("keeps no page markup the extraction let into a gloss", async () => {
+    const { dict } = await load;
+    const marked = Object.values(dict).filter(([, senses]) =>
+      senses.some(([, text]) => /={2,}|\n\s*[*#]/.test(text)),
+    );
+    expect(marked).toEqual([]);
+  });
+});
+
+describe("generated en-zh dictionary", () => {
+  it("is written in simplified characters", async () => {
+    const { dict } = await loadPack("en-zh");
+    const convert = simplifiedConverter();
+    const traditional = Object.values(dict).filter(([short, senses]) =>
+      [short, ...senses.map(([, text]) => text)].some(
+        (text) => convert(text) !== text,
+      ),
+    );
+    expect(traditional.length).toBeLessThan(10);
   });
 });

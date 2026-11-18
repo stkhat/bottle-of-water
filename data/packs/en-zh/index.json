@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"dict-1.json","first":"a","last":"foldaway"},{"file":"dict-2.json","first":"foldboat","last":"pundit"},{"file":"dict-3.json","first":"pungency","last":"émigré"}],
+"sources":["enwiktionary-translations","zhwiktionary","omw-cmn"]
+}

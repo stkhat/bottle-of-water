@@ -262,11 +262,11 @@ describe("createLanguageResources", () => {
 
   it("rejects languages it has no packs for", async () => {
     const resources = createLanguageResources(stubLoader());
-    await expect(resources.pack("it")).rejects.toThrow(
-      "No language pack for it",
+    await expect(resources.pack("nl")).rejects.toThrow(
+      "No language pack for nl",
     );
-    await expect(resources.dictionary("en", "it")).rejects.toThrow(
-      "No dictionary from en to it",
+    await expect(resources.dictionary("en", "nl")).rejects.toThrow(
+      "No dictionary from en to nl",
     );
     await expect(resources.dictionary("es", "ja")).rejects.toThrow(
       "No dictionary from es to ja",

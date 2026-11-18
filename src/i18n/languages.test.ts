@@ -9,7 +9,7 @@ describe("languageOption", () => {
   });
 
   it("shows an unknown code as it is", () => {
-    expect(languageOption("it")).toBe("it");
+    expect(languageOption("nl")).toBe("nl");
     expect(languageOption("constructor")).toBe("constructor");
   });
 });
@@ -19,7 +19,7 @@ describe("languageName", () => {
     expect(languageName("en")).toBe("English");
     expect(languageName("ja")).toBe("Japanese");
     expect(languageName("es")).toBe("Spanish");
-    expect(languageName("it")).toBe("it");
+    expect(languageName("nl")).toBe("nl");
   });
 });
 

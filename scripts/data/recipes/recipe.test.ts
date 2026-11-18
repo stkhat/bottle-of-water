@@ -1,10 +1,13 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  convertTerms,
+  lastScriptForm,
   mergeSources,
   readEdition,
   readTranslationTables,
   termKeyOf,
+  withoutPageMarkup,
   withoutStressMarks,
   type SourceTerm,
 } from "./recipe.ts";
@@ -14,6 +17,57 @@ const termKey = termKeyOf({
   vocab: new Set(["light", "upset", "give", "up"]),
   lemmas: { lights: "light" },
   phrases: new Set(["give up"]),
+});
+
+describe("withoutPageMarkup", () => {
+  it("cuts a gloss where a heading or a list item of the page starts", () => {
+    expect(withoutPageMarkup("消色差透镜\n* 正体: 消色差透镜[电机工程]")).toBe(
+      "消色差透镜",
+    );
+    expect(withoutPageMarkup("顶峰，顶点==葡萄牙语==\n顶点")).toBe(
+      "顶峰，顶点",
+    );
+    expect(withoutPageMarkup("adoring\n====翻译====\n翻译")).toBe("adoring");
+    expect(withoutPageMarkup("1) бумага\n2) простая бумага")).toBe(
+      "1) бумага\n2) простая бумага",
+    );
+  });
+});
+
+describe("lastScriptForm", () => {
+  it("takes the last of the forms a Chinese row writes, the simplified one", () => {
+    expect(lastScriptForm("麵包 /面包")).toBe("面包");
+    expect(lastScriptForm("空閒 /空閑 /空闲")).toBe("空闲");
+    expect(lastScriptForm("我")).toBe("我");
+  });
+});
+
+describe("convertTerms", () => {
+  it("rewrites the native text, keeps the English hints, and each word and sense once", () => {
+    const terms = new Map<string, SourceTerm>([
+      [
+        "bread",
+        {
+          short: "麵包",
+          senses: [
+            ["noun", "麵包, 面包", "baked dough"],
+            ["noun", "面包", "baked dough"],
+            ["noun", "麵"],
+          ],
+        },
+      ],
+    ]);
+    const convert = (text: string) => text.replaceAll("麵", "面");
+    expect(Object.fromEntries(convertTerms(terms, convert))).toEqual({
+      bread: {
+        short: "面包",
+        senses: [
+          ["noun", "面包", "baked dough"],
+          ["noun", "面"],
+        ],
+      },
+    });
+  });
 });
 
 describe("withoutStressMarks", () => {
@@ -119,6 +173,22 @@ describe("readTranslationTables", () => {
         senses: [["verb", "render-se", "to surrender"]],
       },
     });
+  });
+  it("keeps only the rows of the languages `langs` names: a variety, not its siblings", async () => {
+    const { terms } = await readTranslationTables(
+      join(FIXTURES, "tables-en.jsonl"),
+      {
+        langCodes: ["cmn", "zh"],
+        langs: ["Chinese Mandarin"],
+        termKey,
+        word: lastScriptForm,
+      },
+    );
+    // The Hokkien and Dungan rows (coded zh, as Mandarin's may be) are left out.
+    expect(terms.get("light")?.senses).toEqual([
+      ["noun", "光", "electromagnetic radiation"],
+      ["noun", "灯, 燈光", "source of illumination"],
+    ]);
   });
   it("rewrites or drops a translated word with `word`", async () => {
     const { terms } = await readTranslationTables(

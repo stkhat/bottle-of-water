@@ -86,6 +86,33 @@ export const NATIVE_LANGUAGES = {
     examples: { bank: "Ufer (eines Flusses)", beans: "das Geheimnis verraten" },
     englishPair: { format: 1 },
   },
+  // Simplified Chinese (the pack converts traditional characters at build time). Like
+  // Japanese: no spaces, a dense script. Chrome's Prompt API has no Chinese, Italian
+  // or Polish: meaning in context is unavailable, so no examples of their own.
+  zh: {
+    option: "language.zh",
+    name: "languageName.zh",
+    spaces: false,
+    dense: true,
+    examples: null,
+    englishPair: { format: 1 },
+  },
+  it: {
+    option: "language.it",
+    name: "languageName.it",
+    spaces: true,
+    dense: false,
+    examples: null,
+    englishPair: { format: 1 },
+  },
+  pl: {
+    option: "language.pl",
+    name: "languageName.pl",
+    spaces: true,
+    dense: false,
+    examples: null,
+    englishPair: { format: 1 },
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",

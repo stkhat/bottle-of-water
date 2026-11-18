@@ -94,14 +94,28 @@ export function withoutStressMarks(text: string): string {
     .normalize("NFC");
 }
 
+/** A heading ("==葡萄牙语==", "====翻译====") or a list item ("* 汉语：…") of a wiki page. */
+const PAGE_MARKUP = /={2,}|\n\s*[*#]/;
+
+/**
+ * A gloss without the page structure the extraction let into it: cut where a heading
+ * or a list item starts ("消色差透镜\n* 正体: …" → "消色差透镜").
+ */
+export function withoutPageMarkup(gloss: string) {
+  const at = gloss.search(PAGE_MARKUP);
+  return (at < 0 ? gloss : gloss.slice(0, at)).trim();
+}
+
 /**
  * A native-language Wiktionary edition (kaikki's extract of it): its entries for English
  * words, whose glosses are in the native language. Each term
  * gets up to MAX_SENSES distinct usable senses, in file order; single-word proper-noun
  * entries and non-constituents are left out. Read over English Wiktionary itself, it
  * gives the English definitions (en-defs). `trimPeriod` drops the period that ends a
- * gloss made of one sentence (Wikcionario's "Luz." → "Luz"). Glosses lose their stress
- * marks (`withoutStressMarks`).
+ * gloss made of one sentence (Wikcionario's "Luz." → "Luz", "微笑。" → "微笑"). Glosses
+ * lose the page markup the extraction let in (`withoutPageMarkup`) and their stress
+ * marks (`withoutStressMarks`); one that was only the headword and such markup is left
+ * out.
  */
 export async function readEdition(
   path: string,
@@ -120,9 +134,18 @@ export async function readEdition(
     const pos = posOf(entry.pos);
     for (const sense of entry.senses ?? []) {
       if (!isUsable(sense)) continue;
-      const gloss = withoutStressMarks(glossOf(sense).trim());
+      const written = glossOf(sense).trim();
+      const gloss = withoutStressMarks(withoutPageMarkup(written));
+      // Page markup with only the headword before it ("adoring\n====翻译====…") is no
+      // gloss; a gloss that is the headword itself is (a loanword: "pizza").
+      if (
+        !gloss ||
+        (gloss !== written &&
+          gloss.toLowerCase() === entry.word.trim().toLowerCase())
+      )
+        continue;
       const text =
-        trimPeriod && /^[^.]+\.$/.test(gloss) ? gloss.slice(0, -1) : gloss;
+        trimPeriod && /^[^.。]+[.。]$/.test(gloss) ? gloss.slice(0, -1) : gloss;
       addSense(termOf(terms, key), [pos, text]);
     }
   });
@@ -136,23 +159,28 @@ const senseLabel = (text: unknown) =>
  * English Wiktionary's translation tables (kaikki's English extract) into the native
  * language (`langCodes`, such as ["pt"] or ["cmn"]): per English sense, its words in
  * that language, at most MAX_WORDS, with the English sense label as the hint (the
- * table's own label, else the sense's gloss). A word loses its stress marks
- * (`withoutStressMarks`: the Russian tables mark stress); `word` then rewrites it, or
- * drops it by returning undefined.
+ * table's own label, else the sense's gloss). `langs`: only the rows of these
+ * languages (kaikki's names), for a language whose tables nest varieties under it
+ * ("Chinese Mandarin", not "Chinese" rows tagged Hokkien or Dungan). A word loses its
+ * stress marks (`withoutStressMarks`: the Russian tables mark stress); `word` then
+ * rewrites it, or drops it by returning undefined.
  */
 export async function readTranslationTables(
   path: string,
   {
     langCodes,
+    langs,
     termKey,
     word: rewrite = (w) => w,
   }: {
     langCodes: string[];
+    langs?: string[];
     termKey: TermKey;
     word?: (word: string) => string | undefined;
   },
 ) {
   const codes = new Set(langCodes);
+  const names = langs && new Set<unknown>(langs);
   const terms = new Map<string, SourceTerm>();
   const stats = await eachEntry(path, (entry) => {
     if (entry.lang_code !== "en") return;
@@ -167,6 +195,7 @@ export async function readTranslationTables(
     ) => {
       for (const translation of translations ?? []) {
         if (!codes.has(translation?.lang_code as string)) continue;
+        if (names && !names.has(translation.lang)) continue;
         if (typeof translation.word !== "string") continue;
         const written = rewrite(withoutStressMarks(translation.word.trim()));
         if (!written) continue;
@@ -193,6 +222,37 @@ export async function readTranslationTables(
   });
   // The short meaning is the first sense's first word.
   return { terms: finish(terms, (text) => text.split(", ")[0]!), stats };
+}
+
+/**
+ * A translation-table word in the last of the scripts it is written in: Chinese rows
+ * give the traditional form, then the simplified one ("麵包 /面包" → "面包"; a word
+ * the same in both is written once).
+ */
+export const lastScriptForm = (word: string) => word.split(" /").at(-1)!.trim();
+
+/**
+ * A source's terms with their native text rewritten by `convert` (traditional
+ * Chinese characters → simplified ones), the English hints as they are: each word of a
+ * sense once, each sense once.
+ */
+export function convertTerms(
+  terms: Map<string, SourceTerm>,
+  convert: (text: string) => string,
+) {
+  for (const item of terms.values()) {
+    const senses: PairSense[] = [];
+    for (const [pos, text, hint] of item.senses) {
+      const converted = [...new Set(convert(text).split(", "))].join(", ");
+      if (senses.some(([, other]) => other === converted)) continue;
+      senses.push(
+        hint === undefined ? [pos, converted] : [pos, converted, hint],
+      );
+    }
+    item.senses = senses;
+    item.short = convert(item.short);
+  }
+  return terms;
 }
 
 /**

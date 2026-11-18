@@ -86,6 +86,7 @@ describe("capLine", () => {
   it("cuts at the last comma that fits", () => {
     expect(capLine("能力,力量,手腕", 10)).toBe("能力,力量");
     expect(capLine("To seek, to try to find something", 20)).toBe("To seek");
+    expect(capLine("锦标赛，联赛，比赛", 12)).toBe("锦标赛，联赛");
   });
   it("leaves out notes in parentheses before cutting", () => {
     expect(capLine("(何かの)能力,力", 8)).toBe("能力,力");
@@ -107,6 +108,10 @@ describe("shortOfDefinition", () => {
       "From the beginning",
     );
     expect(shortOfDefinition("e.g. bread")).toBe("e.g. bread");
+  });
+  it("reads the full-width semicolon and period of Chinese glosses alike", () => {
+    expect(shortOfDefinition("大学教师；学者")).toBe("大学教师");
+    expect(shortOfDefinition("微笑。")).toBe("微笑");
   });
   it("does not cut inside brackets", () => {
     expect(shortOfDefinition("(of a person; informal) Dim; stupid.")).toBe(

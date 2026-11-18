@@ -14,7 +14,10 @@ describe("learningLanguages", () => {
 
 describe("nativeLanguages", () => {
   it("lists the languages each learning language has a dictionary into, from the lock", () => {
-    expect(nativeLanguages("en")).toEqual(["ja", "es", "pt", "ru", "fr", "de"]);
+    expect(nativeLanguages("en")).toEqual([
+      ...["ja", "es", "pt", "ru", "fr", "de"],
+      ...["zh", "it", "pl"],
+    ]);
     expect(nativeLanguages("es")).toEqual(["en"]);
   });
 
@@ -47,6 +50,10 @@ describe("firstPair", () => {
     expect(firstPair("es-419")).toEqual(pair("en", "es"));
     expect(firstPair("pt-BR")).toEqual(pair("en", "pt"));
     expect(firstPair("pt_PT")).toEqual(pair("en", "pt"));
+    // Chinese is offered in simplified characters, to every Chinese UI.
+    expect(firstPair("zh-CN")).toEqual(pair("en", "zh"));
+    expect(firstPair("zh-TW")).toEqual(pair("en", "zh"));
+    expect(firstPair("pl")).toEqual(pair("en", "pl"));
   });
 
   it("gives an English UI another learning language that has English as its native one", () => {
@@ -55,7 +62,7 @@ describe("firstPair", () => {
   });
 
   it("gives the default pair to a UI language no offered pair has", () => {
-    for (const ui of ["it", "zh-CN", "ko", "", "constructor"])
+    for (const ui of ["nl", "ko", "", "constructor"])
       expect(firstPair(ui)).toEqual(pair("en", "ja"));
   });
 
