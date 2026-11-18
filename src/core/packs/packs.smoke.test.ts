@@ -382,3 +382,68 @@ describe("generated en-es dictionary", () => {
     expect(dictionary.entry(englishOnly!)?.glossLang).toBe("en");
   });
 });
+
+// The pairs D2 added: Russian and German take English Wiktionary's translation tables
+// first and their own Wiktionary for the rest; French takes its own first, as Spanish.
+describe.each([
+  {
+    pack: "en-ru",
+    sources: ["enwiktionary-translations", "ruwiktionary"],
+    bread: "хлеб",
+  },
+  {
+    pack: "en-fr",
+    sources: ["frwiktionary", "enwiktionary-translations"],
+    bread: "Pain",
+  },
+  {
+    pack: "en-de",
+    sources: ["enwiktionary-translations", "dewiktionary"],
+    bread: "Brot",
+  },
+] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
+  const index = read(`packs/${pack}/index.json`) as ShardIndex;
+  const load = loadPack(pack).then(({ dict }) => ({
+    dict,
+    dictionary: createPairDictionary({ dict, defs, ipa }),
+  }));
+
+  it("names its sources in the recipe's order", () => {
+    expect(index.sources).toEqual(sources);
+  });
+
+  it("has native meanings without English definitions for common words", async () => {
+    const { dictionary } = await load;
+    expect(dictionary.entry("bread")).toMatchObject({ short: bread });
+    for (const word of ["bread", "house", "money", "give up"])
+      expect(dictionary.entry(word), word).not.toHaveProperty("glossLang");
+  });
+
+  it("takes terms from both sources and keeps every hover line within the cap", async () => {
+    const { dict, dictionary } = await load;
+    const bySource = [0, 0];
+    for (const [, , source] of Object.values(dict)) bySource[source]!++;
+    expect(bySource.every((n) => n > 1000)).toBe(true);
+    for (const word of ["light", "go", "time", "people", "think"])
+      for (const line of dictionary.entry(word)?.lines ?? [])
+        expect(displayWidth(line), line).toBeLessThanOrEqual(40);
+  });
+
+  it("writes Russian without the stress marks Wiktionary adds for learners", async () => {
+    const { dict } = await load;
+    const marked = Object.entries(dict).filter(([, [, senses]]) =>
+      senses.some(([, text]) =>
+        /\p{Script=Cyrillic}[̀́]/u.test(text.normalize("NFD")),
+      ),
+    );
+    expect(marked.length).toBeLessThan(5);
+  });
+
+  it("falls back to English definitions for a term without a native meaning", async () => {
+    const { dict, dictionary } = await load;
+    const englishOnly = Object.keys(defs).find(
+      (term) => !Object.hasOwn(dict, term),
+    );
+    expect(dictionary.entry(englishOnly!)?.glossLang).toBe("en");
+  });
+});

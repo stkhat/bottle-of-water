@@ -10,7 +10,7 @@ describe("packsFor", () => {
   });
 
   it("lists what has a recipe of a pair Langle does not offer", () => {
-    expect(packsFor("en", "fr")).toEqual(["en"]);
+    expect(packsFor("en", "it")).toEqual(["en"]);
     expect(packsFor("fr", "ja")).toEqual([]);
     expect(packsFor("constructor", "toString")).toEqual([]);
   });

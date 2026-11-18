@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { stringifyPack } from "./common.ts";
+import { eachEntry, stringifyPack } from "./common.ts";
 
 describe("the data scripts", () => {
   it("load under plain Node, with the src/ files they import", () => {
@@ -21,6 +22,20 @@ describe("the data scripts", () => {
     );
     expect(node.stderr).toBe("");
     expect(node.status).toBe(0);
+  });
+});
+
+describe("eachEntry", () => {
+  it("splits lines at newlines only, not at the line and paragraph separators a string may hold", async () => {
+    const path = join(mkdtempSync(join(tmpdir(), "kaikki-")), "x.jsonl");
+    writeFileSync(
+      path,
+      `{"word": "a", "ref": "Schachnovelle,\u2029S. Fischer"}\n\n{"word": "b\u2028c"}\r\nnot json\n{"pos": "noun"}`,
+    );
+    const words: string[] = [];
+    const stats = await eachEntry(path, (entry) => words.push(entry.word));
+    expect(words).toEqual(["a", "b\u2028c"]);
+    expect(stats).toEqual({ entries: 3, unparsable: 1 });
   });
 });
 

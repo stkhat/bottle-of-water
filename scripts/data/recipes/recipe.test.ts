@@ -5,6 +5,7 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
+  withoutStressMarks,
   type SourceTerm,
 } from "./recipe.ts";
 
@@ -13,6 +14,23 @@ const termKey = termKeyOf({
   vocab: new Set(["light", "upset", "give", "up"]),
   lemmas: { lights: "light" },
   phrases: new Set(["give up"]),
+});
+
+describe("withoutStressMarks", () => {
+  it("drops the stress marks over Cyrillic letters, as natives write", () => {
+    expect(withoutStressMarks("де\u0301ньги")).toBe("деньги");
+    expect(withoutStressMarks("бро\u0301сить pf")).toBe("бросить pf");
+    expect(withoutStressMarks("ёлка")).toBe("ёлка");
+    expect(withoutStressMarks("й")).toBe("й");
+    // A grave marks secondary stress: "ѝ" is one code point, a stressed и.
+    expect(withoutStressMarks("\u045dдол")).toBe("идол");
+  });
+  it("keeps a mark that makes a letter, and accents in Latin text", () => {
+    expect(withoutStressMarks("\u0453")).toBe("\u0453"); // Macedonian ѓ
+    expect(withoutStressMarks("ге\u0301")).toBe("ге");
+    expect(withoutStressMarks("e\u0301te\u0301")).toBe("\u00e9t\u00e9");
+    expect(withoutStressMarks("été")).toBe("été");
+  });
 });
 
 describe("termKeyOf", () => {

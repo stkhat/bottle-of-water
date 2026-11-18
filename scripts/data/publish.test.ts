@@ -312,6 +312,18 @@ describe("recipePack", () => {
       ],
     ]);
   });
+  it("lists an edition after the tables where the recipe puts it, saying what it fills", () => {
+    expect(recipePack("de").sources.map((s) => [s.title, s.used])).toEqual([
+      [
+        "English Wiktionary, English entries",
+        "German translations (translation tables)",
+      ],
+      [
+        "German Wiktionary, English entries",
+        "German definitions of the terms the translation tables lack",
+      ],
+    ]);
+  });
   it("refuses a source it has no license record of", () => {
     expect(() =>
       recipePack("fr", { tables: { langCodes: ["fr"] }, wordnets: ["omw-fr"] }),

@@ -51,6 +51,27 @@ describe("buildPairDictionary", () => {
     expect(result.dict["bank"]?.[2]).toBe(1);
     expect(result.stats).toEqual({ unparsable: 0, terms: 4 });
   });
+  it("puts an edition after the tables when its recipe says so: it fills only what they lack", async () => {
+    const result = await buildPairDictionary("es", {
+      termKey,
+      rawDir: FIXTURES,
+      englishPath: join(FIXTURES, "tables-en.jsonl"),
+      recipe: {
+        edition: {
+          tag: "eswiktionary",
+          file: "kaikki-es-edition.jsonl",
+          afterTables: true,
+        },
+        tables: { langCodes: ["es"] },
+      },
+    });
+    expect(result.sources).toEqual([TABLES_TAG, "eswiktionary"]);
+    // The tables have light and upset; the edition gives only "give up".
+    expect(result.dict["upset"]?.[2]).toBe(0);
+    expect(result.dict["light"]?.[0]).toBe("luz");
+    expect(result.dict["give up"]?.[2]).toBe(1);
+    expect(result.counts).toEqual({ [TABLES_TAG]: 2, eswiktionary: 1 });
+  });
   it("refuses a native language without a recipe", async () => {
     await expect(buildPairDictionary("xx", { termKey })).rejects.toThrow(
       "No recipe for en-xx",

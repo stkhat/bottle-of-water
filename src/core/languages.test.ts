@@ -14,7 +14,7 @@ describe("learningLanguages", () => {
 
 describe("nativeLanguages", () => {
   it("lists the languages each learning language has a dictionary into, from the lock", () => {
-    expect(nativeLanguages("en")).toEqual(["ja", "es", "pt"]);
+    expect(nativeLanguages("en")).toEqual(["ja", "es", "pt", "ru", "fr", "de"]);
     expect(nativeLanguages("es")).toEqual(["en"]);
   });
 
@@ -55,7 +55,7 @@ describe("firstPair", () => {
   });
 
   it("gives the default pair to a UI language no offered pair has", () => {
-    for (const ui of ["fr", "zh-CN", "ko", "", "constructor"])
+    for (const ui of ["it", "zh-CN", "ko", "", "constructor"])
       expect(firstPair(ui)).toEqual(pair("en", "ja"));
   });
 

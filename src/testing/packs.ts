@@ -148,6 +148,18 @@ const TEST_PACKS: PackFiles = {
   "en-pt": {
     dict: { loaf: ["pão", [["noun", "pão"]], 0] },
   },
+  // Translation tables first, then the edition (`afterTables`).
+  "en-ru": {
+    dict: {
+      loaf: ["буханка", [["noun", "буханка, батон", "block of bread"]], 0],
+    },
+  },
+  "en-fr": {
+    dict: { loaf: ["pain", [["noun", "pain"]], 0] },
+  },
+  "en-de": {
+    dict: { loaf: ["Laib", [["noun", "Laib, Brotlaib", "block of bread"]], 0] },
+  },
 };
 
 const { crust, ferment, loaf, rise, rose, the, yeast } =
@@ -204,6 +216,21 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     sources: ["ptwiktionary", "enwiktionary-translations"],
   },
   "/packs/en-pt/dict-1.json": TEST_PACKS["en-pt"].dict,
+  "/packs/en-ru/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["enwiktionary-translations", "ruwiktionary"],
+  },
+  "/packs/en-ru/dict-1.json": TEST_PACKS["en-ru"].dict,
+  "/packs/en-fr/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["frwiktionary", "enwiktionary-translations"],
+  },
+  "/packs/en-fr/dict-1.json": TEST_PACKS["en-fr"].dict,
+  "/packs/en-de/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["enwiktionary-translations", "dewiktionary"],
+  },
+  "/packs/en-de/dict-1.json": TEST_PACKS["en-de"].dict,
 };
 
 /**

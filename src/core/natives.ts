@@ -1,7 +1,6 @@
 // The native languages: everything the extension does differently per native language,
-// in one entry each (architecture.md "Native meanings and the quality gate" → "Adding a
-// native language"). The data scripts (scripts/data/) import this file under plain
-// Node: keep its imports type-only.
+// in one entry each (architecture.md "Adding a native language"). The data scripts
+// (scripts/data/) import this file under plain Node: keep its imports type-only.
 import type { MessageKey } from "../i18n/t";
 
 export interface NativeLanguage {
@@ -59,6 +58,32 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     examples: { bank: "margem (de um rio)", beans: "revelar o segredo" },
+    englishPair: { format: 1 },
+  },
+  // Chrome's Prompt API has no Russian (it answers in en, ja, es, de, fr): meaning in
+  // context is unavailable, so no examples of its own.
+  ru: {
+    option: "language.ru",
+    name: "languageName.ru",
+    spaces: true,
+    dense: false,
+    examples: null,
+    englishPair: { format: 1 },
+  },
+  fr: {
+    option: "language.fr",
+    name: "languageName.fr",
+    spaces: true,
+    dense: false,
+    examples: { bank: "rive (d'une rivière)", beans: "révéler le secret" },
+    englishPair: { format: 1 },
+  },
+  de: {
+    option: "language.de",
+    name: "languageName.de",
+    spaces: true,
+    dense: false,
+    examples: { bank: "Ufer (eines Flusses)", beans: "das Geheimnis verraten" },
     englishPair: { format: 1 },
   },
   en: {

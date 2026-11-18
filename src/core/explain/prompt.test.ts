@@ -117,9 +117,9 @@ describe("instructions", () => {
   });
 
   it("falls back to the English examples for a language without its own", () => {
-    const fr = instructions({ learning: "en", native: "fr" });
-    expect(fr).toContain("You help a French speaker");
-    expect(fr).toContain('{"meaning":"riverbank","sense":2}');
+    const ru = instructions({ learning: "en", native: "ru" });
+    expect(ru).toContain("You help a Russian speaker");
+    expect(ru).toContain('{"meaning":"riverbank","sense":2}');
   });
 });
 

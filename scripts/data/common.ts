@@ -8,7 +8,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { createInterface } from "node:readline";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { ShardIndex } from "../../src/core/packs/types.ts";
 
@@ -176,6 +175,24 @@ export interface KaikkiEntry {
 }
 
 /**
+ * A file's lines, split at "\n" only: a JSON string may hold U+2028 and U+2029 as they
+ * are (the French edition quotes book titles with them), where readline would also
+ * split.
+ */
+async function* linesOf(path: string) {
+  let rest = "";
+  for await (const chunk of createReadStream(path, {
+    encoding: "utf8",
+    highWaterMark: 1 << 20,
+  }) as AsyncIterable<string>) {
+    const lines = (rest + chunk).split("\n");
+    rest = lines.pop()!;
+    yield* lines;
+  }
+  if (rest !== "") yield rest;
+}
+
+/**
  * Streams a kaikki JSONL file, calling `onEntry` with each entry that has a word.
  * `skipLine` drops a line before it is parsed (and counted).
  */
@@ -185,11 +202,7 @@ export async function eachEntry(
   skipLine?: (line: string) => boolean,
 ) {
   const stats = { entries: 0, unparsable: 0 };
-  const lines = createInterface({
-    input: createReadStream(path, { highWaterMark: 1 << 20 }),
-    crlfDelay: Infinity,
-  });
-  for await (const line of lines) {
+  for await (const line of linesOf(path)) {
     if (!line.trim() || skipLine?.(line)) continue;
     let entry: Partial<KaikkiEntry> | null;
     try {
