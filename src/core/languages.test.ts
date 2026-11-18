@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { learningLanguages, nativeLanguages, speechLang } from "./languages";
+import {
+  firstPair,
+  learningLanguages,
+  nativeLanguages,
+  speechLang,
+} from "./languages";
 
 describe("learningLanguages", () => {
   it("lists English, then Spanish", () => {
@@ -28,5 +33,39 @@ describe("speechLang", () => {
   it("keeps other codes as they are", () => {
     expect(speechLang("de")).toBe("de");
     expect(speechLang("constructor")).toBe("constructor");
+  });
+});
+
+describe("firstPair", () => {
+  const pair = (learningLang: string, nativeLang: string) => ({
+    learningLang,
+    nativeLang,
+  });
+
+  it("takes the UI language for the native language of an offered pair, learning English first", () => {
+    expect(firstPair("ja")).toEqual(pair("en", "ja"));
+    expect(firstPair("es-419")).toEqual(pair("en", "es"));
+    expect(firstPair("pt-BR")).toEqual(pair("en", "pt"));
+    expect(firstPair("pt_PT")).toEqual(pair("en", "pt"));
+  });
+
+  it("gives an English UI another learning language that has English as its native one", () => {
+    expect(firstPair("en-US")).toEqual(pair("es", "en"));
+    expect(firstPair("en-GB")).toEqual(pair("es", "en"));
+  });
+
+  it("gives the default pair to a UI language no offered pair has", () => {
+    for (const ui of ["fr", "zh-CN", "ko", "", "constructor"])
+      expect(firstPair(ui)).toEqual(pair("en", "ja"));
+  });
+
+  it("is a rule over the offered pairs, not a list of languages", () => {
+    const offered = { de: ["fr", "en"], en: ["fr"], it: ["en"] };
+    // The default learning language (English) comes before the others, which keep
+    // their order.
+    expect(firstPair("fr-CA", offered)).toEqual(pair("en", "fr"));
+    expect(firstPair("en", offered)).toEqual(pair("de", "en"));
+    expect(firstPair("ja", offered)).toEqual(pair("en", "ja"));
+    expect(firstPair("ja", { es: ["ja"] })).toEqual(pair("es", "ja"));
   });
 });

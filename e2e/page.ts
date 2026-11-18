@@ -3,10 +3,12 @@ import type { BrowserContext, Page } from "@playwright/test";
 import { expect, sendToBackground } from "./fixtures";
 
 /**
- * For a wait on the first analysis or the first dictionary use after the service worker
- * starts: it reads the language packs (about 50 MB). That takes about 0.4 s locally but
- * has gone past Playwright's 5 s default on CI's runners, where four browsers load them
- * at once. Only these waits get it; the rest keep the default.
+ * For a wait on the first analysis or the first dictionary use after the extension is
+ * installed or its service worker starts: the new install downloads its pair's packs
+ * (English → Japanese, about 35 MB, from data/packs/ through pack-mirrors.ts: about
+ * 1.5 s locally), then reads them (about 0.4 s locally). Loading has gone past
+ * Playwright's 5 s default on CI's runners, where four browsers do it at once. Only
+ * these waits get it; the rest keep the default.
  */
 export const COLD_LOAD = { timeout: 20_000 };
 

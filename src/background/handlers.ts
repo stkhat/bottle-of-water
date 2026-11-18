@@ -75,7 +75,7 @@ export interface HandlerDeps {
   };
   resources: LanguageResources;
   packs: {
-    /** The lock this build uses: which packs are bundled, and their sizes. */
+    /** The lock this build uses: the packs' sizes. */
     lock: PackLock;
     store: Pick<PackStore, "states" | "downloaded" | "remove">;
     /** Starts bringing the chosen pair's packs to their lock version; does not wait. */
@@ -657,17 +657,13 @@ export function createHandlers({
     async packStatus() {
       const { learningLang, nativeLang } = await settings.get();
       const needed = packsFor(learningLang, nativeLang);
-      const downloaded = needed.filter(
-        (pack) => !packs.lock.packs[pack].bundled,
-      );
       const [states, stored] = await Promise.all([
-        packs.store.states(downloaded),
+        packs.store.states(needed),
         packs.store.downloaded(),
       ]);
       return {
         pair: {
-          bundled: downloaded.length === 0,
-          packs: downloaded.map((pack) => ({
+          packs: needed.map((pack) => ({
             pack,
             size: packBytes(packs.lock.packs[pack]),
             ...states[pack]!,

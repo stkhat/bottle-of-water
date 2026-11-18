@@ -16,8 +16,8 @@ import type { PhrasePatterns } from "../phrases/pattern";
 import { promiseCache } from "../util";
 
 /**
- * The packs (built into public/packs/<name>/ or data/packs/<name>/, served at
- * /packs/<name>/) and what each one holds once loaded.
+ * The packs (built into data/packs/<name>/, downloaded, read at /packs/<name>/…) and
+ * what each one holds once loaded.
  */
 export interface PackFiles {
   en: {
@@ -52,8 +52,8 @@ export interface PackFiles {
 export type PackName = keyof PackFiles;
 
 /**
- * Reads a pack's JSON file by its path from the extension's root ("/packs/<pack>/…"):
- * bundled with the extension, or downloaded (`createPackSource`).
+ * Reads a pack's JSON file by its path ("/packs/<pack>/…"): from the downloaded packs
+ * (`createPackSource`), or from data/packs/ in tests.
  */
 export type FetchJson = (path: string) => Promise<unknown>;
 

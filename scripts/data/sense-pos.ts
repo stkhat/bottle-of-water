@@ -1,4 +1,4 @@
-// Parts of speech of EJDict's senses → public/packs/en-ja/pos.json, so the extension
+// Parts of speech of EJDict's senses → data/packs/en-ja/pos.json, so the extension
 // can show the senses of a word's tagged part of speech first (rule A2) without reading
 // Japanese glosses itself. EJDict has no labels; they come from, in order:
 // - a pointer's grammar ("seeの過去" → verb, "boxの複数形" → noun) [Japanese glosses]

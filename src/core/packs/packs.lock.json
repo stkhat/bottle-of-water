@@ -5,7 +5,6 @@
   ],
   "packs": {
     "en": {
-      "bundled": true,
       "files": [
         {
           "path": "freq.json",
@@ -53,7 +52,6 @@
       "version": "2026.1113.6"
     },
     "en-defs": {
-      "bundled": true,
       "files": [
         {
           "path": "dict-1.json",
@@ -121,7 +119,6 @@
       "version": "2026.1113.6"
     },
     "en-es": {
-      "bundled": false,
       "files": [
         {
           "path": "dict-1.json",
@@ -149,7 +146,6 @@
       "version": "2026.1113.3"
     },
     "en-ja": {
-      "bundled": true,
       "files": [
         {
           "path": "capital.json",
@@ -197,7 +193,6 @@
       "version": "2026.1113.7"
     },
     "en-pt": {
-      "bundled": false,
       "files": [
         {
           "path": "dict-1.json",
@@ -220,7 +215,6 @@
       "version": "2026.1113.3"
     },
     "es": {
-      "bundled": false,
       "files": [
         {
           "path": "freq.json",
@@ -253,7 +247,6 @@
       "version": "2026.1111.0"
     },
     "es-en": {
-      "bundled": false,
       "files": [
         {
           "path": "dict-1.json",

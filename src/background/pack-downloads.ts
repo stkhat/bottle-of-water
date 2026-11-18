@@ -3,6 +3,7 @@ import { packsFor, translationPair } from "../core/packs/pairs";
 import { promiseCache } from "../core/util";
 import type { Settings } from "../core/settings";
 import type { EnsureResult, PackStore } from "./pack-store";
+import { settingsStored, storeStartingPair } from "./settings-store";
 import { watchSettings } from "../messaging/storage";
 
 /** The alarm that tries the chosen pair's downloads again after a failure. */
@@ -121,16 +122,21 @@ export interface PackDownloadTriggers {
 
 /**
  * Brings the chosen pair's packs to their lock version when the service worker starts
- * (a download it stopped carries on), unless a retry is scheduled after failures: then
- * the alarm tries again, so that waking the worker does not undo the backoff, and the
- * packs not there yet show as failed meanwhile (`retryPending`). Then on
- * each trigger, at once: the extension was installed or updated (the lock may have
- * changed), the retry alarm fired, the synced settings name another pair (chosen here
- * or on another device), or `retry` (`retryPacks`). Listeners are registered
- * synchronously so an event that wakes the worker is heard.
+ * (a download it stopped carries on), unless no settings are stored or a retry is
+ * scheduled after failures. With no settings stored the extension was just installed:
+ * `onInstalled` first stores the pair to start with (`storeStartingPair`, from
+ * `uiLanguage()` on a new install), then downloads it, so a new install fetches only
+ * the packs of its own pair. With a retry scheduled the alarm tries again, so that
+ * waking the worker does not undo the backoff, and the packs not there yet show as
+ * failed meanwhile (`retryPending`). Then on each trigger, at once: the extension was
+ * installed or updated (the lock may have changed), the retry alarm fired, the synced
+ * settings name another pair (chosen here or on another device), or `retry`
+ * (`retryPacks`). Listeners are registered synchronously so an event that wakes the
+ * worker is heard.
  */
 export function startPackDownloads(
   downloads: PackDownloads,
+  uiLanguage: () => string,
 ): PackDownloadTriggers {
   const trigger = () => {
     downloads
@@ -142,7 +148,13 @@ export function startPackDownloads(
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === PACKS_RETRY_ALARM) trigger();
   });
-  browser.runtime.onInstalled.addListener(trigger);
+  browser.runtime.onInstalled.addListener(({ reason }) => {
+    void storeStartingPair(reason, uiLanguage())
+      .catch((error: unknown) =>
+        console.error("Langle: could not store the language pair", error),
+      )
+      .then(trigger);
+  });
   watchSettings((settings, previous) => {
     if (
       settings.learningLang !== previous.learningLang ||
@@ -150,10 +162,11 @@ export function startPackDownloads(
     )
       trigger();
   });
-  const started = retryScheduled()
-    // Not knowing whether a retry is scheduled, try now.
-    .catch(() => false)
-    .then(async (scheduled) => {
+  const started = Promise.all([settingsStored(), retryScheduled()])
+    // Not knowing, try now.
+    .catch((): [boolean, boolean] => [true, false])
+    .then(async ([stored, scheduled]) => {
+      if (!stored) return;
       if (!scheduled) return trigger();
       try {
         await downloads.retryPending();

@@ -152,9 +152,9 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 - Sections
   - **Languages**: learning language, native language, interface language (English only for now). The choices list only the pairs the lock file offers (those passing the quality gate)
     - **Language data** (mock `LanguageData`): "Words and dictionaries Langle keeps on this device." Nested under it:
-      - the chosen pair ("Spanish → English"), when its data is downloaded rather than bundled: its size ("6.4 MB") and "Downloaded" with a check, "Downloading · 45%" with a bar, or "Couldn't download" (red) with Retry
+      - the chosen pair ("Spanish → English"): its size ("6.4 MB") and "Downloaded" with a check, "Downloading · 45%" with a bar, or "Couldn't download" (red) with Retry
       - downloaded data the chosen pair does not use, grouped by the pair it belongs to ("English → Korean", "Not used by your languages now · 9.1 MB") with Remove, which deletes that data and its cached translations
-    - The row shows when the chosen pair's data is downloaded rather than bundled, or when other downloaded data is on the device; a bundled pair with nothing else downloaded has none
+    - The row always shows: no language data comes with the extension (2026-11-18). A new install downloads its first pair's data at once ([architecture](architecture.md) "Distribution"); the popup, the video column and this row show that download with the same states as any other
   - **Appearance**: Theme — System (default) / Light / Dark, a three-option segmented choice (see "Shared: theme")
   - **New-word level**: slider "Treat the N most common words as known" (1,000–20,000, default 3,000)
   - **Highlighting**: on/off per category, "New words you didn't save": Keep as New (default) / Mark as Known, a two-option segmented choice

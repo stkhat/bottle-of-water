@@ -6,18 +6,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { PackLock } from "../../src/core/packs/lock.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
-import {
-  DOWNLOAD_PACKS_DIR,
-  PACKS_DIR,
-  readDictPacks,
-  readPack,
-  ROOT,
-} from "./common.ts";
+import { PACKS_DIR, readDictPacks, readPack } from "./common.ts";
 import { PACKS } from "./formats.ts";
 import { GATE, gateReport, type PairReport } from "./gate.ts";
 import { LOCK_PATH } from "./publish.ts";
 
-/** Every file under `root` (public/packs/ or data/packs/), as paths relative to it, sorted. */
+/** Every file under `root` (data/packs/), as paths relative to it, sorted. */
 function packFiles(root: string, dir = root): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
@@ -184,15 +178,10 @@ function main() {
     `  Phrase patterns: ${describePatterns(es<PhrasePatterns>("phrases.json"))}`,
   );
   let total = 0;
-  for (const root of [PACKS_DIR, DOWNLOAD_PACKS_DIR]) {
-    let subtotal = 0;
-    for (const file of packFiles(root)) {
-      const size = statSync(join(root, file)).size;
-      subtotal += size;
-      console.log(`${file}: ${(size / 1e6).toFixed(2)} MB`);
-    }
-    console.log(`${relative(ROOT, root)}: ${(subtotal / 1e6).toFixed(2)} MB`);
-    total += subtotal;
+  for (const file of packFiles(PACKS_DIR)) {
+    const size = statSync(join(PACKS_DIR, file)).size;
+    total += size;
+    console.log(`${file}: ${(size / 1e6).toFixed(2)} MB`);
   }
   console.log(`Total: ${(total / 1e6).toFixed(2)} MB`);
   console.log("Quality gate:");

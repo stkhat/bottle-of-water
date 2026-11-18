@@ -1,13 +1,20 @@
-// Guard: addons.mozilla.org's linter (web-ext lint) rejects text files over 5 MB, so
-// every pack file that may be bundled (public/packs/, and data/packs/ while its lock
-// entry says bundled) must stay well under that.
+// Guards on the size of the language packs (docs/notes/data-sizes.md). Every pack is
+// downloaded (none is bundled), but each file stays well under the 5 MB that
+// addons.mozilla.org's linter (web-ext lint) allows per text file, so a pack could
+// still ship inside the extension.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { DOWNLOAD_PACKS_DIR, PACKS_DIR, ROOT } from "./common.ts";
+import {
+  learningLanguages,
+  nativeLanguages,
+} from "../../src/core/languages.ts";
+import { packsFor } from "../../src/core/packs/pairs.ts";
+import { PACKS_DIR } from "./common.ts";
+import { PACKS } from "./formats.ts";
 
-const LIMIT_BYTES = 4_000_000;
+const FILE_LIMIT_BYTES = 4_000_000;
 
 function filesUnder(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -16,30 +23,42 @@ function filesUnder(dir: string): string[] {
   });
 }
 
-describe.each(
-  [PACKS_DIR, DOWNLOAD_PACKS_DIR].map((dir) => [relative(ROOT, dir), dir]),
-)("pack files in %s", (_name, dir) => {
-  const files = filesUnder(dir);
+const bytesUnder = (dir: string) =>
+  filesUnder(dir).reduce((sum, path) => sum + statSync(path).size, 0);
+
+describe("pack files in data/packs", () => {
+  const files = filesUnder(PACKS_DIR);
 
   it("exist", () => {
     expect(files.length).toBeGreaterThan(0);
   });
-  it.each(files.map((path) => [relative(dir, path), path]))(
+  it.each(files.map((path) => [relative(PACKS_DIR, path), path]))(
     "%s is under 4 MB",
     (_file, path) => {
-      expect(statSync(path).size).toBeLessThan(LIMIT_BYTES);
+      expect(statSync(path).size).toBeLessThan(FILE_LIMIT_BYTES);
     },
   );
 });
 
-// All packs together, bundled or downloaded, stay under 50 MB (the size decision for
-// the phrase data, docs/notes/data-sizes.md).
-const TOTAL_BYTES = 50_000_000;
-it("keeps all pack files together under 50 MB", () => {
-  const total = [PACKS_DIR, DOWNLOAD_PACKS_DIR]
-    .flatMap(filesUnder)
-    .reduce((sum, path) => sum + statSync(path).size, 0);
-  expect(total).toBeLessThan(TOTAL_BYTES);
+// What one offered pair downloads (its packs, `packsFor`) stays at most 40 MB raw:
+// English → Japanese, the largest, is about 35 MB raw and 9 MB gzipped on the wire.
+const PAIR_LIMIT_BYTES = 40_000_000;
+const pairs = learningLanguages().flatMap((learning) =>
+  nativeLanguages(learning).map((native) => [
+    `${learning}→${native}`,
+    learning,
+    native,
+  ]),
+);
+
+it.each(pairs)("%s downloads at most 40 MB", (_pair, learning, native) => {
+  const packs = packsFor(learning!, native!);
+  expect(packs.length).toBeGreaterThan(0);
+  const total = packs.reduce(
+    (sum, pack) => sum + bytesUnder(PACKS[pack].dir),
+    0,
+  );
+  expect(total).toBeLessThanOrEqual(PAIR_LIMIT_BYTES);
 });
 
 // Every English page loads these: the tagger and the phrase patterns with the language

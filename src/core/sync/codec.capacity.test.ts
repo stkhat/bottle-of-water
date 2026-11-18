@@ -7,7 +7,7 @@ import type { StoredStatus } from "../classify";
 import { encode, type SyncRecord } from "./codec";
 import { chunkKey, itemBytes, metaKey, type SyncMeta } from "./layout";
 
-const packs = join(import.meta.dirname, "..", "..", "..", "public", "packs");
+const packs = join(import.meta.dirname, "..", "..", "..", "data", "packs");
 const read = <T>(path: string): T =>
   JSON.parse(readFileSync(join(packs, path), "utf8")) as T;
 

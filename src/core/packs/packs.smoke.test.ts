@@ -1,4 +1,4 @@
-// Smoke test over the generated pack files in public/packs/ and data/packs/
+// Smoke test over the generated pack files in data/packs/
 // (npm run data:build, npm run data:es), read through the real pack loader.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

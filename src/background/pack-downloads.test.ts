@@ -130,6 +130,14 @@ describe("pack downloads", () => {
 });
 
 describe("startPackDownloads", () => {
+  /** Starts with a Japanese browser UI. */
+  const start = (d: PackDownloads) => startPackDownloads(d, () => "ja");
+
+  // Settings are stored: every start but that of a new install ("on a new install").
+  beforeEach(async () => {
+    await setSettings({});
+  });
+
   const alarm = (name: string) => ({
     name,
     scheduledTime: Date.now(),
@@ -139,7 +147,7 @@ describe("startPackDownloads", () => {
   it("ensures the pair's packs at start, then on install, on the retry alarm, on retryPacks and when the pair changes", async () => {
     const fake = fakeDownloads(async () => READY);
     const { ensurePair } = fake;
-    const { retry, started } = startPackDownloads(fake);
+    const { retry, started } = start(fake);
     await started;
     expect(ensurePair).toHaveBeenCalledTimes(1);
     expect(fake.retryPending).not.toHaveBeenCalled();
@@ -148,7 +156,7 @@ describe("startPackDownloads", () => {
       reason: "update",
       previousVersion: "0.0.9",
     });
-    expect(ensurePair).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(ensurePair).toHaveBeenCalledTimes(2));
 
     await fakeBrowser.alarms.onAlarm.trigger(alarm(PACKS_RETRY_ALARM));
     expect(ensurePair).toHaveBeenCalledTimes(3);
@@ -177,7 +185,7 @@ describe("startPackDownloads", () => {
     await retryScheduled(2);
     const fake = fakeDownloads(async () => FAILED);
     const { ensurePair } = fake;
-    const { retry, started } = startPackDownloads(fake);
+    const { retry, started } = start(fake);
     await started;
     expect(ensurePair).not.toHaveBeenCalled();
     // What a stopped download left as "downloading" shows as failed until then.
@@ -191,14 +199,14 @@ describe("startPackDownloads", () => {
       reason: "update",
       previousVersion: "0.0.9",
     });
-    expect(ensurePair).toHaveBeenCalledTimes(3);
+    await vi.waitFor(() => expect(ensurePair).toHaveBeenCalledTimes(3));
   });
 
   it("still ensures a new pair at once while a retry is scheduled", async () => {
     await retryScheduled(1);
     const fake = fakeDownloads(async () => READY);
     const { ensurePair } = fake;
-    await startPackDownloads(fake).started;
+    await start(fake).started;
     expect(ensurePair).not.toHaveBeenCalled();
     await setSettings({ learningLang: "es", nativeLang: "en" });
     await vi.waitFor(() => expect(ensurePair).toHaveBeenCalledTimes(1));
@@ -208,26 +216,91 @@ describe("startPackDownloads", () => {
     const fake = fakeDownloads(async () => READY);
     const { ensurePair } = fake;
     await browser.alarms.create(PACKS_RETRY_ALARM, { delayInMinutes: 5 });
-    await startPackDownloads(fake).started;
+    await start(fake).started;
     expect(ensurePair).toHaveBeenCalledTimes(1);
 
     fakeBrowser.reset();
+    await setSettings({});
     await browser.storage.local.set({ [PACKS_RETRY_FAILURES_KEY]: 3 });
-    await startPackDownloads(fake).started;
+    await start(fake).started;
     expect(ensurePair).toHaveBeenCalledTimes(2);
 
     fakeBrowser.reset();
+    await setSettings({});
     await retryScheduled(0);
-    await startPackDownloads(fake).started;
+    await start(fake).started;
     expect(ensurePair).toHaveBeenCalledTimes(3);
     expect(fake.retryPending).not.toHaveBeenCalled();
   });
 
   it("logs a run that could not start instead of leaving it unhandled", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    startPackDownloads(
-      fakeDownloads(() => Promise.reject(new Error("storage is gone"))),
-    );
+    start(fakeDownloads(() => Promise.reject(new Error("storage is gone"))));
     await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+  });
+
+  describe("on a new install", () => {
+    beforeEach(async () => {
+      await browser.storage.sync.clear();
+    });
+
+    const install = () =>
+      fakeBrowser.runtime.onInstalled.trigger({ reason: "install" });
+
+    it("downloads nothing at start, then stores the UI language's pair and downloads only its packs", async () => {
+      const { started } = startPackDownloads(downloads, () => "es-419");
+      await started;
+      expect(ensure).not.toHaveBeenCalled();
+
+      await install();
+      await vi.waitFor(() =>
+        expect(ensure).toHaveBeenCalledWith(["en", "en-es", "en-defs"]),
+      );
+      const { learningLang, nativeLang } = await getSettings();
+      expect([learningLang, nativeLang]).toEqual(["en", "es"]);
+      expect(ensure.mock.calls.flat(2)).not.toContain("en-ja");
+    });
+
+    it("downloads English → Japanese for a Japanese UI, Spanish → English for an English one", async () => {
+      startPackDownloads(downloads, () => "ja");
+      await install();
+      await vi.waitFor(() =>
+        expect(ensure).toHaveBeenCalledWith(["en", "en-ja", "en-defs"]),
+      );
+
+      fakeBrowser.reset();
+      ensure.mockClear();
+      startPackDownloads(downloads, () => "en-US");
+      await install();
+      await vi.waitFor(() =>
+        expect(ensure).toHaveBeenCalledWith(["es", "es-en"]),
+      );
+      expect(ensure.mock.calls.flat(2)).not.toContain("en-ja");
+    });
+
+    it("keeps settings browser sync brought from another device", async () => {
+      await browser.storage.sync.set({
+        settings: { learningLang: "en", nativeLang: "pt" },
+      });
+      startPackDownloads(downloads, () => "ja");
+      await install();
+      await vi.waitFor(() =>
+        expect(ensure).toHaveBeenCalledWith(["en", "en-pt", "en-defs"]),
+      );
+      expect(ensure.mock.calls.flat(2)).not.toContain("en-ja");
+    });
+
+    it("downloads the pair even when it cannot be stored", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(browser.storage.sync, "set").mockRejectedValue(
+        new Error("quota"),
+      );
+      startPackDownloads(downloads, () => "es");
+      await install();
+      await vi.waitFor(() =>
+        expect(ensure).toHaveBeenCalledWith(["en", "en-ja", "en-defs"]),
+      );
+      expect(error).toHaveBeenCalledTimes(1);
+    });
   });
 });

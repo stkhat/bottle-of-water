@@ -8,7 +8,6 @@ import type { PackStatus, Request } from "./protocol";
 
 const STATUS: PackStatus = {
   pair: {
-    bundled: false,
     packs: [
       { pack: "es", size: 30, state: "ready", received: 30, total: 30 },
       {
@@ -76,7 +75,6 @@ describe("followPackStatus", () => {
     expect(seen).toHaveBeenLastCalledWith({
       ...STATUS,
       pair: {
-        bundled: false,
         packs: [
           STATUS.pair.packs[0],
           {
@@ -131,7 +129,7 @@ describe("pairNote", () => {
     expect(
       pairNote({
         ...STATUS,
-        pair: { bundled: true, packs: [] },
+        pair: { packs: [] },
       }),
     ).toBeNull();
     expect(pairNote(undefined)).toBeNull();

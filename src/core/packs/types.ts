@@ -1,4 +1,4 @@
-/** Shapes of the pack files in public/packs/ and data/packs/. */
+/** Shapes of the pack files in data/packs/. */
 
 import type { TaggerModel } from "../tagging/tagger";
 

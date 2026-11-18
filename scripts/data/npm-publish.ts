@@ -1,4 +1,4 @@
-// Publishes the npm package of each downloadable pack whose version, as the committed
+// Publishes the npm package of each pack whose version, as the committed
 // lock names it, is not on npm yet. Run by .github/workflows/packs.yml (trusted
 // publishing, no token) or by hand after `npm login`: a package's first version has to
 // be published by hand, since npm lets a package take a trusted publisher only once it
@@ -32,11 +32,10 @@ const sameFiles = (a: readonly PackLockFile[], b: readonly PackLockFile[]) =>
       file.sha256 === b[i]?.sha256,
   );
 
-/** Why the lock does not describe the downloadable packs' files as they are; empty when it does. */
+/** Why the lock does not describe the packs' files as they are; empty when it does. */
 export function lockProblems(packs: Packs, lock: PackLock): string[] {
   const problems: string[] = [];
   for (const [name, info] of Object.entries(packs)) {
-    if (!info.downloadable) continue;
     const entry = lock.packs[name as keyof PackLock["packs"]];
     if (!entry) {
       problems.push(`${name}: not in the lock`);

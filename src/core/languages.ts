@@ -1,4 +1,5 @@
 import lockFile from "./packs/packs.lock.json";
+import { DEFAULT_SETTINGS } from "./settings";
 import { own } from "./util";
 
 /**
@@ -32,3 +33,25 @@ export const speechLang = (lang: string) => own(SPEECH_LANGS, lang) ?? lang;
 /** The primary subtag of a language tag, lowercase: "pt-BR" → "pt". */
 export const primary = (tag: string) =>
   tag.trim().split(/[-_]/)[0]!.toLowerCase();
+
+/**
+ * The pair a new install starts with, from the browser's UI language (a tag such as
+ * "pt-BR"): the UI language is taken for the user's own language, so the first offered
+ * pair with it as the native language, the default learning language's pair before
+ * the others (Japanese → English → Japanese, English → Spanish → English); the default
+ * pair when no offered pair has it.
+ */
+export function firstPair(
+  uiLanguage: string,
+  offered: Readonly<Record<string, readonly string[]>> = LANGUAGE_PAIRS,
+): { learningLang: string; nativeLang: string } {
+  const native = primary(uiLanguage);
+  const { learningLang, nativeLang } = DEFAULT_SETTINGS;
+  const learning = [
+    learningLang,
+    ...Object.keys(offered).filter((lang) => lang !== learningLang),
+  ].find((lang) => own(offered, lang)?.includes(native));
+  return learning
+    ? { learningLang: learning, nativeLang: native }
+    : { learningLang, nativeLang };
+}

@@ -1,4 +1,4 @@
-// EJDict-hand (public domain) → public/packs/en-ja/{index,dict-<n>,capital}.json,
+// EJDict-hand (public domain) → data/packs/en-ja/{index,dict-<n>,capital}.json,
 // and data/gate/en-capitalized.json (for the quality gate); kaikki.ts writes the vocabulary
 // Usage: node scripts/data/ejdict.ts   (downloads missing raw files into data/raw/ejdict/)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

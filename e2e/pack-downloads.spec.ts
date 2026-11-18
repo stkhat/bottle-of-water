@@ -1,11 +1,11 @@
-// Downloaded language data, end to end: the check-download build downloads its Spanish
-// data (es, es-en) from the local npm mirror of serve.ts, which the test breaks
-// through /mirror-control.
+// Downloaded language data, end to end: the check-download build downloads its data
+// (English → Japanese at install, then Spanish) from the local npm mirror of serve.ts,
+// which the test breaks through /mirror-control.
 import type { BrowserContext } from "@playwright/test";
 import en from "../src/i18n/locales/en.json" with { type: "json" };
 import lock from "../src/core/packs/packs.lock.json" with { type: "json" };
 import { openPopupFor, sendToBackground, testWithErrors } from "./fixtures";
-import { highlighted } from "./page";
+import { COLD_LOAD, highlighted } from "./page";
 
 const MIRROR_CONTROL = "http://localhost:4719/mirror-control";
 
@@ -83,10 +83,25 @@ async function openDataRow(context: BrowserContext, extensionId: string) {
   return row;
 }
 
+/** Waits until the chosen pair's packs are all downloaded. */
+async function pairDownloaded(context: BrowserContext, extensionId: string) {
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "packStatus",
+      })) as { value?: { pair: { packs: { state: string }[] } } };
+      const packs = reply.value?.pair.packs ?? [];
+      return packs.length > 0 && packs.every((p) => p.state === "ready");
+    }, COLD_LOAD)
+    .toBe(true);
+}
+
 test("a broken file on the mirror: Couldn't download, then Retry in Settings downloads it and the page is highlighted", async ({
   context,
   extensionId,
 }) => {
+  // The new install's English → Japanese data is there before the mirror breaks.
+  await pairDownloaded(context, extensionId);
   await mirror({ broken: true });
   await learnSpanish(context, extensionId);
   const page = await context.newPage();

@@ -33,7 +33,6 @@ async function lockEntry(
     package: `@langle-test/${name}`,
     version,
     format: 1,
-    bundled: false,
     files: await Promise.all(
       Object.entries(contents).map(async ([path, value]) => ({
         path,
@@ -44,11 +43,11 @@ async function lockEntry(
   };
 }
 
-const bundled = (name: string): PackLockEntry => ({
+/** A pack these tests do not download. */
+const unused = (name: string): PackLockEntry => ({
   package: `@langle-test/${name}`,
   version: "2026.1111.0",
   format: 1,
-  bundled: true,
   files: [],
 });
 
@@ -65,7 +64,7 @@ const ES_EN: Contents = {
   "dict-1.json": { comer: ["to eat", [["verb", "to eat"]]] },
 };
 
-/** A lock with en, en-ja and en-defs bundled, es and es-en downloaded. */
+/** A lock whose es and es-en have files; the tests leave the other packs alone. */
 async function testLock(
   packs: { es?: PackLockEntry; "es-en"?: PackLockEntry } = {},
 ): Promise<PackLock> {
@@ -73,14 +72,14 @@ async function testLock(
     v: 1,
     mirrors: MIRRORS,
     packs: {
-      en: bundled("en"),
-      "en-ja": bundled("en-ja"),
-      "en-defs": bundled("en-defs"),
+      en: unused("en"),
+      "en-ja": unused("en-ja"),
+      "en-defs": unused("en-defs"),
       es: packs.es ?? (await lockEntry("es", "2026.1111.0", ES_V1)),
       "es-en":
         packs["es-en"] ?? (await lockEntry("es-en", "2026.1111.0", ES_EN)),
-      "en-es": bundled("en-es"),
-      "en-pt": bundled("en-pt"),
+      "en-es": unused("en-es"),
+      "en-pt": unused("en-pt"),
     },
     pairs: { en: ["ja", "es", "pt"], es: ["en"] },
   };
@@ -213,14 +212,12 @@ describe("pack store: downloads", () => {
     ]);
   });
 
-  it("leaves bundled packs alone", async () => {
+  it("fails a pack the lock does not have, fetching nothing", async () => {
     const store = storeWith(await testLock());
-    expect(await store.ensure(["en", "en-ja", "en-defs"])).toEqual({
-      ready: ["en", "en-ja", "en-defs"],
-      failed: [],
-    });
+    expect(await store.ensure(["xx"])).toEqual({ ready: [], failed: ["xx"] });
     expect(mirrors.fetch).not.toHaveBeenCalled();
     expect(written).toEqual([]);
+    expect(await store.states(["xx"])).toEqual({});
   });
 
   it("takes a file from the next mirror when the first one sends other bytes, an error or nothing", async () => {
@@ -597,7 +594,7 @@ describe("pack store: removal and listing", () => {
     });
     written = [];
     const store = storeWith(lock);
-    await store.markFailed(["es", "es-en", "en"], "Retry pending");
+    await store.markFailed(["es", "es-en", "xx"], "Retry pending");
     const failed = {
       state: "failed",
       received: fileOf(esEn, "index.json").size,
@@ -637,7 +634,7 @@ describe("pack store: removal and listing", () => {
     const store = storeWith(lock);
     const es = sizeOf(lock.packs.es);
     const esEn = sizeOf(lock.packs["es-en"]);
-    expect(await store.states(["es", "es-en", "en"])).toEqual({
+    expect(await store.states(["es", "es-en", "xx"])).toEqual({
       es: { state: "ready", received: es, total: es },
       "es-en": { state: "downloading", received: 0, total: esEn },
     });

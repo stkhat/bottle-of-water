@@ -1,0 +1,23 @@
+# Plan: language expansion
+
+More native languages for English learners, and Spanish learning brought to English's level. Background and measurements: [translation-data-expansion](../notes/translation-data-expansion.md), [learner matrix](../notes/learner-matrix.md). Each milestone is one branch and pull request; decisions move into the spec or status once merged.
+
+## Milestones
+- **D0 Unbundle** (user, 2026-11-18): no pack is bundled; every pack is downloaded from npm (`@langle/<pack>`), so a user carries only the pairs they chose. A new install chooses its pair from the browser's UI language and downloads it at once ([architecture](../specs/architecture.md) "Distribution"). Size guard per pair (≤ 40 MB raw) instead of all packs
+- **D1 Recipe infrastructure**: tables-only recipes (a native language whose English Wiktionary translation tables pass the gate needs no edition); Open Multilingual Wordnet (OMW 1.4) as a source, with attribution-only licenses now allowed (user, 2026-11-18: CC BY, ODC-BY, WordNet-style), listed in the notices and the packages; the per-native wiring (recipe, pack format, `DICTIONARY_PACKS`, languages, speech, prompts) in one place
+- **D2 Natives ru, fr, de**: recipes over the tables (95.3, 95.0, 95.4%), plus their editions where they add margin
+- **D3 Natives zh, it, pl**: zh from the tables, OMW's Chinese wordnet and the zh edition converted to Simplified characters with OpenCC's data; it and pl from the tables and OMW
+- **D4 vi**: done, dropped (user, 2026-11-18). The vi edition's English entries come from a GPL dictionary without a CC BY-SA grant; without them coverage is about 0.4–2% ([notes](../notes/translation-data-expansion.md) "2. Vietnamese")
+- **D5 Measure tr, uk, ko, id, th**: gate coverage with tables, editions and OMW; add those that pass
+- **U1 Native-side quality**: the `real-content-quality` skill over the 2026-11 English corpus for each native language's meanings, es and pt first, then each new native
+- **U2 Spanish learning to English's level**: a part-of-speech tagger, names, accent-aware patterns, phrase parts of speech, rule E (vocabulary from Wiktionary)
+
+## Checklist
+- [x] D0 unbundle: packs moved to `data/packs/`, lock without `bundled`, first pair from the UI language, install-time download, E2E through routed mirrors, per-pair size guard, docs. Before merging: `@langle/en`, `@langle/en-ja`, `@langle/en-defs` published to npm by hand
+- [ ] D1 recipe infrastructure (tables-only recipes, OMW source and its licenses, per-native wiring in one place)
+- [ ] D2 natives ru, fr, de
+- [ ] D3 zh (tables + OMW + zh edition in Simplified via OpenCC data), it, pl (tables + OMW)
+- [x] D4 vi: dropped
+- [ ] D5 measure tr, uk, ko, id, th
+- [ ] U1 native-side quality (es, pt, then each new native)
+- [ ] U2 Spanish learning pack (tagger, names, accent-aware patterns, phrase POS, rule E)

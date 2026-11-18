@@ -1,4 +1,4 @@
-// Wiktionary "Frequency lists/TV/2006" (CC BY-SA) → public/packs/en/freq.json, with the
+// Wiktionary "Frequency lists/TV/2006" (CC BY-SA) → data/packs/en/freq.json, with the
 // words rule E adds that the list lacks placed by the example corpus (`rankByExamples`)
 // Usage: node scripts/data/frequency.ts   (caches the wikitext in data/raw/freq-en/; run kaikki.ts first)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
