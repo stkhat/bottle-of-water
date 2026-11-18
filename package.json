@@ -97,7 +97,7 @@
     },
     "entry": [
       "scripts/format-hook.ts",
-      "scripts/icons/make-icons.ts",
+      "scripts/make-icons.ts",
       "vitest.unit.config.ts"
     ],
     "ignore": [

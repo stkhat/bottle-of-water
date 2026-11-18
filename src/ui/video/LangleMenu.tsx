@@ -13,7 +13,8 @@ import { GearIcon } from "../icons";
 import { isLangleHost } from "../langle-host";
 import { usePressAway } from "../press-away";
 import { Segmented } from "../Segmented";
-import { badge, color, root } from "../styles";
+import { color, root } from "../styles";
+import { LangleMark } from "../LangleMark";
 import { Switch } from "../Switch";
 
 export interface LangleMenuProps {
@@ -155,7 +156,7 @@ export function LangleMenu(props: LangleMenuProps) {
       })}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span style={badge(24, 7, 12)}>L</span>
+        <LangleMark size={24} />
         <span style={{ flex: 1, fontSize: "14px", fontWeight: 700 }}>
           {t("app.name")}
         </span>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="76 52 706 717" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="52" x2="0" y2="769" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#40AE93"/>
+      <stop offset="0.48" stop-color="#1E8173"/>
+      <stop offset="0.82" stop-color="#0C6960"/>
+      <stop offset="1" stop-color="#0B665E"/>
+    </linearGradient>
+    <linearGradient id="back" x1="0" y1="166" x2="0" y2="478" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9CE9C2"/>
+      <stop offset="1" stop-color="#47BF9C"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="277" x2="0" y2="498" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#278979"/>
+      <stop offset="0.6" stop-color="#1A7C6E"/>
+      <stop offset="1" stop-color="#0E6B60"/>
+    </linearGradient>
+    <linearGradient id="cut" x1="0" y1="166" x2="0" y2="287" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E9880"/>
+      <stop offset="1" stop-color="#197C6C"/>
+    </linearGradient>
+    <clipPath id="hole"><rect x="354" y="253" width="232" height="245"/></clipPath>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <rect x="76" y="52" width="706" height="717" rx="150" fill="url(#bg)"/>
+  <!-- Front bubble: the pale L, tail at the bottom left -->
+  <path d="M258 253H526A60 60 0 0 1 586 313V528A65 65 0 0 1 521 593H373L292 664Q278 676 278 658V593H258A55 55 0 0 1 203 538V308A55 55 0 0 1 258 253Z" fill="#E0FCF3"/>
+  <!-- The space inside the L: an inset shadow along its top and left, and the back bubble's shadow -->
+  <rect x="354" y="253" width="232" height="245" fill="#0D685D"/>
+  <path d="M394 277H586V498H374V297A20 20 0 0 1 394 277Z" fill="url(#face)"/>
+  <g clip-path="url(#hole)">
+    <path d="M451 253V440H564L622 494V253Z" fill="#035C4F" opacity="0.85" filter="url(#soft)"/>
+  </g>
+  <!-- The bookmark's cut shows a shaded background -->
+  <path d="M537 166H614V287L576 258L537 287Z" fill="url(#cut)"/>
+  <!-- Back bubble: tail at the bottom right, a bookmark cut from its top -->
+  <path d="M401 166H537V287L576 258L614 287V166H618A52 52 0 0 1 670 218V366A50 50 0 0 1 620 416H613V462Q613 482 598 470L540 416H451V313A60 60 0 0 0 391 253H356V211A45 45 0 0 1 401 166Z" fill="url(#back)"/>
+</svg>

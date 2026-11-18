@@ -80,23 +80,6 @@ export function root(style: Style): Style {
   } as Style;
 }
 
-/** The green "L" badge. */
-export function badge(size: number, radius: number, fontSize: number): Style {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flex: "none",
-    width: `${size}px`,
-    height: `${size}px`,
-    borderRadius: `${radius}px`,
-    background: color.green,
-    color: color.white,
-    fontWeight: 700,
-    fontSize: `${fontSize}px`,
-  };
-}
-
 /** Mock `.ib`. */
 export const iconButton: Style = {
   display: "inline-flex",

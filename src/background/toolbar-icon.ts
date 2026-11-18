@@ -4,7 +4,7 @@ import type { Settings } from "../core/settings";
 const SIZES = [16, 32, 48, 128] as const;
 
 /**
- * The toolbar icon's files: the green L (the manifest's icons) while Langle is on, the
+ * The toolbar icon's files: the colored mark (the manifest's icons) while Langle is on, the
  * gray one from `public/icon-off/` while it is switched off.
  */
 export function toolbarIconPaths(enabled: boolean): Record<number, string> {
