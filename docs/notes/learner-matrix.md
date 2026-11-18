@@ -1,6 +1,6 @@
 # Language learners: native language × learning language
 
-Research notes from 2026-11-15. They estimate how many people are learning each language now, split by their native language, to help choose which language pairs Langle adds next. The heatmap is [learner-matrix.html](learner-matrix.html); per-cell data (range, grade, top countries) is [learner-matrix.csv](learner-matrix.csv).
+Research notes from 2026-11-15. They estimate how many people are learning each language now, split by their native language, to help choose which language pairs Langle adds next. The heatmap is [learner-matrix.html](learner-matrix.html); per-cell data (range, grade, top countries) is [learner-matrix.csv](learner-matrix.csv). The page rings the cells of the pairs Langle supports; their list is `SUPPORTED` at the top of the page's script, which follows `pairs` in `src/core/packs/packs.lock.json`.
 
 ## What a cell counts
 - **Learners**: people currently studying the language at school, university, a language institute or in adult courses. Self-study and app learners are **not** counted: no source gives them by country (Duolingo publishes rankings, not counts).
