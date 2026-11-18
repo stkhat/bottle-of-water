@@ -119,11 +119,14 @@ const TEST_PACKS: PackFiles = {
     // At level 3: "estar" and "un" are known, "comer" is new.
     freq: ["de", "estar", "un", "comer", "casa"],
     ipa: { a: "/a/", comer: "/koˈmeɾ/", escondidas: "/eskonˈdidas/" },
+    pos: { casa: ["noun"], casar: ["verb"], comer: ["verb"] },
     vocab: [
       ...["a", "casa", "casar", "comer", "de", "escondidas", "estar"],
       ...["manzana", "un"],
     ],
     phrases: { detect: ["a escondidas"], more: [], gap: [] },
+    // Sure of no word: every tag stays under the threshold.
+    tagger: { tags: ["NOUN"], words: {}, weights: {}, scale: 10 },
   },
   "es-en": {
     defs: {

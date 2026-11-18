@@ -2,13 +2,13 @@
  * A language's part-of-speech tagger, as its language pack has it (`LanguagePack.tagger`),
  * and what the language-independent rules read from it: a tag per token with its
  * confidence, and how each word of a sentence is used (an auxiliary, a participle used
- * as an adjective). Languages without a tagger (Spanish so far) leave those rules off.
+ * as an adjective). Languages without a tagger leave those rules off.
  */
 import type { PerceptronModel } from "./perceptron";
 
 /** One token's tag. */
 export interface TokenTag {
-  /** The tagger's own tag (Penn Treebank for English: VBD, NNS, …). */
+  /** The tagger's own tag (Penn Treebank for English: VBD, NNS, …; Spanish: VERB.Fin, NOUN, …). */
   tag: string;
   /**
    * The part of speech as the dictionaries label senses: noun, verb, adjective, adverb,

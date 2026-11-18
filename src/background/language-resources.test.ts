@@ -55,11 +55,14 @@ describe("createLanguageResources", () => {
     });
   });
 
-  it("builds the English pack with its tagger, the Spanish one without", async () => {
+  it("builds the English and Spanish packs with their taggers", async () => {
     const resources = createLanguageResources(stubLoader());
     const tags = (await resources.pack("en")).tagger?.tag(["The", "rose"]);
     expect(tags?.map((t) => t.tag)).toEqual(["DT", "VBD"]);
-    expect((await resources.pack("es")).tagger).toBeUndefined();
+    const es = await resources.pack("es");
+    expect(es.tagger?.tag(["casa"]).map((t) => t.tag)).toEqual(["NOUN"]);
+    expect(es.basesInOrder).toBe(true);
+    expect(es.partsOfSpeech("comer")).toEqual(["verb"]);
   });
 
   it("labels the senses of words with several parts of speech as the data build did", async () => {
@@ -202,6 +205,8 @@ describe("createLanguageResources", () => {
       "/packs/es/ipa.json",
       "/packs/es/lemmas.json",
       "/packs/es/phrases.json",
+      "/packs/es/pos.json",
+      "/packs/es/tagger.json",
       "/packs/es/vocab.json",
     ]);
   });
@@ -248,6 +253,8 @@ describe("createLanguageResources", () => {
       "/packs/es/ipa.json",
       "/packs/es/lemmas.json",
       "/packs/es/phrases.json",
+      "/packs/es/pos.json",
+      "/packs/es/tagger.json",
       "/packs/es/vocab.json",
     ]);
   });

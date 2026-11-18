@@ -42,6 +42,10 @@ const LICENSES = {
     name: "CC BY 3.0",
     url: "https://creativecommons.org/licenses/by/3.0/",
   },
+  ccBy4: {
+    name: "CC BY 4.0",
+    url: "https://creativecommons.org/licenses/by/4.0/",
+  },
   odcBy1: {
     name: "ODC-BY 1.0",
     url: "https://opendatacommons.org/licenses/by/1-0/",
@@ -199,6 +203,18 @@ const SOURCES = {
     title: "Universal Dependencies English Web Treebank (UD_English-EWT)",
     url: "https://github.com/UniversalDependencies/UD_English-EWT",
     by: "The Board of Trustees of The Leland Stanford Junior University and the treebank's contributors (Silveira, Dozat, Manning, Schuster, Chi, Bauer, Connor, de Marneffe, Schneider, Bowman, Zhu, Galbraith), over the texts of the LDC English Web Treebank (LDC2012T13)",
+    license: LICENSES.ccBySa4,
+  },
+  udAncora: {
+    title: "Universal Dependencies Spanish AnCora treebank (UD_Spanish-AnCora)",
+    url: "https://github.com/UniversalDependencies/UD_Spanish-AnCora",
+    by: "Héctor Martínez Alonso and Daniel Zeman, from the AnCora corpus of the University of Barcelona (Mariona Taulé, M. Antònia Martí, Marta Recasens)",
+    license: LICENSES.ccBy4,
+  },
+  udGsd: {
+    title: "Universal Dependencies Spanish GSD treebank (UD_Spanish-GSD)",
+    url: "https://github.com/UniversalDependencies/UD_Spanish-GSD",
+    by: "the treebank's contributors (Ballesteros, Martínez Alonso, McDonald, Pascual, Silveira, Zeman, Nivre, Bauer; originally Quirmbach-Brundage, LaMontagne, Souček, Järvinen, Radici), annotations made available by Google",
     license: LICENSES.ccBySa4,
   },
   freqEs: {
@@ -363,13 +379,21 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   es: pack("es", {
     title: "Spanish word data",
     description:
-      "Spanish base forms, frequency ranks, IPA, vocabulary and phrase patterns",
+      "Spanish base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns and a part-of-speech tagger",
     sources: [
       {
         ...SOURCES.wiktionaryEs,
-        used: "inflections, IPA, vocabulary, phrase patterns",
+        used: "inflections, IPA, parts of speech, vocabulary, phrase patterns",
       },
       { ...SOURCES.freqEs, used: "frequency ranks" },
+      {
+        ...SOURCES.udAncora,
+        used: "the part-of-speech tagger's model (trained on it), the order of a form's base forms and of a word's parts of speech",
+      },
+      {
+        ...SOURCES.udGsd,
+        used: "the part-of-speech tagger's model (trained on it), the order of a form's base forms and of a word's parts of speech",
+      },
     ],
   }),
   "es-en": pack("es-en", {

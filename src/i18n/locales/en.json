@@ -176,7 +176,7 @@
   "settings.cloud.title": "Your own cloud storage",
   "settings.cloud.desc": "Sync everything through Google Drive, Dropbox, OneDrive, a folder on this computer or WebDAV, for when {syncName} space runs out.",
   "settings.cloud.descNoFolder": "Sync everything through Google Drive, Dropbox, OneDrive or WebDAV, for when {syncName} space runs out.",
-  "settings.about.line": "Langle {version} · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the other dictionaries: Wiktionary in English, Spanish, Portuguese, Russian, French, German, Chinese, Italian and Polish (CC BY-SA); Princeton WordNet, Chinese Open Wordnet, MultiWordNet, ItalWordNet and plWordNet",
+  "settings.about.line": "Langle {version} · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the other dictionaries: Wiktionary in English, Spanish, Portuguese, Russian, French, German, Chinese, Italian and Polish (CC BY-SA); Princeton WordNet, Chinese Open Wordnet, MultiWordNet, ItalWordNet and plWordNet · Part-of-speech taggers: Universal Dependencies English EWT and Spanish GSD (CC BY-SA), Spanish AnCora (CC BY)",
   "card.highlight": "Highlight",
   "card.chip.new": "New",
   "dictionary.cambridge": "Cambridge",

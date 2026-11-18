@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.ts";
 import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
 import {
+  createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
   type DictionaryProvider,
@@ -359,6 +360,7 @@ describe("names over the generated packs (rule D)", () => {
 });
 
 const es = await loadPack("es");
+const esEn = await loadPack("es-en");
 
 describe("classifier over the generated Spanish pack", () => {
   const esPack = createLanguagePack("es", {
@@ -391,7 +393,7 @@ describe("classifier over the generated Spanish pack", () => {
     );
   });
 
-  it("has no tagger: words keep their keys and get no part of speech", () => {
+  it("has no tagger without its model: words keep their keys and get no part of speech", () => {
     expect(esPack.tagger).toBeUndefined();
     const text = "Estoy comiendo una manzana.";
     const withOutlines = esClassifier.classify(esPack.tokenize(text), {
@@ -402,6 +404,63 @@ describe("classifier over the generated Spanish pack", () => {
     expect(withOutlines.some((s) => "pos" in s)).toBe(false);
     expect(withOutlines.map((s) => s.key)).toEqual(
       classify(text).map((s) => s.key),
+    );
+  });
+});
+
+describe("Spanish tags over the generated packs (rules A1 and A2)", () => {
+  const tagged = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    patterns: es.phrases,
+    pos: es.pos,
+    tagger: es.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createDefsDictionary({
+    defs: esEn.defs,
+    ipa: es.ipa,
+  });
+  const hover = (text: string, word: string) => {
+    const span = classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .find((s) => text.slice(s.start, s.end) === word)!;
+    return {
+      key: span.key,
+      pos: span.pos,
+      lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+    };
+  };
+
+  it("reads a preposition and a verb form, not the letters they also name", () => {
+    expect(hover("La casa de mi madre es grande.", "de")).toMatchObject({
+      key: "de",
+      pos: "preposition",
+    });
+    expect(hover("La casa de mi madre es grande.", "de").lines[0]).toMatch(
+      /^of\b/,
+    );
+    expect(hover("La casa de mi madre es grande.", "es").key).toBe("ser");
+  });
+  it("looks a form two verbs share up by the treebanks' likelier base", () => {
+    expect(hover("Creo que tienes razón.", "Creo").key).toBe("creer");
+    expect(hover("Lo siento mucho.", "siento").key).toBe("sentir");
+    expect(hover("No podemos ir hoy.", "podemos").key).toBe("poder");
+  });
+  it("reads an article as its base and a clitic as its own pronoun", () => {
+    expect(hover("Los niños juegan en el parque.", "Los").key).toBe("el");
+    expect(hover("Les dije la verdad.", "Les")).toMatchObject({
+      key: "les",
+      pos: "pronoun",
+    });
+    expect(hover("Les dije la verdad.", "Les").lines[0]).toBe(
+      "to them, for them",
     );
   });
 });

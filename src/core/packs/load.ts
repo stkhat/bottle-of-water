@@ -47,8 +47,10 @@ interface BuiltOtherwise {
     lemmas: LemmaPack;
     freq: FreqPack;
     ipa: IpaPack;
+    pos: PosPack;
     vocab: VocabPack;
     phrases: PhrasePatterns;
+    tagger: TaggerPack;
   };
   "es-en": { defs: DefsPack };
 }
@@ -95,7 +97,11 @@ const LOADERS: {
     defs: await loadShards("/packs/en-defs", fetchJson),
   }),
   es: (fetchJson) =>
-    loadFiles("es", ["lemmas", "freq", "ipa", "vocab", "phrases"], fetchJson),
+    loadFiles(
+      "es",
+      ["lemmas", "freq", "ipa", "pos", "vocab", "phrases", "tagger"],
+      fetchJson,
+    ),
   "es-en": async (fetchJson) => ({
     defs: await loadShards("/packs/es-en", fetchJson),
   }),

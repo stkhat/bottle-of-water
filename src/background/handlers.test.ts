@@ -687,12 +687,12 @@ describe("handlers: analyze", () => {
     expect(result.saved).toEqual(["the", "crust"]);
   });
 
-  it("does not load the dictionary for a language without a tagger or names", async () => {
+  it("loads the dictionary for Spanish too: its tags choose between headwords", async () => {
     await setSettings({ learningLang: "es", nativeLang: "en" });
     await value({ type: "analyze", lang: "es", blocks: ["Una casa."] });
     expect(
       filesRead(loadPack).filter((p) => !p.startsWith("/packs/es/")),
-    ).toEqual([]);
+    ).toContain("/packs/es-en/index.json");
   });
 
   it("chooses a word's key and part of speech by its tag (rules A1 and A2), with the dictionary", async () => {
