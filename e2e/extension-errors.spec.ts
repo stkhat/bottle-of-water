@@ -889,6 +889,14 @@ for (const build of ["production", "check"] as const)
         await video.goto(YOUTUBE_WATCH);
         await videoCard(video, YT_LINE).click({ position: ON_TIME });
         await expect(inVideo(video)).toContainText(YT_LINE);
+        // The card plays the video from its line; paused, the subtitle stays on it
+        // through the steps below, however slow the machine.
+        const player = video.locator("#movie_player video");
+        await expect
+          .poll(() => player.evaluate((v: HTMLVideoElement) => v.paused))
+          .toBe(false);
+        await player.evaluate((v: HTMLVideoElement) => v.pause());
+        await expect(inVideo(video)).toContainText(YT_LINE);
         const options = await context.newPage();
         await options.goto(`chrome-extension://${extensionId}/options.html`);
         await expect(options.getByRole("switch").first()).toBeVisible();
