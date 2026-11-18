@@ -22,6 +22,7 @@ import {
   senseOrder,
 } from "./sense-order";
 import {
+  capitalKey,
   cleanShort,
   definitionLine,
   fitsPairCap,
@@ -84,11 +85,13 @@ export interface EntryOutline {
 
 export interface DictionaryProvider {
   /**
-   * A dictionary with capitalised headwords apart (en-ja) gives, for a capitalised
-   * word or an acronym, that headword's senses first when they have a meaning
-   * (`capitalMeaning`), and leaves the capitalised senses out otherwise; for a word in
-   * lower case, the lowercase headword's senses alone; and when the page does not say,
-   * the lowercase senses, then the capitalised ones.
+   * A dictionary with capitalised headwords apart (en-ja, the recipe pairs) gives, for
+   * a capitalised word or an acronym, that headword's senses first when they have a
+   * meaning (`capitalMeaning`), and leaves the capitalised senses out otherwise; for a
+   * word in lower case, the lowercase headword's senses alone; and when the page does
+   * not say, the lowercase senses, then the capitalised ones (en-ja), or the lowercase
+   * ones alone (a recipe pair). In a recipe pair, a word with only capitalised
+   * headwords (Thursday, I'm) takes them however it is written.
    *
    * `pos` is the part of speech the word's tag gives it on the page (`Span.pos`): the
    * hover card's lines then show the senses of that part of speech first when the
@@ -108,7 +111,9 @@ export interface DictionaryProvider {
    * people or a symbol (not Mark → 聖マルコ, Frank → フランク人): "word" when its gloss
    * says what it is (Japan → 日本, June → 6月, Texas → テキサス州), "name" when the gloss
    * only writes the name in the native language (Germany → ドイツ, Helen → ヘレン).
-   * Rule D keeps a name's meaning by it. Undefined without such a headword.
+   * A recipe pair's comes from its data build (Japan → Japón "name", January → enero
+   * "word"; no person's name first has a "word" meaning there). Rule D keeps a name's
+   * meaning by it. Undefined without such a headword.
    */
   capitalMeaning(term: string): CapitalMeaning | undefined;
   /**
@@ -525,6 +530,10 @@ type PairSenses = PairPack[string][1];
  *   child"): first.
  * Except for an auxiliary's, a pointer wider than the line cap is left out (is → ser /
  * estar). The dictionary window keeps every pointer (`senses`).
+ *
+ * Capitalised headwords (Japan → Japón, January → enero, Thursday → jueves) are kept
+ * apart under `capitalKey` and read as written, as en-ja reads EJDict's (`asWritten`);
+ * what each one means comes with it (`capitalMeaning`).
  */
 export function createPairDictionary({
   dict,
@@ -596,10 +605,34 @@ export function createPairDictionary({
       order,
     );
   };
+  /**
+   * The word's capitalised headwords, kept apart (`capitalKey`): written with a capital
+   * (Japan, January), or as an acronym (TV, WHO), as en-ja keeps EJDict's.
+   */
+  const capitalOf = (head: string, acronym = false) =>
+    own(dict, capitalKey(head, acronym)) as CapitalEntry | undefined;
+  /**
+   * The entry as the word was written (`DictionaryProvider.entry`), as en-ja's: for a
+   * capitalised word its capitalised headword first when that means something, for
+   * one written in capitals its acronym ("US" → EE. UU.; else the capitalised one), so
+   * a capitalised "And" or "It's" is not ET or IT. Where the page does not say (a
+   * sentence start, a caseless document), the lowercase entry alone: "Who" is not the
+   * WHO. A word with no lowercase entry takes its capitalised one however it is
+   * written: no lowercase copies are kept (Thursday, I'm).
+   */
+  const asWritten = (head: string, written: Written | undefined) => {
+    const lower = entryOf(head);
+    const title = capitalOf(head);
+    const capital =
+      written === "upper" ? (capitalOf(head, true) ?? title) : title;
+    if (!lower) return capital ?? title ?? capitalOf(head, true);
+    if (!capital || written === "lower" || written === undefined) return lower;
+    return capital[3] !== undefined ? joinedPair(capital, lower) : lower;
+  };
   return dictionaryOver(
     ipa,
-    (head, _written, pos) => {
-      const found = entryOf(head);
+    (head, written, pos) => {
+      const found = asWritten(head, written);
       if (!found) return definitionInEnglish(head, defs, pos);
       const [short, raw] = found;
       const senses = sensesOf(raw);
@@ -667,7 +700,7 @@ export function createPairDictionary({
       };
     },
     (head) => {
-      const found = entryOf(head);
+      const found = entryOf(head) ?? capitalOf(head) ?? capitalOf(head, true);
       if (!found) return definitionOutline(head, defs);
       const raw = found[1];
       return outlineOf(sensesOf(raw), (text, i) => {
@@ -682,8 +715,30 @@ export function createPairDictionary({
       glossLang === undefined
         ? pairLine(sense)
         : definitionLine(sense.text, definitionPointerOf),
+    (head) => capitalOf(head)?.[3],
   );
 }
+
+/**
+ * A recipe pair's capitalised headword (pack format 3): a term, and what its meaning
+ * is when it means something (the data build's `capitalDictionary`: "name" when its
+ * gloss is the name in the native language, "word" when it says what it is; none for
+ * a gloss that is the headword itself, a class of names, or a use of a person's name).
+ */
+type CapitalEntry = readonly [...PairPack[string], meaning?: CapitalMeaning];
+
+/** One pair entry's senses, then the other's that it does not have; the first one's short. */
+const joinedPair = (
+  first: CapitalEntry,
+  then: CapitalEntry,
+): PairPack[string] => {
+  const texts = new Set(first[1].map((sense) => sense[1]));
+  return [
+    first[0],
+    [...first[1], ...then[1].filter((sense) => !texts.has(sense[1]))],
+    first[2],
+  ];
+};
 
 /** The parts of speech whose forms are degrees: comparatives and superlatives. */
 const DEGREES: readonly string[] = ["adjective", "adverb"];

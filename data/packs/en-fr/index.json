@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"$","last":"full sail"},{"file":"dict-2.json","first":"full screen","last":"random walk"},{"file":"dict-3.json","first":"randomise","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"$","last":"full sail"},{"file":"dict-2.json","first":"full screen","last":"random walk"},{"file":"dict-3.json","first":"randomise","last":"épée"}],
 "sources":["frwiktionary","enwiktionary-translations"]
 }

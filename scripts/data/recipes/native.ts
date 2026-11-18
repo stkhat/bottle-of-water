@@ -6,7 +6,7 @@
 // data")
 import { join } from "node:path";
 import type { RecipeNative } from "../../../src/core/natives.ts";
-import type { LemmaPack } from "../../../src/core/packs/types.ts";
+import type { LemmaPack, NamesPack } from "../../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../../src/core/phrases/pattern.ts";
 import {
   PACKS_DIR,
@@ -18,6 +18,7 @@ import {
 import { readWordnet, readWordnetMeanings } from "./omw.ts";
 import { simplifiedConverter } from "./simplified.ts";
 import {
+  capitalDictionary,
   convertTerms,
   lastScriptForm,
   mergeSources,
@@ -45,20 +46,25 @@ export async function buildPairDictionary(
     recipe = Object.hasOwn(RECIPES, native)
       ? RECIPES[native as RecipeNative]
       : undefined,
+    names = {},
   }: {
     termKey: TermKey;
     rawDir?: string;
     englishPath?: string;
     recipe?: Recipe;
+    /** The English names lexicon (en/names.json), for capitalised headwords' meanings. */
+    names?: NamesPack;
   },
 ) {
   if (!recipe) throw new Error(`No recipe for en-${native}`);
   const { edition, tables, wordnets = [], simplified } = recipe;
+  const toSimplified = simplified ? simplifiedConverter() : undefined;
   const [editionTerms, tableTerms] = await Promise.all([
     edition
       ? readEdition(join(rawDir, edition.file), termKey, {
           trimPeriod: true,
           native,
+          ...(toSimplified && { nativeForm: toSimplified }),
         })
       : undefined,
     readTranslationTables(englishPath, {
@@ -68,11 +74,19 @@ export async function buildPairDictionary(
     }),
   ]);
   const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
-  const editionSource = edition &&
-    editionTerms && { tag: edition.tag, terms: editionTerms.terms };
-  if (editionSource && !edition.afterTables) sources.push(editionSource);
+  // The capitalised headwords, from the same sources in the same order (so a term's
+  // source index is the same), kept apart.
+  const capitalSources: typeof sources = [];
+  if (edition && editionTerms && !edition.afterTables) {
+    sources.push({ tag: edition.tag, terms: editionTerms.terms });
+    capitalSources.push({ tag: edition.tag, terms: editionTerms.capital });
+  }
   sources.push({ tag: TABLES_TAG, terms: tableTerms.terms });
-  if (editionSource && edition.afterTables) sources.push(editionSource);
+  capitalSources.push({ tag: TABLES_TAG, terms: tableTerms.capital });
+  if (edition && editionTerms && edition.afterTables) {
+    sources.push({ tag: edition.tag, terms: editionTerms.terms });
+    capitalSources.push({ tag: edition.tag, terms: editionTerms.capital });
+  }
   if (wordnets.length > 0) {
     const english = readWordnet(wordnetPath(rawDir, ENGLISH_WORDNET));
     for (const id of wordnets)
@@ -85,19 +99,33 @@ export async function buildPairDictionary(
         }),
       });
   }
-  if (simplified) {
-    const toSimplified = simplifiedConverter();
-    for (const { terms } of sources) convertTerms(terms, toSimplified);
+  if (toSimplified) {
+    for (const { terms } of [...sources, ...capitalSources])
+      convertTerms(terms, toSimplified);
   }
   const merged = mergeSources(sources);
+  const {
+    capital,
+    counts: capitals,
+    classes,
+  } = capitalDictionary(mergeSources(capitalSources).dict, {
+    nativeKind: (item) => editionTerms?.nativeKind(item),
+    // A person's name first: the names lexicon's main kind.
+    personFirst: (term) =>
+      Object.hasOwn(names, term) && /^[gs]/.test(names[term]!),
+  });
   return {
     ...merged,
+    capital,
     stats: {
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
       terms: Object.keys(merged.dict).length,
       pointers: editionTerms?.stats.pointers ?? 0,
       templates: editionTerms?.stats.templates ?? 0,
+      capitals,
+      /** Glosses left out as classes of names, with how many headwords share each. */
+      classes,
     },
   };
 }
@@ -116,19 +144,34 @@ async function main() {
   const natives = process.argv.slice(2);
   if (natives.length === 0) throw new Error("Name the native languages: es…");
   const termKey = englishTermKey();
+  const names = readPack<NamesPack>("en/names.json");
   for (const native of natives) {
-    const { dict, sources, counts, stats } = await buildPairDictionary(native, {
-      termKey,
-    });
-    const index = writeShards(`en-${native}`, dict, PACKS_DIR, {
-      sources,
-    });
+    const { dict, capital, sources, counts, stats } = await buildPairDictionary(
+      native,
+      { termKey, names },
+    );
+    const index = writeShards(
+      `en-${native}`,
+      dict,
+      PACKS_DIR,
+      { sources },
+      capital,
+    );
+    const { classSenses, word, name, none } = stats.capitals;
     console.log(
       `en-${native}: ${stats.terms} terms (` +
         Object.entries(counts)
           .map(([tag, n]) => `${n} ${tag}`)
           .join(", ") +
-        `) in ${index.shards.length} shards; ${stats.pointers} pointer senses read in ${stats.templates} templates; ${stats.unparsable} unparsable lines`,
+        `) in ${index.shards.length} shards; ${stats.pointers} pointer senses read in ${stats.templates} templates; ` +
+        `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out); ${stats.unparsable} unparsable lines`,
+    );
+    console.log(
+      "  class glosses:",
+      stats.classes
+        .slice(0, 12)
+        .map(([item, n]) => `${item} ×${n}`)
+        .join(", "),
     );
     if (stats.unparsable > 0) process.exitCode = 1;
   }

@@ -13,7 +13,7 @@ import {
 import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
-import { displayWidth } from "../lexicon/short-lines";
+import { capitalKey, displayWidth } from "../lexicon/short-lines";
 import { recipeNatives } from "../natives";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
@@ -529,6 +529,45 @@ describe.each(recipeNatives())("generated en-%s pointers", (native) => {
     expect(Object.hasOwn(dict, target)).toBe(true);
   });
 });
+
+// Every recipe pair keeps its capitalised headwords apart, with what they mean (format 3).
+describe.each(recipeNatives())(
+  "generated en-%s capitalised headwords",
+  (native) => {
+    const load = loadPack(`en-${native}`).then(({ dict }) => ({
+      dict,
+      dictionary: createPairDictionary({ dict, defs, ipa, native }),
+    }));
+
+    it("give months, weekdays and countries their native meaning", async () => {
+      const { dictionary } = await load;
+      for (const word of ["january", "thursday"]) {
+        expect(dictionary.capitalMeaning(word), word).toBe("word");
+        expect(dictionary.entry(word, "capital"), word).not.toHaveProperty(
+          "glossLang",
+        );
+      }
+      expect(dictionary.capitalMeaning("germany")).toBeDefined();
+    });
+
+    it("give no person's name first a word meaning", async () => {
+      const { dictionary } = await load;
+      for (const word of ["mark", "frank", "michael", "mary"])
+        expect(dictionary.capitalMeaning(word), word).not.toBe("word");
+    });
+
+    it("are filed under capital keys only, no lowercase copies", async () => {
+      const { dict } = await load;
+      const capitals = Object.keys(dict).filter((key) => /^\p{Lu}/u.test(key));
+      expect(capitals.length).toBeGreaterThan(1000);
+      for (const key of capitals)
+        expect(
+          [capitalKey(key.toLowerCase()), key.toUpperCase()],
+          key,
+        ).toContain(key);
+    });
+  },
+);
 
 describe("generated en-zh dictionary", () => {
   it("is written in simplified characters", async () => {

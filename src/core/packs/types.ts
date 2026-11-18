@@ -61,7 +61,11 @@ export type DefsPack = Readonly<
  * supplying all of it. A sense from a translation table or a wordnet carries its English
  * sense as a hint ("source of illumination"). A pointer sense (format 2), an edition's
  * form of another word ("Pasado simple del verbo (to) tell" on told), has a null hint
- * and names its target term. `source` indexes the index's `sources`.
+ * and names its target term. `source` indexes the index's `sources`. Capitalised
+ * headwords (format 3) are kept apart in capital.json, the first shard, under their
+ * `capitalKey` (Japan, Thursday; an acronym in capitals: TV), each with what its
+ * meaning is as a fourth item ("name" or "word", none when it has none:
+ * `capitalDictionary` in the data build).
  */
 export type PairPack = Readonly<
   Record<

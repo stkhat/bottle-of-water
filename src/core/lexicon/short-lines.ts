@@ -143,6 +143,14 @@ export interface Pointer {
 export const keyOf = (term: string) =>
   term.trim().toLowerCase().replace(/\s+/g, " ");
 
+/**
+ * Where a recipe pair keeps a word's capitalised headwords, under keys no lowercase
+ * term uses: its key with the first letter capitalised (Japan, January, I'm), or, for
+ * an acronym, in capitals (TV, WHO).
+ */
+export const capitalKey = (key: string, acronym = false) =>
+  acronym ? key.toUpperCase() : key.charAt(0).toUpperCase() + key.slice(1);
+
 /** A pointer's target when it names one term ("am not, is not" names two). */
 const pointerTarget = (term: string) =>
   term.includes(",") || term.trim() === "" ? undefined : keyOf(term);

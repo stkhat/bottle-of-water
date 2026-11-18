@@ -1,15 +1,20 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  CLASS_HEADWORDS,
+  capitalDictionary,
+  capitalTermOf,
   convertTerms,
   lastScriptForm,
   mergeSources,
+  nativeKindOf,
   pointerTemplates,
   readEdition,
   readTranslationTables,
   termKeyOf,
   withoutPageMarkup,
   withoutStressMarks,
+  type PairSense,
   type SourceTerm,
 } from "./recipe.ts";
 
@@ -143,6 +148,28 @@ describe("readEdition", () => {
     });
   });
 
+  it("keeps capitalised headwords and single-word proper nouns apart, by capital key", async () => {
+    const { capital, nativeKind } = await readEdition(
+      join(FIXTURES, "edition-pt.jsonl"),
+      termKey,
+      { native: "pt" },
+    );
+    expect(Object.fromEntries(capital)).toEqual({
+      Light: {
+        short: "sobrenome",
+        senses: [
+          ["proper noun", "sobrenome"],
+          ["proper noun", "apelido"],
+        ],
+      },
+    });
+    // The edition's own Portuguese entry: luz is a common word, however a gloss
+    // capitalises it.
+    expect(nativeKind("luz")).toBe("word");
+    expect(nativeKind("Luz")).toBe("word");
+    expect(nativeKind("Lisboa")).toBeUndefined();
+  });
+
   it("drops the period ending a one-sentence gloss with `trimPeriod`", async () => {
     const { terms } = await readEdition(
       join(FIXTURES, "edition-pt.jsonl"),
@@ -265,6 +292,19 @@ describe("readTranslationTables", () => {
       },
     });
   });
+  it("keeps a capitalised headword's translations apart, by capital key", async () => {
+    const { terms, capital } = await readTranslationTables(
+      join(FIXTURES, "tables-en.jsonl"),
+      { langCodes: ["pt"], termKey },
+    );
+    // "Light" has no sense to file its translation under.
+    expect(Object.fromEntries(capital)).toEqual({
+      Upset: { short: "Revés", senses: [["proper noun", "Revés", "village"]] },
+    });
+    expect(terms.get("upset")?.senses).toEqual([
+      ["verb", "chatear", "to make unhappy"],
+    ]);
+  });
   it("keeps only the rows of the languages `langs` names: a variety, not its siblings", async () => {
     const { terms } = await readTranslationTables(
       join(FIXTURES, "tables-en.jsonl"),
@@ -352,5 +392,146 @@ describe("mergeSources", () => {
       ptwiktionary: 2,
       "enwiktionary-translations": 1,
     });
+  });
+});
+
+describe("capitalTermOf", () => {
+  it("keys a capitalised single word by its capital key when its lowercase form is a term", () => {
+    expect(capitalTermOf("Light", termKey)).toBe("Light");
+    expect(capitalTermOf("LIGHT", termKey)).toBe("LIGHT");
+    expect(capitalTermOf("Up", termKey)).toBe("Up");
+  });
+  it("takes a proper noun whatever its case, and nothing else", () => {
+    expect(capitalTermOf("light", termKey)).toBeUndefined();
+    expect(capitalTermOf("light", termKey, { proper: true })).toBe("Light");
+    expect(capitalTermOf("Lights", termKey)).toBeUndefined();
+    expect(capitalTermOf("Give Up", termKey)).toBeUndefined();
+  });
+});
+
+describe("nativeKindOf", () => {
+  const entries = (names: string[], common: string[]) => (word: string) => ({
+    name: names.includes(word),
+    common: common.includes(word),
+  });
+  it("reads a gloss as the native edition files it", () => {
+    const es = entries(["Japón", "Mayo", "China"], ["enero", "mayo", "china"]);
+    expect(nativeKindOf("Japón", es)).toBe("name");
+    // Wikcionario capitalises every gloss: Enero, Mayo are the months.
+    expect(nativeKindOf("Enero", es)).toBe("word");
+    expect(nativeKindOf("Mayo", es)).toBe("word");
+    expect(nativeKindOf("Estados Unidos", es)).toBeUndefined();
+    expect(nativeKindOf("británico", es)).toBe("word");
+    const zh = entries(["日本"], ["一月"]);
+    expect(nativeKindOf("日本", zh)).toBe("name");
+    expect(nativeKindOf("一月", zh)).toBe("word");
+  });
+  it("reads a capitalised common noun as a word only where the edition capitalises nouns", () => {
+    const de = entries(["Frankreich"], ["Januar"]);
+    expect(nativeKindOf("Januar", de, { capitalNouns: true })).toBe("word");
+    expect(nativeKindOf("Frankreich", de, { capitalNouns: true })).toBe("name");
+    // The Russian edition files names as nouns: the capital marks them.
+    const ru = entries([], ["Япония", "январь"]);
+    expect(nativeKindOf("Япония", ru)).toBe("name");
+    expect(nativeKindOf("январь", ru)).toBe("word");
+  });
+});
+
+describe("capitalDictionary", () => {
+  const sense = (text: string): PairSense => ["proper noun", text];
+  it("files each capitalised headword under its capital key with what it means", () => {
+    const { capital, counts } = capitalDictionary(
+      {
+        Japan: ["Japón", [sense("Japón")], 0],
+        January: ["Enero", [["noun", "Enero"]], 0],
+        Thursday: ["jueves", [["noun", "jueves", "day of the week"]], 1],
+        US: ["x", [sense("Estados Unidos de América")], 0],
+        Texas: ["Texas", [sense("Texas")], 0],
+      },
+      {
+        nativeKind: (item) =>
+          item === "Japón" ? "name" : item === "Enero" ? "word" : undefined,
+        personFirst: () => false,
+      },
+    );
+    expect(capital).toEqual({
+      Japan: ["Japón", [sense("Japón")], 0, "name"],
+      January: ["Enero", [["noun", "Enero"]], 0, "word"],
+      // Neither: by its shape (lower case, a word).
+      Thursday: ["jueves", [["noun", "jueves", "day of the week"]], 1, "word"],
+      // Capitalised words and short function words: a name.
+      US: ["x", [sense("Estados Unidos de América")], 0, "name"],
+      // The gloss is the headword itself: no meaning, the entry stays.
+      Texas: ["Texas", [sense("Texas")], 0],
+    });
+    expect(counts).toEqual({ classSenses: 0, word: 2, name: 2, none: 1 });
+  });
+  it("leaves out a gloss shared by CLASS_HEADWORDS headwords: a class of names", () => {
+    const dict: Record<string, [string, PairSense[], number]> = {};
+    for (let i = 0; i < CLASS_HEADWORDS; i++)
+      dict[`Name${i}`] = ["Apellido", [sense("Apellido"), sense(`N${i}`)], 0];
+    dict["Light"] = ["Apellido", [sense("Apellido")], 0];
+    const { capital, counts } = capitalDictionary(dict, {
+      nativeKind: () => undefined,
+      personFirst: () => false,
+    });
+    expect(capital["Name3"]).toEqual(["N3", [sense("N3")], 0, "name"]);
+    expect(capital["Light"]).toBeUndefined();
+    expect(counts.classSenses).toBe(CLASS_HEADWORDS + 1);
+  });
+  it("compares a gloss that is only a note whole", () => {
+    const dict: Record<string, [string, PairSense[], number]> = {};
+    for (let i = 0; i < CLASS_HEADWORDS; i++)
+      dict[`Name${i}`] = ["", [sense("(английская фамилия)")], 0];
+    expect(
+      capitalDictionary(dict, {
+        nativeKind: () => undefined,
+        personFirst: () => false,
+      }).capital,
+    ).toEqual({});
+  });
+  it("gives a person's name first no word meaning: a use of the name", () => {
+    const { capital } = capitalDictionary(
+      {
+        Einstein: ["gênio", [["noun", "gênio, indivíduo inteligente"]], 0],
+        Helen: ["Helena", [sense("Helena")], 0],
+      },
+      { nativeKind: () => undefined, personFirst: () => true },
+    );
+    expect(capital["Einstein"]?.[3]).toBeUndefined();
+    // A name stays one; rule D decides for a person's (`keptOrName`).
+    expect(capital["Helen"]?.[3]).toBe("name");
+  });
+  it("reads the meaning from the first sense that is no pointer, without sense numbers", () => {
+    const { capital } = capitalDictionary(
+      {
+        Frank: ["Franco₁", [["noun", "Franco₁, es decir, un franco"]], 0],
+        "I'm": [
+          "contracción",
+          [
+            ["contraction", "contracción de I y am", null, "am"],
+            ["contraction", "yo soy"],
+          ],
+          0,
+        ],
+      },
+      {
+        nativeKind: (item) => (item === "Franco" ? "name" : undefined),
+        personFirst: () => false,
+      },
+    );
+    expect(capital["Frank"]?.[3]).toBe("name");
+    expect(capital["I'm"]?.[3]).toBe("word");
+  });
+  it("finds no kind by shape in a script without case", () => {
+    const { capital } = capitalDictionary(
+      { Oh: ["源自朝鲜语的姓氏", [sense("源自朝鲜语的姓氏")], 0] },
+      { nativeKind: () => undefined, personFirst: () => false },
+    );
+    expect(capital["Oh"]).toEqual([
+      "源自朝鲜语的姓氏",
+      [sense("源自朝鲜语的姓氏")],
+      0,
+    ]);
   });
 });

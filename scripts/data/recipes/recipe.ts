@@ -1,7 +1,10 @@
 // Build recipes: a pair dictionary merged from human-made sources in order, where the
 // first source that has a term supplies all of it (one source tag per term). See
 // docs/specs/architecture.md "Native meanings and the quality gate".
-import { shortOfDefinition } from "../../../src/core/lexicon/short-lines.ts";
+import {
+  capitalKey,
+  shortOfDefinition,
+} from "../../../src/core/lexicon/short-lines.ts";
 import type { LemmaPack } from "../../../src/core/packs/types.ts";
 import {
   eachEntry,
@@ -58,6 +61,26 @@ export function termKeyOf({
     const key = patternKey(word, isWord);
     return key && phrases.has(key) ? key : undefined;
   };
+}
+
+/**
+ * The key a capitalised single-word headword is kept apart under, when its lowercase
+ * form is a term (a vocabulary word): `capitalKey`, in capitals for an acronym (two
+ * letters or more, none lower case: "TV", "WHO") and with a capital first letter
+ * otherwise ("Japan", "I'm"). Undefined for any other headword. Proper-noun entries
+ * count whatever their case.
+ */
+export function capitalTermOf(
+  headword: string,
+  termKey: TermKey,
+  { proper = false }: { proper?: boolean } = {},
+): string | undefined {
+  const word = headword.trim();
+  if (/\s/.test(word) || !(proper || /^\p{Lu}/u.test(word))) return undefined;
+  const lower = word.toLowerCase();
+  if (termKey(lower) !== lower) return undefined;
+  const acronym = /\p{Lu}.*\p{Lu}/u.test(word) && !/\p{Ll}/u.test(word);
+  return capitalKey(lower, acronym);
 }
 
 export function addSense(item: SourceTerm, sense: PairSense) {
@@ -262,22 +285,47 @@ export async function readEdition(
   {
     trimPeriod = false,
     native,
-  }: { trimPeriod?: boolean; native?: string } = {},
+    nativeForm = (word) => word,
+  }: {
+    trimPeriod?: boolean;
+    native?: string;
+    /**
+     * The edition's own headwords as the pack writes its text (simplified Chinese:
+     * the zh edition files 倫敦 and 倫敦's simplified form alike), for `nativeKind`.
+     */
+    nativeForm?: (word: string) => string;
+  } = {},
 ) {
   const isTerm = (word: string) => termKey(word) === word;
   /** template → its distinct targets */
   const learned = new Map<string, Set<string>>();
   /** The edition's own language's headwords, in lower case. */
   const nativeWords = new Set<string>();
-  const read: {
+  /** The edition's own language's headwords as written: proper nouns, and the rest. */
+  const nativeNames = new Set<string>();
+  const nativeCommon = new Set<string>();
+  let nouns = 0;
+  let capitalisedNouns = 0;
+  interface Read {
     key: string;
     head: string;
     pos: string;
     senses: KaikkiSense[];
-  }[] = [];
+  }
+  const read: Read[] = [];
+  const capitalRead: Read[] = [];
   const stats = await eachEntry(path, (entry) => {
-    if (native !== undefined && entry.lang_code === native)
-      nativeWords.add(entry.word.trim().toLowerCase());
+    if (native !== undefined && entry.lang_code === native) {
+      const written = entry.word.trim();
+      nativeWords.add(written.toLowerCase());
+      (entry.pos === "name" ? nativeNames : nativeCommon).add(
+        nativeForm(written),
+      );
+      if (entry.pos === "noun") {
+        nouns++;
+        if (/^\p{Lu}/u.test(written)) capitalisedNouns++;
+      }
+    }
     if (entry.lang_code !== "en") return;
     const head = entry.word.trim().toLowerCase();
     for (const sense of entry.senses ?? []) {
@@ -295,13 +343,24 @@ export async function readEdition(
         targets.add(target);
       }
     }
-    // A proper-noun entry (a name) gives no meaning of a word ("Light"), but a phrase
-    // pattern may be one ("Midas touch").
-    if (entry.pos === "name" && !/\s/.test(entry.word.trim())) return;
     if (isNonConstituent(entry)) return;
-    const key = termKey(entry.word);
-    if (!key) return;
-    read.push({ key, head, pos: posOf(entry.pos), senses: entry.senses ?? [] });
+    // A capitalised headword or a proper noun ("Japan", "January", "Light") is kept
+    // apart under its `capitalKey`; a phrase pattern may be a name ("Midas touch").
+    const capital = capitalTermOf(entry.word, termKey, {
+      proper: entry.pos === "name",
+    });
+    const key = capital ?? termKey(entry.word);
+    if (
+      !key ||
+      (capital === undefined && entry.pos === "name" && !/\s/.test(head))
+    )
+      return;
+    (capital !== undefined ? capitalRead : read).push({
+      key,
+      head,
+      pos: posOf(entry.pos),
+      senses: entry.senses ?? [],
+    });
   });
   const templates = new Set(
     [...learned]
@@ -322,31 +381,83 @@ export async function readEdition(
       pointerTemplates(gloss, word).some((template) => templates.has(template)),
     );
   };
-  const terms = new Map<string, SourceTerm>();
   let pointers = 0;
-  for (const { key, head, pos, senses } of read)
-    for (const sense of senses) {
-      if ((sense.tags ?? []).some((tag) => UNUSED_TAGS.includes(tag))) continue;
-      const found = cleanGloss(sense);
-      if (!found) continue;
-      const { written, gloss } = found;
-      // Page markup with only the headword before it ("adoring\n====翻译====…") is no
-      // gloss; a gloss that is the headword itself is (a loanword: "pizza").
-      if (!gloss || (gloss !== written && gloss.toLowerCase() === head))
-        continue;
-      const text =
-        trimPeriod && /^[^.。]+[.。]$/.test(gloss) ? gloss.slice(0, -1) : gloss;
-      const target = pointerOf(gloss, head, sense);
-      if (target !== undefined) {
-        pointers++;
-        addSense(termOf(terms, key), [pos, text, null, target]);
-      } else if (isUsable(sense)) addSense(termOf(terms, key), [pos, text]);
-    }
+  const termsOf = (entries: readonly Read[]) => {
+    const terms = new Map<string, SourceTerm>();
+    for (const { key, head, pos, senses } of entries)
+      for (const sense of senses) {
+        if ((sense.tags ?? []).some((tag) => UNUSED_TAGS.includes(tag)))
+          continue;
+        const found = cleanGloss(sense);
+        if (!found) continue;
+        const { written, gloss } = found;
+        // Page markup with only the headword before it ("adoring\n====翻译====…") is no
+        // gloss; a gloss that is the headword itself is (a loanword: "pizza").
+        if (!gloss || (gloss !== written && gloss.toLowerCase() === head))
+          continue;
+        const text =
+          trimPeriod && /^[^.。]+[.。]$/.test(gloss)
+            ? gloss.slice(0, -1)
+            : gloss;
+        const target = pointerOf(gloss, head, sense);
+        if (target !== undefined) {
+          pointers++;
+          addSense(termOf(terms, key), [pos, text, null, target]);
+        } else if (isUsable(sense)) addSense(termOf(terms, key), [pos, text]);
+      }
+    return finish(terms, shortOfDefinition);
+  };
+  const terms = termsOf(read);
+  const capital = termsOf(capitalRead);
   return {
-    terms: finish(terms, shortOfDefinition),
+    terms,
+    capital,
     stats: { ...stats, pointers, templates: templates.size },
     templates,
+    nativeKind: (item: string) =>
+      nativeKindOf(
+        item,
+        (word) => ({
+          name: nativeNames.has(word),
+          common: nativeCommon.has(word),
+        }),
+        // The edition writes most of its common nouns capitalised (German).
+        { capitalNouns: capitalisedNouns > nouns / 2 },
+      ),
   };
+}
+
+/** What the native edition has a word as: a proper noun, a common word, or both. */
+type NativeEntries = (word: string) => { name: boolean; common: boolean };
+
+/**
+ * NATIVE: what a capitalised headword's gloss is, by the native edition's own entries:
+ * - a gloss in lower case is a word (enero, britânico);
+ * - a capitalised gloss the edition has in lower case as a common word is that word
+ *   (Wikcionario and Wiktionnaire capitalise every gloss: "Enero", "Mayo", "Janvier");
+ * - else one the edition has as written only as a proper noun is the name (Japón,
+ *   Londres, Frankreich, 日本);
+ * - else one it has as a common word is a word where the edition capitalises its common
+ *   nouns (German: Januar, Donnerstag), and the name where it does not, as a capital
+ *   then marks a name the edition files as a noun (Russian: Япония, Эйнштейн);
+ * - else undefined.
+ * A script without case has only the edition's proper nouns and common words (日本,
+ * 一月).
+ */
+export function nativeKindOf(
+  item: string,
+  entries: NativeEntries,
+  { capitalNouns = false }: { capitalNouns?: boolean } = {},
+): "name" | "word" | undefined {
+  const first = item.charAt(0);
+  const { name, common } = entries(item);
+  if (!/\p{Lu}/u.test(first)) {
+    if (/[\p{Ll}\p{N}]/u.test(first)) return "word";
+    return common ? "word" : name ? "name" : undefined;
+  }
+  if (entries(first.toLowerCase() + item.slice(1)).common) return "word";
+  if (common) return capitalNouns ? "word" : "name";
+  return name ? "name" : undefined;
 }
 
 const senseLabel = (text: unknown) =>
@@ -379,10 +490,14 @@ export async function readTranslationTables(
   const codes = new Set(langCodes);
   const names = langs && new Set<unknown>(langs);
   const terms = new Map<string, SourceTerm>();
+  const capital = new Map<string, SourceTerm>();
   const stats = await eachEntry(path, (entry) => {
     if (entry.lang_code !== "en") return;
-    const key = termKey(entry.word);
+    // A capitalised headword ("Japan", "Thursday") is kept apart (`capitalTermOf`).
+    const capitalKey = capitalTermOf(entry.word, termKey);
+    const key = capitalKey ?? termKey(entry.word);
     if (!key) return;
+    const into = capitalKey !== undefined ? capital : terms;
     const pos = posOf(entry.pos);
     // hint → words, in the order the senses first appear
     const groups = new Map<string, string[]>();
@@ -415,10 +530,146 @@ export async function readTranslationTables(
       );
     }
     for (const [hint, words] of groups)
-      addSense(termOf(terms, key), [pos, words.join(", "), hint]);
+      addSense(termOf(into, key), [pos, words.join(", "), hint]);
   });
   // The short meaning is the first sense's first word.
-  return { terms: finish(terms, (text) => text.split(", ")[0]!), stats };
+  const firstWord = (text: string) => text.split(", ")[0]!;
+  return {
+    terms: finish(terms, firstWord),
+    capital: finish(capital, firstWord),
+    stats,
+  };
+}
+
+/** What a capitalised headword's meaning is (`DictionaryProvider.capitalMeaning`). */
+export type CapitalMeaning = "word" | "name";
+
+/** A capitalised headword's entry: a merged term and what it means, when it means something. */
+type CapitalEntry =
+  | [short: string, senses: PairSense[], source: number]
+  | [
+      short: string,
+      senses: PairSense[],
+      source: number,
+      meaning: CapitalMeaning,
+    ];
+
+/**
+ * A gloss shared by this many capitalised headwords names a class (Apellido ×130,
+ * "Nombre de pila de varón" ×80, prenome masculino), not what one of them means. At 3
+ * it also caught synonym headwords (francés, árabe, navidad).
+ */
+export const CLASS_HEADWORDS = 10;
+
+/**
+ * A sense's main item: a table sense's first word, else its gloss without notes in
+ * brackets up to a separator, without the source's sense numbers (Wikcionario's
+ * "Franco₁").
+ */
+const mainItem = ([, text, hint]: PairSense) =>
+  (hint != null
+    ? text.split(", ")[0]!
+    : text.replace(NOTES, " ").split(/[,;，；]/)[0]!
+  )
+    .replace(/[₀-₉]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.。:：]+$/, "")
+    .trim();
+
+/** A word without case or accents, to compare a gloss with its headword. */
+const bare = (text: string) =>
+  text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/**
+ * By its shape, when the native edition does not say: in a script with case, a gloss
+ * whose words are capitalised, short function words between them allowed ("Reino
+ * Unido", "Estados Unidos de América"), is the name, any other a word ("yo soy", "Mois
+ * de mai"). A script without case shows nothing of the kind (源自朝鲜语的姓氏, "a
+ * surname from Korean", is no name of Oh): none.
+ */
+function shapeKind(item: string): CapitalMeaning | undefined {
+  if (!/[\p{Lu}\p{Ll}]/u.test(item)) return undefined;
+  const words = item.split(/\s+/);
+  const capitalised = (word: string) => /^\p{Lu}/u.test(word);
+  return capitalised(words[0]!) &&
+    capitalised(words.at(-1)!) &&
+    words.every((word) => capitalised(word) || word.length <= 3)
+    ? "name"
+    : "word";
+}
+
+/**
+ * The capitalised headwords of a recipe pair (merged by `mergeSources`, by their
+ * `capitalKey`: Japan, TV), each with what its meaning is:
+ * - a sense whose main item is shared by CLASS_HEADWORDS or more headwords is a class
+ *   gloss and is left out (Louis, Michael, Churchill: "Nombre de pila de varón");
+ * - the first sense that is no pointer gives the meaning: none when its main item is
+ *   the headword itself (Texas → Texas, German Japan → Japan); else "name" or "word"
+ *   by the native edition's entry for it (`nativeKind`), else by its shape
+ *   (`shapeKind`);
+ * - a "word" meaning of a person's name first (`personFirst`: the names lexicon's main
+ *   kind a given name or a surname) is a use of the name, not what it means (Einstein
+ *   → genio, Frank → franco): none. Wiktionary's glosses do not mark a sense about one
+ *   bearer of a name as EJDict's do, so the names lexicon tells instead.
+ */
+export function capitalDictionary(
+  dict: Readonly<Record<string, [string, PairSense[], number]>>,
+  {
+    nativeKind,
+    personFirst,
+  }: {
+    nativeKind: (item: string) => CapitalMeaning | undefined;
+    personFirst: (term: string) => boolean;
+  },
+) {
+  // A gloss that is only a note ("(английская фамилия)") is compared whole.
+  const classItem = (sense: PairSense) =>
+    bare(mainItem(sense) || sense[1].trim());
+  const headwordsOf = new Map<string, Set<string>>();
+  for (const [key, [, senses]] of Object.entries(dict))
+    for (const sense of senses) {
+      if (isPointerSense(sense)) continue;
+      const item = classItem(sense);
+      let keys = headwordsOf.get(item);
+      if (!keys) headwordsOf.set(item, (keys = new Set()));
+      keys.add(key);
+    }
+  const isClass = (sense: PairSense) =>
+    !isPointerSense(sense) &&
+    (headwordsOf.get(classItem(sense))?.size ?? 0) >= CLASS_HEADWORDS;
+  const capital: Record<string, CapitalEntry> = {};
+  const counts = { classSenses: 0, word: 0, name: 0, none: 0 };
+  for (const [key, [short, senses, source]] of Object.entries(dict)) {
+    const kept = senses.filter((sense) => !isClass(sense));
+    counts.classSenses += senses.length - kept.length;
+    if (kept.length === 0) continue;
+    const first = kept[0]!;
+    const shortOf =
+      kept.length === senses.length
+        ? short
+        : first[2] != null
+          ? first[1].split(", ")[0]!
+          : shortOfDefinition(first[1]);
+    const meaningSense = kept.find((sense) => !isPointerSense(sense));
+    const item = meaningSense && mainItem(meaningSense);
+    let meaning: CapitalMeaning | undefined =
+      item && bare(item) !== bare(key)
+        ? (nativeKind(item) ?? shapeKind(item))
+        : undefined;
+    if (meaning === "word" && personFirst(key.toLowerCase()))
+      meaning = undefined;
+    counts[meaning ?? "none"]++;
+    capital[key] =
+      meaning === undefined
+        ? [shortOf, kept, source]
+        : [shortOf, kept, source, meaning];
+  }
+  const classes = [...headwordsOf]
+    .filter(([, keys]) => keys.size >= CLASS_HEADWORDS)
+    .map(([item, keys]) => [item, keys.size] as const)
+    .sort((a, b) => b[1] - a[1]);
+  return { capital, counts, classes };
 }
 
 /**

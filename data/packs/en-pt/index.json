@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"'s","last":"lockout"},{"file":"dict-2.json","first":"locksmith","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"lockout"},{"file":"dict-2.json","first":"locksmith","last":"éclair"}],
 "sources":["ptwiktionary","enwiktionary-translations"]
 }

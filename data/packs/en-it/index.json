@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"@","last":"geothermal energy"},{"file":"dict-2.json","first":"geranium","last":"restart"},{"file":"dict-3.json","first":"restate","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"@","last":"geothermal energy"},{"file":"dict-2.json","first":"geranium","last":"restart"},{"file":"dict-3.json","first":"restate","last":"éclair"}],
 "sources":["enwiktionary-translations","itwiktionary","omw-it","omw-iwn"]
 }
