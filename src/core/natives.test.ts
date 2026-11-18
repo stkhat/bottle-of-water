@@ -8,7 +8,16 @@ import { joinerFor } from "./subtitles/translation";
 
 describe("the native-language registry", () => {
   it("gives each recipe native a pair pack with its format and a dictionary after Japanese", () => {
-    expect(recipeNatives()).toEqual(["es", "pt", "ru", "fr", "de"]);
+    expect(recipeNatives()).toEqual([
+      "es",
+      "pt",
+      "ru",
+      "fr",
+      "de",
+      "zh",
+      "it",
+      "pl",
+    ]);
     expect(PACK_FORMATS["en-es"]).toBe(1);
     expect(PACK_FORMATS["en-ru"]).toBe(1);
     expect(Object.keys(DICTIONARY_PACKS)).toEqual([
@@ -18,6 +27,9 @@ describe("the native-language registry", () => {
       "en-ru",
       "en-fr",
       "en-de",
+      "en-zh",
+      "en-it",
+      "en-pl",
       "es-en",
     ]);
     expect(DICTIONARY_PACKS["en-pt"]).toEqual(["en", "en-pt", "en-defs"]);
@@ -53,5 +65,23 @@ describe("the native-language registry", () => {
     expect(translatedLine("д".repeat(45), "ru")).toHaveLength(40);
     const long = "a".repeat(45);
     expect(translatedLine(long, "es")).toHaveLength(40);
+    // Chinese, like Japanese: no spaces between joined lines, a dense script.
+    expect(joinerFor("zh-CN")).toBe("");
+    expect(joinerFor("zh-Hant")).toBe("");
+    expect(meaningLength("zh")).toBe(25);
+    expect(translatedLine("面".repeat(30), "zh")).toBe(`${"面".repeat(24)}…`);
+    expect(meaningLength("pl")).toBe(40);
+  });
+  it("names Chinese, Italian and Polish; Chrome's Prompt API answers in none of them", () => {
+    expect(languageOption("zh")).toBe("Chinese, Simplified (简体中文)");
+    expect(languageName("zh")).toBe("Chinese");
+    expect(languageOption("it")).toBe("Italian (Italiano)");
+    expect(languageOption("pl")).toBe("Polish (Polski)");
+    for (const code of ["zh", "it", "pl"])
+      expect(nativeLanguage(code)?.examples).toBeNull();
+    // The prompt does not ask a Chinese answer to avoid Chinese.
+    expect(instructions({ learning: "en", native: "zh" })).toContain(
+      'Write "meaning" in Chinese only, never in English or any other language.',
+    );
   });
 });

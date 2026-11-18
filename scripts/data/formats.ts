@@ -56,6 +56,10 @@ const LICENSES = {
     url: "https://bond-lab.github.io/cow/",
     notice: "chinese-open-wordnet.txt",
   },
+  apache2: {
+    name: "Apache License 2.0",
+    url: "https://www.apache.org/licenses/LICENSE-2.0",
+  },
   plWordNet: {
     name: "plWordNet license (WordNet-style)",
     url: "https://plwordnet.pwr.wroc.pl/wordnet/",
@@ -163,6 +167,34 @@ const SOURCES = {
     by: "the contributors to the German Wiktionary, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
+  wiktionaryZhEdition: {
+    title: "Chinese Wiktionary (维基词典), English entries",
+    via: KAIKKI,
+    url: "https://zh.wiktionary.org/",
+    by: "the contributors to the Chinese Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryItEdition: {
+    title: "Italian Wiktionary (Wikizionario), English entries",
+    via: KAIKKI,
+    url: "https://it.wiktionary.org/",
+    by: "the contributors to Wikizionario, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryPlEdition: {
+    title: "Polish Wiktionary (Wikisłownik), English entries",
+    via: KAIKKI,
+    url: "https://pl.wiktionary.org/",
+    by: "the contributors to Wikisłownik, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  opencc: {
+    title:
+      "OpenCC (Open Chinese Convert) 1.4.2, its Traditional → Simplified dictionaries",
+    url: "https://github.com/BYVoid/OpenCC",
+    by: "Carbo Kuo (BYVoid) and the OpenCC contributors",
+    license: LICENSES.apache2,
+  },
   udEwt: {
     title: "Universal Dependencies English Web Treebank (UD_English-EWT)",
     url: "https://github.com/UniversalDependencies/UD_English-EWT",
@@ -219,6 +251,9 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   ruwiktionary: SOURCES.wiktionaryRuEdition,
   frwiktionary: SOURCES.wiktionaryFrEdition,
   dewiktionary: SOURCES.wiktionaryDeEdition,
+  zhwiktionary: SOURCES.wiktionaryZhEdition,
+  itwiktionary: SOURCES.wiktionaryItEdition,
+  plwiktionary: SOURCES.wiktionaryPlEdition,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,
@@ -228,7 +263,8 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
 
 const pack = (
   name: PackName,
-  fields: Pick<PackInfo, "title" | "description" | "sources">,
+  fields: Pick<PackInfo, "title" | "description" | "sources"> &
+    Partial<Pick<PackInfo, "changes">>,
 ): PackInfo => {
   // Every source so far allows CC BY-SA 4.0 for the whole; a pack without share-alike
   // material would need its license chosen.
@@ -273,10 +309,19 @@ export function recipePack(
       ...SOURCES.wordnetEn,
       used: "the English synsets that link the terms to the other wordnets, their definitions as sense hints",
     });
+  if (recipe.simplified)
+    sources.push({
+      ...SOURCES.opencc,
+      used: "the conversion of the other sources' traditional characters to simplified ones",
+    });
   return pack(`en-${native}` as PackName, {
     title: `English–${name} dictionary`,
     description: `${name} meanings of English words and phrases`,
     sources,
+    ...(recipe.simplified && {
+      changes:
+        "entries were selected, filtered and reformatted, and traditional Chinese characters were converted to simplified ones",
+    }),
   });
 }
 

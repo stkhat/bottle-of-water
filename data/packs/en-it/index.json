@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"dict-1.json","first":"@","last":"get moving"},{"file":"dict-2.json","first":"get off","last":"reveal"},{"file":"dict-3.json","first":"revealing","last":"éclair"}],
+"sources":["enwiktionary-translations","itwiktionary","omw-it","omw-iwn"]
+}

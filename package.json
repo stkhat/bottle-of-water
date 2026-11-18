@@ -33,7 +33,7 @@
     "postinstall": "wxt prepare",
     "check:claude-md": "node scripts/check-claude-md.ts",
     "test:mutation": "stryker run",
-    "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq && npm run data:phrases && npm run data:sense-pos && npm run data:tagger && npm run data:native -- es pt ru fr de && npm run data:en-defs",
+    "data:build": "npm run data:ejdict && npm run data:kaikki && npm run data:freq && npm run data:phrases && npm run data:sense-pos && npm run data:tagger && npm run data:native -- es pt ru fr de zh it pl && npm run data:en-defs",
     "data:ejdict": "node scripts/data/ejdict.ts",
     "data:kaikki": "node scripts/data/kaikki.ts",
     "data:phrases": "node scripts/data/phrases.ts",
@@ -67,6 +67,7 @@
     "globals": "^17.14.0",
     "knip": "^6.45.1",
     "lint-staged": "^17.6.0",
+    "opencc": "1.4.2",
     "playwright": "^1.65.0",
     "prettier": "^3.9.10",
     "simple-git-hooks": "^2.14.0",
@@ -102,6 +103,9 @@
     ],
     "ignore": [
       ".claude/skills/**"
+    ],
+    "ignoreDependencies": [
+      "opencc"
     ]
   }
 }

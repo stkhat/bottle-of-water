@@ -70,7 +70,7 @@ function firstSense(
 }
 
 const isComma = (text: string, i: number) =>
-  text[i] === "," || text[i] === "、";
+  text[i] === "," || text[i] === "、" || text[i] === "，";
 
 /** Each comma-separated item once: "色,色彩,色" → "色,色彩". */
 function withoutRepeatedItems(text: string): string {
@@ -478,11 +478,12 @@ const DEFINITION_CAP = 40;
 
 /**
  * A definition (a Wiktionary gloss) as the short meaning: its first sense (cut at the
- * first ";" outside brackets), without a final period.
+ * first semicolon outside brackets, ";" or the full-width "；" of Chinese glosses),
+ * without a final period ("." or "。").
  */
 export function shortOfDefinition(text: string): string {
-  const cut = firstSense(text, (t, i) => t[i] === ";");
-  return cut.endsWith(".") ? cut.slice(0, -1).trimEnd() : cut;
+  const cut = firstSense(text, (t, i) => t[i] === ";" || t[i] === "；");
+  return /[.。]$/.test(cut) ? cut.slice(0, -1).trimEnd() : cut;
 }
 
 /**

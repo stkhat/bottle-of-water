@@ -16,7 +16,10 @@ import {
   writeShards,
 } from "../common.ts";
 import { readWordnet, readWordnetMeanings } from "./omw.ts";
+import { simplifiedConverter } from "./simplified.ts";
 import {
+  convertTerms,
+  lastScriptForm,
   mergeSources,
   readEdition,
   readTranslationTables,
@@ -50,12 +53,16 @@ export async function buildPairDictionary(
   },
 ) {
   if (!recipe) throw new Error(`No recipe for en-${native}`);
-  const { edition, tables, wordnets = [] } = recipe;
+  const { edition, tables, wordnets = [], simplified } = recipe;
   const [editionTerms, tableTerms] = await Promise.all([
     edition
       ? readEdition(join(rawDir, edition.file), termKey, { trimPeriod: true })
       : undefined,
-    readTranslationTables(englishPath, { ...tables, termKey }),
+    readTranslationTables(englishPath, {
+      ...tables,
+      termKey,
+      ...(simplified && { word: lastScriptForm }),
+    }),
   ]);
   const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
   const editionSource = edition &&
@@ -74,6 +81,10 @@ export async function buildPairDictionary(
           termKey,
         }),
       });
+  }
+  if (simplified) {
+    const toSimplified = simplifiedConverter();
+    for (const { terms } of sources) convertTerms(terms, toSimplified);
   }
   const merged = mergeSources(sources);
   return {

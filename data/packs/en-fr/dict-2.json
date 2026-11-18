@@ -19485,7 +19485,7 @@
 "reorientation":["réorientation",[["noun","réorientation","the act of reorienting"]],1],
 "rep":["Réputation",[["noun","Réputation"],["noun","Répétition"],["noun","Représentant"],["verb","Représenter"]],0],
 "repaint":["Repeindre",[["verb","Repeindre"]],0],
-"repair":["I have to take the train, because my car is still in the garage for repairs.\n#*: Je dois prendre le train, parce que ma voiture est toujours au garage pour des réparations",[["noun","I have to take the train, because my car is still in the garage for repairs.\n#*: Je dois prendre le train, parce que ma voiture est toujours au garage pour des réparations."],["noun","Réparation : restauration de la fonctionnalité d’un produit, mais sans conformité aux spécifications"],["verb","Réparer, dépanner"],["verb","Retourner, revenir"]],0],
+"repair":["I have to take the train, because my car is still in the garage for repairs",[["noun","I have to take the train, because my car is still in the garage for repairs"],["noun","Réparation : restauration de la fonctionnalité d’un produit, mais sans conformité aux spécifications"],["verb","Réparer, dépanner"],["verb","Retourner, revenir"]],0],
 "repairer":["réparateur",[["noun","réparateur, réparatrice, dépanneur","person who repairs"]],1],
 "repairman":["Réparateur",[["noun","Réparateur"]],0],
 "reparable":["réparable",[["adjective","réparable","able to be repaired"]],1],
@@ -19511,5 +19511,7 @@
 "repertoire":["Répertoire",[["noun","Répertoire"],["noun","Arsenal"]],0],
 "repertory":["Répertoire",[["noun","Répertoire"]],0],
 "repetition":["Répétition",[["noun","Répétition"],["noun","Reprise"]],0],
-"repetitive":["Répétitif",[["adjective","Répétitif"]],0]
+"repetitive":["Répétitif",[["adjective","Répétitif"]],0],
+"repetitive strain injury":["Trouble musculosquelettique",[["noun","Trouble musculosquelettique"]],0],
+"rephrase":["reformuler",[["verb","reformuler","find a different way to say something"]],1]
 }

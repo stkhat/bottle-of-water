@@ -72,6 +72,26 @@ describe("buildPairDictionary", () => {
     expect(result.dict["give up"]?.[2]).toBe(1);
     expect(result.counts).toEqual({ [TABLES_TAG]: 2, eswiktionary: 1 });
   });
+  it("writes a simplified recipe in simplified characters: the rows' simplified form, the rest converted", async () => {
+    const result = await buildPairDictionary("zh", {
+      termKey,
+      rawDir: FIXTURES,
+      englishPath: join(FIXTURES, "tables-en.jsonl"),
+      recipe: {
+        tables: { langCodes: ["cmn", "zh"], langs: ["Chinese Mandarin"] },
+        simplified: true,
+      },
+    });
+    expect(result.dict["light"]).toEqual([
+      "光",
+      [
+        ["noun", "光", "electromagnetic radiation"],
+        // "燈 /灯" gives its simplified form, "燈光" is converted.
+        ["noun", "灯, 灯光", "source of illumination"],
+      ],
+      0,
+    ]);
+  });
   it("refuses a native language without a recipe", async () => {
     await expect(buildPairDictionary("xx", { termKey })).rejects.toThrow(
       "No recipe for en-xx",

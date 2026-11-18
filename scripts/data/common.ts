@@ -149,6 +149,8 @@ export function readDictPacks<V>(packDir: string): Record<string, V> {
 
 export interface KaikkiTranslation {
   lang_code?: string;
+  /** The language's name, with the variety a table nests under it ("Chinese Mandarin"). */
+  lang?: unknown;
   word?: unknown;
   sense?: unknown;
 }

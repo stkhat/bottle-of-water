@@ -22,14 +22,25 @@ export interface Recipe {
    * blind per language: docs/notes/translation-data-expansion.md).
    */
   edition?: { tag: string; file: string; afterTables?: boolean };
-  /** English Wiktionary's translation tables: the codes kaikki gives the language's translations. */
-  tables: { langCodes: string[] };
+  /**
+   * English Wiktionary's translation tables: the codes kaikki gives the language's
+   * translations, and for a language whose tables nest varieties under it, the
+   * variety's rows only (kaikki's language names: "Chinese Mandarin").
+   */
+  tables: { langCodes: string[]; langs?: string[] };
   /**
    * Open Multilingual Wordnet 1.4 wordnets of the language, after the tables, each a
    * source of its own under its OMW id ("omw-it": data/raw/omw/omw-1.4/omw-it/omw-it.xml).
    * Only wordnets whose license the packs allow (architecture.md "Licenses").
    */
   wordnets?: string[];
+  /**
+   * Chinese in simplified characters: a translation-table word keeps its simplified
+   * form ("麵包 /面包" → 面包), and every source's text goes through OpenCC's
+   * Traditional → Simplified conversion (`simplified.ts`), as the zh edition writes
+   * traditional characters.
+   */
+  simplified?: boolean;
 }
 
 /**
@@ -64,6 +75,33 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
       afterTables: true,
     },
     tables: { langCodes: ["de"] },
+  },
+  // Mandarin rows of the tables (kaikki codes them cmn or zh, and codes Hokkien and
+  // Dungan rows zh too), then the zh edition, then the Chinese Open Wordnet; all in
+  // simplified characters.
+  zh: {
+    edition: {
+      tag: "zhwiktionary",
+      file: "kaikki-zh-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["cmn", "zh"], langs: ["Chinese Mandarin"] },
+    wordnets: ["omw-cmn"],
+    simplified: true,
+  },
+  it: {
+    edition: {
+      tag: "itwiktionary",
+      file: "kaikki-it-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["it"] },
+    wordnets: ["omw-it", "omw-iwn"],
+  },
+  pl: {
+    edition: { tag: "plwiktionary", file: "kaikki-pl-edition.jsonl" },
+    tables: { langCodes: ["pl"] },
+    wordnets: ["omw-pl"],
   },
 };
 

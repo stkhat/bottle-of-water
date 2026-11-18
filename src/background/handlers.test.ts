@@ -625,7 +625,7 @@ describe("handlers: explanations", () => {
 
   it("skips a malformed key or answer", async () => {
     const bad = [
-      { ...KEY, native: "it" },
+      { ...KEY, native: "nl" },
       { ...KEY, learning: "xx" },
       { ...KEY, key: "" },
       { ...KEY, sentence: "a".repeat(2001) },
@@ -1071,14 +1071,14 @@ describe("handlers: termSummaries", () => {
   });
 
   it("uses the dictionary of the native language from the settings", async () => {
-    await setSettings({ nativeLang: "it" });
+    await setSettings({ nativeLang: "nl" });
     expect(
       await handle({
         type: "termSummaries",
         lang: "en",
         keys: ["loaf"],
       }),
-    ).toEqual({ ok: false, error: "No dictionary from en to it" });
+    ).toEqual({ ok: false, error: "No dictionary from en to nl" });
   });
 });
 
@@ -1395,10 +1395,10 @@ describe("handlers: lookup", () => {
   });
 
   it("looks up in the dictionary of the native language from the settings", async () => {
-    await setSettings({ nativeLang: "it" });
+    await setSettings({ nativeLang: "nl" });
     expect(await handle({ type: "lookup", lang: "en", key: "loaf" })).toEqual({
       ok: false,
-      error: "No dictionary from en to it",
+      error: "No dictionary from en to nl",
     });
   });
 });

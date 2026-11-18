@@ -98,38 +98,45 @@ async function pairDownloaded(context: BrowserContext, extensionId: string) {
     .toBe(true);
 }
 
-test("choosing a native language a recipe builds downloads its dictionary from the mirror", async ({
-  context,
-  extensionId,
-}) => {
-  await pairDownloaded(context, extensionId);
-  expect(
-    await sendToBackground(context, extensionId, {
-      type: "setSettings",
-      patch: { nativeLang: "de" },
-    }),
-  ).toMatchObject({ ok: true });
-  // English and its definitions were there; the German dictionary is downloaded.
-  await expect
-    .poll(async () => {
-      const reply = (await sendToBackground(context, extensionId, {
-        type: "packStatus",
-      })) as { value?: { pair: { packs: { pack: string; state: string }[] } } };
-      return reply.value?.pair.packs.map(({ pack, state }) => [pack, state]);
-    }, COLD_LOAD)
-    .toEqual([
-      ["en", "ready"],
-      ["en-de", "ready"],
-      ["en-defs", "ready"],
-    ]);
-  const reply = (await sendToBackground(context, extensionId, {
-    type: "lookup",
-    lang: "en",
-    key: "bread",
-  })) as { value?: { entry?: { short: string; lines: string[] } } };
-  expect(reply.value?.entry).toMatchObject({ short: "Brot" });
-  expect(reply.value?.entry).not.toHaveProperty("glossLang");
-});
+// German (D2) and Chinese (D3: simplified characters, a dense script).
+for (const { native, bread } of [
+  { native: "de", bread: "Brot" },
+  { native: "zh", bread: "面包" },
+])
+  test(`choosing a native language a recipe builds (${native}) downloads its dictionary from the mirror`, async ({
+    context,
+    extensionId,
+  }) => {
+    await pairDownloaded(context, extensionId);
+    expect(
+      await sendToBackground(context, extensionId, {
+        type: "setSettings",
+        patch: { nativeLang: native },
+      }),
+    ).toMatchObject({ ok: true });
+    // English and its definitions were there; the pair's dictionary is downloaded.
+    await expect
+      .poll(async () => {
+        const reply = (await sendToBackground(context, extensionId, {
+          type: "packStatus",
+        })) as {
+          value?: { pair: { packs: { pack: string; state: string }[] } };
+        };
+        return reply.value?.pair.packs.map(({ pack, state }) => [pack, state]);
+      }, COLD_LOAD)
+      .toEqual([
+        ["en", "ready"],
+        [`en-${native}`, "ready"],
+        ["en-defs", "ready"],
+      ]);
+    const reply = (await sendToBackground(context, extensionId, {
+      type: "lookup",
+      lang: "en",
+      key: "bread",
+    })) as { value?: { entry?: { short: string; lines: string[] } } };
+    expect(reply.value?.entry).toMatchObject({ short: bread });
+    expect(reply.value?.entry).not.toHaveProperty("glossLang");
+  });
 
 test("a broken file on the mirror: Couldn't download, then Retry in Settings downloads it and the page is highlighted", async ({
   context,

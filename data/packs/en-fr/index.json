@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"$","last":"generating function"},{"file":"dict-2.json","first":"generation","last":"repetitive"},{"file":"dict-3.json","first":"repetitive strain injury","last":"épée"}],
+"shards":[{"file":"dict-1.json","first":"$","last":"generating function"},{"file":"dict-2.json","first":"generation","last":"rephrase"},{"file":"dict-3.json","first":"replace","last":"épée"}],
 "sources":["frwiktionary","enwiktionary-translations"]
 }
