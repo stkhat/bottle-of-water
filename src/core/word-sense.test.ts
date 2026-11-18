@@ -164,6 +164,101 @@ describe("chooseKey (rule A1)", () => {
     );
     expect(key("arises", ["aris", "arise"], reading(undefined))).toBe("aris");
   });
+  describe("a headword the dictionary has no entry for", () => {
+    /** A pair dictionary with base forms only (en-es: no "told", "has", "lives"). */
+    const PAIR: Record<string, EntryOutline> = {
+      tell: { firstMeaning: true, meaning: true, pos: ["verb", "noun"] },
+      have: OUTLINES.have!,
+      life: { firstMeaning: true, meaning: true, pos: ["noun"] },
+      live: { firstMeaning: true, meaning: true, pos: ["verb"] },
+    };
+    const PAIR_POS: Record<string, string[]> = {
+      told: ["verb"],
+      tell: ["verb", "noun"],
+      have: ["verb"],
+      lives: ["verb", "noun"],
+      life: ["noun"],
+      live: ["verb", "adjective"],
+    };
+    const pairLang = {
+      partsOfSpeech: (word: string) => PAIR_POS[word] ?? [],
+      // "life" is more common than "live" here.
+      rank: (word: string) => (word === "life" ? 1 : 2),
+    };
+    const pairKey = (form: string, bases: string[], r: WordReading) =>
+      chooseKey(form, bases, r, (word) => PAIR[word], pairLang) ?? bases[0];
+
+    it("goes to the base the tag fits, then the most frequent", () => {
+      expect(pairKey("told", ["told", "tell"], reading(VBD))).toBe("tell");
+      const lives = ["lives", "life", "live"];
+      expect(pairKey("lives", lives, reading(tag("noun", "NNS")))).toBe("life");
+      expect(pairKey("lives", lives, reading(tag("verb", "VBZ")))).toBe("live");
+      expect(pairKey("lives", lives, reading(undefined))).toBe("life");
+    });
+    it("keeps the word when no base the tag fits has an entry", () => {
+      // "saw" read as a noun: see is no noun.
+      const noSaw = (word: string) =>
+        word === "saw" ? undefined : outline(word);
+      expect(
+        chooseKey(
+          "saw",
+          ["saw", "see"],
+          reading(tag("noun", "NN", false)),
+          noSaw,
+          {
+            ...lang,
+            partsOfSpeech: (w) => (w === "saw" ? ["noun"] : ["verb"]),
+          },
+        ),
+      ).toBe(undefined);
+    });
+    it("takes an auxiliary's base, with or without a tag", () => {
+      const aux = { auxiliary: true };
+      const has = ["has", "have"];
+      expect(pairKey("has", has, reading(tag("verb", "VBZ"), aux))).toBe(
+        "have",
+      );
+      expect(pairKey("has", has, reading(undefined, aux))).toBe("have");
+    });
+  });
+  it("takes an auxiliary's verb base when its entry's pointer names a word that is not mainly a verb", () => {
+    // A source whose "does" starts with "plural of doe" (Wiktionary keeps form-of senses).
+    const doesOutline = (word: string): EntryOutline | undefined =>
+      ({
+        does: {
+          formOf: "doe",
+          firstMeaning: false,
+          meaning: false,
+          pos: ["noun", "verb"],
+        },
+        do: { firstMeaning: true, meaning: true, pos: ["verb"] },
+        doe: { firstMeaning: true, meaning: true, pos: ["noun"] },
+      })[word];
+    const doesLang = {
+      partsOfSpeech: (word: string) =>
+        ({
+          does: ["verb", "noun"],
+          do: ["verb", "noun"],
+          doe: ["noun", "verb"],
+        })[word] ?? [],
+      rank: () => 1,
+    };
+    const aux = reading(tag("verb", "VBZ"), { auxiliary: true });
+    expect(chooseKey("does", ["does", "do"], aux, doesOutline, doesLang)).toBe(
+      "do",
+    );
+    // Not as an auxiliary ("two does and a stag"), nor when the pointer names a verb.
+    expect(
+      chooseKey(
+        "does",
+        ["does", "do"],
+        reading(tag("noun", "NNS")),
+        doesOutline,
+        doesLang,
+      ),
+    ).toBe(undefined);
+    expect(key("has", ["has", "have"], aux)).toBe("has");
+  });
   it("leaves a word with one base form alone", () => {
     expect(chooseKey("dough", ["dough"], reading(VBD), outline, lang)).toBe(
       undefined,
