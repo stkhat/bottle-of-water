@@ -204,6 +204,21 @@ export function createClassifier(pack: LanguagePack): Classifier {
   // One matcher per pack: its dictionary trie is built once.
   const { matcher } = pack;
   const detects = pack.patterns.detect.length > 0;
+  /** Words in the longest pattern (`detect` and `more`), counted on first use. */
+  let reach: number | undefined;
+  const patternReach = () => {
+    if (reach === undefined) {
+      reach = 2;
+      for (const keys of [pack.patterns.detect, pack.patterns.more])
+        for (const key of keys) {
+          let words = 1;
+          for (let c = key.indexOf(" "); c >= 0; c = key.indexOf(" ", c + 1))
+            words++;
+          if (words > reach) reach = words;
+        }
+    }
+    return reach;
+  };
   return {
     classify(tokens, { terms, knownLevel, casing, capitalMeaning, outline }) {
       const input = matcher.prepare(tokens);
@@ -294,6 +309,74 @@ export function createClassifier(pack: LanguagePack): Classifier {
       }
 
       /**
+       * Rule BASE: a detected phrase's word matched through a base form (an inflected
+       * verb with several bases) must be the base rule A1 reads it as: "fue de" is
+       * ser, not `ir de`. A1 reads the base it gives as the key, or, when it keeps the
+       * word's own entry ("went": "goの過去"), the base that entry is a form of; a
+       * word with neither does not count against the phrase.
+       */
+      const offBase = (match: PhraseMatch) => {
+        if (!outline) return false;
+        const keyWords = match.key.split(" ").map(normalizeWord);
+        return match.words.some((j, n) => {
+          const { form, bases } = words[j]!;
+          const reading = readings[j];
+          const word = keyWords[n]!;
+          if (
+            !reading?.tag?.inflected ||
+            reading.tag.label !== "verb" ||
+            word === form ||
+            bases.length < 2 ||
+            !bases.includes(word)
+          )
+            return false;
+          const own = bases.includes(form) ? form : bases[0]!;
+          const key = chooseKey(form, bases, reading, outline, pack) ?? own;
+          const base = key === form ? outline(form)?.formOf : key;
+          return base !== undefined && bases.includes(base) && base !== word;
+        });
+      };
+
+      /** The `select` matches without a gap that start at each word. */
+      const selectAt = new Map<number, readonly PhraseMatch[]>();
+      const contiguousAt = (s: number) => {
+        let found = selectAt.get(s);
+        if (!found) {
+          found = matcher
+            .matchesAt(input, s, "select")
+            .filter((m) => last(m) - first(m) + 1 === m.words.length);
+          selectAt.set(s, found);
+        }
+        return found;
+      };
+      /**
+       * Rule LONGEST: a detected phrase inside a longer pattern that is only matched on
+       * selection and starts before it is that pattern's, not its own, when the
+       * longer one is another part of speech (or the source gives either none): it is
+       * another expression ("de vista" in the noun "punto de vista"; "as well" in the
+       * verb "might as well"). One of a part of speech the phrase also has extends it
+       * and leaves it its meaning ("off the bat" in "right off the bat"). (A longer
+       * detected one that starts before it was placed there already, unless it did
+       * not fit.)
+       */
+      const insideLonger = (match: PhraseMatch) => {
+        const start = first(match);
+        const end = last(match);
+        const own = pack.phrasePos(match.key);
+        for (let s = Math.max(0, end + 1 - patternReach()); s < start; s++)
+          if (
+            contiguousAt(s).some(
+              (outer) =>
+                last(outer) >= end &&
+                !pack.phrases.has(outer.key) &&
+                !pack.phrasePos(outer.key).some((pos) => own.includes(pos)),
+            )
+          )
+            return true;
+        return false;
+      };
+
+      /**
        * The phrase starting at word i, with its context in its sentence (`fitContext`):
        * the saved phrase there, or the longest dictionary phrase without a word saved
        * as learning or inside a saved phrase, when it is that phrase here
@@ -315,7 +398,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
                     !match.words.some((j) => learning[j] || inSaved[j]),
                 ),
               );
-        if (!longest) return undefined;
+        if (!longest || offBase(longest) || insideLonger(longest))
+          return undefined;
         const context = fitContext(pack, longest, readings);
         return phraseMisfit(pack, longest, readings, punctuated, context) ===
           undefined

@@ -494,6 +494,110 @@ describe("classify dictionary phrases", () => {
   });
 });
 
+describe("a detected phrase inside a longer pattern (rule LONGEST)", () => {
+  const longer = createLanguagePack("en", {
+    lemmas: {},
+    freq: ["of", "a", "as", "we", "did", "it"],
+    ipa: {},
+    vocab: new Set([
+      ...["of", "a", "as", "we", "did", "it", "matter", "course", "and"],
+      ...["so", "kind", "some", "was"],
+    ]),
+    patterns: {
+      detect: ["kind of", "of course"],
+      // Matched only when saved or selected.
+      more: [
+        "and of course",
+        "as a matter of course",
+        "of course not",
+        "some kind of",
+      ],
+      gap: [],
+      // kind of: adverb; of course: interjection, adverb; and of course: adverb;
+      // as a matter of course: none given; of course not: interjection;
+      // some kind of: determiner.
+      pos: { detect: "r ir", more: "r - i d" },
+    },
+  });
+  const run = (text: string) =>
+    brief(
+      createClassifier(longer)
+        .classify(longer.tokenize(text), { terms: terms(), knownLevel: 10 })
+        .map((s) => ({ ...s, text: text.slice(s.start, s.end) })),
+    ).filter((s) => s.includes(" "));
+
+  it("does not detect a phrase inside a longer pattern of another part of speech that starts before it", () => {
+    expect(run("We did it as a matter of course.")).toEqual([]);
+    expect(run("It was some kind of matter.")).toEqual([]);
+    expect(run("We did it, of course.")).toEqual(["of course:of course:new"]);
+    expect(run("It was kind of so.")).toEqual(["kind of:kind of:new"]);
+  });
+  it("detects it inside a longer pattern of a part of speech it also has", () => {
+    expect(run("And of course we did.")).toEqual(["of course:of course:new"]);
+  });
+  it("still detects it at the start of a longer pattern", () => {
+    expect(run("Of course not.")).toEqual(["Of course:of course:new"]);
+  });
+});
+
+describe("a detected phrase's words read through their bases (rule BASE)", () => {
+  // "fue" is a form of ir and of ser; the tagger reads it as a past tense.
+  const make = (freq: string[]) =>
+    createLanguagePack("en", {
+      lemmas: { fue: ["ir", "ser"], went: "go" },
+      freq,
+      ipa: {},
+      vocab: new Set([...freq, "went", "de", "on"]),
+      patterns: { detect: ["ir de", "go on"], more: [], gap: [] },
+      pos: { ir: ["verb"], ser: ["verb"], go: ["verb"] },
+      tagger: {
+        tags: ["NN", "VBD"],
+        words: { fue: "VBD", went: "VBD" },
+        weights: {},
+        scale: 10,
+      },
+    });
+  const outlines: Record<string, EntryOutline> = {
+    ir: { firstMeaning: true, meaning: true, pos: ["verb"] },
+    ser: { firstMeaning: true, meaning: true, pos: ["verb"] },
+    // went: goの過去 and nothing else.
+    went: { formOf: "go", firstMeaning: false, meaning: false, pos: ["verb"] },
+    go: { firstMeaning: true, meaning: true, pos: ["verb"] },
+  };
+  const run = (freq: string[], text: string) => {
+    const lang = make(freq);
+    return brief(
+      createClassifier(lang)
+        .classify(lang.tokenize(text), {
+          terms: terms(),
+          knownLevel: 10,
+          outline: (key) => outlines[key],
+        })
+        .map((s) => ({ ...s, text: text.slice(s.start, s.end) })),
+    );
+  };
+
+  it("does not match a pattern word through a base other than the one rule A1 reads", () => {
+    // ser is the more frequent verb: "fue de" is ser here.
+    expect(run(["ser", "ir", "go"], "fue de")).toEqual([
+      "fue:ser:known",
+      "de:de:new",
+    ]);
+    expect(run(["ir", "ser", "go"], "fue de")).toEqual(["fue de:ir de:new"]);
+  });
+  it("matches through the base a form's own entry points to", () => {
+    expect(run(["ir", "ser", "go"], "went on")).toEqual(["went on:go on:new"]);
+  });
+  it("matches as before without the dictionary's outlines", () => {
+    const lang = make(["ser", "ir", "go"]);
+    const spans = createClassifier(lang).classify(lang.tokenize("fue de"), {
+      terms: terms(),
+      knownLevel: 10,
+    });
+    expect(spans.map((s) => s.key)).toEqual(["ir de"]);
+  });
+});
+
 describe("unsavedKeys", () => {
   it("lists each new key once, leaving out known, saved and ignored words", () => {
     const spans = classifier.classify(
