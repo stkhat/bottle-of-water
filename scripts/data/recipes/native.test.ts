@@ -30,7 +30,7 @@ describe("buildPairDictionary", () => {
       1,
     ]);
     expect(result.counts).toEqual({ eswiktionary: 2, [TABLES_TAG]: 1 });
-    expect(result.stats).toEqual({ unparsable: 1, terms: 3 });
+    expect(result.stats).toMatchObject({ unparsable: 1, terms: 3 });
   });
   it("builds a recipe without an edition from the tables, then its wordnets", async () => {
     const result = await buildPairDictionary("pt", {
@@ -49,7 +49,7 @@ describe("buildPairDictionary", () => {
     expect(result.dict["light"]?.[0]).toBe("luz");
     expect(result.dict["bank"]?.slice(0, 1)).toEqual(["riva"]);
     expect(result.dict["bank"]?.[2]).toBe(1);
-    expect(result.stats).toEqual({ unparsable: 0, terms: 4 });
+    expect(result.stats).toMatchObject({ unparsable: 0, terms: 4 });
   });
   it("puts an edition after the tables when its recipe says so: it fills only what they lack", async () => {
     const result = await buildPairDictionary("es", {

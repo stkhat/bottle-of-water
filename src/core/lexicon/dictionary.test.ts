@@ -583,4 +583,75 @@ describe("createPairDictionary", () => {
     expect(dictionary.outline("give up")).toMatchObject({ pos: ["verb"] });
     expect(dictionary.outline("zzyzx")).toBeUndefined();
   });
+
+  describe("pointer senses", () => {
+    const THIRD = "Tercera persona del singular del presente simple de";
+    const forms = createPairDictionary({
+      dict: {
+        told: [
+          "Pasado simple",
+          [["verb", "Pasado simple del verbo (to) tell.", null, "tell"]],
+          0,
+        ],
+        tell: [
+          "Señal",
+          [
+            ["noun", "Señal."],
+            ["verb", "Contar."],
+            ["verb", "Decir."],
+          ],
+          0,
+        ],
+        has: ["Tercera", [["verb", `${THIRD} (to) have.`, null, "have"]], 0],
+        have: ["Tener", [["verb", "Tener."]], 0],
+        does: [
+          "Plural",
+          [
+            ["noun", "Plural de doe.", null, "doe"],
+            ["verb", `${THIRD} do.`, null, "do"],
+          ],
+          0,
+        ],
+      },
+      defs: {},
+      ipa: {},
+    });
+
+    it("follows a pointer to its target's meanings, in the order the tag asks for", () => {
+      expect(forms.entry("told", undefined, "verb")?.lines).toEqual([
+        "Pasado simple del verbo tell",
+        "Contar",
+        "Decir",
+      ]);
+      // Without a tag, in the order of the pointer sense's part of speech.
+      expect(forms.entry("told")?.lines).toEqual([
+        "Pasado simple del verbo tell",
+        "Contar",
+        "Decir",
+      ]);
+    });
+    it("leaves a pointer wider than the cap out while a meaning shows, but for an auxiliary", () => {
+      expect(forms.entry("has", undefined, "verb")?.lines).toEqual(["Tener"]);
+      expect(forms.entry("has")?.lines).toEqual(["Tener"]);
+      // An auxiliary ("has been"): the pointer says what it means there.
+      expect(forms.entry("has", undefined, "auxiliary")?.lines).toEqual([
+        `${THIRD} have`,
+        "Tener",
+      ]);
+    });
+    it("outlines a pointer sense as a form of its target", () => {
+      expect(forms.outline("told")).toEqual({
+        formOf: "tell",
+        firstMeaning: false,
+        meaning: false,
+        pos: ["verb"],
+      });
+      expect(forms.outline("does")?.formOf).toBe("doe");
+    });
+    it("keeps the pointer's text as a sense, without a hint", () => {
+      expect(forms.entry("told")?.senses).toEqual([
+        { pos: "verb", text: "Pasado simple del verbo (to) tell." },
+      ]);
+    });
+  });
 });

@@ -14,6 +14,7 @@ import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
 import { displayWidth } from "../lexicon/short-lines";
+import { recipeNatives } from "../natives";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
 import type { DictPack, ShardIndex } from "./types";
@@ -498,6 +499,34 @@ describe.each([
       senses.some(([, text]) => /={2,}|\n\s*[*#]/.test(text)),
     );
     expect(marked).toEqual([]);
+  });
+});
+
+// Every recipe pair keeps its edition's forms as pointers (format 2).
+describe.each(recipeNatives())("generated en-%s pointers", (native) => {
+  const load = loadPack(`en-${native}`).then(({ dict }) => ({
+    dict,
+    dictionary: createPairDictionary({ dict, defs, ipa }),
+  }));
+
+  it("name a term as their target and are no meaning of their own", async () => {
+    const { dict, dictionary } = await load;
+    const pointers = Object.entries(dict).flatMap(([term, [, senses]]) =>
+      senses.flatMap(([, , hint, target]) =>
+        target === undefined ? [] : [{ term, hint, target }],
+      ),
+    );
+    expect(pointers.length).toBeGreaterThan(40);
+    for (const { term, hint, target } of pointers) {
+      expect(hint, term).toBeNull();
+      expect(target, term).toMatch(/^[a-z][a-z'-]*$/);
+      expect(target, term).not.toBe(term);
+    }
+    const { term, target } = pointers.find(({ target }) =>
+      Object.hasOwn(dict, target),
+    )!;
+    expect(dictionary.outline(term)?.pos).toBeDefined();
+    expect(Object.hasOwn(dict, target)).toBe(true);
   });
 });
 

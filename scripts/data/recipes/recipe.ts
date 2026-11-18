@@ -3,15 +3,33 @@
 // docs/specs/architecture.md "Native meanings and the quality gate".
 import { shortOfDefinition } from "../../../src/core/lexicon/short-lines.ts";
 import type { LemmaPack } from "../../../src/core/packs/types.ts";
-import { eachEntry, posLabel, type KaikkiTranslation } from "../common.ts";
-import { glossOf, isNonConstituent, isUsable, patternKey } from "../phrases.ts";
+import {
+  eachEntry,
+  posLabel,
+  type KaikkiSense,
+  type KaikkiTranslation,
+} from "../common.ts";
+import { isNonConstituent, isUsable, patternKey } from "../phrases.ts";
 
 const MAX_SENSES = 4;
 /** Translated words kept per translation-table sense. */
 const MAX_WORDS = 3;
 
-/** Part of speech, text, and for translation-table and wordnet senses the English sense. */
-export type PairSense = [pos: string, text: string, hint?: string];
+/**
+ * Part of speech, text, and for translation-table and wordnet senses the English sense
+ * (`hint`). A pointer sense, an edition's form of another word ("Pasado simple del
+ * verbo (to) tell" on told), has no hint (null) and names its `target`, the term it
+ * points to.
+ */
+export type PairSense = [
+  pos: string,
+  text: string,
+  hint?: string | null,
+  target?: string,
+];
+
+/** A pointer sense: one that names the term it is a form of. */
+const isPointerSense = (sense: PairSense) => sense[3] !== undefined;
 export interface SourceTerm {
   short: string;
   senses: PairSense[];
@@ -106,6 +124,114 @@ export function withoutPageMarkup(gloss: string) {
   return (at < 0 ? gloss : gloss.slice(0, at)).trim();
 }
 
+/** A pointer template needs this many distinct targets to count as the edition's syntax. */
+const MIN_TEMPLATE_TARGETS = 3;
+
+/** Where a template has its target. */
+const SLOT = "{x}";
+
+/** An English word as a gloss writes it (the learning language is English). */
+const ENGLISH_WORD = /[A-Za-z][A-Za-z'-]*/g;
+
+/** Notes in brackets, which say nothing of a pointer's syntax ("(he, she, it)"). */
+const NOTES = /\([^()]*\)|（[^（）]*）|\[[^[\]]*\]/g;
+
+/**
+ * A gloss as pointer templates: `target` replaced by a slot where the gloss writes it
+ * (one template per place: pt "passado simples do verbo do" writes "do" twice), also
+ * quoted or after English's infinitive marker ("(to) tell", "to have"); notes in
+ * brackets dropped; lower case, without closing punctuation ("Pasado simple del verbo
+ * (to) tell." → "pasado simple del verbo {x}"). None when the gloss does not write the
+ * target, or writes nothing else.
+ */
+export function pointerTemplates(gloss: string, target: string): string[] {
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const written = new RegExp(
+    `(?<![\\w-])["“«]?(?:\\(to\\)\\s*|to\\s+)?["“«]?${escaped}["”»]?(?![\\w-])`,
+    "gi",
+  );
+  return [...gloss.matchAll(written)].flatMap((found) => {
+    const template = (
+      gloss.slice(0, found.index) +
+      SLOT +
+      gloss.slice(found.index + found[0].length)
+    )
+      .replace(NOTES, " ")
+      .replace(/\s+/g, " ")
+      .replace(/[\s.:;。：；]+$/, "")
+      .trim()
+      .toLowerCase();
+    return /\p{L}/u.test(template.replace(SLOT, "")) && template.includes(SLOT)
+      ? [template]
+      : [];
+  });
+}
+
+/** A sense the source marks as a form or a variant of another word (kaikki's tags or fields). */
+const isMarkedForm = (sense: KaikkiSense) =>
+  Array.isArray(sense.form_of) ||
+  Array.isArray(sense.alt_of) ||
+  (sense.tags ?? []).some((tag) => tag === "form-of" || tag === "alt-of");
+
+/** Senses no source meaning comes from: obsolete, archaic, misspelt. */
+const UNUSED_TAGS = ["obsolete", "archaic", "misspelling"];
+
+/** The English terms a gloss writes, other than the entry's own headword, in order. */
+const termsWritten = (
+  gloss: string,
+  head: string,
+  isTerm: (word: string) => boolean,
+) =>
+  (gloss.match(ENGLISH_WORD) ?? [])
+    .map((word) => word.toLowerCase())
+    .filter((word) => word !== head && isTerm(word));
+
+/**
+ * The term a marked form names: the word kaikki records (form_of, alt_of; "to have" →
+ * have) when the gloss writes it. When kaikki records only English words that are no
+ * term (a phrase: "absolute zero"), none; when it records none, or only words of
+ * another language (pt "passado simples e particípio do verbo tell", whose form_of is
+ * "particípio"), the last term the gloss writes.
+ */
+function markedTarget(
+  sense: KaikkiSense,
+  gloss: string,
+  written: readonly string[],
+): string | undefined {
+  const named = [sense.form_of, sense.alt_of].flatMap((list: unknown) =>
+    Array.isArray(list)
+      ? list.flatMap((item: { word?: unknown } | undefined) =>
+          typeof item?.word === "string"
+            ? [
+                item.word
+                  .trim()
+                  .toLowerCase()
+                  .replace(/^to\s+/, ""),
+              ]
+            : [],
+        )
+      : [],
+  );
+  const found = named.find(
+    (word) =>
+      written.includes(word) && pointerTemplates(gloss, word).length > 0,
+  );
+  if (found) return found;
+  return named.some((word) => /^[a-z][a-z' -]*$/.test(word))
+    ? undefined
+    : written.at(-1);
+}
+
+/** An edition's gloss as the recipes read it: without page markup and stress marks. */
+const cleanGloss = (sense: KaikkiSense) => {
+  const last: unknown = Array.isArray(sense.glosses)
+    ? sense.glosses.at(-1)
+    : undefined;
+  if (typeof last !== "string") return undefined;
+  const written = last.trim();
+  return { written, gloss: withoutStressMarks(withoutPageMarkup(written)) };
+};
+
 /**
  * A native-language Wiktionary edition (kaikki's extract of it): its entries for English
  * words, whose glosses are in the native language. Each term
@@ -116,40 +242,111 @@ export function withoutPageMarkup(gloss: string) {
  * lose the page markup the extraction let in (`withoutPageMarkup`) and their stress
  * marks (`withoutStressMarks`); one that was only the headword and such markup is left
  * out.
+ *
+ * Pointer senses: the edition's own syntax for "form of X" is learned from the senses
+ * it marks as forms or variants (`isMarkedForm`): each one's gloss with its target
+ * replaced (`pointerTemplates`) is a template, kept when it has at least
+ * MIN_TEMPLATE_TARGETS distinct targets, not all of them words of the edition's own
+ * language (`native`, its kaikki code; some are: es "be" is the letter B and "lie" a
+ * form of liar): es "pasado simple del verbo {x}", pt "passado simples do verbo {x}", ru
+ * "форма третьего лица единственного числа глагола {x}", zh "{x} 的簡單過去時和過去時分詞";
+ * not pl "po than lub as: {x}", where Wikisłownik's form_of links the Polish word of
+ * "me", "him", "us" (ja, on, my). A sense whose gloss is a template with one of the
+ * English terms it writes in the slot is a pointer to that term, marked or not (es
+ * writes "Pasado simple del verbo (to) see" without marking it); a marked sense that
+ * is no template is left out, as before (pl "he is → on jest" names "jest").
  */
 export async function readEdition(
   path: string,
   termKey: TermKey,
-  { trimPeriod = false } = {},
+  {
+    trimPeriod = false,
+    native,
+  }: { trimPeriod?: boolean; native?: string } = {},
 ) {
-  const terms = new Map<string, SourceTerm>();
+  const isTerm = (word: string) => termKey(word) === word;
+  /** template → its distinct targets */
+  const learned = new Map<string, Set<string>>();
+  /** The edition's own language's headwords, in lower case. */
+  const nativeWords = new Set<string>();
+  const read: {
+    key: string;
+    head: string;
+    pos: string;
+    senses: KaikkiSense[];
+  }[] = [];
   const stats = await eachEntry(path, (entry) => {
+    if (native !== undefined && entry.lang_code === native)
+      nativeWords.add(entry.word.trim().toLowerCase());
     if (entry.lang_code !== "en") return;
+    const head = entry.word.trim().toLowerCase();
+    for (const sense of entry.senses ?? []) {
+      const found = isMarkedForm(sense) ? cleanGloss(sense) : undefined;
+      if (!found) continue;
+      const target = markedTarget(
+        sense,
+        found.gloss,
+        termsWritten(found.gloss, head, isTerm),
+      );
+      if (!target) continue;
+      for (const template of pointerTemplates(found.gloss, target)) {
+        let targets = learned.get(template);
+        if (!targets) learned.set(template, (targets = new Set()));
+        targets.add(target);
+      }
+    }
     // A proper-noun entry (a name) gives no meaning of a word ("Light"), but a phrase
     // pattern may be one ("Midas touch").
     if (entry.pos === "name" && !/\s/.test(entry.word.trim())) return;
     if (isNonConstituent(entry)) return;
     const key = termKey(entry.word);
     if (!key) return;
-    const pos = posOf(entry.pos);
-    for (const sense of entry.senses ?? []) {
-      if (!isUsable(sense)) continue;
-      const written = glossOf(sense).trim();
-      const gloss = withoutStressMarks(withoutPageMarkup(written));
+    read.push({ key, head, pos: posOf(entry.pos), senses: entry.senses ?? [] });
+  });
+  const templates = new Set(
+    [...learned]
+      .filter(
+        ([, targets]) =>
+          targets.size >= MIN_TEMPLATE_TARGETS &&
+          [...targets].some((target) => !nativeWords.has(target)),
+      )
+      .map(([template]) => template),
+  );
+  /** The term a gloss points to in one of the edition's templates. */
+  const pointerOf = (gloss: string, head: string, sense: KaikkiSense) => {
+    const written = termsWritten(gloss, head, isTerm);
+    const marked = isMarkedForm(sense)
+      ? markedTarget(sense, gloss, written)
+      : undefined;
+    return [...(marked ? [marked] : []), ...written].find((word) =>
+      pointerTemplates(gloss, word).some((template) => templates.has(template)),
+    );
+  };
+  const terms = new Map<string, SourceTerm>();
+  let pointers = 0;
+  for (const { key, head, pos, senses } of read)
+    for (const sense of senses) {
+      if ((sense.tags ?? []).some((tag) => UNUSED_TAGS.includes(tag))) continue;
+      const found = cleanGloss(sense);
+      if (!found) continue;
+      const { written, gloss } = found;
       // Page markup with only the headword before it ("adoring\n====翻译====…") is no
       // gloss; a gloss that is the headword itself is (a loanword: "pizza").
-      if (
-        !gloss ||
-        (gloss !== written &&
-          gloss.toLowerCase() === entry.word.trim().toLowerCase())
-      )
+      if (!gloss || (gloss !== written && gloss.toLowerCase() === head))
         continue;
       const text =
         trimPeriod && /^[^.。]+[.。]$/.test(gloss) ? gloss.slice(0, -1) : gloss;
-      addSense(termOf(terms, key), [pos, text]);
+      const target = pointerOf(gloss, head, sense);
+      if (target !== undefined) {
+        pointers++;
+        addSense(termOf(terms, key), [pos, text, null, target]);
+      } else if (isUsable(sense)) addSense(termOf(terms, key), [pos, text]);
     }
-  });
-  return { terms: finish(terms, shortOfDefinition), stats };
+  return {
+    terms: finish(terms, shortOfDefinition),
+    stats: { ...stats, pointers, templates: templates.size },
+    templates,
+  };
 }
 
 const senseLabel = (text: unknown) =>
@@ -242,11 +439,15 @@ export function convertTerms(
 ) {
   for (const item of terms.values()) {
     const senses: PairSense[] = [];
-    for (const [pos, text, hint] of item.senses) {
+    for (const [pos, text, hint, target] of item.senses) {
       const converted = [...new Set(convert(text).split(", "))].join(", ");
       if (senses.some(([, other]) => other === converted)) continue;
       senses.push(
-        hint === undefined ? [pos, converted] : [pos, converted, hint],
+        target !== undefined
+          ? [pos, converted, null, target]
+          : hint == null
+            ? [pos, converted]
+            : [pos, converted, hint],
       );
     }
     item.senses = senses;
@@ -257,17 +458,26 @@ export function convertTerms(
 
 /**
  * Merges the sources (in order of preference): each term comes whole from the first
- * source that has it, as [short, senses, source index].
+ * source that has it, as [short, senses, source index]. A term that only points
+ * (every sense of it a pointer: pt "used", "passado … do verbo use") comes whole from
+ * the first later source that has a meaning for it (the tables' "usado,
+ * acostumado"), and stays with its pointers when none has.
  */
 export function mergeSources(
   sources: { tag: string; terms: Map<string, SourceTerm> }[],
 ) {
   const dict: Record<string, [string, PairSense[], number]> = {};
   const counts: Record<string, number> = {};
+  const means = (senses: readonly PairSense[]) =>
+    senses.some((sense) => !isPointerSense(sense));
   sources.forEach(({ tag, terms }, index) => {
     counts[tag] = 0;
     for (const [key, { short, senses }] of terms) {
-      if (Object.hasOwn(dict, key)) continue;
+      if (Object.hasOwn(dict, key)) {
+        const [, taken, from] = dict[key]!;
+        if (means(taken) || !means(senses)) continue;
+        counts[sources[from]!.tag]!--;
+      }
       dict[key] = [short, senses, index];
       counts[tag]++;
     }

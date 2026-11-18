@@ -259,6 +259,17 @@ describe("chooseKey (rule A1)", () => {
       ),
     ).toBe(undefined);
     expect(key("has", ["has", "have"], aux)).toBe("has");
+    // Untagged, the bases decide; a form of a base keeps its entry (went: goの過去).
+    expect(
+      chooseKey(
+        "does",
+        ["does", "do"],
+        reading(undefined),
+        doesOutline,
+        doesLang,
+      ),
+    ).toBe("do");
+    expect(key("went", ["went", "go"], reading(undefined))).toBe("went");
   });
   it("leaves a word with one base form alone", () => {
     expect(chooseKey("dough", ["dough"], reading(VBD), outline, lang)).toBe(
@@ -274,10 +285,15 @@ describe("sensePos (rule A2's part of speech)", () => {
     ).toBe("adjective");
     expect(sensePos("decided", "decide", reading(VBD))).toBe("verb");
   });
-  it("gives none for an auxiliary, an untrusted tag or a participle used otherwise", () => {
+  it("gives an auxiliary's own part of speech, whatever its tag", () => {
     expect(sensePos("has", "has", reading(VBD, { auxiliary: true }))).toBe(
-      undefined,
+      "auxiliary",
     );
+    expect(
+      sensePos("has", "has", reading(undefined, { auxiliary: true })),
+    ).toBe("auxiliary");
+  });
+  it("gives none for an untrusted tag or a participle used otherwise", () => {
     expect(sensePos("fine", "fine", reading(undefined))).toBe(undefined);
     expect(
       sensePos("established", "established", reading(VBN, { verbal: false })),

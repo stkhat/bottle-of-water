@@ -4,8 +4,10 @@ import {
   cleanShort,
   definitionLine,
   displayWidth,
+  fitsPairCap,
   japaneseForm,
   japanesePointer,
+  pointerLine,
   shortLines,
   shortOfDefinition,
   translatedLine,
@@ -332,6 +334,49 @@ describe("shortLines", () => {
       "行く",
       "去る",
     ]);
+  });
+
+  it("leaves a quiet first form out while a meaning shows", () => {
+    const quiet = {
+      ...options("went"),
+      quiet: (line: string) => line === "goの過去",
+    };
+    // Before the cap of three lines: the card shows three meanings.
+    expect(shortLines(["goの過去"], "goの過去", quiet)).toEqual([
+      "行く",
+      "去る",
+      "進む",
+    ]);
+    // Nothing else to show: the form stays.
+    expect(
+      shortLines(["getの過去・過去分詞"], "", {
+        pointer: japanesePointer,
+        quiet: () => true,
+      }),
+    ).toEqual(["getの過去・過去分詞"]);
+  });
+});
+
+describe("pointerLine", () => {
+  it("is the pointer's first sense without notes and closing marks, whole", () => {
+    expect(pointerLine("Pasado simple del verbo (to) tell.")).toBe(
+      "Pasado simple del verbo tell",
+    );
+    expect(pointerLine("passado simples do verbo do:")).toBe(
+      "passado simples do verbo do",
+    );
+    expect(
+      pointerLine(
+        "Tercera persona del singular (he, she, it) del presente simple de have",
+      ),
+    ).toBe("Tercera persona del singular del presente simple de have");
+    expect(pointerLine("（非正式）does的紧缩")).toBe("does的紧缩");
+  });
+  it("fits a pair line's cap of 40", () => {
+    expect(fitsPairCap("Pasado simple del verbo tell")).toBe(true);
+    expect(
+      fitsPairCap("Tercera persona del singular del presente simple de have"),
+    ).toBe(false);
   });
 });
 

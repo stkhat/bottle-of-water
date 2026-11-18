@@ -11,13 +11,15 @@ import { own } from "../util";
 import { cleanDefinition, definitionPointer } from "./definitions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
-import { inOrder, senseOrder } from "./sense-order";
+import { AUXILIARY, inOrder, senseOrder } from "./sense-order";
 import {
   cleanShort,
   definitionLine,
+  fitsPairCap,
   japaneseForm,
   japanesePointer,
   keyOf,
+  pointerLine,
   shortLines,
   shortOfDefinition,
   type Pointer,
@@ -153,11 +155,12 @@ const englishSense: SenseReading = (text) => {
     : { meaning: pointer === undefined };
 };
 
+/** An entry's outline; `read` reads each sense, given its place in the entry. */
 function outlineOf(
   senses: readonly Sense[],
-  read: SenseReading,
+  read: (text: string, index: number) => ReturnType<SenseReading>,
 ): EntryOutline | undefined {
-  const [first, ...rest] = senses.map((sense) => read(sense.text));
+  const [first, ...rest] = senses.map((sense, i) => read(sense.text, i));
   if (!first) return undefined;
   return {
     ...(first.formOf !== undefined && { formOf: first.formOf }),
@@ -297,7 +300,13 @@ export function createEnJaDictionary(
           pointer: japanesePointer,
           follow: (target) => {
             const entry = japanese(target, NO_POS);
-            return entry && linesOf(entry);
+            // In the order of the form's own part of speech ("seeの過去": a verb),
+            // else of the tag.
+            const formPos =
+              found.senses.find(
+                (sense) => japaneseForm(sense.text)?.target === target,
+              )?.pos ?? pos;
+            return entry && inPosOrder(entry.senses, linesOf(entry), formPos);
           },
         }),
       };
@@ -316,6 +325,19 @@ export function createEnJaDictionary(
     (head) => meaningOf(capitalOf(head)),
   );
 }
+
+/** An entry's lines (one per sense) in rule A2's order for `pos`. */
+const inPosOrder = (
+  senses: readonly Sense[],
+  lines: readonly string[],
+  pos: string | undefined,
+) =>
+  pos === undefined
+    ? [...lines]
+    : inOrder(
+        lines,
+        senseOrder(senses, pos, (i) => lines[i] !== ""),
+      );
 
 /** Kana or kanji: a sense with a Japanese gloss, not only a Latin name ("Ohio"). */
 const JAPANESE = /[\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Han}]/u;
@@ -462,10 +484,21 @@ export function createDefsDictionary({
   );
 }
 
+type PairSenses = PairPack[string][1];
+
 /**
  * A dictionary built by a recipe (English → Spanish): the pair pack, whose senses from
  * translation tables carry their English sense as a hint, then the English definitions
  * (`glossLang: "en"`, translated at display time).
+ *
+ * The pack's pointer senses (an edition's forms: told → "Pasado simple del verbo (to)
+ * tell") name their target, so pointers are read in every native language without
+ * parsing its glosses: the hover follows one to its target's meanings, in rule A2's
+ * order for the pointer sense's own part of speech, else for the word's tag (told →
+ * contar before tell's noun "a tell", also where the tagger reads "made" as a noun).
+ * A pointer wider than the line cap is left out while a meaning shows (is → ser,
+ * estar), except for an auxiliary ("has been"), whose pointer is what it means there
+ * and shows whole.
  */
 export function createPairDictionary({
   dict,
@@ -476,12 +509,23 @@ export function createPairDictionary({
   defs: DefsPack;
   ipa: IpaPack;
 }): DictionaryProvider {
-  const sensesOf = (senses: PairPack[string][1]): Sense[] =>
+  const sensesOf = (senses: PairSenses): Sense[] =>
     senses.map(([pos, text, hint]) => ({
       pos,
       text,
-      ...(hint !== undefined && { hint }),
+      ...(hint != null && { hint }),
     }));
+  const lineOf = ([, text, hint, target]: PairSenses[number]) =>
+    target !== undefined
+      ? pointerLine(text)
+      : pairLine({ text, ...(hint != null && { hint }) });
+  /** The lines of a term's meanings (not its pointers), in rule A2's order for `pos`. */
+  const meaningLines = (head: string, pos: string | undefined) => {
+    const found = own(dict, head);
+    if (!found) return undefined;
+    const meanings = found[1].filter((sense) => sense[3] === undefined);
+    return inPosOrder(sensesOf(meanings), meanings.map(lineOf), pos);
+  };
   return dictionaryOver(
     ipa,
     (head, _written, pos) => {
@@ -490,18 +534,42 @@ export function createPairDictionary({
       const [short, raw] = found;
       const senses = sensesOf(raw);
       // A translation table's sense is a list of words: its line is the first one.
-      const lines = raw.map(([, text, hint]) => pairLine({ text, hint }));
+      const lines = raw.map(lineOf);
+      const pointers = new Map<string, Pointer>();
+      const pointerPos = new Map<string, string>();
+      raw.forEach(([sensePos, , , target], i) => {
+        if (target === undefined) return;
+        pointers.set(lines[i]!, { kind: "form", target });
+        if (!pointerPos.has(target)) pointerPos.set(target, sensePos);
+      });
       const order =
         pos === undefined
           ? undefined
           : senseOrder(senses, pos, (i) => lines[i] !== "");
-      return { short, lines: shortLines(inOrder(lines, order), short), senses };
+      return {
+        short,
+        lines: shortLines(inOrder(lines, order), short, {
+          head,
+          pointer: (line) => pointers.get(line),
+          follow: (target) =>
+            meaningLines(target, pointerPos.get(target) ?? pos),
+          ...(pos !== AUXILIARY && {
+            quiet: (line) => pointers.has(line) && !fitsPairCap(line),
+          }),
+        }),
+        senses,
+      };
     },
     (head) => {
       const found = own(dict, head);
-      return found
-        ? outlineOf(sensesOf(found[1]), englishSense)
-        : definitionOutline(head, defs);
+      if (!found) return definitionOutline(head, defs);
+      const raw = found[1];
+      return outlineOf(sensesOf(raw), (text, i) => {
+        const target = raw[i]?.[3];
+        return target === undefined
+          ? englishSense(text)
+          : { formOf: target, meaning: false };
+      });
     },
     (sense, glossLang) =>
       glossLang === undefined

@@ -4,6 +4,7 @@ import {
   convertTerms,
   lastScriptForm,
   mergeSources,
+  pointerTemplates,
   readEdition,
   readTranslationTables,
   termKeyOf,
@@ -53,6 +54,7 @@ describe("convertTerms", () => {
             ["noun", "麵包, 面包", "baked dough"],
             ["noun", "面包", "baked dough"],
             ["noun", "麵"],
+            ["verb", "make的過去式", null, "make"],
           ],
         },
       ],
@@ -64,6 +66,7 @@ describe("convertTerms", () => {
         senses: [
           ["noun", "面包", "baked dough"],
           ["noun", "面"],
+          ["verb", "make的過去式", null, "make"],
         ],
       },
     });
@@ -132,7 +135,12 @@ describe("readEdition", () => {
         ],
       },
     });
-    expect(stats).toEqual({ entries: 10, unparsable: 1 });
+    expect(stats).toEqual({
+      entries: 10,
+      unparsable: 1,
+      pointers: 0,
+      templates: 0,
+    });
   });
 
   it("drops the period ending a one-sentence gloss with `trimPeriod`", async () => {
@@ -145,6 +153,89 @@ describe("readEdition", () => {
       ["verb", "Chatear"],
       ["verb", "Fazer algo. Depois outra coisa."],
     ]);
+  });
+});
+
+describe("pointerTemplates", () => {
+  it("replaces the target as the gloss writes it, drops notes, lower case", () => {
+    expect(
+      pointerTemplates("Pasado simple del verbo (to) tell.", "tell"),
+    ).toEqual(["pasado simple del verbo {x}"]);
+    expect(
+      pointerTemplates(
+        "Tercera persona del singular (he, she, it) del presente simple de have.",
+        "have",
+      ),
+    ).toEqual(["tercera persona del singular del presente simple de {x}"]);
+    expect(
+      pointerTemplates('terceira pessoa do verbo "to have"', "have"),
+    ).toEqual(["terceira pessoa do verbo {x}"]);
+    expect(pointerTemplates("tell 的簡單過去時和過去時分詞", "tell")).toEqual([
+      "{x} 的簡單過去時和過去時分詞",
+    ]);
+  });
+  it("gives one template per place the gloss writes the target", () => {
+    expect(pointerTemplates("passado simples do verbo do", "do")).toEqual([
+      "passado simples {x} verbo do",
+      "passado simples do verbo {x}",
+    ]);
+  });
+  it("needs the target written as a word, and something besides it", () => {
+    expect(pointerTemplates("Pasado simple del verbo retell", "tell")).toEqual(
+      [],
+    );
+    expect(pointerTemplates("tell", "tell")).toEqual([]);
+    expect(pointerTemplates("(to) tell.", "tell")).toEqual([]);
+  });
+});
+
+describe("readEdition: pointers", () => {
+  const formsKey = termKeyOf({
+    vocab: new Set(
+      "told tell went go knew know saw see children child zeros zero absolute tellen me him us ja on my".split(
+        " ",
+      ),
+    ),
+    lemmas: {},
+    phrases: new Set(),
+  });
+  it("keeps forms as pointers in the syntax the edition's marked forms share", async () => {
+    const { terms, stats, templates } = await readEdition(
+      join(FIXTURES, "edition-forms.jsonl"),
+      formsKey,
+      { trimPeriod: true, native: "pl" },
+    );
+    // Three marked forms with three targets (knew's "to know" too) make a template.
+    expect([...templates]).toEqual(["pasado simple del verbo {x}"]);
+    expect(terms.get("told")).toEqual({
+      short: "Pasado simple del verbo (to) tell",
+      senses: [["verb", "Pasado simple del verbo (to) tell", null, "tell"]],
+    });
+    expect(terms.get("knew")?.senses[0]?.[3]).toBe("know");
+    // An unmarked sense in the template's syntax is a pointer too.
+    expect(terms.get("saw")?.senses).toEqual([
+      ["verb", "Pasado simple del verbo (to) see", null, "see"],
+      ["noun", "Sierra"],
+    ]);
+    expect(terms.get("tell")?.senses).toEqual([["verb", "Contar"]]);
+    // A marked form in no template (one target), a form of a phrase, and an archaic
+    // form are left out.
+    expect(terms.has("children")).toBe(false);
+    expect(terms.has("zeros")).toBe(false);
+    expect(terms.has("tellen")).toBe(false);
+    expect(stats).toMatchObject({ pointers: 4, templates: 1 });
+  });
+  it("learns no template whose targets are words of the edition's own language", async () => {
+    const read = (native?: string) =>
+      readEdition(join(FIXTURES, "edition-forms.jsonl"), formsKey, {
+        trimPeriod: true,
+        ...(native !== undefined && { native }),
+      });
+    // Wikisłownik's form_of links the Polish words of "me", "him", "us".
+    expect([...(await read()).templates]).toContain("po than lub as: {x}");
+    const { templates, terms } = await read("pl");
+    expect([...templates]).toEqual(["pasado simple del verbo {x}"]);
+    expect(terms.has("me")).toBe(false);
   });
 });
 
@@ -228,6 +319,38 @@ describe("mergeSources", () => {
       },
       sources: ["ptwiktionary", "enwiktionary-translations"],
       counts: { ptwiktionary: 1, "enwiktionary-translations": 1 },
+    });
+  });
+  it("takes a term that only points from the next source with a meaning for it", () => {
+    const pointer = (target: string) =>
+      ["verb", `passado do verbo ${target}`, null, target] as const;
+    const edition = new Map<string, SourceTerm>([
+      ["used", { short: "passado", senses: [[...pointer("use")]] }],
+      ["told", { short: "passado", senses: [[...pointer("tell")]] }],
+      [
+        "saw",
+        { short: "passado", senses: [[...pointer("see")], ["noun", "serra"]] },
+      ],
+    ]);
+    const tables = new Map<string, SourceTerm>([
+      ["used", { short: "usado", senses: [["adjective", "usado", "worn"]] }],
+      ["saw", { short: "serrar", senses: [["verb", "serrar", "to cut"]] }],
+    ]);
+    const { dict, counts } = mergeSources([
+      { tag: "ptwiktionary", terms: edition },
+      { tag: "enwiktionary-translations", terms: tables },
+    ]);
+    expect(dict["used"]).toEqual([
+      "usado",
+      [["adjective", "usado", "worn"]],
+      1,
+    ]);
+    // No later source has "told": its pointers stay. "saw" means something too.
+    expect(dict["told"]?.[2]).toBe(0);
+    expect(dict["saw"]?.[2]).toBe(0);
+    expect(counts).toEqual({
+      ptwiktionary: 2,
+      "enwiktionary-translations": 1,
     });
   });
 });
