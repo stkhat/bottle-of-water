@@ -62,6 +62,8 @@ interface ShownTerm extends Term {
   written?: Written;
   /** The part of speech its tag gives it there (`Span.pos`). */
   pos?: string;
+  /** A phrase's: what its words' tags give them there (`Span.wordPos`). */
+  wordPos?: Readonly<Record<string, string>>;
   /** The sentence it is in ("this sentence"), as saving it from there records it. */
   sentence?: string;
 }
@@ -92,8 +94,8 @@ export function latest() {
 
 export type Lookup = ReturnType<typeof createLookup>;
 
-/** Where a term's card shows: the hover card or the dictionary window. */
-type CardPlace = "hover" | "window";
+/** Where a term's card shows: the hover card, the dictionary window or the selected words' card. */
+type CardPlace = "hover" | "window" | "selection";
 
 /**
  * The card of `span`'s term, written as `surface` in `sentence` ("this sentence": the
@@ -115,6 +117,7 @@ export function describeSpan(
       category: span.category,
       ...(written !== undefined && { written }),
       ...(span.pos !== undefined && { pos: span.pos }),
+      ...(span.wordPos !== undefined && { wordPos: span.wordPos }),
     },
     shownIn,
   );
@@ -146,8 +149,9 @@ export function createLookup(
   /** An analysis found language data missing: none is asked for until it is there. */
   let waits = false;
   /**
-   * The hover card and the window that could not show for language data not on the
-   * device: shown once it is there, unless the pointer left or the window closed first.
+   * The hover card, the window and the selection's card that could not show for
+   * language data not on the device: shown once it is there, unless the pointer left,
+   * the window closed or the selection went first.
    */
   const retries = new Map<CardPlace, () => void>();
   const packs = createPackWait(deps.watchPackState, () => {

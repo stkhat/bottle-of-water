@@ -55,8 +55,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "9c467e548858d40530987a7b022add93fe8946d79a5a61ee187eb0c9f4b39c38",
-          "size": 219279
+          "sha256": "ffebdddaca43153040ba76f77654b51a0c60c263e3177b815c28ee7ce86e7ed4",
+          "size": 221365
         },
         {
           "path": "dict-1.json",
@@ -154,8 +154,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "0201743bab5e12b7959b5558468ab905b1f6c92ef1ed1dfc675e43ef5c9ace08",
-          "size": 161236
+          "sha256": "5cbdc2740eff71568f02aeff7ec563b27e83300fb069031f7d5c64e9ee5cccff",
+          "size": 161471
         },
         {
           "path": "dict-1.json",
@@ -186,8 +186,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "e1bc1b5ab2bdb8c250bbae57f98a0ef254cdc19243d7238cd29056258844f445",
-          "size": 356653
+          "sha256": "211bf5bd4de8613a09e69a3c3205c0d296043806d91e6efc7bab28afb45cac7c",
+          "size": 361481
         },
         {
           "path": "dict-1.json",
@@ -218,8 +218,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "49747806c572fad4839dfb68e72a20697488471c8fb0555394fc587d65382a69",
-          "size": 164705
+          "sha256": "f178daffb3ed98ef8a4952b051042d695d30dcd61bd2ed7fee619e5055b34e78",
+          "size": 164919
         },
         {
           "path": "dict-1.json",
@@ -297,8 +297,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "1ca31d38dbb0eb0d87fa8188e1a345545d0e139201570a9fb323c959021c2e9e",
-          "size": 281321
+          "sha256": "e009b59f243f6621df77b9d120397a710811332aa3e74540cb65fdcca81b797e",
+          "size": 286021
         },
         {
           "path": "dict-1.json",
@@ -334,8 +334,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "38585c3819d37dce85a5e0371ef42e603b6bffdc03cc8e194f3338cb842a9c79",
-          "size": 175758
+          "sha256": "c89a3f381e744e7294d69ea582a6d7eba9a830fb001da5e2e0ce76d3b84f6176",
+          "size": 176158
         },
         {
           "path": "dict-1.json",
@@ -361,8 +361,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "80a08f8a2eef1e0ab22cb4ff8252342bea866e18383b918069bd02267714a97f",
-          "size": 268609
+          "sha256": "88df98e81397a3aa859a096492ee0e5ea9f48e05202380e334b66cdf43e8f62e",
+          "size": 269129
         },
         {
           "path": "dict-1.json",
@@ -398,8 +398,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "87ae0abe78a526db8063c2403e69b84a12fbd58c3c8b063401f0a6d05d7fd6f6",
-          "size": 258804
+          "sha256": "0cf177d7d275ee1cd9829cce8f55ea9010f9211a82326d9743aed87afdff006e",
+          "size": 254768
         },
         {
           "path": "dict-1.json",

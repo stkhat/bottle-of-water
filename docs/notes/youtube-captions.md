@@ -40,7 +40,21 @@ p.getOption("captions", "track");        // current track ({} or a track object)
 p.unloadModule("captions");              // captions off
 ```
 - Each `setOption("captions", "track", …)` triggers one capturable XHR. `getOptions("captions")` lists `reload, fontSize, track, tracklist, translationLanguages, sampleSubtitle, stickyLoading, serverDefaultTrack`.
-- Side effect: this turns on YouTube's own captions and may persist as the user's sticky caption choice. The adapter should hide `.ytp-caption-window-container` while Langle is on and, when it switched captions on itself, restore the previous state (`unloadModule("captions")` or the previous track).
+- Side effect: this turns on YouTube's own captions and persists as the caption choice for the next load (below). The adapter hides `.ytp-caption-window-container` while Langle is on and restores the previous state (`unloadModule("captions")` or the previous track), then the stored choice.
+- **Setting the track that is already on makes no request**, and a load that starts with a stored track on can show it without any request Langle sees (2026-11-18, below; once on a Short too, [youtube-shorts.md](youtube-shorts.md)). So `loadTrack` switches captions off (`unloadModule` + `loadModule`) before setting the track already on.
+
+## Reload after Langle's first load (fixed 2026-11-19)
+Seen in the user's Chrome on `iG9CE55wbtY` (check build `a80c332`, learner English, native fr and zh): the first load of the watch page in a tab showed the French/Chinese lines; a reload of the same tab showed English only, with no error logged; a new tab worked again.
+- After the first load, YouTube's localStorage held `yt-player-caption-persistence` and `yt-player-caption-sticky-language=en`, written by the player when Langle set the English track (captions were off before; `restoreCaptions` switched them off again, but the stored choice stayed).
+- After the reload, the player's track was `en` and the only /api/timedtext request seen was the player's own `lang=az` one: no request for `en`, neither the player's own nor one after Langle's `setOption` for the track already on.
+- Cause: Langle found no request to capture within its waits (1.5 s for the player's own, 10 s after asking), so `loadCaptions` gave up silently and YouTube's own (English) captions stayed. Two changes:
+  1. `loadTrack` keeps the storage entries whose key starts with `yt-player-` and names `caption` (localStorage and the tab's sessionStorage), and `restoreCaptions` puts them back after restoring the player, so Langle leaves the next load as it found it.
+  2. Asking for the track already on switches captions off first, so the player requests it (covers a user who chose English captions themselves).
+- Reproduced offline by the fake player (`tests/fake-youtube-player.ts`), which keeps the track set in localStorage, starts the next load with it on without a request, and ignores setting the track already on: E2E "a reload of the tab shows the Japanese line again" and the adapter's browser tests failed before the fix.
+- Not explained offline: why "a new tab works" when the stored choice is in localStorage (shared by tabs), and where the `lang=az` request came from (it was not captured in time or had an empty body). A real-site check must look at: the first load, then a reload of the same tab, then a new tab, each showing the native lines (fr, then zh); `localStorage` and `sessionStorage` keys matching `yt-player-*caption*` before and after Langle's first load (they must be as before); the timedtext requests (`performance.getEntriesByType("resource")`) of each load; and the player's track (`getOption("captions", "track")`) after a load, which must be what it was before Langle asked.
+
+## Changing the language pair while a video is open (fixed 2026-11-19)
+The video session chose the tracks once per video, so switching the native language in Settings kept the old one's lines (French stayed after switching to zh). Now a change of the learning or native language loads the video's subtitles again, as on opening it (all video sites).
 - Simplest flow: if no timedtext response was seen for this video shortly after playback starts, ask the player for the original track once, capture the URL, then fetch `lang=<native>` and `tlang=<native>` ourselves from that URL.
 
 ## json3 format (`fmt=json3`)

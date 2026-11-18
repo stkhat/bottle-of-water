@@ -13,7 +13,11 @@ import {
 } from "../../testing/explain";
 import { noTranslation } from "../../testing/stubs";
 import type { TranslationProvider } from "../translate/translator";
-import type { PlatformAdapter, VideoCaptions } from "./platform";
+import type {
+  CaptionRequest,
+  PlatformAdapter,
+  VideoCaptions,
+} from "./platform";
 import { startVideo, type VideoDeps } from "./session";
 import type { VideoSession, VideoState } from "./state";
 import { videoWords } from "./words";
@@ -72,10 +76,14 @@ async function createVideo() {
   return video;
 }
 
+/** A video's captions, or what it gives for the request (its language pair). */
+type SiteCaptions =
+  VideoCaptions | ((request: CaptionRequest) => VideoCaptions) | undefined;
+
 /** A site with one video element and captions per video id. */
 function fakeSite(
   video: HTMLVideoElement,
-  captions: Record<string, VideoCaptions | undefined>,
+  captions: Record<string, SiteCaptions>,
 ) {
   let id: string | undefined = "vid1";
   let ad = false;
@@ -85,6 +93,8 @@ function fakeSite(
     seeks: [] as number[],
     playback: [] as ("pause" | "play")[],
     loads: 0,
+    /** The language pair of each `loadCaptions`. */
+    pairs: [] as [string, string][],
   };
   const adapter: PlatformAdapter = {
     platform: "youtube",
@@ -98,9 +108,11 @@ function fakeSite(
     sideColumn: () => null,
     adShowing: () => ad,
     tracks: async () => [],
-    async loadCaptions() {
+    async loadCaptions(request) {
       log.loads++;
-      return id === undefined ? undefined : captions[id];
+      log.pairs.push([request.learningLang, request.nativeLang]);
+      const found = id === undefined ? undefined : captions[id];
+      return typeof found === "function" ? found(request) : found;
     },
     async seek(ms) {
       log.seeks.push(ms);
@@ -135,7 +147,7 @@ function fakeSite(
 }
 
 async function start(
-  captions: Record<string, VideoCaptions | undefined> = {
+  captions: Record<string, SiteCaptions> = {
     vid1: captionsOf(CUES),
   },
   options: {
@@ -1313,6 +1325,33 @@ describe("selecting words", () => {
     expect(warned).toHaveBeenCalled();
   });
 
+  it("shows the card of words no dictionary on the device has once the dictionary's fallback is there", async () => {
+    const { state, app, bg } = await start(
+      { vid1: captionsOf(MIND) },
+      { missingPacks: ["en-defs"] },
+    );
+    await ready(state);
+    await classified(state);
+    app.selectStart("transcript");
+    const words = {
+      cue: 1,
+      start: at(1, "Knead") + 1,
+      end: at(1, "dough") + 2,
+      place: "transcript" as const,
+    };
+    expect(app.selectWords(words, boxOf)).toBeDefined();
+    await expect.poll(() => bg.sent("lookup").length).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The English definitions may have them: the selection waits for them.
+    expect(state().phrase).toBeNull();
+    expect(state().selecting).toBe(true);
+
+    bg.setPackStates({
+      "en-defs": { state: "ready", received: 100, total: 100 },
+    });
+    await expect.poll(() => state().phrase?.card.key).toBe("knead the dough");
+  });
+
   it("selects nothing where the card has nowhere to show", async () => {
     const { state, app } = await start({ vid1: captionsOf(MIND) });
     await ready(state);
@@ -1959,6 +1998,50 @@ describe("where Langle runs", () => {
   });
 });
 
+describe("changing the language pair while a video is open", () => {
+  const FR: Cue[] = [
+    { startMs: 0, endMs: 1400, text: "La levure sent l'acidulé." },
+    { startMs: 2400, endMs: 3600, text: "C'est un pain acidulé." },
+  ];
+  /** The site's track in the request's native language. */
+  const byNative = (request: CaptionRequest) =>
+    captionsOf(CUES, {
+      source: "siteTrack",
+      lang: request.nativeLang,
+      cues: request.nativeLang === "fr" ? FR : JA,
+    });
+
+  it("loads the translation in the new native language", async () => {
+    const { state, site, bg } = await start(
+      { vid1: byNative },
+      { missingPacks: ["en-fr"] },
+    );
+    await ready(state);
+    expect(state().translations[0]).toBe(JA[0]!.text);
+    bg.changeSettings({ nativeLang: "fr" });
+    await expect.poll(() => state().translations[0]).toBe(FR[0]!.text);
+    expect(state()).toMatchObject({ status: "ready", cues: CARDS });
+    expect(site.log.pairs).toEqual([
+      ["en", "ja"],
+      ["en", "fr"],
+    ]);
+    // Other settings keep the loaded captions.
+    bg.changeSettings({ highlight: { known: true } });
+    expect(site.log.loads).toBe(2);
+  });
+
+  it("loads the original track in the new learning language", async () => {
+    const { state, site, bg } = await start(
+      { vid1: byNative },
+      { missingPacks: ["es", "es-en"] },
+    );
+    await ready(state);
+    bg.changeSettings({ learningLang: "es", nativeLang: "en" });
+    await expect.poll(() => site.log.pairs.at(-1)).toEqual(["es", "en"]);
+    expect(site.log.loads).toBe(2);
+  });
+});
+
 describe("fullscreen", () => {
   it("keeps the site's captions hidden on entering and leaving fullscreen", async () => {
     const { state, app, site } = await start();
@@ -2315,6 +2398,40 @@ describe("a video without its language data", () => {
 
     bg.setPackStates({ "en-ja": READY });
     await expect.poll(() => state().panel?.card.head).toBe("yeast");
+    noWarnings();
+  });
+
+  it("shows cards while the dictionary's fallback downloads, and a term only it has once it is there", async () => {
+    const noWarnings = quiet();
+    const { state, app, bg } = await start(
+      {
+        vid1: captionsOf([
+          { startMs: 0, endMs: 1000, text: "We figure out the tangy loaf." },
+        ]),
+      },
+      { missingPacks: ["en-defs"] },
+    );
+    await ready(state);
+    await classified(state);
+    // Pages work: no download line while only the fallback downloads.
+    await expect.poll(() => bg.sent("packStatus").length).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(state().dataNote).toBeNull();
+    app.enterWord(refOf(state, 0, "tangy"), BOX);
+    await expect.poll(() => state().hover?.card.head).toBe("tangy");
+    app.leaveWord();
+    await expect.poll(() => state().hover).toBeNull();
+
+    // Only the English definitions have "figure out".
+    const asked = bg.sent("lookup").length;
+    app.enterWord(refOf(state, 0, "figure out"), BOX);
+    await expect.poll(() => bg.sent("lookup").length).toBe(asked + 1);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(state().hover).toBeNull();
+
+    bg.setPackStates({ "en-defs": READY });
+    await expect.poll(() => state().hover?.card.head).toBe("figure out");
+    expect(state().hover?.card.short).toBe("To come to understand");
     noWarnings();
   });
 

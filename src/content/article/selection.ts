@@ -99,8 +99,26 @@ export function createSelection(o: {
     show(selected);
   }
 
+  /**
+   * Describes the selected words; a card whose language data is not on the device yet
+   * (a fallback still downloading) shows once it is there.
+   */
+  function describeOrWait(selected: Selected) {
+    describe(selected).catch((error: unknown) => {
+      if (
+        phrase === selected &&
+        o.lookup.showWhenReady("selection", error, () =>
+          describeOrWait(selected),
+        )
+      )
+        return;
+      warn(error);
+    });
+  }
+
   function drop() {
     phrase = undefined;
+    o.lookup.dropShow("selection");
     if (store.get().phrase) store.set({ phrase: null });
   }
 
@@ -154,7 +172,7 @@ export function createSelection(o: {
         o.dismissHover();
         const selected: Selected = { snapped, match: patternOf(snapped) };
         phrase = selected;
-        void describe(selected).catch(warn);
+        describeOrWait(selected);
       }
       const whole = snappedRange(snapped);
       if (

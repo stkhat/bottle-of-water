@@ -150,6 +150,12 @@ function text(name: string): string {
   return out;
 }
 
+/** The player bar's on/off button, or null while it is not shown. */
+const playerToggle = () =>
+  inside("langle-player-buttons")?.querySelector(
+    'button[aria-label="Langle on or off"]',
+  ) ?? null;
+
 const TANGY: TermCard = {
   key: "tangy",
   kind: "word",
@@ -200,7 +206,7 @@ describe("mountVideoUi", () => {
     );
     expect(text("langle-video-below")).toBe("");
     expect(text("langle-transcript")).toContain("Knead the dough.");
-    expect(text("langle-player-buttons")).toContain("L");
+    expect(playerToggle()).not.toBeNull();
   });
 
   it("shows the language data line at the top of the transcript column while the data is missing", async () => {
@@ -284,7 +290,7 @@ describe("mountVideoUi", () => {
       current: -1,
       card: -1,
     });
-    await expect.poll(() => text("langle-player-buttons")).toBe("");
+    await expect.poll(() => playerToggle()).toBeNull();
     expect(text("langle-transcript")).toBe("");
   });
 

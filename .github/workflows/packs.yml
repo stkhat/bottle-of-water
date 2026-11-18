@@ -8,8 +8,10 @@ name: Publish packs
 # npm trusted publishing: no token; npm checks this repository and this file's name
 # (packs.yml) against each package's trusted publisher. A package takes one only once it
 # exists, so each new package's first version is published by hand (`npm login`, then
-# `npm run data:npm-publish`). npm makes no provenance for a private repository, which
-# Langle does not need: the extension checks every file against the lock's SHA-256.
+# `npm run data:npm-publish`). The repository is public, so npm attaches provenance to
+# each version published here, which needs `repository.url` in its package.json to name
+# this repository (scripts/data/publish.ts writes it). The extension still checks every
+# file against the lock's SHA-256.
 on:
   workflow_dispatch:
     inputs:

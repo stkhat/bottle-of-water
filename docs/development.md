@@ -53,6 +53,8 @@ Every build downloads every pack, so no E2E test may reach the real CDNs (jsDeli
 - `e2e/serve.ts` writes the npm package folders `data/publish/<pack>/` from the committed lock when it starts (the publish script's `writePackages`; the lock is not rewritten), then serves them under `/mirror/` in the npm CDNs' URL shape (`/mirror/@langle/es@2026.1111.0/freq.json`; another version is a 404). Its answers carry `access-control-allow-origin: *`, as jsDelivr's and unpkg's do: the extension has no host permissions.
 - `/mirror-control` switches how the mirror answers: `GET` gives `{ broken, hold, held, served }`; `POST ?broken=1` sends every file with one byte changed (its SHA-256 no longer matches the lock), `POST ?hold=1` keeps requests waiting until `?hold=0`, `POST ?reset` turns both off (answering what was held) and zeroes `served`.
 - `e2e/pack-downloads.spec.ts` waits for the install's English → Japanese data, then breaks the mirror to see "Couldn't download" in the popup and Settings, then fixes it and retries from Settings until the page is highlighted. The waiting states are browser tests (`Popup`, `SettingsPage`, `article.browser`).
+- `e2e/progressive-download.spec.ts` (check build, routed mirrors) holds the `en-defs` files on the mirror: the page is highlighted and hovers show from `en` and `en-ja`, the popup has no download line while Settings shows the pair downloading, and "figure out" (only in `en-defs`) shows once its files are let through. `e2e/pack-mirrors.ts` can hold all files or a pack's (`mirrorsHeld`) and send them through one throttled link (`mirrorBitsPerSecond`, gzipped sizes).
+- Measuring first use: `npx wxt build --mode check && LANGLE_FIRST_USE_MBIT=10 npx playwright test e2e/progressive-download.spec.ts -g "first use"` times a new install's English → Japanese from the mirrors' first byte to the first highlight, the first hover and the first card from `en-defs` (printed and in the report's annotations; skipped unless the variable is set, and when the browser's UI language is not Japanese). To time another build, put its `chrome-mv3-check` output in `.output/` first.
 - To run only these: `npm run build:check-download && npx playwright test e2e/pack-downloads.spec.ts`. To try it by hand: `node e2e/serve.ts`, load `.output/chrome-mv3-check-download` unpacked, choose Spanish → English in Settings and open `http://localhost:4719/article-es.html`; `curl -X POST 'http://localhost:4719/mirror-control?broken=1'` makes the next download fail.
 
 ## Checking in your own Chrome
@@ -61,6 +63,7 @@ Every build downloads every pack, so no E2E test may reach the real CDNs (jsDeli
 1. Once: `chrome://extensions` → Developer mode → Load unpacked → `.output/langle-check`.
 2. After that, run `npm run build:check`; the extension reloads itself (no click on reload).
 3. Reload the pages you check on after the copy: until then they keep the old content scripts.
+   A check that needs other settings (another language pair, New highlighted, any field of the settings object) changes them itself through the settings channel ("Changing settings in a check" below), and restores the user's settings at the end; it does not ask the user to open Settings.
 4. **Every check in your own Chrome ends with reading the check build's error log** on a web page Langle runs on (a YouTube watch page, an article), with Claude in Chrome's `javascript_tool`:
    ```js
    await new Promise((done) => {
@@ -72,11 +75,17 @@ Every build downloads every pack, so no E2E test may reach the real CDNs (jsDeli
      setTimeout(() => done(replies.length ? replies : "No answer: Langle's check build does not run on this page"), 1000);
    })
    ```
-   Each reply holds `entries` (`level`, `message`, `stack`, `context`, `url`, `time`) and `connected` (false: the extension was reloaded under that content script, which then answers only with what it could not send). Any entry is a finding: fix it, or name its cause, before the check counts as passed. Then run the snippet again with `action: "clear"` so the next check starts empty. Entries left by tabs that were open during a reload count too: they are the old content scripts' teardown, sent once that tab is reloaded. No one has to open `chrome://extensions` (Claude in Chrome cannot open `chrome://` or `chrome-extension://` pages).
+   Each reply holds `entries` (`level`, `message`, `stack`, `context`, `url`, `time`) and `connected` (false: the extension was reloaded under that content script, which then answers only with what it could not send). Any `error` or `warning` entry is a finding: fix it, or name its cause, before the check counts as passed. `info` entries are records, not findings: the language data's mirrors (below). Then run the snippet again with `action: "clear"` so the next check starts empty. Entries left by tabs that were open during a reload count too: they are the old content scripts' teardown, sent once that tab is reloaded. No one has to open `chrome://extensions` (Claude in Chrome cannot open `chrome://` or `chrome-extension://` pages).
 
 How: in mode `check` only, the service worker reads `build-id.txt` every 2 s while it runs and calls `runtime.reload()` when it changes. It also checks once each time the worker starts, against the id stored in `storage.session` by the previous start, so a build copied in while the worker slept is picked up when it wakes. Other builds leave this code out (`npm run test:manifest` checks it).
 
 The error log (`src/check/`, mode `check` only): every Langle context (the service worker, the content scripts, the popup, options and word list pages) records what Chrome's Errors page would show: `console.error` and `console.warn` calls (still printed), uncaught errors and unhandled rejections (in content scripts only those from Langle's scripts, not the site's). The service worker keeps the newest 200 entries in `storage.local` (`checkErrorLog`); the other contexts send theirs to it, and keep what they cannot send (a content script cut off by a reload) in the tab's `sessionStorage`, up to 50, which the next script in that tab sends. The content scripts answer the page's `langle:check-errors` messages (`read`, `clear`). `e2e/extension-errors.spec.ts` reads and clears it like the snippet; `npm run test:manifest` checks that production builds have none of it.
+
+The pack mirrors in the log (`src/check/pack-mirrors.ts`, from the pack store's `onMirror`): the service worker adds one entry per try of a mirror for a pack file, in download order (the learning language's pack, the pair's dictionary, then its fallback, `en-defs`):
+- `info` `Pack en-defs dict-3.json: served by https://cdn.jsdelivr.net/npm/@langle/en-defs@<version>/dict-3.json (1843200 bytes, 412 ms)`: the mirror that served the file, its bytes and the time from the request to the last byte checked. A real-site check of a first download reads these to see which CDN served what and how fast
+- `warning` `Pack en-defs dict-3.json: mirror failed, <url>: HTTP 503` (or `SHA-256 does not match the lock`, `Failed to fetch`): every mirror that failed, also when the next one served the file. A finding like any warning: name the CDN's failure, or fix the lock
+
+`e2e/progressive-download.spec.ts` reads these lines after a first download. Production builds record nothing.
 
 Limits:
 - The log misses what happens before Langle's code runs, such as a manifest or service worker that fails to load: the extension then does not run at all, which the check itself shows (no Langle on the page, no answer to the snippet). Click "Errors" on Langle's card in `chrome://extensions` for those.
@@ -87,6 +96,42 @@ Limits:
 - Open pages keep the old content scripts until they are reloaded.
 - A build that breaks the service worker cannot reload itself again: fix it and click reload.
 - Check builds include WXT's debug logging (`[wxt]` in the console).
+
+### Changing settings in a check
+This is the standard way to change settings during a check in your own Chrome: the check build's content scripts answer the page's `langle:check-settings` messages (`src/check/settings-channel.ts`), so `javascript_tool` on any web page Langle runs on (an article, a YouTube or Netflix page) can do what Settings does. Each snippet starts with the same helper:
+```js
+var langle = (action, settings) => new Promise((done) => {
+  const id = String(Math.random());
+  addEventListener("message", (e) => {
+    if (e.data?.type === "langle:check-settings" && e.data.reply && e.data.id === id) done(e.data);
+  });
+  postMessage({ type: "langle:check-settings", action, id, settings }, "*");
+  setTimeout(() => done("No answer: Langle's check build does not run on this page"), 5000);
+});
+```
+1. First, save the user's settings: `await langle("get")`. Keep the reply's `settings` object (the whole of it) in your notes.
+2. Change what the check needs, for example a pair: `await langle("set", { learningLang: "en", nativeLang: "fr" })`, or any other fields: `await langle("set", { highlight: { new: true }, knownLevel: 5000 })`. The reply is `{ ok: true, settings }` (what is now stored) or `{ ok: false, error }`, and nothing is written then.
+3. After a pair change, wait for its language data (rerun while it says it is still downloading):
+   ```js
+   await (async () => {
+     for (let i = 0; i < 25; i++) {
+       const r = await langle("packs");
+       if (!r.ok || r.ready || r.failed) return r;
+       await new Promise((ok) => setTimeout(ok, 1000));
+     }
+     return "Still downloading: run this again";
+   })()
+   ```
+   The reply holds `packs` (the chosen pair's), `ready` (each can be used), `failed` and `packState` (every pack's `state`, `received`, `total`). Then reload the pages under check, or wait for them to analyze again.
+4. At the end, restore: `await langle("set", <the saved settings object>)`, and check that the reply's `settings` equal the saved ones.
+
+`set` merges a partial settings object, nested groups key by key, as Settings does. It refuses rather than drops or clamps: an unknown key, an ill-typed value or a slider value off its range or step (`mergeSettings`, `src/core/settings.ts`, decides), and a pair Langle does not offer (the error names the offered native languages). A new learning language without `nativeLang` gets its first native language, as in Settings. The change goes through the background's `setSettings`, the one `storage.sync` write Settings makes, so packs download and open pages analyze again the same way.
+
+Limits:
+- Settings live in `storage.sync`: while the check runs, the change reaches the user's other signed-in browsers too. Always restore.
+- Settings also starts Chrome's translation models for the new pair, which needs a user activation; the channel tries, and where Chrome refuses, the dictionary window's click starts them later.
+- Only the top frame answers, once per tab. Any page can change the settings of a check build: only load it in your own browser profile.
+- `e2e/settings.spec.ts` drives the channel like the snippets; `npm run test:manifest` checks that production builds have none of it.
 
 ## Firefox in Docker
 - Playwright's Firefox does not launch on the dev Mac (macOS 27), so `npm run test:browser:firefox` runs the browser tests in the image CI uses (`mcr.microsoft.com/playwright:v<@playwright/test version>-noble`, from `scripts/playwright-image.ts`, which `scripts/check-playwright-image.ts` also checks CI against). Install once: `brew install colima docker`.
@@ -106,8 +151,8 @@ npx web-ext lint -s .output/firefox-mv3
 - `scripts/data/formats.ts` lists every pack: its folder, npm package (scope `@langle`, the npm organization `langle`) and sources with their licenses (a recipe pair's from its recipe; WordNet-style licenses' full notices are in `scripts/data/licenses/`). `src/core/packs/formats.ts` holds what the extension shares with the scripts: each pack's data `format` (bump it when the code that reads the pack changes; a recipe pair's is in its native-language entry, `src/core/natives.ts`), the language packs and the dictionaries (`DICTIONARY_PACKS`, also the pairs the quality gate checks). A new native language: architecture.md "Adding a native language".
 - After the pack files change, run `npm run data:publish`. It writes `src/core/packs/packs.lock.json` (committed; a unit test fails while it is out of date) and an npm package folder per pack in `data/publish/<pack>/` (git-ignored). A pack keeps its version while its files are unchanged; otherwise it becomes `<year>.<month × 100 + day>.<n>` for the UTC build date (2026-11-11 → `2026.1111.0`), with n counting up for each later change that day. These are plain semver versions (no prerelease suffix) that order by date.
 - Test builds (any mode but production) can replace the lock's mirrors: `WXT_PACK_MIRRORS=<template>,…` (`src/core/packs/lock.ts`). Production builds ignore it. `.env.check-download` sets it for the E2E download build (see "Language data downloads in E2E").
-- `npm run data:npm-publish` publishes each pack whose version in the committed lock is not on npm yet (`-- --dry-run` publishes nothing). It never rewrites the lock and stops when the pack files differ from it. `packs.yml` runs it by hand from GitHub Actions (dry run by default) with npm trusted publishing, so no token is stored; there is no public data repository, and npm makes no provenance for a private one (the extension checks each file's SHA-256 instead). A package takes a trusted publisher only once it exists, so each new package's first version is published by hand: `npm login`, `npm run data:npm-publish`, then set the package's trusted publisher on npmjs.com to this repository and `packs.yml`. A published version cannot be replaced, so publish before the release whose lock names it.
-- Downloaded since 2026-11-18: `es`, `es-en`, `en-es`, `en-pt`; `en`, `en-ja`, `en-defs` too since D0 ([plan](plans/language-expansion.md)), their first versions published by hand before that change merged; `en-ru`, `en-fr`, `en-de` since D2 and `en-zh`, `en-it`, `en-pl` since D3, likewise. `packs.yml` has run only as a dry run: its first real publish is the first check of trusted publishing. Before a new version's files are on npm, don't fetch its CDN URLs: jsDelivr keeps the 404 for a while (`https://purge.jsdelivr.net/npm/<package>@<version>/<file>` clears it).
+- `npm run data:npm-publish` publishes each pack whose version in the committed lock is not on npm yet (`-- --dry-run` publishes nothing). It never rewrites the lock and stops when the pack files differ from it. `packs.yml` runs it by hand from GitHub Actions (dry run by default) with npm trusted publishing, so no token is stored. The repository is public, so npm attaches provenance to each version `packs.yml` publishes, and refuses one whose package.json `repository.url` does not name this repository (`REPOSITORY_URL` in `scripts/data/formats.ts`); the extension still checks each file's SHA-256. A package takes a trusted publisher only once it exists, so each new package's first version is published by hand: `npm login`, `npm run data:npm-publish`, then set the package's trusted publisher on npmjs.com to this repository and `packs.yml`. A published version cannot be replaced, so publish before the release whose lock names it.
+- Downloaded since 2026-11-18: `es`, `es-en`, `en-es`, `en-pt`; `en`, `en-ja`, `en-defs` too since D0 ([plan](plans/language-expansion.md)), their first versions published by hand before that change merged; `en-ru`, `en-fr`, `en-de` since D2 and `en-zh`, `en-it`, `en-pl` since D3, likewise. `packs.yml`'s first real publish (2026-11-18) was refused by npm's provenance check because the package.json files had no `repository.url`, so no version has been published through it yet. Before a new version's files are on npm, don't fetch its CDN URLs: jsDelivr keeps the 404 for a while (`https://purge.jsdelivr.net/npm/<package>@<version>/<file>` clears it).
 
 ## CI/CD
 - Tests run locally first: `npm run verify` before every push (the pre-push hook enforces it). GitHub Actions minutes are limited (private repository; macOS bills at 10x, Windows at 2x), so GitHub runs the tests only when a pull request is ready to merge.

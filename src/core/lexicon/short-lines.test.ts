@@ -345,6 +345,22 @@ describe("shortLines", () => {
     ).toEqual(["行く", "goの過去", "去る"]);
   });
 
+  it("puts meanings of another part of speech after the followed ones", () => {
+    const aside = (line: string) => line === "去る" || line === "行き";
+    // went/VBD, its own noun "行き" set aside after go's verbs.
+    expect(
+      shortLines(["goの過去", "行き"], "goの過去", {
+        ...options("went"),
+        aside,
+      }),
+    ).toEqual(["goの過去", "行く", "進む"]);
+    // Nothing followed: the order stays.
+    expect(shortLines(["行き", "行く"], "行き", { aside })).toEqual([
+      "行き",
+      "行く",
+    ]);
+  });
+
   it("leaves a quiet first form out while a meaning shows", () => {
     const quiet = {
       ...options("went"),

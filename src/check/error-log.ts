@@ -9,9 +9,12 @@
  */
 import { serial } from "../core/util";
 
-/** One entry, as the Errors page would list it. */
+/**
+ * One entry, as the Errors page would list it; or, at level `info`, a record a check
+ * reads that is not a finding (which mirror served each pack file).
+ */
 export interface CheckError {
-  level: "error" | "warning";
+  level: "error" | "warning" | "info";
   message: string;
   stack?: string;
   /** "service worker", "extension page /popup.html", "content script youtube"… */

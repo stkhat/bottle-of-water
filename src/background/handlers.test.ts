@@ -437,6 +437,47 @@ describe("handlers: language data", () => {
     });
   });
 
+  it("analyzes with names and tags and looks words up while only the dictionary's fallback is downloading", async () => {
+    const handle = withMissing("en-defs");
+    const blocks = ["We met Crust in town.", "The yeast rose."];
+    const analyzed = await handle({
+      type: "analyze",
+      lang: "en",
+      blocks,
+      casing: casingOf(blocks),
+    });
+    expect(analyzed).toMatchObject({ ok: true });
+    const { spans } = (analyzed as { value: AnalyzeResult }).value;
+    expect(spans[0]!.find((s) => s.key === "crust")).toMatchObject({
+      name: true,
+    });
+    expect(spans[1]!.find((s) => s.start === 10)).toMatchObject({
+      key: "rise",
+      pos: "verb",
+    });
+    expect(
+      await handle({ type: "lookup", lang: "en", key: "loaf" }),
+    ).toMatchObject({ ok: true, value: { entry: { short: "パンのひと塊" } } });
+    // Only the English definitions have it: the card waits for them.
+    expect(
+      await handle({ type: "lookup", lang: "en", key: "figure out" }),
+    ).toEqual({
+      ok: false,
+      error: "Language data not available: en-defs",
+      code: "packsUnavailable",
+      packs: ["en-defs"],
+    });
+  });
+
+  it("names the pair's dictionary, not its fallback, when both are missing", async () => {
+    const handle = withMissing("en-ja", "en-defs");
+    expect(await handle({ type: "warmDictionary", lang: "en" })).toMatchObject({
+      ok: false,
+      code: "packsUnavailable",
+      packs: ["en-ja"],
+    });
+  });
+
   it("classifies without the tags' choices while the dictionary is not on the device", async () => {
     const handle = withMissing("en-ja");
     const reply = await handle({
@@ -491,7 +532,7 @@ describe("handlers: language data", () => {
     });
   });
 
-  it("gives the default pair's packs with their sizes, and lists the other downloaded packs", async () => {
+  it("gives the default pair's packs with their sizes, its fallback marked, and lists the other downloaded packs", async () => {
     packs.store.downloaded.mockResolvedValue([
       { pack: "es", version: "2026.1111.0", size: 120 },
       { pack: "es-en", version: "2026.1111.0", size: 80 },
@@ -502,7 +543,7 @@ describe("handlers: language data", () => {
         packs: [
           { pack: "en", size: lockSize("en"), ...ready("en") },
           { pack: "en-ja", size: lockSize("en-ja") },
-          { pack: "en-defs", size: lockSize("en-defs") },
+          { pack: "en-defs", size: lockSize("en-defs"), fallback: true },
         ],
       },
       others: [

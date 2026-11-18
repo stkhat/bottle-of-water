@@ -20,7 +20,12 @@ import type {
   PackLockFile,
 } from "../../src/core/packs/lock.ts";
 import { byCodeUnit, ROOT } from "./common.ts";
-import { NOTICES_DIR, PACKS, type PackInfo } from "./formats.ts";
+import {
+  NOTICES_DIR,
+  PACKS,
+  REPOSITORY_URL,
+  type PackInfo,
+} from "./formats.ts";
 import { gateReport, offeredPairs } from "./gate.ts";
 
 type Packs = Readonly<Record<string, PackInfo>>;
@@ -165,6 +170,8 @@ function packageJson(info: PackInfo, entry: PackLockEntry) {
     version: entry.version,
     description: `${info.description}, for the Langle browser extension`,
     license: info.license.spdx,
+    // In the form `npm publish` normalizes it to, so npm need not correct it.
+    repository: { type: "git", url: `git+${REPOSITORY_URL}.git` },
     files: entry.files.map((file) => file.path),
     publishConfig: { access: "public" },
   };

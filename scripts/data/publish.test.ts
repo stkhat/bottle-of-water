@@ -249,6 +249,10 @@ describe("publish", () => {
       version: "2026.1111.0",
       description: "The es pack, for the Langle browser extension",
       license: "CC-BY-SA-4.0",
+      repository: {
+        type: "git",
+        url: "git+https://github.com/stkhat/langle.git",
+      },
       files: ["freq.json", "sub/dict-1.json"],
       publishConfig: { access: "public" },
     });

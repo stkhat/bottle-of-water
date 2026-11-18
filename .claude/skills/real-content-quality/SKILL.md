@@ -131,7 +131,7 @@ After the user-visible steps, and once at the end:
    `node --input-type=module -e "import {syncBuild,buildId} from './scripts/build-check.ts'; syncBuild('.output/chrome-mv3-check','<main checkout>/.output/langle-check', buildId(new Date(),'<sha>'))"`
    (`npm run build:check` writes only to its own checkout's `.output`.)
 2. Reload the tabs. The extension reloads itself, so a page opened before that answers `connected:false`; reload that page.
-3. On one article, one YouTube video and one Netflix episode, hover what the steps changed.
+3. On one article, one YouTube video and one Netflix episode, hover what the steps changed. Switch the language pair (or any other setting) yourself with the check build's settings channel, never by asking the user: snippets in [docs/development.md](../../../docs/development.md) "Changing settings in a check" (save `get` first, wait for `packs`, restore at the end).
 
 Hints:
 - Pause videos first with `document.querySelector('video').pause()`; the transcript follows playback and moves the targets.

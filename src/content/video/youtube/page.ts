@@ -30,7 +30,15 @@ const TIMEDTEXT_PATH = "/api/timedtext";
 interface CaptionTrackOption {
   languageCode?: string;
   kind?: string;
+  translationLanguage?: { languageCode?: string } | null;
 }
+
+/**
+ * The storage entries where the player keeps its caption choice for the next load of the
+ * page (`yt-player-caption-sticky-language`, `yt-player-caption-persistence`: written when
+ * Langle set a track, seen 2026-11-18; docs/notes/youtube-captions.md).
+ */
+const CAPTION_CHOICE_KEY = /^yt-player-.*caption/;
 
 export const installYouTubeHooks = () =>
   installPageScript<PageCall>(CHANNEL, isCall, install);
@@ -139,6 +147,71 @@ function install() {
   const plain = (value: unknown): unknown =>
     value === undefined ? null : JSON.parse(JSON.stringify(value));
 
+  /** The player's caption choice in each storage, as it was before Langle asked for a track. */
+  let keptChoice: { storage: Storage; entries: [string, string][] }[] | null =
+    null;
+
+  function storages(): Storage[] {
+    const found: Storage[] = [];
+    for (const get of [() => localStorage, () => sessionStorage]) {
+      try {
+        found.push(get());
+      } catch {
+        // Blocked site data: nothing kept there.
+      }
+    }
+    return found;
+  }
+
+  const choiceKeys = (storage: Storage) =>
+    Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(
+      (key): key is string => key !== null && CAPTION_CHOICE_KEY.test(key),
+    );
+
+  function keepChoice() {
+    if (keptChoice) return;
+    keptChoice = [];
+    for (const storage of storages()) {
+      try {
+        const entries = choiceKeys(storage).map(
+          (key) => [key, storage.getItem(key) ?? ""] as [string, string],
+        );
+        keptChoice.push({ storage, entries });
+      } catch {
+        // Unreadable: left as it is.
+      }
+    }
+  }
+
+  /**
+   * Puts the caption choice back: the next load of the page would otherwise start with
+   * Langle's track on, which the player shows without a request Langle can capture.
+   */
+  function restoreChoice() {
+    const kept = keptChoice;
+    keptChoice = null;
+    for (const { storage, entries } of kept ?? []) {
+      try {
+        const before = new Map(entries);
+        for (const key of choiceKeys(storage))
+          if (!before.has(key)) storage.removeItem(key);
+        for (const [key, value] of entries)
+          if (storage.getItem(key) !== value) storage.setItem(key, value);
+      } catch {
+        // Never disturb the page.
+      }
+    }
+  }
+
+  const sameTrack = (
+    track: CaptionTrackOption | null | undefined,
+    languageCode: string,
+    asr: boolean,
+  ) =>
+    track?.languageCode === languageCode &&
+    (track.kind === "asr") === asr &&
+    !track.translationLanguage?.languageCode;
+
   async function answer(call: PageCall): Promise<unknown> {
     const api = player(call);
     switch (call.type) {
@@ -155,8 +228,18 @@ function install() {
         return api?.getVideoData?.()?.video_id ?? null;
       case "loadTrack": {
         if (!api?.setOption) throw new Error("No player");
+        keepChoice();
         api.loadModule?.("captions");
-        const previous = plain(api.getOption?.("captions", "track") ?? {});
+        const current = api.getOption?.("captions", "track") as
+          CaptionTrackOption | undefined;
+        const previous = plain(current ?? {});
+        // Setting the track already on does nothing, and the player can show it without
+        // having requested it (a load that starts with it on): switch captions off
+        // first, so that setting it requests it.
+        if (sameTrack(current, call.languageCode, call.asr)) {
+          api.unloadModule?.("captions");
+          api.loadModule?.("captions");
+        }
         const list = api.getOption?.("captions", "tracklist");
         const tracks = Array.isArray(list)
           ? (list as CaptionTrackOption[])
@@ -177,6 +260,7 @@ function install() {
         if (previous && typeof previous.languageCode === "string")
           api?.setOption?.("captions", "track", previous);
         else api?.unloadModule?.("captions");
+        restoreChoice();
         return null;
       }
       case "fetchTimedtext": {

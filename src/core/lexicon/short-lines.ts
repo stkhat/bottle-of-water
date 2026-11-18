@@ -166,6 +166,12 @@ export interface ShortLineOptions {
   quiet?: (line: string) => boolean;
   /** A first form shown after its target's first meaning, not before it. */
   second?: (line: string) => boolean;
+  /**
+   * A meaning of another part of speech than the word's tag (rule A2): where a
+   * pointer is followed, it comes after the meanings of the tagged one, the targets'
+   * included.
+   */
+  aside?: (line: string) => boolean;
 }
 
 /**
@@ -184,7 +190,11 @@ export interface ShortLineOptions {
  * Pointers themselves are left out while a meaning remains, and so is a first form
  * that is `quiet` (a pair's pointer wider than its cap); a first form that comes
  * `second` follows its target's first meaning (a pair's verb form in a spaced script:
- * sold → vender, "pasado simple del verbo sell"). Without any meaning the
+ * sold → vender, "pasado simple del verbo sell"). Where a pointer is followed,
+ * meanings `aside` (of another part of speech than the tag) come after the others,
+ * the targets' included: es "better"
+ * read as an adjective → "comparativo irregular de good", good's adjectives, then
+ * the verb "mejorar". Without any meaning the
  * lines are the pointers as they are. When every line is empty, `fallback` (the
  * entry's short meaning) stands for them ("were": its senses are only notes).
  */
@@ -197,6 +207,7 @@ export function shortLines(
     follow = () => undefined,
     quiet = () => false,
     second = () => false,
+    aside = () => false,
   }: ShortLineOptions = {},
 ): string[] {
   const nonEmpty = lines.filter((line) => line !== "");
@@ -220,13 +231,16 @@ export function shortLines(
       : second(kept[0]!)
         ? [...meaningFirst, kept[0]!]
         : [kept[0]!, ...meaningFirst];
-  const all = [
-    ...new Set([
-      ...leading,
-      ...kept.filter((_, i) => pointers[i] === undefined),
-      ...[...followed.values()].flat(),
-    ]),
-  ];
+  const own = kept.filter((_, i) => pointers[i] === undefined);
+  const targets = [...followed.values()].flat();
+  const meanings =
+    targets.length === 0
+      ? own
+      : [
+          ...[...own, ...targets].filter((line) => !aside(line)),
+          ...[...own, ...targets].filter(aside),
+        ];
+  const all = [...new Set([...leading, ...meanings])];
   const heard = all.filter((line) => !quiet(line));
   const shown = (heard.some(isMeaning) ? heard : all).slice(0, MAX_SHORT_LINES);
   return shown.some(isMeaning) ? shown : kept.slice(0, MAX_SHORT_LINES);
