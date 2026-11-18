@@ -62,6 +62,8 @@ interface ShownTerm extends Term {
   written?: Written;
   /** The part of speech its tag gives it there (`Span.pos`). */
   pos?: string;
+  /** A phrase's: what its words' tags give them there (`Span.wordPos`). */
+  wordPos?: Readonly<Record<string, string>>;
   /** The sentence it is in ("this sentence"), as saving it from there records it. */
   sentence?: string;
 }
@@ -115,6 +117,7 @@ export function describeSpan(
       category: span.category,
       ...(written !== undefined && { written }),
       ...(span.pos !== undefined && { pos: span.pos }),
+      ...(span.wordPos !== undefined && { wordPos: span.wordPos }),
     },
     shownIn,
   );

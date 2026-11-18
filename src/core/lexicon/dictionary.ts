@@ -2,6 +2,7 @@ import type {
   DefsPack,
   DictPack,
   IpaPack,
+  LemmaPack,
   PairPack,
   PosPack,
   SensePosPack,
@@ -12,7 +13,7 @@ import { own } from "../util";
 import { cleanDefinition, definitionPointer } from "./definitions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
-import { AUXILIARY, inOrder, senseOrder } from "./sense-order";
+import { accepts, AUXILIARY, inOrder, senseOrder } from "./sense-order";
 import {
   cleanShort,
   definitionLine,
@@ -497,6 +498,11 @@ type PairSenses = PairPack[string][1];
  * parsing its glosses: the hover follows one to its target's meanings, in rule A2's
  * order for the pointer sense's own part of speech, else for the word's tag (told →
  * contar before tell's noun "a tell", also where the tagger reads "made" as a noun).
+ * A degree the edition leaves unmarked is read as a pointer too (`degreeOf`, with the
+ * learning language's `lemmas` and `pos`). With a tag, the word's own meanings of
+ * another part of speech come after the followed ones (es better/JJ → "comparativo
+ * irregular de good", bueno, then the verb "mejorar"). An auxiliary's senses its
+ * source calls auxiliary come first (`senseOrder`: en-it have → avere, essere).
  *
  * Where a first pointer shows, by the pointer sense's grammatical kind (its part of
  * speech: a verb's form is an inflection, an adjective's or adverb's a comparative or
@@ -515,74 +521,149 @@ export function createPairDictionary({
   defs,
   ipa,
   native,
+  lemmas = {},
+  pos: learningPos = {},
 }: {
   dict: PairPack;
   defs: DefsPack;
   ipa: IpaPack;
   /** The native language (`NATIVE_LANGUAGES`); without one, a spaced script. */
   native?: string;
+  /** The learning language's base forms and parts of speech, to read unmarked degrees. */
+  lemmas?: LemmaPack;
+  pos?: PosPack;
 }): DictionaryProvider {
   const dense = native !== undefined && nativeLanguage(native)?.dense === true;
+  /** Unmarked degrees read as pointers: their line stays a gloss's, cut to the cap. */
+  const degrees = new WeakSet<PairSenses[number]>();
+  /** A term's entry, with its unmarked degrees read as pointers (`degreeOf`). */
+  const entryOf = (head: string): PairPack[string] | undefined => {
+    const found = own(dict, head);
+    const bases = [own(lemmas, head) ?? []].flat();
+    if (!found || bases.length === 0) return found;
+    const [short, senses, source] = found;
+    return [
+      short,
+      senses.map((sense) => {
+        const target = degreeOf(sense, head, bases, learningPos);
+        if (target === undefined) return sense;
+        const degree = [sense[0], sense[1], null, target] as const;
+        degrees.add(degree);
+        return degree;
+      }),
+      source,
+    ];
+  };
   const sensesOf = (senses: PairSenses): Sense[] =>
     senses.map(([pos, text, hint]) => ({
       pos,
       text,
       ...(hint != null && { hint }),
     }));
-  const lineOf = ([, text, hint, target]: PairSenses[number]) =>
-    target !== undefined
+  const lineOf = (sense: PairSenses[number]) => {
+    const [, text, hint, target] = sense;
+    return target !== undefined && !degrees.has(sense)
       ? pointerLine(text)
       : pairLine({ text, ...(hint != null && { hint }) });
-  /** The lines of a term's meanings (not its pointers), in rule A2's order for `pos`. */
-  const meaningLines = (head: string, pos: string | undefined) => {
-    const found = own(dict, head);
+  };
+  /**
+   * A term's meanings (not its pointers) in rule A2's order for `pos`: each one's line
+   * and part of speech.
+   */
+  const meaningsOf = (head: string, pos: string | undefined) => {
+    const found = entryOf(head);
     if (!found) return undefined;
-    const meanings = found[1].filter((sense) => sense[3] === undefined);
-    return inPosOrder(sensesOf(meanings), meanings.map(lineOf), pos);
+    const meanings = found[1].filter(
+      (sense) => sense[3] === undefined || degrees.has(sense),
+    );
+    const lines = meanings.map(lineOf);
+    const order =
+      pos === undefined
+        ? undefined
+        : senseOrder(sensesOf(meanings), pos, (i) => lines[i] !== "");
+    return inOrder(
+      meanings.map(([sensePos], i) => ({ line: lines[i]!, pos: sensePos })),
+      order,
+    );
   };
   return dictionaryOver(
     ipa,
     (head, _written, pos) => {
-      const found = own(dict, head);
+      const found = entryOf(head);
       if (!found) return definitionInEnglish(head, defs, pos);
       const [short, raw] = found;
       const senses = sensesOf(raw);
       // A translation table's sense is a list of words: its line is the first one.
       const lines = raw.map(lineOf);
+      const usable = (i: number) => lines[i] !== "";
+      const order =
+        pos === undefined ? undefined : senseOrder(senses, pos, usable);
+      const first = inOrder(raw, order).find((_, i) => usable(order?.[i] ?? i));
+      // An unmarked degree is read as a pointer only where it leads; elsewhere it
+      // stays the meaning it was ("better" untagged: "mejorar", then "comparativo
+      // irregular de good").
+      const points = (sense: PairSenses[number]) =>
+        sense[3] !== undefined && (sense === first || !degrees.has(sense));
+      // A line a meaning shows too is that meaning's (es later: "Comparativo de late:
+      // más tarde" is an adverb's meaning and, cut, an adjective's unmarked degree).
+      const meaningLine = new Set(lines.filter((_, i) => !points(raw[i]!)));
       const pointers = new Map<string, Pointer>();
       const pointerPos = new Map<string, string>();
       const linePos = new Map<string, string>();
-      raw.forEach(([sensePos, , , target], i) => {
-        if (target === undefined) return;
-        pointers.set(lines[i]!, { kind: "form", target });
+      raw.forEach((sense, i) => {
+        const [sensePos, , , target] = sense;
+        if (!points(sense) || meaningLine.has(lines[i]!)) return;
+        pointers.set(lines[i]!, { kind: "form", target: target! });
         if (!linePos.has(lines[i]!)) linePos.set(lines[i]!, sensePos);
-        if (!pointerPos.has(target)) pointerPos.set(target, sensePos);
+        if (!pointerPos.has(target!)) pointerPos.set(target!, sensePos);
       });
       const quiet = (line: string) => linePos.has(line) && !fitsPairCap(line);
       const second = (line: string) => !dense && linePos.get(line) === "verb";
-      const order =
-        pos === undefined
+      // With a tag, after a first form that is a verb's or a degree, the word's own
+      // meanings of another part of speech than the form's come after its base's
+      // (needs/VBZ: necesitar before the noun "carencia"). Not after a plural: its own
+      // senses of another part of speech are the plural's own uses ("nuts": crazy,
+      // "times": multiplied by), judged better than more of its base's.
+      const linesPos =
+        pos === undefined ||
+        pos === AUXILIARY ||
+        first === undefined ||
+        !points(first) ||
+        first[0] === "noun"
           ? undefined
-          : senseOrder(senses, pos, (i) => lines[i] !== "");
+          : first[0];
+      const aside = new Set<string>();
+      const away = (line: string, sensePos: string) => {
+        if (linesPos !== undefined && !accepts(linesPos, sensePos))
+          aside.add(line);
+      };
+      raw.forEach((sense, i) => {
+        if (!points(sense)) away(lines[i]!, sense[0]);
+      });
       return {
         short,
         lines: shortLines(inOrder(lines, order), short, {
           head,
           pointer: (line) => pointers.get(line),
-          follow: (target) =>
-            meaningLines(target, pointerPos.get(target) ?? pos),
+          follow: (target) => {
+            const meanings = meaningsOf(target, pointerPos.get(target) ?? pos);
+            meanings?.forEach((meaning) => away(meaning.line, meaning.pos));
+            return meanings?.map((meaning) => meaning.line);
+          },
+          aside: (line) => aside.has(line),
           ...(pos !== AUXILIARY && { quiet, second }),
         }),
         senses,
       };
     },
     (head) => {
-      const found = own(dict, head);
+      const found = entryOf(head);
       if (!found) return definitionOutline(head, defs);
       const raw = found[1];
       return outlineOf(sensesOf(raw), (text, i) => {
         const target = raw[i]?.[3];
-        return target === undefined
+        // An unmarked degree after the first sense is a meaning, as in the lines.
+        return target === undefined || (i > 0 && degrees.has(raw[i]!))
           ? englishSense(text)
           : { formOf: target, meaning: false };
       });
@@ -592,6 +673,36 @@ export function createPairDictionary({
         ? pairLine(sense)
         : definitionLine(sense.text, definitionPointerOf),
   );
+}
+
+/** The parts of speech whose forms are degrees: comparatives and superlatives. */
+const DEGREES: readonly string[] = ["adjective", "adverb"];
+
+/**
+ * The base an edition's unmarked degree names (es better: "Comparativo irregular de
+ * good"; editions mark verb forms and plurals, which the data build keeps as pointers,
+ * but often not comparatives and superlatives): a sense with no target and no hint (an
+ * edition's, not a table's) of an adjective or adverb that writes, after other words,
+ * one of its headword's base forms (`bases`, the learning language's lemmas: better →
+ * good, well) whose main part of speech is the sense's own. A gloss that starts with
+ * the base is a native word spelt the same (fr contented: "Content, satisfait").
+ */
+function degreeOf(
+  [pos, text, hint, target]: PairSenses[number],
+  head: string,
+  bases: readonly string[],
+  learningPos: PosPack,
+): string | undefined {
+  if (target !== undefined || hint != null || !DEGREES.includes(pos))
+    return undefined;
+  return bases.find((base) => {
+    if (base === head || own(learningPos, base)?.[0] !== pos) return false;
+    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const at = text.search(
+      new RegExp(`(?<![\\p{L}\\p{N}'-])${escaped}(?![\\p{L}\\p{N}'-])`, "iu"),
+    );
+    return at > 0 && /\p{L}/u.test(text.slice(0, at));
+  });
 }
 
 /** A translation table's sense is a list of words: its line is the first one. */

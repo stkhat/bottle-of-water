@@ -212,12 +212,14 @@ describe("chooseKey (rule A1)", () => {
         ),
       ).toBe(undefined);
     });
-    it("keeps an auxiliary's key, and takes the base of the same word used as a verb", () => {
+    it("takes an auxiliary to its base too, never to nothing", () => {
       const aux = { auxiliary: true };
       const has = ["has", "have"];
-      // "has been": have's meanings ("to own") are not what it means.
-      expect(pairKey("has", has, reading(tag("verb", "VBZ"), aux))).toBe("has");
-      expect(pairKey("has", has, reading(undefined, aux))).toBe("has");
+      // "has been" (en-ru): have, whose auxiliary senses its lookup shows first.
+      expect(pairKey("has", has, reading(tag("verb", "VBZ"), aux))).toBe(
+        "have",
+      );
+      expect(pairKey("has", has, reading(undefined, aux))).toBe("have");
       // "has a dog".
       expect(pairKey("has", has, reading(tag("verb", "VBZ")))).toBe("have");
     });

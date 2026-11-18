@@ -38,6 +38,19 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     lines: ["数字、姿、人物"],
     senses: [{ text: "数字；姿；人物" }],
   },
+  // pt: Wikcionário's "other" has only the verb.
+  other: {
+    head: "other",
+    kind: "word",
+    short: "tratar (determinado grupo social) como diferente e estranho",
+    lines: ["tratar como diferente e estranho"],
+    senses: [
+      {
+        pos: "verb",
+        text: "tratar (determinado grupo social) como diferente e estranho",
+      },
+    ],
+  },
   tangy: {
     head: "tangy",
     kind: "word",
@@ -296,6 +309,37 @@ describe("describeTerm", () => {
     expect(card.ipa).toBeUndefined();
     expect(card.lines).toEqual(["訳(figured out)"]);
     expect(hoverView(card).meanings).toEqual(["訳(figured out)"]);
+  });
+
+  it("notes the main word as its hover shows it for its part of speech in the phrase, and not as another part of speech", async () => {
+    const deps = (send: ReturnType<typeof fakeSend>["send"]) => ({
+      send,
+      lang: "en",
+      nativeLang: "pt",
+      sourceUrl: "https://example.com/a",
+      translator,
+    });
+    const phrase = {
+      key: "in other words",
+      kind: "phrase" as const,
+      surface: "in other words",
+    };
+    const tagged = fakeSend();
+    const card = await describeTerm(
+      { ...phrase, wordPos: { other: "adjective", words: "noun" } },
+      deps(tagged.send),
+    );
+    expect(tagged.requests[1]).toMatchObject({
+      type: "lookup",
+      key: "other",
+      pos: "adjective",
+    });
+    expect(card.sub).toBeUndefined();
+    // Without a tag: the word's first hover line.
+    const untagged = fakeSend();
+    expect((await describeTerm(phrase, deps(untagged.send))).sub).toBe(
+      "other — tratar como diferente e estranho",
+    );
   });
 
   it("notes the main word of a phrase with a slot, not the slot", async () => {

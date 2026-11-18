@@ -686,4 +686,116 @@ describe("createPairDictionary", () => {
       ]);
     });
   });
+
+  describe("with a tag", () => {
+    const dict: PairPack = {
+      // es: Wikcionario leaves its degrees unmarked.
+      better: [
+        "Mejorar",
+        [
+          ["verb", "Mejorar"],
+          ["adjective", "Comparativo irregular de good"],
+          ["unknown", "Comparativo irregular de well"],
+        ],
+        0,
+      ],
+      good: [
+        "Bueno",
+        [
+          ["noun", "Bien"],
+          ["adjective", "Bueno"],
+          ["adjective", "Mejor"],
+        ],
+        0,
+      ],
+      nuts: [
+        "Plural",
+        [
+          ["noun", "Plural de nut", null, "nut"],
+          ["adjective", "Loco"],
+        ],
+        0,
+      ],
+      nut: [
+        "Nuez",
+        [
+          ["noun", "Nuez"],
+          ["noun", "Fruta seca"],
+        ],
+        0,
+      ],
+      // fr: a gloss that starts with the base is the native word spelt the same.
+      contented: ["Content", [["adjective", "Content, satisfait"]], 0],
+      content: ["Contenu", [["adjective", "Satisfait"]], 0],
+      // A translation table's senses: the auxiliary's is the second.
+      have: [
+        "avere",
+        [
+          ["verb", "avere, tenere", "1. to possess"],
+          [
+            "verb",
+            "essere, avere",
+            "10. auxiliary used in forming the perfect",
+          ],
+        ],
+        0,
+      ],
+    };
+    const dictionary = createPairDictionary({
+      dict,
+      defs: {},
+      ipa: {},
+      lemmas: { better: ["good", "well"], contented: "content" },
+      pos: {
+        good: ["adjective", "noun"],
+        well: ["adverb"],
+        content: ["adjective", "noun"],
+      },
+    });
+
+    it("reads an unmarked degree as a pointer: its base's meanings of the tagged part of speech come before the word's own of another", () => {
+      expect(dictionary.entry("better", undefined, "adjective")?.lines).toEqual(
+        ["Comparativo irregular de good", "Bueno", "Mejor"],
+      );
+      expect(dictionary.outline("better")).toMatchObject({
+        firstMeaning: true,
+        meaning: true,
+      });
+      // Where it does not lead, it stays a meaning, in the dictionary's order.
+      expect(dictionary.entry("better")?.lines).toEqual([
+        "Mejorar",
+        "Comparativo irregular de good",
+        "Comparativo irregular de well",
+      ]);
+      // Without a lemma pack nothing is read.
+      const plain = createPairDictionary({ dict, defs: {}, ipa: {} });
+      expect(plain.entry("better", undefined, "adjective")?.lines).toEqual([
+        "Comparativo irregular de good",
+        "Mejorar",
+        "Comparativo irregular de well",
+      ]);
+    });
+    it("keeps a plural's own meanings of another part of speech before more of its base's", () => {
+      expect(dictionary.entry("nuts", undefined, "noun")?.lines).toEqual([
+        "Plural de nut",
+        "Nuez",
+        "Loco",
+      ]);
+    });
+    it("does not read a native word spelt as the base as a pointer", () => {
+      expect(
+        dictionary.entry("contented", undefined, "adjective")?.lines,
+      ).toEqual(["Content, satisfait"]);
+    });
+    it("shows an auxiliary's senses its source calls auxiliary first", () => {
+      expect(dictionary.entry("have", undefined, "auxiliary")?.lines).toEqual([
+        "essere",
+        "avere",
+      ]);
+      expect(dictionary.entry("have", undefined, "verb")?.lines).toEqual([
+        "avere",
+        "essere",
+      ]);
+    });
+  });
 });

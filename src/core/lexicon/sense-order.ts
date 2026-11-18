@@ -25,15 +25,49 @@ const ACCEPTS: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * The part of speech of a word used as an auxiliary ("has" in "has been"): no source
- * labels a sense so, so rule A2 keeps the dictionary's order for it, and a pair
+ * labels a sense so, so rule A2 puts first only the senses its source calls auxiliary
+ * (`AUXILIARY_SENSE`) and otherwise keeps the dictionary's order, and a pair
  * dictionary shows its grammar pointer however wide ("Pair pointers").
  */
 export const AUXILIARY = "auxiliary";
+
+/**
+ * A translation table's English sense that says it is an auxiliary's (English
+ * Wiktionary's "auxiliary used in forming the perfect", "auxiliary: used to form the
+ * passive voice"): what a verb means where it is used as one (en-it "has been" → have
+ * → avere, essere before avere, tenere).
+ */
+const AUXILIARY_SENSE = /\bauxiliary\b/i;
 
 /** Whether a sense labelled `label` can be what a word tagged `pos` means. */
 export const accepts = (pos: string, label: string | undefined) =>
   label !== undefined &&
   (Object.hasOwn(ACCEPTS, pos) ? ACCEPTS[pos]! : [pos]).includes(label);
+
+/**
+ * The open classes, which the tagger and the sources name alike; closed classes and
+ * contractions they label differently (pt "all": adjective, the tagger's determiner;
+ * "that's": contraction).
+ */
+const OPEN_CLASSES: readonly string[] = ["noun", "verb", "adjective", "adverb"];
+
+/**
+ * An entry has no sense a word tagged `pos` can mean, on positive evidence: the tag
+ * and every sense's label are open classes, each label stated (not taken from its
+ * neighbours or guessed), and none accepts the tag (pt "other": only the verb "tratar
+ * como diferente", read as an adjective). Never for an auxiliary, whose senses no
+ * source labels so.
+ */
+export const lacksSenseOf = (senses: readonly Sense[], pos: string) =>
+  OPEN_CLASSES.includes(pos) &&
+  senses.length > 0 &&
+  senses.every(
+    (sense) =>
+      sense.pos !== undefined &&
+      OPEN_CLASSES.includes(sense.pos) &&
+      sense.posBy === undefined &&
+      !accepts(pos, sense.pos),
+  );
 
 /**
  * The order to show `senses` in for a word tagged `pos`, or undefined to keep the
@@ -44,12 +78,14 @@ export const accepts = (pos: string, label: string | undefined) =>
  * Then those come first — with the unlabelled senses right before one of them, which
  * head its block (EJDict: "企て,試み" before the labelled nouns of "attempt") — the
  * first core translation among them leading when the source marks one (EJDict's 『』).
+ * For an auxiliary (AUXILIARY), the senses its source calls auxiliary come first.
  */
 export function senseOrder(
   senses: readonly Sense[],
   pos: string,
   usable: (index: number) => boolean = () => true,
 ): number[] | undefined {
+  if (pos === AUXILIARY) return auxiliaryOrder(senses, usable);
   const first = senses.findIndex((_, i) => usable(i));
   const lead = senses[first];
   if (
@@ -73,6 +109,23 @@ export function senseOrder(
     ...front,
     ...senses.map((_, k) => k).filter((k) => !front.includes(k)),
   ];
+}
+
+/**
+ * For a word used as an auxiliary: the usable senses its source calls auxiliary
+ * (`AUXILIARY_SENSE`) first, or undefined to keep the dictionary's order when none is
+ * or they lead already.
+ */
+function auxiliaryOrder(
+  senses: readonly Sense[],
+  usable: (index: number) => boolean,
+): number[] | undefined {
+  const indices = senses.map((_, k) => k);
+  const front = indices.filter(
+    (k) => usable(k) && AUXILIARY_SENSE.test(senses[k]!.hint ?? ""),
+  );
+  if (front.length === 0 || front[0] === indices.find(usable)) return undefined;
+  return [...front, ...indices.filter((k) => !front.includes(k))];
 }
 
 /** `items` in `order` (all of them as they are without one). */

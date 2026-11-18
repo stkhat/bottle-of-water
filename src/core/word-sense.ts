@@ -125,7 +125,9 @@ export function readWords(
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
  *    with a meaning of its own goes to the base ("being" → be), and so does one whose
  *    pointer names a word that is not mainly a verb ("does": plural of doe → do). An
- *    auxiliary without an entry keeps its key (no meaning rather than its verb's).
+ *    auxiliary without an entry goes to its base by rule 1 (en-ru "has" → have), never
+ *    to nothing; its lookup shows the base's auxiliary senses first where the source
+ *    has some (`sensePos`, `auxiliaryFirst`).
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
  *    for (en-es "told", "says": only some sources have inflected forms): the base
  *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
@@ -180,10 +182,10 @@ export function chooseKey(
   // ("has"). A form that is not one ("podemos", Spanish "es" before an infinitive)
   // goes to its base by rule 1, like any other form.
   const auxiliary = use.auxiliary && first === form;
-  // A headword this dictionary has no entry for is, to it, a form that is not one;
-  // except an auxiliary, whose base's meanings are not what it means ("has been" is
-  // not "to own"): it keeps its key until the dictionary has a form entry for it.
-  if (!own) return auxiliary ? undefined : likeliest();
+  // A headword this dictionary has no entry for is, to it, a form that is not one,
+  // an auxiliary too (en-ru "has been" → have): its lookup's `pos` is AUXILIARY, so
+  // the base's senses its source calls auxiliary come first (`sensePos`).
+  if (!own) return likeliest();
   if (auxiliary) {
     // An auxiliary is a verb: an entry whose first sense is a form of a word that is
     // not mainly one ("does": plural of doe) is another word's, so the verb base.
