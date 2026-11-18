@@ -357,6 +357,11 @@ describe("sensePos (rule A2's part of speech)", () => {
     expect(
       sensePos("has", "has", reading(undefined, { auxiliary: true })),
     ).toBe("auxiliary");
+    // Read as its base for want of an entry of its own (en-ru "has" → have).
+    const aux = reading(VBD, { auxiliary: true });
+    expect(sensePos("has", "have", aux, false)).toBe("auxiliary base");
+    expect(sensePos("has", "have", aux)).toBe("auxiliary");
+    expect(sensePos("being", "be", aux, true)).toBe("auxiliary");
   });
   it("gives none for an untrusted tag or a participle used otherwise", () => {
     expect(sensePos("fine", "fine", reading(undefined))).toBe(undefined);

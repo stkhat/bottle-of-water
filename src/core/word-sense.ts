@@ -7,7 +7,7 @@
  */
 import type { EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
-import { accepts, AUXILIARY } from "./lexicon/sense-order";
+import { accepts, AUXILIARY, AUXILIARY_BASE } from "./lexicon/sense-order";
 import type { MatchWord } from "./phrases/matcher";
 import {
   trustedTag,
@@ -126,8 +126,8 @@ export function readWords(
  *    with a meaning of its own goes to the base ("being" → be), and so does one whose
  *    pointer names a word that is not mainly a verb ("does": plural of doe → do). An
  *    auxiliary without an entry goes to its base by rule 1 (en-ru "has" → have), never
- *    to nothing; its lookup shows the base's auxiliary senses first where the source
- *    has some (`sensePos`, `auxiliaryFirst`).
+ *    to nothing; its lookup shows the base's auxiliary senses where the source has
+ *    some, else no meaning beside the card's "has → have" (`sensePos`, AUXILIARY_BASE).
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
  *    for (en-es "told", "says": only some sources have inflected forms): the base
  *    whose part of speech fits the tag, then the most frequent ("arises" → arise).
@@ -183,8 +183,8 @@ export function chooseKey(
   // goes to its base by rule 1, like any other form.
   const auxiliary = use.auxiliary && first === form;
   // A headword this dictionary has no entry for is, to it, a form that is not one,
-  // an auxiliary too (en-ru "has been" → have): its lookup's `pos` is AUXILIARY, so
-  // the base's senses its source calls auxiliary come first (`sensePos`).
+  // an auxiliary too (en-ru "has been" → have): its lookup's `pos` is AUXILIARY_BASE, so
+  // the base's senses its source calls auxiliary show, else none (`sensePos`).
   if (!own) return likeliest();
   if (auxiliary) {
     // An auxiliary is a verb: an entry whose first sense is a form of a word that is
@@ -258,14 +258,18 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
  * can stand ("Including …"): its verb tag says nothing of which of its adjective or
  * preposition senses fits. A use may give another part of speech than the tag (a
  * gerund noun). An auxiliary's is AUXILIARY, whatever its tag: no sense is labelled
- * so, and a pair dictionary shows its grammar pointer ("has been").
+ * so, and a pair dictionary shows its grammar pointer ("has been"); AUXILIARY_BASE
+ * when it is looked up by its base for want of an entry of its own (`ownEntry` false:
+ * en-ru "has" → have), whose lexical meanings are not what it means.
  */
 export function sensePos(
   form: string,
   key: string,
   { tag, use }: WordReading,
+  ownEntry = true,
 ): string | undefined {
-  if (use.auxiliary) return AUXILIARY;
+  if (use.auxiliary)
+    return key !== form && !ownEntry ? AUXILIARY_BASE : AUXILIARY;
   if (!tag) return undefined;
   if (
     tag.label === "verb" &&

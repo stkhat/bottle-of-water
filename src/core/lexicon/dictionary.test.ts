@@ -797,5 +797,15 @@ describe("createPairDictionary", () => {
         "essere",
       ]);
     });
+    it("shows an auxiliary read as its base no meaning unless the base has auxiliary senses", () => {
+      // en-it "has been" → have: avere, essere.
+      expect(
+        dictionary.entry("have", undefined, "auxiliary base")?.lines,
+      ).toEqual(["essere", "avere"]);
+      // en-ru "has been" → have, which has none: not "to own".
+      expect(
+        dictionary.entry("good", undefined, "auxiliary base"),
+      ).toMatchObject({ lines: [], short: "Bueno" });
+    });
   });
 });

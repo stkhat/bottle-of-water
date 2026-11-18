@@ -32,12 +32,29 @@ const ACCEPTS: Readonly<Record<string, readonly string[]>> = {
 export const AUXILIARY = "auxiliary";
 
 /**
+ * The part of speech of an auxiliary looked up by its base for want of an entry of its
+ * own (en-ru "has been" → have): its senses come in AUXILIARY's order, but where the
+ * base has none its source calls auxiliary, the hover shows no meaning (`entry`'s
+ * `lines` empty): the base's lexical meanings ("иметь", to own) are not what the word
+ * means there, and the card's grammar line ("has → have") is.
+ */
+export const AUXILIARY_BASE = "auxiliary base";
+
+/** A word used as an auxiliary, with or without an entry of its own. */
+export const isAuxiliary = (pos: string | undefined) =>
+  pos === AUXILIARY || pos === AUXILIARY_BASE;
+
+/**
  * A translation table's English sense that says it is an auxiliary's (English
  * Wiktionary's "auxiliary used in forming the perfect", "auxiliary: used to form the
  * passive voice"): what a verb means where it is used as one (en-it "has been" → have
  * → avere, essere before avere, tenere).
  */
 const AUXILIARY_SENSE = /\bauxiliary\b/i;
+
+/** Some sense its source calls an auxiliary's (`AUXILIARY_SENSE`). */
+export const hasAuxiliarySense = (senses: readonly Sense[]) =>
+  senses.some((sense) => AUXILIARY_SENSE.test(sense.hint ?? ""));
 
 /** Whether a sense labelled `label` can be what a word tagged `pos` means. */
 export const accepts = (pos: string, label: string | undefined) =>
@@ -85,7 +102,7 @@ export function senseOrder(
   pos: string,
   usable: (index: number) => boolean = () => true,
 ): number[] | undefined {
-  if (pos === AUXILIARY) return auxiliaryOrder(senses, usable);
+  if (isAuxiliary(pos)) return auxiliaryOrder(senses, usable);
   const first = senses.findIndex((_, i) => usable(i));
   const lead = senses[first];
   if (

@@ -431,7 +431,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const key = terms.has(word.key)
           ? word.key
           : (chooseKey(form, bases, reading, outline, pack) ?? word.key);
-        const pos = sensePos(form, key, reading);
+        // A headword this dictionary has no entry for ("has" in en-ru); a form that is
+        // no headword ("gets") is looked up by its base like any form.
+        const ownEntry = !bases.includes(form) || outline(form) !== undefined;
+        const pos = sensePos(form, key, reading, ownEntry);
         return { key, ...(pos !== undefined && { pos }) };
       };
 

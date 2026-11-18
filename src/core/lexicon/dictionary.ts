@@ -13,7 +13,14 @@ import { own } from "../util";
 import { cleanDefinition, definitionPointer } from "./definitions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
-import { accepts, AUXILIARY, inOrder, senseOrder } from "./sense-order";
+import {
+  accepts,
+  AUXILIARY_BASE,
+  hasAuxiliarySense,
+  inOrder,
+  isAuxiliary,
+  senseOrder,
+} from "./sense-order";
 import {
   cleanShort,
   definitionLine,
@@ -201,12 +208,15 @@ function dictionaryOver(
       const found = find(head, written, pos);
       if (!found) return undefined;
       const headIpa = ipaFor(head, ipa);
+      // An auxiliary read as its base shows no meaning unless the base has auxiliary
+      // senses (`AUXILIARY_BASE`).
+      const bare = pos === AUXILIARY_BASE && !hasAuxiliarySense(found.senses);
       return {
         head,
         kind: kindOfKey(head),
         ...(headIpa !== undefined && { ipa: headIpa }),
         short: found.short,
-        lines: found.lines ?? [found.short],
+        lines: bare ? [] : (found.lines ?? [found.short]),
         senses: found.senses,
         ...(found.glossLang !== undefined && { glossLang: found.glossLang }),
       };
@@ -626,7 +636,7 @@ export function createPairDictionary({
       // "times": multiplied by), judged better than more of its base's.
       const linesPos =
         pos === undefined ||
-        pos === AUXILIARY ||
+        isAuxiliary(pos) ||
         first === undefined ||
         !points(first) ||
         first[0] === "noun"
@@ -651,7 +661,7 @@ export function createPairDictionary({
             return meanings?.map((meaning) => meaning.line);
           },
           aside: (line) => aside.has(line),
-          ...(pos !== AUXILIARY && { quiet, second }),
+          ...(!isAuxiliary(pos) && { quiet, second }),
         }),
         senses,
       };
