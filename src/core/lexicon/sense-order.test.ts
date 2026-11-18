@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Sense } from "./lookup";
-import { accepts, inOrder, senseOrder } from "./sense-order";
+import {
+  accepts,
+  AUXILIARY,
+  inOrder,
+  lacksSenseOf,
+  senseOrder,
+} from "./sense-order";
 
 /** Senses from "text:pos[~|?][*]" items ("~" a weak guess, "?" from the neighbours, "*" core). */
 const senses = (...items: string[]): Sense[] =>
@@ -76,5 +82,43 @@ describe("senseOrder (rule A2)", () => {
   it("starts from the first usable sense", () => {
     const list = senses("(empty)", "罰金:noun", "りっぱな:adjective");
     expect(senseOrder(list, "adjective", (i) => i > 0)).toEqual([2, 0, 1]);
+  });
+  it("puts an auxiliary's senses its source calls auxiliary first", () => {
+    // en-it "have": a translation table's senses, with their English senses.
+    const have: Sense[] = [
+      { pos: "verb", text: "avere, tenere", hint: "1. to possess" },
+      { pos: "verb", text: "farsi", hint: "15. engage in sexual intercourse" },
+      {
+        pos: "verb",
+        text: "avere, essere",
+        hint: "10. auxiliary used in forming the perfect",
+      },
+    ];
+    expect(senseOrder(have, AUXILIARY)).toEqual([2, 0, 1]);
+    expect(senseOrder(have, "verb")).toBeUndefined();
+    // None, or one first already: the dictionary's order.
+    expect(senseOrder(have.slice(0, 2), AUXILIARY)).toBeUndefined();
+    expect(senseOrder(have.slice(2), AUXILIARY)).toBeUndefined();
+  });
+});
+
+describe("lacksSenseOf", () => {
+  it("says so only when every sense states another part of speech", () => {
+    // pt "other": only the verb "tratar como diferente".
+    expect(lacksSenseOf(senses("tratar:verb"), "adjective")).toBe(true);
+    expect(
+      lacksSenseOf(senses("tratar:verb", "outro:adjective"), "adjective"),
+    ).toBe(false);
+    // A label guessed or taken from neighbours, or none: no evidence.
+    expect(lacksSenseOf(senses("tratar:verb", "outro"), "adjective")).toBe(
+      false,
+    );
+    expect(lacksSenseOf(senses("tratar:verb~"), "adjective")).toBe(false);
+    expect(lacksSenseOf([], "adjective")).toBe(false);
+    // An auxiliary's senses are labelled verbs.
+    expect(lacksSenseOf(senses("ter:verb"), AUXILIARY)).toBe(false);
+    // Closed classes are labelled differently by the tagger and the sources.
+    expect(lacksSenseOf(senses("todo:adjective"), "determiner")).toBe(false);
+    expect(lacksSenseOf(senses("segundo:numeral"), "adjective")).toBe(false);
   });
 });

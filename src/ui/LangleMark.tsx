@@ -1,6 +1,7 @@
 import { h, type VNode } from "preact";
 import { useMemo } from "preact/hooks";
 import iconSvg from "./brand/icon.svg?raw";
+import { OFF_FILTER } from "./brand/off-filter";
 
 interface SvgNode {
   tag: string;
@@ -57,11 +58,12 @@ function render(node: SvgNode, suffix: string, key?: number): VNode {
 
 /**
  * Langle's mark (the toolbar icon, `brand/icon.svg`) at `size` px, beside the name in
- * headers. Inline rather than an `<img>`, so a page's CSP cannot block it; each copy
+ * headers and on the player bar's on/off button; `gray` draws it as the toolbar's off
+ * icon is. Inline rather than an `<img>`, so a page's CSP cannot block it; each copy
  * renames the SVG's gradient and clip ids, which would otherwise clash between copies
  * in one shadow root.
  */
-export function LangleMark(props: { size: number }) {
+export function LangleMark(props: { size: number; gray?: boolean }) {
   const svg = useMemo(() => render(ICON, `-langle-mark-${++instances}`), []);
   return (
     <span data-langle-mark="" style={{ display: "inline-flex", flex: "none" }}>
@@ -70,7 +72,7 @@ export function LangleMark(props: { size: number }) {
         width: props.size,
         height: props.size,
         "aria-hidden": "true",
-        style: { display: "block" },
+        style: { display: "block", filter: props.gray ? OFF_FILTER : "none" },
       })}
     </span>
   );

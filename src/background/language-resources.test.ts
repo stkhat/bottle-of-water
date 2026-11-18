@@ -174,6 +174,52 @@ describe("createLanguageResources", () => {
     );
   });
 
+  it("builds a dictionary without its fallback while it is not on the device; a term only the fallback could have waits for it", async () => {
+    const missing = new Set<PackName>(["en-defs"]);
+    const loadPack = stubLoader(new Set(), missing);
+    const resources = createLanguageResources(loadPack);
+    const dictionary = await resources.dictionary("en", "ja");
+    expect(dictionary.entry("loaf")?.short).toBe("パンのひと塊");
+    expect(dictionary.entry("give up")?.short).toBe("諦める");
+    expect(() => dictionary.entry("figure out")).toThrow(PacksUnavailableError);
+    expect(() => dictionary.entry("figure out")).toThrow(
+      expect.objectContaining({ packs: ["en-defs"] }),
+    );
+    // Rules A1 and D read what is on the device.
+    expect(dictionary.outline("figure out")).toBeUndefined();
+    expect(dictionary.outline("rise")).toBeDefined();
+
+    // The fallback arrives: the pack store's switch makes it forgotten.
+    missing.clear();
+    loadPack.forget("en-defs");
+    resources.forget("en-defs");
+    const full = await resources.dictionary("en", "ja");
+    expect(full.entry("figure out")).toMatchObject({ glossLang: "en" });
+  });
+
+  it("builds every English pair's dictionary without the English definitions", async () => {
+    const resources = createLanguageResources(
+      stubLoader(new Set(), new Set<PackName>(["en-defs"])),
+    );
+    for (const native of nativeLanguages("en"))
+      await expect(resources.dictionary("en", native)).resolves.toBeDefined();
+    // Spanish → English is made of them: it waits.
+    await expect(
+      createLanguageResources(
+        stubLoader(new Set(), new Set<PackName>(["es-en"])),
+      ).dictionary("es", "en"),
+    ).rejects.toMatchObject({ packs: ["es-en"] });
+  });
+
+  it("fails a dictionary whose fallback cannot be read for another reason", async () => {
+    const resources = createLanguageResources(
+      stubLoader(new Set<PackName>(["en-defs"])),
+    );
+    await expect(resources.dictionary("en", "ja")).rejects.toThrow(
+      "could not load en-defs",
+    );
+  });
+
   it("builds again what used a pack it was told to forget, and keeps the rest", async () => {
     const resources = createLanguageResources(stubLoader());
     const pack = await resources.pack("es");

@@ -208,6 +208,31 @@ describe("answering the content script", () => {
       ]);
   });
 
+  it("puts back the caption choice the player keeps for the next load", async () => {
+    const language = "yt-player-caption-sticky-language";
+    const track = "yt-player-caption-persistence";
+    const tabTrack = "yt-player-sticky-caption";
+    localStorage.setItem(language, "fr");
+    localStorage.removeItem(track);
+    sessionStorage.removeItem(tabTrack);
+    try {
+      await call({ type: "loadTrack", languageCode: "en", asr: false });
+      await expect.poll(() => posted.map((m) => m.lang)).toEqual(["en"]);
+      // The fake player keeps the track in localStorage; one in the tab's storage too.
+      expect(localStorage.getItem(language)).toBe("en");
+      expect(localStorage.getItem(track)).not.toBeNull();
+      sessionStorage.setItem(tabTrack, '{"languageCode":"en"}');
+
+      await call({ type: "restoreCaptions", previous: {} });
+      expect(localStorage.getItem(language)).toBe("fr");
+      expect(localStorage.getItem(track)).toBeNull();
+      expect(sessionStorage.getItem(tabTrack)).toBeNull();
+    } finally {
+      localStorage.removeItem(language);
+      sessionStorage.removeItem(tabTrack);
+    }
+  });
+
   it("fetches a timedtext URL without posting it as a player response", async () => {
     const reply = await call({ type: "fetchTimedtext", url: TRACK });
     expect(reply).toMatchObject({ ok: true, value: en });

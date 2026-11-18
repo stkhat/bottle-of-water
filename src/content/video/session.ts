@@ -687,11 +687,21 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   const offNavigate = adapter.onNavigate(open);
   const unwatch = deps.watchSettings((next) => {
     const levelChanged = next.knownLevel !== settings.knownLevel;
+    // The tracks (and the translation's source) are chosen for the language pair.
+    const pairChanged =
+      next.learningLang !== settings.learningLang ||
+      next.nativeLang !== settings.nativeLang;
     const wasOn = siteOn();
     settings = next;
     store.set({ settings });
+    if (pairChanged) {
+      // The video's subtitles again, as on opening it.
+      watch?.controller.abort();
+      watch = undefined;
+      open();
+    }
     // Switched off for this site: give the page back; switched on: start.
-    if (siteOn() !== wasOn) open();
+    else if (siteOn() !== wasOn) open();
     else if (levelChanged) withWatch(analyzeAll);
   });
   open();

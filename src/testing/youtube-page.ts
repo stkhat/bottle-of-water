@@ -2,6 +2,7 @@
 // e2e/fixtures/youtube-watch.html) with the fake player API on #movie_player, or a
 // trimmed Short (docs/notes/youtube-shorts.md) with it on #shorts-player.
 import {
+  FAKE_CAPTION_STORAGE,
   installFakeYouTubePlayer,
   type FakePlayerLog,
 } from "../../tests/fake-youtube-player";
@@ -50,8 +51,21 @@ export function createTestPage(
     captionsOn?: boolean;
     playerResponse?: unknown;
     shorts?: boolean;
+    /** The caption track an earlier load left on (the player starts with it, unrequested). */
+    storedTrack?: { languageCode: string; kind: string };
   } = {},
 ): TestPage {
+  forgetStoredTrack();
+  if (options.storedTrack) {
+    localStorage.setItem(
+      FAKE_CAPTION_STORAGE.language,
+      options.storedTrack.languageCode,
+    );
+    localStorage.setItem(
+      FAKE_CAPTION_STORAGE.track,
+      JSON.stringify(options.storedTrack),
+    );
+  }
   const video = el("video", {
     class: "video-stream html5-main-video",
     src: videoUrl,
@@ -240,8 +254,17 @@ function install(
     captions,
     navigate: (next) => fake.fakeNavigate(next),
     fullBleed: () => fullBleed(root, player),
-    remove: () => root.remove(),
+    remove() {
+      root.remove();
+      forgetStoredTrack();
+    },
   };
+}
+
+/** Removes the caption track the fake player kept (localStorage is shared by the tests). */
+function forgetStoredTrack() {
+  for (const key of Object.values(FAKE_CAPTION_STORAGE))
+    localStorage.removeItem(key);
 }
 
 /** YouTube's full-bleed row: the player's box grows into the row, a hidden panels box beside it. */

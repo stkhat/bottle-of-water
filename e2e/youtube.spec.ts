@@ -58,6 +58,29 @@ test("the subtitle shows the playing line with its highlights and its Japanese l
   ).toEqual([]);
 });
 
+test("a reload of the tab shows the Japanese line again", async ({
+  context,
+}) => {
+  // The player starts a load with the caption track the last load set, without
+  // requesting it (youtube.com, 2026-11-18): Langle's own request for the English track
+  // must not leave it set, or the reload had nothing to capture and showed English only.
+  await routeYouTube(context);
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_WATCH);
+  const subtitle = page.locator("langle-video-player").getByRole("region", {
+    name: en["video.subtitle"],
+  });
+  const card = page
+    .getByRole("complementary", { name: en["app.name"] })
+    .getByRole("button", { name: LINE });
+  await card.click({ position: ON_TIME });
+  await expect(subtitle.getByText(LINE_JA)).toBeVisible();
+
+  await page.reload();
+  await card.click({ position: ON_TIME });
+  await expect(subtitle.getByText(LINE_JA)).toBeVisible();
+});
+
 test("words selected in the transcript are saved as a phrase from their card", async ({
   context,
   extensionId,

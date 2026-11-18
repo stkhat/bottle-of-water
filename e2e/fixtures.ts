@@ -14,7 +14,11 @@ import {
   type BrowserCdp,
   type ErrorCollector,
 } from "./error-collector";
-import { BLOCK_MIRROR_HOSTS, routePackMirrors } from "./pack-mirrors";
+import {
+  BLOCK_MIRROR_HOSTS,
+  routePackMirrors,
+  type MirrorRouting,
+} from "./pack-mirrors";
 
 /**
  * Which build to load: `npm run build` (production), `wxt build --mode check` (the
@@ -51,7 +55,7 @@ export const extensionPathOf = (build: Build) =>
 async function launchWithExtension(
   build: Build,
   port: number,
-  mirrorsHeld: boolean,
+  mirrors: MirrorRouting,
 ): Promise<BrowserContext> {
   const extensionPath = extensionPathOf(build);
   if (!fs.existsSync(path.join(extensionPath, "manifest.json")))
@@ -78,7 +82,7 @@ async function launchWithExtension(
       BLOCK_MIRROR_HOSTS,
     ],
   });
-  await routePackMirrors(context, { held: mirrorsHeld });
+  await routePackMirrors(context, mirrors);
   const cdp = await connectBrowserCdp(port);
   try {
     const reply = await cdp.send("Extensions.loadUnpacked", {
@@ -154,8 +158,13 @@ export const test = base.extend<{
    * pair); null keeps the one the new install chose.
    */
   startPair: readonly [string, string] | null;
-  /** The lock's mirrors wait until `releasePackMirrors` (pack-mirrors.ts). */
-  mirrorsHeld: boolean;
+  /**
+   * The lock's mirrors wait until `releasePackMirrors` (pack-mirrors.ts): all of them,
+   * or those of these packs' files.
+   */
+  mirrorsHeld: boolean | readonly string[];
+  /** The lock's mirrors' bandwidth in bits per second (pack-mirrors.ts); 0: none. */
+  mirrorBitsPerSecond: number;
   port: number;
   context: BrowserContext;
   extensionId: string;
@@ -163,12 +172,19 @@ export const test = base.extend<{
   build: ["check", { option: true }],
   startPair: [["en", "ja"], { option: true }],
   mirrorsHeld: [false, { option: true }],
+  mirrorBitsPerSecond: [0, { option: true }],
   // eslint-disable-next-line no-empty-pattern
   port: async ({}, use) => {
     await use(await freePort());
   },
-  context: async ({ build, startPair, mirrorsHeld, port }, use) => {
-    const context = await launchWithExtension(build, port, mirrorsHeld);
+  context: async (
+    { build, startPair, mirrorsHeld, mirrorBitsPerSecond, port },
+    use,
+  ) => {
+    const context = await launchWithExtension(build, port, {
+      held: mirrorsHeld,
+      bitsPerSecond: mirrorBitsPerSecond,
+    });
     if (startPair) await useStartPair(context, startPair);
     await use(context);
     await context.close();

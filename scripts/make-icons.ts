@@ -4,6 +4,7 @@
 // Run after editing the SVG: node scripts/make-icons.ts
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright";
+import { OFF_FILTER } from "../src/ui/brand/off-filter.ts";
 
 const SIZES = [16, 32, 48, 128];
 const svg = readFileSync(
@@ -15,11 +16,7 @@ if (!svg.includes('width="128" height="128"'))
 
 const VARIANTS = [
   { dir: "../public/icon/", filter: "none" },
-  /** Gray, a little lighter and flatter: reads on light and dark toolbars alike. */
-  {
-    dir: "../public/icon-off/",
-    filter: "grayscale(1) brightness(1.15) contrast(0.85)",
-  },
+  { dir: "../public/icon-off/", filter: OFF_FILTER },
 ];
 
 const browser = await chromium.launch();

@@ -1,21 +1,22 @@
 import { t } from "../../i18n/t";
 import { ChevronUpIcon } from "../icons";
+import { LangleMark } from "../LangleMark";
 import { color, root } from "../styles";
 import { keepMenuOpen } from "./LangleMenu";
 
 export interface PlayerButtonsProps {
   enabled: boolean;
   menuOpen: boolean;
-  /** The L button. */
+  /** The on/off button with Langle's mark. */
   onToggle: () => void;
   /** The ^ button. */
   onMenu: () => void;
 }
 
 /**
- * Mock Main's group in the player bar: the L toggle and the ^ menu button in one
- * translucent white outline over a faint white tint, so they are not taken for the
- * site's own buttons. Both carry `data-langle-menu` and `keepMenuOpen`: pressing them is
+ * Mock Main's group in the player bar: the on/off button (Langle's mark, gray inside a
+ * dashed outline while Langle is off) and the ^ menu button in one translucent white
+ * outline over a faint white tint, so they are not taken for the site's own buttons. Both carry `data-langle-menu` and `keepMenuOpen`: pressing them is
  * not a click outside the menu.
  */
 export function PlayerButtons(props: PlayerButtonsProps) {
@@ -45,26 +46,20 @@ export function PlayerButtons(props: PlayerButtonsProps) {
         onClick={props.onToggle}
         style={{
           boxSizing: "border-box",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
           width: "36px",
           height: "36px",
           margin: 0,
           padding: 0,
           borderRadius: "8px",
-          font: "inherit",
-          fontWeight: 700,
-          fontSize: "15px",
+          background: "transparent",
           cursor: "pointer",
-          ...(on
-            ? { background: color.green, color: color.white, border: 0 }
-            : {
-                background: "transparent",
-                color: "#E4E6EB",
-                border: "1.5px dashed rgba(255,255,255,0.55)",
-                textDecoration: "line-through",
-              }),
+          border: on ? 0 : "1.5px dashed rgba(255,255,255,0.55)",
         }}
       >
-        L
+        <LangleMark size={26} gray={!on} />
       </button>
       <span
         aria-hidden="true"

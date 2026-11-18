@@ -111,6 +111,38 @@ describe("followPackStatus", () => {
     expect(f.asked).toHaveLength(2);
   });
 
+  it("keeps a pack marked as a fallback through the changes of its state", async () => {
+    const english: PackStatus = {
+      pair: {
+        packs: [
+          { pack: "en", size: 10, state: "ready", received: 10, total: 10 },
+          {
+            pack: "en-defs",
+            size: 30,
+            state: "downloading",
+            received: 0,
+            total: 30,
+            fallback: true,
+          },
+        ],
+      },
+      others: [],
+    };
+    const f = fake([english]);
+    const seen = vi.fn();
+    followPackStatus(f.deps, seen);
+    await flush();
+    f.change({ "en-defs": { state: "downloading", received: 9, total: 30 } });
+    expect(seen.mock.lastCall?.[0].pair.packs[1]).toEqual({
+      pack: "en-defs",
+      size: 30,
+      fallback: true,
+      state: "downloading",
+      received: 9,
+      total: 30,
+    });
+  });
+
   it("stops: no more status, no more watching", async () => {
     const f = fake([]);
     const seen = vi.fn();
@@ -133,5 +165,29 @@ describe("pairNote", () => {
       }),
     ).toBeNull();
     expect(pairNote(undefined)).toBeNull();
+  });
+
+  it("goes once the packs before the fallbacks can be used", () => {
+    const pair = (
+      defs: PackStatus["pair"]["packs"][number]["state"],
+    ): PackStatus => ({
+      pair: {
+        packs: [
+          { pack: "en", size: 10, state: "ready", received: 10, total: 10 },
+          { pack: "en-ja", size: 10, state: "ready", received: 10, total: 10 },
+          {
+            pack: "en-defs",
+            size: 30,
+            state: defs,
+            received: 3,
+            total: 30,
+            fallback: true,
+          },
+        ],
+      },
+      others: [],
+    });
+    expect(pairNote(pair("downloading"))).toBeNull();
+    expect(pairNote(pair("failed"))).toEqual({ state: "failed" });
   });
 });

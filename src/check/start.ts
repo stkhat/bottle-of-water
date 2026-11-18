@@ -1,4 +1,8 @@
 import { browser } from "wxt/browser";
+import { downloadTranslationModels } from "../content/translate/translator";
+import { PACK_STATE_KEY, type PackStates } from "../core/packs/state";
+import { send } from "../messaging/client";
+import { answerSettingsRequests } from "./settings-channel";
 import {
   answerLogRequest,
   answerPageRequests,
@@ -11,9 +15,12 @@ import {
   type LogRequest,
   type RecorderScope,
 } from "./error-log";
+import { mirrorEntry } from "./pack-mirrors";
+import type { MirrorEvent } from "../background/pack-store";
 
 /**
- * Check builds only: starts the error log in each kind of Langle context (error-log.ts).
+ * Check builds only: starts the error log in each kind of Langle context (error-log.ts),
+ * and the settings channel in the content scripts (settings-channel.ts).
  * Callers guard every call with `import.meta.env.MODE === "check"`, so other builds
  * leave this module out.
  */
@@ -28,23 +35,38 @@ const sessionStore = () => {
   }
 };
 
+/** What the service worker records in the log besides its console. */
+export interface WorkerLog {
+  /** Each try of a pack mirror (`PackStoreOptions.onMirror`). */
+  onMirror(event: MirrorEvent): void;
+}
+
 /**
  * In the service worker, first thing: records its own errors into the log and answers
  * the other contexts' messages. Call `isCheckLogMessage` in the worker's other
  * `onMessage` listener to leave these to this one.
  */
-export function startWorkerErrorLog(): void {
+export function startWorkerErrorLog(): WorkerLog {
   const log = createErrorLog(browser.storage.local);
-  recordErrors({
-    scope,
-    context: "service worker",
-    sink: (entry) => void log.append([entry]),
-  });
+  const context = "service worker";
+  recordErrors({ scope, context, sink: (entry) => void log.append([entry]) });
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!isLogRequest(message)) return;
     void answerLogRequest(log, message).then(sendResponse);
     return true;
   });
+  return {
+    onMirror(event) {
+      void log.append([
+        {
+          ...mirrorEntry(event),
+          context,
+          url: String(globalThis.location?.href ?? ""),
+          time: new Date().toISOString(),
+        },
+      ]);
+    },
+  };
 }
 
 export const isCheckLogMessage = isLogRequest;
@@ -76,9 +98,10 @@ const STARTED = Symbol.for("langle.checkErrorLog");
 
 /**
  * In a content script (`name`: "article", "youtube", "netflix"): records the script's
- * errors (not the page's) and answers a page's requests to read or clear the log.
+ * errors (not the page's) and answers a page's requests to read or clear the log, and
+ * (top frame only) to get or set the settings (settings-channel.ts).
  */
-export function startContentErrorLog(name: string): void {
+export function startContentCheck(name: string): void {
   const flags = globalThis as { [STARTED]?: true };
   if (flags[STARTED]) return;
   flags[STARTED] = true;
@@ -92,5 +115,21 @@ export function startContentErrorLog(name: string): void {
     context,
     relay,
     ask: (action) => ask({ type: MESSAGE_TYPE, action }),
+  });
+  // One answer per tab: a frame's script (if one ever runs there) stays silent. The
+  // flag above already keeps it to one script per frame.
+  if (window.top !== window) return;
+  answerSettingsRequests({
+    window,
+    getSettings: () => send({ type: "getSettings" }),
+    // What Settings sends: the background's one write, which packs and pages follow.
+    setSettings: (patch) => send({ type: "setSettings", patch }),
+    packStates: async () =>
+      ((await browser.storage.local.get(PACK_STATE_KEY))[PACK_STATE_KEY] ??
+        {}) as PackStates,
+    // Settings starts the translator's models on a choice; without a user activation
+    // Chrome may refuse, and the dictionary window's click starts them later.
+    pairChosen: (learning, native) =>
+      void downloadTranslationModels(learning, native),
   });
 }

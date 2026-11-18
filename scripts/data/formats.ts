@@ -13,6 +13,12 @@ import {
 /** The npm organization `langle` (user, 2026-11-18). */
 const NPM_SCOPE = "@langle";
 
+/**
+ * The repository the packs are published from. npm's provenance names it, and npm
+ * refuses a package whose `repository.url` does not match it.
+ */
+export const REPOSITORY_URL = "https://github.com/stkhat/langle";
+
 /** Where the full notices that WordNet-style licenses ask every copy to carry are kept. */
 export const NOTICES_DIR = join(ROOT, "scripts", "data", "licenses");
 
