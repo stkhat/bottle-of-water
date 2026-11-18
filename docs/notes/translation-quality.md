@@ -134,6 +134,7 @@ Every rule is general: it is driven by grammar, the sources' own structure and s
   - 901 → 7,597 phrases with Japanese.
 
 ### What a Spanish → English instance needs
+Measured and prototyped on real Spanish content in [spanish-quality.md](spanish-quality.md) (2026-11-18).
 - **LEARNING**:
   - A tagger trained on UD Spanish (AnCora/GSD, CC BY(-SA)).
   - Determiners; empty particles.
