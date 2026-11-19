@@ -5,6 +5,7 @@ import type { Plugin } from "vite";
 import { netflixSubtitleBody } from "./tests/netflix-subtitles.ts";
 import { timedtextBody } from "./tests/youtube-timedtext.ts";
 import { unit } from "./vitest.unit.config.ts";
+import { noticesPlugin } from "./scripts/notices.ts";
 
 // Playwright's Firefox may not launch on some dev machines; e.g. VITEST_BROWSERS=chromium
 const browsers = (process.env.VITEST_BROWSERS ?? "chromium,firefox")
@@ -61,7 +62,12 @@ export default defineConfig({
     projects: [
       unit,
       {
-        plugins: [preact(), timedtextFixtures(), netflixFixtures()],
+        plugins: [
+          preact(),
+          noticesPlugin(),
+          timedtextFixtures(),
+          netflixFixtures(),
+        ],
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.{ts,tsx}"],

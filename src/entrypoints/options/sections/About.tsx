@@ -2,7 +2,11 @@ import { t } from "../../../i18n/t";
 import { color } from "../../../ui/styles";
 import { Section } from "../rows";
 
-export function AboutSection(props: { version: string }) {
+/**
+ * The version and a one-line credit of the data's sources; "Licenses" opens the data
+ * sources and licenses page (`entrypoints/notices`) in a new tab.
+ */
+export function AboutSection(props: { version: string; noticesUrl: string }) {
   return (
     <Section id="about" label="settings.section.about" gap="8px">
       <p
@@ -14,6 +18,10 @@ export function AboutSection(props: { version: string }) {
         }}
       >
         {t("settings.about.line", { version: props.version })}
+        {" · "}
+        <a href={props.noticesUrl} target="_blank" rel="noopener">
+          {t("settings.about.licenses")}
+        </a>
       </p>
     </Section>
   );

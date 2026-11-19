@@ -111,6 +111,7 @@ function fake(options: FakeOptions = {}) {
       explainProvider: options.explainProvider,
     }),
     version: "0.1.0",
+    noticesUrl: "chrome-extension://langle/notices.html",
     now: () => NOW,
     download: (name, text) => downloads.push({ name, text }),
     refreshMs: 60_000,
@@ -986,14 +987,31 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("shows the version and the data notices", async () => {
+  it("shows the version, a one-line credit and the Licenses link", async () => {
     const f = await open();
+    const about = section(f.screen, "About");
     await expect
       .element(
-        section(f.screen, "About").getByText(
-          "Langle 0.1.0 · English–Japanese dictionary: EJDict-hand (public domain) · Word forms, frequency data, definitions and the other dictionaries: Wiktionary in English, Spanish, Portuguese, Russian, French, German, Chinese, Italian and Polish (CC BY-SA); Princeton WordNet, Chinese Open Wordnet, MultiWordNet, ItalWordNet and plWordNet · Part-of-speech taggers: Universal Dependencies English EWT and Spanish GSD (CC BY-SA), Spanish AnCora (CC BY)",
+        about.getByText(
+          "Langle 0.1.0 · Data: Wiktionary (CC BY-SA), EJDict-hand, wordnets, Universal Dependencies · Licenses",
         ),
       )
       .toBeVisible();
+    const link = about.getByRole("link", { name: "Licenses" });
+    await expect
+      .element(link)
+      .toHaveAttribute("href", "chrome-extension://langle/notices.html");
+    await expect.element(link).toHaveAttribute("target", "_blank");
+    // One line at the mock's width (it was five).
+    await page.viewport(1440, 900);
+    try {
+      const text = link.element().parentElement!;
+      const lineHeight = parseFloat(getComputedStyle(text).lineHeight);
+      expect(text.getBoundingClientRect().height).toBeLessThan(
+        lineHeight * 1.5,
+      );
+    } finally {
+      await page.viewport(1200, 800);
+    }
   });
 });

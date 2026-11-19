@@ -16,6 +16,7 @@ mountPage(() => {
     env: createBrowserEnv(),
     explainProvider: chromePromptApi(),
     version: browser.runtime.getManifest().version,
+    noticesUrl: browser.runtime.getURL("/notices.html"),
     now: Date.now,
     download,
     refreshMs: 30_000,
