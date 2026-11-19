@@ -110,6 +110,12 @@ describe("senseOrder (rule A2)", () => {
     ];
     expect(senseOrder(avoir, AUXILIARY)).toEqual([1, 0]);
     expect(senseOrder(avoir, "verb")).toBeUndefined();
+    // An edition's sense the data build labelled an auxiliary's (es "haber").
+    const esHave: Sense[] = [
+      { pos: "verb", text: "tener" },
+      { pos: "auxiliary", text: "haber (como verbo auxiliar)" },
+    ];
+    expect(senseOrder(esHave, AUXILIARY)).toEqual([1, 0]);
   });
 });
 

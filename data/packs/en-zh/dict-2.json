@@ -1,5 +1,4 @@
 {
-"fluvial":["河流的",[["adjective","河流的","of, pertaining to, inhabiting, or produced by the action of a river or stream"]],0],
 "flux":["流动率",[["noun","流动率","the rate of flow of energy or particles across a given surface"],["verb","涌出, 川流不息","move or progress freely as if in a stream"],["noun","助焊剂","a substance added to molten metals to bond with impurities that can then be readily removed"],["verb","联合, 结合, 混合","mix together different elements"]],2],
 "flux capacitor":["通量电容器",[["noun","通量电容器","the device that enables time travel"]],0],
 "fly":["苍蝇",[["noun","苍蝇, 蝇, 蝇子","insect of the family Muscidae"],["verb","飞, 飞行, 坐飞机","to travel through air"],["noun","双翅目","insect of the order Diptera"],["noun","裤子的拉链, 裤门","strip that hides the opening of trousers/pants or underpants — see also zipper"]],0],
@@ -6413,7 +6412,7 @@
 "inflorescence":["花序",[["noun","花序","flower cluster"]],0],
 "inflow":["流入",[["noun","流入","a flow in"]],0],
 "influence":["影响",[["noun","影响","power to affect, control or manipulate"]],0],
-"influencer":["影响者",[["noun","影响者, 意见领袖, 影响因子","that which influences"]],0],
+"influencer":["影响者 [自17世纪]",[["noun","影响者 [自17世纪]"],["noun","网路红人，在社交媒体上有影响力的人"]],1],
 "influential":["有影响",[["adjective","有影响, 有影响力","having considerable influence"]],0],
 "influenza":["流行性感冒",[["noun","流行性感冒, 流感","an acute contagious disease of the upper airways and lungs"]],0],
 "influx":["注入",[["noun","注入, 涌入, 流入","the process of flowing in"]],2],
@@ -14026,7 +14025,6 @@
 "ominously":["不详地",[["adverb","不详地, 不吉利地","in an ominous manner"]],0],
 "omission":["省略",[["noun","省略","the act of omitting"],["noun","不作为","the act of neglecting to perform an action one has an obligation to do"]],0],
 "omit":["省略",[["verb","省略","to leave out or exclude"],["verb","遗漏","to neglect or take no notice of"]],0],
-"omnibus":["公共汽车",[["noun","公共汽车, 巴士, 公车","vehicle"]],0],
 "omnipotence":["全能，无所不能（常归因于神祇）",[["noun","全能，无所不能（常归因于神祇）"]],1],
 "omnipotent":["全能的",[["adjective","全能的","having unlimited power, force or authority"]],0],
 "omnipresence":["无往不在",[["noun","无往不在, 无所不在, 到处存在","the ability to be at all places at the same time"]],0],
@@ -18091,5 +18089,8 @@
 "psychosomatic":["心理作用引起的",[["adjective","心理作用引起的, 身心","of physical effects with mental causes"]],0],
 "psychotherapist":["心理谘商师",[["noun","心理谘商师, 心理咨询师","who practices psychotherapy"]],0],
 "psychotherapy":["心理疗法",[["noun","心理疗法, 心理治疗, 精神疗法","treatment of those with mental illness"]],0],
-"psychotic":["精神错乱的",[["adjective","精神错乱的, 患精神病的, 精神病的","characteristic of or suffering from psychosis"]],2]
+"psychotic":["精神错乱的",[["adjective","精神错乱的, 患精神病的, 精神病的","characteristic of or suffering from psychosis"]],2],
+"pta":["peseta的缩写",[["noun","peseta的缩写",null,"peseta"]],1],
+"ptarmigan":["鹧鸪",[["noun","鹧鸪, 雷鸟","a small grouse, Lagopus"]],0],
+"pteridophyte":["蕨类",[["noun","蕨类"]],1]
 }

@@ -55,11 +55,14 @@ export const isAuxiliary = (pos: string | undefined) =>
 const AUXILIARY_SENSE = /\bauxiliary\b/i;
 
 /**
- * The source calls the sense an auxiliary's: it marks it so (`Sense.auxiliary`), or its
- * English sense says so (`AUXILIARY_SENSE`).
+ * The source calls the sense an auxiliary's: a learning pack marks it so
+ * (`Sense.auxiliary`), the data build labels it so (an edition's "haber (como verbo
+ * auxiliar)": PAIR "Auxiliary senses"), or its English sense says so (`AUXILIARY_SENSE`).
  */
 const auxiliarySense = (sense: Sense) =>
-  sense.auxiliary === true || AUXILIARY_SENSE.test(sense.hint ?? "");
+  sense.auxiliary === true ||
+  sense.pos === AUXILIARY ||
+  AUXILIARY_SENSE.test(sense.hint ?? "");
 
 /** Some sense its source calls an auxiliary's (`auxiliarySense`). */
 export const hasAuxiliarySense = (senses: readonly Sense[]) =>
