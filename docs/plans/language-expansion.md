@@ -1,6 +1,6 @@
 # Plan: language expansion
 
-More native languages for English learners, and Spanish learning brought to English's level. Background and measurements: [translation-data-expansion](../notes/translation-data-expansion.md), [learner matrix](../notes/learner-matrix.md). Each milestone is one branch and pull request; decisions move into the spec or status once merged.
+More native languages for English learners, and Spanish learning brought to English's level. Background and measurements: [translation-data-expansion](../notes/translation-data-expansion.md), [learner matrix](../notes/learner-matrix.md). Each milestone is one branch and pull request; decisions move into the spec or status once merged. Round 2 (2026-11-19) adds French and German as learning languages (user's choice).
 
 ## Milestones
 - **D0 Unbundle** (user, 2026-11-18): no pack is bundled; every pack is downloaded from npm (`@langle/<pack>`), so a user carries only the pairs they chose. A new install chooses its pair from the browser's UI language and downloads it at once ([architecture](../specs/architecture.md) "Distribution"). Size guard per pair (≤ 40 MB raw) instead of all packs
@@ -11,6 +11,12 @@ More native languages for English learners, and Spanish learning brought to Engl
 - **D5 Measure tr, uk, ko, id, th**: gate coverage with tables, editions and OMW; add those that pass
 - **U1 Native-side quality**: the `real-content-quality` skill over the 2026-11 English corpus for each native language's meanings, es and pt first, then each new native
 - **U2 Spanish learning to English's level**: a part-of-speech tagger, names, accent-aware patterns, phrase parts of speech, rule E (vocabulary from Wiktionary)
+- **C1 Real-site check of round 1** in the user's Chrome: Spanish article, YouTube and Netflix on es→en ([spanish-quality](../notes/spanish-quality.md) "Suggested order" step 7); English pages with en→es, en→fr, en→zh, en→ru for U1-5 to U1-8; the progressive first download; the translator model download; About → Licenses; YouTube reload and a new tab's first load
+- **L0 Measure French and German as learning languages**: gate coverage of fr→en, de→en and fr/de → each offered native; licensed treebanks, frequency lists, names
+- **L1 French learning** (user, 2026-11-19): L1-1 the `fr` pack and the fr→en pair (corpus, `data:fr`, elision, contractions, wiring, Settings), L1-2 tagger and grammar, L1-3 names and vocabulary, L1-4 phrases
+- **L2 German learning** (user, 2026-11-19): the same steps for `de` and de→en, with separable verbs, capitalised nouns and verb-final clauses
+- **L3 French and German → other natives** that pass the gate: the recipes generalised from en→N to L→N
+- **Q1 Native leftovers** (U1-9) and **Q2 Spanish leftovers** (U2-7): the "Still open" points of the U1 and U2 steps ([status](../status.md))
 
 ## Checklist
 - [x] D0 unbundle: packs moved to `data/packs/`, lock without `bundled`, first pair from the UI language, install-time download, E2E through routed mirrors, per-pair size guard, docs. Before merging: `@langle/en`, `@langle/en-ja`, `@langle/en-defs` published to npm by hand
@@ -20,5 +26,12 @@ More native languages for English learners, and Spanish learning brought to Engl
 - [x] D3 natives zh, it, pl: zh from the Mandarin rows of the tables, the zh edition and the Chinese Open Wordnet, all in simplified characters (OpenCC dictionaries at build time); it from the tables, Wikizionario, MultiWordNet and ItalWordNet; pl from Wikisłownik first, the tables and plWordNet (without its edition pl is under the gate, 94.5%); orders judged blind; names, smoke and E2E download tests. Before merging: `@langle/en-zh`, `@langle/en-it`, `@langle/en-pl` (new packages) and the new `@langle/en-defs` (and any changed D2 pack) versions published to npm by hand
 - [x] D4 vi: dropped
 - [x] D5 measure tr, uk, ko, id, th: none passes (th 93.9, id 92.7, ko 89.1, tr 86.8, uk 80.7% with main senses); id and th reach 95% only if a lesser wordnet sense could cover a term alone, which D1 ruled out. Nothing added
-- [ ] U1 native-side quality (es, pt, then each new native)
-- [ ] U2 Spanish learning pack (tagger, names, accent-aware patterns, phrase POS, rule E)
+- [x] U1 native-side quality: U1-1 to U1-8 (A1 fallback, edition pointers, capitalised headwords, short lines, contractions, sense order, data hygiene, follow-ups) for every native ([notes](../notes/native-quality.md) "Suggested order"); merged in #116–#142
+- [x] U2 Spanish learning: U2-1 to U2-6 (CORE fixes, tagger and grammar, vocabulary, names, phrases, pronominal verbs, contractions and accents in capitals; [notes](../notes/spanish-quality.md) "Suggested order"); merged in #116–#142
+- [x] C1 real-site check of round 1 in the user's Chrome (es→en on an article, YouTube and Netflix; en→es, en→fr, en→zh, en→ru; progressive first download; translator model download; About → Licenses; YouTube reload and new-tab first load): done 2026-11-19 ([status](../status.md) "Real-site check C1"); fixed: K4 over own contraction lines, articles follow the learning language, the check channel's `remove`. Follow-ups for C1b: names after an article ("los Andes" → andar), regional spelling pointers in English definitions, capitalised month lines (es, fr), parallel pack file downloads; the Licenses page itself is out of Claude in Chrome's reach
+- [ ] L0 measure French and German as learning languages (gate coverage of fr→en, de→en and fr/de → each offered native; licensed treebanks, frequency lists, names)
+- [ ] L1 French learning: L1-1 pack and fr→en pair, L1-2 tagger and grammar, L1-3 names and vocabulary, L1-4 phrases
+- [ ] L2 German learning: the same steps, with separable verbs, capitalised nouns and verb-final clauses
+- [ ] L3 French and German → other natives that pass the gate (recipes from en→N to L→N)
+- [ ] Q1 native leftovers (U1-9)
+- [ ] Q2 Spanish leftovers (U2-7)
