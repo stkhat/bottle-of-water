@@ -197,7 +197,8 @@ function runsOf(words: readonly number[]): [number, number][] {
  * - With the document's casing (a mixed-case document, a language whose capitals mark
  *   names): a name (`nameVerdict`) is ignored, even a saved word, unless it keeps a
  *   capitalised meaning; that one and a word capitalised in a way that counts
- *   (`capitalHere`) get `capital`.
+ *   (`capitalHere`) get `capital`, unless the language capitalises common words only
+ *   in names and titles (`LanguagePack.capitalsForNames`).
  * - With a tagger, each sentence is tagged once. A dictionary phrase is matched only
  *   where its context fits it (`phraseMisfit`: "what kind of music" is no adverb "kind
  *   of"); its words are words otherwise. A discourse marker at a clause start takes
@@ -275,7 +276,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
           return {};
         const name = names(written, before(i));
         if (name === "name") return { category: "ignored", name: true };
-        return name === "kept" || capitalHere(casing, written)
+        return name === "kept" ||
+          (!pack.capitalsForNames && capitalHere(casing, written))
           ? { capital: true }
           : {};
       };

@@ -53,6 +53,7 @@ const files: Record<string, unknown> = {
   "/packs/es/ipa.json": { comer: "/koˈmeɾ/" },
   "/packs/es/vocab.json": ["casa", "casar", "comer", "de"],
   "/packs/es/phrases.json": { detect: ["a escondidas"], more: [], gap: [] },
+  "/packs/es/names.json": { marina: "g" },
   "/packs/es/pos.json": { comer: ["verb", "noun"] },
   "/packs/es/tagger.json": TAGGER,
   "/packs/es-en/index.json": {
@@ -145,6 +146,7 @@ describe("createPackLoader", () => {
       ipa: { comer: "/koˈmeɾ/" },
       vocab: ["casa", "casar", "comer", "de"],
       phrases: { detect: ["a escondidas"], more: [], gap: [] },
+      names: { marina: "g" },
       pos: { comer: ["verb", "noun"] },
       tagger: TAGGER,
     });
@@ -154,6 +156,7 @@ describe("createPackLoader", () => {
       "/packs/es/lemmas/dict-1.json",
       "/packs/es/lemmas/dict-2.json",
       "/packs/es/lemmas/index.json",
+      "/packs/es/names.json",
       "/packs/es/phrases.json",
       "/packs/es/pos.json",
       "/packs/es/tagger.json",
@@ -234,7 +237,7 @@ describe("createPackLoader", () => {
     expect(after).toEqual(before);
     expect(after).not.toBe(before);
     expect(await loadPack("es")).toBe(es);
-    expect(fetchJson).toHaveBeenCalledTimes(3 + 9 + 3);
+    expect(fetchJson).toHaveBeenCalledTimes(3 + 10 + 3);
   });
 
   it("keeps the new load when a load forgotten mid-way then fails", async () => {

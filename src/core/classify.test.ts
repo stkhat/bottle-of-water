@@ -914,6 +914,90 @@ describe("names in runs of capitalised words (rule D, whole names)", () => {
   });
 });
 
+describe("capitalised inflected forms (rule D, a language that capitalises only names)", () => {
+  // Ranks: estado 1, unido 2, salar 3, el 4; every other word is rare.
+  const data = {
+    lemmas: {
+      bruna: "bruno",
+      estados: "estado",
+      unidos: "unido",
+      salad: "salar",
+      hales: "halar",
+      imagínate: "imaginar",
+      las: "el",
+    },
+    freq: ["estado", "unido", "salar", "el"],
+    ipa: {},
+    vocab: new Set([
+      ...["vimos", "a", "y", "en", "de", "la", "gente", "calle", "leímos"],
+      ...["bruno", "estado", "unido", "salar", "halar", "imaginar", "el"],
+      ...["marina"],
+    ]),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: { el: ["article"], la: ["article"] },
+    names: { marina: "g" },
+  };
+  const verdicts = (lang: string, ...blocks: string[]) => {
+    const pack = createLanguagePack(lang, data);
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(pack.tokenize(b), lang)),
+    );
+    return blocks.flatMap((block) =>
+      createClassifier(pack)
+        .classify(pack.tokenize(block), {
+          terms: terms(),
+          knownLevel: 0,
+          casing,
+        })
+        .map((s) => ({ ...s, text: block.slice(s.start, s.end) }))
+        .filter((s) => /^\p{Lu}/u.test(s.text) && s.text !== "Vimos")
+        .map(
+          (s) =>
+            `${s.text}:${s.name ? "name" : s.capital ? "capital" : s.category}`,
+        ),
+    );
+  };
+
+  it("takes a form whose bases are all rare for a name, and keeps a common word's form", () => {
+    expect(verdicts("es", "Vimos a Bruna en Estados Unidos.")).toEqual([
+      "Bruna:name",
+      "Estados:new",
+      "Unidos:new",
+    ]);
+  });
+  it("takes a form right after a capitalised word the language does not know for a name", () => {
+    // salar is common, but "My" is no Spanish word: a foreign title.
+    expect(verdicts("es", "Leímos My Salad de Stephen Hales.")).toEqual([
+      "Leímos:new",
+      "My:ignored",
+      "Salad:name",
+      "Stephen:ignored",
+      "Hales:name",
+    ]);
+  });
+  it("takes no form for a name after a determiner, in a document without punctuation, or in a language that capitalises common words", () => {
+    expect(verdicts("es", "Vimos a Bruna.", "Vimos la Bruna.")).toEqual([
+      "Bruna:name",
+      "Bruna:new",
+    ]);
+    // Speech recognition: no commas in 60 words, turn starts capitalised.
+    const asr = Array.from(
+      { length: 6 },
+      (_, i) =>
+        `vimos a la gente en la calle ${i === 2 ? "Imagínate" : "y"} vimos a Marina`,
+    ).join(" ");
+    expect(verdicts("es", asr)).toEqual([
+      ...Array.from({ length: 2 }, () => "Marina:name"),
+      "Imagínate:new",
+      ...Array.from({ length: 4 }, () => "Marina:name"),
+    ]);
+    expect(verdicts("es", "Vimos a la gente en la calle y Imagínate.")).toEqual(
+      ["Imagínate:name"],
+    );
+    expect(verdicts("en", "Vimos a Bruna.")).toEqual(["Bruna:capital"]);
+  });
+});
+
 describe("keys and parts of speech by tags (rules A1 and A2)", () => {
   // The tagger is sure of these words only: "decided" a past tense, "fine" an
   // adjective, "the" a determiner; "Mark" a proper noun.

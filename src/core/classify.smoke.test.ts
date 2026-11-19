@@ -477,6 +477,75 @@ describe("Spanish tags over the generated packs (rules A1 and A2)", () => {
   });
 });
 
+describe("Spanish names over the generated packs (rule D)", () => {
+  const withNames = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    patterns: es.phrases,
+    pos: es.pos,
+    names: es.names,
+    tagger: es.tagger,
+  });
+  const classifier = createClassifier(withNames);
+  const dictionary = createDefsDictionary({ defs: esEn.defs, ipa: es.ipa });
+  /** Each word of `blocks` (one document) as "Word:name", "Word:<key>". */
+  const read = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(withNames.tokenize(b), "es")),
+    );
+    return blocks.flatMap((block) =>
+      classifier
+        .classify(withNames.tokenize(block), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+          outline: (key) => dictionary.outline(key),
+        })
+        .filter((s) => s.kind === "word")
+        .map((s) => {
+          const text = block.slice(s.start, s.end);
+          return `${text}:${s.name ? "name" : s.key}`;
+        }),
+    );
+  };
+
+  it("ignores names the lexicon has, also those a case-folded list ranks as common words", () => {
+    const words = read(
+      "Ayer Marina viajó a Chile y luego a Japón con Mercedes Sosa.",
+      "En Chile, Marina comió en casa de Rosa.",
+    );
+    for (const name of ["Marina", "Chile", "Japón", "Mercedes", "Sosa", "Rosa"])
+      expect(words, name).toContain(`${name}:name`);
+    expect(words).not.toContain("Ayer:name");
+    expect(es.names.chile).toMatch(/c/);
+  });
+  it("takes a capitalised form that only a rare or foreign reading explains for a name, and keeps a common word's", () => {
+    const words = read(
+      "El libro What Caesar Did For My Salad habla de comida.",
+      "Lo dijo el fisiólogo Stephen Hales, y viajó a Estados Unidos.",
+    );
+    expect(words).toContain("Salad:name");
+    expect(words).toContain("Hales:name");
+    expect(words).toContain("Estados:estado");
+  });
+  it("keeps a chili pepper in lower case and a capitalised turn start in speech recognition", () => {
+    expect(read("Me gusta el chile con limón.")).toContain("chile:chile");
+    // YouTube's Spanish speech recognition: no commas, turn starts capitalised.
+    const turns = Array.from(
+      { length: 8 },
+      (_, i) =>
+        `y bueno ahí vamos ${["Entonces", "Yo"][i % 2]} creo que la comida está muy rica`,
+    ).join(" ");
+    const words = read(turns);
+    expect(words).toContain("Entonces:entonces");
+    expect(words).toContain("Yo:yo");
+    expect(words.filter((w) => w.endsWith(":name"))).toEqual([]);
+  });
+});
+
 describe("tags over the generated packs (rules A1 and A2)", () => {
   const tagged = createLanguagePack("en", {
     lemmas: en.lemmas,

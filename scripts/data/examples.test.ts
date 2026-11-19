@@ -1,6 +1,11 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { countExamples, examplePieces, phraseVariants } from "./examples.ts";
+import {
+  countExamples,
+  createCaseCounter,
+  examplePieces,
+  phraseVariants,
+} from "./examples.ts";
 
 describe("examplePieces", () => {
   it("cuts the entry's own headword out where kaikki marks it in bold", () => {
@@ -54,5 +59,37 @@ describe("countExamples", () => {
     expect(counts.phrases.get("new york")).toBe(1);
     expect(counts.words.get("know")).toBe(6);
     expect(counts.tokens).toBeGreaterThan(40);
+  });
+});
+
+describe("createCaseCounter", () => {
+  const entry = (lang: string, ...texts: string[]) => ({
+    word: "x",
+    lang_code: lang,
+    senses: [{ glosses: ["x"], examples: texts.map((text) => ({ text })) }],
+  });
+
+  it("counts a word capitalised inside a sentence and in lower case", () => {
+    const cases = createCaseCounter("es");
+    cases.add(
+      entry(
+        "es",
+        "Viajé a Chile en mayo, y luego a Chile, 2 veces.",
+        "Me gusta el chile.",
+      ),
+    );
+    expect(cases.counts.get("chile")).toEqual([2, 1]);
+  });
+  it("leaves out sentence starts, words after punctuation or a quote, and other languages", () => {
+    const cases = createCaseCounter("es");
+    cases.add(entry("es", "Chile es largo. Chile es «Chile» (Chile)."));
+    cases.add(entry("en", "We went to Chile."));
+    expect(cases.counts.get("chile")).toBeUndefined();
+  });
+  it("leaves out ALL-CAPS words", () => {
+    const cases = createCaseCounter("es");
+    cases.add(entry("es", "la sede de la ONU en Ginebra"));
+    expect(cases.counts.get("onu")).toBeUndefined();
+    expect(cases.counts.get("ginebra")).toEqual([1, 0]);
   });
 });

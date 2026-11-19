@@ -24,7 +24,8 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
   "en-ja": 4,
   "en-defs": 1,
   // 2: pos.json and tagger.json (2026-11-18). 3: lemmas in shards, lemmas/ (2026-11-19).
-  es: 3,
+  // 4: names.json (2026-11-19).
+  es: 4,
   "es-en": 1,
   ...(Object.fromEntries(
     RECIPE_PAIRS.map(([pack, native]) => [
