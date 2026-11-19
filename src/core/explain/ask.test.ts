@@ -4,6 +4,7 @@ import {
   fakeExplanationProvider,
   HANG,
 } from "../../testing/explain";
+import { ANSWER_SCHEMA, PHRASE_ANSWER_SCHEMA } from "./answer";
 import { answerVersion, ask, BadAnswerError } from "./ask";
 import { ContextTooLongError } from "./context";
 import { instructions, type ExplainInput } from "./prompt";
@@ -97,7 +98,47 @@ describe("ask", () => {
   });
 });
 
+describe("ask for selected words", () => {
+  it("asks with the phrase's schema and keeps the phrase", async () => {
+    const { provider, log } = fakeExplanationProvider({
+      answers: [
+        answerJson({ meaning: "決心する", phrase: " make up one's mind " }),
+      ],
+    });
+    const { answer } = await ask(
+      provider,
+      { ...INPUT, senses: [], selected: true },
+      signal(),
+    );
+    expect(answer).toEqual({
+      meaning: "決心する",
+      sense: null,
+      phrase: "make up one's mind",
+    });
+    expect(log.schemas).toEqual([PHRASE_ANSWER_SCHEMA]);
+  });
+
+  it("keeps no phrase for words not selected", async () => {
+    const { provider, log } = fakeExplanationProvider({
+      answers: [answerJson({ phrase: "bank" })],
+    });
+    const { answer } = await ask(provider, INPUT, signal());
+    expect(answer).not.toHaveProperty("phrase");
+    expect(log.schemas).toEqual([ANSWER_SCHEMA]);
+  });
+});
+
 describe("answerVersion", () => {
+  it("differs for selected words, where the answer has a phrase", () => {
+    const ja = { learning: "en", native: "ja" };
+    expect(answerVersion({ ...ja, selected: true })).not.toBe(
+      answerVersion(ja),
+    );
+    // Spanish has no phrase note: the same answers either way.
+    const es = { learning: "es", native: "en" };
+    expect(answerVersion({ ...es, selected: true })).toBe(answerVersion(es));
+  });
+
   it("is the same for a pair and differs between pairs", () => {
     const ja = { learning: "en", native: "ja" };
     expect(answerVersion(ja)).toBe(answerVersion({ ...ja }));

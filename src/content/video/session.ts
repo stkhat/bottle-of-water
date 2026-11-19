@@ -21,6 +21,7 @@ import type { SaveTermInput, SourceInput } from "../../messaging/protocol";
 import {
   createExplainPanel,
   shownAnswer,
+  type CorrectedPhrase,
   type ExplainTarget,
 } from "../explain/panel";
 import { videoPlace } from "../explain/place";
@@ -133,6 +134,11 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     send: deps.send,
     settings: () => settings,
     show: (view) => store.set({ explain: view }),
+    // Runs in the lookup's queue (`saveCorrectPhrase`).
+    async savePhrase(phrase) {
+      const w = watch;
+      if (w) await saveCorrected(w, phrase);
+    },
   });
   const cards = createCards({
     store,
@@ -163,6 +169,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
           kind: card.kind,
           ...place,
           senses: packSenses(card),
+          ...(ref.selected && { selected: true }),
         },
         key: card.key,
         sourceUrl: adapter.url(),
@@ -507,6 +514,33 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     if (watch === w) w.summaries.meaningChosen(card.key);
   }
 
+  /**
+   * A corrected phrase of the window's selected words: saved as Learning from its card
+   * (the selection itself stays unsaved), highlighted, and shown in the window.
+   */
+  async function saveCorrected(w: Watch, phrase: CorrectedPhrase) {
+    const ref = store.get().panel?.ref;
+    const input = ref && termInput(ref.cue, phrase.display);
+    if (!ref || !input) return;
+    const { key } = phrase;
+    await deps.send({
+      type: "saveTerm",
+      ...input,
+      key,
+      kind: "phrase",
+      status: "learning",
+    });
+    w.recorder.savedFrom(key, ref.cue);
+    w.summaries.note([[key, "learning"]]);
+    deps.onTermsChanged?.();
+    // The phrase may be in any cue: classify again to highlight it.
+    await analyzeAll(w);
+    if (watch !== w) return;
+    const span = store.get().spans[ref.cue]?.findIndex((s) => s.key === key);
+    if (span !== undefined && span >= 0)
+      cards.clickWord({ cue: ref.cue, span });
+  }
+
   /** Chooses (or undoes) `pick`'s meaning of the window's term for its card. */
   function choose(pick: (card: TermCard) => Choice | undefined) {
     const panel = store.get().panel;
@@ -633,6 +667,9 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       const answer = shownAnswer(store.get().explain);
       if (answer) choose((card) => answerChoice(card, answer));
     },
+    editCorrectPhrase: explain.editPhrase,
+    cancelCorrectPhrase: explain.cancelPhrase,
+    saveCorrectPhrase: (text) => run(() => explain.savePhrase(text)),
     speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel: cards.closePanel,
     seekTo(ms) {

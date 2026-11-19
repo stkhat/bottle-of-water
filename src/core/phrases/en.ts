@@ -30,6 +30,7 @@ export const ENGLISH_RULES: PhraseRules = {
     ],
   ]),
   possessiveSlot: "someone's",
+  ownSlot: "one's",
   // Contractions of "is" / "has" / "us" that end like a possessive ("nobody's" can be
   // either, so it stays a possessive).
   notPossessive: new Set(

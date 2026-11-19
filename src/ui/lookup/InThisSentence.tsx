@@ -1,7 +1,8 @@
 import type { CSSProperties } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { Answer } from "../../core/explain/answer";
 import { t } from "../../i18n/t";
-import { SparkleIcon } from "../icons";
+import { PencilIcon, SparkleIcon } from "../icons";
 import { Meter } from "../Meter";
 import { color, sectionHeading } from "../styles";
 
@@ -17,8 +18,26 @@ export type ExplainView =
   | { state: "downloading"; /** 0 to 1 */ loaded: number }
   | { state: "reading" }
   | { state: "starting" }
-  | { state: "answer"; answer: Answer }
+  | { state: "answer"; answer: Answer; phrase?: PhraseView }
   | { state: "error" };
+
+/**
+ * The phrase under the answer, for selected words (mock CorrectPhrase): the AI's
+ * proposal in dictionary form, "Edit phrase" when it has none, or the edit with why the
+ * typed phrase cannot be saved.
+ */
+export type PhraseView =
+  | { state: "proposal"; key: string }
+  | { state: "none" }
+  | {
+      state: "editing";
+      /** What the field starts with. */
+      text: string;
+      /** The typed phrase that could not be saved, and why. */
+      problem?: { text: string; why: "words" | "sentence" };
+      /** Being checked and saved. */
+      busy?: boolean;
+    };
 
 export interface InThisSentenceProps {
   view: ExplainView;
@@ -36,6 +55,11 @@ export interface InThisSentenceProps {
   onRetry(): void;
   /** "Use this meaning", or undoing "Used here". */
   onUse(): void;
+  /** The pencil, or "Edit phrase". */
+  onEditPhrase?(): void;
+  onCancelPhrase?(): void;
+  /** "Save phrase": the proposal (no text), or the phrase typed. */
+  onSavePhrase?(text?: string): void;
 }
 
 type Style = CSSProperties;
@@ -84,6 +108,9 @@ const META: Style = { fontSize: "12px", color: color.muted };
 
 const CSS = [
   `[data-explain]:hover{background:${color.hlLearning}}`,
+  `[data-phrase-save]:hover{background:${color.greenPale}}`,
+  `[data-quiet]:hover{background:${color.soft}}`,
+  `[data-phrase-field]:focus{outline:2px solid ${color.greenBright};outline-offset:-1px;border-color:${color.greenBright}}`,
   `@keyframes langle-pulse{0%,100%{opacity:1}50%{opacity:.45}}`,
   `[data-pulse]{animation:langle-pulse 1.2s ease-in-out infinite}`,
   `@media (prefers-reduced-motion: reduce){[data-pulse]{animation:none}}`,
@@ -275,6 +302,201 @@ function AnswerCard(
           {t("dict.explain.meta")}
         </span>
       </div>
+      {props.view.phrase && (
+        <>
+          <span
+            aria-hidden="true"
+            style={{
+              display: "block",
+              height: "1px",
+              background: color.line,
+              margin: "4px 0 2px",
+            }}
+          ></span>
+          <Phrase {...props} phrase={props.view.phrase} />
+        </>
+      )}
     </div>
+  );
+}
+
+/** Mock CorrectPhrase `.btn`: "Save phrase". */
+const SAVE_BUTTON: Style = {
+  ...useButton(false),
+  whiteSpace: "nowrap",
+};
+
+/** Mock CorrectPhrase `.quiet`: "Edit phrase" and "Cancel". */
+const QUIET_BUTTON: Style = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  height: "28px",
+  padding: "0 6px",
+  margin: "0 -6px",
+  border: 0,
+  borderRadius: "6px",
+  background: "none",
+  font: "inherit",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: color.ink3,
+  cursor: "pointer",
+};
+
+/** Mock CorrectPhrase `.pencil`. */
+const PENCIL_BUTTON: Style = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "none",
+  width: "34px",
+  height: "34px",
+  margin: 0,
+  padding: 0,
+  border: 0,
+  borderRadius: "8px",
+  background: "none",
+  color: color.ink3,
+  cursor: "pointer",
+};
+
+/** The proposal, "Edit phrase", or the edit (mock CorrectPhrase). */
+function Phrase(
+  props: InThisSentenceProps & {
+    phrase: PhraseView;
+  },
+) {
+  const { phrase } = props;
+  switch (phrase.state) {
+    case "proposal":
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: "15px",
+              fontWeight: 600,
+              lineHeight: 1.4,
+            }}
+          >
+            {phrase.key}
+          </span>
+          <button
+            type="button"
+            data-quiet
+            aria-label={t("dict.phrase.edit")}
+            onClick={() => props.onEditPhrase?.()}
+            style={PENCIL_BUTTON}
+          >
+            <PencilIcon size={16} />
+          </button>
+          <button
+            type="button"
+            data-phrase-save
+            onClick={() => props.onSavePhrase?.()}
+            style={SAVE_BUTTON}
+          >
+            {t("dict.phrase.save")}
+          </button>
+        </div>
+      );
+    case "none":
+      return (
+        <button
+          type="button"
+          data-quiet
+          onClick={() => props.onEditPhrase?.()}
+          style={{ ...QUIET_BUTTON, alignSelf: "flex-start" }}
+        >
+          <PencilIcon size={15} />
+          {t("dict.phrase.edit")}
+        </button>
+      );
+    case "editing":
+      return <PhraseEdit {...props} phrase={phrase} />;
+  }
+}
+
+/** The phrase field, "Save phrase" and "Cancel"; why the phrase typed cannot be saved. */
+function PhraseEdit(
+  props: InThisSentenceProps & {
+    phrase: Extract<PhraseView, { state: "editing" }>;
+  },
+) {
+  const { phrase } = props;
+  const [text, setText] = useState(phrase.text);
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+  }, []);
+  // The problem goes as soon as the phrase is changed.
+  const problem =
+    phrase.problem && phrase.problem.text === text
+      ? phrase.problem.why
+      : undefined;
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!phrase.busy) props.onSavePhrase?.(text);
+      }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        margin: 0,
+      }}
+    >
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <span style={META}>{t("dict.phrase.label")}</span>
+        <input
+          ref={field}
+          type="text"
+          data-phrase-field
+          value={text}
+          aria-invalid={problem ? "true" : "false"}
+          onInput={(event) => setText(event.currentTarget.value)}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            height: "38px",
+            padding: "0 10px",
+            margin: 0,
+            border: `1px solid ${problem ? color.danger : color.track}`,
+            borderRadius: "8px",
+            background: color.card,
+            font: "inherit",
+            fontSize: "15px",
+            color: color.ink,
+          }}
+        />
+      </label>
+      {problem && (
+        <span role="alert" style={{ fontSize: "12px", color: color.danger }}>
+          {t(problem === "words" ? "dict.phrase.words" : "dict.phrase.notHere")}
+        </span>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <button
+          type="submit"
+          data-phrase-save
+          aria-disabled={phrase.busy ? "true" : undefined}
+          style={SAVE_BUTTON}
+        >
+          {t("dict.phrase.save")}
+        </button>
+        <button
+          type="button"
+          data-quiet
+          onClick={() => props.onCancelPhrase?.()}
+          style={{ ...QUIET_BUTTON, margin: 0 }}
+        >
+          {t("dict.phrase.cancel")}
+        </button>
+      </div>
+    </form>
   );
 }

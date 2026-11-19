@@ -9,6 +9,7 @@ import type { SourceInput } from "../../messaging/protocol";
 import {
   createExplainPanel,
   shownAnswer,
+  type CorrectedPhrase,
   type ExplainTarget,
 } from "../explain/panel";
 import { articlePlace } from "../explain/place";
@@ -210,6 +211,8 @@ export async function startArticle(
     send: deps.send,
     settings: () => settings,
     show: (view) => store.set({ explain: view }),
+    // Runs in the lookup's queue (`saveCorrectPhrase`).
+    savePhrase: (phrase) => saveCorrected(phrase),
   });
   /** Stops the Words list's requests and translations with the page. */
   const controller = new AbortController();
@@ -339,6 +342,8 @@ export async function startArticle(
           kind: card.kind,
           ...place,
           senses: packSenses(card),
+          // Selected words' phrase is none of the page's spans.
+          ...(!onPage(ref) && { selected: true }),
         },
         key: card.key,
         sourceUrl: surface.url(),
@@ -427,6 +432,36 @@ export async function startArticle(
     summaries.meaningChosen(card.key);
   }
 
+  /**
+   * A corrected phrase of the panel's selected words: saved as Learning from their
+   * sentence (the selection itself stays unsaved), highlighted, and shown in the panel.
+   */
+  async function saveCorrected(phrase: CorrectedPhrase) {
+    const ref = cards.panelRef();
+    const card = store.get().panel?.card;
+    if (!ref || !card) return;
+    const { key } = phrase;
+    await deps.send({
+      type: "saveTerm",
+      ...termInput(ref, card),
+      key,
+      display: phrase.display,
+      kind: "phrase",
+      status: "learning",
+    });
+    noteStatus([key], "learning");
+    // The phrase may be anywhere on the page: classify again to find it.
+    await reanalyze();
+    deps.onTermsChanged?.();
+    const span = spans
+      .get(ref.block)
+      ?.find(
+        (s) =>
+          s.key === key && s.end > ref.span.start && s.start < ref.span.end,
+      );
+    if (span) await cards.openPanel({ block: ref.block, span });
+  }
+
   /** Chooses (or undoes) `pick`'s meaning of the panel's term for its sentence. */
   function choose(pick: (card: TermCard) => Choice | undefined) {
     const ref = cards.panelRef();
@@ -491,6 +526,9 @@ export async function startArticle(
       const answer = shownAnswer(store.get().explain);
       if (answer) choose((card) => answerChoice(card, answer));
     },
+    editCorrectPhrase: explain.editPhrase,
+    cancelCorrectPhrase: explain.cancelPhrase,
+    saveCorrectPhrase: (text) => run(() => explain.savePhrase(text)),
     speak: () => lookup.speak(store.get().panel?.card.head),
     closePanel: cards.closePanel,
     goToSentence: cards.goToSentence,
