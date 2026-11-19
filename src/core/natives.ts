@@ -29,7 +29,12 @@ export interface NativeLanguage {
    * by a river (one of several dictionary meanings) and "spilled the beans" (an idiom
    * without an entry). Null: English's.
    */
-  readonly examples: { readonly bank: string; readonly beans: string } | null;
+  readonly examples: {
+    readonly bank: string;
+    readonly beans: string;
+    /** "make up one's mind" (the phrase of a selection, `selectedNote`). */
+    readonly mind: string;
+  } | null;
   /**
    * English → this language is a pair pack (`en-<code>`) built by the language's recipe
    * (`scripts/data/recipes/native.ts`), read in this data format. Japanese (EJDict, its
@@ -49,7 +54,7 @@ export const NATIVE_LANGUAGES = {
     spaces: false,
     dense: true,
     scripts: ["Han", "Hiragana", "Katakana"],
-    examples: { bank: "川岸、土手", beans: "秘密をばらす" },
+    examples: { bank: "川岸、土手", beans: "秘密をばらす", mind: "決心する" },
   },
   es: {
     option: "language.es",
@@ -57,7 +62,11 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
-    examples: { bank: "orilla (de un río)", beans: "revelar el secreto" },
+    examples: {
+      bank: "orilla (de un río)",
+      beans: "revelar el secreto",
+      mind: "decidirse",
+    },
     englishPair: { format: 3 },
   },
   pt: {
@@ -66,7 +75,11 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
-    examples: { bank: "margem (de um rio)", beans: "revelar o segredo" },
+    examples: {
+      bank: "margem (de um rio)",
+      beans: "revelar o segredo",
+      mind: "decidir-se",
+    },
     englishPair: { format: 3 },
   },
   // Chrome's Prompt API has no Russian (it answers in en, ja, es, de, fr): meaning in
@@ -86,7 +99,11 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
-    examples: { bank: "rive (d'une rivière)", beans: "révéler le secret" },
+    examples: {
+      bank: "rive (d'une rivière)",
+      beans: "révéler le secret",
+      mind: "se décider",
+    },
     englishPair: { format: 3 },
   },
   de: {
@@ -95,7 +112,11 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
-    examples: { bank: "Ufer (eines Flusses)", beans: "das Geheimnis verraten" },
+    examples: {
+      bank: "Ufer (eines Flusses)",
+      beans: "das Geheimnis verraten",
+      mind: "sich entscheiden",
+    },
     englishPair: { format: 3 },
   },
   // Simplified Chinese (the pack converts traditional characters at build time). Like
@@ -134,7 +155,11 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
-    examples: { bank: "riverbank", beans: "revealed the secret" },
+    examples: {
+      bank: "riverbank",
+      beans: "revealed the secret",
+      mind: "decide",
+    },
   },
 } as const satisfies Readonly<Record<string, NativeLanguage>>;
 

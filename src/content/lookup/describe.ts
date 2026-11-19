@@ -18,6 +18,7 @@ import {
   withoutFinalStop,
 } from "../../core/lexicon/short-lines";
 import { matchSense, type Meaning } from "../../core/meanings";
+import { wordsOfKey } from "../../core/phrases/key";
 import { NO_RULES, type PhraseRules } from "../../core/phrases/pattern";
 import { normalizeWord } from "../../core/text/tokenize";
 import { rulesFor } from "../../core/phrases/rules";
@@ -261,7 +262,8 @@ export function mainWord(
   phrase: string,
   rules: PhraseRules = NO_RULES,
 ): string {
-  const words = phrase.split(" ");
+  // A selection saved across punctuation keeps it ("wh-what").
+  const words = wordsOfKey(phrase);
   const literal = words.filter((word) => !rules.slots.has(normalizeWord(word)));
   return (literal.length > 0 ? literal : words).reduce(
     (best, word) => (word.length > best.length ? word : best),

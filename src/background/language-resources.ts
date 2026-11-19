@@ -3,6 +3,7 @@ import {
   createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
+  withWrittenHeads,
   type DictionaryProvider,
 } from "../core/lexicon/dictionary";
 import {
@@ -128,6 +129,7 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
           vocab: new Set(vocab),
           patterns: phrases,
           ...("contractions" in pack && { contractions: pack.contractions }),
+          ...("capitals" in pack && { capitals: pack.capitals }),
           ...("pos" in pack && { pos: pack.pos }),
           ...("names" in pack && { names: pack.names }),
           ...("tagger" in pack && { tagger: pack.tagger }),
@@ -138,18 +140,31 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
 
 /**
  * An English dictionary with English contractions shown by what they are short for
- * (`withContractions`), from the English pack's table and vocabulary.
+ * (`withContractions`), from the English pack's table and vocabulary, and capital-only
+ * words' heads as they are written (`withWrittenHeads`: AI, not "ai").
  */
 function withEnglishContractions(
   dictionary: DictionaryProvider,
   en: PackFiles["en"],
 ): DictionaryProvider {
-  // The vocabulary as a set, made on the first contraction looked up.
+  // The vocabulary as a set, made on the first contraction or head looked up.
   let vocab: ReadonlySet<string> | undefined;
-  return withContractions(dictionary, {
-    expansions: (key) => own(en.contractions, key) ?? [],
-    english: (word) => (vocab ??= new Set(en.vocab)).has(word),
-  });
+  const english = (word: string) => (vocab ??= new Set(en.vocab)).has(word);
+  let heads: ReadonlyMap<string, string> | undefined;
+  const headOf = (key: string) =>
+    (heads ??= new Map(
+      [...en.capitals]
+        .reverse()
+        .map((written) => [written.toLowerCase(), written] as const)
+        .filter(([lower]) => !english(lower)),
+    )).get(key);
+  return withWrittenHeads(
+    withContractions(dictionary, {
+      expansions: (key) => own(en.contractions, key) ?? [],
+      english,
+    }),
+    headOf,
+  );
 }
 
 /** A recipe pair (en-es): the recipe's meanings, then English Wiktionary's definitions. */

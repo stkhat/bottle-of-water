@@ -251,9 +251,13 @@ function dictionaryOver(
 export function createEnJaDictionary(
   data: EnJaDictionaryData,
 ): DictionaryProvider {
-  const japanese = (head: string, pos: PosPack) =>
-    lookup(head, data.dict, pos, data.sensePos) ??
-    lookup(head, data.phrases, NO_POS);
+  const japanese = (head: string, pos: PosPack) => {
+    const found = lookup(head, data.dict, pos, data.sensePos);
+    if (!found) return lookup(head, data.phrases, NO_POS);
+    return head.includes(".")
+      ? coreFirst(found, own(data.dict, head)![1])
+      : found;
+  };
   const linesOf = (entry: Entry) =>
     entry.senses.map((sense) => cleanShort(sense.text));
   /** A capitalised headword's senses: the word's (Japan), or the acronym's (US). */
@@ -298,11 +302,17 @@ export function createEnJaDictionary(
   const asWritten = (head: string, written: Written | undefined) => {
     const lower = japanese(head, data.pos);
     if (written === "lower") return lower;
-    // A capitalised word EJDict has no lower-case entry for: its abbreviation comes
-    // before the English definitions ("Nov" is November, not the slang "nov").
-    if (!lower) return written && abbreviationOf(head);
     const title = capitalOf(head);
     const upper = capitalOf(head, true);
+    // A capitalised word EJDict has no lower-case entry for: its abbreviation comes
+    // before the English definitions ("Nov" is November, not the slang "nov"). A word
+    // with no lower-case entry takes its capitalised one however it is written (a
+    // capital-only word: AI → 人工知能, Tokyo → 東京).
+    if (!lower)
+      return (
+        (written && abbreviationOf(head)) ??
+        (written === "upper" ? (upper ?? title) : (title ?? upper))
+      );
     if (written === undefined)
       return [title, upper].reduce<Entry>(
         (entry, other) => (other ? joined(entry, other) : entry),
@@ -357,6 +367,25 @@ export function createEnJaDictionary(
   );
 }
 
+/**
+ * `dictionary` with the head of a capital-only word written as the word is (AI, iPhone,
+ * Tokyo; its key is "ai"): `headOf(key)`, from the learning language's pack, gives it.
+ * The hover card, the dictionary window and the word list show it, and speech says it.
+ */
+export function withWrittenHeads(
+  dictionary: DictionaryProvider,
+  headOf: (key: string) => string | undefined,
+): DictionaryProvider {
+  return {
+    ...dictionary,
+    entry(term, written, pos, clitic) {
+      const found = dictionary.entry(term, written, pos, clitic);
+      const head = found && headOf(found.head);
+      return head === undefined ? found : { ...found!, head };
+    },
+  };
+}
+
 /** An entry's lines (one per sense) in rule A2's order for `pos`. */
 const inPosOrder = (
   senses: readonly Sense[],
@@ -395,6 +424,26 @@ function aboutOnePerson(sense: string): boolean {
     /聖|記号|\[[^\]]*[A-Za-z]/.test(sense) ||
     mainItem(sense).endsWith("人")
   );
+}
+
+/**
+ * An EJDict abbreviation (a headword with a period) whose senses spell out other
+ * expansions in English before its core Japanese translation (『』) leads with that
+ * translation: EJDict files a lower-case abbreviation with its capitals ("PM,P.M.,p.m."),
+ * so p.m. is 午後, not paymaster. `raw`: its senses as the pack writes them, 『』 marks
+ * kept.
+ */
+function coreFirst(entry: Entry, raw: readonly string[]): Entry {
+  const core = raw.findIndex(
+    (text) => text.includes("『") && JAPANESE.test(text),
+  );
+  if (core <= 0 || raw.slice(0, core).some((text) => JAPANESE.test(text)))
+    return entry;
+  const first = entry.senses[core]!;
+  return {
+    short: cleanShort(first.text),
+    senses: [first, ...entry.senses.filter((sense) => sense !== first)],
+  };
 }
 
 /** One entry's senses, then the other's that it does not have; the first one's short. */

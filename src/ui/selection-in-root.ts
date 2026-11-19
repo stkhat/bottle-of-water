@@ -95,7 +95,7 @@ function pointAt(container: Element, offset: number, atEnd: boolean) {
 }
 
 /** A range over a part of the container's text; undefined when it has no text. */
-function rangeOfOffsets(
+export function rangeOfOffsets(
   container: Element,
   from: number,
   to: number,

@@ -4,6 +4,8 @@ import {
   instructions,
   marked,
   meaningLength,
+  proposesPhrase,
+  selectedNote,
   type ExplainInput,
 } from "./prompt";
 
@@ -88,6 +90,43 @@ describe("the prompt for each native language", () => {
         "Dictionary meanings: none (answer sense: null)",
         "Sentence: We [[figured]] it [[out]] on the way home.",
       ].join("\n"),
+    );
+  });
+});
+
+describe("selected words", () => {
+  const SELECTED: ExplainInput = {
+    ...ENGLISH,
+    native: "ja",
+    written: "she made up her",
+    base: "she make up her",
+    sentence: "In the end she made up her mind.",
+    marks: [{ start: 11, end: 26 }],
+    senses: [],
+    before: [],
+    after: [],
+    selected: true,
+  };
+
+  it("asks for the phrase after the rest, as a dictionary writes it", async () => {
+    await expect(both(SELECTED)).toMatchFileSnapshot(
+      "./__snapshots__/prompt-en-ja-selected.txt",
+    );
+  });
+
+  it("gives the example's meaning in the native language", () => {
+    expect(buildPrompt({ ...SELECTED, native: "es" }, 0)).toContain(
+      "the meaning decidirse.",
+    );
+  });
+
+  it("asks no phrase for words not selected, or a learning language without the note", () => {
+    expect(proposesPhrase(SELECTED)).toBe(true);
+    expect(proposesPhrase({ ...SELECTED, selected: false })).toBe(false);
+    expect(proposesPhrase({ ...SPANISH, selected: true })).toBe(false);
+    expect(selectedNote(SPANISH)).toBeUndefined();
+    expect(buildPrompt({ ...SPANISH, selected: true }, 5)).toBe(
+      buildPrompt(SPANISH, 5),
     );
   });
 });

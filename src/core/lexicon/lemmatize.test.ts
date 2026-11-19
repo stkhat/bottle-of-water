@@ -38,6 +38,40 @@ describe("lemmatize", () => {
     expect(lemmatize("zzyzx", lemmas, vocab)).toEqual([]);
     expect(lemmatize("zzyzx's", lemmas, vocab)).toEqual([]);
   });
+  it("reads a word the segmenter cut before its last period with that period", () => {
+    const dotted = new Set(["u.s.", "p.m.", "ph.d.", "i.d.", "us"]);
+    // How the vocabulary writes the ones with capitals.
+    const written = new Map([
+      ["u.s.", ["U.S."]],
+      ["ph.d.", ["Ph.D."]],
+    ]);
+    expect(lemmatize("U.S", {}, dotted, written)).toEqual(["u.s."]);
+    expect(lemmatize("p.m", {}, dotted, written)).toEqual(["p.m."]);
+    expect(lemmatize("Ph.D", {}, dotted, written)).toEqual(["ph.d."]);
+    expect(lemmatize("boot.dev", {}, dotted, written)).toEqual([]);
+    // Its case matters: "i.d." is inside diameter, not "I.D." (identification).
+    expect(lemmatize("i.d", {}, dotted, written)).toEqual(["i.d."]);
+    expect(lemmatize("I.D", {}, dotted, written)).toEqual([]);
+    expect(lemmatize("U.S", {}, dotted)).toEqual([]);
+    // A word with no period inside is not an abbreviation for it ("Jan." ends a sentence).
+    expect(lemmatize("US", {}, dotted)).toEqual(["us"]);
+    expect(lemmatize("Jan", {}, new Set(["jan."]))).toEqual([]);
+  });
+  it("knows a capital-only word where it is written as such, with its forms", () => {
+    const capitals = new Map([
+      ["ai", ["AI"]],
+      ["grammy", ["Grammy"]],
+    ]);
+    const forms = { grammys: "grammy", ais: "ai" };
+    expect(lemmatize("AI", forms, vocab, capitals)).toEqual(["ai"]);
+    expect(lemmatize("AIs", forms, vocab, capitals)).toEqual(["ai"]);
+    expect(lemmatize("AI's", forms, vocab, capitals)).toEqual(["ai"]);
+    expect(lemmatize("Grammys", forms, vocab, capitals)).toEqual(["grammy"]);
+    expect(lemmatize("ai", forms, vocab, capitals)).toEqual([]);
+    expect(lemmatize("Ai", forms, vocab, capitals)).toEqual([]);
+    expect(lemmatize("AIS", forms, vocab, capitals)).toEqual([]);
+    expect(lemmatize("grammys", forms, vocab, capitals)).toEqual([]);
+  });
   it("reads a lemma table in shards", () => {
     const shards: LemmaShards = [
       { better: ["good", "well"] },

@@ -37,6 +37,7 @@ import { isNonConstituent, patternKey } from "./phrases.ts";
 import {
   entrySenses,
   isPointer,
+  rankCapitalSenses,
   rankSenses,
   type SourceSense,
 } from "./senses.ts";
@@ -83,15 +84,28 @@ export async function buildEnDefs(
     vocab,
     lemmas,
     phrases,
+    capitals = [],
     everyPair = () => false,
   }: {
     vocab: string[];
     lemmas: LemmaPack;
     phrases: PhrasePatterns;
+    /**
+     * The capital-only words, as written (en/capitals.json): their definitions are the
+     * entries written so, proper nouns' too, under the lower-case key ("ai": AI's, not
+     * the sloth's).
+     */
+    capitals?: readonly string[];
     everyPair?: (key: string) => boolean;
   },
 ) {
   const words = new Set(vocab);
+  const capitalOnly = new Set(
+    capitals.filter((written) => !words.has(written.toLowerCase())),
+  );
+  const capitalKeys = new Set(
+    [...capitalOnly].map((written) => written.toLowerCase()),
+  );
   const patterns = new Set([...phrases.detect, ...phrases.more]);
   const known = (word: string) =>
     words.has(word) || Object.hasOwn(lemmas, word);
@@ -102,14 +116,21 @@ export async function buildEnDefs(
     const key = !/\s/.test(word)
       ? words.has(word)
         ? word
-        : undefined
+        : capitalOnly.has(word.replaceAll("’", "'"))
+          ? word.toLowerCase()
+          : undefined
       : patternKey(word, isWord);
     if (key === undefined || everyPair(key)) return undefined;
     return key.includes(" ") && !patterns.has(key) ? undefined : key;
   };
-  /** A term's senses: a proper noun is no meaning of a word ("Light"), but a phrase may be one. */
+  /**
+   * A term's senses: a proper noun is no meaning of a word ("Light"), but a phrase or a
+   * capital-only word may be one (Tokyo).
+   */
   const sensesOf = (entry: KaikkiEntry, multiWord: boolean) =>
-    entry.pos === "name" && !multiWord
+    entry.pos === "name" &&
+    !multiWord &&
+    !capitalOnly.has(entry.word.trim().replaceAll("’", "'"))
       ? []
       : entrySenses(entry).senses.filter((sense) => !sense.inflection);
 
@@ -160,7 +181,9 @@ export async function buildEnDefs(
       return { ...sense, target: undefined, gloss: best.gloss };
     });
     const out: [string, string][] = [];
-    const ranked = rankSenses(senses, key.includes(" "), SHOWN);
+    const ranked = capitalKeys.has(key)
+      ? rankCapitalSenses(senses, SHOWN)
+      : rankSenses(senses, key.includes(" "), SHOWN);
     // A contraction's own senses first: that's → "That is.", not the dialectal
     // determiner "whose, of which".
     for (const sense of writtenAsContraction(key)
@@ -222,6 +245,7 @@ async function main() {
     vocab: readPack("en/vocab.json"),
     lemmas: readPack("en/lemmas.json"),
     phrases: readPack("en/phrases.json"),
+    capitals: readPack("en/capitals.json"),
     everyPair: (key) => pairs.every((terms) => terms.has(key)),
   });
   const index = writeShards("en-defs", defs, PACKS_DIR);

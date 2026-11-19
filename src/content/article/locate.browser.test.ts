@@ -126,7 +126,7 @@ describe("snapSelection", () => {
     expect(snapped!.block).toBe(b);
   });
 
-  it("rejects selections across blocks or across punctuation", () => {
+  it("rejects selections across blocks, and takes words across punctuation", () => {
     const { blocks, spans, index } = page(html);
     const across = document.createRange();
     const b0 = blocks[0]!;
@@ -134,8 +134,20 @@ describe("snapSelection", () => {
     across.setStart(b0.pieces.at(-1)!.node, 2);
     across.setEnd(b1.pieces[0]!.node, 5);
     expect(snapSelection(across, index, spans)).toBeUndefined();
+    const snapped = snapSelection(select(b0, "notes", "you"), index, spans);
+    expect(snapped && b0.text.slice(snapped.start, snapped.end)).toBe(
+      "notes, so you",
+    );
+  });
+
+  it("leaves a selection of more than 8 words uncut (the page's own)", () => {
+    const { blocks, spans, index } = page(html);
+    const b = blocks[0]!;
     expect(
-      snapSelection(select(b0, "notes", "you"), index, spans),
+      snapSelection(select(b, "Keep", "rise"), index, spans),
+    ).toBeDefined();
+    expect(
+      snapSelection(select(b, "Keep", "and"), index, spans),
     ).toBeUndefined();
   });
 

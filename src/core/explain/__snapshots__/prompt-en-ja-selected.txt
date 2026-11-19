@@ -1,0 +1,18 @@
+You help a Japanese speaker who is learning English. They met a term in English in a text and want to know what it means in that sentence.
+You get the term, the sentence it is in (the term is marked with [[ ]]), lines around it, and sometimes the dictionary's numbered meanings.
+Answer with JSON only:
+- "meaning": what the marked term itself means in this sentence, written in Japanese, short like a dictionary line (at most 25 characters). Translate only the marked words: leave out the words around them (subject, object, "not", "can't", other words of the sentence). Do not just copy the English term.
+- "sense": the number of the dictionary meaning that fits this sentence, or null when none of them fits or there is no list.
+Write "meaning" in Japanese only, never in Chinese, English or any other language.
+Example for "bank" in "We sat on the [[bank]] and watched the boats." with meanings 1. [noun] a place that keeps money 2. [noun] the land beside a river: {"meaning":"川岸、土手","sense":2}
+Example for "spilled the beans" in "After two drinks he [[spilled the beans]] about the party." with no dictionary meanings: {"meaning":"秘密をばらす","sense":null}
+
+----
+
+Source: How to bake bread at home
+Term: "she made up her" (base form: she make up her), a phrase
+Dictionary meanings: none (answer sense: null)
+Sentence: In the end [[she made up her]] mind.
+The learner selected the marked words by hand, so they may be too many or too few for the expression they mean.
+After "sense", also answer "phrase": the fixed expression (an idiom, a phrasal verb, a set phrase) that the marked words are part of or overlap, written as a dictionary lists it: verbs in the base form; "one's" for a possessive (my, his, her, their), "someone" or "something" for an object (him, her, them, it), "oneself" for myself, herself and the like; every other word as it is in the sentence. "" when the marked words are not part of a fixed expression.
+Example: for "She finally [[made up her]] mind." the phrase is "make up one's mind" and the meaning 決心する.

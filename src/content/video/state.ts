@@ -41,6 +41,8 @@ export interface SelectedWords {
   start: number;
   end: number;
   place: WordPlace;
+  /** The end the drag grew from (its start when not given): cut to 8 words from there. */
+  anchor?: "start" | "end";
 }
 
 /** The hover card over a word in the subtitle or the transcript. */
@@ -189,10 +191,15 @@ export interface VideoApp extends ExplainActions {
   /** A press on the subtitle's or a transcript card's text began selecting words. */
   selectStart(from: WordPlace): void;
   /**
+   * The whole words of the cue a drag selects, as they show while it goes on
+   * (`snapWords`, cut to 8 from its anchor); undefined when none.
+   */
+  snapWords(words: SelectedWords): { start: number; end: number } | undefined;
+  /**
    * The press that selected ended: the selected words, undefined when none (`boxOf`
    * measures a part of the cue's text). Returns the whole words of the cue (2–8) they
-   * snap to, which are selected instead; undefined when they do not snap, and the
-   * selection's card then goes.
+   * snap to, which stay selected with their card. One word opens its window, as a
+   * click on it does, and the selection goes; so does any that makes no card.
    */
   selectWords(
     words: SelectedWords | undefined,

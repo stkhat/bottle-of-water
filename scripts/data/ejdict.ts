@@ -155,6 +155,26 @@ export function capitalizedOnly(text: string) {
 }
 
 /**
+ * Abbreviations with a period inside that EJDict writes with capitals (U.S., Ph.D.,
+ * A.M.), as written, sorted: the vocabulary has them in lower case, but their case
+ * matters ("i.d." is inside diameter, "I.D." is not), so the language pack lists how
+ * they are written (en/capitals.json).
+ */
+export function dottedCapitals(text: string): string[] {
+  const found = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    for (const variant of line.slice(0, tab).split(",")) {
+      const headword = variant.trim();
+      if (/\s/.test(headword) || !/\.[^.]/.test(headword)) continue;
+      if (/\p{Lu}/u.test(headword)) found.add(headword);
+    }
+  }
+  return [...found].sort(byCodeUnit);
+}
+
+/**
  * Multi-word headwords EJDict writes only in Title Case, every word capitalised (New
  * York, American Revolution): named entities, lowercase.
  */

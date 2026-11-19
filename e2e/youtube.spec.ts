@@ -8,7 +8,7 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt } from "../src/core/subtitles/cues";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
 import { test, expect } from "./fixtures";
-import { highlighted, ON_TIME, showNewWords } from "./page";
+import { COLD_LOAD, highlighted, ON_TIME, showNewWords } from "./page";
 import { routeYouTube, YOUTUBE_SHORT, YOUTUBE_WATCH } from "./sites";
 
 const subtitles = path.join(
@@ -127,13 +127,74 @@ test("words selected in the transcript are saved as a phrase from their card", a
     .dragTo(card.getByText("evidence", { exact: true }));
 
   const selection = page.locator("langle-video");
-  await expect(selection).toContainText(en["lookup.status.selected"]);
+  // A selection's card waits for the English definitions (the fallback of words the
+  // pair lacks), whose first download may still be going on.
+  await expect(selection).toContainText(
+    en["lookup.status.selected"],
+    COLD_LOAD,
+  );
   await selection
     .getByRole("button", { name: en["hover.addLearning"] })
     .click();
   await expect(selection).not.toContainText(en["lookup.status.selected"]);
   // Classified again: the phrase is one term.
   await expect(phrase).toHaveCount(1);
+});
+
+test("a drag in the transcript while the video plays holds the list and the video, and ends in the card's words", async ({
+  context,
+  extensionId,
+}) => {
+  await showNewWords(context, extensionId);
+  await routeYouTube(context);
+  const page = await context.newPage();
+  await page.goto(YOUTUBE_WATCH);
+  const transcript = page.getByRole("complementary", {
+    name: en["app.name"],
+  });
+  const card = transcript.getByRole("button", { name: LINE });
+  await card.click({ position: ON_TIME });
+  await expect(card).toHaveAttribute("aria-current", "true");
+  const video = page.locator("#movie_player video");
+  const paused = () => video.evaluate((v: HTMLVideoElement) => v.paused);
+  await expect.poll(paused).toBe(false);
+
+  const list = transcript.locator("[data-list]");
+  const scrollTop = () => list.evaluate((el) => el.scrollTop);
+  const from = (await card
+    .getByText("extraordinary", { exact: true })
+    .boundingBox())!;
+  const to = (await card.getByText("evidence", { exact: true }).boundingBox())!;
+  const player = (await page.locator("#movie_player").boundingBox())!;
+  // The pointer on the list: it holds still while the video plays on.
+  await page.mouse.move(from.x + 4, from.y + from.height / 2);
+  const top = await scrollTop();
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 5,
+  });
+  // Out of the card, over the video, and let go there.
+  await page.mouse.move(
+    player.x + player.width / 2,
+    player.y + player.height / 2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  const selection = page.locator("langle-video");
+  // The card waits for the English definitions' first download (above).
+  await expect(selection).toContainText(
+    en["lookup.status.selected"],
+    COLD_LOAD,
+  );
+  // Words of the card, from "extraordinary" to the one nearest the video.
+  await expect(selection).toContainText("extraordinary");
+  expect(await scrollTop()).toBe(top);
+  // Held by the selection: the player took no click to play.
+  expect(await paused()).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(selection).not.toContainText(en["lookup.status.selected"]);
+  await expect.poll(paused).toBe(false);
 });
 
 test("the video pauses while the dictionary window is open and plays again once it closes", async ({

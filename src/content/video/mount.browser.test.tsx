@@ -584,6 +584,7 @@ describe("mountVideoUi", () => {
     const { store, spy } = mount();
     const cue = CUES[0]!.text;
     const whole = { start: cue.indexOf("yeast"), end: cue.length - 1 };
+    spy("snapWords").mockImplementation(() => whole);
     spy("selectWords").mockImplementation(() => whole);
     await expect
       .poll(() => inside("langle-video-player")?.querySelector("[data-span]"))
@@ -612,13 +613,27 @@ describe("mountVideoUi", () => {
     );
     await expect.poll(() => spy("selectWords").mock.calls.length).toBe(1);
     expect(spy("selectStart")).toHaveBeenCalledExactlyOnceWith("subtitle");
+    // Snapped from the word pressed to the word under the pointer, in the cue's text.
+    const [dragged] = spy("snapWords").mock.calls.at(-1) as [
+      { cue: number; start: number; end: number; place: string },
+    ];
+    expect(dragged).toMatchObject({
+      cue: 0,
+      place: "subtitle",
+      start: cue.indexOf("yeast"),
+      anchor: "start",
+    });
+    expect(dragged.end).toBeGreaterThan(cue.indexOf("smells"));
     const [words, boxOf] = spy("selectWords").mock.calls[0] as [
       { cue: number; start: number; end: number; place: string },
       (start: number, end: number) => DOMRect,
     ];
-    expect(words).toMatchObject({ cue: 0, place: "subtitle" });
-    expect(words.start).toBeGreaterThan(cue.indexOf("yeast"));
-    expect(words.end).toBeGreaterThan(cue.indexOf("smells"));
+    expect(words).toEqual({
+      cue: 0,
+      place: "subtitle",
+      ...whole,
+      anchor: "start",
+    });
     // The whole words' text, inside their highlights' padding.
     const anchor = boxOf(whole.start, whole.end);
     const inset = (a: number, b: number) => Math.round(Math.abs(a - b));
