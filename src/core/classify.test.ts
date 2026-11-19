@@ -540,6 +540,42 @@ describe("a detected phrase inside a longer pattern (rule LONGEST)", () => {
   });
 });
 
+describe("a verb and its complement (rule COMPLEMENT)", () => {
+  const pack = createLanguagePack("en", {
+    lemmas: { fell: "fall" },
+    freq: ["in", "we", "they", "love", "might", "as", "well", "go"],
+    ipa: {},
+    vocab: new Set([
+      ...["in", "we", "they", "love", "might", "as", "well", "go", "fall"],
+      ...["fell", "home"],
+    ]),
+    patterns: {
+      detect: ["fall in", "in love", "as well"],
+      // Matched only when saved or selected.
+      more: ["fall in love", "might as well"],
+      gap: [],
+      // fall in: verb; in love: prepositional phrase; as well: adverb; fall in
+      // love, might as well: verbs.
+      pos: { detect: "v P r", more: "v v" },
+    },
+    pos: { fall: ["verb"], might: ["noun", "verb"], go: ["verb"] },
+  });
+  const run = (text: string) =>
+    brief(
+      createClassifier(pack)
+        .classify(pack.tokenize(text), { terms: terms(), knownLevel: 10 })
+        .map((s) => ({ ...s, text: text.slice(s.start, s.end) })),
+    ).filter((s) => s.includes(" "));
+
+  it("keeps the complement highlighted inside the verb's pattern, and no phrase across it", () => {
+    expect(run("They fell in love.")).toEqual(["in love:in love:new"]);
+    expect(run("They fell in.")).toEqual(["fell in:fall in:new"]);
+  });
+  it("leaves another expression inside a modal's pattern out (rule LONGEST)", () => {
+    expect(run("We might as well go.")).toEqual([]);
+  });
+});
+
 describe("a detected phrase's words read through their bases (rule BASE)", () => {
   // "fue" is a form of ir and of ser; the tagger reads it as a past tense.
   const make = (freq: string[]) =>

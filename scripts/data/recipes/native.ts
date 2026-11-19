@@ -29,8 +29,10 @@ import {
   capitalDictionary,
   convertTerms,
   inCapitalCase,
+  inTablesCase,
   isOtherWord,
   lastScriptForm,
+  withAuxiliarySenses,
   mergeSources,
   nativeLetterOf,
   readEdition,
@@ -60,6 +62,7 @@ export async function buildPairDictionary(
       : undefined,
     names = {},
     lemmas = {},
+    contractions = {},
     pos = {},
   }: {
     termKey: TermKey;
@@ -68,6 +71,8 @@ export async function buildPairDictionary(
     recipe?: Recipe;
     /** The English names lexicon (en/names.json), for capitalised headwords' meanings. */
     names?: NamesPack;
+    /** What each English contraction is short for (en/contractions.json). */
+    contractions?: Readonly<Record<string, readonly string[]>>;
     /** English base forms and parts of speech (en/lemmas.json, en/pos.json), to read degrees. */
     lemmas?: LemmaPack;
     pos?: PosPack;
@@ -136,6 +141,8 @@ export async function buildPairDictionary(
       degreeOf(sense, key, [lemmas[key] ?? []].flat(), pos) !== undefined,
     otherWord: (key, taken, later) =>
       isOtherWord(key, taken, later, tableTerms),
+    expansionsOf: (key) =>
+      Object.hasOwn(contractions, key) ? contractions[key]! : [],
   });
   const {
     capital,
@@ -168,9 +175,21 @@ export async function buildPairDictionary(
   const editionSource = capitalSources.findIndex(
     ({ tag }) => tag === edition?.tag,
   );
+  // Edition senses an auxiliary's, by the tables' words for "auxiliary".
+  const auxiliarySenses =
+    editionSource >= 0
+      ? withAuxiliarySenses(
+          dict,
+          editionSource,
+          (tableTerms.terms.get("auxiliary")?.senses ?? []).flatMap(
+            ([, text]) => text.split(", "),
+          ),
+        )
+      : 0;
   const capitalCased =
     editionTerms && editionSource >= 0
-      ? inCapitalCase(capital, editionSource, editionTerms.capitalCase)
+      ? inCapitalCase(capital, editionSource, editionTerms.capitalCase) +
+        inTablesCase(capital, editionSource, tableTerms.capital)
       : 0;
   return {
     ...merged,
@@ -191,6 +210,10 @@ export async function buildPairDictionary(
       reshaped: editionTerms?.stats.reshaped ?? 0,
       /** Pointer senses with no part of speech given the word's main one in English. */
       pointerPos: posed,
+      /** Edition verb senses labelled an auxiliary's (`withAuxiliarySenses`). */
+      auxiliarySenses,
+      /** Terms the tables left to later sources, their main sense said with no word. */
+      wordless: tableTerms.stats.wordless,
       labels: editionTerms?.stats.labels ?? [],
       /** The edition's abbreviations, learned (`withAbbreviations`). */
       abbreviations: editionTerms?.stats.abbreviations ?? [],
@@ -205,6 +228,7 @@ export async function buildPairDictionary(
       described: merged.described,
       /** Terms taken from a later source for a meaning in their main part of speech. */
       lacking: merged.lacking,
+      expanded: merged.expanded,
       /** Terms that only point and kept their pointers beside a later source's other word (dug). */
       pointing: merged.pointing,
       /** Lowercase terms of words English writes only capitalised, left out. */
@@ -286,12 +310,15 @@ async function main() {
   if (natives.length === 0) throw new Error("Name the native languages: es…");
   const termKey = englishTermKey();
   const names = readPack<NamesPack>("en/names.json");
+  const contractions = readPack<Record<string, readonly string[]>>(
+    "en/contractions.json",
+  );
   const lemmas = readPack<LemmaPack>("en/lemmas.json");
   const pos = readPack<PosPack>("en/pos.json");
   for (const native of natives) {
     const { dict, capital, sources, counts, stats } = await buildPairDictionary(
       native,
-      { termKey, names, lemmas, pos },
+      { termKey, names, lemmas, pos, contractions },
     );
     const index = writeShards(
       `en-${native}`,
@@ -322,6 +349,9 @@ async function main() {
       `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
         `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}; ` +
         `abbreviations: ${stats.abbreviations.slice(0, 30).join(" ")}`,
+    );
+    console.log(
+      `  ${stats.expanded.length} contractions taken from a later source that translates their expansion: ${stats.expanded.slice(0, 20).join(", ")}; ${stats.wordless} table terms left to later sources (their main sense said with no word); ${stats.auxiliarySenses} edition senses labelled an auxiliary's`,
     );
     console.log(
       "  class glosses:",

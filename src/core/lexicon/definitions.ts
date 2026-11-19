@@ -95,7 +95,36 @@ const QUALIFIER = words([
   ...["standard", "higher", "lower", "register", "short", "shortened"],
   ...["uk", "us", "british", "american", "canadian", "australian", "irish"],
   ...["scottish", "commonwealth", "english", "ireland", "and", "or"],
+  ...["letter-case", "filter-avoidance", "elongated"],
 ]);
+const QUALIFIERS: ReadonlySet<string> = new Set(QUALIFIER.split("|"));
+
+/**
+ * A spelling or form named by the standards or places that write it, a list of
+ * capitalised names among the qualifiers: "American and Oxford British spelling of",
+ * "Commonwealth, UK, Australia, New Zealand, and South Africa standard spelling of",
+ * "Non-Oxford British English standard spelling of", "Early Modern spelling of". At
+ * least two words, none an article: "Any form of …" and "A Japanese form of …" are
+ * definitions; a "form" needs a qualifier among them ("Roman Catholic form of
+ * worship" is one too).
+ */
+const NAMED_SPELLING = /^((?:[\p{L}-]+,?\s+){2,16})(spelling|form)\s+of\b/u;
+const isQualifier = (word: string) => QUALIFIERS.has(word.toLowerCase());
+const isNameOrQualifier = (word: string) =>
+  isQualifier(word) ||
+  word.split("-").every((part) => isQualifier(part) || /^\p{Lu}/u.test(part));
+function namedSpelling(text: string): RegExpExecArray | undefined {
+  const match = NAMED_SPELLING.exec(text);
+  if (!match) return undefined;
+  const heads = match[1]!.trim().split(/,?\s+/);
+  if (heads.some((word) => /^(?:a|an|the)$/i.test(word))) return undefined;
+  if (
+    match[2] === "form" &&
+    !heads.some((word) => isQualifier(word) && !/^(?:and|or)$/i.test(word))
+  )
+    return undefined;
+  return heads.every(isNameOrQualifier) ? match : undefined;
+}
 /** Pointers that need no qualifier: "Synonym of …", "Misspelling of …". */
 const POINTER_NOUN = words([
   ...["spelling", "misspelling", "variant", "synonym", "abbreviation"],
@@ -137,7 +166,8 @@ const POINTERS: readonly RegExp[] = [
 export function definitionPointer(text: string): Pointer | undefined {
   const cleaned = withoutLabels(text);
   for (const [i, pointer] of POINTERS.entries()) {
-    const match = pointer.exec(cleaned);
+    const match =
+      pointer.exec(cleaned) ?? (i === 1 ? namedSpelling(cleaned) : undefined);
     if (!match) continue;
     const rest = cleaned.slice(match[0].length).replace(/\.\s*$/, "");
     if (rest.includes(":")) return undefined;
@@ -294,8 +324,9 @@ export function isUsageNoteShort({
  */
 export function cleanDefinition(text: string): string | undefined {
   const cleaned = withoutLabels(text);
-  for (const pointer of POINTERS) {
-    const match = pointer.exec(cleaned);
+  for (const [i, pointer] of POINTERS.entries()) {
+    const match =
+      pointer.exec(cleaned) ?? (i === 1 ? namedSpelling(cleaned) : undefined);
     if (!match) continue;
     const colon = cleaned.indexOf(":", match[0].length);
     return colon === -1 ? undefined : cleanDefinition(cleaned.slice(colon + 1));
