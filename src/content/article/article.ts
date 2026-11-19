@@ -301,6 +301,7 @@ export async function startArticle(
     index: blocks.index,
     spans,
     dismissHover: () => later.interactions.get().dismissHover(),
+    openWord: (ref) => void cards.openPanel(ref).catch(warn),
     async saved() {
       deps.onTermsChanged?.();
       await reanalyze();

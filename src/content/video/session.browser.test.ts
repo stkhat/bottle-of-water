@@ -1428,6 +1428,102 @@ describe("selecting words", () => {
     expect(state().selecting).toBe(false);
   });
 
+  it("opens one word's window, as a click does, and leaves nothing selected", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    getSelection()!.selectAllChildren(document.body);
+    app.selectStart("transcript");
+    expect(state().selecting).toBe(true);
+    const dough = {
+      cue: 1,
+      start: at(1, "dough") + 1,
+      end: at(1, "dough") + 3,
+    };
+    expect(
+      app.selectWords({ ...dough, place: "transcript" }, boxOf),
+    ).toBeUndefined();
+    expect(state().selecting).toBe(false);
+    expect(getSelection()!.isCollapsed).toBe(true);
+    await expect.poll(() => state().panel?.card.head).toBe("dough");
+  });
+
+  it("leaves nothing selected when the words make no card", async () => {
+    const { state, app } = await start({ vid1: captionsOf(MIND) });
+    await ready(state);
+    await classified(state);
+    getSelection()!.selectAllChildren(document.body);
+    app.selectStart("transcript");
+    // Only punctuation.
+    const dot = { cue: 1, start: at(1, "."), end: at(1, ".") + 1 };
+    expect(app.selectWords({ ...dot, place: "transcript" }, boxOf)).toBe(
+      undefined,
+    );
+    expect(state().selecting).toBe(false);
+    expect(getSelection()!.isCollapsed).toBe(true);
+  });
+
+  it("cuts more than 8 words to 8 from where the drag began", async () => {
+    const TEN = "one two three four five six seven eight nine ten";
+    const { state, app } = await start({
+      vid1: captionsOf([{ startMs: 0, endMs: 1000, text: TEN }]),
+    });
+    await ready(state);
+    await classified(state);
+    const all = { cue: 0, start: 0, end: TEN.length, place: "transcript" };
+    expect(app.snapWords({ ...all, place: "transcript" })).toEqual({
+      start: 0,
+      end: TEN.indexOf("eight") + "eight".length,
+    });
+    app.selectStart("transcript");
+    expect(
+      app.selectWords({ ...all, place: "transcript", anchor: "end" }, boxOf),
+    ).toEqual({ start: TEN.indexOf("three"), end: TEN.length });
+    await expect.poll(() => state().phrase).not.toBeNull();
+  });
+
+  it("saves words across punctuation with what separates them, and finds them again written so", async () => {
+    const PUNCT: Cue[] = [
+      { startMs: 0, endMs: 1000, text: "Well, I think so." },
+      { startMs: 1000, endMs: 2000, text: "Well, I think not. Well I think." },
+    ];
+    const { state, app, bg } = await start({ vid1: captionsOf(PUNCT) });
+    await ready(state);
+    await classified(state);
+    const text = PUNCT[0]!.text;
+    app.selectStart("transcript");
+    const words = {
+      cue: 0,
+      start: 0,
+      end: text.indexOf("think") + 2,
+      place: "transcript" as const,
+    };
+    expect(app.selectWords(words, boxOf)).toEqual({
+      start: 0,
+      end: text.indexOf("think") + "think".length,
+    });
+    await expect
+      .poll(() => state().phrase?.ref.selected?.key)
+      .toBe("well, i think");
+    app.saveSelection("learning");
+    await expect.poll(() => bg.sent("saveTerm")).toHaveLength(1);
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "well, i think",
+      display: "Well, I think",
+      kind: "phrase",
+    });
+    // With the comma only: not "Well I think".
+    await expect
+      .poll(() =>
+        state().spans.map((list, cue) =>
+          (list ?? [])
+            .filter((s) => s.key === "well, i think")
+            .map((s) => PUNCT[cue]!.text.slice(s.start, s.end)),
+        ),
+      )
+      .toEqual([["Well, I think"], ["Well, I think"]]);
+  });
+
   it("shows no hover card while words are selected, and drops the selection on request", async () => {
     const { state, app } = await start({ vid1: captionsOf(MIND) });
     await ready(state);

@@ -50,6 +50,8 @@ export function createSelection(o: {
   ): Omit<SaveTermInput, "status" | "key" | "kind"> | undefined;
   /** Words began to be selected: the hover card goes. */
   dismissHover(): void;
+  /** One word was selected: its window opens, as a click on it does. */
+  openWord(ref: WordRef): void;
   /** The phrase `key` was saved from the cue. */
   saved(key: string, cue: number, status: TermStatus): Promise<void>;
 }) {
@@ -57,6 +59,35 @@ export function createSelection(o: {
   let phrase: Selected | undefined;
   /** Where the press that is selecting words is. */
   let pressFrom: WordPlace | undefined;
+
+  /**
+   * The whole words the selected ones snap to, cut to 8 from the drag's anchor;
+   * undefined when there are none, or in the subtitle, when they are not all on the
+   * playing line.
+   */
+  function snap(words: SelectedWords) {
+    const state = store.get();
+    const cue = state.cues[words.cue];
+    const spans = state.spans[words.cue];
+    if (!cue || !spans) return undefined;
+    const snapped = snapWords(
+      shown(cue.text),
+      spans,
+      words.start,
+      words.end,
+      words.anchor ?? "start",
+    );
+    const line = state.lines[state.line];
+    if (
+      words.place === "subtitle" &&
+      snapped &&
+      (line?.card !== words.cue ||
+        snapped.start < line.start ||
+        snapped.end > line.end)
+    )
+      return undefined;
+    return snapped;
+  }
 
   function patternOf(cue: number, start: number, end: number) {
     const text = shown(store.get().cues[cue]?.text ?? "");
@@ -110,7 +141,7 @@ export function createSelection(o: {
         return;
       warn(error);
       // No card: the selection goes rather than holding the video and the hovers.
-      if (phrase === selected) drop();
+      if (phrase === selected) clear();
     });
   }
 
@@ -156,28 +187,34 @@ export function createSelection(o: {
       o.dismissHover();
       store.set({ phrase: null, selecting: true });
     },
+    /** The words a drag selects (see `VideoApp.snapWords`). */
+    snap(words: SelectedWords) {
+      const snapped = snap(words);
+      return snapped && { start: snapped.start, end: snapped.end };
+    },
     /** The press ended (see `VideoApp.selectWords`). */
     select(
       words: SelectedWords | undefined,
       boxOf: (start: number, end: number) => Box | undefined,
     ): { start: number; end: number } | undefined {
       const state = store.get();
-      const cue = words && state.cues[words.cue];
-      const spans = words && state.spans[words.cue];
-      const snapped =
-        cue &&
-        spans &&
-        snapWords(shown(cue.text), spans, words.start, words.end);
-      const line = state.lines[state.line];
-      if (
-        !words ||
-        !snapped ||
-        (words.place === "subtitle" &&
-          (line?.card !== words.cue ||
-            snapped.start < line.start ||
-            snapped.end > line.end))
-      ) {
-        drop();
+      const snapped = words && snap(words);
+      if (!words || !snapped || snapped.words < 2) {
+        // Nothing is left selected without a card (2026-11-19: words the rules
+        // refused stayed selected, the video held).
+        clear();
+        // One word: its window, as a click on it opens (a word without a card has none).
+        const word = snapped?.words === 1 ? snapped.spans[0] : undefined;
+        const index =
+          words && word
+            ? (state.spans[words.cue] ?? []).findIndex(
+                (s) =>
+                  s.start <= word.start &&
+                  s.end >= word.end &&
+                  s.category !== "ignored",
+              )
+            : -1;
+        if (words && index >= 0) o.openWord({ cue: words.cue, span: index });
         return undefined;
       }
       const { start, end } = snapped;
@@ -191,7 +228,7 @@ export function createSelection(o: {
         // Nowhere to show the card (the text is not laid out): no selection, so the
         // video does not stay paused for a card that never shows.
         if (!anchor) {
-          drop();
+          clear();
           return undefined;
         }
         o.dismissHover();

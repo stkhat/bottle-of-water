@@ -77,8 +77,9 @@ export interface Snapped extends SnappedWords {
 }
 
 /**
- * A selection of 2–8 words inside one block, snapped by `snapWords`. Undefined when it
- * is collapsed, spans blocks, or does not snap.
+ * A selection of 1–8 words inside one block, snapped by `snapWords` (punctuation may
+ * separate them). Undefined when it is collapsed, spans blocks, has more words or a
+ * line break between them: a selection the page made is not cut.
  */
 export function snapSelection(
   range: Range,
