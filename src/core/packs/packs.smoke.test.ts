@@ -10,6 +10,7 @@ import {
   createEnJaDictionary,
   createPairDictionary,
 } from "../lexicon/dictionary";
+import { withContractions } from "../lexicon/contractions";
 import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
@@ -30,6 +31,7 @@ const {
   freq,
   vocab: vocabList,
   phrases,
+  contractions,
 } = await loadPack("en");
 const { dict, phrases: jaPhrases, capital, sensePos } = await loadPack("en-ja");
 const { defs } = await loadPack("en-defs");
@@ -706,5 +708,70 @@ describe("generated packs: native hygiene (U1-7)", () => {
     expect(await shown("es", "french", "capital")).not.toMatch(/cortar/);
     // At a sentence start too: English is the language, not a billiards spin.
     expect(await shown("zh", "english")).toMatch(/^英语/);
+  });
+});
+
+describe("generated contractions", () => {
+  it("say what each contraction is short for, in the source's case", () => {
+    expect(contractions["i'm"]).toEqual(["I am"]);
+    expect(contractions["don't"]).toEqual(["do not"]);
+    expect(contractions["can't"]).toEqual(["cannot"]);
+    expect(contractions["won't"]).toEqual(["will not"]);
+    expect(contractions["that's"]).toEqual(["that is", "that has"]);
+    expect(contractions["it's"]).toEqual(["it is", "it has"]);
+    expect(contractions["let's"]).toEqual(["let us"]);
+    expect(contractions["gonna"]).toEqual(["going to"]);
+    expect(contractions["ain't"]).toEqual(["am not", "are not", "have not"]);
+  });
+  it("leave out possessives and words with a contraction sense among others", () => {
+    for (const word of ["someone's", "one's", "gentlemen's", "am", "your"])
+      expect(contractions, word).not.toHaveProperty(word);
+  });
+
+  const options = {
+    expansions: (key: string) => contractions[key] ?? [],
+    english: (word: string) => vocab.has(word),
+  };
+  const pair = (native: "ru" | "pl" | "fr") =>
+    loadPack(`en-${native}`).then(({ dict }) =>
+      withContractions(
+        createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+        options,
+      ),
+    );
+  it("show a contraction no source has by its expansions (ru I'm)", async () => {
+    expect((await pair("ru")).entry("I'm")?.lines).toEqual(["I am"]);
+  });
+  it("show a contraction's own native meaning with its expansion as a note (pl don't)", async () => {
+    expect((await pair("pl")).entry("don't")).toMatchObject({
+      lines: ["nie"],
+      expansion: "do not",
+    });
+  });
+  it("follow no pointer of a contraction (pl there's: not 'ar, 100 m²')", async () => {
+    expect((await pair("pl")).entry("there's")?.lines).toEqual([
+      "there is / there has",
+    ]);
+  });
+  it("show no English definition of a contraction (fr we've: not the exclusive we)", async () => {
+    const entry = (await pair("fr")).entry("we've");
+    expect(entry?.glossLang).toBeUndefined();
+    expect(entry?.lines.join(" ")).not.toMatch(/exclusive/i);
+  });
+  it("give EJDict's line that writes the expansion out no note (ja I'm)", () => {
+    const ja = withContractions(
+      createEnJaDictionary({
+        dict,
+        phrases: jaPhrases,
+        capital,
+        sensePos,
+        defs,
+        pos,
+        ipa,
+      }),
+      options,
+    );
+    expect(ja.entry("I'm")?.lines[0]).toContain("I am");
+    expect(ja.entry("I'm")).not.toHaveProperty("expansion");
   });
 });

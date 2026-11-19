@@ -3,6 +3,7 @@
  * tags), and English grammar for how a tagged word is used: auxiliaries (have, be, do,
  * get) and participles used as adjectives or prepositions.
  */
+import { CONTRACTION, VERB_TO } from "./en-clitics";
 import { tagSentence, type PerceptronModel } from "./perceptron";
 import type { Tagger, TaggedWord, TokenTag, WordRole, WordUse } from "./tagger";
 
@@ -54,11 +55,6 @@ const PTB: Readonly<
 
 /** Tags of forms with an ending: inflected forms and plurals. */
 const MORPH = /^(VBD|VBN|VBG|VBZ|NNS|NNPS|JJR|JJS|RBR|RBS)$/;
-
-/** Contractions the treebank writes as two tokens: "do" "n't", "I" "'m". */
-const CONTRACTION = /^(.+?)(n't|'s|'re|'ll|'ve|'d|'m)$/i;
-/** Spoken forms the treebank writes as a verb and "to": "gon" "na", "wan" "na", "got" "ta". */
-const VERB_TO = /^(gon|wan|got)(na|ta)$/i;
 
 /**
  * The treebank's tokens of a token as written: contractions and gonna, wanna, gotta

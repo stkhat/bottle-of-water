@@ -202,6 +202,7 @@ export interface KaikkiEntry {
   forms?: { form?: unknown; tags?: string[] }[];
   translations?: KaikkiTranslation[];
   categories?: Categories;
+  etymology_text?: unknown;
 }
 
 /**

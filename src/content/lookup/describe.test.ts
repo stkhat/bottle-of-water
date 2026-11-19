@@ -9,6 +9,7 @@ import { rulesFor } from "../../core/phrases/rules";
 import type { TranslationPair, TranslationPriority } from "../translate/queue";
 import {
   answerChoice,
+  contractionNote,
   describeTerm,
   hoverView,
   inflectionNote,
@@ -120,6 +121,30 @@ const ENTRIES: Record<string, DictionaryEntry> = {
     ],
     glossLang: "en",
   },
+  // pl: Wikisłownik's own meaning of a contraction, which the note names.
+  "don't": {
+    head: "don't",
+    kind: "word",
+    short: "nie",
+    lines: ["nie"],
+    senses: [{ pos: "verb", text: "nie" }],
+    expansion: "do not",
+  },
+  // ru: no meaning of its own; its line is what it is short for (no note).
+  "i'm": {
+    head: "i'm",
+    kind: "word",
+    short: "I am",
+    lines: ["I am"],
+    senses: [],
+  },
+  it: {
+    head: "it",
+    kind: "word",
+    short: "それ",
+    lines: ["それ"],
+    senses: [{ pos: "pronoun", text: "それ" }],
+  },
   "spill the bean": {
     head: "spill the bean",
     kind: "phrase",
@@ -132,6 +157,9 @@ const ENTRIES: Record<string, DictionaryEntry> = {
 
 /** IPA the language pack has, also for terms no dictionary has. */
 const IPA: Record<string, string> = { "heavy lift": "/ˈhɛvi lɪft/" };
+
+/** What the language pack says a word written as a contraction is short for. */
+const EXPANSIONS: Record<string, string> = { "it's": "it is / it has" };
 
 /**
  * The background's answers: lookups from ENTRIES and IPA, with `translations` as the
@@ -148,9 +176,12 @@ function fakeSend(
     if (request.type !== "lookup") throw new Error(request.type);
     const entry = ENTRIES[request.key];
     const ipa = IPA[request.key];
+    const expansion =
+      request.surface && EXPANSIONS[request.surface.toLowerCase()];
     return {
       ...(entry && { entry }),
       ...(ipa && { ipa }),
+      ...(expansion && { expansion }),
       status,
       termId: `${request.lang}:${request.key}`,
       here: [],
@@ -198,6 +229,21 @@ describe("mainWord", () => {
     expect(mainWord("make up one's mind", en)).toBe("make");
     expect(mainWord("pull someone's leg", en)).toBe("pull");
     expect(mainWord("one's", en)).toBe("one's");
+  });
+});
+
+describe("contractionNote", () => {
+  it("shows a contraction and what it is short for", () => {
+    expect(contractionNote("Don’t", "do not")).toBe("don't → do not");
+    expect(contractionNote("it's", "it is / it has")).toBe(
+      "it's → it is / it has",
+    );
+  });
+  it("starts with a capital where the expansion does (the pronoun I)", () => {
+    expect(contractionNote("i'm", "I am")).toBe("I'm → I am");
+    expect(contractionNote("I'd", "I had / I would")).toBe(
+      "I'd → I had / I would",
+    );
   });
 });
 
@@ -250,6 +296,7 @@ describe("describeTerm", () => {
         lang: "en",
         key: "loaf",
         sourceUrl: "https://example.com/a",
+        surface: "loaves",
       },
     ]);
   });
@@ -280,9 +327,56 @@ describe("describeTerm", () => {
         sourceUrl: "https://example.com/a",
         written: "lower",
         pos: "noun",
+        surface: "loaves",
       },
     ]);
     expect(card.sub).toBe("loaves → loaf");
+  });
+
+  it("notes what a contraction is short for when its lines are meanings of its own", async () => {
+    const { send, requests } = fakeSend();
+    const deps = {
+      send,
+      lang: "en",
+      nativeLang: "pl",
+      sourceUrl: "https://example.com/a",
+      translator,
+    };
+    const card = await describeTerm(
+      { key: "don't", kind: "word", surface: "Don’t" },
+      deps,
+    );
+    expect(hoverView(card)).toMatchObject({
+      meanings: ["nie"],
+      sub: "don't → do not",
+    });
+    expect(windowView(card).sub).toBe("don't → do not");
+    // Its line is the expansion: no note. Written as its key: no surface asked about.
+    const im = await describeTerm(
+      { key: "i'm", kind: "word", surface: "i'm" },
+      deps,
+    );
+    expect(hoverView(im)).toMatchObject({ meanings: ["I am"] });
+    expect(im.sub).toBeUndefined();
+    expect(requests.at(-1)).not.toHaveProperty("surface");
+  });
+
+  it("notes what a contraction keyed by its first word is short for", async () => {
+    const { send } = fakeSend();
+    const card = await describeTerm(
+      { key: "it", kind: "word", surface: "It's" },
+      {
+        send,
+        lang: "en",
+        nativeLang: "ja",
+        sourceUrl: "https://example.com/a",
+        translator,
+      },
+    );
+    expect(hoverView(card)).toMatchObject({
+      meanings: ["それ"],
+      sub: "it's → it is / it has",
+    });
   });
 
   it("translates a phrase missing from the dictionary as it is written, and notes its main word", async () => {

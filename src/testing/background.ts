@@ -161,6 +161,7 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
     names: NAMES,
     // Sure of no word: no tag counts (rules A1 and A2 change nothing here).
     tagger: { tags: ["NN", "VB"], words: {}, weights: {}, scale: 10 },
+    contractions: {},
   },
   "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL, sensePos: {} },
   "en-defs": { defs: DEFS },

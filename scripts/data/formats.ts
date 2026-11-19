@@ -352,12 +352,12 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   en: pack("en", {
     title: "English word data",
     description:
-      "English base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names and a part-of-speech tagger",
+      "English base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names, contractions and a part-of-speech tagger",
     sources: [
       { ...SOURCES.ejdict, used: "vocabulary, phrase list" },
       {
         ...SOURCES.wiktionaryEn,
-        used: "vocabulary beyond EJDict's, inflections, US IPA, parts of speech, phrase patterns, names, frequency ranks of words the list lacks",
+        used: "vocabulary beyond EJDict's, inflections, US IPA, parts of speech, phrase patterns, names, contractions and what they are short for, frequency ranks of words the list lacks",
       },
       { ...SOURCES.freqEn, used: "frequency ranks" },
       {
