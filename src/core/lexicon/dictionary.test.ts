@@ -3,6 +3,7 @@ import {
   createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
+  withWrittenHeads,
 } from "./dictionary";
 import type { PairPack } from "../packs/types";
 
@@ -57,8 +58,15 @@ const dictionary = createEnJaDictionary({
     street: ["通り", ["『通り』,街路"]],
     sun: ["太陽", ["《the~》『太陽』"]],
     sunday: ["日曜日", ["『日曜日』"]],
+    // An abbreviation filed with its capitals ("PM,P.M.,p.m.").
+    "p.m.": [
+      "paymaster",
+      ["paymaster", "Prime Minister", "『午後』(ラテン語post meridiemの略)"],
+    ],
+    "a.m.": ["ante meridiem 午前", ["ante meridiem 午前", "『午前』"]],
   },
-  // EJDict's capitalised headwords, apart (acronyms under their capitals).
+  // EJDict's capitalised headwords, apart (acronyms under their capitals), and the
+  // capital-only words' meanings.
   capital: {
     japan: ["日本", ["『日本』"]],
     mark: ["聖マルコ", ["聖マルコ(『St.~』;4人の福音書の記者の一人)"]],
@@ -72,6 +80,8 @@ const dictionary = createEnJaDictionary({
     "nov.": ["November", ["November"]],
     "st.": ["Street", ["Street", "Saint(複SS.,Sts.)聖…,セント…"]],
     "sun.": ["Sunday", ["Sunday"]],
+    AI: ["人工知能", ["《artificial intelligence》人工知能"]],
+    tokyo: ["東京", ["東京"]],
   },
   // Japanese translations of phrases EJDict lacks.
   phrases: {
@@ -282,6 +292,30 @@ describe("createEnJaDictionary", () => {
     expect(dictionary.entry("sun", "capital")?.lines).toEqual(["太陽"]);
   });
 
+  it("gives a word with no lowercase entry its capitalised one however it is written", () => {
+    expect(dictionary.entry("ai", "upper")?.lines).toEqual(["人工知能"]);
+    expect(dictionary.entry("ai")?.lines).toEqual(["人工知能"]);
+    expect(dictionary.entry("tokyo", "capital")?.lines).toEqual(["東京"]);
+    expect(dictionary.entry("tokyo")?.short).toBe("東京");
+    expect(dictionary.capitalMeaning("tokyo")).toBe("word");
+  });
+
+  it("leads an abbreviation filed with its capitals with its core translation", () => {
+    expect(dictionary.entry("p.m.")?.lines).toEqual([
+      "午後(ラテン語post meridiemの略)",
+      "paymaster",
+      "Prime Minister",
+    ]);
+    expect(dictionary.entry("p.m.")?.short).toBe(
+      "午後(ラテン語post meridiemの略)",
+    );
+    // One whose first sense has Japanese keeps its order.
+    expect(dictionary.entry("a.m.")?.lines).toEqual([
+      "ante meridiem 午前",
+      "午前",
+    ]);
+  });
+
   it("gives a word in lower case its lowercase senses only", () => {
     expect(dictionary.entry("japan", "lower")?.lines).toEqual([
       "黒い漆",
@@ -433,6 +467,18 @@ describe("createEnJaDictionary", () => {
     expect(dictionary.entry("zzyzx")).toBeUndefined();
     expect(dictionary.entry("figure it out")).toBeUndefined();
     expect(dictionary.entry("figure it out")?.short).toBeUndefined();
+  });
+});
+
+describe("withWrittenHeads", () => {
+  it("writes a capital-only word's head as the word is written", () => {
+    const heads = withWrittenHeads(dictionary, (key) =>
+      key === "ai" ? "AI" : undefined,
+    );
+    expect(heads.entry("ai")?.head).toBe("AI");
+    expect(heads.entry("ai")?.lines).toEqual(["人工知能"]);
+    expect(heads.entry("dough")?.head).toBe("dough");
+    expect(heads.entry("zzyzx")).toBeUndefined();
   });
 });
 
