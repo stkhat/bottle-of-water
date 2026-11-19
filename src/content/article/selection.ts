@@ -56,6 +56,8 @@ export function createSelection(o: {
   spans: SpanMap;
   /** Other words were selected: the hover card goes. */
   dismissHover(): void;
+  /** One word was selected: its panel opens, as a click on it does. */
+  openWord(ref: SpanRef): void;
   /** A phrase was saved; it may be anywhere on the page. */
   saved(): Promise<void>;
 }) {
@@ -157,11 +159,28 @@ export function createSelection(o: {
 
   return {
     selecting: () => phrase !== undefined,
-    /** The page's selection settled; undefined when it is collapsed. */
+    /**
+     * The page's selection settled; undefined when it is collapsed. One word opens its
+     * panel, as a click on it does. A selection that makes no card stays as the page
+     * made it (it may be meant for copying).
+     */
     select(range: Range | undefined) {
       const snapped = range && snapSelection(range, o.index, o.spans);
-      if (!snapped) {
+      if (!snapped || snapped.words < 2) {
         drop();
+        const word = snapped?.words === 1 ? snapped.spans[0] : undefined;
+        const span =
+          snapped &&
+          word &&
+          o.spans
+            .get(snapped.block)
+            ?.find(
+              (s) =>
+                s.start <= word.start &&
+                s.end >= word.end &&
+                s.category !== "ignored",
+            );
+        if (snapped && span) o.openWord({ block: snapped.block, span });
         return;
       }
       if (phrase && sameSnap(phrase.snapped, snapped)) {

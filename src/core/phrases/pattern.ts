@@ -12,6 +12,12 @@ export interface PhraseRules {
   readonly slots: ReadonlyMap<string, ReadonlySet<string>>;
   /** The slot that also takes any word ending in 's or ’s ("Anna's" for "someone's"). */
   readonly possessiveSlot?: string;
+  /**
+   * The slot a possessive determiner of a selected phrase becomes in its dictionary
+   * form ("her" in "made up her mind" → "one's"; `phrases/correct.ts`). A possessive
+   * that does not fill it ("Anna's") becomes `possessiveSlot`.
+   */
+  readonly ownSlot?: string;
   /** Words ending in 's that are not possessives ("it's", "let's"). */
   readonly notPossessive?: ReadonlySet<string>;
   /** Words a gap pattern may have after its first word ("figure it out"). */

@@ -130,6 +130,16 @@ export function SparkleIcon() {
   );
 }
 
+/** "Edit phrase" (mock CorrectPhrase). */
+export function PencilIcon(props: { size: number }) {
+  return (
+    <Outline size={props.size} stroke={1.8} cap join>
+      <path d="M4 20h4L19 9l-4-4L4 16z"></path>
+      <path d="M13.5 6.5l4 4"></path>
+    </Outline>
+  );
+}
+
 export function GripIcon() {
   return (
     <svg

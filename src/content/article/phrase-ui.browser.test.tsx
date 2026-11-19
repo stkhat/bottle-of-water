@@ -16,7 +16,8 @@ const ARTICLE = `
   <div style="height: 120px"></div>
   <p>They knead the dough and bake loaves.</p>
   <p>So you can trace each rise and fall back to its cause.</p>
-  <p>one two three four five six seven eight nine ten</p>`;
+  <p>one two three four five six seven eight nine ten</p>
+  <p>Well, wh-what happened?</p>`;
 
 beforeAll(async () => {
   await page.viewport(1100, 800);
@@ -233,7 +234,7 @@ describe("selection card", () => {
     await expect.element(panel.getByText("On this page · 1")).toBeVisible();
   });
 
-  it("shows no card for one word, more than eight, or words across punctuation", async () => {
+  it("opens one word's panel, shows no card for more than eight words, and takes words across punctuation", async () => {
     const { root } = await setup(ARTICLE);
     const select = (from: string, to: string) => {
       const range = rangeOfText(root, from);
@@ -245,17 +246,27 @@ describe("selection card", () => {
       getSelection()!.addRange(range);
     };
 
+    // One word: its panel, as a click on it opens.
     select("dough", "dough");
-    await quiet();
+    await expect
+      .element(dictionary().getByRole("heading", { name: "dough" }))
+      .toBeVisible();
     expect(selectedStatus().query()).toBeNull();
+    // More than eight, or across blocks: the page's own selection, left alone.
     select("one", "nine");
     await quiet();
     expect(selectedStatus().query()).toBeNull();
+    expect(getSelection()!.isCollapsed).toBe(false);
     select("loaves", "So");
     await quiet();
     expect(selectedStatus().query()).toBeNull();
     select("one", "eight");
     await cardButton("one two three four five six seven eight", "Known");
+    // Across punctuation: the words with what separates them.
+    select("Well", "what");
+    await expect.poll(() => cardRoot().textContent).toContain("Well, wh-what");
+    select("what", "happened");
+    await expect.poll(() => cardRoot().textContent).toContain("what happened");
   });
 
   it("selects anew from a drag that starts inside the selected words", async () => {

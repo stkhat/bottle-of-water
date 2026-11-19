@@ -127,7 +127,9 @@ export function readWords(
 /**
  * Rule A1: the key a word is looked up by, among its base forms (`bases`, the word
  * itself first when it is a headword). Undefined keeps the first one.
- * 0. An auxiliary written as a headword ("has" in "has spent"; another form follows
+ * 0. The base the language's grammar decides for a form two verbs share
+ *    (`WordUse.base`: Spanish "se fue" → ir, not ser).
+ * 0a. An auxiliary written as a headword ("has" in "has spent"; another form follows
  *    rule 1: "podemos" → poder) keeps its own entry while that starts with a
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
  *    with a meaning of its own goes to the base ("being" → be), and so does one whose
@@ -168,6 +170,14 @@ export function chooseKey(
 ): string | undefined {
   if (bases.length < 2) return undefined;
   const first = bases.includes(form) ? form : bases[0]!;
+  // The base the sentence's grammar decides ("se fue": ir, not ser).
+  if (
+    use.base !== undefined &&
+    bases.includes(use.base) &&
+    mainlyVerb(use.base, pack) &&
+    outline(use.base)
+  )
+    return use.base === first ? undefined : use.base;
   const others = bases.filter((base) => base !== first);
   const fits = (base: string) =>
     tag !== undefined &&

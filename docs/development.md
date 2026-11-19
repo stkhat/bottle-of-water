@@ -125,6 +125,8 @@ var langle = (action, settings) => new Promise((done) => {
    The reply holds `packs` (the chosen pair's), `ready` (each can be used), `failed` and `packState` (every pack's `state`, `received`, `total`). Then reload the pages under check, or wait for them to analyze again.
 4. At the end, restore: `await langle("set", <the saved settings object>)`, and check that the reply's `settings` equal the saved ones.
 
+To watch a first download again, delete a pack the chosen pair does not use, as Settings' "Remove" does (the helper above with the pack added to the message: `postMessage({ type: "langle:check-settings", action: "remove", id, pack: "en-defs" }, "*")`); the reply is the `packs` report. For the whole progressive download of English → Japanese: switch to Spanish → English, remove `en`, `en-ja` and `en-defs`, clear the error log, open an English page and switch back; the log then lists every file's mirror. Switching back to the user's pair at the end downloads what it needs again.
+
 `set` merges a partial settings object, nested groups key by key, as Settings does. It refuses rather than drops or clamps: an unknown key, an ill-typed value or a slider value off its range or step (`mergeSettings`, `src/core/settings.ts`, decides), and a pair Langle does not offer (the error names the offered native languages). A new learning language without `nativeLang` gets its first native language, as in Settings. The change goes through the background's `setSettings`, the one `storage.sync` write Settings makes, so packs download and open pages analyze again the same way.
 
 Limits:

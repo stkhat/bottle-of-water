@@ -33,6 +33,8 @@ export type PhraseRule =
   | "nominal"
   /** An interjection ending in "be" before its complement ("eso es lo que", "eso es bueno"). */
   | "copula"
+  /** A conjunction ending in a free relative right before its verb ("por lo que ha hecho"). */
+  | "relative"
   /** A pattern's last noun with an adjective after it ("al día siguiente"). */
   | "modified"
   /** A possessive and a noun inside a sentence, not said to someone ("toda mi vida"). */
@@ -292,6 +294,19 @@ export function phraseMisfit(
         return "copula";
       return takesObject(c, punctuated) || insideClause(c, punctuated)
         ? "interjection"
+        : undefined;
+    }
+    case "conj": {
+      // Ending in a free relative, an article and a pronoun ("lo que"), right before
+      // the relative clause's verb: "juzgar por lo que ha hecho" (by what he has
+      // done), not "por lo que", therefore ("por lo que la oposición logra").
+      const article = readings[match.words.at(-2) ?? -1];
+      return match.words.length > 2 &&
+        c.main(pattern.at(-1)) === "pronoun" &&
+        (article?.role?.determiner === true ||
+          article?.use.label === "determiner") &&
+        after?.tag?.label === "verb"
+        ? "relative"
         : undefined;
     }
     case "verb": {

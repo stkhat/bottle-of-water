@@ -77,6 +77,11 @@ export interface PhraseBuildLanguage {
    * first senses.
    */
   wordSenses: number;
+  /**
+   * Senses of a function word (`functionWord`) read for its gloss bag, when fewer than
+   * `wordSenses`: the ones a hover shows first.
+   */
+  functionWordSenses?: number;
   /** Words that name nothing, besides the source's most frequent gloss tokens (B2b). */
   functionWord?: (word: string) => boolean;
   /**
@@ -221,7 +226,11 @@ async function readSource(
     const headword = entry.word.trim();
     const pos = entry.pos ?? "";
     if (!headword.includes(" ")) {
-      readWord(entry, headword, pos, needed, language, words, build.wordSenses);
+      const senses =
+        build.functionWord?.(headword) === true
+          ? (build.functionWordSenses ?? build.wordSenses)
+          : build.wordSenses;
+      readWord(entry, headword, pos, needed, language, words, senses);
       return;
     }
     entries++;

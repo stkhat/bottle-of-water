@@ -29,7 +29,14 @@ import {
   translationPair,
 } from "../core/packs/pairs";
 import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
-import { matchStart, type MatchWord } from "../core/phrases/matcher";
+import {
+  correctPhrase,
+  corrects,
+  isDictionaryPhrase,
+  sameWords,
+  wordsTouched,
+} from "../core/phrases/correct";
+import { matchStart } from "../core/phrases/matcher";
 import {
   hostBlocked,
   type Settings,
@@ -134,25 +141,6 @@ function view(
     link: occurrenceLink(o.source, o.pos),
     ...(meaningKey !== undefined && { meaningKey }),
   };
-}
-
-/**
- * The words whose text overlaps `start` to `end` (exclusive), as word indices `from`
- * (inclusive) to `to` (exclusive); `from` is not below `to` when there is none.
- */
-function wordsTouched(
-  words: readonly MatchWord[],
-  start: number,
-  end: number,
-): { from: number; to: number } {
-  let from = words.length;
-  let to = 0;
-  words.forEach(({ token }, i) => {
-    if (token.end <= start || token.start >= end) return;
-    from = Math.min(from, i);
-    to = i + 1;
-  });
-  return { from, to };
 }
 
 /**
@@ -418,6 +406,19 @@ export function createHandlers({
         start: input.words[matchStart(match)]!.token.start,
         end: input.words[match.words.at(-1)!]!.token.end,
       };
+    },
+
+    async checkPhrase({ lang, sentence, start, end, text, proposal }) {
+      const pack = await resources.pack(lang);
+      if (proposal && sameWords(pack, text, sentence.slice(start, end)))
+        return { why: "same" as const };
+      const fix = correctPhrase(pack, sentence, start, end, text);
+      if (!fix.ok) return { why: fix.why };
+      if (proposal && !corrects(fix, start, end, pack.rules))
+        return { why: "same" as const };
+      if (proposal && !isDictionaryPhrase(pack, fix.key))
+        return { why: "dictionary" as const };
+      return { key: fix.key, start: fix.start, end: fix.end };
     },
 
     async warmDictionary({ lang }) {
@@ -744,9 +745,9 @@ export function createHandlers({
         lines > MAX_LINES
       )
         return null;
-      const { meaning, sense } = answer;
+      const { meaning, sense, phrase } = answer;
       await explanations.put(key, {
-        answer: { meaning, sense },
+        answer: { meaning, sense, ...(phrase !== undefined && { phrase }) },
         lines,
       });
       return null;

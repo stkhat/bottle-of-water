@@ -1,7 +1,18 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import type { JSX } from "preact";
+import { afterEach, describe, expect, onTestFinished, test, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
+import { wordRuns } from "../../core/phrases/key";
 import type { Cue } from "../../core/subtitles/types";
+import {
+  drag,
+  middleOf,
+  moveTo,
+  pointIn,
+  press,
+  release,
+} from "../../testing/mouse";
+import type { SelectedText } from "./text-selection";
 import {
   addPageStyle,
   cleanUpMounts,
@@ -111,6 +122,34 @@ afterEach(cleanUpMounts);
 const cards = (screen: { container: HTMLElement }) => [
   ...screen.container.querySelectorAll<HTMLElement>("[data-cue]"),
 ];
+
+/** `count` cards, "Line number 0." on. */
+const numbered = (count: number): Cue[] =>
+  Array.from({ length: count }, (_, i) => ({
+    startMs: i * 1000,
+    endMs: i * 1000 + 1000,
+    text: `Line number ${i}.`,
+  }));
+
+/** Snaps a part of a card's text to its whole words, as the content script does. */
+const snapper =
+  (cues: readonly Cue[]) => (cue: number, from: number, to: number) => {
+    const runs = wordRuns(cues[cue]!.text).filter(
+      (r) => r.end > from && r.start < to,
+    );
+    const [first] = runs;
+    return first && { from: first.start, to: runs.at(-1)!.end };
+  };
+
+/** The panel 240 px wide, with the page beside it. */
+const narrow = (ui: JSX.Element) => <div style={{ width: "240px" }}>{ui}</div>;
+
+/** Moves the pointer off the list (the list holds still under it). */
+async function pointerAway(list: HTMLElement) {
+  const box = list.getBoundingClientRect();
+  await moveTo({ x: Math.min(innerWidth - 2, box.right + 20), y: 2 }, 1);
+  await moveTo({ x: innerWidth - 2, y: innerHeight - 2 }, 1);
+}
 
 /**
  * Waits until the list stops scrolling: it scrolls smoothly to the playing card once
@@ -311,51 +350,49 @@ describe("the Transcript tab", () => {
     addPageStyle("body { user-select: none; -webkit-user-select: none }");
     const text = CUES[2]!.text;
     const onSelectStart = vi.fn();
-    const whole = { from: text.indexOf("tried"), to: text.indexOf("of") + 2 };
-    const onSelect = vi.fn(() => whole);
+    const whole = { from: 0, to: text.indexOf("bunch") + "bunch".length };
+    const onSnap = vi.fn(snapper(CUES));
+    const onSelect = vi.fn(
+      (_cue: number, selected?: { from: number; to: number }) =>
+        selected && { from: selected.from, to: selected.to },
+    );
     const onSeek = vi.fn();
     const screen = await mountInShadowRoot(
       <VideoPanel
         {...base}
         onSelectStart={onSelectStart}
+        onSnap={onSnap}
+        height={640}
         onSelect={onSelect}
         onSeek={onSeek}
       />,
     );
+    await listAtRest(screen);
     const line = cards(screen)[2]!.querySelector<HTMLElement>("[lang=en]")!;
     const bunch = screen.getByText("bunch").element() as HTMLElement;
-    await listAtRest(screen);
-    const { height } = line.getBoundingClientRect();
     // From inside "I've" to the middle of "bunch".
-    await userEvent.dragAndDrop(
-      page.elementLocator(line),
-      page.elementLocator(bunch),
-      { sourcePosition: { x: 6, y: height / 2 } },
-    );
+    await drag([pointIn(line, 0.02), middleOf(bunch)]);
     await expect.poll(() => onSelect.mock.calls.length).toBe(1);
     expect(onSelectStart).toHaveBeenCalledExactlyOnceWith(2);
-    expect(onSelect).toHaveBeenCalledWith(
+    expect(onSnap).toHaveBeenCalledWith(2, 0, whole.to, "start");
+    expect(onSelect.mock.calls[0]).toEqual([
       2,
-      expect.objectContaining({ from: expect.any(Number) }),
-    );
-    const { from, to } = (onSelect.mock.calls[0] as unknown[])[1] as {
-      from: number;
-      to: number;
-    };
-    expect(from).toBeLessThan(text.indexOf("tried"));
-    expect(to).toBeGreaterThan(text.indexOf("bunch"));
-    expect(to).toBeLessThan(text.indexOf("bunch") + "bunch".length);
+      expect.objectContaining({ ...whole, anchor: "start" }),
+    ]);
     expect(selectedOffsets(line)).toEqual(whole);
     expect(onSeek).not.toHaveBeenCalled();
   });
 
-  test("a drag inside a word of a card opens nothing", async () => {
-    const onSelect = vi.fn(() => undefined);
+  test("a drag inside a word of a card selects it and opens nothing itself", async () => {
+    const onSelect =
+      vi.fn<(cue: number, selected?: SelectedText) => undefined>();
     const onWordClick = vi.fn();
     const onSeek = vi.fn();
     const screen = await mountInShadowRoot(
       <VideoPanel
         {...base}
+        onSnap={snapper(CUES)}
+        height={640}
         onSelect={onSelect}
         onWordClick={onWordClick}
         onSeek={onSeek}
@@ -363,20 +400,121 @@ describe("the Transcript tab", () => {
     );
     await listAtRest(screen);
     const bunch = screen.getByText("bunch").element() as HTMLElement;
-    const { width, height } = bunch.getBoundingClientRect();
-    await userEvent.dragAndDrop(
-      page.elementLocator(bunch),
-      page.elementLocator(bunch),
-      {
-        sourcePosition: { x: 2, y: height / 2 },
-        targetPosition: { x: width - 2, y: height / 2 },
-      },
-    );
+    await drag([pointIn(bunch, 0.1), pointIn(bunch, 0.9)]);
     await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+    const text = CUES[2]!.text;
+    expect(onSelect.mock.calls[0]![1]).toMatchObject({
+      from: text.indexOf("bunch"),
+      to: text.indexOf("bunch") + "bunch".length,
+    });
     expect(onWordClick).not.toHaveBeenCalled();
     expect(onSeek).not.toHaveBeenCalled();
   });
 
+  test("a drag out of a card over the page keeps to the card's words and leaves the list where it is", async () => {
+    const many = numbered(40);
+    const pageClick = vi.fn();
+    document.addEventListener("click", pageClick);
+    onTestFinished(() => document.removeEventListener("click", pageClick));
+    const onSelect = vi.fn(
+      (_cue: number, selected?: { from: number; to: number }) =>
+        selected && { from: selected.from, to: selected.to },
+    );
+    const onSeek = vi.fn();
+    const screen = await mountInShadowRoot(
+      narrow(
+        <VideoPanel
+          {...base}
+          cues={many}
+          spans={many.map(() => [])}
+          translations={many.map(() => "")}
+          current={20}
+          onSnap={snapper(many)}
+          onSelect={onSelect}
+          onSeek={onSeek}
+        />,
+      ),
+    );
+    await listAtRest(screen);
+    const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    const top = list.scrollTop;
+    expect(top).toBeGreaterThan(0);
+    const line = cards(screen)[20]!.querySelector<HTMLElement>("[lang=en]")!;
+    const box = list.getBoundingClientRect();
+    // Over the page beside the list (where the video is), and back over the list.
+    await drag([
+      pointIn(line, 0.1),
+      { x: box.right + 40, y: box.top + 20 },
+      { x: box.right + 80, y: box.bottom + 40 },
+    ]);
+    await expect.poll(() => onSelect.mock.calls.length).toBe(1);
+    const text = many[20]!.text;
+    expect(onSelect.mock.calls[0]).toEqual([
+      20,
+      expect.objectContaining({ from: 0, to: text.indexOf("20") + 2 }),
+    ]);
+    expect(selectedOffsets(line)).toEqual({ from: 0, to: text.length - 1 });
+    expect(list.scrollTop).toBe(top);
+    expect(pageClick).not.toHaveBeenCalled();
+    expect(onSeek).not.toHaveBeenCalled();
+  });
+
+  test("its follow-scroll waits while the pointer is over the list or presses it, and catches up after", async () => {
+    const many = numbered(40);
+    const props = {
+      ...base,
+      cues: many,
+      spans: many.map(() => []),
+      translations: many.map(() => ""),
+      current: 0,
+      onSnap: snapper(many),
+      onSelect: () => undefined,
+    };
+    const screen = await mountInShadowRoot(narrow(<VideoPanel {...props} />));
+    const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    // Inside the list's visible box: in a narrow panel the header's chips wrap to
+    // more lines on some systems (Linux fonts), leaving the list less room.
+    await moveTo(middleOf(list));
+    await screen.rerender(narrow(<VideoPanel {...props} current={2} />));
+    await screen.rerender(narrow(<VideoPanel {...props} current={30} />));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(list.scrollTop).toBe(0);
+
+    // A drag that began on a card holds it while the pointer is away from the list.
+    await press();
+    const box = list.getBoundingClientRect();
+    await moveTo({ x: box.right + 60, y: box.top + 10 });
+    await screen.rerender(narrow(<VideoPanel {...props} current={31} />));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(list.scrollTop).toBe(0);
+    // Let go away from the list: it catches up.
+    await release();
+    await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
+  });
+
+  test("a press stops its smooth scroll where it is", async () => {
+    const many = numbered(40);
+    const props = {
+      ...base,
+      cues: many,
+      spans: many.map(() => []),
+      translations: many.map(() => ""),
+      current: 0,
+    };
+    const screen = await mountInShadowRoot(narrow(<VideoPanel {...props} />));
+    const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    await pointerAway(list);
+    await screen.rerender(narrow(<VideoPanel {...props} current={39} />));
+    await expect.poll(() => list.scrollTop).toBeGreaterThan(0);
+    const box = list.getBoundingClientRect();
+    await moveTo({ x: box.left + 4, y: box.top + 4 }, 1);
+    await press();
+    const stopped = list.scrollTop;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await release();
+    expect(list.scrollTop).toBeLessThanOrEqual(stopped + 1);
+    expect(list.scrollTop).toBeLessThan(list.scrollHeight - list.clientHeight);
+  });
   test("tells when its list scrolls", async () => {
     const onListScroll = vi.fn();
     const screen = await mountInShadowRoot(
@@ -404,6 +542,7 @@ describe("the Transcript tab", () => {
       <VideoPanel {...props} holdScroll />,
     );
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    await pointerAway(list);
     await screen.rerender(<VideoPanel {...props} holdScroll current={30} />);
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(list.scrollTop).toBe(0);
@@ -458,6 +597,7 @@ describe("the Transcript tab", () => {
     };
     const screen = await mountInShadowRoot(<VideoPanel {...props} />);
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
+    await pointerAway(list);
     list.dispatchEvent(new WheelEvent("wheel", { deltaY: 100 }));
     await screen.rerender(<VideoPanel {...props} current={30} />);
     await new Promise((resolve) => setTimeout(resolve, 100));

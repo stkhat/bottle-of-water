@@ -6,6 +6,7 @@ import { createPhraseMatcher } from "./matcher";
 /** The key that "with <word>" matches, against the one pattern "with <slot>". */
 function matched(slot: string, word: string): string | undefined {
   const matcher = createPhraseMatcher({
+    lang: "en",
     rules: ENGLISH_RULES,
     patterns: { detect: [], more: [`with ${slot}`], gap: [] },
     lemmas: () => [],

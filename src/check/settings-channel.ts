@@ -4,7 +4,9 @@
  * Chrome can switch the language pair (or any other setting) without opening the
  * Settings page, which Claude in Chrome cannot open. A change goes the way Settings
  * sends it (`setSettings` to the background, one `storage.sync` write), so packs
- * download and pages analyze again as after a choice in Settings. Production builds
+ * download and pages analyze again as after a choice in Settings. `remove` deletes a
+ * pack the chosen pair does not use, as Settings' "Remove" does, so a check can watch a
+ * first download again. Production builds
  * leave all of this out (`npm run test:manifest` checks it).
  */
 import { nativeLanguages } from "../core/languages";
@@ -20,7 +22,7 @@ import {
 /** The `type` of every message of this channel on the page. */
 export const SETTINGS_MESSAGE_TYPE = "langle:check-settings";
 
-type Action = "get" | "set" | "packs";
+type Action = "get" | "set" | "packs" | "remove";
 
 /** A web page's request (docs/development.md "Checking in your own Chrome"). */
 interface SettingsPageRequest {
@@ -29,6 +31,8 @@ interface SettingsPageRequest {
   id: string;
   /** `set` only: a partial settings object, merged into the stored one. */
   settings?: unknown;
+  /** `remove` only: the pack to delete from the device. */
+  pack?: unknown;
 }
 
 /** What the chosen pair's packs are doing (the `packs` action). */
@@ -54,7 +58,7 @@ export type SettingsPageReply = {
   | { ok: false; error: string }
 );
 
-const ACTIONS: readonly Action[] = ["get", "set", "packs"];
+const ACTIONS: readonly Action[] = ["get", "set", "packs", "remove"];
 
 const isPageRequest = (data: unknown): data is SettingsPageRequest => {
   const d = data as Partial<SettingsPageRequest & { reply: unknown }> | null;
@@ -159,6 +163,11 @@ export interface SettingsChannelDeps {
   packStates(): Promise<PackStates>;
   /** After a change of the pair: what Settings starts on a choice too (best effort). */
   pairChosen?(learning: string, native: string): void;
+  /**
+   * The background's `removePack` (Settings' "Remove"): deletes a downloaded pack the
+   * chosen pair does not use, so a check can watch its first download again.
+   */
+  removePack?(pack: string): Promise<void>;
 }
 
 /**
@@ -181,7 +190,12 @@ export function answerSettingsRequests(
   ): Promise<{ ok: true; settings: Settings } | ({ ok: true } & PackReport)> {
     if (request.action === "get")
       return { ok: true, settings: await options.getSettings() };
-    if (request.action === "packs") {
+    if (request.action === "remove") {
+      if (typeof request.pack !== "string" || !options.removePack)
+        throw new Error("remove needs a pack name");
+      await options.removePack(request.pack);
+    }
+    if (request.action === "packs" || request.action === "remove") {
       const [states, settings] = await Promise.all([
         options.packStates(),
         options.getSettings(),

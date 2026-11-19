@@ -490,7 +490,7 @@
         },
         {
           "path": "phrases.json",
-          "sha256": "dcf885982a8a390b48d9e5d67772e5cd3c6109cee915f7e642d1e0c3636b6227",
+          "sha256": "d23f8bb4d3a6c795c550150b43386efbe8cd230641a36112576c04637fdb8409",
           "size": 156902
         },
         {
@@ -511,7 +511,7 @@
       ],
       "format": 4,
       "package": "@langle/es",
-      "version": "2026.1119.1"
+      "version": "2026.1119.2"
     },
     "es-en": {
       "files": [

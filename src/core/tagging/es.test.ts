@@ -139,6 +139,42 @@ describe("spanishTagger: uses", () => {
     ).toBe("other");
     expect(verbal("la/DET casa/NOUN")[1]).toBe(false);
   });
+  it("reads a clitic that is also an article, with no verb after it, as the article", () => {
+    const label = (text: string, i: number) => usesOf(text)[i]?.label;
+    expect(label("lo/PRON que/PRON dijo/VERB.Fin/decir", 0)).toBe("determiner");
+    expect(label("lo/PRON mejor/ADJ", 0)).toBe("determiner");
+    expect(label("lo/PRON de/ADP ayer/ADV", 0)).toBe("determiner");
+    // Before its verb, or another clitic, it is the pronoun.
+    expect(label("lo/PRON dijo/VERB.Fin/decir", 0)).toBeUndefined();
+    expect(label("lo/PRON he/AUX.Fin/haber visto/VERB.Part/ver", 0)).toBe(
+      undefined,
+    );
+    expect(label("se/PRON lo/PRON dio/VERB.Fin/dar", 1)).toBeUndefined();
+    // A noun after it is more often a verb the tagger missed; a pause ends the clause.
+    expect(label("lo/PRON explico/NOUN", 0)).toBeUndefined();
+    expect(label("no/ADV lo/PRON ,bueno/ADJ", 1)).toBeUndefined();
+    // Clitics that are no article stay pronouns.
+    expect(label("te/PRON mejor/ADJ", 0)).toBeUndefined();
+  });
+  it("reads a form ser shares with another verb as that verb where ser cannot stand", () => {
+    const use = (text: string, i: number) => usesOf(text)[i];
+    const fue = "fue/VERB.Fin/ser/ir";
+    expect(use(`se/PRON ${fue} con/ADP`, 1)).toMatchObject({
+      base: "ir",
+      pronominal: true,
+    });
+    expect(use(`me/PRON ${fue} bien/ADV`, 1)).toMatchObject({ base: "ir" });
+    expect(use(`le/PRON ${fue} bien/ADV`, 1)?.pronominal).toBeUndefined();
+    expect(use(`${fue} a/ADP ver/VERB.Inf`, 0)).toMatchObject({ base: "ir" });
+    expect(use(`${fue} a/ADP ver/VERB.Inf`, 0)?.pronominal).toBeUndefined();
+    // The copula: an attribute "lo", a complement, a pause before "a".
+    expect(use(`lo/PRON ${fue} para/ADP`, 1)?.base).toBeUndefined();
+    expect(use(`${fue} importante/ADJ`, 0)?.base).toBeUndefined();
+    expect(use(`${fue} ,a/ADP`, 0)?.base).toBeUndefined();
+    // A form of ser alone.
+    expect(use("se/PRON es/AUX.Fin/ser", 1)?.base).toBeUndefined();
+    expect(use("se/PRON es/AUX.Fin/ser/e", 1)?.base).toBeUndefined();
+  });
   it("finds no participle standing for a preposition", () => {
     expect(
       usesOf("incluido/VERB.Part/incluir el/DET precio/NOUN")[0]

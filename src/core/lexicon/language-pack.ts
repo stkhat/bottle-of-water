@@ -300,6 +300,7 @@ export function createLanguagePack(
     },
     get matcher() {
       return (matcher ??= createPhraseMatcher({
+        lang,
         rules,
         patterns: data.patterns,
         lemmas,

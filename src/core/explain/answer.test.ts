@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { answerJson } from "../../testing/explain";
-import { ANSWER_SCHEMA, checkAnswer, isAnswer, MAX_MEANING } from "./answer";
+import {
+  ANSWER_SCHEMA,
+  answerSchema,
+  checkAnswer,
+  isAnswer,
+  MAX_MEANING,
+  MAX_PHRASE,
+  PHRASE_ANSWER_SCHEMA,
+} from "./answer";
 
 describe("ANSWER_SCHEMA", () => {
   it("asks for the meaning, then the sense, and nothing else", () => {
@@ -68,6 +76,28 @@ describe("checkAnswer", () => {
   });
 });
 
+describe("checkAnswer for selected words", () => {
+  it("reads the phrase, trimmed; none when missing or too long", () => {
+    const read = (phrase?: string) => {
+      const checked = checkAnswer(answerJson({ phrase }), 0, true);
+      return checked.ok ? checked.answer.phrase : undefined;
+    };
+    expect(read(" make up one's mind ")).toBe("make up one's mind");
+    expect(read(undefined)).toBe("");
+    expect(read("a ".repeat(MAX_PHRASE))).toBe("");
+  });
+
+  it("asks for the phrase after the meaning", () => {
+    expect(Object.keys(PHRASE_ANSWER_SCHEMA.properties)).toEqual([
+      "meaning",
+      "sense",
+      "phrase",
+    ]);
+    expect(answerSchema(true)).toBe(PHRASE_ANSWER_SCHEMA);
+    expect(answerSchema(false)).toBe(ANSWER_SCHEMA);
+  });
+});
+
 describe("isAnswer", () => {
   it("accepts what checkAnswer gives and refuses the rest", () => {
     const good = { meaning: "船", sense: null };
@@ -83,6 +113,14 @@ describe("isAnswer", () => {
       { ...good, sense: undefined },
     ])
       expect(isAnswer(bad)).toBe(false);
+  });
+
+  it("accepts a kept phrase, and refuses one that is not text or too long", () => {
+    const good = { meaning: "決心する", sense: null };
+    expect(isAnswer({ ...good, phrase: "make up one's mind" })).toBe(true);
+    expect(isAnswer({ ...good, phrase: "" })).toBe(true);
+    expect(isAnswer({ ...good, phrase: 1 })).toBe(false);
+    expect(isAnswer({ ...good, phrase: "a ".repeat(MAX_PHRASE) })).toBe(false);
   });
 
   it("accepts a row kept with the earlier explanation fields", () => {

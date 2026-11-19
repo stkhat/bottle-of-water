@@ -880,6 +880,51 @@ describe("handlers: matchSelection", () => {
   });
 });
 
+describe("handlers: checkPhrase", () => {
+  const SENTENCE = "In the end she made up her mind.";
+  const SELECTED = "she made up her";
+  const checking = (text: string, proposal?: boolean) => ({
+    type: "checkPhrase" as const,
+    lang: "en",
+    sentence: SENTENCE,
+    start: SENTENCE.indexOf(SELECTED),
+    end: SENTENCE.indexOf(SELECTED) + SELECTED.length,
+    text,
+    ...(proposal !== undefined && { proposal }),
+  });
+  const MIND = {
+    key: "make up one's mind",
+    start: SENTENCE.indexOf("made"),
+    end: SENTENCE.indexOf(".", 20),
+  };
+
+  it("gives a typed phrase in dictionary form, with its place", async () => {
+    expect(await value(checking("made up her mind"))).toEqual(MIND);
+    expect(await value(checking("make up one's mind"))).toEqual(MIND);
+  });
+
+  it("says why a typed phrase cannot be saved", async () => {
+    expect(await value(checking("mind"))).toEqual({ why: "words" });
+    expect(await value(checking("give up"))).toEqual({ why: "sentence" });
+  });
+
+  it("offers a proposal only when it corrects the selection and the dictionary has it", async () => {
+    expect(await value(checking("make up one's mind", true))).toEqual(MIND);
+    // Repeats the selection.
+    expect(await value(checking("She made up her", true))).toEqual({
+      why: "same",
+    });
+    // In the sentence, but not over the selection.
+    expect(await value(checking("In the", true))).toEqual({
+      why: "sentence",
+    });
+    // Over the selection, but no phrase of the dictionary.
+    expect(await value(checking("end she made", true))).toEqual({
+      why: "dictionary",
+    });
+  });
+});
+
 const OCCURRENCE_BASE: Omit<OccurrenceRecord, "sourceId" | "sentence" | "pos"> =
   {
     termId: "en:loaf",
