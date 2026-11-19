@@ -1,6 +1,6 @@
 // Prints the numbers recorded in docs/notes/data-sizes.md and each language pair's
 // coverage for the quality gate; fails when a pair the lock offers is under the gate.
-// Usage: node scripts/data/stats.ts [--json]   (after npm run data:build, data:es, data:fr and data:native)
+// Usage: node scripts/data/stats.ts [--json]   (after npm run data:build, data:es, data:fr, data:de and data:native)
 //   --json: only the gate report, as JSON
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -160,6 +160,7 @@ function main() {
   for (const [lang, name] of [
     ["es", "Spanish"],
     ["fr", "French"],
+    ["de", "German"],
   ] as const) {
     const read = <T>(file: string) => readPack<T>(file, PACKS[lang].dir);
     const freq = read<Words>("freq.json");

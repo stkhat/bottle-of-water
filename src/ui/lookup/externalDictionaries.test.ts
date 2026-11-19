@@ -66,7 +66,7 @@ describe("dictionaryLinks", () => {
   });
 
   it("leaves out dictionaries that do not cover the language pair", () => {
-    const links = dictionaryLinks("Brot", all, { from: "de", to: "ja" });
+    const links = dictionaryLinks("brood", all, { from: "nl", to: "ja" });
     expect(links.map((l) => l.id)).toEqual(["wiktionary"]);
   });
 
@@ -94,6 +94,19 @@ describe("dictionaryLinks", () => {
         label: "WordReference",
         href: "https://www.wordreference.com/esen/a%20escondidas",
       },
+    ]);
+  });
+
+  it("links German to English, with Wiktionary's German section", () => {
+    expect(
+      dictionaryLinks("Straße", all, { from: "de", to: "en" }).map(
+        (link) => link.href,
+      ),
+    ).toEqual([
+      "https://dictionary.cambridge.org/dictionary/german-english/Stra%C3%9Fe",
+      "https://en.wiktionary.org/wiki/Stra%C3%9Fe#German",
+      "https://context.reverso.net/translation/german-english/Stra%C3%9Fe",
+      "https://www.wordreference.com/deen/Stra%C3%9Fe",
     ]);
   });
 

@@ -7,8 +7,8 @@ import {
 } from "./languages";
 
 describe("learningLanguages", () => {
-  it("lists English, then Spanish and French", () => {
-    expect(learningLanguages()).toEqual(["en", "es", "fr"]);
+  it("lists English, then Spanish, French and German, in the packs' order", () => {
+    expect(learningLanguages()).toEqual(["en", "es", "fr", "de"]);
   });
 });
 
@@ -20,10 +20,11 @@ describe("nativeLanguages", () => {
     ]);
     expect(nativeLanguages("es")).toEqual(["en"]);
     expect(nativeLanguages("fr")).toEqual(["en"]);
+    expect(nativeLanguages("de")).toEqual(["en"]);
   });
 
   it("has none for a language without a pack", () => {
-    expect(nativeLanguages("de")).toEqual([]);
+    expect(nativeLanguages("nl")).toEqual([]);
     expect(nativeLanguages("toString")).toEqual([]);
   });
 });
@@ -33,10 +34,11 @@ describe("speechLang", () => {
     expect(speechLang("en")).toBe("en-US");
     expect(speechLang("es")).toBe("es-ES");
     expect(speechLang("fr")).toBe("fr-FR");
+    expect(speechLang("de")).toBe("de-DE");
   });
 
   it("keeps other codes as they are", () => {
-    expect(speechLang("de")).toBe("de");
+    expect(speechLang("nl")).toBe("nl");
     expect(speechLang("constructor")).toBe("constructor");
   });
 });
@@ -58,9 +60,11 @@ describe("firstPair", () => {
     expect(firstPair("pl")).toEqual(pair("en", "pl"));
     // English is the default learning language, before French → English.
     expect(firstPair("fr-FR")).toEqual(pair("en", "fr"));
+    // …and before German → English.
+    expect(firstPair("de-DE")).toEqual(pair("en", "de"));
   });
 
-  it("gives an English UI another learning language that has English as its native one", () => {
+  it("gives an English UI another learning language that has English as its native one, the first in the packs' order", () => {
     expect(firstPair("en-US")).toEqual(pair("es", "en"));
     expect(firstPair("en-GB")).toEqual(pair("es", "en"));
   });

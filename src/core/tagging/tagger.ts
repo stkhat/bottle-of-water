@@ -37,6 +37,8 @@ export interface TaggedWord {
   trusted: boolean;
   /** Punctuation comes between the word before and this one. */
   pauseBefore: boolean;
+  /** Written with a capital or not; unknown in a document in capitals. */
+  capital?: boolean;
 }
 
 /** How a word is used in its sentence. */
@@ -83,6 +85,12 @@ export interface WordUse {
    * nothing of which (Spanish "fue": ser or ir; "se fue" is ir); rule A1 takes it.
    */
   base?: string;
+  /**
+   * `base` is a separable verb whose particle stands later in the clause (German "er
+   * fängt morgen an": anfangen): rule A1 takes it even where the pack's main part of
+   * speech for it is another (its noun "Aussehen" is commoner than "aussehen").
+   */
+  separable?: true;
   /**
    * A verb the grammar reads as pronominal here, from a reflexive pronoun before it
    * that decided its base ("se fueron de campamento": irse): a plain verb's pattern

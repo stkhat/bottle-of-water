@@ -44,6 +44,11 @@ const LICENSES = {
     url: "https://creativecommons.org/licenses/by-sa/4.0/",
     shareAlike: true,
   },
+  ccBySa3: {
+    name: "CC BY-SA 3.0",
+    url: "https://creativecommons.org/licenses/by-sa/3.0/",
+    shareAlike: true,
+  },
   ccBy3: {
     name: "CC BY 3.0",
     url: "https://creativecommons.org/licenses/by/3.0/",
@@ -156,6 +161,20 @@ const SOURCES = {
     by: "the contributors to Wiktionnaire, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
+  wiktionaryDe: {
+    title: "English Wiktionary, German entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/German/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryDeEditionGerman: {
+    title: "German Wiktionary (de.wiktionary), German entries",
+    via: KAIKKI,
+    url: "https://de.wiktionary.org/",
+    by: "the contributors to the German Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
   wiktionaryEsEdition: {
     title: "Spanish Wiktionary (Wikcionario), English entries",
     via: KAIKKI,
@@ -255,6 +274,18 @@ const SOURCES = {
     url: "https://github.com/hermitdave/FrequencyWords",
     by: "Hermit Dave, from the OpenSubtitles 2018 corpus (OPUS)",
     license: LICENSES.ccBySa4,
+  },
+  udGermanGsd: {
+    title: "Universal Dependencies German GSD treebank (UD_German-GSD)",
+    url: "https://github.com/UniversalDependencies/UD_German-GSD",
+    by: "the treebank's contributors (Petrov, Seeker, McDonald, Nivre, Zeman, Boyd, Blaschke), annotations made available by Google",
+    license: LICENSES.ccBySa4,
+  },
+  freqDe: {
+    title: "Wiktionary:Frequency lists/German/TV and movie subtitles (2009)",
+    url: "https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists/German/TV_and_movie_subtitles_(2009)",
+    by: "Matthias Buchmeier, from 25 million words of TV and movie subtitles (offered under CC BY-SA 3.0, the GFDL or the LGPL)",
+    license: LICENSES.ccBySa3,
   },
   freqEs: {
     title: "Wiktionary:Frequency lists/Spanish/Mixed 730K",
@@ -468,6 +499,31 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
     title: "French–English dictionary",
     description: "English meanings of French words and phrases",
     sources: [{ ...SOURCES.wiktionaryFr, used: "the English meanings" }],
+  }),
+  de: pack("de", {
+    title: "German word data",
+    description:
+      "German base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names and a part-of-speech tagger",
+    sources: [
+      {
+        ...SOURCES.wiktionaryDe,
+        used: "inflections (separable verbs' forms among them), IPA, parts of speech, vocabulary, phrase patterns, names",
+      },
+      {
+        ...SOURCES.wiktionaryDeEditionGerman,
+        used: "IPA of the words English Wiktionary has none for, usage examples for the phrase patterns",
+      },
+      { ...SOURCES.freqDe, used: "frequency ranks" },
+      {
+        ...SOURCES.udGermanGsd,
+        used: "the part-of-speech tagger's model (trained on it), the order of a form's base forms and of a word's parts of speech",
+      },
+    ],
+  }),
+  "de-en": pack("de-en", {
+    title: "German–English dictionary",
+    description: "English meanings of German words and phrases",
+    sources: [{ ...SOURCES.wiktionaryDe, used: "the English meanings" }],
   }),
   ...(Object.fromEntries(
     recipeNatives().map((native) => [`en-${native}`, recipePack(native)]),

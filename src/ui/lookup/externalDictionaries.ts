@@ -19,6 +19,7 @@ const REVERSO_NAMES: Readonly<Record<string, string>> = {
   en: "english",
   es: "spanish",
   fr: "french",
+  de: "german",
   ja: "japanese",
 };
 
@@ -27,6 +28,7 @@ const WORDREFERENCE_CODES: Readonly<Record<string, string>> = {
   "en-ja": "enja",
   "es-en": "esen",
   "fr-en": "fren",
+  "de-en": "deen",
 };
 
 /** Cambridge's dictionary paths by `from-to`, or by `from` for its monolingual ones. */
@@ -34,6 +36,7 @@ const CAMBRIDGE_PATHS: Readonly<Record<string, string>> = {
   en: "english",
   "es-en": "spanish-english",
   "fr-en": "french-english",
+  "de-en": "german-english",
 };
 
 /**
@@ -43,6 +46,7 @@ const CAMBRIDGE_PATHS: Readonly<Record<string, string>> = {
 const WIKTIONARY_SECTIONS: Readonly<Record<string, string>> = {
   es: "Spanish",
   fr: "French",
+  de: "German",
 };
 
 const lookUp = (table: Readonly<Record<string, string>>, key: string) =>

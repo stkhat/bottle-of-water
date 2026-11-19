@@ -1,4 +1,5 @@
 import lockFile from "./packs/packs.lock.json";
+import { LANGUAGE_PACKS } from "./packs/formats";
 import { DEFAULT_SETTINGS } from "./settings";
 import { own } from "./util";
 
@@ -9,14 +10,33 @@ import { own } from "./util";
  * into the lock (scripts/data/gate.ts). The background's registry
  * (`src/background/language-resources.ts`) builds every one.
  */
-const LANGUAGE_PAIRS: Readonly<Record<string, readonly string[]>> =
-  lockFile.pairs;
+const LANGUAGE_PAIRS: Readonly<Record<string, readonly string[]>> = inPackOrder(
+  lockFile.pairs,
+);
+
+/**
+ * The offered pairs with the learning languages in `LANGUAGE_PACKS`' order (English,
+ * Spanish, French, German), not the lock's, whose keys are sorted: Settings list them
+ * so, and a new install's first pair takes the first that fits (`firstPair`).
+ */
+function inPackOrder(
+  pairs: Readonly<Record<string, readonly string[]>>,
+): Readonly<Record<string, readonly string[]>> {
+  const order = (lang: string) => {
+    const at = (LANGUAGE_PACKS as readonly string[]).indexOf(lang);
+    return at < 0 ? LANGUAGE_PACKS.length : at;
+  };
+  return Object.fromEntries(
+    Object.entries(pairs).sort(([a], [b]) => order(a) - order(b)),
+  );
+}
 
 /** Speech voices by learning language. */
 const SPEECH_LANGS: Readonly<Record<string, string>> = {
   en: "en-US",
   es: "es-ES",
   fr: "fr-FR",
+  de: "de-DE",
 };
 
 /** The learning languages, in the order the settings offer them. */

@@ -226,3 +226,36 @@ test("a broken file on the mirror: Couldn't download, then Retry in Settings dow
     .poll(() => highlighted(page, "langle-new"), { timeout: 15_000 })
     .toEqual(expect.arrayContaining(["a escondidas"]));
 });
+
+// German (L2-1): a learning language whose pack and dictionary are both new.
+test("choosing German as the learning language downloads de and de-en from the mirror", async ({
+  context,
+  extensionId,
+}) => {
+  await pairDownloaded(context, extensionId);
+  expect(
+    await sendToBackground(context, extensionId, {
+      type: "setSettings",
+      patch: { learningLang: "de", nativeLang: "en" },
+    }),
+  ).toMatchObject({ ok: true });
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "packStatus",
+      })) as {
+        value?: { pair: { packs: { pack: string; state: string }[] } };
+      };
+      return reply.value?.pair.packs.map(({ pack, state }) => [pack, state]);
+    }, COLD_LOAD)
+    .toEqual([
+      ["de", "ready"],
+      ["de-en", "ready"],
+    ]);
+  const reply = (await sendToBackground(context, extensionId, {
+    type: "lookup",
+    lang: "de",
+    key: "haus",
+  })) as { value?: { entry?: { short: string } } };
+  expect(reply.value?.entry?.short).toMatch(/^house\b/);
+});

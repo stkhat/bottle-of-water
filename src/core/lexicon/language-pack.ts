@@ -20,6 +20,7 @@ import { normalizeWord, tokenize, type Token } from "../text/tokenize";
 import { englishTagger } from "../tagging/en";
 import { spanishTagger } from "../tagging/es";
 import { frenchTagger } from "../tagging/fr";
+import { germanTagger } from "../tagging/de";
 import type { Tagger, TaggerModel } from "../tagging/tagger";
 import { ipaFor } from "./ipa";
 import { lemmatize, type CapitalWords } from "./lemmatize";
@@ -47,7 +48,7 @@ const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es"]);
  * treebank's lemmas (Spanish "creo": creer before crear). English lists them in
  * code-unit order.
  */
-const BASES_IN_ORDER: ReadonlySet<string> = new Set(["es", "fr"]);
+const BASES_IN_ORDER: ReadonlySet<string> = new Set(["es", "fr", "de"]);
 
 /**
  * Letters whose accented forms text written in capitals tends to leave out (Spanish
@@ -102,6 +103,7 @@ const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
   en: englishTagger,
   es: spanishTagger,
   fr: frenchTagger,
+  de: germanTagger,
 };
 
 /** How many words' base forms a pack keeps (`lemmas`), as written; then it starts over. */
@@ -181,7 +183,8 @@ export interface LanguagePack {
   intransitive(key: string): boolean;
   /**
    * The language's part-of-speech tagger and grammar (rules A1 and A2,
-   * `word-sense.ts`), when the pack has a model for it (English, Spanish, French).
+   * `word-sense.ts`), when the pack has a model for it (English, Spanish, French,
+   * German).
    */
   readonly tagger?: Tagger;
 }

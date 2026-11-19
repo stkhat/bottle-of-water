@@ -205,6 +205,9 @@ const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
     "fr-en": dictionaryRecipe("fr-en", DICTIONARY_PACKS["fr-en"], (files) =>
       createDefsDictionary({ defs: files["fr-en"].defs, ipa: files.fr.ipa }),
     ),
+    "de-en": dictionaryRecipe("de-en", DICTIONARY_PACKS["de-en"], (files) =>
+      createDefsDictionary({ defs: files["de-en"].defs, ipa: files.de.ipa }),
+    ),
     ...Object.fromEntries(
       recipeNatives().map((native) => [
         `en-${native}`,

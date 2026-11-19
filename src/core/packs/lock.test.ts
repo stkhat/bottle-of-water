@@ -21,6 +21,8 @@ const lock = {
     "es-en": entry("es-en"),
     fr: entry("fr"),
     "fr-en": entry("fr-en"),
+    de: entry("de"),
+    "de-en": entry("de-en"),
     "en-es": entry("en-es"),
     "en-pt": entry("en-pt"),
     "en-ru": entry("en-ru"),
@@ -34,6 +36,7 @@ const lock = {
     en: ["ja", "es", "pt", "ru", "fr", "de", "zh", "it", "pl"],
     es: ["en"],
     fr: ["en"],
+    de: ["en"],
   },
 } satisfies PackLock;
 const LOCAL = "http://localhost:4719/mirror/{package}@{version}/{file}";

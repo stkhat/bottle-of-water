@@ -99,6 +99,8 @@ export function readWords(
         tag,
         trusted: trustedTag(tag, tagger.threshold, form, bases),
         pauseBefore: pauses[i]!,
+        // In capitals, case says nothing.
+        ...(!upper && { capital: /^\p{Lu}/u.test(token.text) }),
       };
     },
   );
@@ -128,7 +130,8 @@ export function readWords(
  * Rule A1: the key a word is looked up by, among its base forms (`bases`, the word
  * itself first when it is a headword). Undefined keeps the first one.
  * 0. The base the language's grammar decides for a form two verbs share
- *    (`WordUse.base`: Spanish "se fue" → ir, not ser).
+ *    (`WordUse.base`: Spanish "se fue" → ir, not ser), or the word itself (German
+ *    "wir essen": essen, not aufessen, whose particle is not in the clause).
  * 0a. An auxiliary written as a headword ("has" in "has spent"; another form follows
  *    rule 1: "podemos" → poder) keeps its own entry while that starts with a
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
@@ -174,7 +177,9 @@ export function chooseKey(
   if (
     use.base !== undefined &&
     bases.includes(use.base) &&
-    mainlyVerb(use.base, pack) &&
+    (use.base === first ||
+      use.separable === true ||
+      mainlyVerb(use.base, pack)) &&
     outline(use.base)
   )
     return use.base === first ? undefined : use.base;
@@ -244,7 +249,9 @@ export function chooseKey(
   // verb form follows rules 2 and 3, which read its use too; an entry that says
   // which base it is a form of keeps saying so ("dying": dieの現在分詞, read as a
   // noun, is no die "dice").
-  const tagged = tag?.label;
+  // Without a trusted tag, the part of speech the grammar is sure of (German: a
+  // capitalised word inside a sentence is a noun, "mit Haaren": Haar, not haaren).
+  const tagged = tag?.label ?? use.grammarPos;
   if (
     tagged !== undefined &&
     tagged !== "other" &&

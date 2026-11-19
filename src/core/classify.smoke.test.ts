@@ -587,6 +587,67 @@ describe("French tags over the generated packs (rules A1 and A2)", () => {
   });
 });
 
+const de = await loadPack("de");
+const deEn = await loadPack("de-en");
+
+describe("German tags over the generated packs (rules A1 and A2)", () => {
+  const tagged = createLanguagePack("de", {
+    lemmas: de.lemmas,
+    freq: de.freq,
+    ipa: de.ipa,
+    vocab: new Set(de.vocab),
+    patterns: de.phrases,
+    pos: de.pos,
+    tagger: de.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createDefsDictionary({ defs: deEn.defs, ipa: de.ipa });
+  const hover = (text: string, word: string) => {
+    const span = classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .find((s) => text.slice(s.start, s.end) === word)!;
+    return {
+      key: span.key,
+      pos: span.pos,
+      lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+    };
+  };
+
+  it("reads haben, sein and werden as auxiliaries with their verb anywhere in the clause", () => {
+    expect(
+      hover("Ich habe gestern einen Film gesehen.", "habe").lines[0],
+    ).toMatch(/perfect/);
+    expect(hover("Ich habe ein Auto.", "habe").lines[0]).toMatch(/^to have\b/);
+    expect(
+      hover("Ich weiß, dass er das Buch gelesen hat.", "hat").lines[0],
+    ).toMatch(/perfect/);
+    expect(hover("Die Tür ist geschlossen.", "ist").lines[0]).toBe("to be");
+    expect(hover("Es wird morgen regnen.", "wird").lines[0]).toMatch(/^will\b/);
+    expect(hover("Er wird Arzt.", "wird").lines[0]).toMatch(/^to become\b/);
+  });
+  it("reads a separable verb's finite form with its particle as that verb", () => {
+    expect(hover("Er fängt morgen mit der Arbeit an.", "fängt").key).toBe(
+      "anfangen",
+    );
+    expect(hover("Der Mann sieht müde aus.", "sieht").key).toBe("aussehen");
+    expect(hover("Wir essen um acht.", "essen").key).toBe("essen");
+  });
+  it("tells a noun from the verb it is written like, and the possessive sein from the verb", () => {
+    expect(hover("Das Essen ist kalt.", "Essen").pos).toBe("noun");
+    expect(hover("Wir essen um acht.", "essen").lines[0]).toBe("to eat");
+    expect(hover("Sein Haus ist groß.", "Sein").lines[0]).toBe("his");
+    expect(hover("Das kann nicht sein.", "sein").lines[0]).toBe("to be");
+  });
+  it("reads a question's first word before its subject as a verb", () => {
+    expect(hover("Kannst du kommen?", "Kannst").key).toBe("können");
+    expect(hover("Wissen Sie das?", "Wissen").lines[0]).toMatch(/^to know\b/);
+  });
+});
+
 describe("Spanish phrases over the generated packs", () => {
   const tagged = createLanguagePack("es", {
     lemmas: es.lemmas,
