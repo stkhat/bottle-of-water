@@ -1,4 +1,5 @@
 import type {
+  ContractionPack,
   DefsPack,
   DictPack,
   FreqPack,
@@ -35,6 +36,7 @@ interface BuiltOtherwise {
     phrases: PhrasePatterns;
     names: NamesPack;
     tagger: TaggerPack;
+    contractions: ContractionPack;
   };
   "en-ja": {
     dict: DictPack;
@@ -80,7 +82,17 @@ const LOADERS: {
   en: (fetchJson) =>
     loadFiles(
       "en",
-      ["lemmas", "freq", "ipa", "pos", "vocab", "phrases", "names", "tagger"],
+      [
+        "lemmas",
+        "freq",
+        "ipa",
+        "pos",
+        "vocab",
+        "phrases",
+        "names",
+        "tagger",
+        "contractions",
+      ],
       fetchJson,
     ),
   // The dictionaries are split into shards (each well under the 5 MB that AMO's linter

@@ -10,6 +10,7 @@ import {
   type LanguagePack,
 } from "../core/lexicon/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
+import { withContractions } from "../core/lexicon/contractions";
 import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/formats";
 import { recipeNatives, type RecipePairPack } from "../core/natives";
 import { fallbacksOf } from "../core/packs/pairs";
@@ -126,6 +127,7 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
           ipa,
           vocab: new Set(vocab),
           patterns: phrases,
+          ...("contractions" in pack && { contractions: pack.contractions }),
           ...("pos" in pack && { pos: pack.pos }),
           ...("names" in pack && { names: pack.names }),
           ...("tagger" in pack && { tagger: pack.tagger }),
@@ -134,31 +136,53 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
     ]),
   );
 
+/**
+ * An English dictionary with English contractions shown by what they are short for
+ * (`withContractions`), from the English pack's table and vocabulary.
+ */
+function withEnglishContractions(
+  dictionary: DictionaryProvider,
+  en: PackFiles["en"],
+): DictionaryProvider {
+  // The vocabulary as a set, made on the first contraction looked up.
+  let vocab: ReadonlySet<string> | undefined;
+  return withContractions(dictionary, {
+    expansions: (key) => own(en.contractions, key) ?? [],
+    english: (word) => (vocab ??= new Set(en.vocab)).has(word),
+  });
+}
+
 /** A recipe pair (en-es): the recipe's meanings, then English Wiktionary's definitions. */
 const pairRecipe = (pair: RecipePairPack) =>
   dictionaryRecipe<"en" | RecipePairPack | "en-defs">(
     pair,
     DICTIONARY_PACKS[pair],
     (files) =>
-      createPairDictionary({
-        dict: files[pair].dict,
-        defs: files["en-defs"].defs,
-        ipa: files.en.ipa,
-        native: pair.slice("en-".length),
-        lemmas: files.en.lemmas,
-        pos: files.en.pos,
-      }),
+      withEnglishContractions(
+        createPairDictionary({
+          dict: files[pair].dict,
+          defs: files["en-defs"].defs,
+          ipa: files.en.ipa,
+          native: pair.slice("en-".length),
+          lemmas: files.en.lemmas,
+          pos: files.en.pos,
+        }),
+        files.en,
+      ),
   );
 
 const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
   {
     "en-ja": dictionaryRecipe("en-ja", DICTIONARY_PACKS["en-ja"], (files) =>
-      createEnJaDictionary({
-        ...files["en-ja"],
-        defs: files["en-defs"].defs,
-        pos: files.en.pos,
-        ipa: files.en.ipa,
-      }),
+      withEnglishContractions(
+        createEnJaDictionary({
+          ...files["en-ja"],
+          defs: files["en-defs"].defs,
+          pos: files.en.pos,
+          ipa: files.en.ipa,
+        }),
+        files.en,
+      ),
     ),
     "es-en": dictionaryRecipe("es-en", DICTIONARY_PACKS["es-en"], (files) =>
       createDefsDictionary({ defs: files["es-en"].defs, ipa: files.es.ipa }),

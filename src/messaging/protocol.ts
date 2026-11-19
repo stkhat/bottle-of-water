@@ -181,6 +181,8 @@ export type Request =
       sentence?: string;
       written?: Written;
       pos?: string;
+      /** The word as written on the page, when it is not the key ("it's" keyed "it"). */
+      surface?: string;
     }
   | ({ type: "saveTerm" } & SaveTermInput)
   | ({ type: "chooseMeaning" } & ChooseMeaningInput)
@@ -279,6 +281,11 @@ export interface LookupResult {
   entry?: DictionaryEntry;
   /** From the language pack, also for a selected phrase no dictionary has. */
   ipa?: string;
+  /**
+   * What the word looked up is short for when it is a contraction keyed by another
+   * word ("it's" keyed "it" → "it is / it has"), for the card's note.
+   */
+  expansion?: string;
   status: TermStatus | "new";
   termId: string;
   /** Occurrences in the source at `sourceUrl`, newest first. */

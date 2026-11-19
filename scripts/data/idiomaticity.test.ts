@@ -21,6 +21,8 @@ const sense = (
   tags: [],
   topics: [],
   categories: [],
+  contraction: false,
+  partial: false,
   inflection: false,
   tables: 0,
   ja: [],

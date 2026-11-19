@@ -144,3 +144,43 @@ describe("buildEnDefs", () => {
     ]);
   });
 });
+
+describe("buildEnDefs on contractions (U1-5)", () => {
+  const contractions = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-contractions.jsonl",
+  );
+  let defs: Awaited<ReturnType<typeof buildEnDefs>>["defs"];
+  beforeAll(async () => {
+    ({ defs } = await buildEnDefs(contractions, {
+      vocab: ["we", "we've", "that's", "am"],
+      lemmas: {},
+      phrases: { detect: [], more: [], gap: [] },
+    }));
+  });
+
+  it("keeps a contraction's own gloss where its pointer names only its host (we've)", () => {
+    // Not "we"'s definition, "Excluding the person(s) being addressed".
+    expect(defs["we've"]).toEqual([
+      "Contraction of we + have",
+      [["contraction", "Contraction of we + have."]],
+    ]);
+  });
+  it("ranks a contraction's own senses first (that's)", () => {
+    // The dialectal determiner comes first in the source.
+    expect(defs["that's"]![0]).toBe("That is");
+    expect(defs["that's"]![1].map(([pos]) => pos)).toEqual([
+      "contraction",
+      "contraction",
+      "contraction",
+      "determiner",
+    ]);
+  });
+  it("keeps the senses of a word with a contraction sense among others in their order (am)", () => {
+    expect(defs["am"]![1].map(([pos]) => pos)).toEqual([
+      "adverb",
+      "contraction",
+    ]);
+  });
+});

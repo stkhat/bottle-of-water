@@ -24,6 +24,7 @@ const pack = createLanguagePack("en", {
     pos: { detect: "v", more: "-" },
     intransitive: ["figure out"],
   },
+  contractions: { "i'm": ["I am"], "it's": ["it is", "it has"] },
 });
 
 describe("createLanguagePack (en)", () => {
@@ -41,6 +42,12 @@ describe("createLanguagePack (en)", () => {
     expect(pack.phrasePos("make up one's mind")).toEqual([]);
     expect(pack.intransitive("figure out")).toBe(true);
     expect(pack.intransitive("make up one's mind")).toBe(false);
+  });
+
+  it("says what a contraction is short for, by its key", () => {
+    expect(pack.expansions("i'm")).toEqual(["I am"]);
+    expect(pack.expansions("it's")).toEqual(["it is", "it has"]);
+    expect(pack.expansions("loaf")).toEqual([]);
   });
 
   it("has the English phrase rules", () => {
@@ -102,6 +109,10 @@ describe("createLanguagePack", () => {
 
   it("is the pack of the language it is given", () => {
     expect(es.lang).toBe("es");
+  });
+
+  it("has no contractions without their table", () => {
+    expect(es.expansions("del")).toEqual([]);
   });
 
   it("tokenizes text in that language", () => {

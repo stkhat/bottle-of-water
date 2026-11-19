@@ -60,6 +60,11 @@ export interface DictionaryEntry {
    * definition of a phrase no translation covers: "en").
    */
   glossLang?: string;
+  /**
+   * A contraction's expansions, for the card's note ("I'm → I am"), when its lines are
+   * meanings of its own that do not write it out (`withContractions`).
+   */
+  expansion?: string;
 }
 
 /**

@@ -106,6 +106,7 @@ describe("createLanguageResources", () => {
       "/packs/en-ja/index.json",
       "/packs/en-ja/phrases.json",
       "/packs/en-ja/pos.json",
+      "/packs/en/contractions.json",
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
@@ -122,6 +123,7 @@ describe("createLanguageResources", () => {
     const resources = createLanguageResources(loadPack);
     await resources.classifier("en");
     expect(filesRead(loadPack)).toEqual([
+      "/packs/en/contractions.json",
       "/packs/en/freq.json",
       "/packs/en/ipa.json",
       "/packs/en/lemmas.json",
