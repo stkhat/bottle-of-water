@@ -2,7 +2,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CLASS_HEADWORDS,
+  beforeReference,
   capitalDictionary,
+  grammarFrame,
+  isExampleNote,
+  meaningFirst,
+  nativeFrame,
+  placeholderKey,
+  withLabelsInBrackets,
   capitalTermOf,
   convertTerms,
   inCapitalCase,
@@ -149,10 +156,15 @@ describe("readEdition", () => {
       unparsable: 1,
       pointers: 0,
       templates: 0,
+      unmarkedTemplates: 0,
       cased: 0,
       foreign: 0,
       // Its glosses open in lower case.
       sentenceCase: false,
+      placeheld: 0,
+      reshaped: 0,
+      labels: [],
+      placeholders: [],
     });
   });
 
@@ -325,7 +337,178 @@ describe("readEdition: pointers", () => {
   });
 });
 
+describe("readEdition: unmarked pointers, placeholders, labels (U1-7)", () => {
+  const hygieneKey = termKeyOf({
+    vocab: new Set(
+      (
+        "shrank shrink blessed bless lurked lurk color colour gaol jail ax axe adviser advisor " +
+        "bedbug bug ramekin ramequin wore wear doge duke cardinal squeeze stem pression " +
+        "absorber binder cocky stub easter rabbit dong dork gun jack prick rod tool wang willy " +
+        "schlong abbey baron castle earl knight lord manor squire vassal liege britain soonest " +
+        "soon prismatical prismatic shes she has acetanilide"
+      ).split(" "),
+    ),
+    lemmas: {},
+    phrases: new Set(),
+  });
+  const read = () =>
+    readEdition(join(FIXTURES, "edition-hygiene.jsonl"), hygieneKey, {
+      trimPeriod: true,
+      native: "fr",
+    });
+
+  it("learns the pointer syntax the edition writes without marking it", async () => {
+    const { terms, templates, stats } = await read();
+    expect([...templates].sort()).toEqual([
+      "prétérit de {x}",
+      "variante de {x}",
+      "→ voir {x}",
+    ]);
+    expect(stats.unmarkedTemplates).toBe(2);
+    expect(terms.get("color")?.senses).toEqual([
+      ["noun", "variante de colour", null, "colour"],
+    ]);
+    expect(terms.get("adviser")?.senses).toEqual([
+      ["noun", "→ voir advisor", null, "advisor"],
+    ]);
+    // A template with one target, said in the words of the learned ones.
+    expect(terms.get("wore")?.senses).toEqual([
+      ["verb", "variante de prétérit de wear", null, "wear"],
+    ]);
+  });
+
+  it("cuts a reference that closes a gloss after an arrow", async () => {
+    const { terms } = await read();
+    expect(terms.get("doge")?.senses).toEqual([["noun", "doge"]]);
+  });
+
+  it("leaves out a placeholder ten headwords share, not a word they share, nor a gloss without letters", async () => {
+    const { terms, stats } = await read();
+    expect(terms.has("cardinal")).toBe(false);
+    expect(terms.has("rabbit")).toBe(false);
+    expect(stats.placeheld).toBe(10);
+    expect(terms.get("dong")?.senses).toEqual([["noun", "vieux"]]);
+    expect(terms.has("acetanilide")).toBe(false);
+  });
+
+  it("puts the edition's opening label abbreviations in brackets", async () => {
+    const { terms, stats } = await read();
+    expect(stats.labels).toEqual(["fig."]);
+    expect(terms.get("abbey")?.senses).toEqual([
+      ["noun", "(fig.) quelque chose"],
+    ]);
+    expect(terms.get("britain")?.senses).toEqual([["noun", "(fig.) Bretagne"]]);
+  });
+
+  it("puts a translation first after a sentence about the English word", async () => {
+    const { terms } = await read();
+    expect(terms.get("soonest")?.senses).toEqual([
+      ["adverb", "le plus tôt. Superlatif de soon."],
+    ]);
+    expect(terms.get("prismatical")?.senses).toEqual([
+      ["adjective", "prismatique. Variante de prismatic."],
+    ]);
+    // A description after it stays second.
+    expect(terms.get("shes")?.senses[0]?.[1]).toBe(
+      "Contraction de she has. Elle a une longue description de ce qu'elle a fait.",
+    );
+  });
+});
+
+describe("U1-7 gloss helpers", () => {
+  const frames = new Set(["→ voir {x}"]);
+  const isFrame = (template: string) => frames.has(template);
+  it("beforeReference: the text before a closing reference", () => {
+    expect(beforeReference("doge → voir duke", isFrame)).toBe("doge");
+    expect(
+      beforeReference("Rouge cardinal. → voir cardinal red", isFrame),
+    ).toBe("Rouge cardinal");
+    expect(beforeReference("United States → Stany Zjednoczone", isFrame)).toBe(
+      "United States → Stany Zjednoczone",
+    );
+    expect(beforeReference("→ voir duke", isFrame)).toBe("→ voir duke");
+  });
+  it("meaningFirst: the translation before a sentence about the English word", () => {
+    const english = (text: string) => /\b(soon|know|we|are)\b/.test(text);
+    expect(meaningFirst("Superlatif de soon. Le plus tôt.", english)).toBe(
+      "Le plus tôt. Superlatif de soon.",
+    );
+    expect(meaningFirst("I don't know. → Nie wiem", english)).toBe(
+      "Nie wiem. I don't know.",
+    );
+    // es we're: the next sentence describes (more than three words in its first item).
+    const werE = "Contracción de we are. Nosotros somos o nosotros estamos.";
+    expect(meaningFirst(werE, english)).toBe(werE);
+    expect(meaningFirst("Más. Comparativo de much", english)).toBe(
+      "Más. Comparativo de much",
+    );
+  });
+  it("withLabelsInBrackets: the labels that open a gloss, after a note", () => {
+    const isLabel = (token: string) => ["истор.", "астрон."].includes(token);
+    expect(withLabelsInBrackets("истор. Британия", isLabel)).toBe(
+      "(истор.) Британия",
+    );
+    expect(
+      withLabelsInBrackets("(the Plough) астрон. Большая Медведица", isLabel),
+    ).toBe("(the Plough) (астрон.) Большая Медведица");
+    expect(withLabelsInBrackets("más. Comparativo de much", isLabel)).toBe(
+      "más. Comparativo de much",
+    );
+  });
+  it("nativeFrame and grammarFrame: templates in the edition's own words", () => {
+    const native = (word: string) => ["вариант", "de", "voir"].includes(word);
+    const term = (word: string) =>
+      ["american", "association", "de"].includes(word);
+    expect(nativeFrame("вариант {x}", native, term)).toBe(true);
+    expect(nativeFrame("→ voir {x}", native, term)).toBe(true);
+    expect(nativeFrame("american {x} association", native, term)).toBe(false);
+    const vocabulary = new Set(["pasado", "simple", "del", "verbo", "de"]);
+    expect(grammarFrame("pasado simple de {x}", vocabulary)).toBe(true);
+    expect(grammarFrame("de {x}", vocabulary)).toBe(false);
+    expect(grammarFrame("pasado simple de {x} y algo", vocabulary)).toBe(false);
+    // One more word of the edition's own qualifies the syntax; two do not.
+    const own = (word: string) =>
+      ["auxiliar", "persona", "otro"].includes(word);
+    expect(grammarFrame("pasado simple auxiliar de {x}", vocabulary, own)).toBe(
+      true,
+    );
+    expect(grammarFrame("persona de {x}", vocabulary, own)).toBe(false);
+    expect(grammarFrame("pasado otro auxiliar de {x}", vocabulary, own)).toBe(
+      false,
+    );
+  });
+  it("placeholderKey: a gloss without notes and closing marks", () => {
+    expect(
+      placeholderKey("Définition manquante ou à compléter. (Ajouter)."),
+    ).toBe("définition manquante ou à compléter");
+  });
+});
+
 describe("readTranslationTables", () => {
+  it("leaves out a row's words where its note gives an example", async () => {
+    const { terms } = await readTranslationTables(
+      join(FIXTURES, "tables-example.jsonl"),
+      {
+        langCodes: ["pt"],
+        termKey: termKeyOf({
+          vocab: new Set(["would"]),
+          lemmas: {},
+          phrases: new Set(),
+        }),
+      },
+    );
+    expect(terms.get("would")?.senses).toEqual([
+      ["verb", "usaria", "used to form the conditional"],
+    ]);
+    expect(
+      isExampleNote("We would sit by the hole. - No inverno", "would"),
+    ).toBe(true);
+    expect(isExampleNote("Use the imperfect tense", "would")).toBe(false);
+    expect(isExampleNote("a threefold increase - um aumento", "would")).toBe(
+      false,
+    );
+  });
+
   it("groups each English entry's translations by sense, with the sense as a hint", async () => {
     const { terms } = await readTranslationTables(
       join(FIXTURES, "tables-en.jsonl"),

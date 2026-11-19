@@ -1,6 +1,4 @@
 {
-"fiver":["Fünfer",[["noun","Fünfer","banknote"]],0],
-"fix":["reparieren",[["verb","reparieren, flicken","to mend or repair"],["verb","fixieren, befestigen, anhängen","to attach; to affix; to hold in place"],["verb","vorbereiten, machen, zubereiten","to prepare"],["noun","Reparatur","an instance of fixing"]],0],
 "fix room":["Druckraum",[["noun","Druckraum, Fixerstube","Translations"]],0],
 "fix up":["herrichten",[["verb","herrichten, reparieren, ausbessern","to repair or refurbish"],["verb","versorgen, ausstatten","to provide someone with something"],["verb","vorbereiten, fertig machen, arrangieren","to prepare or provide something"]],0],
 "fixate":["fixieren",[["verb","fixieren, festmachen, befestigen","to make something fixed and stable; to fix"],["verb","seine volle Aufmerksamkeit schenken, sich vollständig konzentrieren","to attend to something to the exclusion of others"],["verb","fixieren, seinen Blick heften auf","to stare fixedly at something"],["verb","sich fixieren","psychology: to attach oneself to a person or thing in a pathological, neurotic, or obsessive manner"]],0],
@@ -1703,7 +1701,6 @@
 "germ":["Keim",[["noun","Keim","pathogenic microorganism"]],0],
 "germ cell":["Urkeimzelle",[["noun","Urkeimzelle","a cell that is part of the germ line"]],0],
 "germ plasm":["Keimplasma",[["noun","Keimplasma","cytoplasm of germ cells"]],0],
-"german":["dieselben Eltern oder gleiche Großeltern habend",[["adjective","dieselben Eltern oder gleiche Großeltern habend"],["adjective","nah verwandt"]],1],
 "german autumn":["Deutscher Herbst",[["proper noun","Deutscher Herbst","set of events in late 1977"]],0],
 "german bight":["Deutsche Bucht",[["proper noun","Deutsche Bucht","bay in the North Sea"]],0],
 "german chamomile":["Kamille",[["noun","Kamille","annual plant used for tea"]],0],
@@ -4892,7 +4889,6 @@
 "hysterectomy":["Gebärmutterentfernung",[["noun","Gebärmutterentfernung, Hysterektomie","surgical removal of the uterus or part thereof"]],0],
 "hysteria":["Hysterie",[["noun","Hysterie","behavior exhibiting excessive or uncontrollable emotion"]],0],
 "hysterical":["hysterisch",[["adjective","hysterisch","arising from hysteria"]],0],
-"i":["I",[["noun","I","name of the letter I, i"]],0],
 "i am a doctor":["ich bin Arzt",[["phrase","ich bin Arzt","I am a doctor (a physician)"]],0],
 "i am afraid of this":["ich habe Angst davor",[["phrase","ich habe Angst davor, ich fürchte mich davor","indicates that the speaker is afraid of something"]],0],
 "i am english":["ich bin Engländer",[["phrase","ich bin Engländer, ich bin Engländerin","I am English"]],0],
@@ -6851,7 +6847,6 @@
 "jammy":["schlitzohrig",[["adjective","schlitzohrig, nochmal davongekommen","colloquial: lucky"],["adjective","marmeladig, marmeladenverschmiert","covered in jam"]],0],
 "janissary":["Janitschar",[["noun","Janitschar","former Turkish soldier"]],0],
 "janitor":["Hausmeister",[["noun","Hausmeister, Hausmeisterin, Hauswartin","1. caretaker"],["noun","Pförtner, Pförtnerin","2. doorman"]],0],
-"japan":["Japan",[["verb","Japan","to varnish (something) with japan"]],0],
 "japanese beetle":["Japankäfer",[["noun","Japankäfer","species of beetle"]],0],
 "japanese bush warbler":["Japanbuschsänger",[["noun","Japanbuschsänger","Horornis diphone"]],0],
 "japanese encephalitis":["Japanische Enzephalitis",[["noun","Japanische Enzephalitis","viral disease"]],0],
@@ -15758,7 +15753,6 @@
 "plus sign":["Additionszeichen",[["noun","Additionszeichen, Pluszeichen","mathematical symbol"]],0],
 "plush":["Plüsch",[["noun","Plüsch","textile fabric"]],0],
 "plush toy":["Plüschtier",[["noun","Plüschtier","soft toy with a plush covering"]],0],
-"pluto":["abwerten, degradieren, zurückstufen",[["verb","abwerten, degradieren, zurückstufen"]],1],
 "plutocracy":["Plutokratie",[["noun","Plutokratie","government by the wealthy"],["noun","Plutokratie, Plutokraten","controlling class of the wealthy"]],0],
 "plutocrat":["Plutokrat",[["noun","Plutokrat, Plutokratin","someone who rules by virtue of his or her wealth"]],0],
 "plutocratic":["plutokratisch",[["adjective","plutokratisch","of, relating to, or being a plutocracy"]],0],
@@ -15949,5 +15943,12 @@
 "polygamist":["Polygamist",[["noun","Polygamist, Polygamistin","one who practices polygamy"]],0],
 "polygamous":["polygam",[["adjective","polygam","of, relating to, or practicing polygamy"]],0],
 "polygamy":["Polygamie",[["noun","Polygamie, Mehrehe, Vielehe","the having of a plurality of socially bonded sexual partners at the same time — see also polygyny, polyandry"]],0],
-"polyglot":["Polyglotter",[["noun","Polyglotter, Polyglotte","one who has mastered (especially when able to speak) several languages"],["adjective","vielsprachig, polyglott, mehrsprachig","of a person: speaking, or versed in, many languages — see also multilingual, plurilingual"],["adjective","polyglott, mehrsprachig","containing, or made up of, several languages"],["noun","Polyglotte","publication in several languages"]],0]
+"polyglot":["Polyglotter",[["noun","Polyglotter, Polyglotte","one who has mastered (especially when able to speak) several languages"],["adjective","vielsprachig, polyglott, mehrsprachig","of a person: speaking, or versed in, many languages — see also multilingual, plurilingual"],["adjective","polyglott, mehrsprachig","containing, or made up of, several languages"],["noun","Polyglotte","publication in several languages"]],0],
+"polygon":["Vieleck",[["noun","Vieleck, Polygon","plane figure bounded by straight edges"]],0],
+"polygon mesh":["Polygonnetz",[["noun","Polygonnetz","collection of vetrices, edges and faces"]],0],
+"polygonal":["mehreckig",[["adjective","mehreckig, vieleckig, polygonal","having many angles"]],0],
+"polygraph":["Lügendetektor",[["noun","Lügendetektor","device to discern if a subject is lying"]],0],
+"polygyny":["Polygynie",[["noun","Polygynie","plurality of wives at the same time"]],0],
+"polyhedral":["polyhedral",[["adjective","polyhedral","(geometry) having multiple planar faces or facets"]],0],
+"polyhedron":["Polyeder",[["noun","Polyeder, Vielflach, Vielflächner","geometry: solid figure"]],0]
 }

@@ -197,6 +197,15 @@ describe("japanesePointer", () => {
   });
   it("names no word when a form points to several", () => {
     expect(japanesePointer("am not, is notの短縮形")).toEqual({ kind: "form" });
+    expect(japanesePointer("=Archeozoic,Archae")).toEqual({
+      kind: "reference",
+    });
+  });
+  it("names the first of several spellings of one word", () => {
+    expect(japanesePointer("=OK,O.K.")).toEqual({
+      kind: "reference",
+      target: "ok",
+    });
   });
   it("knows cross-references, without their sense number", () => {
     expect(japanesePointer("=anyhow")).toEqual({
@@ -463,6 +472,12 @@ describe("editionLine", () => {
     expect(
       editionLine("（同 are not, aren’t; is not, isn’t; am not）不是"),
     ).toBe("不是");
+    // And an abbreviation in brackets: the data build brackets an edition's opening
+    // label abbreviations (ru "истор. Британия", whose first sentence was "истор").
+    expect(editionLine("(истор.) Британия")).toBe("Британия");
+    expect(editionLine("(the Plough) (астрон.) Большая Медведица")).toBe(
+      "Большая Медведица",
+    );
     // One word in brackets is part of the meaning, or a note kept.
     expect(editionLine("(Ne) … pas")).toBe("(Ne) … pas");
     expect(editionLine("（现多）点燃，燃烧")).toBe("（现多）点燃，燃烧");
@@ -493,6 +508,12 @@ describe("editionLine", () => {
     expect(editionLine("United States → Stany Zjednoczone, USA")).toBe(
       "Stany Zjednoczone, USA",
     );
+    // A colon in a later sense is that sense's own, not a qualifier of the gloss.
+    expect(
+      editionLine(
+        "bloqueo; Situación dentro de un sistema informático en la que dos o más tareas por ejemplo: hilos o procesos están esperándose",
+      ),
+    ).toBe("bloqueo");
     // A translation and its explanation, or one word before the colon, stay.
     expect(editionLine("Mil millones: un 1 seguido por 9 ceros")).toBe(
       "Mil millones: un 1 seguido por 9 ceros",

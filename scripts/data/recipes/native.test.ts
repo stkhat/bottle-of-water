@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeShards } from "../common.ts";
-import { buildPairDictionary } from "./native.ts";
+import {
+  buildPairDictionary,
+  lesserLowercase,
+  withPointerPos,
+} from "./native.ts";
 import { TABLES_TAG } from "./recipes.ts";
 import { termKeyOf } from "./recipe.ts";
 
@@ -167,6 +171,44 @@ describe("buildPairDictionary", () => {
         (await build("pl", { better: ["verb", "adjective"] })).dict["better"],
       ).toEqual(["poprawić, ulepszyć", [["verb", "poprawić, ulepszyć"]], 0]);
     });
+  });
+  it("knows a lowercase headword English uses far less than the capitalised one", () => {
+    const coverage = new Map([
+      ["French", 180],
+      ["french", 4],
+      ["China", 224],
+      ["china", 17],
+      ["Numbers", 88],
+      ["Rose", 40],
+    ]);
+    // french, to cut in strips: 4 languages against 180.
+    expect(lesserLowercase("french", coverage, {})).toBe(true);
+    // china, porcelain: a use of its own (17 against 224).
+    expect(lesserLowercase("china", coverage, {})).toBe(false);
+    // An inflected form's tables are its base's.
+    expect(lesserLowercase("numbers", coverage, { numbers: "number" })).toBe(
+      false,
+    );
+    // A capitalised headword translated into few languages says nothing.
+    expect(lesserLowercase("rose", coverage, {})).toBe(false);
+  });
+  it("gives a pointer sense with no part of speech the word's main one in English", () => {
+    const dict: Parameters<typeof withPointerPos>[0] = {
+      could: [
+        "Präteritum des Hilfsverbs can",
+        [["unknown", "Präteritum des Hilfsverbs can", null, "can"]],
+        1,
+      ],
+      can: ["können", [["unknown", "können"]], 0],
+    };
+    expect(
+      withPointerPos(dict, { could: ["verb", "noun"], can: ["verb"] }),
+    ).toBe(1);
+    expect(dict.could![1]).toEqual([
+      ["verb", "Präteritum des Hilfsverbs can", null, "can"],
+    ]);
+    // Only pointers.
+    expect(dict.can![1]).toEqual([["unknown", "können"]]);
   });
   it("refuses a native language without a recipe", async () => {
     await expect(buildPairDictionary("xx", { termKey })).rejects.toThrow(
