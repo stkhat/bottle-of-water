@@ -747,16 +747,56 @@ export function shortOfDefinition(text: string): string {
   return /[.。]$/.test(cut) ? cut.slice(0, -1).trimEnd() : cut;
 }
 
+/** Whether position `at` of `text` is inside parentheses or square brackets. */
+function insideBrackets(text: string, at: number): boolean {
+  let depth = 0;
+  for (const ch of text.slice(0, at)) {
+    if ("(（[［".includes(ch)) depth++;
+    else if (")）]］".includes(ch)) depth = Math.max(0, depth - 1);
+  }
+  return depth > 0;
+}
+
+/** Where a definition says how its word is translated: "…, typically translating into English as …". */
+const TRANSLATED_AS =
+  /\b(?:translat(?:ed|es|ing)|rendered)\s+(?:into\s+English\s+)?as\s+(.+)$/iu;
+
+/**
+ * The translations a definition that describes its word names (`describes`): fr pas,
+ * "The most common adverb of negation in French, typically translating into English as
+ * not, don't, doesn't, etc." → "not, don't, doesn't"; de geben, "Used to indicate that
+ * something exists (…). Usually translated as there is/are or there exist(s)" → "there
+ * is/are, there exist(s)". Outside brackets only, and only when each item, split at
+ * commas and "or", is a translation (`translationItems`): "may be translated as
+ * "including" or such as in some situations" names none. Undefined otherwise.
+ */
+function translatedAs(text: string): string | undefined {
+  if (!describes(text)) return undefined;
+  const found = TRANSLATED_AS.exec(text);
+  const named = found?.[1];
+  if (named === undefined || insideBrackets(text, found!.index))
+    return undefined;
+  const items = named
+    .split(/,|\s+or\s+/u)
+    .map((item) => item.trim().replace(/^["“'‘]+|["”'’.]+$/gu, ""))
+    .filter((item) => item !== "" && !/^etc\.?$/iu.test(item));
+  return items.length > 0 && translationItems(items.join(", "))
+    ? items.join(", ")
+    : undefined;
+}
+
 /**
  * A definition as a hover line, shown as written: its short meaning within 40
- * characters. A pointer (`pointer`) stays whole, so that it still names its target.
+ * characters, or the translations a description of the word names (`translatedAs`).
+ * A pointer (`pointer`) stays whole, so that it still names its target.
  */
 export function definitionLine(
   text: string,
   pointer: (line: string) => Pointer | undefined = () => undefined,
 ): string {
   const short = shortOfDefinition(text);
-  return pointer(short) ? short : capLine(short, DEFINITION_CAP);
+  if (pointer(short)) return short;
+  return capLine(translatedAs(short) ?? short, DEFINITION_CAP);
 }
 
 // Pair dictionaries' pointer senses

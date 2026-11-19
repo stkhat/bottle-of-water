@@ -428,6 +428,36 @@ describe("loading subtitles", () => {
     expect((await adapter.loadCaptions(REQUEST))?.track.lang).toBe("en");
   });
 
+  it("loads the URL's title again when it starts after the one the player played first", async () => {
+    // A season's recap plays under its first episode's URL; the episode's manifest
+    // comes when the episode starts. (A title no other test loads: the page script
+    // keeps what it saw.)
+    start();
+    href = "https://www.netflix.com/watch/80000009";
+    const changes: unknown[] = [];
+    const off = adapter.onNavigate((change) => changes.push(change));
+    expect((await adapter.loadCaptions(REQUEST))?.track.lang).toBe("en");
+    expect(changes).toEqual([]);
+    page.navigate({
+      movieId: "80000009",
+      manifest: testManifest("80000009", /"ja"/),
+      metadata: METADATA,
+    });
+    await expect.poll(() => changes).toEqual([{ reload: true }]);
+    expect((await adapter.loadCaptions(REQUEST))?.translation.source).toBe(
+      "none",
+    );
+    // Its own manifest again (Netflix parses it more than once): nothing to do.
+    page.navigate({
+      movieId: "80000009",
+      manifest: testManifest("80000009", /"ja"/),
+      metadata: METADATA,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(changes).toHaveLength(1);
+    off();
+  });
+
   it("returns nothing when no manifest comes", async () => {
     start();
     href = "https://www.netflix.com/watch/70000000";

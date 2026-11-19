@@ -164,9 +164,46 @@ export interface Classifier {
   classify(tokens: readonly Token[], options: ClassifyOptions): Span[];
 }
 
-/** Numbers and single letters are never classified ("I", "a", "3,000", "1st"). */
-const isIgnorable = (text: string) =>
-  /\p{N}/u.test(text) || [...text].length === 1;
+/**
+ * The most frequent words a single letter must rank among to be a word of its own. The
+ * letters that are words rank far above those that are letters only, in every learning
+ * language's frequency list: French à 12, a 15, y 40; Spanish y 6, a 7, e 20, o 29;
+ * English i 2, a 5; the first letter that is no word ranks 360th (English j) or lower
+ * (French h 531, Spanish m 739, German a 899).
+ */
+const LETTER_WORD_RANK = 100;
+
+/**
+ * The parts of speech (the tag's `label`) of a single letter that gets a card: a verb
+ * form or a conjunction stands alone, and its one gloss reads right (French "a",
+ * avoir; Spanish "y", "o"). A one-letter preposition, pronoun or article is part of a
+ * construction its first gloss misreads (French "à" in "aider à finir", "y" in "il y
+ * a", Spanish "a" in "voy a ver"): judged blind (C2, 2026-11-20), learners were
+ * better served by no card there (8 good of 37), and by a card for the verbs and
+ * conjunctions (43 good of 45). English "a" and "I" stay letters.
+ */
+const LETTER_WORD_POS: ReadonlySet<string> = new Set(["verb", "conjunction"]);
+
+/**
+ * Numbers and single letters are never classified ("3,000", "1st", "B" in "Plan B",
+ * English "I", "a"), but for a letter that is one of the language's most frequent
+ * words (`LETTER_WORD_RANK`) and that the tagger reads, with a trusted tag (`label`),
+ * as a verb or a conjunction (`LETTER_WORD_POS`). `form`: the text normalized
+ * (`normalizeWord`).
+ */
+const isIgnorable = (
+  text: string,
+  form: string,
+  pack: LanguagePack,
+  label?: string,
+) =>
+  /\p{N}/u.test(text) ||
+  ([...text].length === 1 &&
+    !(
+      label !== undefined &&
+      LETTER_WORD_POS.has(label) &&
+      pack.rank(form) <= LETTER_WORD_RANK
+    ));
 
 /** Parts of speech of a pattern that governs what follows, as a preposition does. */
 const PREPOSITIONAL: ReadonlySet<string> = new Set(["prep", "prep_phrase"]);
@@ -304,7 +341,12 @@ export function createClassifier(pack: LanguagePack): Classifier {
           written !== undefined &&
           names !== undefined &&
           bases.length > 0 &&
-          !isIgnorable(token.text) &&
+          !isIgnorable(
+            token.text,
+            words[i]!.form,
+            pack,
+            readings[i]?.tag?.label,
+          ) &&
           names(written, before(i)) === "name"
         );
       };
@@ -691,6 +733,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
           terms,
           knownLevel,
           pack,
+          readings[i]?.tag?.label,
         );
         const marks = casingOf(i, word);
         spans.push({
@@ -757,7 +800,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
   };
 }
 
-/** `form`: `text` normalized (`normalizeWord`). */
+/** `form`: `text` normalized (`normalizeWord`); `label`: its trusted tag's part of speech. */
 function classifyWord(
   text: string,
   form: string,
@@ -765,8 +808,9 @@ function classifyWord(
   terms: TermIndex,
   knownLevel: number,
   pack: LanguagePack,
+  label?: string,
 ): { key: string; category: Category } {
-  if (isIgnorable(text) || bases.length === 0)
+  if (isIgnorable(text, form, pack, label) || bases.length === 0)
     return { key: form, category: "ignored" };
   const saved = bases.filter((base) => terms.has(base));
   if (saved.length > 0) {

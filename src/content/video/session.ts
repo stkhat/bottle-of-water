@@ -234,9 +234,10 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     adapter.hideSiteCaptions(hidden);
   });
 
-  function open() {
+  /** Opens the page's video; `reload`: again, though its id is the same. */
+  function open(reload = false) {
     const id = siteOn() ? (adapter.videoId() ?? null) : null;
-    if (watch && watch.id === id) return;
+    if (watch && watch.id === id && !reload) return;
     watch?.controller.abort();
     watch = undefined;
     lookup.setCasing(undefined);
@@ -723,7 +724,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
         }
       : unsupportedPage(hostname(), "video");
 
-  const offNavigate = adapter.onNavigate(open);
+  const offNavigate = adapter.onNavigate((change) => open(change?.reload));
   const unwatch = deps.watchSettings((next) => {
     const levelChanged = next.knownLevel !== settings.knownLevel;
     // The tracks (and the translation's source) are chosen for the language pair.

@@ -3,22 +3,26 @@
 How good the German learning pack (German → English, for English speakers learning German) is on real videos and articles at step L2-1 (the `de` pack and the `de-en` dictionary with its tagger and German grammar, no names rule, no highlighted phrases), and what the next steps should fix. Default settings: known level 3000, nothing saved. Method as in [french-quality.md](french-quality.md), whose steps L1-1 and L1-2 this step does at once; sources and gate measured in L0 ([translation-data-expansion](translation-data-expansion.md) "Round 2").
 
 ## Method
-- **Corpus** (collected 2026-11-20; `data/raw/quality/2026-11-de/corpus/`, git-ignored, with `manifest.json`): 55,016 word tokens. Claude in Chrome was not connected for the whole session, so the corpus was collected without the user's Chrome: the YouTube tracks with `yt-dlp` (the user's own install; subtitle files only, no video) and the articles from their HTML or Wikipedia's API (`grab/yt-dlp-grab.py`, `grab/article-fetch.py`, the same JSON as the Chrome grabs). **No Netflix episode** could be collected without the browser: Netflix is not measured or judged here (the next real-site check, below).
+- **Corpus** (collected 2026-11-20; `data/raw/quality/2026-11-de/corpus/`, git-ignored, with `manifest.json`): 55,016 word tokens. Claude in Chrome was not connected for the whole session, so the corpus was collected without the user's Chrome: the YouTube tracks with `yt-dlp` (the user's own install; subtitle files only, no video) and the articles from their HTML or Wikipedia's API (`grab/yt-dlp-grab.py`, `grab/article-fetch.py`, the same JSON as the Chrome grabs). **No Netflix episode** could be collected without the browser then; C2 (2026-11-20, below) added five.
   - 19 YouTube videos (43,765 tokens): Germany, Austria; street interviews (Easy German), history and science explainers (MrWissen2go, MAITHINK X, Kurzgesagt, Doktor Whatson, Simplicissimus), news (tagesschau, tagesschau in Einfacher Sprache, ZIB 2), political satire (heute-show), documentary report (Y-Kollektiv), technology (Breaking Lab), food (Galileo, Sallys Welt), a let's play (Gronkh), a comedy vlog, a car review, a football press conference, stand-up (Felix Lobrecht, an hour). 6 manual tracks, 13 ASR. No English line: none has a human English track, and YouTube answered 429 to every translated track (as for the French study's ASR tracks).
   - 13 articles (11,251 tokens, each cut at about 1,500 words): four Wikipedia articles (Photosynthese, Marlene Dietrich, Brezel, Käsespätzle), tagesschau (2), Deutsche Welle, SRF (2), BR24, t-online (2), heise. Stern and GEO answered "Access Denied"; one heise article is behind its paywall: left out.
 - **Pipeline**: the skill's `build-units.ts` (4,418 YouTube cards, 255 paragraphs) and `measure.ts` (`LEARNING=de NATIVE=en LEVEL=3000`) over this branch.
+  - 5 Netflix episodes (15,894 tokens; C2, 2026-11-20, in the user's Chrome, profile KEISUKE, each muted and paused at once), one per show, the episode drawn with `random.Random(20261120)`: Dark S2E5, How to Sell Drugs Online (Fast) S4E1, Kleo S2E1, Barbaren S2E1, Liebes Kind S1E3. Raw German (closed captions: the only German track) and English tracks, re-aligned offline (`runs/units-c2`, 2,841 cards).
 - **Judging**: one blind judge subagent per site rated 120 hovers sampled by token (`scripts/hover-packets.py`), on the build before the refinements below (`runs/l2-1-v2`); then one blind A/B per site of that first build against the final one on the tokens whose hover changed (`packets/ab-v1-v3`), and one blind A/B for the dictionary's sources (below). One judge per item: read differences under ±4 points as noise.
 
 ## Results (L2-1)
-| | YouTube | Articles | All | French at L1-1 → L1-2 |
-|---|---|---|---|---|
-| Hover meaning good | 66% | 78% | | 70–74% → 71–76% |
-| Hover meaning wrong or misleading | 4% | 6% | | 6–14% → 4–6% |
-| Word tokens with no hover | 7.9% | 14.2% | 9.2% (5,067) | 3.5% |
-| Words shown as New per 1,000 tokens | 93.5 | 169.6 | 109.1 | 86.9 |
-| Phrase highlights per 1,000 tokens | 0 | 0 | 0 | 0 |
-| Names (rule D) | 0 | 0 | 0 | 0 |
-| Hover lines over the width cap | 3 | 6 | 9 | 7 |
+| | YouTube | Articles | Netflix (C2) | All | French at L1-1 → L1-2 |
+|---|---|---|---|---|---|
+| Hover meaning good | 66% | 78% | 81% | | 70–74% → 71–76% |
+| Hover meaning wrong or misleading | 4% | 6% | 5% | | 6–14% → 4–6% |
+| Word tokens with no hover | 7.9% | 14.2% | 8.9% | 9.1% (6,476 of 70,910) | 3.5% |
+| Words shown as New per 1,000 tokens | 93.5 | 169.6 | 88.1 | 104.4 | 86.9 |
+| Phrase highlights per 1,000 tokens | 0 | 0 | 0 | 0 | 0 |
+| Names (rule D) | 0 | 0 | 0 | 0 | 0 |
+| Hover lines over the width cap | 3 | 6 | 0 | 9 | 7 |
+| Cards with no English line | all (none taken) | – | 26% (727 of 2,841; 77% of them sound labels, then song lyrics and interjections) | | |
+
+Netflix was measured and judged in C2 on the final L2-1 build with C2's code (`steps/c2/de-after`; 120 hovers sampled by token, one blind judge: good 97, acceptable 17, wrong 5, misleading 1). Wrong: the polite "Sie" as "she" (L2-2), "auf Englisch" (in English), "Fall" (case) as "fall", "um … zu" (in order to) as "about", the dialect "is" (ist) as the letter I; misleading: a speaker label's name (Rose) given the noun's meaning.
 
 - **Refinements after the judged build** (judged blind on the changed tokens, about 1% of the corpus; good on those tokens before → after): YouTube 25 → 59% good, 30 → 8% wrong, preferred after : before 48 : 21; articles 32 → 65% good, 39 → 16% wrong or misleading, 19 : 5. They are: a finite verb after a preposition is no noun (a postposition: "Den Angaben zufolge soll …", and "Das sind", which the first build read as the noun Sein); a capitalised word inside a sentence is a noun (`capitalNoun`); "am", "im", "zum" … are their contraction ("am Montag": on the), "am" before a superlative its particle; a key's capitalised headword first where the examples write it so inside sentences (`capitalFirst`: Menschen → human being, not the pronoun "mensch"; Frau → woman). Got worse (judges preferred before): an untagged inflected verb whose key has a noun now first (postet, geboxt, entsetzt: "post", "boxing", "horror"), "Bitte" and "Lachen" at a clause's start read as nouns, two separable readings from an ASR fragment ("geht … über", "hast … zu").
 - **Wrong hovers** (12 of 240 judged on the first build): a separable verb whose particle the hover does not join (an in "angucken", auf in "aufzählen", "dazu geben" written apart), a homograph's other word (as → As, soll → Soll: fixed by the postposition rule; Haaren → haaren: fixed by `capitalNoun`), a name given a word's meaning (Pro in "iPad Pro", Land as a surname), mal shown as "times", nächste → nah.
@@ -64,7 +68,7 @@ How good the German learning pack (German → English, for English speakers lear
 - [ ] Compounds: 1,533 unknown tokens split into two known words (L2-2)
 - [ ] Names (L2-2): `names.json` is built (1,908 names, 1,304 mostly capitalised) but rule D stays off for German, where capitals mark nouns
 - [ ] Phrases (L2-3)
-- [ ] Measured on Netflix (no browser in this session)
+- [x] Measured on Netflix (C2)
 
 ## Costs
 - Download: `de` 7.12 MB raw (1.28 MB gzipped, 11 files), `de-en` 3.93 MB (1.04 MB, 3 files): de→en 11.1 MB raw, 2.3 MB gzipped (fr→en 11.9 / 2.3 MB). Every file is under 2 MB.
@@ -72,8 +76,7 @@ How good the German learning pack (German → English, for English speakers lear
 - `npm run data:de` takes about a minute; de.wiktionary's 3.1 GB extract is first cut to its German entries' examples and IPA (`kaikki-de-edition-slim.jsonl`, 0.23 GB).
 
 ## Still open
-- Netflix: not collected (Claude in Chrome was not connected). Collect 5 German Netflix episodes (Dark, How to Sell Drugs Online (Fast), Kleo, Barbaren, Liebes Kind) on profile KEISUKE, muted and paused at once, and judge them in their own packets.
-- Not checked in the user's Chrome: the packs are not on npm until their first versions are published by hand, before the merge.
+- Netflix: collected, measured and judged in C2 (above); checked in the user's Chrome in C2 (below).
 - The polite Sie, Ihr, Ihnen show the lowercase pronoun's meaning first (about 90 tokens).
 - Modal particles (mal, ja, doch, denn, halt, eben) show their adverb or interjection senses ("mal": times).
 - Adverbial adjectives: GSD tags "natürlich", "einfach", "genau" as adjectives (STTS ADJD) where they are adverbs ("of course", "simply").
@@ -82,7 +85,15 @@ How good the German learning pack (German → English, for English speakers lear
 ## Suggested order
 1. **L2-2 names and vocabulary**: compounds first (1,533 unknown tokens, 2.8% of the corpus): read an unknown word as its last known part with a known modifier before it, with the linking -s-, -es-, -n-, -en-, -e- (a design decision for the hover: the head's meaning, or both parts'); places and persons (2,000+ capitalised unknown tokens: kaikki's place names have proper-noun entries only; persons' names from the names lexicon without rule D, by lexicon and runs); the German edition's English tables second (judged 50 : 15 here) once persons' names are kept out; the polite Sie, Ihr, Ihnen by the written case inside a sentence (the dictionary reads `written` only for pair dictionaries today).
 2. **L2-3 phrases, separable verbs, sich**: separable verbs as phrases joined across the clause (the particle's hover shows the verb too: today only the finite verb is read as anfangen), "sich" anywhere in the clause, the slots jemand/jemandem/etwas; modal particles in the middle field; then judge highlights and turn detection on.
-3. Netflix corpus and a real-site check in the user's Chrome (de→en on an article, YouTube and Netflix) once `@langle/de` and `@langle/de-en` are on npm.
+3. Netflix corpus and a real-site check in the user's Chrome (de→en on an article, YouTube and Netflix): **done in C2** (below).
+4. **After C2**: the card's headword in German's case (below); a participle the tagger reads as an adjective after "sehr" in a clause with haben.
+
+## Real-site check (C2, 2026-11-20)
+In the user's Chrome with the check build (`de` 2026.1119.0, `de-en` 2026.1119.0 from npm), the pair switched through the check channel, the user's settings restored after. About 50 hovers: Wikipedia (Albert Einstein, 10), YouTube with a manual track (tagesschau in Einfacher Sprache, 8) and an ASR track (Easy German, 8), Netflix (Liebes Kind S1E3, 22).
+- **First download**: `de` (11 files) and `de-en` (3 files), 12.1 MB, ready in 12.1 s; every file served by jsDelivr at its first try.
+- **As measured**: capitalised nouns reach their entries (Kinder → Kind, Stimmen → Stimme, Sorgen → Sorge, Vater); auxiliaries anywhere in the clause ("haben … bekommen", "hatte" at the end of "… überlebt hatte", "hab … gesessen": "forms the perfect aspect (have)"); separable verbs by their particle ("siehst … aus" → aussehen, "kommt es jetzt an" → ankommen "to depend, to matter"); contractions im, ins, zum, zur, am ("in the", "(in)to the", "to the", "on/at the"); modals keep their meaning (kann → können); the dictionary window and "Explain in context" ("habe … gelernt" → "have learned").
+- **Fixed here**: Netflix plays a season's recap (another title, 1–2.5 minutes) under its first episode's URL; when it lasted past the 15 s the adapter waits for the URL's title, Langle showed the recap's subtitles and kept them for the episode. The subtitles now load again when the episode's own manifest comes ([netflix](netflix.md) "How it works"; browser test). Seen on How to Sell Drugs Online (Fast) S4E1; Kleo S2E1 and Barbaren S2E1 have recaps too.
+- **Found, left**: the card's headword is the key in lower case ("vater", "sorge", "kind"): German writes its nouns capitalised and a learner learns the capital with the word (L2-2, with the written-case work for "Sie"); "Deine Kinder haben dich sehr vermisst": the tagger reads "vermisst" after "sehr" as an adjective, so haben shows "to have" and vermisst "missing" (a clause with haben takes no predicative adjective: a grammar rule for L2-2); "mal" as "times", "einfach" as "easy", "Gleich" (soon) as "equal" (the open adverb and modal-particle classes above); an ASR card boundary splits "wie weit bin ich / gekommen", so "bin" reads as "to be"; a separable verb inside a sound label ("[Musik setzt ein]") reads as the simple verb; the particle's own card (aus in "siehst … aus") shows the preposition (L2-3); a name after "Albert" ("Einstein") shows the noun "an Einstein" (L2-2 names).
 
 ## Measuring
-`data/raw/quality/2026-11-de/`: `corpus/` (with `manifest.json`), `runs/units/`, `runs/l2-1-v1` (first build), `runs/l2-1-v2` (judged), `runs/l2-1-final`, `runs/regress/` (English, Spanish, French before and after), `scripts/hover-packets.py`, `scripts/tables-only.py`, `scripts/manifest.py`, `grab/` (the Chrome grabs with `LEARNING="de"`, and the yt-dlp and HTML fallbacks), `packets/l2-1` (absolute), `packets/ab-v1-v3` (refinements), `packets/tables` (the sources A/B). Rebuild the units and measure with the skill's scripts (`LEARNING=de NATIVE=en`).
+`data/raw/quality/2026-11-de/`: `corpus/` (with `manifest.json`), `runs/units/`, `runs/l2-1-v1` (first build), `runs/l2-1-v2` (judged), `runs/l2-1-final`, `runs/regress/` (English, Spanish, French before and after), `scripts/hover-packets.py`, `scripts/tables-only.py`, `scripts/manifest.py`, `grab/` (the Chrome grabs with `LEARNING="de"`, and the yt-dlp and HTML fallbacks), `packets/l2-1` (absolute), `packets/ab-v1-v3` (refinements), `packets/tables` (the sources A/B). C2: `corpus/netflix/` (the 5 episodes' raw tracks), `runs/units-c2` (all units, Netflix included), `steps/c2/` (`m.sh` measuring a checkout on the four corpora, `{de,fr,es,en}-{before,after}`, `diff.py`, `packets/` the letters and "pas" A/B), `packets/c2-netflix` (the Netflix judging). Rebuild the units and measure with the skill's scripts (`LEARNING=de NATIVE=en`).

@@ -138,6 +138,48 @@ describe("classify words", () => {
     ]);
   });
 
+  it("classifies a single letter that is a frequent verb or conjunction", () => {
+    // Spanish y, o and a rank 6, 29 and 7 in the subtitle list; a letter that is no
+    // word ranks far lower (m 739), and a one-letter preposition (a) stays a letter.
+    const filler = Array.from({ length: 200 }, (_, i) => `w${i}`);
+    const letters = createLanguagePack("es", {
+      lemmas: {},
+      freq: ["y", "a", "o", "voy", ...filler, "m"],
+      ipa: {},
+      vocab: new Set(["y", "a", "o", "voy", "ver", "m", "b"]),
+      patterns: { detect: [], more: [], gap: [] },
+      tagger: {
+        tags: ["NOUN", "VERB.Fin"],
+        words: {
+          y: "CCONJ",
+          o: "CCONJ",
+          a: "ADP",
+          m: "CCONJ",
+          voy: "VERB.Fin",
+        },
+        weights: {},
+        scale: 10,
+      },
+    });
+    const text = "Y voy a ver o m o B";
+    const spans = createClassifier(letters).classify(letters.tokenize(text), {
+      terms: new Map(),
+      knownLevel: 3000,
+    });
+    expect(
+      spans.map((s) => `${text.slice(s.start, s.end)}:${s.category}`),
+    ).toEqual([
+      "Y:known",
+      "voy:known",
+      "a:ignored",
+      "ver:new",
+      "o:known",
+      "m:ignored",
+      "o:known",
+      "B:ignored",
+    ]);
+  });
+
   it("gives no spans for spaces and punctuation", () => {
     expect(classify("“…”, —")).toEqual([]);
   });

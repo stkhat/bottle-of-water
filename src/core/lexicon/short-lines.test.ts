@@ -134,6 +134,35 @@ describe("definitionLine", () => {
       definitionLine("To seek, to try to find, to look around for something."),
     ).toBe("To seek, to try to find");
   });
+
+  it("gives the translations a description of the word names", () => {
+    expect(
+      definitionLine(
+        "The most common adverb of negation in French, typically translating into English as not, don't, doesn't, etc.",
+      ),
+    ).toBe("not, don't, doesn't");
+    expect(
+      definitionLine(
+        "Used to indicate that something exists (often with a certain property and/or in a certain location). Usually translated as there is/are or there exist(s)",
+      ),
+    ).toBe("there is/are, there exist(s)");
+    // Not a description, nothing that translates, or a note in brackets: as written.
+    expect(
+      definitionLine(
+        "used attributively, often translated into English as a compound word",
+      ),
+    ).toBe("used attributively");
+    expect(
+      definitionLine(
+        'Denotes a part of a set, may be translated as "including" or such as in some situations.',
+      ),
+    ).toBe("Denotes a part of a set");
+    expect(
+      definitionLine(
+        "hard (functions as an adverb in Spanish but translates as an adjective in English)",
+      ),
+    ).toBe("hard");
+  });
 });
 
 describe("japaneseForm", () => {
