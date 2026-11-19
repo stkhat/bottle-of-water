@@ -364,7 +364,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       { ...SOURCES.ejdict, used: "vocabulary, phrase list" },
       {
         ...SOURCES.wiktionaryEn,
-        used: "vocabulary beyond EJDict's, inflections, US IPA, parts of speech, phrase patterns, names, contractions and what they are short for, frequency ranks of words the list lacks",
+        used: "vocabulary beyond EJDict's and its capital-only words, inflections, US IPA, parts of speech, phrase patterns, names, contractions and what they are short for, frequency ranks of words the list lacks",
       },
       { ...SOURCES.freqEn, used: "frequency ranks" },
       {
@@ -380,7 +380,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       { ...SOURCES.ejdict, used: "the dictionary" },
       {
         ...SOURCES.wiktionaryEn,
-        used: "Japanese translations of phrases, the parts of speech its senses are labelled with",
+        used: "Japanese translations of phrases and of capital-only words (AI, Tokyo), the parts of speech its senses are labelled with",
       },
     ],
   }),

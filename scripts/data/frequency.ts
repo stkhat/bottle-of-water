@@ -1,5 +1,6 @@
 // Wiktionary "Frequency lists/TV/2006" (CC BY-SA) → data/packs/en/freq.json, with the
-// words rule E adds that the list lacks placed by the example corpus (`rankByExamples`)
+// words rule E adds that the list lacks placed by the example corpus (`rankByExamples`;
+// capital-only words by how often it writes them so)
 // Usage: node scripts/data/frequency.ts   (caches the wikitext in data/raw/freq-en/; run kaikki.ts first)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -192,15 +193,23 @@ async function main() {
     const path = join(CACHE_DIR, `${title.split("/").pop()}.wikitext`);
     rows.push(...parseFrequencyWikitext(await wikitext(title, path)));
   }
-  const listed = buildFrequency(
-    rows,
-    readPack("en/lemmas.json"),
-    readPack<string[]>("en/vocab.json"),
-  );
+  const vocab = readPack<string[]>("en/vocab.json");
+  // Rule E's capital-only words, by their keys: the list folds case ("tokyo").
+  const known = new Set(vocab);
+  const capitals = readPack<string[]>("en/capitals.json")
+    .map((written) => written.toLowerCase())
+    .filter((key) => !known.has(key));
+  const listed = buildFrequency(rows, readPack("en/lemmas.json"), [
+    ...vocab,
+    ...capitals,
+  ]);
   // The words rule E adds, which the list may lack, placed by the example corpus.
   const freq = rankByExamples(
     listed,
-    readPack<string[]>(basename(WIKTIONARY_WORDS_PATH), GATE_DIR),
+    [
+      ...readPack<string[]>(basename(WIKTIONARY_WORDS_PATH), GATE_DIR),
+      ...capitals,
+    ],
     JSON.parse(readFileSync(EXAMPLE_COUNTS_PATH, "utf8")) as Record<
       string,
       number
