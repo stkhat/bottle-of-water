@@ -182,3 +182,42 @@ Variants (all with the same user prompt):
 Decided (2026-11-16): **meaning only**, with the scope sentence. The card shows the meaning line (and "Fits here") without an explanation; the model is asked for `{meaning, sense}`.
 
 Checked in the user's Chrome with the check build (Wikipedia "Creativity", "province" in "the sole province of God"): the card shows the meaning alone with "Use this meaning" and "On-device AI", as in the mock; the error log stayed empty. The answer there, 神の独占部分, still took in "of God", and "Fits here" marked sense 1 (州) where 2 (領域) fits: the scope sentence lowers such answers, it does not end them.
+
+## Correcting a selected phrase (2026-11-19)
+The user asked: selected words often take in a word too many or miss one; the on-device AI should propose the right phrase in dictionary form (verbs in the base form, objects and possessives as slots), saved with one tap, and the user can edit it. Study folder: `data/raw/quality/2026-11-correct/` (git-ignored; `proto/make.ts` the items, `proto/batch.ts` and `proto/pick.ts` the prompts, `proto/score.ts` the scoring with Langle's own `correctPhrase`, `results/`).
+
+Method:
+- Items from the 2026-11 corpus (YouTube, Netflix, articles): sentences with a dictionary phrase of three or more words (select mode, slots and gaps included), selected with a word too many (`extra`: a word before or after) or shifted by one (`shifted`: the first word left out and the next one taken in). A selection only missing a word is left out: Langle already completes it to the phrase (`matchSelection`). Controls: the exact phrase (`exact`), and two or three words no pattern touches (`none`). Also the 60 expressions the dictionary lacks that the 2026-11 judges said learners need, with a word too many or too few (`ne-extra`, `ne-missing`), judged by hand.
+- Tuned on 75 dev items (8 phrases per site), measured once on 288 others (30 per site), with the prompt frozen. Each prompt in a clone of a base session with the shipped instructions, in a page of the user's Chrome 157 (Gemini Nano), 5 lines around the sentence.
+- A proposal is **offered** when `correctPhrase` puts it in this sentence over the selection, it is not the selected words again, and it corrects them (other words, or a slot). Correct: the offered key is the phrase the selection was made from (pack items), or judged right (`ne-*`).
+
+Dev, five prompts (75 items; offered, and correct among the offered):
+
+| Prompt | Offered | Correct | Notes |
+|---|---|---|---|
+| phrase first, the note in the prompt | 10 | 5 | mostly repeats the selection; twice wrote "phrase" as the value |
+| meaning first, then the phrase (shipped) | 15 | 7 | |
+| phrase first, longer note with three examples | 7 | 2 | |
+| the same note in the instructions (system prompt) | 6 | 0 | |
+| a prompt of its own that picks one of ~9 stretches around the selection | 61 | 5 | picks the longest stretch |
+| meaning first, offered only when the dictionary lists the phrase | 8 | 7 | |
+
+Held-out (288 items), the shipped prompt:
+
+| Items | n | Offered | Correct | Wrong |
+|---|---|---|---|---|
+| Dictionary phrase, a word too many | 90 | 19 | 19 | 0 |
+| Dictionary phrase, shifted by a word | 88 | 21 | 19 | 2 |
+| Exact selection (control) | 28 | 0 | | |
+| No phrase (control) | 30 | 0 | | |
+| Expression the dictionary lacks, a word too many / too few | 52 | 2 | 1 | 1 |
+| **All** | 288 | 42 (15%) | 39 (93%) | 3 |
+| Without the dictionary's check | 288 | 87 (30%) | 38 of 66 judged (58%) | 28 (4 on the controls) |
+
+- Gemini Nano mostly answers the selected words again (125 of 288 answers were a phrase other than the selection; the check rejected 23 of those as not in the sentence over the selection). It names a whole expression right about half the time, nine times in ten when the dictionary has it. So **the proposal is offered only when the dictionary lists it** (precision before recall): 93% right, none on the controls, and one in five bad selections of a dictionary phrase gets a proposal. Expressions the dictionary lacks are saved by editing.
+- The three wrong: "back a little" → push back, "off the day" → set off (real phrases of the sentence over the selection, not the one meant), "you get exposed to" → get to (the dictionary's `get to` with "exposed" as its gap).
+- Latency: 2.2 s p50, 2.6 s p90 (the plain prompt: 1.9 s); only selected words pay it.
+- Dictionary form (`core/phrases/correct.ts`, also for the user's edit): the dictionary's pattern for the words when it has one ("put the box away" → `put away`), else verbs tagged as verbs in their base form and pronouns tagged as pronouns or determiners as slots (`one's`, `someone`, `something`, `oneself`); "that" as a conjunction and nouns stay ("spill the beans"). The matcher's slots take one word, so a noun phrase object ("the box") stays as written: a key with `something` for it would not be highlighted in the sentence it was saved from. Filling a slot with a noun phrase would change every saved phrase's highlighting (left open).
+
+Real-site check (2026-11-19, the user's Chrome 157, check build of this branch, videos muted and paused): YouTube Ken Robinson TED, the selection "never come up" in "you'll never come up with anything original" (header: 絶対に来ないでください, the literal translation) → "Starting on-device AI…", then 思いつかない with the proposal "come up with" and Save phrase; a typed "come up with nothing" → "Not in this sentence."; Cancel back to the proposal; a typed "never come up with" saved as Learning and the window showed it (removed afterwards). Netflix Friends `watch/70274124` (ALL CAPS), "WILL WORK OUT" → うまくいく and Edit phrase (no proposal checked out); a typed "work out well" saved and shown (removed afterwards). Keys typed in the field did not reach the players (YouTube's m and c, Netflix). Error logs empty on both.
+- Seen, not from this change: after Remove in the window, the window shows the term now at the phrase's place ("never", "work out") with the removed phrase's answer still in "In this sentence" (the window refreshes its term without opening "In this sentence" again).
