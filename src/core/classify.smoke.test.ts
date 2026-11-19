@@ -819,6 +819,14 @@ describe("German phrases, separable verbs, sich and modal particles over the gen
   it("reads a separable verb's particle as its verb", () => {
     expect(at("Der Mann sieht müde aus.", "aus").key).toBe("aussehen");
   });
+  it("counts a separable verb's finite form as that verb, as its particle", () => {
+    const text = "Sie warfen ihm vor, zu spät zu kommen.";
+    const verb = at(text, "warfen");
+    const particle = at(text, "vor");
+    expect(verb.key).toBe("vorwerfen");
+    expect(particle.key).toBe("vorwerfen");
+    expect(verb.category).toBe(particle.category);
+  });
   it("shows a pronominal verb's reflexive senses where sich stands in its clause", () => {
     expect(at("Ich freue mich sehr.", "freue").lines[0]).toMatch(/^to be glad/);
     expect(at("Das freut mich.", "freut").lines[0]).toMatch(/^to gladden/);

@@ -42,6 +42,11 @@ export interface CompoundWords {
   lemmas(word: string): readonly string[];
   /** A word's parts of speech, its main one first. */
   partsOfSpeech(word: string): readonly string[];
+  /**
+   * A base form's frequency rank (lower: more frequent), to choose between a verb's
+   * stem and a noun that drops its final letter (`modifierParts`); without it, the verb.
+   */
+  rank?(base: string): number;
 }
 
 export interface Compound {
@@ -146,6 +151,10 @@ function headOf(
 /**
  * A modifier's parts, as written (`modifier`): a word; a verb's stem; a noun with a
  * linking element or without its dropped final letter; else a compound of its own.
+ * A verb modifies by its stem, its infinitive without the ending (`stemOf`), not by
+ * another of its forms ("Sprach-" is Sprache, not sprach, sprechen's past). Where the
+ * stem is also a noun without its dropped final letter ("Schul-": schulen or Schule;
+ * "Erd-": erden or Erde; "Mess-": messen or Messe), the more frequent of the two.
  */
 function modifierParts(
   modifier: string,
@@ -162,22 +171,46 @@ function modifierParts(
     (written === modifier ? written : undefined) ??
     (noun ? headOf(words, modifier, NOUN, true) : undefined) ??
     baseOf(words, modifier, MODIFIERS);
-  if (itself !== undefined) return [itself];
+  const isVerb = (base: string) => mainPos(words, base) === "verb";
+  const nouns = new Set(["noun"]);
+  /**
+   * The noun that drops its final letter before the next part; `exact`: only one whose
+   * base that is, not a form of another ("Röst-" is no Rost, whose plural is Röste).
+   */
+  const droppedNoun = (exact = false) => {
+    for (const letter of rules.dropped) {
+      const found = baseOf(words, modifier + letter, nouns);
+      if (found !== undefined && (!exact || found === modifier + letter))
+        return found;
+    }
+    return undefined;
+  };
+  /** A verb whose stem the modifier is, or the noun that drops a letter before it. */
+  const verbOrNoun = (verb: string) => {
+    const other = droppedNoun(true);
+    return other !== undefined &&
+      words.rank !== undefined &&
+      words.rank(other) < words.rank(verb)
+      ? other
+      : verb;
+  };
+  if (itself !== undefined && !isVerb(itself)) return [itself];
+  if (itself !== undefined && stemOf(itself, modifier, rules))
+    return [verbOrNoun(itself)];
   for (const ending of rules.stems) {
     const verb = words.lemmas(modifier + ending)[0];
-    if (verb !== undefined && mainPos(words, verb) === "verb") return [verb];
+    if (verb !== undefined && isVerb(verb)) return [verbOrNoun(verb)];
   }
-  const nouns = new Set(["noun"]);
   for (const link of rules.links) {
     const rest = modifier.slice(0, -link.length);
     if (!modifier.endsWith(link) || rest.length < rules.minPart) continue;
     const noun = baseOf(words, rest, nouns);
     if (noun !== undefined) return [noun];
   }
-  for (const letter of rules.dropped) {
-    const noun = baseOf(words, modifier + letter, nouns);
-    if (noun !== undefined) return [noun];
-  }
+  const dropped = droppedNoun();
+  if (dropped !== undefined) return [dropped];
+  // A verb's other form, where nothing else reads the modifier.
+  if (itself !== undefined) return [itself];
   if (depth >= MAX_DEPTH) return undefined;
   const inner = split(modifier, words, rules, depth + 1, NOUN, false);
   if (inner) return inner.parts;
@@ -189,6 +222,10 @@ function modifierParts(
   }
   return undefined;
 }
+
+/** Whether `modifier` is `verb`'s stem: its infinitive without an ending ("schreib-en"). */
+const stemOf = (verb: string, modifier: string, rules: CompoundRules) =>
+  rules.stems.some((ending) => modifier + ending === verb);
 
 /** A modifier that is a compound in turn has a noun for its head ("Weltklima-"). */
 const NOUN: readonly string[] = ["noun"];

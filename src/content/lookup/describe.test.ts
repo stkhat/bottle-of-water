@@ -250,12 +250,28 @@ describe("contractionNote", () => {
       "I'd → I had / I would",
     );
   });
+  it("starts with a capital where the card's headword does (a German compound)", () => {
+    expect(
+      contractionNote(
+        "Schulausbildung",
+        "schulen + Ausbildung",
+        "Schulausbildung",
+      ),
+    ).toBe("Schulausbildung → schulen + Ausbildung");
+    expect(contractionNote("it's", "it is", "it")).toBe("it's → it is");
+  });
 });
 
 describe("inflectionNote", () => {
   it("shows an inflected form and its base", () => {
     expect(inflectionNote("loaves", "loaf")).toBe("loaves → loaf");
     expect(inflectionNote("Ferments", "ferment")).toBe("ferments → ferment");
+  });
+  it("writes both capitalised where the card writes the headword so (German nouns)", () => {
+    expect(inflectionNote("Jahrhunderten", "jahrhundert", "Jahrhundert")).toBe(
+      "Jahrhunderten → Jahrhundert",
+    );
+    expect(inflectionNote("loaves", "loaf", "loaf")).toBe("loaves → loaf");
   });
   it("is empty when the form is the base", () => {
     expect(inflectionNote("Tedious", "tedious")).toBeUndefined();

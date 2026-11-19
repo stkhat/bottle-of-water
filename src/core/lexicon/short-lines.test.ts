@@ -135,6 +135,23 @@ describe("definitionLine", () => {
     ).toBe("To seek, to try to find");
   });
 
+  it("leaves out a note in square brackets that opens the gloss", () => {
+    expect(definitionLine("[with dative] in (pertaining to)")).toBe(
+      "in (pertaining to)",
+    );
+    expect(definitionLine("[auxiliary sein] to wander, to roam")).toBe(
+      "to wander, to roam",
+    );
+    // Only a note: no line, the next sense shows.
+    expect(
+      definitionLine("[with nach (+ dative) ‘like someone/something’]"),
+    ).toBe("");
+    // A bracket later in the gloss is part of it.
+    expect(definitionLine("to look [at something]")).toBe(
+      "to look [at something]",
+    );
+  });
+
   it("gives the translations a description of the word names", () => {
     expect(
       definitionLine(

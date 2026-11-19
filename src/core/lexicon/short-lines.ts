@@ -738,12 +738,25 @@ export function cleanShort(sense: string): string {
 const DEFINITION_CAP = 40;
 
 /**
+ * A note in square brackets that opens a gloss says how the word is used, not what it
+ * means: a construction ("[with dative] in", "[with nach (+ dative) ‘like
+ * someone/something’]"), an auxiliary ("[auxiliary sein] to wander"), a region
+ * ("[Swiss] national team"). A gloss that is only such a note heads subsenses the
+ * source keeps apart, and says nothing on its own.
+ */
+const OPENING_NOTE = /^\s*\[[^\]]*\]\s*/u;
+
+/**
  * A definition (a Wiktionary gloss) as the short meaning: its first sense (cut at the
  * first semicolon outside brackets, ";" or the full-width "；" of Chinese glosses),
- * without a final period ("." or "。").
+ * without an opening note in square brackets (`OPENING_NOTE`) or a final period ("."
+ * or "。"). Empty for a gloss that is only such a note.
  */
 export function shortOfDefinition(text: string): string {
-  const cut = firstSense(text, (t, i) => t[i] === ";" || t[i] === "；");
+  const cut = firstSense(
+    text.replace(OPENING_NOTE, ""),
+    (t, i) => t[i] === ";" || t[i] === "；",
+  );
   return /[.。]$/.test(cut) ? cut.slice(0, -1).trimEnd() : cut;
 }
 
