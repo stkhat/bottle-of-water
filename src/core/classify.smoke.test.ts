@@ -450,11 +450,21 @@ describe("Spanish tags over the generated packs (rules A1 and A2)", () => {
   });
   it("looks a form two verbs share up by the treebanks' likelier base", () => {
     expect(hover("Creo que tienes razón.", "Creo").key).toBe("creer");
-    expect(hover("Lo siento mucho.", "siento").key).toBe("sentir");
+    expect(hover("Siento frío.", "Siento").key).toBe("sentir");
     expect(hover("No podemos ir hoy.", "podemos").key).toBe("poder");
   });
-  it("reads an article as its base and a clitic as its own pronoun", () => {
-    expect(hover("Los niños juegan en el parque.", "Los").key).toBe("el");
+  it("reads an article and a clitic as their own words, the translation first", () => {
+    expect(hover("Los niños juegan en el parque.", "Los")).toMatchObject({
+      key: "los",
+      lines: ["the", "them", expect.stringMatching(/^you all\b/)],
+    });
+    for (const [text, word] of [
+      ["Las casas son grandes.", "Las"],
+      ["El perro come.", "El"],
+      ["La casa es grande.", "La"],
+    ])
+      expect(hover(text!, word!).lines[0], word).toBe("the");
+    expect(hover("Yo no lo sé.", "Yo").lines[0]).toBe("I");
     expect(hover("Les dije la verdad.", "Les")).toMatchObject({
       key: "les",
       pos: "pronoun",
@@ -467,13 +477,125 @@ describe("Spanish tags over the generated packs (rules A1 and A2)", () => {
     expect(hover("Es muy grande.", "muy").lines[0]).toBe("very");
     expect(hover("Es tu casa.", "tu").lines[0]).toBe("your");
     expect(hover("Es un gran día.", "gran").lines[0]).toMatch(/^great\b/);
-    expect(hover("Al fin llegó.", "fin").lines[0]).toBe("end");
+    expect(hover("Llegó el fin.", "fin").lines[0]).toBe("end");
     expect(hover("Os lo dije.", "Os")).toMatchObject({
       key: "os",
       lines: [expect.stringMatching(/^you\b/)],
     });
     expect(hover("Cuéntales la historia.", "Cuéntales").key).toBe("contar");
-    expect(hover("Eso es todo.", "Eso").lines[0]).toBe("that");
+    expect(hover("Eso no me gusta.", "Eso").lines[0]).toBe("that");
+  });
+});
+
+describe("Spanish phrases over the generated packs", () => {
+  const tagged = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    patterns: es.phrases,
+    pos: es.pos,
+    tagger: es.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createDefsDictionary({ defs: esEn.defs, ipa: es.ipa });
+  const phrases = (text: string) =>
+    classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .filter((s) => s.kind === "phrase")
+      .map((s) => s.key);
+
+  it("highlights the expressions the B1/B2 build detects", () => {
+    expect(phrases("Por supuesto que vamos a ir.")).toContain("por supuesto");
+    expect(phrases("Lo vimos a través de la ventana.")).toContain(
+      "a través de",
+    );
+    expect(phrases("Buenos días, señora, ¿cómo está?")).toContain(
+      "buenos días",
+    );
+  });
+  it("highlights no pattern of closed-class words only", () => {
+    expect(es.phrases.more).toContain("lo que");
+    expect(phrases("No sé lo que quiere.")).not.toContain("lo que");
+  });
+});
+
+describe("Spanish names over the generated packs (rule D)", () => {
+  const withNames = createLanguagePack("es", {
+    lemmas: es.lemmas,
+    freq: es.freq,
+    ipa: es.ipa,
+    vocab: new Set(es.vocab),
+    patterns: es.phrases,
+    pos: es.pos,
+    names: es.names,
+    tagger: es.tagger,
+  });
+  const classifier = createClassifier(withNames);
+  const dictionary = createDefsDictionary({ defs: esEn.defs, ipa: es.ipa });
+  /** Each word of `blocks` (one document) as "Word:name", "Word:<key>". */
+  const read = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(withNames.tokenize(b), "es")),
+    );
+    return blocks.flatMap((block) =>
+      classifier
+        .classify(withNames.tokenize(block), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+          outline: (key) => dictionary.outline(key),
+        })
+        .filter((s) => s.kind === "word")
+        .map((s) => {
+          const text = block.slice(s.start, s.end);
+          return `${text}:${s.name ? "name" : s.key}`;
+        }),
+    );
+  };
+
+  it("ignores names the lexicon has, also those a case-folded list ranks as common words", () => {
+    const words = read(
+      "Ayer Marina viajó a Chile y luego a Japón con Mercedes Sosa.",
+      "En Chile, Marina comió en casa de Rosa.",
+    );
+    for (const name of ["Marina", "Chile", "Japón", "Mercedes", "Sosa", "Rosa"])
+      expect(words, name).toContain(`${name}:name`);
+    expect(words).not.toContain("Ayer:name");
+    expect(es.names.chile).toMatch(/c/);
+  });
+  it("takes a capitalised form that only a rare or foreign reading explains for a name, and keeps a common word's", () => {
+    const words = read(
+      "El libro What Caesar Did For My Salad habla de comida.",
+      "Lo dijo el fisiólogo Stephen Hales, y viajó a Estados Unidos.",
+    );
+    expect(words).toContain("Salad:name");
+    expect(words).toContain("Hales:name");
+    expect(words).toContain("Estados:estado");
+  });
+  it("reads an article before a capitalised word as a determiner", () => {
+    expect(withNames.partsOfSpeech("los")[0]).toBe("article");
+    expect(
+      read("El Semanario de Agricultura y Artes Dirigido a los Párrocos."),
+    ).toContain("Párrocos:párroco");
+  });
+  it("keeps a chili pepper in lower case and a capitalised turn start in speech recognition", () => {
+    expect(read("Me gusta el chile con limón.")).toContain("chile:chile");
+    // YouTube's Spanish speech recognition: no commas, turn starts capitalised.
+    const turns = Array.from(
+      { length: 8 },
+      (_, i) =>
+        `y bueno ahí vamos ${["Entonces", "Yo"][i % 2]} creo que la comida está muy rica`,
+    ).join(" ");
+    const words = read(turns);
+    expect(words).toContain("Entonces:entonces");
+    expect(words).toContain("Yo:yo");
+    expect(words.filter((w) => w.endsWith(":name"))).toEqual([]);
   });
 });
 

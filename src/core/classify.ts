@@ -1,5 +1,6 @@
 import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
+import { accepts } from "./lexicon/sense-order";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
 import { fitContext, markerPos, phraseMisfit } from "./phrases/fit";
@@ -203,7 +204,8 @@ function runsOf(words: readonly number[]): [number, number][] {
  * - With the document's casing (a mixed-case document, a language whose capitals mark
  *   names): a name (`nameVerdict`) is ignored, even a saved word, unless it keeps a
  *   capitalised meaning; that one and a word capitalised in a way that counts
- *   (`capitalHere`) get `capital`.
+ *   (`capitalHere`) get `capital`, unless the language capitalises common words only
+ *   in names and titles (`LanguagePack.capitalsForNames`).
  * - With a tagger, each sentence is tagged once. A dictionary phrase is matched only
  *   where its context fits it (`phraseMisfit`: "what kind of music" is no adverb "kind
  *   of"); its words are words otherwise. A discourse marker at a clause start takes
@@ -289,7 +291,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
           pack.name(written.key)?.endsWith("!") === true
         )
           return {};
-        return name === "kept" || capitalHere(casing, written)
+        return name === "kept" ||
+          (!pack.capitalsForNames && capitalHere(casing, written))
           ? { capital: true }
           : {};
       };
@@ -334,7 +337,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
        * verb with several bases) must be the base rule A1 reads it as: "fue de" is
        * ser, not `ir de`. A1 reads the base it gives as the key, or, when it keeps the
        * word's own entry ("went": "goの過去"), the base that entry is a form of; a
-       * word with neither does not count against the phrase.
+       * word with neither does not count against the phrase. A headword tagged as a
+       * part of speech of its own that the base has none of is no form of it ("fuera
+       * de": the adverb, not `ir de`; "de vista": the noun, not `de vestir`).
        */
       const offBase = (match: PhraseMatch) => {
         if (!outline) return false;
@@ -343,16 +348,22 @@ export function createClassifier(pack: LanguagePack): Classifier {
           const { form, bases } = words[j]!;
           const reading = readings[j];
           const word = keyWords[n]!;
+          const tag = reading?.tag;
           if (
-            !reading?.tag?.inflected ||
-            reading.tag.label !== "verb" ||
+            tag === undefined ||
             word === form ||
             bases.length < 2 ||
             !bases.includes(word)
           )
             return false;
+          if (!tag.inflected || tag.label !== "verb")
+            return (
+              bases.includes(form) &&
+              pack.partsOfSpeech(form).some((pos) => accepts(tag.label, pos)) &&
+              !pack.partsOfSpeech(word).some((pos) => accepts(tag.label, pos))
+            );
           const own = bases.includes(form) ? form : bases[0]!;
-          const key = chooseKey(form, bases, reading, outline, pack) ?? own;
+          const key = chooseKey(form, bases, reading!, outline, pack) ?? own;
           const base = key === form ? outline(form)?.formOf : key;
           return base !== undefined && bases.includes(base) && base !== word;
         });

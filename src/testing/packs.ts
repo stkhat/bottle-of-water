@@ -125,6 +125,7 @@ const TEST_PACKS: PackFiles = {
       ...["manzana", "un"],
     ],
     phrases: { detect: ["a escondidas"], more: [], gap: [] },
+    names: {},
     // Sure of no word: every tag stays under the threshold.
     tagger: { tags: ["NOUN"], words: {}, weights: {}, scale: 10 },
   },

@@ -107,10 +107,11 @@ export const pieceWords = (piece: string): string[] => piece.match(TOKEN) ?? [];
 
 /**
  * Counts the words and the phrases (`variants`) of the examples of the `lang` entries
- * in a kaikki extract. N-grams do not bridge a cut-out headword.
+ * in kaikki extracts (`paths`: one, or the same language in several editions). N-grams
+ * do not bridge a cut-out headword.
  */
 export async function countExamples(
-  path: string,
+  paths: string | readonly string[],
   variants: PhraseVariants,
   lang = "en",
 ): Promise<ExampleCounts> {
@@ -133,9 +134,55 @@ export async function countExamples(
       }
     }
   };
-  await eachEntry(path, (entry: KaikkiEntry) => {
-    if (entry.lang_code !== lang) return;
-    for (const piece of entryExamplePieces(entry)) count(piece);
-  });
+  for (const path of [paths].flat())
+    await eachEntry(
+      path,
+      (entry: KaikkiEntry) => {
+        if (entry.lang_code !== lang) return;
+        for (const piece of entryExamplePieces(entry)) count(piece);
+      },
+      (line) => !line.includes('"examples"'),
+    );
   return { tokens, words, phrases };
+}
+
+/**
+ * A word that counts as written inside a sentence when the piece has text before it
+ * that ends in a letter, a digit or a comma (not at an example's start, nor after
+ * sentence punctuation, a quote or a bracket).
+ */
+const INSIDE = /[\p{L}\p{N},]\s+$/u;
+
+/**
+ * How the examples of the `lang` entries write each word: capitalised inside a sentence
+ * ("en Chile", "de Japón") or in lower case ("un chile"). A sentence start says nothing
+ * of a word's case. Feed it entries (`add`), then read `counts`.
+ */
+export function createCaseCounter(lang: string) {
+  const counts = new Map<string, [capitalised: number, lower: number]>();
+  const bump = (key: string, at: 0 | 1) => {
+    let found = counts.get(key);
+    if (!found) counts.set(key, (found = [0, 0]));
+    found[at]++;
+  };
+  return {
+    counts: counts as ReadonlyMap<
+      string,
+      readonly [capitalised: number, lower: number]
+    >,
+    add(entry: KaikkiEntry) {
+      if (entry.lang_code !== lang) return;
+      for (const piece of entryExamplePieces(entry))
+        for (const match of piece.matchAll(TOKEN)) {
+          const word = match[0];
+          const key = word.toLowerCase();
+          if (word === key) bump(key, 1);
+          else if (
+            /^\p{Lu}\p{Ll}/u.test(word) &&
+            INSIDE.test(piece.slice(Math.max(0, match.index - 16), match.index))
+          )
+            bump(key, 0);
+        }
+    },
+  };
 }

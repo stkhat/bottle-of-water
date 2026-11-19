@@ -53,6 +53,7 @@ interface BuiltOtherwise {
     pos: PosPack;
     vocab: VocabPack;
     phrases: PhrasePatterns;
+    names: NamesPack;
     tagger: TaggerPack;
   };
   "es-en": { defs: DefsPack };
@@ -116,7 +117,7 @@ const LOADERS: {
       readShards<LemmaPack>("/packs/es/lemmas", fetchJson),
       loadFiles(
         "es",
-        ["freq", "ipa", "pos", "vocab", "phrases", "tagger"],
+        ["freq", "ipa", "pos", "vocab", "phrases", "names", "tagger"],
         fetchJson,
       ),
     ]);
