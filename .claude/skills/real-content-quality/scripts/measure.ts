@@ -14,7 +14,8 @@
 // is src/core/classify.smoke.test.ts): the pack, classifier and dictionary of the pair
 // from createLanguageResources; each document's casing from blockCasing/documentCasing
 // over its units (rule D names); unsaved words at the known level; hover lines from
-// dictionary.entry(key, written, pos).lines. What it cannot reproduce: a meaning that
+// dictionary.entry(key, written, pos).lines, and a contraction's note (`note`: "I'm → I am",
+// describe.ts `contractionNote`). What it cannot reproduce: a meaning that
 // exists only as an English definition is machine-translated at display time (the row
 // has the English line and hoverKind "translated"), a phrase with no entry gets a
 // literal translation ("literal"), and whatever depends on the live site.
@@ -142,19 +143,37 @@ function hoverOf(
   kind: "word" | "phrase",
   written?: Written,
   pos?: string,
-): { hover: string[]; hoverKind: HoverKind; fallback?: string[] } {
+  surface?: string,
+): {
+  hover: string[];
+  hoverKind: HoverKind;
+  fallback?: string[];
+  note?: string;
+} {
   const entry = dictionary.entry(key, written, pos);
+  // A contraction's note (content/lookup/describe.ts, `contractionNote`): its entry's,
+  // or, keyed by another word ("it's" by "it"), what the pack says it is short for.
+  const form = surface?.toLowerCase().replaceAll("’", "'");
+  const expansions =
+    form !== undefined && form !== key && "expansions" in pack
+      ? (pack as { expansions(word: string): readonly string[] }).expansions(form)
+      : [];
+  const note =
+    (entry as { expansion?: string } | undefined)?.expansion ??
+    (expansions.length > 0 ? expansions.slice(0, 2).join(" / ") : undefined);
+  const noted = <T extends object>(h: T) =>
+    note === undefined || kind !== "word" ? h : { ...h, note };
   if (!entry)
     return kind === "phrase"
       ? { hover: [], hoverKind: "literal" }
       : { hover: [], hoverKind: "none" };
   if (entry.glossLang !== undefined && entry.glossLang !== NATIVE)
-    return {
+    return noted({
       hover: [entry.short],
-      hoverKind: "translated",
+      hoverKind: "translated" as const,
       fallback: entry.lines,
-    };
-  return { hover: entry.lines, hoverKind: "dict" };
+    });
+  return noted({ hover: entry.lines, hoverKind: "dict" as const });
 }
 
 const units: Unit[] = UNITS.flatMap((path) => readJsonl<Unit>(path));
@@ -290,7 +309,7 @@ for (const [doc, list] of byDoc) {
       const shown = verdict !== "name" && verdict !== "unknown";
       const written = writtenOf(s, surface, casing);
       const h = shown
-        ? withHover(hoverOf(s.key, "word", written, s.pos))
+        ? withHover(hoverOf(s.key, "word", written, s.pos, surface))
         : { hover: [], hoverKind: "none" as const };
       if (shown && h.hoverKind === "none") site.noEntry++;
       const rank = pack.rank(s.key);

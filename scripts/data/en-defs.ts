@@ -7,12 +7,15 @@
 // notes and descriptions of the expression, register labels and, for phrases, domain
 // and regional labels go down; translation tables lift a phrase's senses), and a sense that only names another term
 // ("Synonym of X", "Clipping of X", an alternative spelling) takes that term's best
-// definition. Inflections ("Plural of X") are left out: the extension follows them.
+// definition, except a contraction's sense that names only its host ("Contraction of
+// you + are."), which keeps its own; a contraction's own senses come first (U1-5).
+// Inflections ("Plural of X") are left out: the extension follows them.
 // A term every English pair dictionary has is left out: no lookup reaches it.
 // Usage: node scripts/data/en-defs.ts [path]   (default data/raw/kaikki-en.jsonl; run
 // ejdict.ts, kaikki.ts, phrases.ts and the pair recipes, recipes/native.ts, first)
 import { definitionPointer } from "../../src/core/lexicon/definitions.ts";
 import { shortOfDefinition } from "../../src/core/lexicon/short-lines.ts";
+import { CONTRACTION, VERB_TO } from "../../src/core/tagging/en-clitics.ts";
 import type { DefsPack, LemmaPack } from "../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
 import { existsSync } from "node:fs";
@@ -49,6 +52,21 @@ const MAX_SENSES = 4;
  */
 const targetOf = (sense: SourceSense) =>
   sense.target ?? definitionPointer(sense.gloss)?.target;
+
+/**
+ * A contraction sense that names only its host ("Contraction of you + are.", alt-of
+ * "you" with "+ are") keeps its own gloss: the host's definition is not what it means
+ * (you're is not "The people spoken, or written to, as an object").
+ */
+const ownGloss = (sense: SourceSense) => sense.contraction && sense.partial;
+
+/**
+ * A term written as a contraction (`CONTRACTION`, `VERB_TO`), whose contraction senses
+ * are its main ones. Not a word with a contraction sense among others (am: "Contraction
+ * of I + am", dialectal), whose first senses here may be gone (am's inflections).
+ */
+const writtenAsContraction = (key: string) =>
+  CONTRACTION.test(key) || VERB_TO.test(key);
 
 /**
  * The English definitions of the vocabulary words and of every phrase pattern
@@ -104,7 +122,7 @@ export async function buildEnDefs(
     for (const sense of sensesOf(entry, key.includes(" "))) {
       if (!list) terms.set(key, (list = []));
       list.push({ ...sense, order: list.length });
-      if (isPointer(sense)) {
+      if (isPointer(sense) && !ownGloss(sense)) {
         const target = targetOf(sense);
         if (target) targets.add(target);
       }
@@ -131,7 +149,7 @@ export async function buildEnDefs(
   let resolved = 0;
   for (const [key, list] of terms) {
     const senses = list.map((sense) => {
-      if (!isPointer(sense)) return sense;
+      if (!isPointer(sense) || ownGloss(sense)) return sense;
       const target = targetOf(sense);
       // A letter-case form names another entry too ("aka" → "AKA").
       const best = target && target !== key ? bestOf(target) : undefined;
@@ -141,7 +159,15 @@ export async function buildEnDefs(
       return { ...sense, target: undefined, gloss: best.gloss };
     });
     const out: [string, string][] = [];
-    for (const sense of rankSenses(senses, key.includes(" "), SHOWN)) {
+    const ranked = rankSenses(senses, key.includes(" "), SHOWN);
+    // A contraction's own senses first: that's → "That is.", not the dialectal
+    // determiner "whose, of which".
+    for (const sense of writtenAsContraction(key)
+      ? [
+          ...ranked.filter((s) => s.contraction),
+          ...ranked.filter((s) => !s.contraction),
+        ]
+      : ranked) {
       if (out.some(([, text]) => text === sense.gloss)) continue;
       out.push([posLabel(sense.pos), sense.gloss]);
       if (out.length >= MAX_SENSES) break;

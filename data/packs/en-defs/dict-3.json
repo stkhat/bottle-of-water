@@ -1,6 +1,4 @@
 {
-"confederate states of america":["An unrecognized nation existing from 1861 to 1865, consisting of the eleven Southern states that sought independence from the United States of America in order to continue practicing slavery",[["proper noun","An unrecognized nation existing from 1861 to 1865, consisting of the eleven Southern states that sought independence from the United States of America in order to continue practicing slavery."]]],
-"conference call":["An audio-only phone call between more than two people",[["noun","An audio-only phone call between more than two people."]]],
 "conference interpreter":["Interpreter working in formal settings (typically in simultaneous mode, in multilingual conferences taking place in international organisations)",[["noun","Interpreter working in formal settings (typically in simultaneous mode, in multilingual conferences taking place in international organisations)."]]],
 "conference interpreting":["Interpreting carried out in formal settings (typically in simultaneous mode, in multilingual conferences taking place in international organisations)",[["noun","Interpreting carried out in formal settings (typically in simultaneous mode, in multilingual conferences taking place in international organisations)."]]],
 "conference room":["A dedicated room in an office, hotel, or similar building that is used for formal meetings, presentations and business conferences",[["noun","A dedicated room in an office, hotel, or similar building that is used for formal meetings, presentations and business conferences."]]],
@@ -1183,7 +1181,7 @@
 "could not get elected dogcatcher":["Said of someone, particularly a politician, who is extremely unpopular",[["phrase","Said of someone, particularly a politician, who is extremely unpopular."]]],
 "could use":["Would like, desire, would benefit from",[["verb","Would like, desire, would benefit from."]]],
 "could we get the bill":["Synonym of the bill, please",[["phrase","Synonym of the bill, please."]]],
-"could've":["Used as a past subjunctive (contrary to fact)",[["verb","Used as a past subjunctive (contrary to fact)."]]],
+"could've":["Contraction of could + have",[["verb","Contraction of could + have."]]],
 "couldn't":["Could not (negative auxiliary)",[["verb","Could not (negative auxiliary)."]]],
 "couldn't be more different":["Two entities that have virtually nothing in common",[["phrase","Two entities that have virtually nothing in common."]]],
 "couldn't care less":["To not care at all",[["verb","To not care at all; to have no interest or concern; to be apathetic."],["adjective","Of or pertaining to indifference; apathetic"]]],
@@ -2942,7 +2940,7 @@
 "d and g":["Dolce and Gabbana",[["proper noun","Dolce and Gabbana"]]],
 "d major":["The major key with the notes D, E, F♯, G, A, B, and C♯, the key signature of which has two sharps",[["noun","The major key with the notes D, E, F♯, G, A, B, and C♯, the key signature of which has two sharps."],["noun","The major chord with a root of D."]]],
 "d minor":["A minor key with the notes D, E, F, G, A, B♭, C",[["noun","A minor key with the notes D, E, F, G, A, B♭, C."],["noun","The minor chord with a root of D."]]],
-"d'you":["A syntactic marker in a question whose main verb is not another auxiliary verb or be",[["contraction","A syntactic marker in a question whose main verb is not another auxiliary verb or be."],["contraction","Contraction of did + you."]]],
+"d'you":["Contraction of did + you",[["contraction","Contraction of did + you."],["contraction","Contraction of do + you."]]],
 "d.":["Abbreviation of died",[["adjective","Abbreviation of died."],["noun","Abbreviation of defence/defense."]]],
 "d.o.b.":["Alternative form of DOB (“date of birth”)",[["noun","Alternative form of DOB (“date of birth”)."]]],
 "da":["Father",[["noun","Father."],["interjection","A meaningless syllable used when singing a tune or indicating a rhythm."],["article","...because it has already been mentioned, is to be completely specified in the same sentence, or very shortly thereafter."],["noun","Yes; an affirmative response."]]],
@@ -3146,7 +3144,7 @@
 "dappled":["Having a mottled or spotted skin or coat, dapple",[["adjective","Having a mottled or spotted skin or coat, dapple."]]],
 "dar":["African-American Vernacular form of there",[["noun","African-American Vernacular form of there."],["noun","A fish found in the Severn River; a dart or dace."]]],
 "dar es salaam":["A region of Tanzania",[["proper noun","A region of Tanzania."],["proper noun","The regional capital of the Dar es Salaam region, Tanzania, and the former capital of the country until 1974."]]],
-"daren't":["To have enough courage (to do something)",[["verb","To have enough courage (to do something)."],["verb","Contraction of dared + not."]]],
+"daren't":["Contraction of dare + not",[["verb","Contraction of dare + not."],["verb","Contraction of dared + not."]]],
 "daresay":["Chiefly in the form I daresay: to venture to say (as the speaker believes something is likely to be the case)",[["verb","Chiefly in the form I daresay: to venture to say (as the speaker believes something is likely to be the case); to think something probable; to presume."]]],
 "daring":["Adventurous, willing to take on or look for risks",[["adjective","Adventurous, willing to take on or look for risks; overbold."],["adjective","Courageous or showing bravery; doughty."],["adjective","Racy; sexually provocative."],["noun","Boldness."]]],
 "daringly":["In a daring manner",[["adverb","In a daring manner."]]],
@@ -8753,5 +8751,6 @@
 "elementary equivalence":["A relation between two structures which have the property that every first-order formula is valid in one structure if and only if it is valid in the other",[["noun","A relation between two structures which have the property that every first-order formula is valid in one structure if and only if it is valid in the other."]]],
 "elementary function":["Any function that is composed of algebraic functions, trigonometric functions, exponential functions and/or logarithmic functions, combined using addition, subtraction, multiplication and/or division",[["noun","Any function that is composed of algebraic functions, trigonometric functions, exponential functions and/or logarithmic functions, combined using addition, subtraction, multiplication and/or division"]]],
 "elementary geometry":["The part of Euclidean geometry pertaining to the simple properties of straight lines, planes, polyhedra, and other basic shapes",[["noun","The part of Euclidean geometry pertaining to the simple properties of straight lines, planes, polyhedra, and other basic shapes."]]],
-"elementary matrix":["A square matrix which is obtained from the identity matrix by a single elementary row (or column) operation",[["noun","A square matrix which is obtained from the identity matrix by a single elementary row (or column) operation."]]]
+"elementary matrix":["A square matrix which is obtained from the identity matrix by a single elementary row (or column) operation",[["noun","A square matrix which is obtained from the identity matrix by a single elementary row (or column) operation."]]],
+"elementary school":["A children’s school, typically older than toddlers and younger than adolescents. In the U.S., elementary schools cover grades 1 through 5, and the ages of the children are usually 6-11 years. At a minimum, elementary schools will teach basic reading, writing, arithmetic, and history",[["noun","A children’s school, typically older than toddlers and younger than adolescents. In the U.S., elementary schools cover grades 1 through 5, and the ages of the children are usually 6-11 years. At a minimum, elementary schools will teach basic reading, writing, arithmetic, and history."],["noun","A primary education school for grades 1-6 (a continuation of preschool). It is succeeded by junior high school."]]]
 }

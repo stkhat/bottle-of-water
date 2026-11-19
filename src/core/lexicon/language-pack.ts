@@ -1,4 +1,5 @@
 import type {
+  ContractionPack,
   FreqPack,
   IpaPack,
   LemmaPack,
@@ -82,6 +83,11 @@ export interface LanguagePack {
   /** A word's parts of speech, its main one first; [] when the pack has none. */
   partsOfSpeech(word: string): readonly string[];
   /**
+   * What a contraction is short for, by its key ("i'm" → ["I am"], "it's" → ["it is",
+   * "it has"]); [] for a word that is none, or a language without the table.
+   */
+  expansions(word: string): readonly string[];
+  /**
    * A phrase pattern's own parts of speech in the source (`PhrasePatterns.pos`:
    * verb, adv, prep_phrase, intj…), its main one first; [] when it has none.
    */
@@ -106,6 +112,8 @@ export interface LanguagePackData {
   pos?: PosPack;
   names?: NamesPack;
   tagger?: TaggerModel;
+  /** The language's contractions and their expansions (English). */
+  contractions?: ContractionPack;
 }
 
 export function createLanguagePack(
@@ -144,6 +152,8 @@ export function createLanguagePack(
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
     name: (word) => (data.names ? own(data.names, word) : undefined),
     partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
+    expansions: (word) =>
+      data.contractions ? (own(data.contractions, word) ?? []) : [],
     phrasePos: (key) =>
       (phrasePos ??= phrasePosIndex(data.patterns)).get(key) ?? [],
     intransitive: (key) =>

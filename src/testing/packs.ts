@@ -62,6 +62,7 @@ const TEST_PACKS: PackFiles = {
     // A given name whose capitalised headword is about one person, and a place.
     names: { crust: "gs", yeast: "p" },
     tagger: TEST_TAGGER,
+    contractions: {},
   },
   "en-ja": {
     dict: {
