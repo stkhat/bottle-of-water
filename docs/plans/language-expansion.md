@@ -33,5 +33,5 @@ More native languages for English learners, and Spanish learning brought to Engl
 - [ ] L1 French learning: L1-1 pack and fr→en pair, L1-2 tagger and grammar, L1-3 names and vocabulary, L1-4 phrases
 - [ ] L2 German learning: the same steps, with separable verbs, capitalised nouns and verb-final clauses
 - [ ] L3 French and German → other natives that pass the gate (recipes from en→N to L→N)
-- [ ] Q1 native leftovers (U1-9)
+- [x] Q1 native leftovers (U1-9): done 2026-11-20 ([native-quality](../notes/native-quality.md) "Suggested order" step 10): wordless table senses (zh the), tables' case for capitalised glosses (months), exclamations last, Wiktionnaire's contractions and marked forms with a translation, auxiliary senses first, regional spelling pointers in en-defs, rule COMPLEMENT ("fall in love"); en-es, en-fr, en-de, en-it, en-pl, en-ru 2026.1119.3, en-pt, en-zh, en-defs 2026.1119.2
 - [x] Q2 Spanish leftovers (U2-7): done 2026-11-19 ([spanish-quality](../notes/spanish-quality.md) "Suggested order" step 7): names after a determiner ("los Andes"), speaker labels, the article lo, ser or ir, words said alone as interjections, free relatives after conjunction patterns, function words' first sense in phrase gloss bags; `es` 2026.1119.2

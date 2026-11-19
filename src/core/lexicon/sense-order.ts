@@ -52,9 +52,17 @@ export const isAuxiliary = (pos: string | undefined) =>
  */
 const AUXILIARY_SENSE = /\bauxiliary\b/i;
 
-/** Some sense its source calls an auxiliary's (`AUXILIARY_SENSE`). */
+/**
+ * A sense its source calls an auxiliary's: by its English sense (`AUXILIARY_SENSE`), or
+ * labelled so by the data build (an edition's "haber (como verbo auxiliar)": PAIR
+ * "Auxiliary senses").
+ */
+const isAuxiliarySense = (sense: Sense) =>
+  sense.pos === AUXILIARY || AUXILIARY_SENSE.test(sense.hint ?? "");
+
+/** Some sense its source calls an auxiliary's (`isAuxiliarySense`). */
 export const hasAuxiliarySense = (senses: readonly Sense[]) =>
-  senses.some((sense) => AUXILIARY_SENSE.test(sense.hint ?? ""));
+  senses.some(isAuxiliarySense);
 
 /** Whether a sense labelled `label` can be what a word tagged `pos` means. */
 export const accepts = (pos: string, label: string | undefined) =>
@@ -142,7 +150,7 @@ export function senseOrder(
 
 /**
  * For a word used as an auxiliary: the usable senses its source calls auxiliary
- * (`AUXILIARY_SENSE`) first, or undefined to keep the dictionary's order when none is
+ * (`isAuxiliarySense`) first, or undefined to keep the dictionary's order when none is
  * or they lead already.
  */
 function auxiliaryOrder(
@@ -151,7 +159,7 @@ function auxiliaryOrder(
 ): number[] | undefined {
   const indices = senses.map((_, k) => k);
   const front = indices.filter(
-    (k) => usable(k) && AUXILIARY_SENSE.test(senses[k]!.hint ?? ""),
+    (k) => usable(k) && isAuxiliarySense(senses[k]!),
   );
   if (front.length === 0 || front[0] === indices.find(usable)) return undefined;
   return [...front, ...indices.filter((k) => !front.includes(k))];

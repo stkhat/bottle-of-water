@@ -777,7 +777,8 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     const has = hover("She has spent all her money.", "has", enEs);
     expect(has).toMatchObject({ key: "has", pos: "auxiliary" });
     expect(has.lines[0]).toMatch(/^tercera persona .* de have$/);
-    expect(has.lines[1]).toBe("tener");
+    // Its base read as an auxiliary: the edition's auxiliary sense (U1-9).
+    expect(has.lines[1]).toBe("haber (como verbo auxiliar)");
     expect(hover("She has a dog.", "has", enEs).lines[0]).toBe("tener");
     // Be keeps its meaning as an auxiliary (U1-8): the copula's hover, not the
     // edition's whole pointer ("primera persona del singular del pasado simple … be").

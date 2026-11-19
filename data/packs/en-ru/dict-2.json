@@ -2652,7 +2652,7 @@
 "foam":["пена",[["noun","пена","substance composed of a large collection of bubbles or their solidified remains"],["verb","пениться","form or emit foam"],["noun","пенопласт, поролон","foam rubber"]],0],
 "foam roller":["поролоновй валик",[["noun","поролоновй валик, пенный валик, массажный валик","device for massage or exercise"]],0],
 "foamy":["пенистый",[["adjective","пенистый, пенный","full of foam"]],0],
-"fob":["брелок",[["noun","брелок","ornament"]],0],
+"fob":["брелок",[["noun","брелок"]],1],
 "focaccia":["фокачча",[["noun","фокачча","type of flatbread"]],0],
 "focal":["фокусный",[["adjective","фокусный","belonging to or concerning a focus"],["adjective","очаговый","(medicine) limited to a small area"]],0],
 "focal length":["фокусное расстояние",[["noun","фокусное расстояние","distance"]],0],
@@ -7946,7 +7946,6 @@
 "informer":["доносчик",[["noun","доносчик, доносчица, стукач","person who tells authorities about improper or illegal activity"],["noun","информатор, осведомитель, осведомительница","one who informs"]],0],
 "infotainment":["инфотейнмент (информация развлекательного характера)",[["noun","инфотейнмент (информация развлекательного характера)"]],1],
 "infraction":["нарушение",[["noun","нарушение","petty crime"]],0],
-"infrared":["инфракрасный",[["adjective","инфракрасный","having the wavelength in the infrared"]],0],
 "infrared radiation":["инфракрасное излучение",[["noun","инфракрасное излучение","infrared radiation"]],0],
 "infrastructure":["инфраструктура",[["noun","инфраструктура","basic facilities, services and installations needed for the functioning of a community or society"]],0],
 "infrequent":["нечастый",[["adjective","нечастый","Not frequent; not happening frequently"]],0],
@@ -12279,5 +12278,6 @@
 "millimeter":["амер. миллиметр",[["noun","амер. миллиметр"]],1],
 "millimetre":["миллиметр",[["noun","миллиметр","unit of measure"]],0],
 "milliner":["шляпный мастер",[["noun","шляпный мастер, шляпная мастерица","person involved in the design, manufacture, or sale of hats for women"],["noun","модистка","person who sells (women’s) apparel, accessories, and other decorative goods, especially those originally manufactured in Milan"]],0],
-"milling cutter":["фреза",[["noun","фреза","rotary cutting tool"]],0]
+"milling cutter":["фреза",[["noun","фреза","rotary cutting tool"]],0],
+"milling machine":["фрезмашина",[["noun","фрезмашина, фрезерный станок","machine"]],0]
 }
