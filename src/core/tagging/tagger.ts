@@ -72,6 +72,17 @@ export interface WordUse {
    * hover names that expansion alone (`Span.clitic`).
    */
   clitic?: string;
+  /**
+   * The base the sentence's grammar decides, for a form two verbs share whose tag says
+   * nothing of which (Spanish "fue": ser or ir; "se fue" is ir); rule A1 takes it.
+   */
+  base?: string;
+  /**
+   * A verb the grammar reads as pronominal here, from a reflexive pronoun before it
+   * that decided its base ("se fueron de campamento": irse): a plain verb's pattern
+   * does not start at it (`ir de`, to act like), a pronominal verb's may.
+   */
+  pronominal?: true;
 }
 
 /**

@@ -209,13 +209,61 @@ export function documentNames(
     verdicts.set(key, verdict);
     return verdict;
   };
+  /**
+   * After a determiner, in a language that capitalises only names
+   * (`capitalsForNames`): a word the document always capitalises that the language
+   * knows only as a verb's form (no vocabulary word of another part of speech, and
+   * every base mainly a verb) is a name, since a determiner opens a noun phrase ("los
+   * Andes", not andar; "la Lucía", not lucir; "la Ultimate", not ultimar). A participle
+   * used as a noun has a base that is no verb ("los Desaparecidos": desaparecido), so
+   * it stays a word.
+   */
+  /**
+   * A word of a speaker label (`WordCase.speaker`: "[Paulina] ¿Cómo?") is a name when
+   * the names lexicon has it as a person's name first, a given name or a surname rare
+   * as a common word (rule D's kinds), though the brackets say nothing of how the
+   * document writes it (not paulino's "Pauline"); a sound label's or a title's words
+   * are none ("[Música]", "[Music]", "[Speaker]", "[Home Secretary]").
+   */
+  const speakerName = (key: string): NameVerdict => {
+    const kinds = pack.name(key) ?? "";
+    if (
+      !personName(kinds) ||
+      !nameKinds(kinds, pack.rank(key)) ||
+      kinds.endsWith("!") ||
+      neverName(pack, key)
+    )
+      return false;
+    return keptOrName(kinds, meaning(key));
+  };
+  const verbAfterDeterminer = (key: string): NameVerdict => {
+    const kinds = pack.name(key) ?? "";
+    if (
+      !pack.capitalsForNames ||
+      casing.unpunctuated === true ||
+      kinds.endsWith("!") ||
+      !alwaysCapitalised(casing, key) ||
+      neverName(pack, key) ||
+      pack.partsOfSpeech(key).some((pos) => pos !== "verb")
+    )
+      return false;
+    const bases = pack.lemmas(key).filter((base) => base !== key);
+    if (
+      bases.length === 0 ||
+      bases.some((base) => pack.partsOfSpeech(base)[0] !== "verb")
+    )
+      return false;
+    return keptOrName(kinds, meaning(key));
+  };
   return (word, before) => {
     if (!pack.namesByCase || casing.mode !== "mixed") return false;
+    const speaker = word.speaker === true && speakerName(word.key);
+    if (speaker) return speaker;
     if (
       before !== undefined &&
       pack.partsOfSpeech(before).some((pos) => DETERMINERS.has(pos))
     )
-      return false;
+      return verbAfterDeterminer(word.key);
     return verdictOf(word.key, new Set());
   };
 }

@@ -32,6 +32,11 @@ export interface WordCase {
   atStart: boolean;
   /** Inside brackets ([sighs], (Laughter)): not speech, no evidence. */
   label: boolean;
+  /**
+   * In a speaker label: brackets that open the block and hold only capitalised words,
+   * with speech after them ("[Paulina] ¿Cómo?"; not "[música]", "[Jan sighs]").
+   */
+  speaker?: true;
   /** ALL CAPS next to another ALL-CAPS word: shouting or a heading, not an acronym. */
   capsRun: boolean;
 }
@@ -185,7 +190,7 @@ function casesOf(
   const written = words.map((token) => writtenOf(token.text));
   const upper = (i: number) => written[i] === "upper";
   let depth = 0;
-  return words.map((token, i) => {
+  const cases = words.map((token, i): WordCase => {
     const between = text.slice(i === 0 ? 0 : words[i - 1]!.end, token.start);
     for (const ch of between)
       if (ch === "(" || ch === "[") depth++;
@@ -199,6 +204,42 @@ function casesOf(
       capsRun: upper(i) && (upper(i - 1) || upper(i + 1)),
     };
   });
+  for (const i of speakerLabels(words, text, written)) cases[i]!.speaker = true;
+  return cases;
+}
+
+/**
+ * The block's words in speaker labels: brackets that open the block, a line or a
+ * dialogue turn (nothing but spaces, dashes or quotes before them on their line)
+ * around capitalised words only, with a word after them. A caption track names the
+ * speaker so ("[Paulina] ¿Cómo?", "- (MARK) Hi"); a sound label is in lower case or
+ * holds a verb ("[música]", "[Jan sighs]").
+ */
+function speakerLabels(
+  words: readonly Token[],
+  text: string,
+  written: readonly (Written | undefined)[],
+): Set<number> {
+  const found = new Set<number>();
+  for (const open of text.matchAll(/(?:^|\n)[\s\-–—"“'«]*([[(])/g)) {
+    const from = open.index + open[0].length;
+    const close = text.slice(from).search(/[\])\n]/);
+    if (close < 0 || /\n/.test(text[from + close]!)) continue;
+    const to = from + close;
+    const inside = words.flatMap((word, i) =>
+      word.start >= from && word.end <= to ? [i] : [],
+    );
+    const after = words.find((word) => word.start > to);
+    if (
+      inside.length === 0 ||
+      !after ||
+      /\n/.test(text.slice(to, after.start)) ||
+      inside.some((i) => written[i] !== "capital" && written[i] !== "upper")
+    )
+      continue;
+    for (const i of inside) found.add(i);
+  }
+  return found;
 }
 
 const bump = (map: Map<string, number>, key: string) =>
