@@ -100,6 +100,24 @@ function belongs(words: readonly TaggedWord[], a: number, n: number) {
 }
 
 /**
+ * The verb whose participle a word tagged as an adjective is, at its clause's end in
+ * a clause of haben (`end`: the clause's end): haben takes no predicative adjective,
+ * so "Deine Kinder haben dich sehr vermisst" is vermissen's perfect, not "missing",
+ * which the tagger reads after "sehr". The word ends as participles do (-t, -en) and
+ * the pack lists an infinitive (-n) among its bases. Undefined otherwise.
+ */
+function adjectiveParticiple(
+  words: readonly TaggedWord[],
+  n: number,
+  end: number,
+): string | undefined {
+  const word = words[n]!;
+  if (word.tag.label !== "adjective" || n !== end - 1) return undefined;
+  if (!/(?:t|en)$/.test(word.form)) return undefined;
+  return word.bases.find((base) => base !== word.form && /n$/.test(base));
+}
+
+/**
  * What the auxiliary candidate at `i` takes in its clause: a participle (haben;
  * werden, the passive; sein with a verb that takes it, the perfect) or an infinitive
  * (werden, the future; a modal). Tags count here whether trusted or not: a closed
@@ -117,6 +135,11 @@ function partner(words: readonly TaggedWord[], i: number) {
       if (formOf(word, "sein") && other.bases.some(takesSein)) return n;
     }
     if (
+      formOf(word, "haben") &&
+      adjectiveParticiple(words, n, end) !== undefined
+    )
+      return n;
+    if (
       isInfinitive(other) &&
       (formOf(word, "werden") || MODALS.some((verb) => formOf(word, verb)))
     )
@@ -127,15 +150,19 @@ function partner(words: readonly TaggedWord[], i: number) {
 
 /**
  * Whether the word at `i` is an auxiliary: a form of haben, sein or werden with its
- * participle or infinitive in the clause (`partners`, each word's `partner`). A modal keeps its own meaning
- * ("kann": can), so it is no auxiliary here; a copula takes no verb ("ist groß").
+ * participle or infinitive in the clause, or a modal with its infinitive (`partners`,
+ * each word's `partner`), as French pouvoir and devoir are read (L1-5): rule A2 then
+ * shows the senses kaikki tags auxiliary ("kann … schwimmen": "to be able (to do or be
+ * something), can"; "muss … gehen": "to have to (do something); must"), and a modal
+ * with no infinitive its own verb senses ("Ich kann Deutsch": "to be able to do
+ * something implied"). A copula takes no verb ("ist groß").
  */
 const auxiliary = (
   words: readonly TaggedWord[],
   i: number,
   partners: readonly (number | undefined)[],
 ) =>
-  TENSE_AUXILIARIES.some((verb) => formOf(words[i]!, verb)) &&
+  [...TENSE_AUXILIARIES, ...MODALS].some((verb) => formOf(words[i]!, verb)) &&
   partners[i] !== undefined;
 
 /**
@@ -337,6 +364,10 @@ function use(
   const first = verbFirst(words, i);
   const contraction = contractionPos(words, i);
   const capitalised = capitalNoun(words, i) && !first;
+  // An adjective-tagged participle a form of haben takes is its verb.
+  const participle = partners.includes(i)
+    ? adjectiveParticiple(words, i, clauseOf(words, i).end)
+    : undefined;
   // A participle in a state reads as the adjective it is ("ist geschlossen": closed).
   const state = how === false && trustedTagOf(word)?.label === "verb";
   return {
@@ -354,6 +385,7 @@ function use(
     ...(capitalised && base === undefined && { grammarPos: "noun" }),
     ...(contraction !== undefined && { grammarPos: contraction }),
     ...(base !== undefined && { base, grammarPos: "verb" }),
+    ...(participle !== undefined && { base: participle, grammarPos: "verb" }),
     ...(compound !== undefined && { separable: true as const }),
   };
 }

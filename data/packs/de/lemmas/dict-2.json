@@ -1,4 +1,8 @@
 {
+"kämmten":["kämmen","durchkämmen"],
+"kämmtest":["kämmen","durchkämmen"],
+"kämmtet":["kämmen","durchkämmen"],
+"kämpe":"kamp",
 "kämpen":["kamp","kämpe"],
 "kämpfe":["kampf","kämpfen","ankämpfen","weiterkämpfen"],
 "kämpfen":["kampf","ankämpfen","weiterkämpfen"],
@@ -10312,6 +10316,7 @@
 "nektarinen":"nektarine",
 "nektars":"nektar",
 "nelken":"nelke",
+"nem":"einem",
 "nenn":"nennen",
 "nenne":"nennen",
 "nennend":"nennen",
@@ -10335,6 +10340,7 @@
 "neonlichtes":"neonlicht",
 "neonlichts":"neonlicht",
 "neons":"neon",
+"ner":"einer",
 "nerds":"nerd",
 "nerve":["nerv","nerven"],
 "nerven":"nerv",
@@ -65474,11 +65480,5 @@
 "zundern":"zunder",
 "zunders":"zunder",
 "zunehme":"zunehmen",
-"zunehmend":"zunehmen",
-"zunehmende":"zunehmend",
-"zunehmendem":"zunehmend",
-"zunehmenden":"zunehmend",
-"zunehmender":"zunehmend",
-"zunehmendes":"zunehmend",
-"zunehmest":"zunehmen"
+"zunehmend":"zunehmen"
 }

@@ -10,6 +10,7 @@ import type {
 import { nativeLanguage } from "../natives";
 import { kindOfKey } from "../term-id";
 import { own } from "../util";
+import type { Compound } from "./compounds";
 import { cleanDefinition, definitionPointer } from "./definitions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
@@ -162,7 +163,12 @@ const NO_POS: PosPack = {};
  * An entry as a source has it, with the hover card's lines (none: `short` alone) and
  * the language of its glosses when that is not the native one.
  */
-type Found = Entry & { lines?: string[]; glossLang?: string };
+type Found = Entry & {
+  lines?: string[];
+  glossLang?: string;
+  /** The headword as the card writes it, when not as keyed (German "Vater"). */
+  head?: string;
+};
 
 /** What a sense is, as an outline counts it: the word it is a form of, and whether it means something. */
 type SenseReading = (text: string) => { formOf?: string; meaning: boolean };
@@ -231,7 +237,7 @@ function dictionaryOver(
       // senses (`AUXILIARY_BASE`).
       const bare = pos === AUXILIARY_BASE && !hasAuxiliarySense(found.senses);
       return {
-        head,
+        head: found.head ?? head,
         kind: kindOfKey(head),
         ...(headIpa !== undefined && { ipa: headIpa }),
         short: found.short,
@@ -382,6 +388,84 @@ export function withWrittenHeads(
       const found = dictionary.entry(term, written, pos, clitic);
       const head = found && headOf(found.head);
       return head === undefined ? found : { ...found!, head };
+    },
+  };
+}
+
+/** A line's first item, without brackets: "pistachio (nut)" → "pistachio"; "route, trail" → "route". */
+const firstItem = (line: string) =>
+  line
+    .replace(/\s*\([^()]*\)/g, "")
+    .split(/[,;] /)[0]!
+    .trim();
+
+/**
+ * The hover lines of a compound from its parts' entries: each part's first meaning,
+ * joined as the note joins the parts ("Taube + Shirt": "pigeon + shirt"), then the
+ * head's second line ("Preis + Klasse": "price + form", "class"). Judged blind on 150
+ * compounds (L2-2), learners were served better by the parts' meanings (good 50–62%)
+ * than by the head's alone (none good; acceptable 84–98%, "Bahnsystem": system),
+ * preferred 58 : 26. A joined line wider than a line's cap gives way to the head's
+ * lines.
+ */
+function compoundLines(parts: readonly DictionaryEntry[]): string[] {
+  const head = parts.at(-1)!;
+  const joined = parts
+    .map((part) => firstItem(part.lines[0] ?? part.short))
+    .join(" + ");
+  return fitsPairCap(joined, true)
+    ? [joined, ...head.lines.slice(1, 2)]
+    : head.lines;
+}
+
+/**
+ * `dictionary` reading a closed compound it has no entry for (`compoundOf`, the
+ * learning pack's `LanguagePack.compound`: "Bahnsystem", "Verdauungsenzyme") by its
+ * parts (`compoundLines`), with the head's senses for the dictionary window, the
+ * card's headword the compound's key written as the head's is ("Verdauungsenzym"),
+ * and its parts' headwords as the card's note ("Verdauung + Enzym"). Rule A1 reads its
+ * head's outline.
+ */
+export function withCompounds(
+  dictionary: DictionaryProvider,
+  compoundOf: (key: string) => Compound | undefined,
+): DictionaryProvider {
+  return {
+    ...dictionary,
+    outline(term) {
+      const own = dictionary.outline(term);
+      if (own) return own;
+      const head = (
+        compoundOf(capitalised(term)) ?? compoundOf(term)
+      )?.parts.at(-1);
+      return head === undefined ? undefined : dictionary.outline(head);
+    },
+    entry(term, written, pos, clitic) {
+      const found = dictionary.entry(term, written, pos, clitic);
+      if (found) return found;
+      // Read as the page writes it: in lower case an adjective, else a noun.
+      const compound = compoundOf(
+        written === "lower" ? term : capitalised(term),
+      );
+      if (!compound) return undefined;
+      const parts = compound.parts.map((part, i, all) =>
+        i === all.length - 1
+          ? dictionary.entry(part, written, pos)
+          : dictionary.entry(part),
+      );
+      if (parts.some((part) => part === undefined)) return undefined;
+      const entries = parts as DictionaryEntry[];
+      const head = entries.at(-1)!;
+      const capital = /^\p{Lu}/u.test(head.head);
+      return {
+        head: capital ? capitalised(compound.key) : compound.key,
+        kind: "word",
+        short: head.short,
+        lines: compoundLines(entries),
+        senses: head.senses,
+        ...(head.glossLang !== undefined && { glossLang: head.glossLang }),
+        expansion: entries.map((part) => part.head).join(" + "),
+      };
     },
   };
 }
@@ -537,7 +621,32 @@ function definitionInEnglish(
   };
 }
 
-/** Senses with their part of speech, already in the native language (Spanish → English). */
+/** A key written with a capital: "vater" → "Vater". */
+const capitalised = (key: string) => key.charAt(0).toUpperCase() + key.slice(1);
+
+/**
+ * An entry with its capitalised headword's senses first (`Sense.capital`), for a word
+ * the page writes capitalised in a way that counts: German "Sie" inside a sentence is
+ * the polite "you", not "she". Unchanged when it has none, or only those.
+ */
+function capitalFirst(entry: Entry): Entry {
+  const capital = entry.senses.filter((sense) => sense.capital);
+  if (capital.length === 0 || capital.length === entry.senses.length)
+    return entry;
+  return {
+    short: shortOfDefinition(capital[0]!.text),
+    senses: [...capital, ...entry.senses.filter((sense) => !sense.capital)],
+  };
+}
+
+/**
+ * Senses with their part of speech, already in the native language (Spanish → English).
+ * A word the page writes capitalised in a way that counts (`written` "capital") shows
+ * its capitalised headword's senses first, where the pack marks them (German: Sie →
+ * "you (polite)"), then in rule A2's order for its tag; the card writes the headword
+ * capitalised when its first line is one of those (German nouns: "Vater", "Essen" read
+ * as the noun, "essen" as the verb).
+ */
 export function createDefsDictionary({
   defs,
   ipa,
@@ -547,19 +656,17 @@ export function createDefsDictionary({
 }): DictionaryProvider {
   return dictionaryOver(
     ipa,
-    (head, _written, pos) => {
-      const found = definitionOf(head, defs);
-      if (!found) return undefined;
+    (head, written, pos) => {
+      const own = definitionOf(head, defs);
+      if (!own) return undefined;
+      const found = written === "capital" ? capitalFirst(own) : own;
       const lines = definitionLinesOf(found.senses);
+      const order = definitionOrder(found.senses, pos, () => lines);
+      const capital = found.senses[order?.[0] ?? 0]?.capital === true;
       return {
         ...found,
-        lines: definitionLines(
-          head,
-          found,
-          lines,
-          defs,
-          definitionOrder(found.senses, pos, () => lines),
-        ),
+        lines: definitionLines(head, found, lines, defs, order),
+        ...(capital && { head: capitalised(head) }),
       };
     },
     (head) => definitionOutline(head, defs),
@@ -946,6 +1053,7 @@ function definitionOf(head: string, defs: DefsPack): Entry | undefined {
       pos,
       text,
       ...(use === "auxiliary" && { auxiliary: true as const }),
+      ...(use === "capital" && { capital: true as const }),
     })),
   };
 }

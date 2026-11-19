@@ -12,6 +12,7 @@
 // cut to those two parts, once, into kaikki-de-edition-slim.jsonl.
 // Usage: node scripts/data/de-kaikki.ts [path]   (default data/raw/kaikki-de.jsonl)
 import { join } from "node:path";
+import { COMPOUND_RULES } from "../../src/core/lexicon/compounds.ts";
 import { GERMAN_RULES } from "../../src/core/phrases/de.ts";
 import { RAW_DIR } from "./common.ts";
 import {
@@ -94,6 +95,7 @@ export const GERMAN_BUILD: LearningBuild = {
   nounsCapitalised: true,
   editionIpa: germanEditionIpa,
   separableVerbs: true,
+  compounds: COMPOUND_RULES.de,
 };
 
 async function main() {

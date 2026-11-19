@@ -3,11 +3,13 @@ import {
   createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
+  withCompounds,
   withWrittenHeads,
   type DictionaryProvider,
 } from "../core/lexicon/dictionary";
 import {
   createLanguagePack,
+  writesCompounds,
   type LanguagePack,
 } from "../core/lexicon/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
@@ -254,9 +256,13 @@ export function createLanguageResources(loadPack: LoadPack): LanguageResources {
       const found = own(DICTIONARY_RECIPES, `${from}-${to}`);
       if (!found)
         return Promise.reject(new Error(`No dictionary from ${from} to ${to}`));
-      return once(`dictionary:${from}-${to}`, found.packs, () =>
-        found.build(loadPack),
-      );
+      return once(`dictionary:${from}-${to}`, found.packs, async () => {
+        const dictionary = await found.build(loadPack);
+        if (!writesCompounds(from)) return dictionary;
+        // Closed compounds ("Bahnsystem") are read by their parts.
+        const learning = await pack(from);
+        return withCompounds(dictionary, (key) => learning.compound(key));
+      });
     },
 
     forget(name) {

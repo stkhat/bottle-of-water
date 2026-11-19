@@ -46,8 +46,18 @@ const DETERMINERS: ReadonlySet<string> = new Set(["article", "determiner"]);
  */
 const determiner = (pack: LanguagePack, word: string) => {
   const parts = pack.partsOfSpeech(word);
+  if (parts[0] !== "preposition" && parts.some((pos) => DETERMINERS.has(pos)))
+    return true;
+  if (!pack.nounsCapitalised) return false;
+  // German: a determiner's inflected form ("keine", "deinen"), a numeral ("zehn
+  // Mark"), and a preposition joined to the article ("im Ernst", "zum Wolf").
+  const base = pack.lemmas(word)[0];
   return (
-    parts[0] !== "preposition" && parts.some((pos) => DETERMINERS.has(pos))
+    (base !== undefined &&
+      pack
+        .partsOfSpeech(base)
+        .some((pos) => DETERMINERS.has(pos) || pos === "numeral")) ||
+    pack.rules.contractions?.has(word) === true
   );
 };
 
@@ -69,6 +79,19 @@ function nameKinds(kinds: string, rank: number) {
   if (kinds.includes("g")) return true;
   return /[spo]/.test(kinds) && (rank > COMMON_RANK || kinds.includes("c"));
 }
+
+/**
+ * In a language that capitalises every noun (`LanguagePack.nounsCapitalised`: German),
+ * a capital says nothing of a name by itself, and nouns are as often surnames and
+ * places as they are rare (Klima, Hanf, Gouda, Burg): a word is a name by itself only
+ * as a given name (Dietrich, Jasmin, Marie), and only as written, not as another
+ * word's inflected form the lexicon also lists as a name (Wolken, Mengen, Bergen:
+ * plurals of Wolke, Menge, Berg).
+ */
+const nounsNameKinds = (pack: LanguagePack, key: string, kinds: string) => {
+  const base = pack.lemmas(key)[0];
+  return kinds.includes("g") && (base === undefined || base === key);
+};
 
 /** A person's name first: a given name or a surname, and not mainly a place or an organisation. */
 const personName = (kinds: string) =>
@@ -97,7 +120,9 @@ function nameVerdict(
   if (
     kinds === undefined ||
     kinds.endsWith("!") ||
-    !nameKinds(kinds, pack.rank(word.key))
+    !(pack.nounsCapitalised
+      ? nounsNameKinds(pack, word.key, kinds)
+      : nameKinds(kinds, pack.rank(word.key)))
   )
     return false;
   if (neverName(pack, word.key)) return false;
@@ -154,6 +179,34 @@ export function documentNames(
   const verdicts = new Map<string, NameVerdict>();
   /** Words a run name was found for, apart from rule D's own. */
   const fromRuns = new Set<string>();
+  /**
+   * Where every noun is capitalised (`LanguagePack.nounsCapitalised`), a word after a
+   * person's name is a name of theirs only when the lexicon has it as a person's name
+   * (Kohl, Wolf, Beck), or when it is no noun at all, which a capital then marks as a
+   * name (Klopp, not klopfen's form; Styles): German puts nouns after a name too
+   * ("bei Hans Illustrierte", "lieber Reinhold Briefe zu schreiben").
+   */
+  const nounReading = (key: string) =>
+    [key, ...pack.lemmas(key)].some((word) =>
+      pack.partsOfSpeech(word).includes("noun"),
+    );
+  const surnameAfterName = (key: string, kinds: string) =>
+    /[gs]/.test(kinds) || !nounReading(key);
+  /**
+   * There, a noun is a surname only right after the name it follows (`before`: "Robert
+   * Kohl", "Julian Wolf"), not wherever the document writes it ("Kaiser Franz Joseph",
+   * though "Franz Josef Kaiser" was crowned): a capital does not tell the noun from the
+   * name elsewhere. A word with no noun reading (Klopp), or one rare as a common
+   * word (Einstein, Kohl; rule D's rank), is a name throughout.
+   */
+  const runHere = (key: string, before: string | undefined) =>
+    !pack.nounsCapitalised ||
+    !fromRuns.has(key) ||
+    !nounReading(key) ||
+    pack.rank(key) > COMMON_RANK ||
+    (before !== undefined &&
+      verdictOf(before, new Set()) === "name" &&
+      (personName(pack.name(before) ?? "") || fromRuns.has(before)));
   const runOf = (key: string) => (casing.runs && own(casing.runs, key)) ?? [];
   const asWritten = (key: string): WordCase => ({
     key,
@@ -207,7 +260,9 @@ export function documentNames(
       byItself === false &&
       alwaysCapitalised(casing, key) &&
       !kinds.endsWith("!") &&
-      (kinds.includes("g") || pack.rank(key) > COMMON_RANK) &&
+      (pack.nounsCapitalised
+        ? surnameAfterName(key, kinds)
+        : kinds.includes("g") || pack.rank(key) > COMMON_RANK) &&
       !neverName(pack, key) &&
       runOf(key).some(
         (previous) =>
@@ -278,6 +333,7 @@ export function documentNames(
   const placeAfterDeterminer = (key: string): NameVerdict => {
     const kinds = pack.name(key) ?? "";
     if (
+      pack.nounsCapitalised ||
       !kinds.includes("p") ||
       !kinds.includes("c") ||
       kinds.endsWith("!") ||
@@ -293,6 +349,7 @@ export function documentNames(
     if (speaker) return speaker;
     if (before !== undefined && determiner(pack, before))
       return placeAfterDeterminer(word.key) || verbAfterDeterminer(word.key);
-    return verdictOf(word.key, new Set());
+    const verdict = verdictOf(word.key, new Set());
+    return runHere(word.key, before) ? verdict : false;
   };
 }

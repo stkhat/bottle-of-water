@@ -3,6 +3,7 @@ import {
   createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
+  withCompounds,
   withWrittenHeads,
 } from "./dictionary";
 import type { PairPack } from "../packs/types";
@@ -479,6 +480,78 @@ describe("withWrittenHeads", () => {
     expect(heads.entry("ai")?.lines).toEqual(["人工知能"]);
     expect(heads.entry("dough")?.head).toBe("dough");
     expect(heads.entry("zzyzx")).toBeUndefined();
+  });
+});
+
+describe("createDefsDictionary: capitalised headwords (German)", () => {
+  const dictionary = createDefsDictionary({
+    defs: {
+      sie: [
+        "she",
+        [
+          ["pronoun", "she; her"],
+          ["pronoun", "they; them"],
+          ["pronoun", "you (polite, singular and plural)", "capital"],
+        ],
+      ],
+      essen: [
+        "to eat",
+        [
+          ["verb", "to eat"],
+          ["noun", "food", "capital"],
+        ],
+      ],
+      vater: ["father", [["noun", "father", "capital"]]],
+    },
+    ipa: {},
+  });
+  it("shows a capitalised word's capitalised senses first", () => {
+    expect(dictionary.entry("sie", "capital", "pronoun")).toMatchObject({
+      head: "Sie",
+      short: "you (polite, singular and plural)",
+      lines: ["you (polite, singular and plural)", "she", "they"],
+    });
+    expect(dictionary.entry("sie", undefined, "pronoun")).toMatchObject({
+      head: "sie",
+      lines: ["she", "they", "you (polite, singular and plural)"],
+    });
+  });
+  it("writes the headword capitalised when its first line is a capitalised headword's", () => {
+    expect(dictionary.entry("vater")?.head).toBe("Vater");
+    expect(dictionary.entry("essen", undefined, "noun")?.head).toBe("Essen");
+    expect(dictionary.entry("essen", undefined, "verb")?.head).toBe("essen");
+  });
+});
+
+describe("withCompounds", () => {
+  const defs = createDefsDictionary({
+    defs: {
+      bahn: ["railway", [["noun", "railway", "capital"]]],
+      system: [
+        "system",
+        [
+          ["noun", "system", "capital"],
+          ["noun", "period", "capital"],
+        ],
+      ],
+    },
+    ipa: {},
+  });
+  const dictionary = withCompounds(defs, (key) =>
+    /^(?:B|b)ahnsystem$/.test(key)
+      ? { key: "bahnsystem", parts: ["bahn", "system"], noun: true }
+      : undefined,
+  );
+  it("reads a compound by its parts' meanings, then its head's", () => {
+    expect(dictionary.entry("bahnsystem", "capital")).toMatchObject({
+      head: "Bahnsystem",
+      expansion: "Bahn + System",
+      lines: ["railway + system", "period"],
+      senses: defs.entry("system")!.senses,
+    });
+    expect(dictionary.outline("bahnsystem")).toEqual(defs.outline("system"));
+    expect(dictionary.entry("bahn")?.head).toBe("Bahn");
+    expect(dictionary.entry("bahnhof")).toBeUndefined();
   });
 });
 
