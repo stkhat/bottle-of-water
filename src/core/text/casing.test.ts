@@ -100,7 +100,11 @@ describe("documentCasing", () => {
   it("is mixed for ordinary writing, with the words capitalised inside sentences", () => {
     expect(
       casingOf("Yesterday Mark met Helen.", "Mark waved. The mark stayed."),
-    ).toEqual({ mode: "mixed", words: { mark: [1, 1], helen: [1, 0] } });
+    ).toEqual({
+      mode: "mixed",
+      words: { mark: [1, 1], helen: [1, 0] },
+      startRuns: { mark: ["yesterday"] },
+    });
   });
   it("is upper when most words are in capitals, with no words", () => {
     expect(casingOf("MARK MET HELEN.", "THEN Mark LEFT.")).toEqual({
@@ -225,5 +229,25 @@ describe("documentCasing: punctuation", () => {
   });
   it("takes a shorter document for punctuated", () => {
     expect(casingOf(words(49)).unpunctuated).toBeUndefined();
+  });
+});
+
+describe("startRuns", () => {
+  it("keeps the capitalised words after a sentence's first word apart from the runs", () => {
+    const casing = casingOf(
+      "Bastian Schweinsteiger spielte. Er traf Bastian Schweinsteiger.",
+    );
+    expect(casing.runs).toEqual({ schweinsteiger: ["bastian"] });
+    expect(casing.startRuns).toEqual({ schweinsteiger: ["bastian"] });
+  });
+  it("names the opening word and its run when a start run changes", () => {
+    const before = casingOf("Er traf Anna.");
+    const after = casingOf("Er traf Anna.", "Bastian Schweinsteiger kam.");
+    const changed = casingChanges(before, after);
+    expect(changed).not.toBe("all");
+    expect([...(changed as Set<string>)].sort()).toEqual([
+      "bastian",
+      "schweinsteiger",
+    ]);
   });
 });

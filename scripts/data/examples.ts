@@ -63,15 +63,18 @@ export function examplePieces(example: Example): string[] {
 /**
  * Each phrase key's variants: its words as written or as one of their inflected forms
  * (`forms`, base → forms), at most `perWord` forms a word and `perKey` variants a key.
- * A variant found under several keys counts for the first.
+ * A variant found under several keys counts for the first, but a key as written counts
+ * for itself: "nach Hause" is `nach hause`, not `nach haus` with Hause as a form of
+ * Haus.
  */
 export function phraseVariants(
   keys: Iterable<string>,
   forms: ReadonlyMap<string, readonly string[]>,
   { perWord = 8, perKey = 64 } = {},
 ): Map<string, string> {
-  const variants = new Map<string, string>();
-  for (const key of keys) {
+  const list = [...keys];
+  const variants = new Map<string, string>(list.map((key) => [key, key]));
+  for (const key of list) {
     let written = [""];
     for (const word of key.split(" ")) {
       const options = [word, ...(forms.get(word) ?? [])].slice(0, perWord);

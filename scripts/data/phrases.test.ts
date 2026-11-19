@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { decodeSenseLabels } from "../../src/core/lexicon/sense-labels.ts";
 import { phrasePosIndex } from "../../src/core/phrases/pattern.ts";
 import { importPhrases, patternKey, type PhrasesResult } from "./phrases.ts";
+import { LITERAL_NOTE } from "./senses.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-phrases.jsonl");
 const vocab = [
@@ -209,5 +210,18 @@ describe("patternKey", () => {
   it("rejects words that are not accepted or not made of letters", () => {
     expect(patternKey("take over", isWord)).toBeUndefined();
     expect(patternKey("x-ray up", isWord)).toBeUndefined();
+  });
+});
+
+describe("LITERAL_NOTE", () => {
+  it("reads the source's notes that a phrase is also meant word for word", () => {
+    for (const note of [
+      "Used other than figuratively or idiomatically: see kick, bucket",
+      "for non-idiomatic uses see bei, sein",
+      "For non-idiomatic uses, see the individual lemmas.",
+      "non-idiomatic combination of wohl and eher",
+    ])
+      expect(LITERAL_NOTE.test(note), note).toBe(true);
+    expect(LITERAL_NOTE.test("to die (idiomatic)")).toBe(false);
   });
 });

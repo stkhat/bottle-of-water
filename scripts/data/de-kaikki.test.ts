@@ -45,6 +45,11 @@ const written = germanWritten(
       "20 [[aufessen]]",
       "10 [[fangen]]",
       "5 [[Mensch]]",
+      "4 [[mal]]",
+      "3 [[einmal]]",
+      "2 [[freuen]]",
+      "1 [[treffen]]",
+      "1 [[malen]]",
     ].join("\n"),
   ),
 );
@@ -119,6 +124,24 @@ describe("buildLearningPacks with German's settings", () => {
     expect(packs.freq.indexOf("aufessen")).toBeGreaterThan(
       packs.freq.indexOf("essen"),
     );
+  });
+  it("labels a verb's reflexive senses, unless its first sense is one", () => {
+    expect(packs.defs["freuen"]?.[1]).toEqual([
+      ["verb", "to gladden"],
+      ["reflexive", "to be glad"],
+    ]);
+    expect(packs.defs["treffen"]?.[1]).toEqual([
+      ["verb", "to meet"],
+      ["verb", "to hit"],
+    ]);
+  });
+  it("keeps an inflected form's alt-of sense when its target is the likelier word, an operator's sense last", () => {
+    // "mal" is malen's imperative, but einmal (3) is more frequent than malen (1).
+    expect(packs.defs["mal"]?.[1]).toEqual([
+      ["adverb", "sometime, ever, once; alternative form of einmal"],
+      ["adverb", "times (indicating multiplication of two numbers)"],
+    ]);
+    expect(packs.lemmas["mal"]).toBe("malen");
   });
   it("labels a verb's auxiliary senses so, its parts of speech still a verb", () => {
     expect(packs.defs["haben"]?.[1]).toEqual([

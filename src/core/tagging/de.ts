@@ -212,22 +212,33 @@ function nounAfter(words: readonly TaggedWord[], i: number): boolean {
  * or, as the clause's last word, as a preposition or an adverb, and the pack lists
  * that verb among the form's bases (the lemma table gives "fängt" anfangen too).
  */
-function separable(words: readonly TaggedWord[], i: number) {
+function separable(
+  words: readonly TaggedWord[],
+  i: number,
+): { verb: string; particle: number } | undefined {
   const word = words[i]!;
   if (!/^(VERB|AUX)\.Fin$/.test(word.tag.tag)) return undefined;
   // A capital inside a sentence is a noun's ("Sankt"), not a verb's.
   if (word.capital === true && i > 0) return undefined;
-  const { end } = clauseOf(words, i);
+  const { end: clauseEnd } = clauseOf(words, i);
+  // The particle is the nearest finite verb's: another finite verb after this one
+  // ("hält den Bauch … und er steht weniger raus") takes the rest of the clause.
+  let end = clauseEnd;
+  for (let k = i + 1; k < clauseEnd; k++)
+    if (/^(VERB|AUX)\.Fin$/.test(words[k]!.tag.tag)) {
+      end = k;
+      break;
+    }
   for (let k = end - 1; k > i; k--) {
     const particle = words[k]!;
-    const last = k === end - 1;
+    const last = k === clauseEnd - 1;
     const tagged =
       particle.tag.tag === "PART.Vz" ||
       (last && /^(ADP|ADV)$/.test(particle.tag.tag));
     if (!tagged) continue;
     const stem = simple(word);
     if (stem !== undefined && word.bases.includes(particle.form + stem))
-      return particle.form + stem;
+      return { verb: particle.form + stem, particle: k };
   }
   return undefined;
 }
@@ -349,6 +360,133 @@ function capitalNoun(words: readonly TaggedWord[], i: number) {
   );
 }
 
+/** The reflexive pronouns, each with the subjects it agrees with (`GERMAN_RULES`). */
+const REFLEXIVES = GERMAN_RULES.verbLast!.pronouns;
+
+/** The second person's pronouns, which an imperative takes without its subject. */
+const SECOND_PERSON: ReadonlySet<string> = new Set(["du", "ihr"]);
+
+/**
+ * The verbs a reflexive pronoun makes pronominal (`WordUse.pronominal`: rule A2 shows
+ * the senses kaikki tags reflexive first: "ich freue mich" → to be glad; "erinnerst
+ * du dich" → to remember): in its clause, "sich" anywhere, "mich", "mir" with "ich",
+ * "dich", "dir" with "du" or an imperative opening the clause ("Beeil dich"), "uns"
+ * with "wir", "euch" with "ihr" or an imperative. Not a pronoun after a preposition,
+ * its object ("an sich", "für mich"). The verb is the clause's lexical verb nearest the
+ * pronoun: a finite verb that is no form of haben, sein, werden or a modal, else what
+ * such an auxiliary takes ("ich habe mich gefreut": gefreut).
+ */
+function pronominalVerbs(
+  words: readonly TaggedWord[],
+  partners: readonly (number | undefined)[],
+): ReadonlySet<number> {
+  const found = new Set<number>();
+  words.forEach((word, r) => {
+    const subjects = REFLEXIVES.get(word.form);
+    if (!subjects) return;
+    const { start, end } = clauseOf(words, r);
+    if (r > start && words[r - 1]!.tag.label === "preposition") return;
+    const clause = words.slice(start, end);
+    const imperative =
+      [...subjects].some((subject) => SECOND_PERSON.has(subject)) &&
+      words[start]!.tag.label === "verb";
+    const agrees =
+      subjects.size === 0 ||
+      imperative ||
+      clause.some((other) => subjects.has(other.form));
+    if (!agrees) return;
+    let verb: number | undefined;
+    for (let k = start; k < end; k++) {
+      if (words[k]!.tag.label !== "verb") continue;
+      // An auxiliary or a modal is pronominal through the verb it takes ("ich habe
+      // mich gefreut"), never itself ("habe" is no "sich haben", to make a fuss).
+      const lexical = auxiliary(words, k, partners)
+        ? partners[k]
+        : isAuxiliaryForm(words[k]!)
+          ? undefined
+          : k;
+      if (
+        lexical !== undefined &&
+        (verb === undefined || Math.abs(lexical - r) < Math.abs(verb - r))
+      )
+        verb = lexical;
+    }
+    if (verb !== undefined) found.add(verb);
+  });
+  return found;
+}
+
+/**
+ * The modal particles (a closed class, as German grammar lists them), which colour a
+ * clause from inside it ("Das ist ja toll", "Komm mal her", "Was ist denn los?", "Das
+ * ist halt so", "Das ist eben so").
+ */
+const MODAL_PARTICLES: ReadonlySet<string> = new Set([
+  ...["auch", "bloß", "denn", "doch", "eben", "eh", "eigentlich"],
+  ...["einfach", "etwa", "halt", "ja", "mal", "nur", "ruhig", "schon"],
+  ...["vielleicht", "wohl"],
+]);
+
+/**
+ * Word `i` is used as an adverb inside its clause (rule A2 shows its entry's adverb
+ * senses first, where it has some): a modal particle after the clause's first word
+ * (one tagged as an adjective at the clause's end is predicative: "Das wird nicht
+ * einfach"),
+ * not the interjection "yes", the conjunction "for", the adjective "flat" or the verb
+ * "hold" its entry may lead with, nor a noun after a determiner or a capital ("jedes
+ * Mal", "zum ersten Mal"); or an adjective without an ending (German writes
+ * its adverbs so: "einfach machen", "eigentlich egal", "gut gemacht"), neither before
+ * a noun nor at the clause's end, where it is predicative ("Das ist einfach.": easy),
+ * nor in a clause of a copula but before another adjective or a participle.
+ */
+function adverbHere(words: readonly TaggedWord[], i: number): boolean {
+  const word = words[i]!;
+  const { start, end } = clauseOf(words, i);
+  if (i === start) return false;
+  const before = words[i - 1]!.tag.tag;
+  const next = words[i + 1];
+  const adjective = word.tag.label === "adjective";
+  // In a clause of sein, werden or bleiben, an adjective at the clause's end or
+  // before a finite verb, a copula, a conjunction or a comparison is predicative
+  // ("Wie sicher sind …", "So einfach ist das nicht", "nicht nötig sein", "Die ist
+  // kalt wie …", "ist unangenehm oder …"); before another word it modifies that ("ist
+  // einfach super", "ist natürlich nicht", "recht weit verbreitet").
+  const copula = words
+    .slice(start, end)
+    .some(
+      (other) =>
+        other.tag.label === "verb" &&
+        COPULAS.some((verb) => formOf(other, verb)),
+    );
+  const last = i === end - 1 || next === undefined;
+  const predicative =
+    last ||
+    (copula &&
+      (/^(CCONJ|SCONJ)$/.test(next.tag.tag) ||
+        /\.Fin$/.test(next.tag.tag) ||
+        COPULAS.some((verb) => formOf(next, verb)) ||
+        COMPARISONS.has(next.form)));
+  if (MODAL_PARTICLES.has(word.form))
+    return (
+      word.capital !== true &&
+      !/^(DET|ADJ|NUM)$/.test(before) &&
+      !(adjective && last)
+    );
+  return (
+    adjective &&
+    word.bases.includes(word.form) &&
+    !predicative &&
+    next!.tag.label !== "noun" &&
+    !next!.tag.proper
+  );
+}
+
+/** The words of a comparison, which a predicative adjective takes ("kalt wie Eis"). */
+const COMPARISONS: ReadonlySet<string> = new Set(["wie", "als"]);
+
+/** The copulas, which take a predicative adjective. */
+const COPULAS = ["sein", "werden", "bleiben"];
+
 function use(
   words: readonly TaggedWord[],
   i: number,
@@ -358,8 +496,9 @@ function use(
   const how = verbal(words, i, partners);
   const previousTag = trustedTagOf(words[i - 1]);
   const noun = nounAfter(words, i);
-  const compound = noun ? undefined : separable(words, i);
-  const base = noun ? undefined : (compound ?? closedBase(words, i));
+  const adverb = adverbHere(words, i);
+  const compound = noun || adverb ? undefined : separable(words, i)?.verb;
+  const base = noun || adverb ? undefined : (compound ?? closedBase(words, i));
   const possessive = seinPos(words, i);
   const first = verbFirst(words, i);
   const contraction = contractionPos(words, i);
@@ -387,6 +526,7 @@ function use(
     ...(base !== undefined && { base, grammarPos: "verb" }),
     ...(participle !== undefined && { base: participle, grammarPos: "verb" }),
     ...(compound !== undefined && { separable: true as const }),
+    ...(adverb && { grammarPos: "adverb" }),
   };
 }
 
@@ -440,7 +580,31 @@ export function germanTagger(model: PerceptronModel): Tagger {
       ).map(({ tag, margin }) => udTokenTag(tag, margin)),
     uses: (words) => {
       const partners = words.map((_, i) => partner(words, i));
-      return words.map((_, i) => use(words, i, partners));
+      const pronominal = pronominalVerbs(words, partners);
+      // A separable verb's particle reads as the verb ("sieht … aus": aussehen),
+      // pronominal with it ("stellt sich … vor").
+      const particles = new Map<number, { verb: string; finite: number }>();
+      words.forEach((_, i) => {
+        if (nounAfter(words, i)) return;
+        const found = separable(words, i);
+        if (found)
+          particles.set(found.particle, { verb: found.verb, finite: i });
+      });
+      return words.map((_, i): WordUse => {
+        const particle = particles.get(i);
+        if (particle === undefined) {
+          const found = use(words, i, partners);
+          return pronominal.has(i) ? { ...found, pronominal: true } : found;
+        }
+        return {
+          auxiliary: false,
+          verbal: false,
+          prepositionSlot: false,
+          grammarPos: "verb",
+          particleOf: particle.verb,
+          ...(pronominal.has(particle.finite) && { pronominal: true }),
+        };
+      });
     },
     role,
   };

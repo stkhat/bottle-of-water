@@ -456,7 +456,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
        * verb with several bases) must be the base rule A1 reads it as: "fue de" is
        * ser, not `ir de`. A1 reads the base it gives as the key, or, when it keeps the
        * word's own entry ("went": "goの過去"), the base that entry is a form of; a
-       * word with neither does not count against the phrase. A headword tagged as a
+       * word with neither does not count against the phrase; a verb (tagged so, or
+       * mainly one without a trusted tag) matched through a base that is no verb is
+       * another word ("landen unter" is no `land unter`). A headword tagged as a
        * part of speech of its own that the base has none of is no form of it ("fuera
        * de": the adverb, not `ir de`; "de vista": the noun, not `de vestir`).
        */
@@ -468,13 +470,16 @@ export function createClassifier(pack: LanguagePack): Classifier {
           const reading = readings[j];
           const word = verbOf(keyWords[n]!, bases);
           const tag = reading?.tag;
-          if (
-            tag === undefined ||
-            word === form ||
-            bases.length < 2 ||
-            !bases.includes(word)
-          )
+          if (word === form || bases.length < 2 || !bases.includes(word))
             return false;
+          // A word that is mainly a verb itself, or tagged as one, is no form of a
+          // base that is no verb ("landen unter" is no `land unter`).
+          const verb =
+            tag === undefined
+              ? bases.includes(form) && pack.partsOfSpeech(form)[0] === "verb"
+              : tag.inflected && tag.label === "verb";
+          if (verb && !pack.partsOfSpeech(word).includes("verb")) return true;
+          if (tag === undefined) return false;
           if (!tag.inflected || tag.label !== "verb")
             return (
               bases.includes(form) &&
@@ -647,6 +652,18 @@ export function createClassifier(pack: LanguagePack): Classifier {
       };
 
       /**
+       * A verb moved before its pattern's other words (`PhraseMatch.moved`) is read as
+       * a verb: "Leben" in "Das Leben macht Spaß" is no form of leben.
+       */
+      const finiteVerb = (i: number) => {
+        const reading = readings[i];
+        if (!reading) return true;
+        return reading.tag
+          ? reading.tag.label === "verb"
+          : reading.use.grammarPos === "verb";
+      };
+
+      /**
        * The phrase starting at word i, with its context in its sentence (`fitContext`):
        * the saved phrase there, or the longest dictionary phrase without a word saved
        * as learning or inside a saved phrase, when it is that phrase here
@@ -677,7 +694,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
           writtenOther(longest) ||
           inflectedFixed(longest) ||
           (longest.lead === undefined &&
-            readings[first(longest)]?.use.pronominal === true)
+            readings[first(longest)]?.use.pronominal === true) ||
+          (longest.moved === true && !finiteVerb(longest.lead!))
         )
           return undefined;
         const context = fitContext(pack, longest, readings);
@@ -727,9 +745,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
         // A capital that marks a noun or the polite Sie says nothing of the tag.
         if (marks.name || (marks.capital && !pack.nounsCapitalised)) return {};
         const { form, bases } = words[i]!;
-        const key = terms.has(word.key)
-          ? word.key
-          : (chooseKey(form, bases, reading, outline, pack) ?? word.key);
+        const key =
+          terms.has(word.key) || reading.use.particleOf !== undefined
+            ? word.key
+            : (chooseKey(form, bases, reading, outline, pack) ?? word.key);
         // A headword this dictionary has no entry for ("has" in en-ru); a form that is
         // no headword ("gets") is looked up by its base like any form.
         const ownEntry = !bases.includes(form) || outline(form) !== undefined;
@@ -766,7 +785,14 @@ export function createClassifier(pack: LanguagePack): Classifier {
 
       const pushWord = (i: number) => {
         const { token, form } = words[i]!;
-        const bases = lowerNoun(token, words[i]!.bases) ? [] : words[i]!.bases;
+        // A separable verb's particle reads as its verb ("sieht … aus": aussehen).
+        const particleOf = readings[i]?.use.particleOf;
+        const bases =
+          particleOf !== undefined
+            ? [particleOf]
+            : lowerNoun(token, words[i]!.bases)
+              ? []
+              : words[i]!.bases;
         const word = classifyWord(
           token.text,
           form,
@@ -791,13 +817,25 @@ export function createClassifier(pack: LanguagePack): Classifier {
         });
       };
 
-      for (let i = 0; i < words.length; i++) {
-        const found = phraseAt(i);
-        if (!found) {
-          pushWord(i);
-          continue;
+      /**
+       * Words `from` to `to` (exclusive): the phrases that start and end among them,
+       * else words. The words in a phrase's gap are placed so too ("nimmt zum Beispiel
+       * das in Kauf": `zum beispiel` inside `in kauf nehmen`).
+       */
+      const place = (from: number, to: number) => {
+        for (let i = from; i < to; i++) {
+          const found = phraseAt(i);
+          if (!found || found.match.words.at(-1)! >= to) pushWord(i);
+          else i = pushPhrase(i, found.match, found.context);
         }
-        const { match, context } = found;
+      };
+
+      /** Places a phrase starting at word i, and its gap's words; returns its last word. */
+      const pushPhrase = (
+        i: number,
+        match: PhraseMatch,
+        context: ReturnType<typeof fitContext>,
+      ) => {
         const { key } = match;
         const category = terms.get(key) ?? "new";
         const pos = markerPos(pack, match, readings, punctuated, context);
@@ -805,8 +843,11 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const runs = runsOf(allWords(match));
         // A saved key may write other separators than spaces ("wh-what").
         const keyWords = matcher.keyParts(key).words;
+        // A slot word filled by another word ("his" for "one's").
         const slot = match.words.some(
-          (j, n) => !words[j]!.forms.includes(keyWords[n]!),
+          (j, n) =>
+            pack.rules.slots.has(keyWords[n]!) &&
+            !words[j]!.literals.includes(keyWords[n]!),
         );
         const wordPos: Record<string, string> = {};
         match.words.forEach((j, n) => {
@@ -822,8 +863,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         };
         runs.forEach(([first, end], index) => {
           // The words in the gap before this part.
-          if (index > 0)
-            for (let j = runs[index - 1]![1] + 1; j < first; j++) pushWord(j);
+          if (index > 0) place(runs[index - 1]![1] + 1, first);
           spans.push({
             start: words[first]!.token.start,
             end: words[end]!.token.end,
@@ -838,8 +878,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
             }),
           });
         });
-        i = last;
-      }
+        return last;
+      };
+
+      place(0, words.length);
       return spans;
     },
   };

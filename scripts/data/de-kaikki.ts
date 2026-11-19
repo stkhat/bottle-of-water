@@ -91,8 +91,11 @@ export const GERMAN_BUILD: LearningBuild = {
   lang: "de",
   word: GERMAN_WORD,
   phraseBuild: germanPhraseBuild,
-  selectOnlyPhrases: true,
   nounsCapitalised: true,
+  // Every verb's senses kaikki tags reflexive are its pronominal uses ("sich freuen":
+  // to be glad), shown first where the grammar reads a reflexive pronoun in the
+  // verb's clause (`core/tagging/de.ts`).
+  pronominalVerb: () => true,
   editionIpa: germanEditionIpa,
   separableVerbs: true,
   compounds: COMPOUND_RULES.de,
@@ -110,6 +113,10 @@ async function main() {
       casePaths: [KAIKKI_DE_EDITION_SLIM_PATH],
       ipaPaths: [KAIKKI_DE_EDITION_SLIM_PATH],
       written,
+      // The phrase score reads English Wiktionary's German examples alone, as
+      // French's (L1-4): with de.wiktionary's too, its count terms leave most common
+      // expressions undetected ("vor allem", "zum Beispiel"); judged blind (L2-3).
+      ownEditionExamples: false,
     },
   );
   console.log(buildSummary("de", packs, writeLearningPacks("de", packs)));

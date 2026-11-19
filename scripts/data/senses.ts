@@ -36,7 +36,8 @@ const INFLECTION: ReadonlySet<string> = new Set([
 export const USAGE_NOTE =
   /^(?:Used\b|Usually used\b|Often used\b|Chiefly used\b|Said\b)/;
 /** A sense that only says the words are also meant literally ("see on, the"). */
-export const LITERAL_NOTE = /^Used other than figuratively or idiomatically/;
+export const LITERAL_NOTE =
+  /^(?:Used other than figuratively or idiomatically|for non-idiomatic uses?\b|non-idiomatic combination of\b)/i;
 
 /** One sense of an entry, as the data build reads it. */
 export interface SourceSense {

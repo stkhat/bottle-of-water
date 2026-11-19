@@ -10,6 +10,7 @@ import {
 } from "./matcher";
 import { SPANISH_RULES } from "./es";
 import { FRENCH_RULES } from "./fr";
+import { GERMAN_RULES } from "./de";
 
 // Base forms as LanguagePack.lemmas gives them: "beans" has only "bean", so
 // `spill the beans` must match its written form.
@@ -733,5 +734,128 @@ describe("French pronominal verbs, elisions and compounds", () => {
 
   it("leaves a subject and its verb to the plain verb", () => {
     expect(first("Nous rendons compte de tout.")?.key).toBe("rendre compte");
+  });
+});
+
+describe("German word order", () => {
+  const DE_BASES: Record<string, string[]> = {
+    nimmt: ["nehmen"],
+    nehmen: ["nehmen"],
+    genommen: ["nehmen"],
+    kauf: ["kauf"],
+    gibt: ["geben", "abgeben", "angeben"],
+    geben: ["geben"],
+    gab: ["geben", "abgeben", "angeben"],
+    löffel: ["löffel"],
+    ab: ["ab"],
+    mache: ["machen"],
+    macht: ["machen"],
+    machen: ["machen"],
+    weg: ["weg"],
+    den: ["der"],
+    sich: ["sich"],
+    mich: ["mich", "ich"],
+    dich: ["dich", "du"],
+    ich: ["ich"],
+    er: ["er"],
+    sieht: ["sehen", "aussehen"],
+    aus: ["aus"],
+    gas: ["gas"],
+    und: ["und"],
+  };
+  const deLemmas = (word: string) => DE_BASES[word.toLowerCase()] ?? [];
+  const german = createPhraseMatcher({
+    lang: "de",
+    rules: GERMAN_RULES,
+    patterns: {
+      detect: [
+        "auf den weg machen",
+        "den löffel abgeben",
+        "gas geben",
+        "in kauf nehmen",
+        "sich auf den weg machen",
+      ],
+      more: [],
+      gap: [],
+      pos: { detect: "v v v v v", more: "" },
+    },
+    lemmas: deLemmas,
+  });
+  const first = (text: string) => {
+    const words = german.prepare(tokenize(text, "de"));
+    for (let i = 0; i < words.words.length; i++) {
+      const match = german.longestAt(words, i, "detect");
+      if (match)
+        return {
+          ...described(words, match),
+          ...(match.lead !== undefined && {
+            lead: words.words[match.lead]!.token.text,
+          }),
+          ...(match.moved && { moved: true }),
+        };
+    }
+    return undefined;
+  };
+
+  it("matches a verb pattern as written, and with zu before its infinitive", () => {
+    expect(first("Man muss das in Kauf nehmen.")).toEqual({
+      key: "in kauf nehmen",
+      words: "in Kauf nehmen",
+    });
+    expect(first("Er hat es in Kauf genommen.")?.key).toBe("in kauf nehmen");
+    expect(first("Sie war bereit, das in Kauf zu nehmen.")).toEqual({
+      key: "in kauf nehmen",
+      words: "in Kauf nehmen",
+    });
+  });
+
+  it("matches a finite verb moved before the pattern's other words", () => {
+    expect(first("Er nimmt das gern in Kauf.")).toEqual({
+      key: "in kauf nehmen",
+      words: "in Kauf",
+      lead: "nimmt",
+      moved: true,
+    });
+    expect(first("Er gibt jetzt Gas.")).toEqual({
+      key: "gas geben",
+      words: "Gas",
+      lead: "gibt",
+      moved: true,
+    });
+  });
+
+  it("takes a separable verb's particle after the others", () => {
+    expect(first("Er gab gestern den Löffel ab.")).toEqual({
+      key: "den löffel abgeben",
+      words: "den Löffel ab",
+      lead: "gab",
+      moved: true,
+    });
+    expect(first("Er gab gestern den Löffel.")).toBeUndefined();
+  });
+
+  it("stops at a conjunction, which opens another clause", () => {
+    expect(first("Er nimmt es und Kauf.")).toBeUndefined();
+    expect(first("Er nimmt das und dann in Kauf.")).toBeUndefined();
+  });
+
+  it("reads the subject's reflexive pronoun as sich, with words between", () => {
+    expect(first("Ich mache mich auf den Weg.")).toEqual({
+      key: "sich auf den weg machen",
+      words: "mich auf den Weg",
+      lead: "mache",
+      moved: true,
+    });
+    expect(first("Er macht sich endlich auf den Weg.")?.key).toBe(
+      "sich auf den weg machen",
+    );
+    // "mich" with no "ich" in its clause is an object, not reflexive.
+    expect(first("Er macht mich auf den Weg.")?.key).toBe("auf den weg machen");
+  });
+
+  it("does not match a separable verb's base written apart where the pattern writes it joined", () => {
+    const { words } = german.prepare(tokenize("Er sieht gut aus.", "de"));
+    expect(words[1]!.literals).toEqual(["sieht", "sehen"]);
+    expect(words[1]!.forms).toContain("aussehen");
   });
 });

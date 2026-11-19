@@ -53,6 +53,35 @@ export interface PhraseRules {
    * in a noun that an adjective follows is that noun phrase, read word by word.
    */
   readonly adjectivesAfterNouns?: boolean;
+  /** The language writes a verb pattern's verb last and moves it in text (German). */
+  readonly verbLast?: VerbLastRules;
+}
+
+/**
+ * A language whose dictionary writes a verb pattern with its verb last, in the
+ * infinitive ("in Kauf nehmen", "sich auf den Weg machen"), while text puts the finite
+ * verb second in a main clause or first in a question or a command, the pattern's
+ * other words at the end of the clause ("Er nimmt das gern in Kauf", "Mach dich auf
+ * den Weg"), a separable verb's particle after them ("gibt den Löffel ab"). Text
+ * writes the pattern's reflexive pronoun as the subject's ("ich mache mich auf den
+ * Weg") and may put words between it and the others ("sich endlich auf den Weg
+ * machen"), and "zu" before an infinitive ("in Kauf zu nehmen").
+ */
+interface VerbLastRules {
+  /** The reflexive pronoun as patterns write it ("sich"). */
+  readonly reflexive: string;
+  /**
+   * The pronouns text writes for it, each with the subject pronouns it agrees with in
+   * its clause ("mich": ich); none for one that is always reflexive ("sich").
+   */
+  readonly pronouns: ReadonlyMap<string, ReadonlySet<string>>;
+  /**
+   * At most this many words between the moved verb, or the reflexive pronoun, and the
+   * pattern's other words; none of them a word of `PhraseRules.gapStop`.
+   */
+  readonly maxBetween: number;
+  /** The infinitive marker that may stand before the verb ("in Kauf zu nehmen"). */
+  readonly infinitive: string;
 }
 
 /**

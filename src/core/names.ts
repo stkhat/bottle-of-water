@@ -186,10 +186,18 @@ export function documentNames(
    * name (Klopp, not klopfen's form; Styles): German puts nouns after a name too
    * ("bei Hans Illustrierte", "lieber Reinhold Briefe zu schreiben").
    */
-  const nounReading = (key: string) =>
-    [key, ...pack.lemmas(key)].some((word) =>
-      pack.partsOfSpeech(word).includes("noun"),
+  const nounReading = (key: string) => {
+    // A word the language reads only as a compound has no noun reading of its own
+    // ("Schweinsteiger", "Schönborn": names, not Schwein + Steiger).
+    const bases = pack.lemmas(key);
+    const compound =
+      pack.compound(key.charAt(0).toUpperCase() + key.slice(1)) ??
+      pack.compound(key);
+    return (
+      !(bases.length === 1 && bases[0] === compound?.key) &&
+      [key, ...bases].some((word) => pack.partsOfSpeech(word).includes("noun"))
     );
+  };
   const surnameAfterName = (key: string, kinds: string) =>
     /[gs]/.test(kinds) || !nounReading(key);
   /**
@@ -208,6 +216,32 @@ export function documentNames(
       verdictOf(before, new Set()) === "name" &&
       (personName(pack.name(before) ?? "") || fromRuns.has(before)));
   const runOf = (key: string) => (casing.runs && own(casing.runs, key)) ?? [];
+  /**
+   * Where every noun is capitalised, a word that opens a sentence and a capitalised
+   * word after it ("Bastian Schweinsteiger hat …", "Albert Einstein war …"): the
+   * opening word is a name when the lexicon has it as a person's given name first and
+   * the language knows it only as a rare word's form, if at all (Albert: albern's),
+   * though a capital at a start says nothing by itself (`DocumentCasing.startRuns`).
+   */
+  const opening = new Set(
+    Object.values(casing.startRuns ?? {}).flatMap((before) => before),
+  );
+  const startName = (key: string) => {
+    const kinds = pack.name(key) ?? "";
+    return (
+      pack.nounsCapitalised === true &&
+      opening.has(key) &&
+      kinds.includes("g") &&
+      personName(kinds) &&
+      !kinds.endsWith("!") &&
+      !neverName(pack, key) &&
+      pack
+        .lemmas(key)
+        .every((base) => base !== key && pack.rank(base) > COMMON_RANK)
+    );
+  };
+  const startRunOf = (key: string) =>
+    (casing.startRuns && own(casing.startRuns, key)) ?? [];
   const asWritten = (key: string): WordCase => ({
     key,
     written: "capital",
@@ -243,7 +277,8 @@ export function documentNames(
     const deeper = new Set([...seen, key]);
     const byItself =
       nameVerdict(asWritten(key), casing, pack, () => meaning(key)) ||
-      (formName(key) && keptOrName("", meaning(key)));
+      (formName(key) && keptOrName("", meaning(key))) ||
+      (startName(key) && keptOrName(pack.name(key)!, meaning(key)));
     const kinds = pack.name(key) ?? "";
     let verdict = byItself;
     if (byItself === "name" && !/[gs]/.test(kinds)) {
@@ -264,7 +299,7 @@ export function documentNames(
         ? surnameAfterName(key, kinds)
         : kinds.includes("g") || pack.rank(key) > COMMON_RANK) &&
       !neverName(pack, key) &&
-      runOf(key).some(
+      [...runOf(key), ...startRunOf(key).filter(startName)].some(
         (previous) =>
           verdictOf(previous, deeper) === "name" &&
           (personName(pack.name(previous) ?? "") || fromRuns.has(previous)),
