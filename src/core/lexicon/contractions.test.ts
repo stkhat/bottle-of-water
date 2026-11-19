@@ -120,6 +120,42 @@ describe("withContractions", () => {
       "there has",
     ]);
   });
+  it("keeps the own line of the reading the sentence decides (K4, es she's)", () => {
+    // As en-es has it (2026-11): one line per reading, each writing it out.
+    const es = withContractions(
+      createPairDictionary({
+        dict: {
+          "she's": [
+            "contracción de she is, ella es o ella esta",
+            [
+              ["contraction", "contracción de she is, ella es o ella esta"],
+              ["contraction", "contracción de she has, ella tiene"],
+            ],
+            0,
+          ],
+        },
+        defs: {},
+        ipa: {},
+        native: "es",
+      }),
+      {
+        expansions: (key) => (key === "she's" ? ["she is", "she has"] : []),
+        english: (word) => ["she", "is", "has"].includes(word),
+      },
+    );
+    expect(es.entry("she's", undefined, undefined, "is")?.lines).toEqual([
+      "contracción de she is, ella es o ella esta",
+    ]);
+    expect(es.entry("she's", undefined, undefined, "has")?.lines).toEqual([
+      "contracción de she has, ella tiene",
+    ]);
+    // Its line names the reading: no note.
+    expect(es.entry("she's", undefined, undefined, "has")).not.toHaveProperty(
+      "expansion",
+    );
+    // Undecided: both, as before.
+    expect(es.entry("she's")?.lines).toHaveLength(2);
+  });
   it("leaves other words as they are", () => {
     const plain = createPairDictionary({ dict: PAIR, defs: DEFS, ipa: {} });
     expect(pair.entry("loaf")).toEqual(plain.entry("loaf"));
@@ -147,6 +183,30 @@ describe("withContractions", () => {
     it("gives no note where its line writes the expansion out (I amの短縮形)", () => {
       expect(ja.entry("I'm")).toMatchObject({ lines: ["I amの短縮形"] });
       expect(ja.entry("I'm")).not.toHaveProperty("expansion");
+    });
+    it("names the decided reading in the note where its line names both (K4, she's)", () => {
+      const ja2 = withContractions(
+        createEnJaDictionary({
+          dict: {
+            "she's": ["she is, she hasの短縮形", ["she is, she hasの短縮形"]],
+          },
+          sensePos: {},
+          capital: {},
+          phrases: {},
+          defs: {},
+          pos: {},
+          ipa: {},
+        }),
+        {
+          expansions: (key) => (key === "she's" ? ["she is", "she has"] : []),
+          english: (word) => ["she", "is", "has"].includes(word),
+        },
+      );
+      expect(ja2.entry("she's", undefined, undefined, "has")).toMatchObject({
+        lines: ["she is, she hasの短縮形"],
+        expansion: "she has",
+      });
+      expect(ja2.entry("she's")).not.toHaveProperty("expansion");
     });
     it("shows no line followed from its pointer (that's: not つまり)", () => {
       expect(ja.entry("that's")?.lines).toEqual(["that is の短縮形"]);
