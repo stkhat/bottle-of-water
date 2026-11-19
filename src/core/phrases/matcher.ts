@@ -1,4 +1,5 @@
 import { normalizeWord, type Token } from "../text/tokenize";
+import { separatorKey, splitKey } from "./key";
 import {
   NO_RULES,
   parsePattern,
@@ -44,6 +45,11 @@ export interface MatchInput {
   readonly words: readonly MatchWord[];
   /** `joined[i]`: only whitespace separates word i from word i + 1 (false for the last). */
   readonly joined: readonly boolean[];
+  /**
+   * `between[i]`: what separates word i from word i + 1, as a key writes it
+   * (`separatorKey`: " " for whitespace alone); none after the last.
+   */
+  readonly between: readonly string[];
 }
 
 export interface PhraseMatch {
@@ -70,6 +76,8 @@ interface SavedKeys {
 }
 
 export interface PhraseMatcherOptions {
+  /** The language: saved keys are split into words as its text is (`splitKey`). */
+  lang: string;
   rules: PhraseRules;
   patterns: PhrasePatterns;
   /** Base forms of a word as written in text (`LanguagePack.lemmas`). */
@@ -136,9 +144,10 @@ const GAP = "\u0000";
 
 /**
  * A trie over pattern words. A node is named by the words leading to it, joined by
- * spaces ("make", "make up", "make up one's"): as strings in a set, thousands of
- * patterns take a fraction of the memory of node objects. A slot is named by its slot
- * word; a gap pattern's first word is followed by GAP ("figure\0", "figure\0 out").
+ * what separates them, a space for most ("make", "make up", "make up one's"; "wh",
+ * "wh-what"): as strings in a set, thousands of patterns take a fraction of the
+ * memory of node objects. A slot is named by its slot word; a gap pattern's first word
+ * is followed by GAP ("figure\0", "figure\0 out").
  */
 interface Trie {
   readonly nodes: ReadonlySet<string>;
@@ -150,24 +159,39 @@ interface Trie {
   readonly gapStarts: ReadonlySet<string>;
 }
 
-/** Patterns of two words or more. */
+/** A pattern's words and what separates them. */
+interface TrieWords {
+  words: readonly { text: string }[];
+  between: readonly string[];
+}
+
+/** A dictionary pattern: words joined by spaces. */
+const spacedPattern = (key: string, rules: PhraseRules): TrieWords => {
+  const { words } = parsePattern(key, rules);
+  return { words, between: words.slice(1).map(() => " ") };
+};
+
+/** Patterns of two words or more; `split` gives each key's words (none for one word). */
 function buildTrie(
   keys: Iterable<string>,
   rules: PhraseRules,
   hasGap: (key: string) => boolean,
+  split: (key: string) => TrieWords | undefined = (key) =>
+    key.includes(" ") ? spacedPattern(key, rules) : undefined,
 ): Trie {
   const nodes = new Set<string>();
   const ends = new Map<string, string[]>();
   const gapStarts = new Set<string>();
   for (const key of keys) {
-    if (!key.includes(" ")) continue;
-    const { words } = parsePattern(key, rules);
+    const pattern = split(key);
+    if (!pattern || pattern.words.length < 2) continue;
+    const { words, between } = pattern;
     const gap = hasGap(key);
     if (gap) gapStarts.add(words[0]!.text);
     let node = words[0]!.text + (gap ? GAP : "");
     nodes.add(node);
-    for (const word of words.slice(1)) {
-      node += ` ${word.text}`;
+    for (let n = 1; n < words.length; n++) {
+      node += between[n - 1]! + words[n]!.text;
       nodes.add(node);
     }
     const keysHere = ends.get(node);
@@ -207,7 +231,9 @@ export function longestMatch(
  * Matches text against a language's phrase patterns. A literal pattern word matches a
  * word whose written form or any base form equals it ("spilled the beans" matches
  * `spill the beans`); a slot matches the words its rules give. Words of a match, and
- * of a gap, are separated only by whitespace. The detect trie is built here, the
+ * of a gap, are separated only by whitespace, except in a saved key that writes
+ * another separator between two of its words ("wh-what", "well, i think"), which
+ * matches words separated by that (`separatorKey`). The detect trie is built here, the
  * select trie on first use, and a saved trie once per `SavedKeys` object.
  *
  * With the language's rules:
@@ -221,6 +247,7 @@ export function longestMatch(
  *   word only ("a través del" is `a través de`).
  */
 export function createPhraseMatcher({
+  lang,
   rules,
   patterns,
   lemmas,
@@ -285,11 +312,13 @@ export function createPhraseMatcher({
   ) {
     const keys = trie.ends.get(node);
     if (keys) for (const key of keys) out.push({ key, words: path });
-    // Also stops after the last word, which is never joined.
-    if (!input.joined[j - 1]) return;
+    // Stops after the last word. A separator other than a space only goes on to a
+    // saved key that writes it ("wh-what"): no dictionary pattern does.
+    const separator = input.between[j - 1];
+    if (separator === undefined) return;
     const word = input.words[j]!;
     for (const step of stepsOf(trie, word)) {
-      const child = `${node} ${step}`;
+      const child = node + separator + step;
       if (trie.nodes.has(child))
         walk(trie, input, child, j + 1, [...path, j], out);
     }
@@ -298,7 +327,7 @@ export function createPhraseMatcher({
     const ends =
       preposition === undefined
         ? undefined
-        : trie.ends.get(`${node} ${preposition}`);
+        : trie.ends.get(node + separator + preposition);
     if (ends) for (const key of ends) out.push({ key, words: [...path, j] });
   }
 
@@ -346,7 +375,12 @@ export function createPhraseMatcher({
     if (!keys) return undefined;
     let trie = saved.get(keys);
     if (!trie) {
-      trie = buildTrie(keys.keys(), rules, hasGap);
+      // A saved key's words are split as text is: a phrase saved across punctuation
+      // keeps its separators ("wh-what").
+      trie = buildTrie(keys.keys(), rules, hasGap, (key) => {
+        const { words, between } = splitKey(key, lang);
+        return { words: words.map((text) => ({ text })), between };
+      });
       saved.set(keys, trie);
     }
     return trie;
@@ -399,11 +433,17 @@ export function createPhraseMatcher({
     prepare(tokens, upper = false) {
       const words: MatchWord[] = [];
       const joined: boolean[] = [];
-      /** Only whitespace since the last word. */
-      let spaceOnly = false;
+      const between: string[] = [];
+      /** The text since the last word. */
+      let gap = "";
       for (const token of tokens) {
         if (token.isWord) {
-          if (words.length > 0) joined.push(spaceOnly);
+          if (words.length > 0) {
+            const separator = separatorKey(gap);
+            between.push(separator);
+            joined.push(separator === " ");
+          }
+          gap = "";
           let form = normalizeWord(token.text);
           let bases = lemmas(token.text);
           const spelt =
@@ -437,13 +477,12 @@ export function createPhraseMatcher({
             slots,
             steps: slotSteps(literals, slots),
           });
-          spaceOnly = true;
-        } else if (!/^\s+$/.test(token.text)) {
-          spaceOnly = false;
+        } else {
+          gap += token.text;
         }
       }
       if (words.length > 0) joined.push(false);
-      return { words, joined };
+      return { words, joined, between };
     },
     matchesAt,
     longestAt,

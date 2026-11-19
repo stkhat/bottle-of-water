@@ -206,6 +206,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     flat,
     termInput,
     dismissHover: () => cards.dismissHover(),
+    openWord: (ref) => cards.clickWord(ref),
     async saved(key, cue, status) {
       const w = watch;
       if (!w) return;
@@ -639,6 +640,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       if (shown) cards.clickWord(shown.ref);
     },
     selectStart: selection.start,
+    snapWords: selection.snap,
     selectWords: selection.select,
     saveSelection(status) {
       const task = selection.saveTask(status);

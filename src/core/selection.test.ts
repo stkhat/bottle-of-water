@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Span } from "./classify";
 import { selectionKey, snapWords } from "./selection";
-import { tokenize } from "./text/tokenize";
+import { normalizeWord, tokenize } from "./text/tokenize";
 
 /** Word spans of `text` (key = lowercased word). */
 function wordSpans(text: string): Span[] {
@@ -10,7 +10,7 @@ function wordSpans(text: string): Span[] {
     .map((t) => ({
       start: t.start,
       end: t.end,
-      key: t.text.toLowerCase(),
+      key: normalizeWord(t.text),
       kind: "word",
       category: "new",
     }));
@@ -50,13 +50,47 @@ describe("snapWords", () => {
     expect(snapped!.spans.map((s) => s.key)).toEqual(["rise", "and", "fall"]);
   });
 
-  it("takes 2 to 8 words", () => {
+  it("takes 1 to 8 words", () => {
     const text = "one two three four five six seven eight nine ten";
     const spans = wordSpans(text);
-    expect(select(text, spans, "one", "one")).toBeUndefined();
+    expect(select(text, spans, "one", "one")).toMatchObject({ words: 1 });
     expect(select(text, spans, "one", "two")?.spans).toHaveLength(2);
-    expect(select(text, spans, "one", "eight")?.spans).toHaveLength(8);
+    expect(select(text, spans, "one", "eight")).toMatchObject({ words: 8 });
     expect(select(text, spans, "one", "nine")).toBeUndefined();
+  });
+
+  it("cuts a selection from its anchor to 8 words", () => {
+    const text = "one two three four five six seven eight nine ten";
+    const spans = wordSpans(text);
+    const at = (word: string) => text.indexOf(word);
+    const fromStart = snapWords(text, spans, 0, text.length, "start");
+    expect(textOf(text, fromStart)).toBe(
+      "one two three four five six seven eight",
+    );
+    const fromEnd = snapWords(text, spans, at("two"), text.length, "end");
+    expect(textOf(text, fromEnd)).toBe(
+      "three four five six seven eight nine ten",
+    );
+    expect(fromEnd!.words).toBe(8);
+  });
+
+  it("takes words across punctuation, not across a line break", () => {
+    const text = 'WH-WHAT? Well, I think "so".\nNext line';
+    const spans = wordSpans(text);
+    const wh = select(text, spans, "WH", "WHAT");
+    expect(textOf(text, wh)).toBe("WH-WHAT");
+    expect(selectionKey(text, wh!.spans)).toBe("wh-what");
+    const well = select(text, spans, "Well", "so");
+    expect(selectionKey(text, well!.spans)).toBe('well, i think "so');
+    expect(select(text, spans, "so", "Next")).toBeUndefined();
+    const anchored = snapWords(
+      text,
+      spans,
+      text.indexOf("think"),
+      text.length,
+      "start",
+    );
+    expect(textOf(text, anchored)).toBe('think "so');
   });
 
   it("counts the words of a saved phrase inside the selection", () => {
@@ -216,11 +250,54 @@ describe("snapWords", () => {
     expect(select(text, spans, "a", "now")).toBeUndefined();
   });
 
-  it("rejects words across punctuation or a line break", () => {
+  it("keys words across punctuation with what separates them", () => {
     const spans = wordSpans(TEXT);
-    expect(select(TEXT, spans, "notes", "you")).toBeUndefined();
-    const lines = "one two\nthree";
-    expect(select(lines, wordSpans(lines), "two", "three")).toBeUndefined();
+    const snapped = select(TEXT, spans, "notes", "you");
+    expect(selectionKey(TEXT, snapped!.spans)).toBe("notes, so you");
+    const curly = "SHE-SHE’S “fine”";
+    const she = select(curly, wordSpans(curly), "SHE", "fine");
+    expect(selectionKey(curly, she!.spans)).toBe("she-she's \"fine");
+  });
+
+  it("takes a phrase with a gap whole or not at all when it cuts", () => {
+    const text = "a b c d e f g figure it out";
+    const at = (word: string) => text.indexOf(word);
+    const whole = { start: at("figure"), end: at("out") + "out".length };
+    const spans = wordSpans(text).map((s): Span => {
+      const word = text.slice(s.start, s.end);
+      return word === "figure" || word === "out"
+        ? {
+            ...s,
+            key: "figure out",
+            kind: "phrase",
+            category: "learning",
+            part: { index: word === "out" ? 1 : 0, count: 2, ...whole },
+          }
+        : s;
+    });
+    // "a" … "it" is 9 words: "figure" goes, with the rest of its phrase.
+    const snapped = snapWords(text, spans, 0, at("it") + 1, "start");
+    expect(textOf(text, snapped)).toBe("a b c d e f g");
+  });
+
+  it("keeps a saved phrase written with separators whole", () => {
+    const text = "So WH-WHAT now";
+    const start = text.indexOf("WH");
+    const spans: Span[] = [
+      ...wordSpans(text).filter((s) => s.end <= start),
+      {
+        start,
+        end: start + "WH-WHAT".length,
+        key: "wh-what",
+        kind: "phrase",
+        category: "learning",
+      },
+      ...wordSpans(text).filter((s) => s.start >= start + "WH-WHAT".length),
+    ];
+    const snapped = select(text, spans, "WHAT", "now");
+    expect(textOf(text, snapped)).toBe("WH-WHAT now");
+    expect(snapped!.words).toBe(3);
+    expect(selectionKey(text, snapped!.spans)).toBe("wh-what now");
   });
 
   it("rejects a collapsed selection", () => {

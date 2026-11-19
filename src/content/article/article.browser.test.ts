@@ -531,6 +531,27 @@ describe("runArticle", () => {
     expect(fake.requests.map((r) => r.type)).toEqual(["getSettings"]);
   });
 
+  it("starts on a page in another language once that becomes the learning language, and stops when it changes again", async () => {
+    const fake = fakeDeps(settings({ highlight: { new: true } }));
+    const runner = run(fake, "es");
+    expect(await runner.handlePageRequest({ type: "pageSummary" })).toEqual(
+      off(),
+    );
+    fake.changeSettings(
+      settings({
+        learningLang: "es",
+        nativeLang: "en",
+        highlight: { new: true },
+      }),
+    );
+    await expect.poll(() => fake.mounted()).toBe(1);
+    await expect.poll(() => highlighted("langle-new")).toHaveLength(2);
+
+    fake.changeSettings(settings({ highlight: { new: true } }));
+    await expect.poll(() => fake.mounted()).toBe(0);
+    expect(CSS.highlights.has("langle-new")).toBe(false);
+  });
+
   it("stops: the UI and every listener go away", async () => {
     const fake = fakeDeps(settings());
     const runner = run(fake);
