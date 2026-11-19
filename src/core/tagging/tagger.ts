@@ -61,6 +61,12 @@ export interface WordUse {
   /** The part of speech the use gives instead of the tag's: a gerund after a determiner is a noun. */
   label?: string;
   /**
+   * The part of speech the grammar gives the word whatever its tag says, trusted or
+   * not (French "personne" in "je ne connais personne": the pronoun "nobody"); rule
+   * A2 reads it as it reads a trusted tag's.
+   */
+  grammarPos?: string;
+  /**
    * An auxiliary that keeps its verb's meaning here (English be: "was built", "is
    * going"), which the native languages say with their own verb; its hover is that
    * verb's (`sensePos`), not an auxiliary's grammar pointer.

@@ -588,14 +588,19 @@
           "size": 698509
         },
         {
+          "path": "tagger.json",
+          "sha256": "6c70e94f44d780e7554f0a6e1098969905ba940a4f6080b0a1a448f0cb5c78de",
+          "size": 165024
+        },
+        {
           "path": "vocab.json",
           "sha256": "0dc72efb046c354c2f4389bd9682da38b049d5b70e1d89cfe65d1dd876294ba6",
           "size": 370482
         }
       ],
-      "format": 1,
+      "format": 2,
       "package": "@langle/fr",
-      "version": "2026.1119.0"
+      "version": "2026.1119.1"
     },
     "fr-en": {
       "files": [

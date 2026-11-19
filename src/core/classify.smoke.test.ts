@@ -533,6 +533,60 @@ describe("Spanish tags over the generated packs (rules A1 and A2)", () => {
   });
 });
 
+const fr = await loadPack("fr");
+const frEn = await loadPack("fr-en");
+
+describe("French tags over the generated packs (rules A1 and A2)", () => {
+  const tagged = createLanguagePack("fr", {
+    lemmas: fr.lemmas,
+    freq: fr.freq,
+    ipa: fr.ipa,
+    vocab: new Set(fr.vocab),
+    patterns: fr.phrases,
+    pos: fr.pos,
+    tagger: fr.tagger,
+  });
+  const classifier = createClassifier(tagged);
+  const dictionary = createDefsDictionary({ defs: frEn.defs, ipa: fr.ipa });
+  const hover = (text: string, word: string) => {
+    const span = classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .find((s) => text.slice(s.start, s.end) === word)!;
+    return {
+      key: span.key,
+      pos: span.pos,
+      lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+    };
+  };
+
+  it("reads the forms of être and avoir as the verbs, not the nouns they also are", () => {
+    expect(hover("Il est à Paris.", "est").key).toBe("être");
+    expect(hover("Elle a été malade.", "été").key).toBe("être");
+    expect(hover("Tu as raison.", "as").key).toBe("avoir");
+    expect(hover("Est-ce que tu viens ?", "Est").key).toBe("être");
+    // After a determiner or preposition, the noun.
+    expect(hover("Nous partons à la mer l'été.", "été").key).toBe("été");
+  });
+  it("reads pas with ne as the negation, and personne as nobody", () => {
+    expect(hover("Je ne sais pas.", "pas")).toMatchObject({
+      key: "pas",
+      pos: "adverb",
+    });
+    expect(hover("Je ne connais personne.", "personne").lines[0]).toBe(
+      "no one, nobody",
+    );
+  });
+  it("reads a participle after avoir and a form of aller before an infinitive as their verbs", () => {
+    expect(hover("Il a fait ses devoirs.", "fait").key).toBe("faire");
+    expect(hover("Il a dit non.", "dit").key).toBe("dire");
+    expect(hover("Il va pleuvoir demain.", "va").key).toBe("aller");
+  });
+});
+
 describe("Spanish phrases over the generated packs", () => {
   const tagged = createLanguagePack("es", {
     lemmas: es.lemmas,

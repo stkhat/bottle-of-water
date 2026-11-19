@@ -7,7 +7,8 @@
  * stays off.
  */
 import { tagSentence, type PerceptronModel } from "./perceptron";
-import type { Tagger, TaggedWord, TokenTag, WordRole, WordUse } from "./tagger";
+import type { Tagger, TaggedWord, WordRole, WordUse } from "./tagger";
+import { formOf, NONFINITE, trustedTagOf, udTokenTag } from "./ud";
 
 /**
  * A tag's score margin from which it is trusted. On the treebanks' dev sets, 5 keeps
@@ -15,61 +16,8 @@ import type { Tagger, TaggedWord, TokenTag, WordRole, WordUse } from "./tagger";
  */
 const THRESHOLD = 5;
 
-/** Universal tag → the dictionaries' part of speech. */
-const LABELS: Readonly<Record<string, string>> = {
-  NOUN: "noun",
-  PROPN: "noun",
-  VERB: "verb",
-  AUX: "verb",
-  ADJ: "adjective",
-  ADV: "adverb",
-  ADP: "preposition",
-  CCONJ: "conjunction",
-  SCONJ: "conjunction",
-  DET: "determiner",
-  PRON: "pronoun",
-  NUM: "numeral",
-  INTJ: "interjection",
-  PART: "particle",
-};
-
-/**
- * Parts of speech whose words inflect for gender and number: a written form that is no
- * headword of its own is what they are ("buenas", "nuestras").
- */
-const MORPH: ReadonlySet<string> = new Set([
-  "noun",
-  "adjective",
-  "verb",
-  "determiner",
-  "pronoun",
-]);
-
-/** Verb forms that are inflected: finite forms, participles and gerunds (not infinitives). */
-const INFLECTED = /\.(Fin|Part|Ger)$/;
-
-function tokenTag(tag: string, confidence: number): TokenTag {
-  const upos = tag.split(".")[0]!;
-  const label = Object.hasOwn(LABELS, upos) ? LABELS[upos]! : "other";
-  return {
-    tag,
-    label,
-    inflected: INFLECTED.test(tag),
-    morph: MORPH.has(label),
-    proper: upos === "PROPN",
-    confidence,
-  };
-}
-
-/** Whether the word is a form of `verb` (ha, está, fue). */
-const formOf = (word: TaggedWord, verb: string) =>
-  word.form === verb || word.bases.includes(verb);
-
 /** A form of ser or estar, the verbs of states. */
 const isBe = (word: TaggedWord) => formOf(word, "ser") || formOf(word, "estar");
-
-/** What an auxiliary is followed by: a participle, a gerund or an infinitive. */
-const NONFINITE = /^(VERB|AUX)\.(Part|Ger|Inf)$/;
 
 /** Words that may stand between an auxiliary and its verb: no, adverbs, clitics. */
 const BETWEEN: ReadonlySet<string> = new Set(["adverb", "pronoun"]);
@@ -91,9 +39,6 @@ function auxiliary(words: readonly TaggedWord[], i: number): boolean {
   }
   return false;
 }
-
-const trustedTagOf = (word: TaggedWord | undefined) =>
-  word?.trusted ? word.tag : undefined;
 
 function verbal(words: readonly TaggedWord[], i: number): WordUse["verbal"] {
   const tag = trustedTagOf(words[i]);
@@ -258,7 +203,7 @@ export function spanishTagger(model: PerceptronModel): Tagger {
       tagSentence(
         model,
         tokens.map((token) => token.replaceAll("’", "'")),
-      ).map(({ tag, margin }) => tokenTag(tag, margin)),
+      ).map(({ tag, margin }) => udTokenTag(tag, margin)),
     uses: (words) => words.map((_, i) => use(words, i)),
     role,
   };

@@ -50,7 +50,7 @@ interface BuiltOtherwise {
   "en-defs": { defs: DefsPack };
   es: LearningPackFiles & { tagger: TaggerPack };
   "es-en": { defs: DefsPack };
-  fr: LearningPackFiles;
+  fr: LearningPackFiles & { tagger: TaggerPack };
   "fr-en": { defs: DefsPack };
 }
 
@@ -133,13 +133,13 @@ const LOADERS: {
   "es-en": async (fetchJson) => ({
     defs: await loadShards("/packs/es-en", fetchJson),
   }),
-  // French's lemma table is sharded as Spanish's; no tagger yet.
+  // French's lemma table is sharded as Spanish's.
   fr: async (fetchJson) => {
     const [lemmas, files] = await Promise.all([
       readShards<LemmaPack>("/packs/fr/lemmas", fetchJson),
       loadFiles(
         "fr",
-        ["freq", "ipa", "pos", "vocab", "phrases", "names"],
+        ["freq", "ipa", "pos", "vocab", "phrases", "names", "tagger"],
         fetchJson,
       ),
     ]);

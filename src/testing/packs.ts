@@ -146,6 +146,8 @@ const TEST_PACKS: PackFiles = {
     vocab: ["d'accord", "de", "homme", "l'", "le", "maison"],
     phrases: { detect: [], more: [], gap: [] },
     names: {},
+    // Sure of no word: every tag stays under the threshold.
+    tagger: { tags: ["NOUN"], words: {}, weights: {}, scale: 10 },
   },
   "fr-en": {
     defs: {

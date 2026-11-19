@@ -62,13 +62,14 @@ it.each(pairs)("%s downloads at most 40 MB", (_pair, learning, native) => {
 });
 
 // Every English page loads these: the tagger and the phrase patterns with the language
-// pack, the sense labels with the dictionary; every Spanish page its tagger
+// pack, the sense labels with the dictionary; every Spanish and French page its tagger
 // (docs/notes/data-sizes.md). The phrase
 // patterns are every multi-word entry of the source (rule B1): about 73,000.
 describe.each([
   ["en/tagger.json", 150_000],
   ["en/contractions.json", 5_000],
   ["es/tagger.json", 150_000],
+  ["fr/tagger.json", 150_000],
   ["en/phrases.json", 450_000],
   ["en-ja/pos.json", 100_000],
 ])("%s", (file, budget) => {

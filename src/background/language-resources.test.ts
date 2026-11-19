@@ -343,6 +343,7 @@ describe("createLanguageResources", () => {
       "/packs/fr/names.json",
       "/packs/fr/phrases.json",
       "/packs/fr/pos.json",
+      "/packs/fr/tagger.json",
       "/packs/fr/vocab.json",
     ]);
   });
