@@ -1,5 +1,4 @@
 {
-"milling machine":["фрезмашина",[["noun","фрезмашина, фрезерный станок","machine"]],0],
 "million":["миллион",[["numeral","миллион","cardinal number"]],0],
 "millionaire":["миллионер",[["noun","миллионер, миллионерша","somebody whose wealth is greater than one million"]],0],
 "millionth":["миллионный",[["adjective","миллионный","millionth"]],0],
@@ -428,7 +427,7 @@
 "monopolize":["монополизировать",[["verb","монополизировать","have a monopoly"]],0],
 "monopoly":["монополия",[["noun","монополия","situation of exclusive supply"],["noun","монополист, монополистка","holder of such control"]],0],
 "monopsony":["монопсония",[["noun","монопсония","market situation in which there is only buyer for a product"]],0],
-"monorail":["монорельс",[["noun","монорельс","a train running on a single rail"]],0],
+"monorail":["монорельс",[["noun","монорельс"]],1],
 "monosyllabic":["односложный",[["adjective","односложный","consisting of one syllable"]],0],
 "monosyllable":["односложное слово",[["noun","односложное слово"]],1],
 "monotheism":["монотеизм",[["noun","монотеизм, единобожие","belief in one God"]],0],
@@ -4683,7 +4682,7 @@
 "pliable":["гибкий",[["adjective","гибкий","easily bent or formed"]],0],
 "pliant":["податливый",[["adjective","податливый, мягкий","Capable of plying or bending; readily yielding to force or pressure without breaking"],["adjective","уступчивый, сговорчивый","Easily influenced for good or evil"]],0],
 "pliers":["плоскогубцы",[["noun","плоскогубцы, пассатижи, щипцы","gripping tool which multiplies the strength of the user's hand"]],0],
-"plight":["положение",[["noun","положение, состояние","condition or state"]],0],
+"plight":["тяжёлое положение, состояние",[["noun","тяжёлое положение, состояние"],["noun","обязательство"],["noun","помолвка"],["verb","связывать обещанием (связать обещанием)"]],1],
 "plinth":["цоколь",[["noun","цоколь, постамент","base for column, pedestal or statue"]],0],
 "plod":["тащиться",[["verb","тащиться, брести, плестись","to walk slowly"]],0],
 "plodder":["копуша",[["noun","копуша, копун, копунья","a person who works slowly"]],0],
@@ -7572,7 +7571,7 @@
 "repute":["добрая слава",[["noun","добрая слава","reputation, especially a good reputation"]],0],
 "request":["просьба",[["noun","просьба, запрос, заявка","act of requesting"],["verb","запрашивать, запросить, требовать","to express the need or desire for"],["verb","просить, попросить","to ask somebody to do something"],["noun","запрос","formal message requesting something"]],0],
 "requiem":["реквием",[["noun","реквием, панихида","mass to honor and remember a dead person"],["noun","реквием","musical composition composed for such a mass"]],0],
-"require":["требовать",[["verb","требовать, потребовать","to demand, call for authoritatively"]],0],
+"require":["требовать, нуждаться",[["verb","требовать, нуждаться"],["verb","необходимый"]],1],
 "requirement":["необходимость",[["noun","необходимость, требование, потребность","necessity"],["noun","требование","something asked"]],0],
 "requisite":["необходимый",[["adjective","необходимый, нужный, требуемый","essential; required"]],0],
 "requisition":["требовать",[["verb","требовать, реквизировать","to demand something"],["noun","запрос, заявка, требование","A formal request for something"]],0],
@@ -9729,7 +9728,7 @@
 "shaky":["дрожащий",[["adjective","дрожащий","shaking"],["adjective","шаткий, зыбкий","unsound"],["adjective","растрескавшийся","full of cracks"]],0],
 "shale":["сланец",[["noun","сланец","sedimentary rock"]],0],
 "shale gas":["сланцевый газ",[["noun","сланцевый газ","natural gas"]],0],
-"shall":["должен",[["verb","должен, должна, должно","indicating determination or obligation"]],0],
+"shall":["должный",[["verb","должный"]],1],
 "shallot":["шалот",[["noun","шалот, лук-шалот","vegetable in the onion family, A. ascalonium or A. oschaninii"]],0],
 "shallow":["мелкий",[["adjective","мелкий, неглубокий","having little depth and significantly less deep than wide"],["adjective","мелкий","extending not far downward"],["noun","мель, отмель","shallow portion of an otherwise deep body of water"],["adjective","поверхностный, мелкий","concerned mainly with superficial matters"]],0],
 "shallowly":["мелко",[["adverb","мелко","in a shallow manner"]],0],
@@ -10667,7 +10666,6 @@
 "smith":["кузнец",[["noun","кузнец","craftsperson who works metal — see also blacksmith"]],0],
 "smithereens":["черепки",[["noun","черепки, осколки","fragments or splintered pieces; numerous tiny disconnected items"]],0],
 "smithy":["ковать",[["verb","ковать, выковать","to forge by hand"]],0],
-"smitten":["сражённый",[["adjective","сражённый, поражённый","made irrationally enthusiastic"]],0],
 "smock":["блуза",[["noun","блуза, халат, спецовка","a loose garment worn as protection"],["noun","сорочка","undergarment"],["noun","блузка, блуза","a blouse"]],0],
 "smog":["смог",[["noun","смог","urban air pollution"]],0],
 "smoke":["дым",[["noun","дым, чад","visible particles and vapour given off by burning material"],["verb","курить, покурить, смолить","to inhale and exhale smoke from a burning cigarette"],["verb","курить","to inhale and exhale tobacco smoke regularly or habitually"],["verb","дымить, дымиться","to give off smoke"]],0],
@@ -12201,5 +12199,6 @@
 "storehouse":["склад",[["noun","склад, кладовая, цейхгауз","building for keeping goods of any kind"]],0],
 "storeroom":["кладовая",[["noun","кладовая, подсобка, цейхгауз","room used for storage"]],0],
 "storey":["этаж",[["noun","этаж, уровень, ярус","floor, level"]],0],
-"stork":["аист",[["noun","аист","large wading bird of the family Ciconiidae"]],0]
+"stork":["аист",[["noun","аист","large wading bird of the family Ciconiidae"]],0],
+"storm":["буря",[["noun","буря, гроза, шторм","disturbed state of the atmosphere causing destructive or unpleasant weather"],["noun","буря, шторм","disturbed state of the atmosphere between a severe or strong gale and a hurricane on the modern Beaufort scale"],["noun","штурм, приступ","violent assault on a fortified position or stronghold"],["verb","штурмовать","to violently assault (a fortified position or stronghold, a building, etc.) with the aim of gaining control of it"]],0]
 }
