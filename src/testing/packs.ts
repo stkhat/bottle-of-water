@@ -110,12 +110,11 @@ const TEST_PACKS: PackFiles = {
     },
   },
   es: {
-    lemmas: {
-      comiendo: "comer",
-      casas: ["casa", "casar"],
-      estoy: "estar",
-      una: "un",
-    },
+    // In shards, as es/lemmas/ is read.
+    lemmas: [
+      { casas: ["casa", "casar"], comiendo: "comer" },
+      { estoy: "estar", una: "un" },
+    ],
     // At level 3: "estar" and "un" are known, "comer" is new.
     freq: ["de", "estar", "un", "comer", "casa"],
     ipa: { a: "/a/", comer: "/koˈmeɾ/", escondidas: "/eskonˈdidas/" },
@@ -206,11 +205,18 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
   },
   "/packs/en-defs/dict-1.json": TEST_PACKS["en-defs"].defs,
   ...Object.fromEntries(
-    Object.entries(TEST_PACKS.es).map(([file, value]) => [
-      `/packs/es/${file}.json`,
-      value,
-    ]),
+    Object.entries(TEST_PACKS.es)
+      .filter(([file]) => file !== "lemmas")
+      .map(([file, value]) => [`/packs/es/${file}.json`, value]),
   ),
+  "/packs/es/lemmas/index.json": {
+    shards: [
+      { file: "dict-1.json", first: "casas", last: "comiendo" },
+      { file: "dict-2.json", first: "estoy", last: "una" },
+    ],
+  },
+  "/packs/es/lemmas/dict-1.json": TEST_PACKS.es.lemmas[0],
+  "/packs/es/lemmas/dict-2.json": TEST_PACKS.es.lemmas[1],
   "/packs/es-en/index.json": {
     shards: [
       { file: "dict-1.json", first: "a escondidas", last: "casar" },

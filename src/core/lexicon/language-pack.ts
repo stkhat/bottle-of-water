@@ -2,6 +2,7 @@ import type {
   FreqPack,
   IpaPack,
   LemmaPack,
+  LemmaShards,
   NamesPack,
   PosPack,
 } from "../packs/types";
@@ -95,7 +96,7 @@ export interface LanguagePack {
 }
 
 export interface LanguagePackData {
-  lemmas: LemmaPack;
+  lemmas: LemmaPack | LemmaShards;
   freq: FreqPack;
   ipa: IpaPack;
   /** The words Langle knows (the dictionary's single-word headwords and rule E's words). */

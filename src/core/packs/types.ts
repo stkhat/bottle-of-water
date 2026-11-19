@@ -7,6 +7,12 @@ export type TaggerPack = TaggerModel;
 
 /** en/lemmas.json: inflected form → base form(s). */
 export type LemmaPack = Readonly<Record<string, string | readonly string[]>>;
+/**
+ * es/lemmas/dict-<n>.json (listed in es/lemmas/index.json): a lemma table too large for
+ * one file, in shards of consecutive forms, each read as it is: merging ~380,000 forms
+ * into one object would cost more than reading them.
+ */
+export type LemmaShards = readonly LemmaPack[];
 /** en/ipa.json: word → US IPA. */
 export type IpaPack = Readonly<Record<string, string>>;
 /**

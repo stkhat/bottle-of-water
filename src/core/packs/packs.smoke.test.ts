@@ -297,6 +297,14 @@ describe("generated Spanish pack and es-en dictionary", () => {
     expect(pack.lemmas("casas")).toEqual(["casa", "casar"]);
   });
 
+  it("lemmatize every kaikki form, from the lemma shards", () => {
+    expect(es.lemmas.length).toBeGreaterThan(1);
+    expect(pack.lemmas("cuéntales")).toEqual(["contar"]);
+    expect(pack.lemmas("fijaos")).toEqual(["fijar"]);
+    expect(pack.lemmas("debías")).toEqual(["deber"]);
+    expect(pack.lemmas("suspira")).toEqual(["suspirar"]);
+  });
+
   it("have English meanings with parts of speech", () => {
     expect(dictionary.entry("comer")).toMatchObject({
       head: "comer",
