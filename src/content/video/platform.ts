@@ -114,8 +114,12 @@ export interface PlatformAdapter {
   /** Pauses and plays the video through the site's player (spec: "Pausing while Langle is in use"). */
   pause(): Promise<void>;
   play(): Promise<void>;
-  /** Calls `listener` after the site moved to another page or video; returns an unsubscribe. */
-  onNavigate(listener: () => void): () => void;
+  /**
+   * Calls `listener` after the site moved to another page or video, with `reload` when
+   * the page's video id stayed but its subtitles changed (Netflix: a recap played under
+   * the episode's URL, then the episode); returns an unsubscribe.
+   */
+  onNavigate(listener: (change?: { reload: boolean }) => void): () => void;
   hideSiteCaptions(hidden: boolean): void;
   dispose(): void;
 }

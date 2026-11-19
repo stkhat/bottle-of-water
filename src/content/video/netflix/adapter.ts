@@ -90,6 +90,12 @@ export function createNetflixAdapter(
 
   const titles = createRecent<NetflixTextTrack[]>(KEEP_TITLES);
   const names = new Map<string, string>();
+  /**
+   * The URL's titles whose subtitles came from the title the player played instead: a
+   * season's recap plays before its first episode under the episode's URL, and the
+   * episode's manifest comes only when the episode starts (`onNavigate`).
+   */
+  const borrowed = new Set<string>();
   const cleanups: (() => void)[] = [];
   cleanups.push(
     bridge.onEvent((message) => titles.set(message.movieId, message.tracks)),
@@ -123,9 +129,10 @@ export function createNetflixAdapter(
     const playing = await bridge
       .call({ type: "currentMovieId" })
       .catch(() => null);
-    return typeof playing === "string" && playing !== movieId
-      ? seenTracks(playing)
-      : undefined;
+    if (typeof playing !== "string" || playing === movieId) return undefined;
+    const tracks = await seenTracks(playing);
+    if (tracks) borrowed.add(movieId);
+    return tracks;
   }
 
   /**
@@ -417,7 +424,13 @@ export function createNetflixAdapter(
       };
       window.addEventListener("popstate", check);
       const timer = setInterval(check, pollMs);
-      const off = bridge.onEvent(check);
+      const off = bridge.onEvent((message) => {
+        // The URL's own title starts after the one the player played first (a recap):
+        // the same video id, now with its own subtitles.
+        if (borrowed.delete(message.movieId) && message.movieId === videoId())
+          listener({ reload: true });
+        else check();
+      });
       return () => {
         window.removeEventListener("popstate", check);
         clearInterval(timer);
@@ -429,6 +442,7 @@ export function createNetflixAdapter(
       for (const cleanup of cleanups.splice(0)) cleanup();
       titles.clear();
       names.clear();
+      borrowed.clear();
       hideCaptions(false);
       bridge.dispose();
     },
