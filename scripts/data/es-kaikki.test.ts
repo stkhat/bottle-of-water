@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  altMeaning,
   buildEsPacks,
   byTreebank,
   byTreebankTags,
   pointerMeaning,
+  withoutHeadLabels,
   writeEsPacks,
   type EsPacks,
 } from "./es-kaikki.ts";
@@ -80,17 +82,20 @@ describe("buildEsPacks", () => {
     expect(packs.lemmas["comí"]).toBe("comer");
     expect(packs.vocab).not.toContain("comí");
   });
-  it("leaves out forms outside the frequency list and bases equal to the form", () => {
-    expect(packs.lemmas).not.toHaveProperty("comemos");
+  it("maps every form kaikki gives of a vocabulary word, listed or not, but not a base to itself", () => {
+    // "comemos" is outside the frequency list.
+    expect(packs.lemmas.comemos).toBe("comer");
     expect(packs.lemmas).not.toHaveProperty("comer");
     expect(Object.keys(packs.lemmas).sort()).toEqual([
       "casa",
       "casas",
+      "comemos",
       "comiendo",
       "comí",
       "hablo",
       "pelos",
     ]);
+    expect(packs.vocab).not.toContain("comemos");
   });
   it("takes the first phonemic IPA of each vocabulary word", () => {
     expect(packs.ipa.comer).toBe("/koˈmeɾ/");
@@ -219,7 +224,9 @@ describe("buildEsPacks", () => {
       unparsable: 0,
       forms: forms.length,
       vocab: 11,
-      lemmas: 6,
+      lemmas: 7,
+      moreForms: 1,
+      moreWords: 0,
       ipa: 10,
       detect: 3,
       more: 1,
@@ -228,7 +235,154 @@ describe("buildEsPacks", () => {
   });
 });
 
+describe("buildEsPacks: alt-of senses, head-line labels, every form", () => {
+  const vocabularyFixture = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-es-vocabulary.jsonl",
+  );
+  // "tu", "tuyo", "quizá", "solo", "guion", "cuéntales" and "ajá" are not listed;
+  // "maguer" is listed beyond the words in current use (headRank).
+  const listed = [
+    ...["muy", "mucho", "tus", "buen", "quizás", "sólo", "guión", "eso"],
+    ...["al", "a", "os", "vosotros", "fin", "vos", "contar", "ajar", "amiga"],
+    "maguer",
+  ];
+  let packs: EsPacks;
+  beforeAll(async () => {
+    packs = await buildEsPacks(vocabularyFixture, listed, {
+      headRank: listed.length - 1,
+    });
+  });
+  const senses = (word: string) => packs.defs[word]?.[1];
+
+  it("gives an alt-of sense the meaning after its pointer, and its target as a base", () => {
+    expect(senses("muy")).toEqual([["adverb", "very; apocopic form of mucho"]]);
+    expect(packs.defs.muy?.[0]).toBe("very");
+    expect(packs.lemmas.muy).toBe("mucho");
+  });
+  it("reads a meaning after a comma that follows a one-word target", () => {
+    expect(senses("tu")).toEqual([
+      ["determiner", "your; apocopic form of tuyo"],
+    ]);
+    expect(senses("amiga")).toEqual([
+      ["noun", "friend; female equivalent of amigo"],
+    ]);
+  });
+  it("follows a base's own bases into the vocabulary", () => {
+    // tus → tu (not listed) → tuyo (not listed).
+    expect(packs.lemmas.tus).toBe("tu");
+    expect(packs.lemmas.tu).toBe("tuyo");
+    expect(packs.vocab).toEqual(expect.arrayContaining(["tu", "tuyo"]));
+  });
+  it("takes the quoted gloss of an alt-of sense's target as its meaning", () => {
+    expect(senses("buen")).toEqual([
+      ["adjective", "good, fine; apocopic form of bueno"],
+    ]);
+  });
+  it("gives an alt-of sense that only points its target's meaning of the same part of speech", () => {
+    expect(senses("quizás")).toEqual([
+      ["adverb", "perhaps, maybe; alternative form of quizá"],
+    ]);
+    // solo is an adjective ("alone") first; sólo is the adverb.
+    expect(senses("sólo")).toEqual([
+      ["adverb", "only; solely; superseded spelling of solo"],
+    ]);
+    // A clause about the pointer is no meaning.
+    expect(senses("guión")).toEqual([
+      ["noun", "script; superseded spelling of guion, deprecated in 2010"],
+    ]);
+  });
+  it("gives no meaning or base from an acronym of a longer term or a contraction of two words", () => {
+    expect(senses("eso")).toEqual([
+      ["pronoun", "that; neuter singular of ése"],
+    ]);
+    expect(senses("al")).toEqual([["contraction", "upon"]]);
+    expect(packs.lemmas).not.toHaveProperty("al");
+  });
+  it("keeps a word that is an inflected form a form: no alt-of senses or bases", () => {
+    expect(senses("os")).toEqual([
+      ["pronoun", "you, to you, for you; dative and accusative of vosotros"],
+    ]);
+    expect(packs.lemmas.os).toBe("vosotros");
+    expect(packs.vocab).not.toContain("ox");
+  });
+  it("ignores a register label every sense carries for a word in current use", () => {
+    expect(senses("fin")).toEqual([
+      ["noun", "end"],
+      ["noun", "purpose"],
+    ]);
+    expect(senses("vosotros")).toEqual([["pronoun", "you, you guys"]]);
+    // A word beyond the ones in current use keeps it.
+    expect(packs.vocab).not.toContain("maguer");
+  });
+  it("keeps a register label that a sense's gloss writes", () => {
+    expect(senses("vos")).toEqual([["pronoun", "you"]]);
+  });
+  it("maps every form of a vocabulary word, and makes one with its own meaning a vocabulary word", () => {
+    expect(packs.lemmas["cuéntales"]).toBe("contar");
+    expect(packs.vocab).not.toContain("cuéntales");
+    expect(packs.lemmas["ajá"]).toBe("ajar");
+    expect(senses("ajá")).toEqual([["interjection", "aha"]]);
+    expect(packs.stats).toMatchObject({ moreForms: 2, moreWords: 1 });
+  });
+});
+
+describe("withoutHeadLabels", () => {
+  const entry = (...tags: string[][]) => ({
+    word: "x",
+    senses: tags.map((t, i) => ({ glosses: [`sense ${i}`], tags: t })),
+  });
+  it("takes off a register label every sense carries", () => {
+    expect(
+      withoutHeadLabels(entry(["archaic", "noun"], ["archaic"])).senses,
+    ).toEqual([
+      { glosses: ["sense 0"], tags: ["noun"] },
+      { glosses: ["sense 1"], tags: [] },
+    ]);
+  });
+  it("leaves a label only some senses carry", () => {
+    const some = entry(["archaic"], ["noun"]);
+    expect(withoutHeadLabels(some)).toBe(some);
+  });
+});
+
+describe("altMeaning", () => {
+  it("reads the meaning after the pointer, else the target's quoted gloss", () => {
+    expect(altMeaning("apocopic form of mucho; very")).toBe(
+      "very; apocopic form of mucho",
+    );
+    expect(altMeaning("abbreviation of también (“also”)")).toBe(
+      "also; abbreviation of también",
+    );
+  });
+  it("finds none in a gloss that only points", () => {
+    expect(altMeaning("alternative form of quizá")).toBeUndefined();
+    expect(altMeaning("apocopic form of primero (first)")).toBeUndefined();
+  });
+});
+
 describe("pointerMeaning", () => {
+  it("ends the pointer at a comma after a one-word target, unless a clause about it follows", () => {
+    expect(pointerMeaning("apocopic form of tuyo, your")).toBe(
+      "your; apocopic form of tuyo",
+    );
+    expect(
+      pointerMeaning("superseded spelling of guion, deprecated in 2010"),
+    ).toBeUndefined();
+    expect(
+      pointerMeaning("alternative form of madre, used in asu mare"),
+    ).toBeUndefined();
+  });
+  it("reads commas before a semicolon as separating targets", () => {
+    expect(
+      pointerMeaning(
+        "accusative of ella, ello (when the antecedent's implied gender is feminine), and usted; her, it, you (formal)",
+      ),
+    ).toBe(
+      "her, it, you (formal); accusative of ella, ello (when the antecedent's implied gender is feminine), and usted",
+    );
+  });
   it("puts the meaning after a pointer first", () => {
     expect(pointerMeaning("dative of ellos and ellas; to them, for them")).toBe(
       "to them, for them; dative of ellos and ellas",
@@ -306,7 +460,8 @@ describe("writeEsPacks", () => {
       "es-en/index.json",
       "es/freq.json",
       "es/ipa.json",
-      "es/lemmas.json",
+      "es/lemmas/dict-1.json",
+      "es/lemmas/index.json",
       "es/phrases.json",
       "es/pos.json",
       "es/vocab.json",
@@ -318,6 +473,18 @@ describe("writeEsPacks", () => {
       '{\n"detect":[\n"de la casa",\n"de pelos",\n"tomar el pelo"\n],\n' +
         '"gap":[],\n"more":[\n"tomar el pelo a alguien"\n]\n}\n',
     );
+  });
+  it("shards the lemma table with an index, as a dictionary", () => {
+    const index = JSON.parse(
+      readFileSync(join(dir, "es", "lemmas", "index.json"), "utf8"),
+    );
+    expect(index).toEqual({
+      shards: [{ file: "dict-1.json", first: "casa", last: "pelos" }],
+    });
+    expect(
+      JSON.parse(readFileSync(join(dir, "es", "lemmas", "dict-1.json"), "utf8"))
+        .comemos,
+    ).toBe("comer");
   });
   it("shards the dictionary with an index", () => {
     const index = JSON.parse(

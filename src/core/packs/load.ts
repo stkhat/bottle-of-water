@@ -4,6 +4,7 @@ import type {
   FreqPack,
   IpaPack,
   LemmaPack,
+  LemmaShards,
   NamesPack,
   PairPack,
   PosPack,
@@ -44,7 +45,7 @@ interface BuiltOtherwise {
   };
   "en-defs": { defs: DefsPack };
   es: {
-    lemmas: LemmaPack;
+    lemmas: LemmaShards;
     freq: FreqPack;
     ipa: IpaPack;
     pos: PosPack;
@@ -96,12 +97,19 @@ const LOADERS: {
   "en-defs": async (fetchJson) => ({
     defs: await loadShards("/packs/en-defs", fetchJson),
   }),
-  es: (fetchJson) =>
-    loadFiles(
-      "es",
-      ["lemmas", "freq", "ipa", "pos", "vocab", "phrases", "tagger"],
-      fetchJson,
-    ),
+  // Every kaikki form of the Spanish vocabulary (~10 MB) is sharded like a dictionary;
+  // the shards are kept apart (`LemmaShards`).
+  es: async (fetchJson) => {
+    const [lemmas, files] = await Promise.all([
+      readShards<LemmaPack>("/packs/es/lemmas", fetchJson),
+      loadFiles(
+        "es",
+        ["freq", "ipa", "pos", "vocab", "phrases", "tagger"],
+        fetchJson,
+      ),
+    ]);
+    return { ...files, lemmas };
+  },
   "es-en": async (fetchJson) => ({
     defs: await loadShards("/packs/es-en", fetchJson),
   }),
@@ -146,15 +154,20 @@ async function loadFiles<P extends PackName>(
   ) as PackFiles[P];
 }
 
+/** Reads every shard listed in `<dir>/index.json` at once, in their order. */
+async function readShards<S>(dir: string, fetchJson: FetchJson): Promise<S[]> {
+  const index = (await fetchJson(`${dir}/index.json`)) as ShardIndex;
+  return (await Promise.all(
+    index.shards.map(({ file }) => fetchJson(`${dir}/${file}`)),
+  )) as S[];
+}
+
 /** Reads every shard listed in `<dir>/index.json` at once and merges them. */
 async function loadShards<T>(
   dir: string,
   fetchJson: FetchJson,
 ): Promise<Readonly<Record<string, T>>> {
-  const index = (await fetchJson(`${dir}/index.json`)) as ShardIndex;
-  const shards = (await Promise.all(
-    index.shards.map(({ file }) => fetchJson(`${dir}/${file}`)),
-  )) as Record<string, T>[];
+  const shards = await readShards<Record<string, T>>(dir, fetchJson);
   // fromEntries defines own properties, so a headword like "__proto__" stays an entry.
   return Object.fromEntries(shards.flatMap((shard) => Object.entries(shard)));
 }

@@ -112,7 +112,10 @@ function learningTerms(
   const { words } = contentWords({
     freq: readPack("freq.json", dir),
     pos,
-    lemmas: readPack("lemmas.json", dir),
+    // A lemma table too large for one file is in shards (Spanish: es/lemmas/).
+    lemmas: existsSync(join(dir, "lemmas.json"))
+      ? readPack("lemmas.json", dir)
+      : readDictPacks(join(dir, "lemmas")),
     vocab: new Set(
       readPack<string[]>("vocab.json", dir).filter((word) => !added.has(word)),
     ),

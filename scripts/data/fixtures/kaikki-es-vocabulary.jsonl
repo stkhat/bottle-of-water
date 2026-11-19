@@ -1,0 +1,35 @@
+{"pos": "adv", "word": "muy", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["apocopic form of mucho; very"], "tags": ["abbreviation", "alt-of", "apocopic"], "alt_of": [{"word": "mucho"}]}]}
+{"pos": "adj", "word": "mucho", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["much, a lot of"]}]}
+{"pos": "adv", "word": "mucho", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["a lot, much"]}]}
+{"pos": "det", "word": "tu", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["apocopic form of tuyo, your"], "tags": ["abbreviation", "alt-of", "apocopic"], "alt_of": [{"word": "tuyo"}, {"word": "your"}]}]}
+{"pos": "det", "word": "tuyo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["yours"]}]}
+{"pos": "det", "word": "tus", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["plural of tu"], "tags": ["form-of", "plural"], "form_of": [{"word": "tu"}]}]}
+{"pos": "adj", "word": "buen", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["apocopic form of bueno (“good, fine”)"], "tags": ["abbreviation", "alt-of", "apocopic"], "alt_of": [{"word": "bueno"}]}]}
+{"pos": "adj", "word": "bueno", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["good"]}]}
+{"pos": "adv", "word": "quizás", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["alternative form of quizá"], "tags": ["alt-of", "alternative"], "alt_of": [{"word": "quizá"}]}]}
+{"pos": "adv", "word": "quizá", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["perhaps, maybe"]}]}
+{"pos": "adv", "word": "sólo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["superseded spelling of solo"], "tags": ["alt-of", "archaic"], "alt_of": [{"word": "solo"}]}]}
+{"pos": "adj", "word": "solo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["alone"]}]}
+{"pos": "adv", "word": "solo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["only; solely"]}]}
+{"pos": "noun", "word": "guión", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["superseded spelling of guion, deprecated in 2010"], "tags": ["alt-of", "archaic", "masculine"], "alt_of": [{"word": "guion"}, {"word": "deprecated in 2010"}]}]}
+{"pos": "noun", "word": "guion", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["script"], "tags": ["masculine"]}]}
+{"pos": "noun", "word": "ESO", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["acronym of Educación Secundaria Obligatoria"], "tags": ["abbreviation", "acronym", "alt-of"], "alt_of": [{"word": "Educación Secundaria Obligatoria"}]}]}
+{"pos": "pron", "word": "eso", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["neuter singular of ése; that"], "tags": ["form-of", "neuter"], "form_of": [{"word": "ése"}]}]}
+{"pos": "pron", "word": "ése", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["that one"]}]}
+{"pos": "contraction", "word": "al", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["contraction of a + el, literally “at the, to the”"], "tags": ["abbreviation", "alt-of", "contraction"], "alt_of": [{"word": "a"}]}, {"glosses": ["upon"], "tags": ["contraction"]}]}
+{"pos": "prep", "word": "a", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to"]}]}
+{"pos": "pron", "word": "os", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["dative and accusative of vosotros: you, to you, for you"], "tags": ["accusative", "dative", "form-of"], "form_of": [{"word": "vosotros"}]}]}
+{"pos": "intj", "word": "os", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["alternative form of ox"], "tags": ["alt-of", "alternative"], "alt_of": [{"word": "ox"}]}]}
+{"pos": "intj", "word": "ox", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["shoo"]}]}
+{"pos": "pron", "word": "vosotros", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["you, you guys"], "tags": ["Philippines", "archaic", "informal"]}]}
+{"pos": "noun", "word": "fin", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["end"], "tags": ["archaic", "feminine", "masculine"]}, {"glosses": ["purpose"], "tags": ["archaic", "feminine", "masculine"]}]}
+{"pos": "pron", "word": "vos", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["you"]}]}
+{"pos": "pron", "word": "vos", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["obsolete form of os"], "tags": ["alt-of", "obsolete"], "alt_of": [{"word": "os"}]}]}
+{"pos": "conj", "word": "maguer", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["although"], "tags": ["archaic"]}]}
+{"pos": "verb", "word": "contar", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to count"]}, {"glosses": ["to tell"]}]}
+{"pos": "verb", "word": "cuéntales", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["second-person singular imperative of contar combined with les"], "tags": ["dative", "form-of", "imperative"], "form_of": [{"word": "contar"}]}]}
+{"pos": "verb", "word": "ajar", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["to wither"]}]}
+{"pos": "intj", "word": "ajá", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["aha"]}]}
+{"pos": "verb", "word": "ajá", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["second-person singular voseo imperative of ajar"], "tags": ["form-of", "imperative"], "form_of": [{"word": "ajar"}]}]}
+{"pos": "noun", "word": "amigo", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["friend"], "tags": ["masculine"]}]}
+{"pos": "noun", "word": "amiga", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["female equivalent of amigo, friend"], "tags": ["feminine", "form-of"], "form_of": [{"word": "amigo"}]}]}
