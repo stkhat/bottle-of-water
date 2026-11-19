@@ -644,6 +644,7 @@ describe("createPairDictionary", () => {
       ],
       has: ["Tercera", [["verb", `${THIRD} (to) have.`, null, "have"]], 0],
       have: ["Tener", [["verb", "Tener."]], 0],
+      had: ["Pasado", [["verb", "Pasado de have.", null, "have"]], 0],
       does: [
         "Plural",
         [
@@ -693,6 +694,10 @@ describe("createPairDictionary", () => {
       // An auxiliary ("has been"): the pointer says what it means there.
       expect(forms.entry("has", undefined, "auxiliary")?.lines).toEqual([
         `${THIRD} have`,
+        "Tener",
+      ]);
+      expect(forms.entry("had", undefined, "auxiliary")?.lines).toEqual([
+        "Pasado de have",
         "Tener",
       ]);
     });
@@ -749,6 +754,81 @@ describe("createPairDictionary", () => {
       // An abbreviation keeps its period.
       expect(acronyms.entry("US", "upper")?.lines).toEqual(["EE. UU.", "nos"]);
       expect(acronyms.capitalMeaning("us")).toBeUndefined();
+    });
+    it("shows lines equal apart from case once, as the page writes the word", () => {
+      const variants = {
+        congress: [
+          "congreso",
+          [
+            ["noun", "congreso"],
+            ["verb", "reunirse"],
+          ],
+          0,
+        ],
+        Congress: ["Congreso", [["proper noun", "Congreso"]], 1, "word"],
+        assumption: [
+          "supposizione",
+          [
+            ["noun", "supposizione", "supposition"],
+            ["noun", "Assunzione", "feast"],
+            ["noun", "assunzione", "the act of assuming"],
+          ],
+          1,
+        ],
+        // German: case tells a noun ("Positiv", the grammar term) from an adjective.
+        house: ["Haus", [["noun", "Haus"]], 0],
+        tree: ["Baum", [["noun", "Baum"]], 0],
+        positive: [
+          "Positiv",
+          [
+            ["adjective", "Positiv", "grammar: describing the primary sense"],
+            ["adjective", "positiv", "legal: formally laid down"],
+          ],
+          0,
+        ],
+      } as unknown as PairPack;
+      const es = createPairDictionary({ dict: variants, defs: {}, ipa: {} });
+      // es Congress: the capitalised headword's line, not its lowercase twin.
+      expect(es.entry("Congress", "capital")?.lines).toEqual([
+        "Congreso",
+        "reunirse",
+      ]);
+      // it assumption in lower case: the lowercase variant where the first one stood.
+      expect(es.entry("assumption", "lower")?.lines).toEqual([
+        "supposizione",
+        "assunzione",
+      ]);
+      expect(es.entry("Assumption", "capital")?.lines).toEqual([
+        "supposizione",
+        "Assunzione",
+      ]);
+      // A pair that writes most of its nouns capitalised keeps case variants.
+      const nouns = Object.fromEntries(
+        Object.entries(variants).filter(
+          ([key]) => !["congress", "Congress", "assumption"].includes(key),
+        ),
+      );
+      const de = createPairDictionary({ dict: nouns, defs: {}, ipa: {} });
+      expect(de.entry("positive", "lower")?.lines).toEqual([
+        "Positiv",
+        "positiv",
+      ]);
+      // Different parts of speech stay apart in any pair.
+      const pos = createPairDictionary({
+        dict: {
+          one: [
+            "uno",
+            [
+              ["numeral", "uno"],
+              ["noun", "Uno"],
+            ],
+            0,
+          ],
+        } as unknown as PairPack,
+        defs: {},
+        ipa: {},
+      });
+      expect(pos.entry("one", "lower")?.lines).toEqual(["uno", "Uno"]);
     });
     it("shows the lowercase entry alone for a word in lower case or where the page does not say", () => {
       expect(capitals.entry("japan", "lower")?.lines).toEqual([

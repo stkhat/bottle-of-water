@@ -6,6 +6,7 @@ import {
   capitalDictionary,
   grammarFrame,
   isExampleNote,
+  isOtherWord,
   meaningFirst,
   nativeFrame,
   placeholderKey,
@@ -22,6 +23,8 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
+  usesOfForm,
+  withAbbreviations,
   withSharedFirst,
   withoutPageMarkup,
   withoutStressMarks,
@@ -164,6 +167,7 @@ describe("readEdition", () => {
       placeheld: 0,
       reshaped: 0,
       labels: [],
+      abbreviations: [],
       placeholders: [],
     });
   });
@@ -455,6 +459,42 @@ describe("U1-7 gloss helpers", () => {
       "más. Comparativo de much",
     );
   });
+  it("withLabelsInBrackets: a label of two abbreviations (ru мн. ч., plural)", () => {
+    const isLabel = (token: string) => token === "мн.";
+    const isAbbreviation = (token: string) => ["мн.", "т."].includes(token);
+    expect(withLabelsInBrackets("мн. ч. слова песни", isLabel)).toBe(
+      "(мн. ч.) слова песни",
+    );
+    // The edition's own bracket takes the second part.
+    expect(withLabelsInBrackets("(мн.) ч. тонкости", isLabel)).toBe(
+      "(мн. ч.) тонкости",
+    );
+    expect(
+      withLabelsInBrackets("(мн.) т. д. слова", isLabel, isAbbreviation),
+    ).toBe("(мн. т. д.) слова");
+    // No label first: nothing.
+    expect(withLabelsInBrackets("ч. тонкости", isLabel)).toBe("ч. тонкости");
+    // Labels a comma joins are one: ru mom "амер., канадск., разг. мама".
+    const ru = (token: string) => ["амер.", "разг."].includes(token);
+    const ruAbbreviation = (token: string) => token === "канадск.";
+    expect(
+      withLabelsInBrackets("амер., канадск., разг. мама", ru, ruAbbreviation),
+    ).toBe("(амер., канадск., разг.) мама");
+    // A comma before a word that is no label: that label is left as written.
+    expect(withLabelsInBrackets("разг., мама", ru)).toBe("разг., мама");
+  });
+  it("withAbbreviations: a no-break space after the edition's abbreviations", () => {
+    const isAbbreviation = (token: string) => ["bzw.", "np."].includes(token);
+    expect(
+      withAbbreviations("unnötiger Gegenstand bzw. Ergänzung", isAbbreviation),
+    ).toBe("unnötiger Gegenstand bzw.\u00a0Ergänzung");
+    expect(withAbbreviations("osłabić (np. mięsień)", isAbbreviation)).toBe(
+      "osłabić (np.\u00a0mięsień)",
+    );
+    // Not inside a word, not another word's period.
+    expect(withAbbreviations("Haus. Note", isAbbreviation)).toBe("Haus. Note");
+    expect(withAbbreviations("xbzw. Ende", isAbbreviation)).toBe("xbzw. Ende");
+  });
   it("nativeFrame and grammarFrame: templates in the edition's own words", () => {
     const native = (word: string) => ["вариант", "de", "voir"].includes(word);
     const term = (word: string) =>
@@ -693,6 +733,7 @@ describe("mergeSources", () => {
       counts: { ptwiktionary: 1, "enwiktionary-translations": 1 },
       described: [],
       lacking: [],
+      pointing: [],
     });
   });
   it("takes a closed-class term a source only describes from the next that translates it", () => {
@@ -779,6 +820,70 @@ describe("mergeSources", () => {
       ptwiktionary: 2,
       "enwiktionary-translations": 1,
     });
+  });
+  it("keeps a form's pointers beside another word of the same spelling (dug: no teat)", () => {
+    const pointer = (target: string) =>
+      ["verb", `pretérito de ${target}`, null, target] as const;
+    const edition = new Map<string, SourceTerm>([
+      ["dug", { short: "pretérito", senses: [[...pointer("dig")]] }],
+      ["used", { short: "pasado", senses: [[...pointer("use")]] }],
+      [
+        "stranger",
+        {
+          short: "comparativo",
+          senses: [["adjective", "comparativo de strange", null, "strange"]],
+        },
+      ],
+    ]);
+    const tables = new Map<string, SourceTerm>([
+      ["dug", { short: "teta", senses: [["noun", "teta", "teat"]] }],
+      ["used", { short: "usado", senses: [["adjective", "usado", "worn"]] }],
+      [
+        "stranger",
+        { short: "extraño", senses: [["noun", "extraño", "person"]] },
+      ],
+    ]);
+    const english = {
+      formTags: new Map([
+        ["dug", new Set(["form-of", "past", "participle"])],
+        ["used", new Set(["form-of", "past", "participle"])],
+        ["stranger", new Set(["form-of", "comparative"])],
+      ]),
+      coverage: new Map([
+        ["dug", 7],
+        ["dig", 98],
+        ["used", 27],
+        ["use", 112],
+        ["stranger", 55],
+        ["strange", 109],
+      ]),
+    };
+    const { dict, pointing } = mergeSources(
+      [
+        { tag: "eswiktionary", terms: edition },
+        { tag: "enwiktionary-translations", terms: tables },
+      ],
+      {
+        otherWord: (key, taken, later) =>
+          isOtherWord(key, taken, later, english),
+      },
+    );
+    // A past is no noun, and "teat" is translated far less than dig.
+    expect(dict["dug"]?.[2]).toBe(0);
+    // A past participle is an adjective ("usado"); a widely translated noun is a word.
+    expect(dict["used"]?.[2]).toBe(1);
+    expect(dict["stranger"]?.[2]).toBe(1);
+    expect(pointing).toEqual(["dug"]);
+  });
+  it("usesOfForm: what English uses a form of each kind as", () => {
+    expect(usesOfForm(new Set(["form-of", "past", "participle"]))).toEqual([
+      "adjective",
+    ]);
+    expect(usesOfForm(new Set(["form-of", "past"]))).toEqual([]);
+    expect(
+      usesOfForm(new Set(["form-of", "gerund", "participle", "present"])),
+    ).toEqual(["adjective", "noun"]);
+    expect(usesOfForm(new Set(["form-of", "plural"]))).toEqual(["noun"]);
   });
   it("takes a term with no meaning in its main part of speech from the next source with one", () => {
     const edition = new Map<string, SourceTerm>([

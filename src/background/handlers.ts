@@ -9,7 +9,7 @@ import {
   isUsageNoteShort,
   shortDefinitionText,
 } from "../core/lexicon/definitions";
-import { expansionLine } from "../core/lexicon/contractions";
+import { expansionLine, expansionsHere } from "../core/lexicon/contractions";
 import { withoutFinalStop } from "../core/lexicon/short-lines";
 import type {
   DictionaryEntry,
@@ -426,7 +426,16 @@ export function createHandlers({
       return null;
     },
 
-    async lookup({ lang, key, sourceUrl, sentence, written, pos, surface }) {
+    async lookup({
+      lang,
+      key,
+      sourceUrl,
+      sentence,
+      written,
+      pos,
+      clitic,
+      surface,
+    }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
       const [dictionary, pack, terms, occurrences, meanings] = await allOf([
@@ -463,13 +472,19 @@ export function createHandlers({
         key,
         WRITTEN.has(written) ? written : undefined,
         typeof pos === "string" ? pos : undefined,
+        typeof clitic === "string" ? clitic : undefined,
       );
       const ipa = pack.ipa(key);
       // A contraction keyed by another word ("it's" by "it"): what it is short for.
       const form =
         typeof surface === "string" ? normalizeWord(surface) : undefined;
       const expansions =
-        form !== undefined && form !== key ? pack.expansions(form) : [];
+        form !== undefined && form !== key
+          ? expansionsHere(
+              pack.expansions(form),
+              typeof clitic === "string" ? clitic : undefined,
+            )
+          : [];
       const pair = translationPair(lang, nativeLang);
       const translated = glossedInOtherLanguage(entry, nativeLang)
         ? await cachedTranslations(pair, definitionTexts(entry))

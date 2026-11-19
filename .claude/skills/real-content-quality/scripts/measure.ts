@@ -144,19 +144,29 @@ function hoverOf(
   written?: Written,
   pos?: string,
   surface?: string,
+  clitic?: string,
 ): {
   hover: string[];
   hoverKind: HoverKind;
   fallback?: string[];
   note?: string;
 } {
-  const entry = dictionary.entry(key, written, pos);
+  const entry = dictionary.entry(key, written, pos, clitic);
   // A contraction's note (content/lookup/describe.ts, `contractionNote`): its entry's,
   // or, keyed by another word ("it's" by "it"), what the pack says it is short for.
   const form = surface?.toLowerCase().replaceAll("’", "'");
   const expansions =
     form !== undefined && form !== key && "expansions" in pack
-      ? (pack as { expansions(word: string): readonly string[] }).expansions(form)
+      ? (pack as { expansions(word: string): readonly string[] })
+          .expansions(form)
+          // What the clitic stands for here, when the sentence decides (K4; before it,
+          // `clitic` is never set): those expansions alone (handlers.ts).
+          .filter(
+            (one, _, all) =>
+              clitic === undefined ||
+              !all.some((e) => e.split(" ").at(-1)?.toLowerCase() === clitic) ||
+              one.split(" ").at(-1)?.toLowerCase() === clitic,
+          )
       : [];
   const note =
     (entry as { expansion?: string } | undefined)?.expansion ??
@@ -309,7 +319,16 @@ for (const [doc, list] of byDoc) {
       const shown = verdict !== "name" && verdict !== "unknown";
       const written = writtenOf(s, surface, casing);
       const h = shown
-        ? withHover(hoverOf(s.key, "word", written, s.pos, surface))
+        ? withHover(
+            hoverOf(
+              s.key,
+              "word",
+              written,
+              s.pos,
+              surface,
+              (s as { clitic?: string }).clitic,
+            ),
+          )
         : { hover: [], hoverKind: "none" as const };
       if (shown && h.hoverKind === "none") site.noEntry++;
       const rank = pack.rank(s.key);
@@ -324,6 +343,9 @@ for (const [doc, list] of byDoc) {
         ...(s.capital && { capital: true }),
         ...(written && { written }),
         ...(s.pos && { pos: s.pos }),
+        ...((s as { clitic?: string }).clitic && {
+          clitic: (s as { clitic?: string }).clitic,
+        }),
         ...(Number.isFinite(rank) && { rank }),
         ...h,
         from: shown ? (meaningFrom(s.key) ?? null) : null,

@@ -402,6 +402,8 @@ export async function describeTerm(
     written?: Written;
     /** The part of speech its tag gives it on the page (`Span.pos`). */
     pos?: string;
+    /** What a contraction's clitic stands for on the page (`Span.clitic`). */
+    clitic?: string;
     /** A phrase's: what its words' tags give them on the page (`Span.wordPos`). */
     wordPos?: Readonly<Record<string, string>>;
     /** The sentence it is in there ("this sentence"), as saving it records it. */
@@ -422,6 +424,7 @@ export async function describeTerm(
     place: {
       written?: Written;
       pos?: string;
+      clitic?: string;
       sentence?: string;
       surface?: string;
     } = {},
@@ -434,6 +437,7 @@ export async function describeTerm(
       ...(place.sentence !== undefined && { sentence: place.sentence }),
       ...(place.written !== undefined && { written: place.written }),
       ...(place.pos !== undefined && { pos: place.pos }),
+      ...(place.clitic !== undefined && { clitic: place.clitic }),
       ...(place.surface !== undefined && { surface: place.surface }),
     });
   // A word written otherwise than its key: a contraction keyed by another word ("it's"

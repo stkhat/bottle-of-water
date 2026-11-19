@@ -119,6 +119,10 @@ const T: Record<string, TokenTag> = {
   CD: tagOf("CD", "numeral"),
   WP: tagOf("WP", "pronoun"),
   PRP$: tagOf("PRP$", "determiner"),
+  EX: tagOf("EX", "pronoun"),
+  UH: tagOf("UH", "interjection"),
+  JJR: tagOf("JJR", "adjective", true),
+  WRB: tagOf("WRB", "adverb"),
 };
 
 /** Words "form/TAG[/base]", trusted unless the tag is a proper noun's. */
@@ -157,6 +161,33 @@ describe("englishTagger: uses", () => {
     expect(aux("did/VBD/do n't/RB go/VB")[0]).toBe(true);
     expect(aux("i/PRP had/VBD/have to/TO leave/VB")[1]).toBe(true);
     expect(aux("he/PRP got/VBD/get hurt/VBN/hurt")[1]).toBe(true);
+  });
+  it("reads what a contraction's clitic stands for from the next word (K4)", () => {
+    const clitic = (text: string) => usesOf(text)[0]?.clitic;
+    // "'s" is "has" only before a past participle, surely before been and got.
+    expect(clitic("he's/PRP been/VBN/be here/RB")).toBe("has");
+    expect(clitic("he's/PRP never/RB been/VBN/be")).toBe("has");
+    expect(clitic("it's/PRP got/VBN/get ta/TO")).toBe("has");
+    // Before another participle it may be the passive "is": nothing said.
+    expect(clitic("it's/PRP called/VBN/call langle/NNP")).toBeUndefined();
+    expect(clitic("he's/PRP going/VBG/go")).toBe("is");
+    expect(clitic("it's/PRP a/DT dog/NN")).toBe("is");
+    expect(clitic("that's/DT")).toBe("is");
+    expect(clitic("there's/EX ,uh/UH")).toBe("is");
+    // "'d": had before a participle or better, would before a bare verb or rather.
+    expect(clitic("i'd/PRP seen/VBN/see it/PRP")).toBe("had");
+    expect(clitic("you'd/PRP better/JJR go/VB")).toBe("had");
+    expect(clitic("i'd/PRP go/VB")).toBe("would");
+    expect(clitic("i'd/PRP rather/RB stay/VB")).toBe("would");
+    expect(clitic("how'd/WRB you/PRP know/VB")).toBeUndefined();
+    expect(clitic("he/PRP left/VBD/leave")).toBeUndefined();
+  });
+  it("reads be as an auxiliary that keeps its meaning (lexical)", () => {
+    const uses = usesOf("it/PRP was/VBD/be built/VBN/build");
+    expect(uses[1]).toMatchObject({ auxiliary: true, lexical: true });
+    expect(
+      usesOf("she/PRP has/VBZ/have spent/VBN/spend")[1],
+    ).not.toHaveProperty("lexical");
   });
   it("takes no other use for an auxiliary", () => {
     const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);

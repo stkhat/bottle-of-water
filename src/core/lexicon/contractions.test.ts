@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ContractionPack, DefsPack, PairPack } from "../packs/types";
-import { expansionLine, withContractions } from "./contractions";
+import {
+  expansionLine,
+  expansionsHere,
+  withContractions,
+} from "./contractions";
 import { createEnJaDictionary, createPairDictionary } from "./dictionary";
 
 const EXPANSIONS: ContractionPack = {
@@ -100,6 +104,22 @@ describe("withContractions", () => {
     });
     expect(pair.entry("don't")?.senses).toHaveLength(1);
   });
+  it("names the expansion its clitic stands for, when the sentence says (K4)", () => {
+    expect(pair.entry("that's", undefined, undefined, "has")?.lines).toEqual([
+      "that has",
+    ]);
+    expect(pair.entry("there's", undefined, undefined, "is")?.lines).toEqual([
+      "there is",
+    ]);
+    // A reading it has no expansion for says nothing.
+    expect(pair.entry("that's", undefined, undefined, "would")?.lines).toEqual([
+      "that is / that has",
+    ]);
+    // Lines that write any expansion out stay left out.
+    expect(pair.entry("there's", undefined, undefined, "has")?.lines).toEqual([
+      "there has",
+    ]);
+  });
   it("leaves other words as they are", () => {
     const plain = createPairDictionary({ dict: PAIR, defs: DEFS, ipa: {} });
     expect(pair.entry("loaf")).toEqual(plain.entry("loaf"));
@@ -131,6 +151,20 @@ describe("withContractions", () => {
     it("shows no line followed from its pointer (that's: not つまり)", () => {
       expect(ja.entry("that's")?.lines).toEqual(["that is の短縮形"]);
     });
+  });
+});
+
+describe("expansionsHere", () => {
+  it("keeps the expansions that end with what the clitic stands for", () => {
+    expect(expansionsHere(["he is", "he has"], "has")).toEqual(["he has"]);
+    expect(expansionsHere(["I had", "I would", "I should"], "would")).toEqual([
+      "I would",
+    ]);
+    expect(expansionsHere(["he is", "he has"], undefined)).toEqual([
+      "he is",
+      "he has",
+    ]);
+    expect(expansionsHere(["I am"], "is")).toEqual(["I am"]);
   });
 });
 
