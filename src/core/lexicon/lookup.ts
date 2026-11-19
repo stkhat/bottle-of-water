@@ -24,6 +24,13 @@ export interface Sense {
    * (to)"), which rule A2 puts first where the word is one.
    */
   auxiliary?: true;
+  /**
+   * The sense is a capitalised headword's, under a key a lowercase headword shares (a
+   * definitions pack's "capital": German Sie, "you (polite)", under "sie"; Essen,
+   * "food", under "essen"): shown first where the page writes the word capitalised in
+   * a way that counts, and the card's headword is then capitalised.
+   */
+  capital?: true;
 }
 export interface Entry {
   short: string;

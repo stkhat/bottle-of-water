@@ -22,6 +22,7 @@ import { spanishTagger } from "../tagging/es";
 import { frenchTagger } from "../tagging/fr";
 import { germanTagger } from "../tagging/de";
 import type { Tagger, TaggerModel } from "../tagging/tagger";
+import { COMPOUND_RULES, splitCompound, type Compound } from "./compounds";
 import { ipaFor } from "./ipa";
 import { lemmatize, type CapitalWords } from "./lemmatize";
 
@@ -29,7 +30,7 @@ import { lemmatize, type CapitalWords } from "./lemmatize";
  * Languages whose names stand out by a capital (rule D). Not those without letter case
  * or those that capitalise every noun (German): their capitals say nothing of names.
  */
-const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es", "fr"]);
+const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es", "fr", "de"]);
 
 /**
  * Languages that capitalise a common word inside a sentence only in a name or a title,
@@ -44,6 +45,14 @@ const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es", "fr"]);
  * and after an article, where the form rule does not reach it.
  */
 const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es", "fr"]);
+
+/**
+ * Languages that capitalise every noun (German "Haus", "Essen"; the polite Sie): a
+ * word capitalised in a way that counts asks for its capitalised headword's senses
+ * first (`Sense.capital`) and is read by its tag as any word, since its capital marks
+ * a noun or the polite pronoun, not a name.
+ */
+const NOUNS_CAPITALISED: ReadonlySet<string> = new Set(["de"]);
 
 /**
  * Languages whose lemma table lists an inflected form's likelier base first, from a
@@ -99,6 +108,10 @@ function accentedSpelling(
   );
   return found.length === 1 ? found[0] : undefined;
 }
+
+/** The language writes closed compounds (`COMPOUND_RULES`): its dictionary reads them. */
+export const writesCompounds = (lang: string) =>
+  own(COMPOUND_RULES, lang) !== undefined;
 
 /** Each language's tagger over its pack's model. */
 const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
@@ -159,6 +172,12 @@ export interface LanguagePack {
    */
   readonly capitalsForNames: boolean;
   /**
+   * The language capitalises every noun (`NOUNS_CAPITALISED`): a word capitalised in a
+   * way that counts asks for its capitalised headword's senses and keeps its tag's
+   * reading (rules A1 and A2).
+   */
+  readonly nounsCapitalised: boolean;
+  /**
    * The names lexicon's entry of a lowercase word: the kinds of name, then "!" for a
    * capitalised common word (`NamesPack`). Undefined when it is no name.
    */
@@ -169,8 +188,19 @@ export interface LanguagePack {
    * accents in capitals too, or when no one spelling is known.
    */
   accented(word: string): string | undefined;
-  /** A word's parts of speech, its main one first; [] when the pack has none. */
+  /**
+   * A word's parts of speech, its main one first; [] when the pack has none. A
+   * compound's are its head's.
+   */
   partsOfSpeech(word: string): readonly string[];
+  /**
+   * The compound a word the language does not know as written is
+   * (`splitCompound`, by the language's `COMPOUNDS` rules), or that a compound's key
+   * is ("bahnsystem" → bahn + system); undefined for a known word, a name the names
+   * lexicon has, or in a language without compounds. `lemmas` gives such a word its
+   * compound's key, and `rank` the rarest part's rank.
+   */
+  compound(word: string): Compound | undefined;
   /**
    * What a contraction is short for, by its key ("i'm" → ["I am"], "it's" → ["it is",
    * "it has"]); [] for a word that is none, or a language without the table.
@@ -232,6 +262,41 @@ export function createLanguagePack(
   const capitals = data.capitals && capitalWords(data.capitals);
   const expansions = (word: string) =>
     data.contractions ? (own(data.contractions, word) ?? []) : [];
+  const isName = (word: string) =>
+    data.names !== undefined && Object.hasOwn(data.names, word);
+  const posOf = (word: string) => (data.pos ? (own(data.pos, word) ?? []) : []);
+  const compoundRules = own(COMPOUND_RULES, lang);
+  /** Each unknown word's compound once (null: none), as the lemma cache keeps forms. */
+  const compoundCache = new Map<string, Compound | null>();
+  /** Its parts are read as the language knows them, without compounds. */
+  const partsKnown = {
+    lemmas: (word: string) =>
+      lemmatize(word, data.lemmas, data.vocab, capitals),
+    partsOfSpeech: posOf,
+  };
+  /** `word` as written: a capital asks for a noun head (`splitCompound`). */
+  const compound = (word: string): Compound | undefined => {
+    if (!compoundRules) return undefined;
+    const key = normalizeWord(word);
+    const noun = /^\p{Lu}/u.test(word);
+    const cached = noun ? `^${key}` : key;
+    let found = compoundCache.get(cached);
+    if (found === undefined) {
+      if (compoundCache.size >= LEMMA_CACHE_SIZE) compoundCache.clear();
+      found =
+        isName(key) || partsKnown.lemmas(key).length > 0
+          ? null
+          : (splitCompound(key, partsKnown, compoundRules, noun) ?? null);
+      compoundCache.set(cached, found);
+    }
+    return found ?? undefined;
+  };
+  /**
+   * A key's compound: a key is in lower case, so it is read as the noun it was split
+   * as when it is one, else as written.
+   */
+  const keyCompound = (key: string) =>
+    compound(key.charAt(0).toUpperCase() + key.slice(1)) ?? compound(key);
   /** Every block's words are lemmatized, most of them common: each written form once. */
   const lemmaCache = new Map<string, readonly string[]>();
   const lemmas = (word: string): readonly string[] => {
@@ -243,6 +308,11 @@ export function createLanguagePack(
       if (found.length === 0) {
         const key = normalizeWord(word);
         if (expansions(key).length > 0) found = [key];
+        // A compound of known words is its own word, keyed by its head's base.
+        else {
+          const parts = compound(word);
+          if (parts) found = [parts.key];
+        }
       }
       lemmaCache.set(word, found);
     }
@@ -268,13 +338,14 @@ export function createLanguagePack(
     if (found !== undefined) return found;
     if (/\p{L}-\p{L}/u.test(key))
       return Math.max(...key.split("-").map(rankOfWord));
+    // A closed compound ranks as its rarest part, as a hyphenated one does.
+    const parts = keyCompound(key)?.parts;
+    if (parts) return Math.max(...parts.map(rankOfWord));
     const [expansion] = expansions(key);
     if (expansion === undefined) return Infinity;
     return Math.max(...expansion.toLowerCase().split(" ").map(rankOfWord));
   };
   const accents = own(CAPITAL_ACCENTS, lang);
-  const isName = (word: string) =>
-    data.names !== undefined && Object.hasOwn(data.names, word);
   /** A name ("berlín") is no word to read in capitals, where names do not show. */
   const accented = (word: string) => {
     if (accents === undefined) return undefined;
@@ -305,9 +376,16 @@ export function createLanguagePack(
     rules,
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
     capitalsForNames: CAPITALS_FOR_NAMES.has(lang),
+    nounsCapitalised: NOUNS_CAPITALISED.has(lang),
     name: (word) => (data.names ? own(data.names, word) : undefined),
     accented,
-    partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
+    partsOfSpeech: (word) => {
+      const own = posOf(word);
+      if (own.length > 0) return own;
+      const head = keyCompound(word)?.parts.at(-1);
+      return head === undefined ? own : posOf(head);
+    },
+    compound,
     expansions,
     phrasePos: (key) =>
       (phrasePos ??= phrasePosIndex(data.patterns)).get(key) ?? [],

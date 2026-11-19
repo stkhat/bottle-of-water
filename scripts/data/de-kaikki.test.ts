@@ -85,8 +85,11 @@ describe("buildLearningPacks with German's settings", () => {
     ]);
   });
   it("puts a capitalised headword first where the examples write it so inside sentences", () => {
+    // Marked "capital": the hover shows it first where the page writes it so, and
+    // the card writes the headword capitalised. The essen and sie of these examples
+    // are not written capitalised often enough to mark theirs.
     expect(packs.defs["mensch"]?.[1]).toEqual([
-      ["noun", "human being"],
+      ["noun", "human being", "capital"],
       ["pronoun", "one, they"],
     ]);
   });

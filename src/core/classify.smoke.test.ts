@@ -7,6 +7,7 @@ import {
   createDefsDictionary,
   createEnJaDictionary,
   createPairDictionary,
+  withCompounds,
   type DictionaryProvider,
 } from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
@@ -663,6 +664,104 @@ describe("German tags over the generated packs (rules A1 and A2)", () => {
   it("reads a question's first word before its subject as a verb", () => {
     expect(hover("Kannst du kommen?", "Kannst").key).toBe("können");
     expect(hover("Wissen Sie das?", "Wissen").lines[0]).toMatch(/^to know\b/);
+  });
+});
+
+describe("German written case, compounds and names over the generated packs (L2-2)", () => {
+  const pack = createLanguagePack("de", {
+    lemmas: de.lemmas,
+    freq: de.freq,
+    ipa: de.ipa,
+    vocab: new Set(de.vocab),
+    patterns: de.phrases,
+    pos: de.pos,
+    names: de.names,
+    tagger: de.tagger,
+  });
+  const classifier = createClassifier(pack);
+  const dictionary = withCompounds(
+    createDefsDictionary({ defs: deEn.defs, ipa: de.ipa }),
+    (key) => pack.compound(key),
+  );
+  /** Each block's word spans, with their text, in one document. */
+  const read = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((text) => blockCasing(pack.tokenize(text), "de")),
+    );
+    return blocks.flatMap((text) =>
+      classifier
+        .classify(pack.tokenize(text), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing,
+          outline: (key) => dictionary.outline(key),
+        })
+        .map((span) => {
+          const entry = dictionary.entry(
+            span.key,
+            span.capital ? "capital" : undefined,
+            span.pos,
+          );
+          return {
+            text: text.slice(span.start, span.end),
+            key: span.key,
+            name: span.name === true,
+            head: entry?.head,
+            note: entry?.expansion,
+            lines: entry?.lines ?? [],
+          };
+        }),
+    );
+  };
+  const word = (spans: ReturnType<typeof read>, text: string, nth = 0) =>
+    spans.filter((span) => span.text === text)[nth]!;
+
+  it("shows a noun's headword capitalised and the polite Sie inside a sentence", () => {
+    const spans = read(
+      "Mein Vater kommt morgen. Können Sie mir helfen? Ich weiß, dass sie kommt.",
+    );
+    expect(word(spans, "Vater").head).toBe("Vater");
+    expect(word(spans, "Sie").lines[0]).toMatch(/^you \(polite/);
+    expect(word(spans, "Sie").head).toBe("Sie");
+    expect(word(spans, "sie").lines[0]).toBe("she");
+    expect(word(spans, "kommt").head).toBe("kommen");
+  });
+  it("reads a compound by its parts", () => {
+    const spans = read(
+      "Das Bahnsystem in Japan ist schnell. Die Pizzateige sind fertig.",
+    );
+    expect(word(spans, "Bahnsystem")).toMatchObject({
+      key: "bahnsystem",
+      head: "Bahnsystem",
+      note: "Bahn + System",
+    });
+    expect(word(spans, "Bahnsystem").lines[0]).toMatch(/ \+ system$/);
+    expect(word(spans, "Pizzateige")).toMatchObject({
+      key: "pizzateig",
+      note: "Pizza + Teig",
+    });
+    expect(pack.rank("bahnsystem")).toBe(
+      Math.max(pack.rank("bahn"), pack.rank("system")),
+    );
+  });
+  it("leaves a name that reads like a compound unknown", () => {
+    expect(pack.compound("Deutschland")).toBeUndefined();
+    expect(pack.lemmas("Deutschland")).toEqual([]);
+  });
+  it("takes given names and a surname after one for names, not nouns after a determiner", () => {
+    const spans = read(
+      "Ich heiße Jasmin.",
+      "Der Physiker Albert Einstein war berühmt.",
+      "Er spielte in dem Film Der blaue Engel.",
+    );
+    expect(word(spans, "Jasmin").name).toBe(true);
+    expect(word(spans, "Einstein").name).toBe(true);
+    expect(word(spans, "Engel").name).toBe(false);
+  });
+  it("reads an adjective-tagged participle in a clause of haben as its verb", () => {
+    const spans = read("Deine Kinder haben dich sehr vermisst.");
+    expect(word(spans, "haben").lines[0]).toMatch(/perfect/);
+    expect(word(spans, "vermisst").key).toBe("vermissen");
   });
 });
 

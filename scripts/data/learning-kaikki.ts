@@ -10,6 +10,10 @@ import { join } from "node:path";
 import { singleIpa } from "../../src/core/lexicon/ipa.ts";
 import { splitElisions } from "../../src/core/text/tokenize.ts";
 import { shortOfDefinition } from "../../src/core/lexicon/short-lines.ts";
+import {
+  splitCompound,
+  type CompoundRules,
+} from "../../src/core/lexicon/compounds.ts";
 import type { DefsPack } from "../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
 import {
@@ -91,6 +95,11 @@ export interface LearningBuild {
    * chooses where the particle stands in the clause (src/core/tagging/de.ts).
    */
   separableVerbs?: boolean;
+  /**
+   * How the language joins closed compounds (`COMPOUND_RULES`): a name that would read
+   * as one joins the names lexicon, so that it does not ("Deutschland").
+   */
+  compounds?: CompoundRules;
   /**
    * The verbs whose reflexive pronoun is part of the verb, not its object ("s'appeler":
    * to be called; "se passer": to happen; not "se dire", "se voir"): their senses
@@ -228,7 +237,27 @@ const MIN_CAPITALISED = 3;
 /** Alt-of senses that stand for a longer term ("ESO", "ONU"). */
 const ACRONYM_TAGS: ReadonlySet<string> = new Set(["acronym", "initialism"]);
 
-type Sense = [pos: string, text: string];
+/**
+ * A sense: its part of speech and text, and "capital" for one of a capitalised headword
+ * the key shares with a lowercase one (`LearningBuild.nounsCapitalised`: Sie's "you
+ * (polite)" under "sie"), so the hover shows it first where the page writes the word
+ * capitalised inside a sentence, and the card writes the headword so.
+ */
+type Sense = [pos: string, text: string, use?: typeof CAPITAL_USE];
+
+/** The third item of a capitalised headword's sense (`Sense`). */
+const CAPITAL_USE = "capital";
+
+/**
+ * A key a lowercase headword shares marks its capitalised headword's senses
+ * (`CAPITAL_USE`) when the examples write it capitalised inside a sentence at least
+ * once for this many times in lower case (and `MIN_CAPITALISED` times at least): a
+ * capital there then marks that headword ("Sie": 1 in 8, "Ihr" 1 in 23, "Reich" more
+ * often than "reich"), not a word that only starts an utterance or a title ("Ja" 1 in
+ * 81, "Aber" 1 in 900, "Heute", "So"), whose capitalised headword ("a yes", "a but")
+ * a capital at the wrong place would put first.
+ */
+const CAPITAL_MARKED = 40;
 
 /** `senses` with each part of speech and text once, the first of each kept. */
 const onceEach = (senses: readonly Sense[]) =>
@@ -1110,14 +1139,30 @@ export async function buildLearningPacks(
       capitalised >= MIN_CAPITALISED && capitalised >= CAPITAL_FIRST * lower
     );
   };
+  /** The examples' capitals mark the key's capitalised headword (`CAPITAL_MARKED`). */
+  const capitalMarked = (key: string) => {
+    const [capitalised, lower] = inside?.counts.get(key) ?? [0, 0];
+    return (
+      capitalised >= MIN_CAPITALISED && capitalised * CAPITAL_MARKED >= lower
+    );
+  };
   // A key's capitalised headwords' senses come after its lowercase ones' (before them
   // when `capitalFirst`), with room for CAPITAL_ROOM of the second; each part of
   // speech keeps its first sense (`keptSenses`).
   for (const [word, bucket] of [...exact, ...folded]) {
     const form = exact.get(word)?.form ?? false;
-    const senseOf = ({ def, alt }: Omit<SenseItem, "sense">): Sense =>
-      alt?.pointerOnly ? targetMeaning(def, alt.target) : def;
     const counted = bucket.items.filter(({ alt }) => !(alt && form));
+    const marked = counted.every((item) => item.capital) || capitalMarked(word);
+    const senseOf = ({
+      def,
+      alt,
+      capital,
+    }: Omit<SenseItem, "sense">): Sense => {
+      const [pos, text] = alt?.pointerOnly
+        ? targetMeaning(def, alt.target)
+        : def;
+      return capital && marked ? [pos, text, CAPITAL_USE] : [pos, text];
+    };
     for (const { def } of counted)
       if (def[0]) bucket.pos.add(VERB_USES.has(def[0]) ? "verb" : def[0]);
     const lower = onceEach(
@@ -1236,18 +1281,6 @@ export async function buildLearningPacks(
         !(sounds && line.includes('"ipa"')),
     );
   }
-  // The names lexicon (rule D): kaikki's proper-name entries that are vocabulary words,
-  // inflected forms of them (Argentina, Marina) or given names.
-  const namesPack = names.pack(
-    (key) => vocabSet.has(key) || Object.hasOwn(lemmas, key),
-    (key) => {
-      const [capitalised, lower] = cases.counts.get(key) ?? [0, 0];
-      return (
-        capitalised >= MIN_CAPITALISED &&
-        capitalised >= MOSTLY_CAPITALISED * lower
-      );
-    },
-  );
   const ipa: Record<string, string> = {};
   const defs: Record<string, DefsPack[string]> = {};
   const pos: Record<string, string[]> = {};
@@ -1264,6 +1297,40 @@ export async function buildLearningPacks(
     );
     if (labels.length > 0) pos[word] = labels;
   }
+  /**
+   * A name that would read as a closed compound of the language's words (German
+   * "Deutschland": deutsch + Land, "Frankreich", "Lehmann", "Wolfenstein"): the names
+   * lexicon keeps it so that it does not (`LanguagePack.compound`).
+   */
+  const compoundRules = language.compounds;
+  const compoundName = (key: string) =>
+    compoundRules !== undefined &&
+    splitCompound(
+      key,
+      {
+        lemmas: (word) => [
+          ...(vocabSet.has(word) ? [word] : []),
+          ...[lemmas[word] ?? []].flat(),
+        ],
+        partsOfSpeech: (word) => pos[word] ?? [],
+      },
+      compoundRules,
+      true,
+    ) !== undefined;
+  // The names lexicon (rule D): kaikki's proper-name entries that are vocabulary words,
+  // inflected forms of them (Argentina, Marina), given names, or names that would read
+  // as compounds.
+  const namesPack = names.pack(
+    (key) =>
+      vocabSet.has(key) || Object.hasOwn(lemmas, key) || compoundName(key),
+    (key) => {
+      const [capitalised, lower] = cases.counts.get(key) ?? [0, 0];
+      return (
+        capitalised >= MIN_CAPITALISED &&
+        capitalised >= MOSTLY_CAPITALISED * lower
+      );
+    },
+  );
   // A form that is a vocabulary word ranks only itself: "para", "pero" and "como" would
   // otherwise put parar, perar and comer among the most common words.
   /**

@@ -73,12 +73,14 @@ export type DefsPack = Readonly<
        * Each sense's part of speech and text, and "auxiliary" for a sense the source
        * marks as the verb's use as an auxiliary (`Sense.auxiliary`): learning packs
        * built in L1-3 and L1-4 (`fr-en`, `es-en`); the data build now labels such a
-       * sense "auxiliary" instead.
+       * sense "auxiliary" instead. "capital" for a sense of a capitalised headword
+       * the key shares with a lowercase one (`Sense.capital`; `de-en` from L2-2: Sie's
+       * "you (polite)" under "sie", Essen's "food" under "essen").
        */
       senses: readonly (readonly [
         pos: string,
         text: string,
-        use?: "auxiliary",
+        use?: "auxiliary" | "capital",
       ])[],
     ]
   >

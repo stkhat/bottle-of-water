@@ -299,7 +299,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
       const input = matcher.prepare(tokens, casing?.mode === "upper");
       const { words, joined } = input;
       const spans: Span[] = [];
-      const withCases = casing?.mode === "mixed" && pack.namesByCase;
+      const withCases =
+        casing?.mode === "mixed" && (pack.namesByCase || pack.nounsCapitalised);
       /** The block's text and sentences, read once for the tagger and the casing rules. */
       const block =
         (pack.tagger && words.length > 0) || withCases
@@ -325,13 +326,31 @@ export function createClassifier(pack: LanguagePack): Classifier {
         : undefined;
       /** Rule D over the document's runs of capitalised words. */
       const names =
-        cases && casing
+        cases && casing && pack.namesByCase
           ? documentNames(casing, pack, (key) => capitalMeaning?.(key))
           : undefined;
 
       /** The word before word i when only spaces come between them. */
-      const before = (i: number) =>
-        i > 0 && joined[i - 1] ? words[i - 1]!.form : undefined;
+      /**
+       * The word that opens word i's noun phrase, for rule D: the word before it when
+       * only spaces come between them; where every noun is capitalised
+       * (`LanguagePack.nounsCapitalised`), past the adjectives before it, which the
+       * language writes in lower case ("Der blaue Engel": der).
+       */
+      const before = (i: number) => {
+        let j = i - 1;
+        if (pack.nounsCapitalised)
+          while (
+            j > 0 &&
+            joined[j - 1] &&
+            /^\p{Ll}/u.test(words[j]!.token.text) &&
+            words[j]!.bases.some((base) =>
+              pack.partsOfSpeech(base).includes("adjective"),
+            )
+          )
+            j--;
+        return j >= 0 && joined[j] ? words[j]!.form : undefined;
+      };
 
       /** Rule D reads word i as a name here. */
       const nameAt = (i: number) => {
@@ -347,6 +366,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             pack,
             readings[i]?.tag?.label,
           ) &&
+          !(pack.nounsCapitalised && written.written === "lower") &&
           names(written, before(i)) === "name"
         );
       };
@@ -365,9 +385,12 @@ export function createClassifier(pack: LanguagePack): Classifier {
         word: { key: string; category: Category },
       ): Partial<Span> => {
         const written: WordCase | undefined = cases?.[i];
-        if (!casing || !written || !names || word.category === "ignored")
-          return {};
-        const name = names(written, before(i));
+        if (!casing || !written || word.category === "ignored") return {};
+        // Where every noun is capitalised, a word in lower case is no name.
+        const name =
+          pack.nounsCapitalised && written.written === "lower"
+            ? false
+            : (names?.(written, before(i)) ?? false);
         if (name === "name") return { category: "ignored", name: true };
         // A word in capitals English also writes so as a common word (the names
         // lexicon's "!": "OK", an interjection) is that word, not an acronym: its
@@ -701,7 +724,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
       ): Partial<Span> => {
         const reading = readings[i];
         if (!reading || !outline || word.category === "ignored") return {};
-        if (marks.capital || marks.name) return {};
+        // A capital that marks a noun or the polite Sie says nothing of the tag.
+        if (marks.name || (marks.capital && !pack.nounsCapitalised)) return {};
         const { form, bases } = words[i]!;
         const key = terms.has(word.key)
           ? word.key
@@ -720,8 +744,29 @@ export function createClassifier(pack: LanguagePack): Classifier {
         };
       };
 
+      /**
+       * A compound with a noun head the page writes in lower case, in a document that
+       * writes its nouns capitalised (`LanguagePack.nounsCapitalised`, mixed case), is
+       * no such noun ("summende": the participle, not summen + Ende; "alchemistische"):
+       * it stays unknown. Speech recognition without punctuation, which writes many
+       * nouns in lower case, keeps them ("kinderfahrradsitze", "falkennest").
+       */
+      const lowerNoun = (token: Token, bases: readonly string[]) => {
+        if (
+          !pack.nounsCapitalised ||
+          casing?.mode !== "mixed" ||
+          casing.unpunctuated === true ||
+          bases.length !== 1 ||
+          !/^\p{Ll}/u.test(token.text)
+        )
+          return false;
+        const found = pack.compound(token.text);
+        return found?.noun === true && found.key === bases[0];
+      };
+
       const pushWord = (i: number) => {
-        const { token, form, bases } = words[i]!;
+        const { token, form } = words[i]!;
+        const bases = lowerNoun(token, words[i]!.bases) ? [] : words[i]!.bases;
         const word = classifyWord(
           token.text,
           form,

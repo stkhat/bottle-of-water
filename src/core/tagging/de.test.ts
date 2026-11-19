@@ -129,12 +129,29 @@ describe("germanTagger: auxiliaries anywhere in the clause", () => {
       auxiliary: false,
     });
   });
-  it("keeps a modal's own meaning, its infinitive a verb", () => {
+  it("reads an adjective-tagged participle at the end of a clause of haben as the verb", () => {
+    const uses = usesOf(
+      "kinder/NOUN haben/AUX.Fin/haben dich/PRON sehr/ADV vermisst/ADJ/vermisst/vermissen",
+    );
+    expect(uses[1]).toMatchObject({ auxiliary: true });
+    expect(uses[4]).toMatchObject({ base: "vermissen", grammarPos: "verb" });
+    // sein takes a predicative adjective; an adjective with no verb is one.
+    expect(
+      usesOf("er/PRON ist/AUX.Fin/sein verletzt/ADJ/verletzt/verletzen")[1],
+    ).toMatchObject({ auxiliary: false });
+    expect(
+      usesOf("ich/PRON habe/AUX.Fin/haben es/PRON eilig/ADJ")[1],
+    ).toMatchObject({ auxiliary: false });
+  });
+  it("reads a modal with its infinitive as an auxiliary, without one as a verb", () => {
     const uses = usesOf(
       "ich/PRON kann/AUX.Fin/können gut/ADV schwimmen/VERB.Inf",
     );
-    expect(uses[1]).toMatchObject({ auxiliary: false, base: "können" });
+    expect(uses[1]).toMatchObject({ auxiliary: true, base: "können" });
     expect(uses[3]).toMatchObject({ verbal: "aux" });
+    expect(
+      usesOf("ich/PRON kann/AUX.Fin/können deutsch/NOUN")[1],
+    ).toMatchObject({ auxiliary: false, base: "können" });
   });
 });
 
