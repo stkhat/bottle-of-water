@@ -225,6 +225,10 @@ describe("mainWord", () => {
     expect(mainWord("from scratch")).toBe("scratch");
     expect(mainWord("rise and fall")).toBe("rise");
   });
+  it("reads the words of a key saved across punctuation", () => {
+    expect(mainWord("wh-what")).toBe("what");
+    expect(mainWord("well, i think")).toBe("think");
+  });
   it("passes over the language's slot words", () => {
     const en = rulesFor("en");
     expect(mainWord("make up one's mind", en)).toBe("make");

@@ -1046,16 +1046,24 @@ describe("capitalised inflected forms (rule D, a language that capitalises only 
       hales: "halar",
       imagínate: "imaginar",
       las: "el",
+      andes: "andar",
+      desaparecidos: "desaparecido",
     },
-    freq: ["estado", "unido", "salar", "el"],
+    freq: ["estado", "unido", "salar", "el", "andar"],
     ipa: {},
     vocab: new Set([
       ...["vimos", "a", "y", "en", "de", "la", "gente", "calle", "leímos"],
       ...["bruno", "estado", "unido", "salar", "halar", "imaginar", "el"],
-      ...["marina"],
+      ...["marina", "los", "andar", "desaparecido"],
     ]),
     patterns: { detect: [], more: [], gap: [] },
-    pos: { el: ["article"], la: ["article"] },
+    pos: {
+      el: ["article"],
+      la: ["article"],
+      los: ["article"],
+      andar: ["verb", "noun"],
+      desaparecido: ["adjective", "noun"],
+    },
     names: { marina: "g" },
   };
   const verdicts = (lang: string, ...blocks: string[]) => {
@@ -1116,6 +1124,100 @@ describe("capitalised inflected forms (rule D, a language that capitalises only 
       ["Imagínate:name"],
     );
     expect(verdicts("en", "Vimos a Bruna.")).toEqual(["Bruna:capital"]);
+  });
+  it("takes a word known only as a verb's form for a name after a determiner", () => {
+    // andar is common, but a determiner opens a noun phrase: "los Andes".
+    expect(verdicts("es", "Vimos los Andes.", "Vimos a los Andes.")).toEqual([
+      "Andes:name",
+      "Andes:name",
+    ]);
+    // A participle used as a noun has a base that is no verb.
+    expect(verdicts("es", "Vimos a los Desaparecidos.")).toEqual([
+      "Desaparecidos:new",
+    ]);
+    // Written in lower case once, it is the word; English capitalises common words.
+    expect(verdicts("es", "Vimos los Andes.", "Leímos que andes.")).toEqual([
+      "Andes:new",
+      "Leímos:new",
+    ]);
+    expect(verdicts("en", "Vimos los Andes.")).toEqual(["Andes:capital"]);
+  });
+});
+
+describe("Spanish words the sentence decides (utterances, the article lo, ser or ir)", () => {
+  // The tagger is sure of these words only; "fue" is a form of ser and ir.
+  const spanish = createLanguagePack("es", {
+    lemmas: { fue: ["ser", "ir"], fui: ["ser", "ir"] },
+    freq: ["ser", "ir", "de", "a", "se", "lo", "que", "vale"],
+    ipa: {},
+    vocab: new Set([
+      ...["ser", "ir", "de", "a", "se", "lo", "que", "vale", "un", "compra"],
+      ...["vamos", "dijo", "con", "madrid", "vacaciones", "me"],
+    ]),
+    patterns: { detect: ["ir de"], more: [], gap: [] },
+    pos: {
+      ser: ["verb", "noun"],
+      ir: ["verb"],
+      lo: ["pronoun", "article"],
+      vale: ["noun", "interjection"],
+      un: ["article"],
+    },
+    tagger: {
+      tags: ["NOUN", "VERB.Fin"],
+      words: {
+        fue: "VERB.Fin",
+        fui: "VERB.Fin",
+        se: "PRON",
+        me: "PRON",
+        lo: "PRON",
+        que: "PRON",
+        dijo: "VERB.Fin",
+        de: "ADP",
+        a: "ADP",
+        con: "ADP",
+        un: "DET",
+        vale: "NOUN",
+      },
+      weights: {},
+      scale: 10,
+    },
+  });
+  const outlines: Record<string, EntryOutline> = {
+    ser: { firstMeaning: true, meaning: true, pos: ["verb", "noun"] },
+    ir: { firstMeaning: true, meaning: true, pos: ["verb"] },
+    vale: { firstMeaning: true, meaning: true, pos: ["noun", "interjection"] },
+    lo: { firstMeaning: true, meaning: true, pos: ["pronoun", "article"] },
+  };
+  const run = (text: string) =>
+    createClassifier(spanish)
+      .classify(spanish.tokenize(text), {
+        terms: terms(),
+        knownLevel: 10,
+        outline: (key) => outlines[key],
+      })
+      .map((s) => `${text.slice(s.start, s.end)}:${s.key}:${s.pos ?? "-"}`);
+
+  it("shows an utterance of its own by its interjection senses", () => {
+    expect(run("Vale, vamos.")[0]).toBe("Vale:vale:interjection");
+    expect(run("¿Vale?")[0]).toBe("Vale:vale:interjection");
+    expect(run("un vale de compra")[1]).toBe("vale:vale:noun");
+    // A caption's sound label, and a word followed by more of its sentence.
+    expect(run("[vale].")[0]).toBe("vale:vale:noun");
+    expect(run("Vale de compra.")[0]).toBe("Vale:vale:noun");
+  });
+  it("reads lo with no verb after it as the article", () => {
+    expect(run("lo que dijo")[0]).toBe("lo:lo:determiner");
+    expect(run("lo dijo")[0]).toBe("lo:lo:pronoun");
+  });
+  it("reads a form of ser and ir as ir where ser cannot stand, and keeps a plain verb's pattern off it after a reflexive", () => {
+    expect(run("se fue con")[1]).toBe("fue:ir:verb");
+    expect(run("fui a Madrid")[0]).toBe("fui:ir:verb");
+    expect(run("me fui de vacaciones")).toEqual([
+      "me:me:pronoun",
+      "fui:ir:verb",
+      "de:de:preposition",
+      "vacaciones:vacaciones:-",
+    ]);
   });
 });
 

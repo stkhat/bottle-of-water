@@ -36,6 +36,20 @@ describe("wordCases", () => {
       ],
     );
   });
+  it("marks the words of a speaker label: capitalised words in brackets that open a line, before speech", () => {
+    const speakers = (text: string) =>
+      wordCases(tokenize(text, "en"), "en")
+        .filter((w) => w.speaker)
+        .map((w) => w.key);
+    expect(speakers("[Paulina] How?")).toEqual(["paulina"]);
+    expect(speakers("- Fine.\n- [MARY JANE] Hi.")).toEqual(["mary", "jane"]);
+    expect(speakers("(Mark) Hi.")).toEqual(["mark"]);
+    // Sound labels, a label alone, a label inside a line.
+    expect(speakers("[Jan sighs] Hi.")).toEqual([]);
+    expect(speakers("[music] Hi.")).toEqual([]);
+    expect(speakers("[Paulina]")).toEqual([]);
+    expect(speakers("Hi [Paulina] there.")).toEqual([]);
+  });
   it("takes a word after a dialogue dash, a colon or a quote as a start", () => {
     expect(cases("- Aww. -Yes. Well - Oh no: Fine")).toEqual([
       "^aww",

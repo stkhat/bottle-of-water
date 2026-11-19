@@ -87,6 +87,7 @@ export function frenchPhraseBuild(
     auxiliaries: new Set(["être", "avoir"]),
     word: /^\p{Ll}+(?:'\p{Ll}+)*'?$/u,
     wordSenses: PHRASE_WORD_SENSES,
+    functionWordSenses: 1,
     functionWord: (word) =>
       Object.hasOwn(pos, word) && CLOSED_CLASSES.has(pos[word]![0] ?? ""),
     closedClass: (key) =>

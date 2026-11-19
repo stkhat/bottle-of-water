@@ -6,6 +6,7 @@ import { usePressAway } from "../../ui/press-away";
 import type { SelectedOffsets } from "../../ui/selection-in-root";
 import {
   pressedOnText,
+  type Anchor,
   type SelectedText,
 } from "../../ui/video/text-selection";
 import { formatTime } from "../../ui/format/format";
@@ -163,6 +164,10 @@ function Subtitle(props: {
       onWordClick={(span) => app.clickWord(ref(span))}
       onHover={(on) => (on ? app.enterSubtitle() : app.leaveSubtitle())}
       onSelectStart={() => app.selectStart("subtitle")}
+      onSnap={(from, to, anchor) =>
+        line &&
+        snapIn(app, line.card, line.start, "subtitle", { from, to, anchor })
+      }
       onSelect={(selected) =>
         selectIn(
           app,
@@ -193,9 +198,28 @@ function selectIn(
       start: selected.from + offset,
       end: selected.to + offset,
       place,
+      anchor: selected.anchor,
     },
     (start, end) => selected?.boxOf(start - offset, end - offset),
   );
+  return words && { from: words.start - offset, to: words.end - offset };
+}
+
+/** The words a drag selects in a text that shows a cue from `offset` on (see `selectIn`). */
+function snapIn(
+  app: VideoApp,
+  cue: number,
+  offset: number,
+  place: WordPlace,
+  dragged: SelectedOffsets & { anchor: Anchor },
+): SelectedOffsets | undefined {
+  const words = app.snapWords({
+    cue,
+    start: dragged.from + offset,
+    end: dragged.to + offset,
+    place,
+    anchor: dragged.anchor,
+  });
   return words && { from: words.start - offset, to: words.end - offset };
 }
 
@@ -452,6 +476,9 @@ export function TranscriptUi(props: {
       onWordLeave={app.leaveWord}
       onWordClick={(cue, span) => app.clickWord({ cue, span })}
       onSelectStart={() => app.selectStart("transcript")}
+      onSnap={(cue, from, to, anchor) =>
+        snapIn(app, cue, 0, "transcript", { from, to, anchor })
+      }
       onSelect={(cue, selected) =>
         selectIn(app, cue, 0, "transcript", selected)
       }

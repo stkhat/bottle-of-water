@@ -617,6 +617,16 @@ describe("buildEsPacks: phrases with the Spanish settings (B1, B2, B2b, B4)", ()
     };
     expect(overlap(await verdicts())).toBe(0);
     expect(overlap(await verdicts({ wordSenses: 12 }))).toBe(0.5);
+    // A function word's bag holds only the senses a hover shows first.
+    expect(
+      overlap(
+        await verdicts({
+          wordSenses: 12,
+          functionWord: (word) => word === "ya",
+          functionWordSenses: 3,
+        }),
+      ),
+    ).toBe(0);
   });
   it("counts the Spanish examples of both editions", async () => {
     const count = (found: PatternVerdict[], key: string) =>
