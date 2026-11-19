@@ -179,6 +179,8 @@ export interface KaikkiTranslation {
   lang?: unknown;
   word?: unknown;
   sense?: unknown;
+  /** A row's free text in place of a word: a usage note or an example ("… - …"). */
+  note?: unknown;
 }
 type Categories = (string | { name?: unknown } | null)[];
 export interface KaikkiSense {
@@ -200,6 +202,7 @@ export interface KaikkiEntry {
   forms?: { form?: unknown; tags?: string[] }[];
   translations?: KaikkiTranslation[];
   categories?: Categories;
+  etymology_text?: unknown;
 }
 
 /**
@@ -263,6 +266,16 @@ const POS_LABELS: Readonly<Record<string, string>> = {
 /** kaikki part-of-speech code → readable label (adj → adjective). */
 export const posLabel = (pos: string) =>
   Object.hasOwn(POS_LABELS, pos) ? POS_LABELS[pos]! : pos.replaceAll("_", " ");
+
+/**
+ * How English Wiktionary's glosses (in lower case) say a sense is about a person's
+ * name: a given name ("A male given name", "diminutive of the male given name …") or a
+ * surname ("An English surname", "transliterations of the surname"). The names lexicon
+ * reads its kinds by them (`nameTypes`), and the pair dictionaries leave such senses
+ * out of a word's capitalised headword (`capitalDictionary`).
+ */
+export const GIVEN_NAME = /\bgiven name\b|\bdiminutive of\b.*\bname\b/;
+export const SURNAME = /\bsurname\b/;
 
 const USER_AGENT = "LangleDataImport/0.1 (https://github.com/stkhat/langle)";
 

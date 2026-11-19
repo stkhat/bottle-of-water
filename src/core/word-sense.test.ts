@@ -277,6 +277,32 @@ describe("chooseKey (rule A1)", () => {
       ),
     ).toBe(undefined);
     expect(key("has", ["has", "have"], aux)).toBe("has");
+    // A pointer to a verb that is none of its bases is a homograph's (ru were: a
+    // variant of wear).
+    const wereOutline = (word: string): EntryOutline | undefined =>
+      ({
+        were: {
+          formOf: "wear",
+          firstMeaning: false,
+          meaning: false,
+          pos: ["verb"],
+        },
+        be: { firstMeaning: true, meaning: true, pos: ["verb"] },
+        wear: { firstMeaning: true, meaning: true, pos: ["verb"] },
+      })[word];
+    const wereLang = {
+      partsOfSpeech: (word: string) => (word === "were" ? [] : ["verb"]),
+      rank: () => 1,
+    };
+    expect(
+      chooseKey(
+        "were",
+        ["were", "be"],
+        reading(tag("verb", "VBD"), { auxiliary: true }),
+        wereOutline,
+        wereLang,
+      ),
+    ).toBe("be");
     // Untagged, the bases decide; a form of a base keeps its entry (went: goの過去).
     expect(
       chooseKey(

@@ -2290,7 +2290,7 @@
 "coil":"n~* n?* n~ v* v*",
 "coin":"n* v v* v",
 "coincident":"-*",
-"coke":"n~ v n -",
+"coke":"n~ v -",
 "cold":"a* a* a? a a - r n* n*",
 "cold turkey":"n n",
 "colic":"n~",

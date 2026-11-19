@@ -631,10 +631,10 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
       pos: "auxiliary",
       lines: ["passado simples do verbo do", "fazer", expect.any(String)],
     });
-    // A form the pair lacks goes to its base.
-    expect(enPt.outline("took")).toBeUndefined();
-    expect(hover("He took the bus.", "took", enPt)).toMatchObject({
-      key: "take",
+    // A form the pair lacks goes to its base (took has an entry since U1-7).
+    expect(enPt.outline("abandons")).toBeUndefined();
+    expect(hover("He abandons the bus.", "abandons", enPt)).toMatchObject({
+      key: "abandon",
       pos: "verb",
     });
   });

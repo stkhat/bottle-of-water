@@ -51,6 +51,16 @@ export interface SourceSense {
   categories: readonly string[];
   /** The term an alt-of / form-of sense names. */
   target?: string;
+  /**
+   * The sense is a contraction (tagged so, or its entry is one): "Contraction of you +
+   * are.", "That is.".
+   */
+  contraction: boolean;
+  /**
+   * Its target names only part of the term, the rest in the pointer's `extra`: the host
+   * of a contraction ("you", "+ are"), not what the term means.
+   */
+  partial: boolean;
   /** The sense is an inflected form of its target (plural of, past of). */
   inflection: boolean;
   /** Languages its translation table has (its own, or the entry's table for its gloss). */
@@ -80,6 +90,14 @@ const targetOf = (pointers: unknown) => {
   if (!Array.isArray(pointers)) return undefined;
   const word: unknown = (pointers[0] as { word?: unknown } | undefined)?.word;
   return typeof word === "string" && word.trim() ? word.trim() : undefined;
+};
+
+/** Whether the first pointer names the rest of the term in `extra` ("+ are"). */
+const partialOf = (pointers: unknown) => {
+  if (!Array.isArray(pointers)) return false;
+  const extra: unknown = (pointers[0] as { extra?: unknown } | undefined)
+    ?.extra;
+  return typeof extra === "string" && extra.trim().startsWith("+");
 };
 
 const languages = (translations: readonly KaikkiTranslation[] | undefined) =>
@@ -140,6 +158,11 @@ export function entrySenses(
       pos,
       gloss,
       tags,
+      contraction: pos === "contraction" || tags.includes("contraction"),
+      partial:
+        targetOf(sense.alt_of) !== undefined
+          ? partialOf(sense.alt_of)
+          : partialOf(sense.form_of),
       topics: (sense.topics ?? []).filter(
         (topic): topic is string => typeof topic === "string",
       ),

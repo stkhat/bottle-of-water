@@ -56,6 +56,25 @@ describe("parseEjdict", () => {
     expect(caps).not.toHaveProperty("tv");
     expect(caps).not.toHaveProperty("TV");
   });
+  it("moves a sense that only abbreviates a capitalised name to the capitalised senses", () => {
+    const { dict: both, capital: caps } = parseEjdict(
+      [
+        "OK,O.K.\tOklahoma(オクラホマ州)の略 / {形} 大丈夫な / 問題ない",
+        "coke\t(燃料の)コークス / 〈U〉《しばしばC-》Coca Colaの略称",
+        "Amer.\tAmerican(アメリカの,アメリカ人) の略",
+      ].join("\n"),
+    );
+    expect(both.ok?.[1]).toEqual(["{形} 大丈夫な", "問題ない"]);
+    expect(both.ok?.[0]).toBe("大丈夫な");
+    expect(caps.OK?.[1]).toEqual(["Oklahoma(オクラホマ州)の略"]);
+    expect(caps["O.K."]?.[1]).toEqual(["Oklahoma(オクラホマ州)の略"]);
+    expect(both.coke?.[1]).toEqual(["(燃料の)コークス"]);
+    expect(caps.coke?.[1]).toEqual(["〈U〉《しばしばC-》Coca Colaの略称"]);
+    // A headword's only sense stays.
+    expect(both["amer."]?.[1]).toEqual([
+      "American(アメリカの,アメリカ人) の略",
+    ]);
+  });
   it("keeps an acronym's senses apart under the key in capitals", () => {
     const { dict: both, capital: caps } = parseEjdict(
       "U.S.,US\tUnited States 合衆国\nus\t私たちを\nUs\tアス",

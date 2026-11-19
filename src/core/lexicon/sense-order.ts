@@ -69,6 +69,18 @@ export const accepts = (pos: string, label: string | undefined) =>
 const OPEN_CLASSES: readonly string[] = ["noun", "verb", "adjective", "adverb"];
 
 /**
+ * A sense labelled `label` cannot be what a word tagged `pos` means, on positive
+ * evidence: both are open classes and the tag does not accept the label (better/JJR
+ * and the verb "to improve"). A closed class, an auxiliary or an unknown label never
+ * conflicts, as the sources and the tagger label those differently.
+ */
+export const conflicts = (pos: string, label: string | undefined) =>
+  OPEN_CLASSES.includes(pos) &&
+  label !== undefined &&
+  OPEN_CLASSES.includes(label) &&
+  !accepts(pos, label);
+
+/**
  * An entry has no sense a word tagged `pos` can mean, on positive evidence: the tag
  * and every sense's label are open classes, each label stated (not taken from its
  * neighbours or guessed), and none accepts the tag (pt "other": only the verb "tratar

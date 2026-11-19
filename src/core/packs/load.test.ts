@@ -16,6 +16,7 @@ const files: Record<string, unknown> = {
   "/packs/en/vocab.json": ["dough", "loaf"],
   "/packs/en/names.json": { loaf: "s" },
   "/packs/en/tagger.json": TAGGER,
+  "/packs/en/contractions.json": { "i'm": ["I am"] },
   "/packs/en/phrases.json": {
     detect: ["figure out", "give up"],
     more: ["make up one's mind"],
@@ -107,6 +108,7 @@ describe("createPackLoader", () => {
       },
       names: { loaf: "s" },
       tagger: TAGGER,
+      contractions: { "i'm": ["I am"] },
     });
   });
 
@@ -213,7 +215,7 @@ describe("createPackLoader", () => {
     expect(a).toBe(b);
     expect(c).toBe(a);
     await Promise.all([loadPack("en-ja"), loadPack("en-ja")]);
-    expect(fetchJson).toHaveBeenCalledTimes(8 + 6);
+    expect(fetchJson).toHaveBeenCalledTimes(9 + 6);
   });
 
   it("tries again after a failed load", async () => {

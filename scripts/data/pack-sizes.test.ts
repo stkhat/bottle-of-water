@@ -67,6 +67,7 @@ it.each(pairs)("%s downloads at most 40 MB", (_pair, learning, native) => {
 // patterns are every multi-word entry of the source (rule B1): about 73,000.
 describe.each([
   ["en/tagger.json", 150_000],
+  ["en/contractions.json", 5_000],
   ["es/tagger.json", 150_000],
   ["en/phrases.json", 450_000],
   ["en-ja/pos.json", 100_000],

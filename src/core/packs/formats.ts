@@ -20,7 +20,8 @@ const RECIPE_PAIRS = recipeNatives().map(
  * (`npm run data:publish` writes the lock), which formats.test.ts checks.
  */
 export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
-  en: 4,
+  // 5: contractions.json (2026-11-19).
+  en: 5,
   "en-ja": 4,
   "en-defs": 1,
   // 2: pos.json and tagger.json (2026-11-18). 3: lemmas in shards, lemmas/ (2026-11-19).

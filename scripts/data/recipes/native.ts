@@ -9,7 +9,12 @@ import {
   nativeLanguage,
   type RecipeNative,
 } from "../../../src/core/natives.ts";
-import type { LemmaPack, NamesPack } from "../../../src/core/packs/types.ts";
+import { capitalKey, degreeOf } from "../../../src/core/lexicon/short-lines.ts";
+import type {
+  LemmaPack,
+  NamesPack,
+  PosPack,
+} from "../../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../../src/core/phrases/pattern.ts";
 import {
   PACKS_DIR,
@@ -30,6 +35,7 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
+  type PairSense,
   type SourceTerm,
   type TermKey,
 } from "./recipe.ts";
@@ -52,6 +58,8 @@ export async function buildPairDictionary(
       ? RECIPES[native as RecipeNative]
       : undefined,
     names = {},
+    lemmas = {},
+    pos = {},
   }: {
     termKey: TermKey;
     rawDir?: string;
@@ -59,6 +67,9 @@ export async function buildPairDictionary(
     recipe?: Recipe;
     /** The English names lexicon (en/names.json), for capitalised headwords' meanings. */
     names?: NamesPack;
+    /** English base forms and parts of speech (en/lemmas.json, en/pos.json), to read degrees. */
+    lemmas?: LemmaPack;
+    pos?: PosPack;
   },
 ) {
   if (!recipe) throw new Error(`No recipe for en-${native}`);
@@ -112,7 +123,17 @@ export async function buildPairDictionary(
     for (const { terms } of [...sources, ...capitalSources])
       convertTerms(terms, toSimplified);
   }
-  const merged = mergeSources(sources);
+  const merged = mergeSources(sources, {
+    // A term's main part of speech: that of its most translated sense, when English
+    // Wiktionary lists it first too (en/pos.json). Not for "dug", whose only table is
+    // the noun's ("teat"), as forms have none; nor "bound" (the noun "boundary").
+    mainPos: (key) => {
+      const main = tableTerms.terms.get(key)?.senses[0]?.[0];
+      return main !== undefined && pos[key]?.[0] === main ? main : undefined;
+    },
+    degree: (key, sense) =>
+      degreeOf(sense, key, [lemmas[key] ?? []].flat(), pos) !== undefined,
+  });
   const {
     capital,
     counts: capitals,
@@ -123,6 +144,23 @@ export async function buildPairDictionary(
     personFirst: (term) =>
       Object.hasOwn(names, term) && /^[gs]/.test(names[term]!),
   });
+  // A word English writes only capitalised (no lowercase headword in English
+  // Wiktionary: January, Monday) is its capitalised headword: an edition's lowercase
+  // entry for it (ru "january" → январский) is left out, so the word takes the
+  // capitalised one however it is written. So is a word English writes capitalised but
+  // for a lesser use (`lesserLowercase`: french, to cut in strips; english, a spin).
+  const uncased = Object.keys(merged.dict).filter(
+    (key) =>
+      !/\s/.test(key) &&
+      Object.hasOwn(capital, capitalKey(key, false)) &&
+      (!tableTerms.lowercase.has(key) ||
+        lesserLowercase(key, tableTerms.coverage, lemmas)),
+  );
+  const left = new Set(uncased);
+  const dict = Object.fromEntries(
+    Object.entries(merged.dict).filter(([key]) => !left.has(key)),
+  );
+  const posed = withPointerPos(dict, pos);
   // The edition's capitalised glosses in its case, once their meanings are read.
   const editionSource = capitalSources.findIndex(
     ({ tag }) => tag === edition?.tag,
@@ -133,13 +171,24 @@ export async function buildPairDictionary(
       : 0;
   return {
     ...merged,
+    dict,
     capital,
     stats: {
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
-      terms: Object.keys(merged.dict).length,
+      terms: Object.keys(dict).length,
       pointers: editionTerms?.stats.pointers ?? 0,
       templates: editionTerms?.stats.templates ?? 0,
+      /** Of the templates, those learned from senses the edition does not mark as forms. */
+      unmarkedTemplates: editionTerms?.stats.unmarkedTemplates ?? 0,
+      /** Lowercase terms' edition glosses left out as placeholders, and which. */
+      placeheld: editionTerms?.stats.placeheld ?? 0,
+      placeholders: editionTerms?.stats.placeholders ?? [],
+      /** Edition glosses reshaped: labels in brackets, a closing reference cut, the translation first. */
+      reshaped: editionTerms?.stats.reshaped ?? 0,
+      /** Pointer senses with no part of speech given the word's main one in English. */
+      pointerPos: posed,
+      labels: editionTerms?.stats.labels ?? [],
       /** Edition glosses put in the edition's own case (`inNativeCase`). */
       cased: (editionTerms?.stats.cased ?? 0) + capitalCased,
       /** Whether the edition opens its glosses with capitals, as sentences. */
@@ -149,11 +198,70 @@ export async function buildPairDictionary(
         (editionTerms?.stats.foreign ?? 0) + (tableTerms.stats.foreign ?? 0),
       /** Terms of a closed class taken from a later source that translates what one described. */
       described: merged.described,
+      /** Terms taken from a later source for a meaning in their main part of speech. */
+      lacking: merged.lacking,
+      /** Lowercase terms of words English writes only capitalised, left out. */
+      uncased,
       capitals,
       /** Glosses left out as classes of names, with how many headwords share each. */
       classes,
     },
   };
+}
+
+/** Parts of speech that say none: kaikki's "unknown", or nothing. */
+const NO_POS: readonly string[] = ["", "unknown"];
+
+/**
+ * LEARNING: a pointer sense whose source gives it no part of speech takes the word's
+ * main one in English (en/pos.json): the hover follows a pointer in its sense's part
+ * of speech, so de could ("Präteritum des Hilfsverbs can", unknown) shows can's verbs
+ * (können), not its noun (Blechdose, a tin can). Gives how many senses it set.
+ */
+export function withPointerPos(
+  dict: Record<string, [string, PairSense[], number]>,
+  pos: PosPack,
+): number {
+  let set = 0;
+  for (const [key, entry] of Object.entries(dict)) {
+    const main = pos[key]?.[0];
+    if (main === undefined) continue;
+    entry[1] = entry[1].map((sense): PairSense => {
+      if (sense[3] === undefined || !NO_POS.includes(sense[0])) return sense;
+      set++;
+      return [main, sense[1], sense[2], sense[3]];
+    });
+  }
+  return set;
+}
+
+/** A capitalised headword's tables translate into at least this many languages… */
+const CAPITAL_COVERAGE = 50;
+/** …and this many times the languages its lowercase headword's do. */
+const LESSER_RATIO = 15;
+
+/**
+ * LEARNING: a lowercase headword English uses far less than the same word capitalised:
+ * English Wiktionary's tables translate the capitalised one's main sense into
+ * CAPITAL_COVERAGE languages or more, LESSER_RATIO times as many as any sense of the
+ * lowercase one (French 180 against french, to cut in strips, 4; English 227 against
+ * the billiards spin 8; Japan 217 against the lacquer 8). Not an inflected form, whose
+ * tables are its base's ("numbers", not Numbers), nor a word with a use of its own
+ * (china 17 against China 224; turkey, may, polish). A capitalised word at a
+ * sentence start then reads as the capitalised one, as written mid-sentence.
+ */
+export function lesserLowercase(
+  key: string,
+  coverage: ReadonlyMap<string, number>,
+  lemmas: LemmaPack,
+): boolean {
+  const bases = [lemmas[key] ?? []].flat();
+  if (bases.some((base) => base !== key)) return false;
+  const capital = coverage.get(capitalKey(key, false)) ?? 0;
+  return (
+    capital >= CAPITAL_COVERAGE &&
+    (coverage.get(key) ?? 0) * LESSER_RATIO <= capital
+  );
 }
 
 /** The term keys English packs file meanings under: vocabulary words and phrase patterns. */
@@ -171,10 +279,12 @@ async function main() {
   if (natives.length === 0) throw new Error("Name the native languages: es…");
   const termKey = englishTermKey();
   const names = readPack<NamesPack>("en/names.json");
+  const lemmas = readPack<LemmaPack>("en/lemmas.json");
+  const pos = readPack<PosPack>("en/pos.json");
   for (const native of natives) {
     const { dict, capital, sources, counts, stats } = await buildPairDictionary(
       native,
-      { termKey, names },
+      { termKey, names, lemmas, pos },
     );
     const index = writeShards(
       `en-${native}`,
@@ -195,6 +305,14 @@ async function main() {
     console.log(
       `  ${stats.cased} edition glosses put in the edition's case (glosses open with capitals: ${stats.sentenceCase}); ${stats.foreign} glosses and table words left out with no letter of the native script; ` +
         `${stats.described.length} described closed-class terms taken from a later source: ${stats.described.slice(0, 20).join(", ")}`,
+    );
+    console.log(
+      `  ${stats.lacking.length} terms taken from a later source for their main part of speech: ${stats.lacking.slice(0, 30).join(", ")}; ` +
+        `${stats.uncased.length} lowercase terms of words English writes capitalised left out: ${stats.uncased.slice(0, 20).join(", ")}; ${stats.capitals.personSenses} person senses left out`,
+    );
+    console.log(
+      `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
+        `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}`,
     );
     console.log(
       "  class glosses:",

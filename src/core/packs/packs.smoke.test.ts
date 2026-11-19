@@ -10,11 +10,12 @@ import {
   createEnJaDictionary,
   createPairDictionary,
 } from "../lexicon/dictionary";
+import { withContractions } from "../lexicon/contractions";
 import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
 import { capitalKey, displayWidth } from "../lexicon/short-lines";
-import { recipeNatives } from "../natives";
+import { recipeNatives, type RecipeNative } from "../natives";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
 import type { DictPack, ShardIndex } from "./types";
@@ -30,6 +31,7 @@ const {
   freq,
   vocab: vocabList,
   phrases,
+  contractions,
 } = await loadPack("en");
 const { dict, phrases: jaPhrases, capital, sensePos } = await loadPack("en-ja");
 const { defs } = await loadPack("en-defs");
@@ -577,6 +579,66 @@ describe.each(recipeNatives())(
   },
 );
 
+// The 2026-11-19 real-site check (U1-6): what the first line of these words is in each
+// pair, and lines they must not show.
+const FIRST_LINES: Readonly<
+  Record<
+    string,
+    { english: string; january: string; be: string; better: string }
+  >
+> = {
+  es: { english: "inglés", january: "enero", be: "ser", better: "mejor" },
+  pt: { english: "inglês", january: "janeiro", be: "ser", better: "melhor" },
+  fr: {
+    english: "anglais",
+    january: "janvier",
+    be: "être",
+    better: "meilleur",
+  },
+  de: { english: "englisch", january: "januar", be: "sein", better: "besser" },
+  ru: { english: "английск", january: "январь", be: "быть", better: "лучше" },
+  zh: { english: "英语", january: "一月", be: "是", better: "更好" },
+  it: {
+    english: "inglese",
+    january: "gennaio",
+    be: "essere",
+    better: "migliore",
+  },
+  pl: { english: "angielski", january: "styczeń", be: "być", better: "lepszy" },
+};
+
+describe.each(recipeNatives())("generated en-%s first lines", (native) => {
+  const expected = FIRST_LINES[native]!;
+  const load = loadPack(`en-${native}`).then(({ dict }) =>
+    createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+  );
+  const first = async (...args: Parameters<Awaited<typeof load>["entry"]>) =>
+    (await load).entry(...args)?.lines[0]?.toLowerCase();
+
+  it("give English the language's word, not a type size, a sport's spin or a surname", async () => {
+    const lines = (await load).entry("english", "capital")?.lines ?? [];
+    expect(lines[0]?.toLowerCase()).toContain(expected.english);
+    for (const line of lines)
+      expect(line).not.toMatch(/Инглиш|silvio|Mittel|台球|billard|bilard/i);
+  });
+  it("give January the month however it is written, not an adjective", async () => {
+    for (const written of ["capital", undefined] as const)
+      expect(await first("january", written)).toContain(expected.january);
+    expect((await load).entry("january")?.lines).toHaveLength(1);
+  });
+  it("give be the copula first, as a verb and as an auxiliary", async () => {
+    expect(await first("be", "lower", "verb")).toContain(expected.be);
+    expect(await first("be", "lower", "auxiliary")).toContain(expected.be);
+  });
+  it("give better the comparative, not good's other senses or the verb", async () => {
+    expect(await first("better", "lower", "adjective")).toContain(
+      expected.better,
+    );
+    const lines = (await load).entry("better", "lower", "adjective")?.lines;
+    expect(lines?.join(" / ")).not.toMatch(/mejorar|sage|grzeczne/i);
+  });
+});
+
 describe("generated en-zh dictionary", () => {
   it("is written in simplified characters", async () => {
     const { dict } = await loadPack("en-zh");
@@ -587,5 +649,129 @@ describe("generated en-zh dictionary", () => {
       ),
     );
     expect(traditional.length).toBeLessThan(10);
+  });
+});
+
+// U1-7: what an edition writes that is no meaning, and the classes found after U1-4/U1-6.
+describe("generated packs: native hygiene (U1-7)", () => {
+  const pair = (native: RecipeNative) =>
+    loadPack(`en-${native}`).then(({ dict }) =>
+      createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+    );
+  const shown = async (
+    native: RecipeNative,
+    ...args: Parameters<Awaited<ReturnType<typeof pair>>["entry"]>
+  ) => ((await pair(native)).entry(...args)?.lines ?? []).join(" / ");
+  const ja = createEnJaDictionary({
+    dict,
+    phrases: jaPhrases,
+    capital,
+    sensePos,
+    defs,
+    pos,
+    ipa,
+  });
+
+  it("ja: okay follows the first of OK's spellings past the Oklahoma abbreviation", () => {
+    expect(ja.entry("okay")?.lines[0]).toBe("大丈夫な");
+    expect(ja.entry("ok", "lower")?.lines.join()).not.toMatch(/Oklahoma/);
+    expect(capital.OK?.[1]).toEqual(["Oklahoma(オクラホマ州)の略"]);
+  });
+  it("fr: no placeholder lines, no closing references", async () => {
+    for (const word of ["because", "catch", "scoff"])
+      expect(await shown("fr", word)).not.toMatch(/manquante/);
+    expect(await shown("fr", "premise")).not.toMatch(/voir premises/);
+  });
+  it("fr: the translation after a sentence about the English word", async () => {
+    expect(await shown("fr", "least", "lower", "adjective")).toMatch(
+      /^le moins/,
+    );
+  });
+  it("ru: a label abbreviation is not the line, even before a capital", async () => {
+    expect(await shown("ru", "britannia", "capital")).toMatch(/^Британия/);
+    expect(await shown("ru", "gonna")).not.toMatch(/разг/);
+  });
+  it("reads unmarked pointers and gives a modal's pointer its verb senses", async () => {
+    // es armor: "grafía alternativa de armour" only points, so the tables' term.
+    expect(await shown("es", "armor")).toMatch(/^armadura/);
+    expect(await shown("fr", "might", "lower", "verb")).toMatch(/pouvoir/);
+    expect(await shown("de", "could", "lower", "verb")).toMatch(/können/);
+    expect(await shown("de", "could", "lower", "verb")).not.toMatch(
+      /Blechdose/,
+    );
+  });
+  it("has no example text as table words, and no lesser lowercase line under a capital", async () => {
+    for (const native of ["pt", "it", "de", "ru"] as const)
+      expect(await shown(native, "would", "lower", "verb")).not.toMatch(
+        /In the winters|We sat on the bench/,
+      );
+    expect(await shown("es", "french", "capital")).not.toMatch(/cortar/);
+    // At a sentence start too: English is the language, not a billiards spin.
+    expect(await shown("zh", "english")).toMatch(/^英语/);
+  });
+});
+
+describe("generated contractions", () => {
+  it("say what each contraction is short for, in the source's case", () => {
+    expect(contractions["i'm"]).toEqual(["I am"]);
+    expect(contractions["don't"]).toEqual(["do not"]);
+    expect(contractions["can't"]).toEqual(["cannot"]);
+    expect(contractions["won't"]).toEqual(["will not"]);
+    expect(contractions["that's"]).toEqual(["that is", "that has"]);
+    expect(contractions["it's"]).toEqual(["it is", "it has"]);
+    expect(contractions["let's"]).toEqual(["let us"]);
+    expect(contractions["gonna"]).toEqual(["going to"]);
+    expect(contractions["ain't"]).toEqual(["am not", "are not", "have not"]);
+  });
+  it("leave out possessives and words with a contraction sense among others", () => {
+    for (const word of ["someone's", "one's", "gentlemen's", "am", "your"])
+      expect(contractions, word).not.toHaveProperty(word);
+  });
+
+  const options = {
+    expansions: (key: string) => contractions[key] ?? [],
+    english: (word: string) => vocab.has(word),
+  };
+  const pair = (native: "ru" | "pl" | "fr") =>
+    loadPack(`en-${native}`).then(({ dict }) =>
+      withContractions(
+        createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+        options,
+      ),
+    );
+  it("show a contraction no source has by its expansions (ru I'm)", async () => {
+    expect((await pair("ru")).entry("I'm")?.lines).toEqual(["I am"]);
+  });
+  it("show a contraction's own native meaning with its expansion as a note (pl don't)", async () => {
+    expect((await pair("pl")).entry("don't")).toMatchObject({
+      lines: ["nie"],
+      expansion: "do not",
+    });
+  });
+  it("follow no pointer of a contraction (pl there's: not 'ar, 100 m²')", async () => {
+    expect((await pair("pl")).entry("there's")?.lines).toEqual([
+      "there is / there has",
+    ]);
+  });
+  it("show no English definition of a contraction (fr we've: not the exclusive we)", async () => {
+    const entry = (await pair("fr")).entry("we've");
+    expect(entry?.glossLang).toBeUndefined();
+    expect(entry?.lines.join(" ")).not.toMatch(/exclusive/i);
+  });
+  it("give EJDict's line that writes the expansion out no note (ja I'm)", () => {
+    const ja = withContractions(
+      createEnJaDictionary({
+        dict,
+        phrases: jaPhrases,
+        capital,
+        sensePos,
+        defs,
+        pos,
+        ipa,
+      }),
+      options,
+    );
+    expect(ja.entry("I'm")?.lines[0]).toContain("I am");
+    expect(ja.entry("I'm")).not.toHaveProperty("expansion");
   });
 });

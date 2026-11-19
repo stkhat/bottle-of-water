@@ -38,6 +38,11 @@ export type NamesPack = Readonly<Record<string, string>>;
  */
 export type VocabPack = readonly string[];
 /**
+ * en/contractions.json: a contraction, as a key ("i'm", "it's", "gonna") → what it is
+ * short for, in the source's order and case (["I am"], ["it is", "it has"]).
+ */
+export type ContractionPack = Readonly<Record<string, readonly string[]>>;
+/**
  * en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. en-ja/phrases.json has
  * the same shape: Japanese translations of phrases EJDict lacks, from Wiktionary's
  * translation tables, each sense "《English sense》word,word", with its senses' parts

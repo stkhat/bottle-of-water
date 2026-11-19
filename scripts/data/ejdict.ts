@@ -105,12 +105,34 @@ export function parseEjdict(text: string): Ejdict {
     if (single && apart(title).length > 0) capital[key] = entry(apart(title));
     if (split && apart(upper).length > 0)
       capital[key.toUpperCase()] = entry(apart(upper));
-    dict[key] = entry(
-      split ? own : [...new Set([...lower, ...title, ...upper, ...other])],
-    );
+    const senses = split
+      ? own
+      : [...new Set([...lower, ...title, ...upper, ...other])];
+    // A sense that only says the word abbreviates a capitalised name ("Oklahoma(オク
+    // ラホマ州)の略" of OK, "Coca Colaの略称" of coke) is the capitalised word's: it goes
+    // with the capitalised senses, under the acronym when the line writes the word in
+    // capitals (OK), else capitalised (Coke). Not a headword's only sense.
+    const names = single
+      ? senses.filter((sense) => NAME_ABBREVIATION.test(sense))
+      : [];
+    if (names.length > 0 && names.length < senses.length) {
+      for (const sense of names) {
+        const at = upper.includes(sense) ? key.toUpperCase() : key;
+        const moved = [...(capital[at]?.[1] ?? []), sense];
+        capital[at] = entry([...new Set(moved)]);
+      }
+      dict[key] = entry(senses.filter((sense) => !names.includes(sense)));
+    } else dict[key] = entry(senses);
   }
   return { dict, capital };
 }
+
+/**
+ * An EJDict sense that only says its headword abbreviates a capitalised English name,
+ * with notes: "Oklahoma(オクラホマ州)の略", "〈U〉《しばしばC-》Coca Colaの略称".
+ */
+const NAME_ABBREVIATION =
+  /^(?:〈[CU]〉|《[^》]*》|\{[^{}\s]{1,4}\}|\s)*[A-Z][A-Za-z.'’ -]*?\s*(?:[(（][^()（）]*[)）])?\s*の略(?:称)?$/u;
 
 /**
  * Single-word headwords EJDict writes only with capitals (David, Paris, TV): names and

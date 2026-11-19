@@ -65,7 +65,10 @@ export interface TermCard {
    * definition: "en"), also under a translated sense; the UI sets it as their `lang`.
    */
   glossLang?: string;
-  /** Phrases: the main word and its translation; words: the form seen → its base. */
+  /**
+   * Phrases: the main word and its translation; words: the form seen → its base, or a
+   * contraction → what it is short for ("I'm → I am", `contractionNote`).
+   */
   sub?: string;
   /**
    * `short` is the browser translator's (marked "Machine translation"): a literal
@@ -284,6 +287,19 @@ export function inflectionNote(
   return form === key ? undefined : `${form} → ${key}`;
 }
 
+/**
+ * "I'm → I am", "it's → it is / it has": a contraction and what it is short for. Its
+ * first letter is a capital where the expansion's is (the pronoun I), as the
+ * contraction's first letters are its host's.
+ */
+export function contractionNote(surface: string, expansion: string): string {
+  const form = normalizeWord(surface);
+  const shown = /^\p{Lu}/u.test(expansion)
+    ? form.charAt(0).toUpperCase() + form.slice(1)
+    : form;
+  return `${shown} → ${expansion}`;
+}
+
 export interface DescribeDeps {
   send: typeof sendFn;
   lang: string;
@@ -378,7 +394,12 @@ export async function describeTerm(
 ): Promise<TermCard> {
   const lookup = (
     key: string,
-    place: { written?: Written; pos?: string; sentence?: string } = {},
+    place: {
+      written?: Written;
+      pos?: string;
+      sentence?: string;
+      surface?: string;
+    } = {},
   ) =>
     send({
       type: "lookup",
@@ -388,8 +409,16 @@ export async function describeTerm(
       ...(place.sentence !== undefined && { sentence: place.sentence }),
       ...(place.written !== undefined && { written: place.written }),
       ...(place.pos !== undefined && { pos: place.pos }),
+      ...(place.surface !== undefined && { surface: place.surface }),
     });
-  const found = await lookup(term.key, term);
+  // A word written otherwise than its key: a contraction keyed by another word ("it's"
+  // by "it") is named in the note by what it is short for.
+  const form = normalizeWord(term.surface);
+  const found = await lookup(term.key, {
+    ...term,
+    surface:
+      term.kind === "word" && form !== term.key ? term.surface : undefined,
+  });
   const { entry } = found;
   const ipa = entry?.ipa ?? found.ipa;
   const pair = definitionPair(entry?.glossLang, nativeLang);
@@ -460,10 +489,13 @@ export async function describeTerm(
     machineTranslated === undefined || short === undefined
       ? entry?.lines
       : [translatedLine(short, nativeLang)];
+  const expansion = entry?.expansion ?? found.expansion;
   const sub =
     main !== undefined
       ? wordLine(main, word?.entry, mainPos)
-      : inflectionNote(term.surface, term.key);
+      : expansion !== undefined
+        ? contractionNote(term.surface, expansion)
+        : inflectionNote(term.surface, term.key);
   const senses = (entry?.senses ?? []).map((sense, i): CardSense => {
     const translated =
       i < MAX_TRANSLATED_SENSES

@@ -19,10 +19,12 @@ import {
   eachEntry,
   EXAMPLE_COUNTS_PATH,
   GATE_DIR,
+  GIVEN_NAME,
   KAIKKI_PATH,
   posLabel,
   readDictPacks,
   stringifyPack,
+  SURNAME,
   WIKTIONARY_WORDS_PATH,
   writePack,
   type KaikkiEntry,
@@ -179,8 +181,8 @@ const COMMON_CAPITALIZED_POS = new Set(["adj", "adv", "verb", "intj"]);
 
 /** The kinds of name a sense can name, as `NamesPack` letters. */
 const NAME_TYPES: readonly [letter: string, test: RegExp][] = [
-  ["g", /\bgiven name\b|\bdiminutive of\b.*\bname\b/],
-  ["s", /\bsurname\b/],
+  ["g", GIVEN_NAME],
+  ["s", SURNAME],
   [
     "p",
     /\b(city|town|village|country|state of|province|capital|river|island|county|region|mountain|lake|sea|ocean|continent|district|suburb|borough|peninsula|desert)\b/,

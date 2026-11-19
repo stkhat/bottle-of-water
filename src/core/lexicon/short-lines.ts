@@ -159,9 +159,25 @@ export const keyOf = (term: string) =>
 export const capitalKey = (key: string, acronym = false) =>
   acronym ? key.toUpperCase() : key.charAt(0).toUpperCase() + key.slice(1);
 
-/** A pointer's target when it names one term ("am not, is not" names two). */
-const pointerTarget = (term: string) =>
-  term.includes(",") || term.trim() === "" ? undefined : keyOf(term);
+/** A word's letters, to tell its spellings alike: "OK" and "O.K." are "ok". */
+const lettersOf = (term: string) =>
+  term
+    .normalize("NFD")
+    .replace(/[^\p{L}]/gu, "")
+    .toLowerCase();
+
+/**
+ * A pointer's target when it names one term: one word or phrase, or several spellings
+ * of it, the first ("OK,O.K."). Several words name none ("am not, is not").
+ */
+const pointerTarget = (term: string) => {
+  const items = term.split(",").map((item) => item.trim());
+  if (items.some((item) => item === "")) return undefined;
+  const letters = lettersOf(items[0]!);
+  return letters !== "" && items.every((item) => lettersOf(item) === letters)
+    ? keyOf(items[0]!)
+    : undefined;
+};
 
 export interface ShortLineOptions {
   /** The entry's own key: a pointer to it is not followed. */
@@ -581,7 +597,12 @@ export const describes = (line: string) =>
  */
 function afterQualifier(text: string): string {
   const colon = indicesOutside(text, (t, i) => t[i] === ":")[0];
-  if (colon !== undefined) {
+  // A qualifier opens the gloss: a colon in a later sense is that sense's own ("bloqueo;
+  // Situación … por ejemplo: hilos o procesos…" is "bloqueo").
+  const senseEnd =
+    indicesOutside(text, (t, i) => t[i] === ";" || t[i] === "；")[0] ??
+    text.length;
+  if (colon !== undefined && colon < senseEnd) {
     const before = text.slice(0, colon).replace(/["“”„«»]/g, " ");
     const after = text
       .slice(colon + 1)
@@ -631,6 +652,31 @@ function sensesOf(text: string): string[] {
   });
 }
 
+/** A label in brackets that opens a gloss. */
+const OPENING_LABEL =
+  /^\s*[(（[［]([^()（）[\]［］]*)[)）\]］]\s*(?=[^\s:：])/u;
+
+/**
+ * A gloss without the labels in brackets that open it: each of several words ("(w
+ * religiach monoteistycznych) Bóg" → "Bóg") or an abbreviation ("(истор.) Британия",
+ * "(the Plough) (астрон.) Большая Медведица"), as the data build brackets an edition's
+ * opening label abbreviations. One word in brackets is part of the meaning ("(Ne) …
+ * pas") or, in a script without spaces, a note judges kept ("（现多）点燃").
+ */
+function withoutOpeningLabels(text: string): string {
+  let rest = text;
+  for (;;) {
+    const found = OPENING_LABEL.exec(rest);
+    const inside = found?.[1]?.trim() ?? "";
+    if (
+      !found ||
+      !(/\S\s+\S/u.test(inside) || /^\p{L}[\p{L}\p{M}-]*\.$/u.test(inside))
+    )
+      return rest;
+    rest = rest.slice(found[0].length);
+  }
+}
+
 /**
  * A recipe pair's edition gloss (in the native language, any script) as a hover line
  * (NATIVE, every language but Japanese, whose dictionary is EJDict):
@@ -650,13 +696,11 @@ function sensesOf(text: string): string[] {
  *   NATIVE_CAP).
  */
 export function editionLine(text: string): string {
-  const clean = text
-    .replace(/(?<=[\p{Ll}.])[₀-₉₋]+/gu, "")
-    .replace(/^\s*(?:…|\.{3})+\s*/u, "")
-    .replace(
-      /^\s*[(（[［]([^()（）[\]［］]*)[)）\]］]\s*(?=[^\s:：])/u,
-      (label, inside: string) => (/\S\s+\S/u.test(inside) ? "" : label),
-    );
+  const clean = withoutOpeningLabels(
+    text
+      .replace(/(?<=[\p{Ll}.])[₀-₉₋]+/gu, "")
+      .replace(/^\s*(?:…|\.{3})+\s*/u, ""),
+  );
   const meaning = afterQualifier(firstSentence(clean));
   const sense =
     translationsAfter(meaning) ??
@@ -716,12 +760,14 @@ export function definitionLine(
 
 /**
  * A pair dictionary's pointer sense (an edition's form of another word) as a hover
- * line: its first sense without notes in brackets and closing punctuation ("Pasado
- * simple del verbo (to) tell." → "Pasado simple del verbo tell"), whole, since a cut
- * would lose the word it names.
+ * line: its first sense without notes in brackets, an opening arrow and closing
+ * punctuation ("Pasado simple del verbo (to) tell." → "Pasado simple del verbo tell";
+ * "→ voir advisor" → "voir advisor"), whole, since a cut would lose the word it names.
  */
 export const pointerLine = (text: string) =>
-  withoutParentheses(shortOfDefinition(text)).replace(/[\s.:;。：；]+$/u, "");
+  withoutParentheses(shortOfDefinition(text))
+    .replace(/^→\s*/u, "")
+    .replace(/[\s.:;。：；]+$/u, "");
 
 /**
  * Whether a pair dictionary's pointer line is short enough to show beside meanings. One
@@ -733,3 +779,48 @@ export const pointerLine = (text: string) =>
  */
 export const fitsPairCap = (line: string, second = false) =>
   displayWidth(line) <= (second ? NATIVE_CAP : DEFINITION_CAP);
+
+/** The parts of speech whose forms are degrees: comparatives and superlatives. */
+const DEGREES: readonly string[] = ["adjective", "adverb"];
+
+/**
+ * The base an edition's unmarked degree names (es better: "Comparativo irregular de
+ * good"; editions mark verb forms and plurals, which the data build keeps as pointers,
+ * but often not comparatives and superlatives): a pair sense with no target and no hint
+ * (an edition's, not a table's) of an adjective or adverb that writes, after other
+ * words, one of its headword's base forms (`bases`, the learning language's lemmas:
+ * better → good, well) whose main part of speech (`learningPos`) is the sense's own, in
+ * its line (`editionLine`). A gloss that starts with the base is a native word spelt the
+ * same (fr contented: "Content, satisfait"); one whose line is the meaning a qualifier
+ * introduces is that meaning (es later: "Comparativo de late: más tarde" → "más
+ * tarde"). The pair dictionary reads such a sense as a pointer, and the data build as
+ * no meaning of its own.
+ */
+export function degreeOf(
+  [pos, gloss, hint, target]: readonly [
+    pos: string,
+    text: string,
+    hint?: string | null,
+    target?: string,
+  ],
+  head: string,
+  bases: readonly string[],
+  learningPos: Readonly<Record<string, readonly string[]>>,
+): string | undefined {
+  if (target !== undefined || hint != null || !DEGREES.includes(pos))
+    return undefined;
+  const text = editionLine(gloss);
+  return bases.find((base) => {
+    if (
+      base === head ||
+      !Object.hasOwn(learningPos, base) ||
+      learningPos[base]![0] !== pos
+    )
+      return false;
+    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const at = text.search(
+      new RegExp(`(?<![\\p{L}\\p{N}'-])${escaped}(?![\\p{L}\\p{N}'-])`, "iu"),
+    );
+    return at > 0 && /\p{L}/u.test(text.slice(0, at));
+  });
+}
