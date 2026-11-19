@@ -62,6 +62,7 @@ export async function buildPairDictionary(
       : undefined,
     names = {},
     lemmas = {},
+    contractions = {},
     pos = {},
   }: {
     termKey: TermKey;
@@ -70,6 +71,8 @@ export async function buildPairDictionary(
     recipe?: Recipe;
     /** The English names lexicon (en/names.json), for capitalised headwords' meanings. */
     names?: NamesPack;
+    /** What each English contraction is short for (en/contractions.json). */
+    contractions?: Readonly<Record<string, readonly string[]>>;
     /** English base forms and parts of speech (en/lemmas.json, en/pos.json), to read degrees. */
     lemmas?: LemmaPack;
     pos?: PosPack;
@@ -138,6 +141,8 @@ export async function buildPairDictionary(
       degreeOf(sense, key, [lemmas[key] ?? []].flat(), pos) !== undefined,
     otherWord: (key, taken, later) =>
       isOtherWord(key, taken, later, tableTerms),
+    expansionsOf: (key) =>
+      Object.hasOwn(contractions, key) ? contractions[key]! : [],
   });
   const {
     capital,
@@ -223,6 +228,7 @@ export async function buildPairDictionary(
       described: merged.described,
       /** Terms taken from a later source for a meaning in their main part of speech. */
       lacking: merged.lacking,
+      expanded: merged.expanded,
       /** Terms that only point and kept their pointers beside a later source's other word (dug). */
       pointing: merged.pointing,
       /** Lowercase terms of words English writes only capitalised, left out. */
@@ -304,12 +310,15 @@ async function main() {
   if (natives.length === 0) throw new Error("Name the native languages: es…");
   const termKey = englishTermKey();
   const names = readPack<NamesPack>("en/names.json");
+  const contractions = readPack<Record<string, readonly string[]>>(
+    "en/contractions.json",
+  );
   const lemmas = readPack<LemmaPack>("en/lemmas.json");
   const pos = readPack<PosPack>("en/pos.json");
   for (const native of natives) {
     const { dict, capital, sources, counts, stats } = await buildPairDictionary(
       native,
-      { termKey, names, lemmas, pos },
+      { termKey, names, lemmas, pos, contractions },
     );
     const index = writeShards(
       `en-${native}`,
@@ -342,7 +351,7 @@ async function main() {
         `abbreviations: ${stats.abbreviations.slice(0, 30).join(" ")}`,
     );
     console.log(
-      `  ${stats.wordless} table terms left to later sources (their main sense said with no word); ${stats.auxiliarySenses} edition senses labelled an auxiliary's`,
+      `  ${stats.expanded.length} contractions taken from a later source that translates their expansion: ${stats.expanded.slice(0, 20).join(", ")}; ${stats.wordless} table terms left to later sources (their main sense said with no word); ${stats.auxiliarySenses} edition senses labelled an auxiliary's`,
     );
     console.log(
       "  class glosses:",

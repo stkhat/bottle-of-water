@@ -3417,7 +3417,7 @@
 "battlefront":["Front",[["noun","Front","line along which opposing armies engage in combat"]],0],
 "battlement":["Befestigung",[["noun","Befestigung, Festungsmauer, Mauerzinne","indented parapet formed by a series of rising members"]],0],
 "battler":["Kämpfer",[["noun","Kämpfer, Soldat","One who battles against an enemy"]],0],
-"battleship":["Schiffe versenken",[["noun","Schiffe versenken","guessing game"]],0],
+"battleship":["großes, schwer bewaffnetes und stark gepanzertes Schiff, das für militärische Einsätze benutzt wird",[["noun","großes, schwer bewaffnetes und stark gepanzertes Schiff, das für militärische Einsätze benutzt wird; Schlachtschiff"]],1],
 "batty":["verrückt",[["adjective","verrückt","mad, crazy, silly"]],0],
 "bauble":["Modeschmuck",[["noun","Modeschmuck, Schnickschnack","cheap showy ornament piece of jewellery"],["noun","Christbaumkugel","small shiny spherical decoration, commonly put on Christmas trees"]],0],
 "baud":["Baud",[["noun","Baud","A rate defined as the number of signalling events per second"]],0],
@@ -15319,6 +15319,5 @@
 "five senses":["fünf Sinne",[["noun","fünf Sinne","sight, hearing, smell, taste, and touch"]],0],
 "five thousand":["fünftausend",[["numeral","fünftausend","5000"]],0],
 "fivefold":["fünffach",[["adjective","fünffach","in a group or series of five; consisting of five together as one; quintuple"]],0],
-"fiver":["Fünfer",[["noun","Fünfer","banknote"]],0],
-"fix":["reparieren",[["verb","reparieren, flicken","to mend or repair"],["verb","fixieren, befestigen, anhängen","to attach; to affix; to hold in place"],["verb","vorbereiten, machen, zubereiten","to prepare"],["noun","Reparatur","an instance of fixing"]],0]
+"fiver":["Fünfer",[["noun","Fünfer","banknote"]],0]
 }

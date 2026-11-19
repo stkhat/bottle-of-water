@@ -19,6 +19,15 @@ describe("cleanDefinition", () => {
     );
   });
 
+  it("is no definition for a spelling named by the standards that write it", () => {
+    expect(
+      cleanDefinition("Non-Oxford British standard spelling of prioritize."),
+    ).toBeUndefined();
+    expect(cleanDefinition("A Japanese form of martial art.")).toBe(
+      "A Japanese form of martial art.",
+    );
+  });
+
   it("drops leading labels", () => {
     expect(cleanDefinition("(idiomatic, informal) To reveal a secret.")).toBe(
       "To reveal a secret.",

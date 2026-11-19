@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'ll","last":"false witness"},{"file":"dict-2.json","first":"falsehood","last":"overcall"},{"file":"dict-3.json","first":"overcame","last":"unmatched"},{"file":"dict-4.json","first":"unmeasured","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'ll","last":"false witness"},{"file":"dict-2.json","first":"falsehood","last":"overcall"},{"file":"dict-3.json","first":"overcame","last":"unmarked"},{"file":"dict-4.json","first":"unmarried","last":"épée"}],
 "sources":["plwiktionary","enwiktionary-translations","omw-pl"]
 }

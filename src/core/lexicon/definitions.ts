@@ -324,8 +324,9 @@ export function isUsageNoteShort({
  */
 export function cleanDefinition(text: string): string | undefined {
   const cleaned = withoutLabels(text);
-  for (const pointer of POINTERS) {
-    const match = pointer.exec(cleaned);
+  for (const [i, pointer] of POINTERS.entries()) {
+    const match =
+      pointer.exec(cleaned) ?? (i === 1 ? namedSpelling(cleaned) : undefined);
     if (!match) continue;
     const colon = cleaned.indexOf(":", match[0].length);
     return colon === -1 ? undefined : cleanDefinition(cleaned.slice(colon + 1));

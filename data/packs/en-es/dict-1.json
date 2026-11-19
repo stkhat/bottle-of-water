@@ -7853,7 +7853,7 @@
 "condensed":["pasado simple del verbo (to) condense",[["verb","pasado simple del verbo (to) condense",null,"condense"],["verb","participio pasado del verbo (to) condense",null,"condense"]],0],
 "condensed milk":["leche condensada",[["noun","leche condensada","milk that has been reduced to syrup"]],1],
 "condescend":["condescender (a)",[["verb","condescender (a)","(intransitive) to come down from a superior position and do something — see also deign, stoop"],["verb","condescender (a), tratar con condescendencia","(intransitive) to treat someone as though inferior — see also talk down"],["verb","condescender","(intransitive) to agree to something or to graciously give"]],1],
-"condescending":["condescendiente",[["adjective","condescendiente"],["verb","participio presente y gerundio del verbo (to) condescending"]],0],
+"condescending":["condescendiente",[["adjective","condescendiente"]],0],
 "condiment":["condimento",[["noun","condimento","something used to enhance flavor"],["verb","condimentar, condir (disused)","to season with condiments"]],1],
 "condition":["condición",[["noun","condición"],["verb","acondicionar"],["verb","condicionar"]],0],
 "condition precedent":["condición suspensiva",[["noun","condición suspensiva","(2)"]],1],
@@ -13331,7 +13331,6 @@
 "fair":["bello",[["adjective","bello"],["adjective","equitativo"],["adjective","justo"],["adjective","moderadamente bueno, grande, amplio, etc"]],0],
 "fair and square":["en buena lid",[["adverb","en buena lid","fairly and undoubtedly"],["adverb","justamente, con todas las de la ley","within the applicable rules"]],1],
 "fair dinkum":["genuino, honesto",[["phrase","genuino, honesto"],["phrase","honestamente, sinceramente"]],0],
-"fair enough":["suficientemente/bastante/bastantemente justo",[["phrase","suficientemente/bastante/bastantemente justo","literal"]],1],
 "fair game":["blanco legítimo",[["noun","blanco legítimo","a goal or an object that may legitimately be sought"]],1],
 "fair play":["juego limpio",[["noun","juego limpio","good behavior"]],1],
 "fair sex":["sexo débil",[["noun","sexo débil, bello sexo","women"]],1],
@@ -17175,7 +17174,7 @@
 "haute couture":["alta costura",[["noun","alta costura","high fashion produced in Paris"]],1],
 "havana brown":["Habana brown",[["noun","Habana brown","domestic cat breed"]],1],
 "havana syndrome":["síndrome de La Habana",[["noun","síndrome de La Habana","Translations"]],1],
-"have":["tener",[["verb","tener"],["verb","de un recurso o sustancia, generalmente alimento: consumir, usar"],["verb","invitar, hospedar"],["verb","haber (como verbo auxiliar)"]],0],
+"have":["tener",[["verb","tener"],["verb","de un recurso o sustancia, generalmente alimento: consumir, usar"],["verb","invitar, hospedar"],["auxiliary","haber (como verbo auxiliar)"]],0],
 "have a ball":["pasarlo pipa",[["verb","pasarlo pipa, pasarlo bomba, pasarlo teta","to enjoy thoroughly"]],1],
 "have a bone to pick":["tener que arreglar las cuentas con alguien",[["verb","tener que arreglar las cuentas con alguien","have a complaint or grievance"]],1],
 "have a crack at":["intentar",[["verb","intentar","to attempt (something); to try to do"]],1],
@@ -18068,5 +18067,7 @@
 "horizontal dancing":["echar un polvo",[["noun","echar un polvo","euphemistically: sexual intercourse"]],1],
 "horizontally":["horizontalmente",[["adverb","horizontalmente","in a horizontal direction or position"]],1],
 "hormonal":["hormonal",[["adjective","hormonal","pertaining to hormones"]],1],
-"hormone":["hormona",[["noun","hormona"]],0]
+"hormone":["hormona",[["noun","hormona"]],0],
+"hormone therapy":["terapia de hormonas",[["noun","terapia de hormonas","Translations"]],1],
+"horn":["cuerno, asta",[["noun","cuerno, asta"],["noun","carey"],["noun","bocina de un vehículo, claxon"]],0]
 }

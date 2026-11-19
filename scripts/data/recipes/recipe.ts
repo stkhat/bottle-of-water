@@ -1006,6 +1006,9 @@ export async function readEdition(
           (found.gloss !== written && found.gloss.toLowerCase() === head)
         )
           continue;
+        // Nor is one that points to the headword itself, another spelling of it
+        // (pt "you’re": "grafia alternativa de you're", filed under you're).
+        if (pointerTemplates(found.gloss, key).some(isFrame)) continue;
         const shaped = withAbbreviations(
           beforeReference(
             withLabelsInBrackets(
@@ -1879,7 +1882,8 @@ function translatesAlike(senses: readonly PairSense[], sense: PairSense) {
  * adjective is only "comparativo irregular de good" (a `degree`), from the tables'
  * "mejor"; es "spring", whose edition has only the verb (saltar), from the tables'
  * "primavera". A pointer or a degree names another word's meaning; it has none of its
- * own.
+ * own. A contraction comes from the first later source that translates what it is
+ * short for (`expansionsOf`), when the former does not.
  */
 export function mergeSources(
   sources: { tag: string; terms: Map<string, SourceTerm> }[],
@@ -1887,6 +1891,7 @@ export function mergeSources(
     mainPos = () => undefined,
     degree = () => false,
     otherWord = () => false,
+    expansionsOf = () => [],
   }: {
     mainPos?: (key: string) => string | undefined;
     /** A sense that is an unmarked degree of another word (`degreeOf`). */
@@ -1900,6 +1905,8 @@ export function mergeSources(
       taken: readonly PairSense[],
       later: readonly PairSense[],
     ) => boolean;
+    /** What a contraction is short for (en/contractions.json): "do not" for don't. */
+    expansionsOf?: (key: string) => readonly string[];
   } = {},
 ) {
   const dict: Record<string, [string, PairSense[], number]> = {};
@@ -1907,6 +1914,7 @@ export function mergeSources(
   const described: string[] = [];
   const lacking: string[] = [];
   const pointing: string[] = [];
+  const expanded: string[] = [];
   const means = (senses: readonly PairSense[]) =>
     senses.some((sense) => !isPointerSense(sense));
   /** Whether `senses` mean something as a `pos` (no pointer, no degree). */
@@ -1920,7 +1928,7 @@ export function mergeSources(
     key: string,
     taken: readonly PairSense[],
     later: readonly PairSense[],
-  ): "points" | "describes" | "lacks" | false => {
+  ): "points" | "describes" | "lacks" | "expands" | false => {
     if (!means(taken)) {
       if (!means(later)) return false;
       if (otherWord(key, taken, later)) {
@@ -1929,6 +1937,23 @@ export function mergeSources(
       }
       return "points";
     }
+    // A contraction a translation table translates as what it is short for (its
+    // English sense "do not": fr don't → "ne… pas") comes from it, not from a source
+    // that does not (Wiktionnaire's don’t: "Signifie l’impératif négatif").
+    const expansions = expansionsOf(key);
+    const translatesExpansion = (senses: readonly PairSense[]) =>
+      senses.some(
+        (sense) =>
+          !isPointerSense(sense) &&
+          sense[2] != null &&
+          expansions.includes(sense[2].toLowerCase()),
+      );
+    if (
+      expansions.length > 0 &&
+      !translatesExpansion(taken) &&
+      translatesExpansion(later)
+    )
+      return "expands";
     const described = describedOnly(taken);
     if (
       described !== undefined &&
@@ -1966,6 +1991,7 @@ export function mergeSources(
         counts[sources[from]!.tag]!--;
         if (why === "describes") described.push(key);
         if (why === "lacks") lacking.push(key);
+        if (why === "expands") expanded.push(key);
       }
       dict[key] = [short, senses, index];
       counts[tag]++;
@@ -1981,5 +2007,7 @@ export function mergeSources(
     lacking,
     /** The terms that only point and kept their pointers, the later source's being another word. */
     pointing,
+    /** The contractions a later source took for translating what they are short for. */
+    expanded,
   };
 }

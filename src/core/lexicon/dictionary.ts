@@ -779,11 +779,10 @@ export function createPairDictionary({
           head,
           pointer: (line) => pointers.get(line),
           follow: (target) => {
-            // An auxiliary's base is read as one ("has been": haber, not tener).
-            const along = isAuxiliary(pos)
-              ? pos
-              : (pointerPos.get(target) ?? pos);
-            const found = meaningsOf(target, along);
+            const along = pointerPos.get(target) ?? pos;
+            // An auxiliary's base is ordered as one ("has been": haber, not tener),
+            // its senses kept as the pointer sense's part of speech keeps them.
+            const found = meaningsOf(target, isAuxiliary(pos) ? pos : along);
             // The target's meanings the form can have (told: tell's verbs, not "a tell").
             const meanings =
               found && caseOnce(onTag(found, along), written, nounCase);

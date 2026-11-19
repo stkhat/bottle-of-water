@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A-bomb","last":"Zurich"},{"file":"dict-1.json","first":"'em","last":"hormone"},{"file":"dict-2.json","first":"hormone therapy","last":"string together"},{"file":"dict-3.json","first":"string trimmer","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A-bomb","last":"Zurich"},{"file":"dict-1.json","first":"'em","last":"horn"},{"file":"dict-2.json","first":"horn of africa","last":"stringed instrument"},{"file":"dict-3.json","first":"stringency","last":"éclair"}],
 "sources":["eswiktionary","enwiktionary-translations"]
 }

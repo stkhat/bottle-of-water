@@ -755,6 +755,7 @@ describe("mergeSources", () => {
       described: [],
       lacking: [],
       pointing: [],
+      expanded: [],
     });
   });
   it("takes a closed-class term a source only describes from the next that translates it", () => {
@@ -809,6 +810,35 @@ describe("mergeSources", () => {
     expect(dict["you"]?.[2]).toBe(0);
     expect(dict["pilot"]?.[2]).toBe(0);
     expect(described).toEqual(["the"]);
+  });
+  it("takes a contraction from a later source that translates what it is short for", () => {
+    const edition = new Map<string, SourceTerm>([
+      [
+        "don't",
+        {
+          short: "signifie l’impératif négatif",
+          senses: [["verb", "signifie l’impératif négatif"]],
+        },
+      ],
+      ["i'm", { short: "je suis", senses: [["verb", "je suis"]] }],
+    ]);
+    const tables = new Map<string, SourceTerm>([
+      ["don't", { short: "ne… pas", senses: [["verb", "ne… pas", "do not"]] }],
+      ["i'm", { short: "chuis", senses: [["verb", "chuis", "Contraction"]] }],
+    ]);
+    const { dict, expanded } = mergeSources(
+      [
+        { tag: "frwiktionary", terms: edition },
+        { tag: "enwiktionary-translations", terms: tables },
+      ],
+      {
+        expansionsOf: (key) =>
+          ({ "don't": ["do not"], "i'm": ["I am"] })[key] ?? [],
+      },
+    );
+    expect(dict["don't"]?.[2]).toBe(1);
+    expect(dict["i'm"]?.[2]).toBe(0);
+    expect(expanded).toEqual(["don't"]);
   });
   it("takes a term that only points from the next source with a meaning for it", () => {
     const pointer = (target: string) =>
