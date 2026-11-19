@@ -273,6 +273,7 @@ export function createLanguagePack(
     lemmas: (word: string) =>
       lemmatize(word, data.lemmas, data.vocab, capitals),
     partsOfSpeech: posOf,
+    rank: (base: string) => ranks.get(base) ?? Infinity,
   };
   /** `word` as written: a capital asks for a noun head (`splitCompound`). */
   const compound = (word: string): Compound | undefined => {

@@ -89,6 +89,49 @@ describe("splitCompound (German)", () => {
       "konferenz",
     ]);
   });
+  it("reads a verb by its stem only, and a stem that is also a noun as the more frequent", () => {
+    // A tiny German with ranks: "sprach" is sprechen's past, "schul" schulen's
+    // imperative; Sprache, Schule and messen are the more frequent.
+    const more: Record<string, readonly string[]> = {
+      ...FORMS,
+      sprach: ["sprechen"],
+      sprache: ["sprache"],
+      kurs: ["kurs"],
+      schul: ["schulen"],
+      mess: [],
+      messe: ["messe"],
+      zahl: ["zahl"],
+    };
+    const morePos: Record<string, readonly string[]> = {
+      ...POS,
+      sprechen: ["verb"],
+      sprache: ["noun"],
+      kurs: ["noun"],
+      schulen: ["verb"],
+      messen: ["verb"],
+      messe: ["noun"],
+      zahl: ["noun"],
+    };
+    const ranks: Record<string, number> = {
+      sprechen: 234,
+      sprache: 1324,
+      schule: 363,
+      schulen: 13977,
+      messen: 3776,
+      messe: 5336,
+    };
+    const ranked: CompoundWords = {
+      lemmas: (word) => (word === "messen" ? ["messen"] : (more[word] ?? [])),
+      partsOfSpeech: (word) => morePos[word] ?? [],
+      rank: (base) => ranks[base] ?? Infinity,
+    };
+    const parts = (word: string) =>
+      splitCompound(word, ranked, COMPOUND_RULES.de!, true)?.parts;
+    expect(parts("sprachkurs")).toEqual(["sprache", "kurs"]);
+    expect(parts("schulbuch")).toEqual(["schule", "buch"]);
+    expect(parts("messzahl")).toEqual(["messen", "zahl"]);
+    expect(parts("schreibtisch")).toEqual(["schreiben", "tisch"]);
+  });
   it("takes a capitalised word's noun base for its head", () => {
     expect(split("lösungsangeboten")).toMatchObject({
       key: "lösungsangebot",

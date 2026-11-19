@@ -287,25 +287,45 @@ function wordLine(
   return `${word} — ${entry.lines[0] ?? entry.short}`;
 }
 
-/** "loaves → loaf" when the form on the page is not its base form. */
+const startsCapital = (text: string) => /^\p{Lu}/u.test(text);
+const capitalised = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * "loaves → loaf" when the form on the page is not its base form. Where the card
+ * writes the headword (`head`) capitalised, both are written so: a German noun's
+ * forms are its own ("Jahrhunderten → Jahrhundert", as the card's "Jahrhundert").
+ */
 export function inflectionNote(
   surface: string,
   key: string,
+  head?: string,
 ): string | undefined {
   const form = normalizeWord(surface);
-  return form === key ? undefined : `${form} → ${key}`;
+  if (form === key) return undefined;
+  return head !== undefined && startsCapital(head)
+    ? `${capitalised(form)} → ${capitalised(key)}`
+    : `${form} → ${key}`;
 }
 
 /**
- * "I'm → I am", "it's → it is / it has": a contraction and what it is short for. Its
- * first letter is a capital where the expansion's is (the pronoun I), as the
- * contraction's first letters are its host's.
+ * "I'm → I am", "it's → it is / it has": a contraction and what it is short for; a
+ * German compound and its parts ("Bahnsystem → Bahn + System"). Its first letter is a
+ * capital where the expansion's is (the pronoun I), as the contraction's first letters
+ * are its host's, or where the card writes the headword (`head`) so: a compound is a
+ * noun when its head is, whatever its first part ("Schulausbildung → schulen +
+ * Ausbildung").
  */
-export function contractionNote(surface: string, expansion: string): string {
+export function contractionNote(
+  surface: string,
+  expansion: string,
+  head?: string,
+): string {
   const form = normalizeWord(surface);
-  const shown = /^\p{Lu}/u.test(expansion)
-    ? form.charAt(0).toUpperCase() + form.slice(1)
-    : form;
+  const shown =
+    startsCapital(expansion) || (head !== undefined && startsCapital(head))
+      ? capitalised(form)
+      : form;
   return `${shown} → ${expansion}`;
 }
 
@@ -525,8 +545,8 @@ export async function describeTerm(
     main !== undefined
       ? wordLine(main, word?.entry, mainPos)
       : expansion !== undefined
-        ? contractionNote(term.surface, expansion)
-        : inflectionNote(term.surface, term.key);
+        ? contractionNote(term.surface, expansion, entry?.head)
+        : inflectionNote(term.surface, term.key, entry?.head);
   const senses = (entry?.senses ?? []).map((sense, i): CardSense => {
     const translated =
       i < MAX_TRANSLATED_SENSES

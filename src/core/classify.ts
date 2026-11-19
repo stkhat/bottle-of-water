@@ -785,11 +785,16 @@ export function createClassifier(pack: LanguagePack): Classifier {
 
       const pushWord = (i: number) => {
         const { token, form } = words[i]!;
-        // A separable verb's particle reads as its verb ("sieht … aus": aussehen).
-        const particleOf = readings[i]?.use.particleOf;
+        // A separable verb's particle reads as its verb ("sieht … aus": aussehen), and
+        // so does its finite form, which is saved and counted as that verb, not as
+        // the simple verb it shares its forms with ("warfen … vor": vorwerfen, not
+        // werfen).
+        const use = readings[i]?.use;
+        const verb =
+          use?.particleOf ?? (use?.separable === true ? use.base : undefined);
         const bases =
-          particleOf !== undefined
-            ? [particleOf]
+          verb !== undefined
+            ? [verb]
             : lowerNoun(token, words[i]!.bases)
               ? []
               : words[i]!.bases;
