@@ -49,6 +49,22 @@ const wordsOf = (line: string) =>
     .filter(Boolean);
 
 /**
+ * Whether a line writes `expansion` out, as whole English words ("she is" is not in
+ * "he is"; "she hasの短縮形" and "contracción de 'she has'" name "she has").
+ */
+const names = (line: string, expansion: string) => {
+  const words = (
+    line
+      .toLowerCase()
+      .replaceAll("’", "'")
+      .match(/[a-z']+/g) ?? []
+  )
+    .map((word) => word.replace(/^'+|'+$/g, ""))
+    .filter(Boolean);
+  return ` ${words.join(" ")} `.includes(` ${expansion.toLowerCase()} `);
+};
+
+/**
  * Whether a line only writes the contraction out in English: one of its expansions, or
  * up to four English words that start with its host ("that was" for that's), several
  * joined with "/" or ",".
@@ -114,14 +130,26 @@ export function withContractions(
             ])
           : [],
       );
-      const lines = (native ? found.lines : []).filter(
+      let lines = (native ? found.lines : []).filter(
         (line) => ownLines.has(line) && !writesOutOnly(line, all, english),
       );
       const expansion = expansionLine(list);
-      const writesOut = lines.some((line) => {
+      let writesOut = lines.some((line) => {
         const text = wordsOf(line).join(" ");
         return all.some((one) => text.includes(one.toLowerCase()));
       });
+      // K4 over its own lines: where the sentence decides, a line naming only another
+      // reading goes (es she's "contracción de she has, ella tiene" before "a"), and a
+      // line naming the others too gets the note (ja "she is, she hasの短縮形").
+      if (list.length < all.length) {
+        const others = all.filter((one) => !list.includes(one));
+        const here = (line: string) => list.some((one) => names(line, one));
+        const elsewhere = (line: string) =>
+          others.some((one) => names(line, one));
+        const kept = lines.filter((line) => here(line) || !elsewhere(line));
+        if (kept.length > 0) lines = kept;
+        writesOut = lines.some((line) => here(line) && !elsewhere(line));
+      }
       const entry: DictionaryEntry = {
         head: found?.head ?? head,
         kind: "word",
