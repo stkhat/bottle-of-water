@@ -115,6 +115,52 @@ export async function frenchReadWhole() {
   };
 }
 
+/**
+ * How often the treebank's verbs take a reflexive pronoun (Reflex=Yes, attached to the
+ * verb), and how often of those as part of the verb itself (`expl:pv`, "s'appeler",
+ * "se passer"), not as its object ("se voir", "se dire": obj, iobj) or a passive's
+ * (`expl:pass`), by the verb's lemma.
+ */
+export function pronominalCounts(text: string) {
+  const counts = new Map<string, { pronominal: number; total: number }>();
+  for (const sentence of text.split(/\r?\n\r?\n/)) {
+    const words = new Map<string, string[]>();
+    for (const line of sentence.split(/\r?\n/)) {
+      const columns = line.split("\t");
+      if (/^\d+$/.test(columns[0] ?? "")) words.set(columns[0]!, columns);
+    }
+    for (const word of words.values()) {
+      if (word[3] !== "PRON" || !(word[5] ?? "").includes("Reflex=Yes"))
+        continue;
+      const head = words.get(word[6] ?? "");
+      if (!head || (head[3] !== "VERB" && head[3] !== "AUX")) continue;
+      const verb = head[2] ?? "";
+      const found = counts.get(verb) ?? { pronominal: 0, total: 0 };
+      found.total++;
+      if (word[7] === "expl:pv") found.pronominal++;
+      counts.set(verb, found);
+    }
+  }
+  return counts;
+}
+
+/**
+ * The verbs whose reflexive pronoun is part of the verb (`LearningBuild.pronominalVerb`):
+ * the treebank attaches it as such (`pronominalCounts`) in at least half of the times
+ * it has one ("s'appeler", "se passer", "se trouver", "se tromper"; not "se dire", "se
+ * voir", "se faire").
+ */
+export async function frenchPronominalVerbs() {
+  await downloadGsd();
+  const counts = pronominalCounts(
+    readFileSync(pathOf(`${GSD.prefix}-train.conllu`), "utf8"),
+  );
+  return (verb: string) => {
+    const found = counts.get(verb);
+    return found !== undefined && found.pronominal * 2 >= found.total;
+  };
+}
+
 /** The training sentences' lemma counts (`lemmaCounts`). */
 export async function frenchTreebankLemmas() {
   await downloadGsd();

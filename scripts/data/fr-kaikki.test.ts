@@ -33,6 +33,15 @@ const forms = frenchForms(
       "n' 90",
       "maison 80",
       "peut-être 70",
+      "coup 60",
+      "plus 50",
+      "info 40",
+      "information 30",
+      "en 20",
+      "retenir 19",
+      "public 18",
+      "réussir 17",
+      "dire 16",
     ].join("\n"),
   ),
 );
@@ -47,11 +56,16 @@ describe("frenchForms", () => {
 describe("buildLearningPacks with French's settings", () => {
   let packs: LearningPacks;
   beforeAll(async () => {
-    packs = await buildLearningPacks(FRENCH_BUILD, fixture, forms, {
-      casePaths: [edition],
-      ipaPaths: [edition],
-      phraseScoring: { stopwords: { gloss: 4, function: 2 } },
-    });
+    packs = await buildLearningPacks(
+      { ...FRENCH_BUILD, pronominalVerb: (verb) => verb === "appeler" },
+      fixture,
+      forms,
+      {
+        casePaths: [edition],
+        ipaPaths: [edition],
+        phraseScoring: { stopwords: { gloss: 4, function: 2 } },
+      },
+    );
   });
 
   it("keeps an elided word as a word, pointing to the word it elides", () => {
@@ -83,6 +97,61 @@ describe("buildLearningPacks with French's settings", () => {
   it("takes the edition's IPA, in slashes, for a word that has none", () => {
     expect(packs.ipa.maison).toBe("/mɛ.zɔ̃/");
     expect(packs.ipa.homme).toBe("/ɔm/");
+  });
+
+  it("puts a nested sense's parent meaning before it", () => {
+    // "sound of the action" is a kind of blow; the parent's meaning leads, once.
+    expect(packs.defs.coup?.[1].map(([, text]) => text)).toEqual([
+      "blow, hit, strike",
+      "sound of the action",
+      "physical consequences of the action (marks)",
+      "a time, a try, an instance",
+    ]);
+    // A subsense that translates keeps its place; the word itself is no meaning.
+    expect(packs.defs.retenir?.[1].map(([, text]) => text)).toEqual([
+      "to hold back, rein in",
+      "to remember",
+    ]);
+    expect(packs.defs.public?.[1].map(([, text]) => text)).toEqual([
+      "public (people in general)",
+      "audience",
+    ]);
+    // A context that introduces a translation is no meaning of its own.
+    expect(packs.defs.plus?.[1].map(([, text]) => text)).toEqual([
+      "more, -er (comparative)",
+      "not ... any more, no more, no longer",
+    ]);
+  });
+
+  it("labels no verb an auxiliary whose infinitive a preposition introduces", () => {
+    expect(packs.defs["réussir"]?.[1][0]).toEqual([
+      "verb",
+      "to manage to do something",
+    ]);
+  });
+
+  it("labels a pronominal verb's reflexive senses so, kept past the cap", () => {
+    expect(packs.defs.appeler?.[1]).toEqual([
+      ["verb", "to call"],
+      ["reflexive", "to be called"],
+    ]);
+    expect(packs.pos.appeler).toEqual(["verb"]);
+    // A verb whose pronoun is its object ("se dire") keeps them as its own.
+    expect(packs.defs.dire?.[1]).toEqual([
+      ["verb", "to say"],
+      ["verb", "to say (to signify)"],
+    ]);
+  });
+
+  it("reads a contraction of one word as that word cut short", () => {
+    expect(packs.defs.info?.[0]).toBe("information");
+  });
+
+  it("puts a closed class's translation before a usage note", () => {
+    expect(packs.defs.en?.[1][0]).toEqual([
+      "pronoun",
+      "of it, of them. Replaces the partitive article (du, de la, etc.); Used as the object of a verb to indicate an indefinite quantity",
+    ]);
   });
 
   it("matches no phrase pattern for highlights", () => {

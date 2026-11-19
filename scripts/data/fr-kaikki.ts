@@ -18,7 +18,11 @@ import {
   frenchForms,
   readFrFrequency,
 } from "./fr-frequency.ts";
-import { frenchReadWhole, frenchTreebankLemmas } from "./fr-treebank.ts";
+import {
+  frenchPronominalVerbs,
+  frenchReadWhole,
+  frenchTreebankLemmas,
+} from "./fr-treebank.ts";
 import {
   buildLearningPacks,
   buildSummary,
@@ -126,7 +130,11 @@ async function main() {
   await slimEdition("fr", KAIKKI_FR_EDITION_PATH, KAIKKI_FR_EDITION_SLIM_PATH);
   const forms = frenchForms(await readFrFrequency(FR_FORMS));
   const packs = await buildLearningPacks(
-    { ...FRENCH_BUILD, readWhole: await frenchReadWhole() },
+    {
+      ...FRENCH_BUILD,
+      readWhole: await frenchReadWhole(),
+      pronominalVerb: await frenchPronominalVerbs(),
+    },
     process.argv[2] ?? KAIKKI_FR_PATH,
     forms,
     {

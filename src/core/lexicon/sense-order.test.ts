@@ -5,6 +5,7 @@ import {
   AUXILIARY,
   inOrder,
   lacksSenseOf,
+  PRONOMINAL,
   senseOrder,
 } from "./sense-order";
 
@@ -116,6 +117,38 @@ describe("senseOrder (rule A2)", () => {
       { pos: "auxiliary", text: "haber (como verbo auxiliar)" },
     ];
     expect(senseOrder(esHave, AUXILIARY)).toEqual([1, 0]);
+  });
+  it("reads an auxiliary with no sense its source calls auxiliary as the verb it is", () => {
+    // French devoir before an infinitive: "must", not the noun "duty".
+    const devoir = senses("duty:noun", "homework:noun", "must:verb");
+    expect(senseOrder(devoir, AUXILIARY)).toEqual([2, 0, 1]);
+    // A verb's lead, or a closed class's: the dictionary's order.
+    expect(
+      senseOrder(senses("must:verb", "duty:noun"), AUXILIARY),
+    ).toBeUndefined();
+    expect(
+      senseOrder(senses("can:particle", "know:verb"), AUXILIARY),
+    ).toBeUndefined();
+  });
+});
+
+describe("senseOrder for a pronominal verb", () => {
+  it("puts the senses labelled reflexive first, else reads it as a verb", () => {
+    // French passer: "il se passe" → to happen; "il passe" → to pass.
+    const passer = senses(
+      "to pass:verb",
+      "to spend:verb",
+      "to happen:reflexive",
+    );
+    expect(senseOrder(passer, PRONOMINAL)).toEqual([2, 0, 1]);
+    expect(senseOrder(passer, "verb")).toBeUndefined();
+    // Leading already; none labelled so (a verb whose pronoun is its object).
+    expect(
+      senseOrder(senses("to remember:reflexive", "memory:noun"), PRONOMINAL),
+    ).toBeUndefined();
+    expect(senseOrder(senses("duty:noun", "must:verb"), PRONOMINAL)).toEqual([
+      1, 0,
+    ]);
   });
 });
 

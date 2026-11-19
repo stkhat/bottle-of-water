@@ -16,3 +16,14 @@
 {"pos": "verb", "word": "appelés", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["masculine plural of appelé"], "tags": ["form-of", "masculine", "plural"], "form_of": [{"word": "appelé"}]}]}
 {"pos": "noun", "word": "maison", "lang": "French", "senses": [{"glosses": ["house"]}], "lang_code": "fr"}
 {"pos": "prep", "word": "de", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/də/"}], "senses": [{"glosses": ["of"]}]}
+{"word": "coup", "lang_code": "fr", "pos": "noun", "senses": [{"glosses": ["blow, hit, strike", "sound of the action"], "tags": ["masculine"]}, {"glosses": ["blow, hit, strike", "physical consequences of the action (marks)"], "tags": ["masculine"]}, {"glosses": ["a time, a try, an instance"], "tags": ["masculine"]}]}
+{"word": "plus", "lang_code": "fr", "pos": "adv", "senses": [{"glosses": ["more, -er (comparative)"]}, {"glosses": ["in negated sentences", "not ... any more, no more, no longer"]}]}
+{"word": "info", "lang_code": "fr", "pos": "noun", "senses": [{"glosses": ["contraction of information"], "tags": ["abbreviation", "alt-of", "contraction", "feminine"], "alt_of": [{"word": "information"}]}]}
+{"word": "information", "lang_code": "fr", "pos": "noun", "senses": [{"glosses": ["information"], "tags": ["feminine"]}]}
+{"word": "en", "lang_code": "fr", "pos": "pron", "senses": [{"glosses": ["Used as the object of a verb to indicate an indefinite quantity; of it, of them. Replaces the partitive article (du, de la, etc.)"]}]}
+{"word": "de", "lang_code": "fr", "pos": "article", "senses": [{"glosses": ["Used in the plural with prepositioned adjectives."], "tags": ["indefinite"]}]}
+{"word": "retenir", "lang_code": "fr", "pos": "verb", "senses": [{"glosses": ["to retain, hold", "to hold back, rein in"]}, {"glosses": ["to remember"]}]}
+{"word": "public", "lang_code": "fr", "pos": "noun", "senses": [{"glosses": ["public (people in general)"]}, {"glosses": ["public", "audience"]}]}
+{"word": "réussir", "lang_code": "fr", "pos": "verb", "senses": [{"glosses": ["to manage to do something"], "raw_glosses": ["(intransitive, followed by à and infinitive) to manage to do something"], "tags": ["intransitive"]}, {"glosses": ["to pass (a test)"], "tags": ["transitive"]}]}
+{"word": "appeler", "lang_code": "fr", "pos": "verb", "senses": [{"glosses": ["to be called"], "raw_glosses": ["(reflexive) to be called"], "tags": ["reflexive"]}]}
+{"word": "dire", "lang_code": "fr", "pos": "verb", "senses": [{"glosses": ["to say"]}, {"glosses": ["to say (to signify)"], "tags": ["reflexive"]}]}

@@ -91,6 +91,13 @@ export interface LearningBuild {
    * chooses where the particle stands in the clause (src/core/tagging/de.ts).
    */
   separableVerbs?: boolean;
+  /**
+   * The verbs whose reflexive pronoun is part of the verb, not its object ("s'appeler":
+   * to be called; "se passer": to happen; not "se dire", "se voir"): their senses
+   * kaikki tags reflexive are labelled "reflexive" (`REFLEXIVE_LABEL`). None when
+   * undefined.
+   */
+  pronominalVerb?: (verb: string) => boolean;
 }
 
 /**
@@ -128,15 +135,48 @@ const CAPITAL_ROOM = 2;
 const AUXILIARY_LABEL = "auxiliary";
 
 /**
+ * The part of speech a pronominal verb's sense (`LearningBuild.pronominalVerb`) that
+ * kaikki tags reflexive is given ("s'appeler": to be called; "se passer": to take
+ * place, to happen): rule A2 shows it first where the grammar reads the verb as
+ * pronominal ("il se passe"), the verb's other senses where it reads a plain verb ("il
+ * passe"). The word's parts of speech count it as a verb.
+ */
+const REFLEXIVE_LABEL = "reflexive";
+
+/** The labels of a verb's senses that are one use of it (`AUXILIARY_LABEL`, `REFLEXIVE_LABEL`). */
+const VERB_USES: ReadonlySet<string> = new Set([
+  AUXILIARY_LABEL,
+  REFLEXIVE_LABEL,
+]);
+
+/** The parts of speech whose first sense past the cap gains a place (`keptSenses`): function words, adverbs and interjections. */
+const PROMOTED: ReadonlySet<string> = new Set([
+  ...["pronoun", "article", "determiner", "conjunction", "preposition"],
+  ...["contraction", "adverb", "interjection"],
+]);
+
+/**
  * Up to `max` of a word's senses, in their order, each part of speech keeping its
  * first: a part whose first sense falls past the cap takes the place of the last sense
  * of a part that has more than one ("sein": the determiner "his" after the verb's
- * senses and the noun), so rule A2 has a sense of each part to show.
+ * senses and the noun), so rule A2 has a sense of each part to show; only a function
+ * word's, an adverb's or an interjection's part (`PROMOTED`), and only a sense with a
+ * meaning.
  */
 export function keptSenses(senses: readonly Sense[], max = MAX_SENSES) {
   const kept = senses.slice(0, max);
   for (const sense of senses.slice(max)) {
     if (kept.some(([pos]) => pos === sense[0])) continue;
+    // A function word's, an adverb's or an interjection's meaning: a tag tells those
+    // apart reliably ("juste" the adverb: exactly; "que" the pronoun: what; Spanish
+    // "Bueno," okay), while a noun, verb or adjective sense past the cap mostly shows
+    // where the tagger erred ("En avez-vous" → the noun avoir, "asset"; "c'est
+    // gentil" → "pagan"): judged 4 : 22 against, the others 25 : 3 for (L1-5). Only a
+    // meaning: a sense that only describes the word's use has none to show (French
+    // "de" as an article: "Used in the plural with prepositioned adjectives"; the
+    // preposition's "of" reads better there).
+    if (!PROMOTED.has(sense[0])) continue;
+    if (topLevelParts(sense[1], ";").every(describesGrammar)) continue;
     for (let i = kept.length - 1; i >= 0; i--) {
       const pos = kept[i]![0];
       if (kept.filter(([other]) => other === pos).length < 2) continue;
@@ -200,12 +240,14 @@ const onceEach = (senses: readonly Sense[]) =>
   );
 
 /**
- * A qualifier's part saying the verb comes before an infinitive, a gerund or a
+ * A qualifier's part saying the verb comes right before an infinitive, a gerund or a
  * participle, as an auxiliary does ("when followed by an infinitive verb": aller's
- * "to be going (to)"; "preceding the gerund of a verb": ir's "to go on").
+ * "to be going (to)"; "preceding the gerund of a verb": ir's "to go on"); not a verb
+ * whose infinitive a preposition introduces ("followed by à and infinitive": réussir's
+ * "to manage to do something", a verb with its complement).
  */
 const AUXILIARY_CONSTRUCTION =
-  /^(?:when )?(?:followed by|preceding)\b.*\b(?:infinitive|gerund|participle)\b/i;
+  /^(?:when )?(?:followed by|preceding)\s+(?:(?:an?|the)\s+)?(?:bare\s+)?(?:infinitive|gerund|participle)\b/i;
 /** Qualifier parts that leave a sense the construction's alone. */
 const TRANSITIVITY = /^(?:in)?transitive$/i;
 
@@ -313,7 +355,7 @@ const named = (gloss: string) =>
  * apocopic form of mucho; "vídeo": alternative form of video; "este": superseded
  * spelling of éste), else undefined: an abbreviation of a longer term ("ESO": acronym
  * of Educación Secundaria Obligatoria; "al": contraction of a + el) is none, nor is a
- * sense with no meaning (obsolete, archaic, misspelt), nor a contraction. kaikki splits a gloss at its
+ * sense with no meaning (obsolete, archaic, misspelt), nor a contraction of words. kaikki splits a gloss at its
  * commas into more targets ("apocopic form of tuyo, your": tuyo, your); the one the
  * gloss names after "of" is the target.
  */
@@ -325,9 +367,10 @@ function altOfTarget(sense: KaikkiSense): string | undefined {
   const tags = sense.tags ?? [];
   if (tags.some((tag) => ACRONYM_TAGS.has(tag) || UNUSABLE_TAGS.has(tag)))
     return undefined;
-  // A contraction stands for more than the word it names first ("ins": contraction
-  // of in (“(in)to”) + das).
-  if (tags.includes("contraction")) return undefined;
+  // A contraction of words stands for more than the word it names first ("ins":
+  // contraction of in (“(in)to”) + das); a contraction of one word is that word cut
+  // short (French "info": contraction of information; "p'tit": of petit).
+  if (tags.includes("contraction") && /\s\+\s/u.test(gloss)) return undefined;
   return target;
 }
 
@@ -480,6 +523,19 @@ function partsMeaning(gloss: string): string | undefined {
 const GRAMMAR_NAME =
   /\b(?:article|pronoun|determiner|preposition|conjunction|contraction)s?\b/i;
 
+/** A usage note where a translation would be: "Used as the object of a verb to …". */
+const USAGE_NOTE = /^used\b/i;
+
+/**
+ * A gloss part describes the word's grammar or use rather than translating it: its
+ * first sentence names a part of speech (`GRAMMAR_NAME`) or is a usage note
+ * (`USAGE_NOTE`); "of it, of them. Replaces the partitive article" translates.
+ */
+const describesGrammar = (part: string) => {
+  const sentence = part.split(/(?<=\.)\s+(?=\p{Lu})/u)[0]!;
+  return GRAMMAR_NAME.test(sentence) || USAGE_NOTE.test(sentence);
+};
+
 /** A description ending in a part of speech's name, a comma, then the rest. */
 const DESCRIBED =
   /^([^,()]*\b(?:article|pronoun|determiner|preposition|conjunction|contraction)s?)\s*,\s*([^,]+)$/i;
@@ -511,26 +567,101 @@ function topLevelParts(gloss: string, separator: string) {
  * hover line is the first part. The parts are split at ";" and, after a description,
  * at ":" or a last "," ("nominative masculine singular definite article, the" → "the;
  * nominative masculine singular definite article"); a description names a part of
- * speech (`GRAMMAR_NAME`). Unchanged when it
- * already starts with a translation or gives none ("plural masculine or neuter
- * pronoun").
+ * speech or is a usage note (`describesGrammar`: "Used as the object of a verb to
+ * indicate an indefinite quantity; of it, of them" → "of it, of them; Used as …").
+ * Unchanged when it already starts with a translation or gives none ("plural
+ * masculine or neuter pronoun").
  */
 export function translationFirst(gloss: string): string {
   const parts = topLevelParts(gloss, ";").flatMap((part) => {
     const [head, ...rest] = topLevelParts(part, ":");
-    if (rest.length > 0 && GRAMMAR_NAME.test(head!))
+    if (rest.length > 0 && describesGrammar(head!))
       return [head!, rest.join(": ")];
     // A description that names the part of speech, then a comma and the translation:
     // "nominative masculine singular definite article, the".
     const named = DESCRIBED.exec(part);
     return named ? [named[1]!, named[2]!] : [part];
   });
-  const describes = (part: string) => GRAMMAR_NAME.test(part);
-  if (!describes(parts[0] ?? "") || parts.every(describes)) return gloss;
+  if (!describesGrammar(parts[0] ?? "") || parts.every(describesGrammar))
+    return gloss;
   return [
-    ...parts.filter((part) => !describes(part)),
-    ...parts.filter(describes),
+    ...parts.filter((part) => !describesGrammar(part)),
+    ...parts.filter(describesGrammar),
   ].join("; ");
+}
+
+/** Most words a translation's first item has; a gloss of more describes (as `describes` in short-lines.ts). */
+const TRANSLATION_WORDS = 3;
+
+/** A gloss's first item (up to a comma or semicolon) outside brackets, without ellipses ("not ... any more"). */
+const firstItem = (gloss: string) =>
+  gloss
+    .replace(/\([^()]*\)|\[[^[\]]*\]/gu, " ")
+    .split(/[,;]/u)[0]!
+    .replace(/\.\.\.|…/gu, " ")
+    .split(/\s+/u)
+    .filter(Boolean);
+
+/** A subsense that only heads its parent's group: kaikki's "general senses". */
+const GROUP_HEADING = /^general senses?$/iu;
+
+/** A gloss's items, split at commas and semicolons outside brackets, in lower case. */
+const itemsOf = (gloss: string) =>
+  gloss
+    .replace(/\([^()]*\)/gu, " ")
+    .split(/[,;]/u)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+/**
+ * The parent glosses of an entry's nested senses whose meaning should come first
+ * (kaikki lists a subsense's parent gloss before its own: "blow, hit, strike" → "sound
+ * of the action"): a parent that translates (its first item of at most
+ * TRANSLATION_WORDS words; not the word itself, nor one that introduces its
+ * subsenses: "a chamber in its various senses, including:") with a subsense that
+ * describes (its first item longer) or only heads the group (`GROUP_HEADING`), and
+ * none that says it again ("to give back" → "to return, to restore, to give back").
+ * A subsense that translates keeps its place ("introduces a comparison" → "than";
+ * "to retain, hold" → "to hold back, rein in": judged better than the parent first,
+ * L1-5). `own`: the glosses the entry gives as senses of their own.
+ */
+function leadingParents(
+  word: string,
+  senses: readonly KaikkiSense[],
+  own: ReadonlySet<string>,
+): Set<string> {
+  const subs = new Map<string, string[]>();
+  for (const sense of senses) {
+    if (!isUsable(sense) || sense.glosses.length < 2) continue;
+    const [parent] = sense.glosses;
+    if (typeof parent !== "string") continue;
+    const list = subs.get(parent.trim()) ?? [];
+    list.push(glossOf(sense).trim());
+    subs.set(parent.trim(), list);
+  }
+  const leading = new Set<string>();
+  for (const [parent, glosses] of subs) {
+    const words = firstItem(parent).length;
+    if (
+      own.has(parent) ||
+      parent.toLowerCase() === word.toLowerCase() ||
+      /(?::|\bincluding|\bespecially)\s*$/iu.test(parent) ||
+      words === 0 ||
+      words > TRANSLATION_WORDS
+    )
+      continue;
+    const said = parent.toLowerCase();
+    if (glosses.some((gloss) => itemsOf(gloss).includes(said))) continue;
+    if (
+      glosses.some(
+        (gloss) =>
+          GROUP_HEADING.test(gloss) ||
+          firstItem(gloss).length > TRANSLATION_WORDS,
+      )
+    )
+      leading.add(parent);
+  }
+  return leading;
 }
 
 /**
@@ -553,10 +684,23 @@ interface SenseItem {
  * none, so a word with only those is not a vocabulary word; a word with other entries
  * keeps their senses.
  */
-function usableSenses(entry: KaikkiEntry): SenseItem[] {
+function usableSenses(
+  entry: KaikkiEntry,
+  pronominalVerb: (verb: string) => boolean = () => false,
+): SenseItem[] {
   if (entry.pos === "name") return [];
   const pos = typeof entry.pos === "string" ? posLabel(entry.pos) : "";
+  const pronominal = pos === "verb" && pronominalVerb(entry.word ?? "");
   const closed = CLOSED_CLASSES.has(pos);
+  const translated = (gloss: string) =>
+    closed ? translationFirst(gloss) : gloss;
+  // The glosses the entry's senses give as their own: a parent sense listed alone too
+  // is not repeated before its subsenses (devoir's "must, to have to, should").
+  const own = new Set(
+    (entry.senses ?? []).filter(isUsable).map((sense) => glossOf(sense).trim()),
+  );
+  const leading = leadingParents(entry.word ?? "", entry.senses ?? [], own);
+  const parents = new Set<string>();
   return (entry.senses ?? []).flatMap((sense): SenseItem[] => {
     if (isUsable(sense)) {
       // An auxiliary's first gloss is what it does ("used to form compound tenses");
@@ -569,7 +713,22 @@ function usableSenses(entry: KaikkiEntry): SenseItem[] {
         return [{ def: [AUXILIARY_LABEL, gloss], sense }];
       }
       const gloss = glossOf(sense).trim();
-      return [{ def: [pos, closed ? translationFirst(gloss) : gloss], sense }];
+      if (pronominal && (sense.tags ?? []).includes("reflexive"))
+        return [{ def: [REFLEXIVE_LABEL, gloss], sense }];
+      const [first] = sense.glosses;
+      const parent =
+        typeof first === "string" && leading.has(first.trim())
+          ? first.trim()
+          : undefined;
+      // The parent's meaning before its group's first subsense, once; a heading
+      // subsense gives way to it.
+      const before: SenseItem[] =
+        parent !== undefined && !parents.has(parent)
+          ? [{ def: [pos, translated(parent)], sense }]
+          : [];
+      if (parent !== undefined) parents.add(parent);
+      if (parent !== undefined && GROUP_HEADING.test(gloss)) return before;
+      return [...before, { def: [pos, translated(gloss)], sense }];
     }
     const last: unknown = sense.glosses?.at(-1);
     const gloss = typeof last === "string" ? last.trim() : "";
@@ -698,15 +857,16 @@ export function byTreebank(
 
 /**
  * A term's senses as the pack keeps them: each once (être's auxiliary senses differ
- * only in what kaikki lists under them), the first MAX_SENSES, and an auxiliary's
- * senses after them wherever the source lists them (ir: "to be going to" is its
- * eleventh), since they are what the word means where the grammar reads it as one.
+ * only in what kaikki lists under them), the first MAX_SENSES, and an auxiliary's or
+ * a pronominal verb's senses (`VERB_USES`) after them wherever the source lists them
+ * (ir: "to be going to" is its eleventh; passer: "to take place, to happen" its
+ * thirtieth), since they are what the word means where the grammar reads that use.
  */
 function definition(senses: Sense[]): DefsPack[string] {
   const once = onceEach(senses);
   const kept = [
     ...once.slice(0, MAX_SENSES),
-    ...once.slice(MAX_SENSES).filter(([pos]) => pos === AUXILIARY_LABEL),
+    ...once.slice(MAX_SENSES).filter(([pos]) => VERB_USES.has(pos)),
   ];
   return [shortOfDefinition(kept[0]![1]), kept];
 }
@@ -846,7 +1006,7 @@ export async function buildLearningPacks(
       if (found) found.push(entry);
       else apostrophes.set(lower, [entry]);
     }
-    const items = usableSenses(entry);
+    const items = usableSenses(entry, language.pronominalVerb);
     const capital =
       language.nounsCapitalised === true && capitalisedSpelling(word, lower);
     // A capitalised word of a language that capitalises nouns is spelt as one.
@@ -959,7 +1119,7 @@ export async function buildLearningPacks(
       alt?.pointerOnly ? targetMeaning(def, alt.target) : def;
     const counted = bucket.items.filter(({ alt }) => !(alt && form));
     for (const { def } of counted)
-      if (def[0]) bucket.pos.add(def[0] === AUXILIARY_LABEL ? "verb" : def[0]);
+      if (def[0]) bucket.pos.add(VERB_USES.has(def[0]) ? "verb" : def[0]);
     const lower = onceEach(
       counted.filter((item) => !item.capital).map(senseOf),
     );
@@ -974,13 +1134,13 @@ export async function buildLearningPacks(
       ...keptSenses(first, MAX_SENSES - room),
       ...second,
     ]);
-    // An auxiliary's senses past the cap come after the others (`definition`).
+    // An auxiliary's and a pronominal verb's senses past the cap come after the
+    // others (`definition`).
     const shown = new Set(kept.map(([pos, text]) => `${pos}\n${text}`));
     bucket.senses.push(
       ...kept,
       ...[...first, ...second].filter(
-        ([pos, text]) =>
-          pos === AUXILIARY_LABEL && !shown.has(`${pos}\n${text}`),
+        ([pos, text]) => VERB_USES.has(pos) && !shown.has(`${pos}\n${text}`),
       ),
     );
     if (!form) bucket.bases.push(...bucket.altBases);
