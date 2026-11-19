@@ -28,6 +28,8 @@ export interface TestPage {
    * (docs/notes/youtube-captions.md); the returned function puts it back.
    */
   fullBleed(): () => void;
+  /** Replaces the fake player's response for the same video, as its player may do. */
+  replaceResponse(response: unknown): void;
   /** Switches the fake player to another video and fires `yt-navigate-finish`. */
   navigate(next: {
     videoId: string;
@@ -50,6 +52,8 @@ export function createTestPage(
   options: {
     captionsOn?: boolean;
     playerResponse?: unknown;
+    /** The response the player swaps in before its first caption request. */
+    refreshedResponse?: unknown;
     shorts?: boolean;
     /** The caption track an earlier load left on (the player starts with it, unrequested). */
     storedTrack?: { languageCode: string; kind: string };
@@ -145,7 +149,11 @@ export function createTestPage(
 function shortsPage(
   video: HTMLVideoElement,
   captions: HTMLElement,
-  options: { captionsOn?: boolean; playerResponse?: unknown },
+  options: {
+    captionsOn?: boolean;
+    playerResponse?: unknown;
+    refreshedResponse?: unknown;
+  },
 ): TestPage {
   const player = el(
     "div",
@@ -231,6 +239,7 @@ function install(
   options: {
     captionsOn?: boolean;
     playerResponse?: unknown;
+    refreshedResponse?: unknown;
     playerId?: string;
   },
   shorts: Pick<TestPage, "actionBar" | "commentsPanel">,
@@ -240,11 +249,13 @@ function install(
     videoId: VIDEO_ID,
     title: TITLE,
     playerResponse: options.playerResponse ?? PLAYER_RESPONSE,
+    refreshedResponse: options.refreshedResponse,
     captionsOn: options.captionsOn,
     playerId: options.playerId,
   });
   const fake = player as TestPage["player"] & {
     fakeNavigate: TestPage["navigate"];
+    fakeReplaceResponse: TestPage["replaceResponse"];
   };
   return {
     root,
@@ -253,6 +264,7 @@ function install(
     video,
     captions,
     navigate: (next) => fake.fakeNavigate(next),
+    replaceResponse: (response) => fake.fakeReplaceResponse(response),
     fullBleed: () => fullBleed(root, player),
     remove() {
       root.remove();

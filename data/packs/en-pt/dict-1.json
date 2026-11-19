@@ -15055,8 +15055,8 @@
 "herpetology":["herpetologia",[["noun","herpetologia","branch of biology dealing with reptiles"]],1],
 "herring":["arenque",[["noun","arenque","fish in Clupea"]],1],
 "herringbone":["ziguezague",[["noun","ziguezague","pattern"]],1],
-"hers":["caso possessivo da terceira pessoa feminina do singular, dela",[["pronoun","caso possessivo da terceira pessoa feminina do singular, dela"]],0],
-"herself":["caso objetivo reflexivo da terceira pessoa feminina do singular, se, si, ela mesma",[["pronoun","caso objetivo reflexivo da terceira pessoa feminina do singular, se, si, ela mesma"]],0],
+"hers":["o seu",[["pronoun","o seu, a sua, o dela","that which belongs to her"]],1],
+"herself":["ela mesma",[["pronoun","ela mesma","(as intensifier) she"],["pronoun","a si (própria/mesma), se","(reflexive object) her"]],1],
 "hertz":["unidade de frequência no sistema internacional de unidades (SI), equivalente à frequência de um fenômeno periódico que repete uma vez por segundo e cujo símbolo é Hz",[["noun","unidade de frequência no sistema internacional de unidades (SI), equivalente à frequência de um fenômeno periódico que repete uma vez por segundo e cujo símbolo é Hz"]],0],
 "hesitant":["hesitante",[["adjective","hesitante","tending to hesitate"]],1],
 "hesitate":["hesitar",[["verb","hesitar, vacilar, titubear","to stop or pause respecting decision or action"]],1],
@@ -17375,7 +17375,7 @@
 "itinerant":["itinerante",[["adjective","itinerante","travelling from place to place"]],1],
 "itinerary":["linha",[["noun","linha, itinerário","route or proposed route of a journey"]],1],
 "its":["adjetivo possessivo da terceira pessoa neutra do singular, dele ou dela",[["adjective","adjetivo possessivo da terceira pessoa neutra do singular, dele ou dela"],["pronoun","caso possessivo da terceira pessoa neutra do singular, dele ou dela"]],0],
-"itself":["pronome reflexivo da terceira pessoa do singular",[["pronoun","pronome reflexivo da terceira pessoa do singular"]],0],
+"itself":["se",[["pronoun","se, a si mesmo","(reflexive) it"],["pronoun","ele/ela mesmo, próprio, própria","(emphatic) it"]],1],
 "ivory":["marfim",[["noun","marfim","material"],["noun","ebúrneo, ebóreo, marfim","colour"],["adjective","ebóreo, ebúrneo, de marfim","made of ivory"]],1],
 "ivory coast":["Costa do Marfim",[["phrase","Costa do Marfim"]],0],
 "ivory gull":["gaivota-marfim",[["noun","gaivota-marfim","Pagophila eburnea"]],1],
@@ -18378,7 +18378,7 @@
 "lesson":["lição, aula",[["noun","lição, aula"]],0],
 "lesson plan":["plano de aula",[["noun","plano de aula","teacher's document used to plan a lesson"]],1],
 "lessor":["arrendador",[["noun","arrendador","owner of property that is leased"]],1],
-"lest":["para amenizar a consequência de um infortúnio hipotético + subjuntivo ou indicativo",[["conjunction","para amenizar a consequência de um infortúnio hipotético + subjuntivo ou indicativo"]],0],
+"lest":["para que",[["conjunction","para que, a fim de que ... não","for fear that"]],1],
 "let":["obstáculo",[["noun","obstáculo"],["noun","impedimento"],["noun","dificuldade"],["verb","deixar"]],0],
 "let alone":["muito menos",[["conjunction","muito menos, quanto mais, que dirá","to say nothing of"],["conjunction","ainda mais","as well as"]],1],
 "let bygones be bygones":["águas passadas não movem moinhos",[["verb","águas passadas não movem moinhos","to disregard or ignore a past difficulty in a relationship or an offence"]],1],
@@ -18775,5 +18775,8 @@
 "locker":["armário",[["noun","armário, cacifo, escaninho","storage compartment"]],1],
 "locket":["medalhão",[["noun","medalhão","chained ornament"]],1],
 "lockjaw":["trismo",[["noun","trismo, tétano","disease"]],1],
-"lockout":["locaute",[["noun","locaute"]],0]
+"lockout":["locaute",[["noun","locaute"]],0],
+"locksmith":["chaveiro",[["noun","chaveiro","one who practices locksmithing"]],1],
+"locomotion":["locomoção",[["noun","locomoção","ability to move"]],1],
+"locomotive":["locomotiva, máquina",[["noun","locomotiva, máquina"]],0]
 }

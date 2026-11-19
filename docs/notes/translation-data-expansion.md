@@ -6,7 +6,7 @@ Research notes from 2026-11-12–13. They measure which sources could add native
 - Words: the gate's 5,000 English content words (`contentWords` in `scripts/data/content-words.mjs`, the same list `npm run data:stats` uses).
 - Sources were read with the recipe readers (`readTranslationTables`, `readEdition` in `scripts/data/recipes/recipe.mjs`), so a word counts as covered exactly when a recipe would give it a meaning. The runs reproduce the M9d numbers (es tables 95.1%, zh edition 36.1%, tables 88.1%, both 91.2%).
 - OMW: a word is covered when one of its English WordNet synsets has lemmas in the other language. "Main senses" counts only the first synset per part of speech (WordNet orders senses by frequency).
-- The measuring scripts were throwaway and are not in the repository. Raw data is in `data/raw/` (git-ignored): `kaikki-en.jsonl`, the es / pt / zh / id / vi edition extracts, `omw/omw-1.4/`, `wikidata-lexemes.json.gz`.
+- The measuring scripts were throwaway and are not in the repository. Raw data is in `data/raw/` (git-ignored): `kaikki-en.jsonl`, the edition extracts (es, pt, zh, id, vi; ru, fr, de, it, pl in D2–D3; tr, ko, th in D5), `omw/omw-1.4/`, `wikidata-lexemes.json.gz`.
 
 ## English learners: coverage per native language (measured)
 Coverage in %, over the 5,000 words. "All" is tables + edition + OMW.
@@ -23,7 +23,11 @@ Coverage in %, over the 5,000 words. "All" is tables + edition + OMW.
 | zh | 88.0 | 36.1 | 78.7 | 96.1 | 95.1 | T2 (offered, D3: tables, edition, OMW, 95.1) |
 | it | 91.5 | 87.2 | – | 98.2 | 98.2 | T2 (offered, D3: tables, edition, OMW) |
 | pl | 91.0 | 99.4 | – | 99.5 | 99.5 | T2 (offered, D3: edition, tables, OMW) |
-| id | 60.1 | 4.2 | 89.2 | 93.2 | 91.2 | T3 |
+| th | 62.0 | 63.8 | 92.0 | 95.8 | 93.9 | T3 (D5: under the gate with main senses) |
+| id | 60.2 | 4.2 | 92.5 | 95.2 | 92.7 | T3 (D5: under the gate with main senses) |
+| ko | 76.6 | 78.8 | – | 89.1 | – | T3 (D5) |
+| tr | 79.4 | 66.4 | – | 86.8 | – | T3 (D5) |
+| uk | 80.7 | – | – | 80.7 | – | T3 (D5; no kaikki extract of the uk edition) |
 | ar | 79.3 | – | 59.2 | 86.5 | 84.3 | T3 |
 | hi | 68.7 | – | – | 68.7 | – | T3 |
 | ur | 48.1 | – | – | 48.1 | – | T3 |
@@ -104,6 +108,41 @@ For hi, bn, ur, sw and the others, no human-made source comes near the gate. Tra
 | ECDICT, Shabdanjali (en → hi) | ECDICT: untraceable sources (decided 2026-11-11). Shabdanjali: GPL |
 | Display-time translation as the only source | Not counted by the gate (Chrome only, not reviewed) |
 
+## D5: tr, uk, ko, id, th (measured 2026-11-19)
+None passes the gate. Measured as above with the recipe readers over the gate's 5,000 words: the tables (`readTranslationTables`), the edition (`readEdition`, kaikki extracts of 2026-10-30) and OMW (`readWordnetMeanings`). "Main senses" is the OMW reader's own rule (a term whose main senses, each part of speech's first, all lack native lemmas is left out), the rule D3 gated zh with; "all senses" lets a lesser sense alone cover a term. Top 2,000 under main senses in brackets.
+
+| Native | Tables | Native edition | OMW all / main | All | All, main senses | Tables + edition | Tables + OMW main |
+|---|---|---|---|---|---|---|---|
+| th | 62.0 | 63.8 | 92.0 / 85.5 | 95.8 | **93.9** (97.6) | 77.9 | 90.6 |
+| id | 60.2 | 4.2 | 92.5 / 88.0 | 95.2 | **92.7** (95.7) | 61.4 | 92.6 |
+| ko | 76.6 | 78.8 | – | 89.1 | **89.1** (94.7) | 89.1 | – |
+| tr | 79.4 | 66.4 | – | 86.8 | **86.8** (92.9) | 86.8 | – |
+| uk | 80.7 | – | – | 80.7 | **80.7** (90.6) | – | – |
+
+- Source order, were any built: id tables, then omw-id (its edition adds 4 words: 210 of the 5,000 have an English entry there); th tables, omw-th, then the edition (it adds 169 words); ko and tr the tables and the edition, order not judged. No order was judged blind, as none passes.
+- id and th pass only if a lesser wordnet sense could cover a term alone ("mall" → pusat, kompleks, plaza from its second sense, "fireman" → pemadam kebakaran from its fourth), which D1 ruled out for its wrong meanings ("realise" → "fare"). The earlier id and th figures (93.2 / 91.2, 93.3 / 90.8) were from throwaway scripts before D1's reader; the rows above replace them.
+- uk: kaikki has no extract of the Ukrainian edition (its editions: cs, de, el, es, fr, id, it, ja, ko, ku, ms, nl, pl, pt, ru, simple, th, tr, vi, zh), so the edition could not be read with the recipe reader. OMW 1.4 and 2.0 have no Ukrainian wordnet; the older UkrWordNet is offline and Ukrajinet is unreleased.
+- Other wordnets: KeNet (Turkish) is GPL-3.0 in its repository (Maven lists Apache 2.0); KorLex (Korean) is browse-only or research-only. Neither is allowed.
+- Why words are uncovered: 20 random uncovered words per language (`samples-inspected.txt`), by class:
+
+| Class | tr | uk | ko | id | th |
+|---|---|---|---|---|---|
+| English Wiktionary has tables, without a row for the language (and OMW has none) | 16 | 17 | 12 | 5 | 10 |
+| Only a lesser OMW sense has native lemmas (main-senses rule) | – | – | – | 10 | 5 |
+| Only a spelling variant, clipping or plural of another entry (jewelry, humor, odds, grad, oz) | 0 | 2 | 4 | 1 | 1 |
+| A given name or surname in lower case (harry, charlotte, bailey, donna, jenny) | 1 | 1 | 3 | 4 | 3 |
+| No tables in English Wiktionary at all (gonna, coffeehouse, funky) | 2 | 0 | 0 | 0 | 1 |
+| Edition entry the reader skips: kaikki could not tell its language (ko "tramp" → 짓밟다, tr "haven" → sahip olmak, a form of "have") | 1 | – | 1 | 0 | 0 |
+
+  Counted over every uncovered word (`gaps.json`): following variant pointers to a covered entry (jewelry → jewellery, humor → humour) would add 22 / 20 / 21 / 6 / 5 words (tr / uk / ko / id / th, at most 0.4 points), and reading the editions' entries of unknown language 28 (tr, mostly other languages' words: Bosnian Turkish "mart", ISO codes) and 53 (ko, mostly English: "labor" → 노동, "dent" → 움푹 팬 곳), 1.1 points. Neither brings any language to the gate.
+- Provenance, from the page histories of 15 random gate words each edition covers (`provenance-tr-ko-th-id.txt`), and licenses (no edition decides a pass, so none was cleared for use):
+  - th: 4 of 15 pages were created in 2018 by ZilentBot, "นำเข้าคำจาก Lexitron" (imported from LEXiTRON, NECTEC's dictionary), and carry {{lexitronimport}}, whose notice says LEXiTRON is used under NECTEC's own license agreement. 1,511 pages are in that template's category, among them 903 of the 3,189 gate words the edition covers, and 79 of the 169 words only the edition has. LEXiTRON's license terms could not be found (SEACrowd's copy lists it as "other" with an empty license file), so under the license rules these entries count as unknown; without them th is at 92.4% with main senses. The other 11 pages were written by hand (2006–2020).
+  - ko: 6 of 15 pages were created in 2010–2011 by Gusibbot ("Automated import of articles", a bot of the editor 아흔); 4 of them were empty drafts without a gloss, filled in later, 2 came with glosses ("sunshine" → 햇빛. 일광.); the import's source is not stated. The other 9 were written by hand (2005–2010). No sign of a third-party dictionary dump like vi's, but the bot's source is undocumented.
+  - tr: 3 of 15 pages were created in 2006 by VikiBot (one first as a Turkish entry), which lists among its tasks a 13,900-word German / English / French / Italian / Turkish dictionary built from another user's database (source not stated); the other 12 by hand (2006–2026).
+  - id: 13 of 15 pages were written by hand by one editor in 2007, the rest by hand later; the edition adds only 4 words.
+  - Wordnets: omw-id is MIT, omw-th "wordnet" (Princeton-style), both allowed (D1).
+- Scripts and outputs (not committed): `data/raw/quality/d5/` (`measure.ts`, `inspect.ts`, `gaps.ts`, `provenance.ts`; `report.json`, `uncovered-<lang>.json`, the sources' meanings of the gate words, the samples).
+
 ## Other learning languages (estimated)
 Rows other than English in the matrix are estimated from source sizes (kaikki sense counts, 2026-11-13), not measured. Rules:
 - T1~: a bilingual dictionary with a confirmed license (zh → en, ja → en).
@@ -118,7 +157,7 @@ Two of the top 20 are special: Nigerian Pidgin has no settled spelling, and Egyp
 ## Next steps, in order of payoff
 1. ~~Add fr, de and ru recipes (no new source).~~ Done in D2 (2026-11-18), with their editions (section 1).
 2. ~~Check the Vietnamese edition's provenance; if clean, add vi.~~ Checked 2026-11-18: its English entries come from a GPL dictionary with no CC BY-SA grant, so vi is dropped (section 2).
-3. ~~Decide on the "wordnet" license and OMW's place in the source order; then add zh.~~ Done in D1 and D3 (2026-11-18), with it and pl; re-measure id with its edition and OMW together (D5).
+3. ~~Decide on the "wordnet" license and OMW's place in the source order; then add zh.~~ Done in D1 and D3 (2026-11-18), with it and pl; id re-measured with its edition and OMW together in D5 (2026-11-19): under the gate, as are tr, uk, ko and th (section "D5").
 4. Measure the T2? cells for the learning languages planned next.
 
 ## Chrome Web Store

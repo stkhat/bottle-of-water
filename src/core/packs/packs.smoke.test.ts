@@ -363,7 +363,7 @@ describe("generated en-es dictionary", () => {
   it("has Spanish meanings from the Spanish Wiktionary", () => {
     expect(dictionary.entry("light")).toMatchObject({
       head: "light",
-      short: "Luz",
+      short: "luz",
       ipa: expect.any(String),
     });
     expect(dictionary.entry("light")).not.toHaveProperty("glossLang");
@@ -404,7 +404,7 @@ describe.each([
   {
     pack: "en-fr",
     sources: ["frwiktionary", "enwiktionary-translations"],
-    bread: "Pain",
+    bread: "pain",
   },
   {
     pack: "en-de",
@@ -436,7 +436,7 @@ describe.each([
     expect(bySource.every((n) => n > 1000)).toBe(true);
     for (const word of ["light", "go", "time", "people", "think"])
       for (const line of dictionary.entry(word)?.lines ?? [])
-        expect(displayWidth(line), line).toBeLessThanOrEqual(40);
+        expect(displayWidth(line), line).toBeLessThanOrEqual(50);
   });
 
   it("writes Russian without the stress marks Wiktionary adds for learners", async () => {
@@ -498,7 +498,7 @@ describe.each([
       expect(dictionary.entry(word), word).not.toHaveProperty("glossLang");
     for (const word of ["light", "go", "time", "people", "think"])
       for (const line of dictionary.entry(word)?.lines ?? [])
-        expect(displayWidth(line), line).toBeLessThanOrEqual(40);
+        expect(displayWidth(line), line).toBeLessThanOrEqual(50);
   });
 
   it("keeps no page markup the extraction let into a gloss", async () => {

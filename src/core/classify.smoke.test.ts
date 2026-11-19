@@ -547,16 +547,16 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     expect(enEs.outline("told")?.formOf).toBe("tell");
     const told = hover("She told me the truth.", "told", enEs);
     expect(told).toMatchObject({ key: "told", pos: "verb" });
-    expect(told.lines[1]).toBe("Pasado simple del verbo tell");
-    expect(told.lines).toContain("Contar");
+    expect(told.lines[1]).toBe("pasado simple del verbo tell");
+    expect(told.lines).toContain("contar");
     expect(hover("She told me the truth.", "told").key).toBe("told");
     // An auxiliary keeps its pointer however wide; a main verb, wider than the cap,
     // shows its base's meanings.
     const has = hover("She has spent all her money.", "has", enEs);
     expect(has).toMatchObject({ key: "has", pos: "auxiliary" });
-    expect(has.lines[0]).toMatch(/^Tercera persona .* de have$/);
-    expect(has.lines[1]).toBe("Tener");
-    expect(hover("She has a dog.", "has", enEs).lines[0]).toBe("Tener");
+    expect(has.lines[0]).toMatch(/^tercera persona .* de have$/);
+    expect(has.lines[1]).toBe("tener");
+    expect(hover("She has a dog.", "has", enEs).lines[0]).toBe("tener");
     expect(hover("Why did you go?", "did", enPt)).toMatchObject({
       key: "did",
       pos: "auxiliary",

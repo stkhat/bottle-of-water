@@ -1,4 +1,4 @@
-import type { Cue, Track } from "../../../core/subtitles/types";
+import type { Track } from "../../../core/subtitles/types";
 import {
   parseYouTubeJson3,
   youtubeCaptionInfo,
@@ -30,7 +30,12 @@ import {
   type PageCallResults,
   type TimedtextMessage,
 } from "./messages";
-import { autoTranslateCode, pickOriginalTrack, trackUrl } from "./timedtext";
+import {
+  autoTranslateCode,
+  pickOriginalTrack,
+  sameResponse,
+  trackUrl,
+} from "./timedtext";
 
 export interface YouTubeAdapterOptions {
   /** Default: `location.href`. */
@@ -48,6 +53,8 @@ export interface YouTubeAdapterOptions {
 const PLAYER_RESPONSE_TIMEOUT_MS = 30_000;
 /** Videos whose last captured request is kept (the current one and a few before). */
 const KEEP_CAPTURES = 4;
+/** A try of `loadCaptions` to make again (see `loadFrom`). */
+const AGAIN = Symbol("again");
 /** A Short's path and its video id. */
 const SHORTS_PATH = /^\/shorts\/([^/]+)/;
 
@@ -191,51 +198,81 @@ export function createYouTubeAdapter(
     }
   }
 
-  /** The cues of `track` (or of its auto-translation into `tlang`), from the capture or fetched. */
-  async function cuesOf(
-    capture: TimedtextMessage,
-    info: YouTubeCaptionInfo,
-    track: YouTubeTrack,
-    tlang?: string,
-  ): Promise<Cue[]> {
-    const same =
-      capture.lang === track.lang &&
-      (capture.kind === "asr") === (track.kind === "asr") &&
-      (capture.tlang ?? undefined) === tlang;
-    const body = same
-      ? capture.body
-      : await fetchTimedtext(
-          trackUrl(capture.url, info.tracks, { track, tlang }),
-        );
-    return parseYouTubeJson3(body);
-  }
-
   async function loadCaptions(
     request: CaptionRequest,
   ): Promise<VideoCaptions | undefined> {
-    const { signal } = request;
     const id = videoId();
     if (!id) return undefined;
+    const loaded = await loadFrom(id, request, false);
+    if (loaded !== AGAIN) return loaded;
+    // Once more, with a request the player makes now and the response it makes it from.
+    captures.delete(id);
+    const retried = await loadFrom(id, request, true);
+    return retried === AGAIN ? undefined : retried;
+  }
+
+  /**
+   * One try of `loadCaptions`. AGAIN, unless `last`, when the kept request was made from
+   * another player response than the current one, or when YouTube answered every track
+   * fetched with an empty body (on the last try that is logged instead).
+   */
+  async function loadFrom(
+    id: string,
+    request: CaptionRequest,
+    last: boolean,
+  ): Promise<VideoCaptions | undefined | typeof AGAIN> {
+    const { signal } = request;
+    const listed = await captionInfo(id, signal);
+    const wanted = pickOriginalTrack(listed.tracks, request.learningLang);
+    if (!wanted) return undefined;
+    const capture = await captureFor(id, wanted, signal);
+    if (!capture) return undefined;
+    // The player may have replaced its response since it was read (it did on a first
+    // load, docs/notes/youtube-captions.md): the tracks come from the one read after
+    // its request, which must be the response the request was made from.
     const info = await captionInfo(id, signal);
+    if (!last && !sameResponse(capture.url, info.tracks)) return AGAIN;
     const original = pickOriginalTrack(info.tracks, request.learningLang);
     if (!original) return undefined;
-    const capture = await captureFor(id, original, signal);
-    if (!capture) return undefined;
-    const cues = await cuesOf(capture, info, original);
-    if (cues.length === 0) return undefined;
+
+    const fetched: string[] = [];
+    /** The cues of `track` (or of its auto-translation into `tlang`), from the capture or fetched. */
+    const cuesOf = async (track: YouTubeTrack, tlang?: string) => {
+      const same =
+        capture.lang === track.lang &&
+        (capture.kind === "asr") === (track.kind === "asr") &&
+        (capture.tlang ?? undefined) === tlang;
+      if (same) return parseYouTubeJson3(capture.body);
+      const body = await fetchTimedtext(
+        trackUrl(capture.url, info.tracks, { track, tlang }),
+      );
+      fetched.push(body);
+      return parseYouTubeJson3(body);
+    };
+
+    const cues = await cuesOf(original);
     const tlang = autoTranslateCode(info, original, request.nativeLang);
-    const translation = await firstTranslation(
-      request,
-      {
-        tracks: info.tracks.filter((t) => t !== original),
-        canAutoTranslate: tlang !== undefined,
-      },
-      (choice) =>
-        choice.source === "siteTrack"
-          ? cuesOf(capture, info, siteTrack(info, choice.track))
-          : cuesOf(capture, info, original, tlang),
-    );
-    return { track: original, cues, translation };
+    const translation =
+      cues.length === 0
+        ? undefined
+        : await firstTranslation(
+            request,
+            {
+              tracks: info.tracks.filter((t) => t !== original),
+              canAutoTranslate: tlang !== undefined,
+            },
+            (choice) =>
+              choice.source === "siteTrack"
+                ? cuesOf(siteTrack(info, choice.track))
+                : cuesOf(original, tlang),
+          );
+    if (fetched.length > 0 && fetched.every((body) => body.trim() === "")) {
+      if (!last) return AGAIN;
+      console.warn(
+        `Langle: YouTube answered every caption track fetched for ${id} with an empty body (${fetched.length})`,
+      );
+    }
+    return translation && { track: original, cues, translation };
   }
 
   return {

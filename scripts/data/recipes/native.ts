@@ -5,7 +5,10 @@
 // scripts first and download the recipe's raw files, see docs/development.md "Language
 // data")
 import { join } from "node:path";
-import type { RecipeNative } from "../../../src/core/natives.ts";
+import {
+  nativeLanguage,
+  type RecipeNative,
+} from "../../../src/core/natives.ts";
 import type { LemmaPack, NamesPack } from "../../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../../src/core/phrases/pattern.ts";
 import {
@@ -20,8 +23,10 @@ import { simplifiedConverter } from "./simplified.ts";
 import {
   capitalDictionary,
   convertTerms,
+  inCapitalCase,
   lastScriptForm,
   mergeSources,
+  nativeLetterOf,
   readEdition,
   readTranslationTables,
   termKeyOf,
@@ -59,18 +64,22 @@ export async function buildPairDictionary(
   if (!recipe) throw new Error(`No recipe for en-${native}`);
   const { edition, tables, wordnets = [], simplified } = recipe;
   const toSimplified = simplified ? simplifiedConverter() : undefined;
+  const scripts = nativeLanguage(native)?.scripts;
+  const letter = scripts && nativeLetterOf(scripts);
   const [editionTerms, tableTerms] = await Promise.all([
     edition
       ? readEdition(join(rawDir, edition.file), termKey, {
           trimPeriod: true,
           native,
           ...(toSimplified && { nativeForm: toSimplified }),
+          ...(letter && { letter }),
         })
       : undefined,
     readTranslationTables(englishPath, {
       ...tables,
       termKey,
       ...(simplified && { word: lastScriptForm }),
+      ...(letter && { letter }),
     }),
   ]);
   const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
@@ -114,6 +123,14 @@ export async function buildPairDictionary(
     personFirst: (term) =>
       Object.hasOwn(names, term) && /^[gs]/.test(names[term]!),
   });
+  // The edition's capitalised glosses in its case, once their meanings are read.
+  const editionSource = capitalSources.findIndex(
+    ({ tag }) => tag === edition?.tag,
+  );
+  const capitalCased =
+    editionTerms && editionSource >= 0
+      ? inCapitalCase(capital, editionSource, editionTerms.capitalCase)
+      : 0;
   return {
     ...merged,
     capital,
@@ -123,6 +140,15 @@ export async function buildPairDictionary(
       terms: Object.keys(merged.dict).length,
       pointers: editionTerms?.stats.pointers ?? 0,
       templates: editionTerms?.stats.templates ?? 0,
+      /** Edition glosses put in the edition's own case (`inNativeCase`). */
+      cased: (editionTerms?.stats.cased ?? 0) + capitalCased,
+      /** Whether the edition opens its glosses with capitals, as sentences. */
+      sentenceCase: editionTerms?.stats.sentenceCase ?? false,
+      /** Edition glosses and table words left out for having no letter of the native script. */
+      foreign:
+        (editionTerms?.stats.foreign ?? 0) + (tableTerms.stats.foreign ?? 0),
+      /** Terms of a closed class taken from a later source that translates what one described. */
+      described: merged.described,
       capitals,
       /** Glosses left out as classes of names, with how many headwords share each. */
       classes,
@@ -165,6 +191,10 @@ async function main() {
           .join(", ") +
         `) in ${index.shards.length} shards; ${stats.pointers} pointer senses read in ${stats.templates} templates; ` +
         `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out); ${stats.unparsable} unparsable lines`,
+    );
+    console.log(
+      `  ${stats.cased} edition glosses put in the edition's case (glosses open with capitals: ${stats.sentenceCase}); ${stats.foreign} glosses and table words left out with no letter of the native script; ` +
+        `${stats.described.length} described closed-class terms taken from a later source: ${stats.described.slice(0, 20).join(", ")}`,
     );
     console.log(
       "  class glosses:",

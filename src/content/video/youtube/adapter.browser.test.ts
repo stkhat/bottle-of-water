@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vitest";
 import captionTracks from "../../../core/subtitles/fixtures/youtube/captionTracks.json";
 import en from "../../../core/subtitles/fixtures/youtube/en.json3?raw";
@@ -23,7 +24,10 @@ import {
 } from "../../../testing/youtube-page";
 import { enterFullscreen } from "../../../testing/fullscreen";
 import { holdBackPageCalls, type HeldCalls } from "../../../testing/page-calls";
-import { FAKE_CAPTION_STORAGE } from "../../../../tests/fake-youtube-player";
+import {
+  FAKE_CAPTION_STORAGE,
+  refreshedPlayerResponse,
+} from "../../../../tests/fake-youtube-player";
 import type { PlatformAdapter } from "../platform";
 
 const REQUEST = {
@@ -369,6 +373,81 @@ describe("loading captions", () => {
     expect(localStorage.getItem(FAKE_CAPTION_STORAGE.track)).toBe(
       JSON.stringify(english),
     );
+  });
+
+  it("takes the tracks from the response the player's request came from when the player replaces it", async () => {
+    // youtube.com, 2026-11-18 (first load in a new tab): Langle read the page's initial
+    // response (baseUrls with exp=xpe, which need a PO token), then the player swapped in
+    // a refreshed one (no exp) and requested its track from that, without a token.
+    start({ refreshedResponse: refreshedPlayerResponse(captionTracks) });
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.cues).toEqual(parseYouTubeJson3(en));
+    expect(captions?.translation).toEqual({
+      source: "siteTrack",
+      lang: "ja",
+      cues: parseYouTubeJson3(ja),
+    });
+    const fetched = timedtextRequests();
+    expect(fetched.map((u) => u.searchParams.get("lang"))).toEqual([
+      "en",
+      "ja",
+    ]);
+    for (const url of fetched) {
+      expect(url.searchParams.get("ei")).toBe("REFRESHED");
+      expect(url.searchParams.has("exp")).toBe(false);
+    }
+  });
+
+  it("asks the player again when the request it kept was made from an earlier response", async () => {
+    start({ playerResponse: refreshedPlayerResponse(captionTracks, "FIRST") });
+    await adapter.loadCaptions(REQUEST);
+    page.replaceResponse(captionTracks);
+    performance.clearResourceTimings();
+
+    const captions = await adapter.loadCaptions(REQUEST);
+    expect(captions?.translation).toEqual({
+      source: "siteTrack",
+      lang: "ja",
+      cues: parseYouTubeJson3(ja),
+    });
+    expect(page.player.fake.setOption).toHaveLength(2);
+    // No URL mixed the two responses: each has the token its baseUrl needs.
+    const fetched = timedtextRequests();
+    expect(fetched.map((u) => u.searchParams.get("lang"))).toEqual([
+      "en",
+      "ja",
+    ]);
+    for (const url of fetched) {
+      expect(url.searchParams.get("exp")).toBe("xpe");
+      expect(url.searchParams.get("pot")).toBe("FAKE-PO-TOKEN");
+    }
+  });
+
+  it("tries once more, then warns, when YouTube answers every track it fetched with an empty body", async () => {
+    // The fixtures have no Spanish body: the Spanish track and the translation into
+    // Spanish come back empty.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    cleanups.push(() => warn.mockRestore());
+    start();
+    const captions = await adapter.loadCaptions({
+      ...REQUEST,
+      nativeLang: "es",
+    });
+    expect(captions?.cues).toEqual(parseYouTubeJson3(en));
+    expect(captions?.translation).toEqual({
+      source: "none",
+      lang: "es",
+      cues: [],
+    });
+    // A fresh request from the player for the second try.
+    expect(page.player.fake.setOption).toHaveLength(2);
+    expect(
+      timedtextRequests().map((u) =>
+        [u.searchParams.get("lang"), u.searchParams.get("tlang")].join(">"),
+      ),
+    ).toEqual(["en>", "es>", "en>es", "en>", "es>", "en>es"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain(VIDEO_ID);
   });
 
   it("uses YouTube's auto-translation without a Japanese track", async () => {

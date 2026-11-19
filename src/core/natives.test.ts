@@ -62,9 +62,10 @@ describe("the native-language registry", () => {
     expect(meaningLength("pt")).toBe(40);
     // Cyrillic letters are as wide as Latin ones.
     expect(meaningLength("ru")).toBe(40);
-    expect(translatedLine("д".repeat(45), "ru")).toHaveLength(40);
-    const long = "a".repeat(45);
-    expect(translatedLine(long, "es")).toHaveLength(40);
+    // A translated line takes the native cap: 50 Latin or Cyrillic characters.
+    expect(translatedLine("д".repeat(55), "ru")).toHaveLength(50);
+    const long = "a".repeat(55);
+    expect(translatedLine(long, "es")).toHaveLength(50);
     // Chinese, like Japanese: no spaces between joined lines, a dense script.
     expect(joinerFor("zh-CN")).toBe("");
     expect(joinerFor("zh-Hant")).toBe("");

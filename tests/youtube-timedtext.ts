@@ -13,15 +13,20 @@ const FIXTURES = path.resolve(
 export const FIXTURE_VIDEO_ID = "iG9CE55wbtY";
 
 /**
- * The body /api/timedtext would send for `url`. Like the real server, a request without
- * the player's PO token (`pot`), for another video, or for a track that has no fixture
- * gets a 200 with an empty body, and so does one with another track's `variant` (the
- * real server, seen on Shorts; here a track's variant, when its baseUrl has one, is its
- * language with "-asr" for the auto-generated one). Only json3 is recorded.
+ * The body /api/timedtext would send for `url`. Like the real server, a request naming
+ * `exp=xpe` without the player's PO token (`pot`), one for another video, or one for a
+ * track that has no fixture gets a 200 with an empty body, and so does one with another
+ * track's `variant` (the real server, seen on Shorts; here a track's variant, when its
+ * baseUrl has one, is its language with "-asr" for the auto-generated one). A request
+ * without `exp=xpe` needs no token (youtube.com, 2026-11-18); here it then needs the
+ * player's client params (`c`), so a bare baseUrl gets nothing (not measured). Only json3
+ * is recorded.
  */
 export function timedtextBody(url: URL): string {
   const q = url.searchParams;
-  if (!q.get("pot") || q.get("v") !== FIXTURE_VIDEO_ID) return "";
+  const needsToken = q.get("exp")?.split(",").includes("xpe") ?? false;
+  if (!q.get("pot") && (needsToken || !q.get("c"))) return "";
+  if (q.get("v") !== FIXTURE_VIDEO_ID) return "";
   if (q.get("fmt") !== "json3") return "";
   const lang = q.get("lang");
   const tlang = q.get("tlang");

@@ -132,20 +132,28 @@ function writtenOf(
 }
 
 type HoverKind = "dict" | "translated" | "literal" | "none";
-/** The hover card's lines for a term, as far as they can be known offline. */
+/**
+ * The hover card's lines for a term, as far as they can be known offline. A meaning
+ * translated at display has the English text that is translated (`hover`) and the
+ * lines the card shows while it is not translated (`fallback`).
+ */
 function hoverOf(
   key: string,
   kind: "word" | "phrase",
   written?: Written,
   pos?: string,
-): { hover: string[]; hoverKind: HoverKind } {
+): { hover: string[]; hoverKind: HoverKind; fallback?: string[] } {
   const entry = dictionary.entry(key, written, pos);
   if (!entry)
     return kind === "phrase"
       ? { hover: [], hoverKind: "literal" }
       : { hover: [], hoverKind: "none" };
   if (entry.glossLang !== undefined && entry.glossLang !== NATIVE)
-    return { hover: [entry.short], hoverKind: "translated" };
+    return {
+      hover: [entry.short],
+      hoverKind: "translated",
+      fallback: entry.lines,
+    };
   return { hover: entry.lines, hoverKind: "dict" };
 }
 
