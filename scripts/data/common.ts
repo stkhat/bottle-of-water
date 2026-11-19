@@ -185,6 +185,8 @@ export interface KaikkiTranslation {
 type Categories = (string | { name?: unknown } | null)[];
 export interface KaikkiSense {
   glosses?: unknown[];
+  /** The glosses with their qualifiers, as the page writes them ("(auxiliary) used to …"). */
+  raw_glosses?: unknown[];
   tags?: string[];
   categories?: Categories;
   topics?: unknown[];

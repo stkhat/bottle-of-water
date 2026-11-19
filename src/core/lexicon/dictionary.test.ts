@@ -502,6 +502,13 @@ describe("createDefsDictionary", () => {
         ],
       ],
       casas: ["Plural of casa", [["noun", "Plural of casa"]]],
+      haber: [
+        "to exist",
+        [
+          ["verb", "to exist"],
+          ["verb", "to have; forms the perfect aspect", "auxiliary"],
+        ],
+      ],
       vela: [
         "candle",
         [
@@ -514,6 +521,17 @@ describe("createDefsDictionary", () => {
       ],
     },
     ipa: { comer: "/koˈmeɾ/", a: "/a/", escondidas: "/eskonˈdidas/" },
+  });
+
+  it("shows the senses the pack marks as an auxiliary's first where the word is one", () => {
+    expect(dictionary.entry("haber", undefined, "auxiliary")?.lines).toEqual([
+      "to have",
+      "to exist",
+    ]);
+    expect(dictionary.entry("haber", undefined, "verb")?.lines).toEqual([
+      "to exist",
+      "to have",
+    ]);
   });
 
   it("gives a word's short meaning", () => {
