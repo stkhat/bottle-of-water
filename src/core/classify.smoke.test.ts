@@ -675,6 +675,22 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     };
   };
 
+  it("reads what a contraction's clitic stands for from the trained tagger (K4)", () => {
+    const clitic = (text: string, word: string) =>
+      classifier
+        .classify(tagged.tokenize(text), {
+          terms: new Map(),
+          knownLevel: 3000,
+          outline: (key) => dictionary.outline(key),
+        })
+        .find((s) => text.slice(s.start, s.end) === word)?.clitic;
+    expect(clitic("He's been here before.", "He's")).toBe("has");
+    expect(clitic("He's going home now.", "He's")).toBe("is");
+    expect(clitic("It's a good idea.", "It's")).toBe("is");
+    expect(clitic("If I'd known, I would have come.", "I'd")).toBe("had");
+    expect(clitic("I'd go with you.", "I'd")).toBe("would");
+    expect(clitic("How'd you find it?", "How'd")).toBeUndefined();
+  });
   it("looks an inflected verb up by its base", () => {
     expect(hover("She decided to stay.", "decided")).toMatchObject({
       key: "decide",
@@ -717,6 +733,17 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     expect(has.lines[0]).toMatch(/^tercera persona .* de have$/);
     expect(has.lines[1]).toBe("tener");
     expect(hover("She has a dog.", "has", enEs).lines[0]).toBe("tener");
+    // Be keeps its meaning as an auxiliary (U1-8): the copula's hover, not the
+    // edition's whole pointer ("primera persona del singular del pasado simple … be").
+    for (const [pair, sentence, word] of [
+      [enEs, "It was built in 1990.", "was"],
+      [enPt, "It was built in 1990.", "was"],
+      [enEs, "They were running.", "were"],
+    ] as const)
+      expect(hover(sentence, word, pair)).toMatchObject({
+        pos: "verb",
+        lines: expect.arrayContaining(["ser", "estar"]),
+      });
     expect(hover("Why did you go?", "did", enPt)).toMatchObject({
       key: "did",
       pos: "auxiliary",

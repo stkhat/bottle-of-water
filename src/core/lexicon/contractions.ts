@@ -21,6 +21,22 @@ const NAMED = 2;
 export const expansionLine = (expansions: readonly string[]) =>
   expansions.slice(0, NAMED).join(" / ");
 
+/**
+ * The expansions a contraction has where its clitic stands for `clitic` (K4: "has" →
+ * he's "he has"): those that end with it; all of them when none does or nothing is
+ * said ("he is / he has").
+ */
+export function expansionsHere(
+  expansions: readonly string[],
+  clitic: string | undefined,
+): readonly string[] {
+  if (clitic === undefined) return expansions;
+  const here = expansions.filter(
+    (expansion) => expansion.split(" ").at(-1)?.toLowerCase() === clitic,
+  );
+  return here.length > 0 ? here : expansions;
+}
+
 /** A line as words: lower case, without quotes, "=", "+" and closing stops. */
 const wordsOf = (line: string) =>
   line
@@ -81,10 +97,13 @@ export function withContractions(
 ): DictionaryProvider {
   return {
     ...dictionary,
-    entry(term, written, pos) {
-      const found = dictionary.entry(term, written, pos);
+    entry(term, written, pos, clitic) {
+      const found = dictionary.entry(term, written, pos, clitic);
       const head = keyOf(term);
-      const list = expansions(head);
+      const all = expansions(head);
+      // Named: the expansions its clitic stands for here; lines that only write it out
+      // are left out by any of them.
+      const list = expansionsHere(all, clitic);
       if (list.length === 0) return found;
       const native = found !== undefined && found.glossLang === undefined;
       const ownLines = new Set(
@@ -96,12 +115,12 @@ export function withContractions(
           : [],
       );
       const lines = (native ? found.lines : []).filter(
-        (line) => ownLines.has(line) && !writesOutOnly(line, list, english),
+        (line) => ownLines.has(line) && !writesOutOnly(line, all, english),
       );
       const expansion = expansionLine(list);
       const writesOut = lines.some((line) => {
         const text = wordsOf(line).join(" ");
-        return list.some((one) => text.includes(one.toLowerCase()));
+        return all.some((one) => text.includes(one.toLowerCase()));
       });
       const entry: DictionaryEntry = {
         head: found?.head ?? head,

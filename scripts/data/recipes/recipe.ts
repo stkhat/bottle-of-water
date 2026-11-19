@@ -346,18 +346,72 @@ export function meaningFirst(
 export function withLabelsInBrackets(
   gloss: string,
   isLabel: (token: string) => boolean,
+  isAbbreviation: (token: string) => boolean = () => false,
 ): string {
   const opening = /^\s*(?:[(（][^()（）]*[)）]\s*)?/u.exec(gloss)![0];
   let rest = gloss.slice(opening.length);
+  // An abbreviation the edition put in brackets ("(мн.) ч. слова песни") takes the ones
+  // after it too.
+  const bracketed = /\((?:\p{Ll}[\p{L}\p{M}-]*\.[,\s]*)+\)\s*$/u.test(opening);
+  /** The labels, each its tokens with what follows each ("амер., канадск., разг."). */
   const labels: string[] = [];
+  const next = (text: string) =>
+    /^(\p{Ll}[\p{L}\p{M}-]*\.)(,?)\s+(?=\S)/u.exec(text);
+  /**
+   * A token that goes on the label before it: after a comma, a label; else one letter
+   * with a period or an abbreviation the edition writes ("мн. ч.", plural).
+   */
+  const goesOn = (token: string, comma: boolean) =>
+    comma
+      ? isLabel(token) || isAbbreviation(token)
+      : [...token].length === 2 || isAbbreviation(token);
+  let comma = false;
   for (;;) {
-    const found = /^(\p{Ll}[\p{L}\p{M}-]*\.)\s+(?=\S)/u.exec(rest);
-    if (!found || !isLabel(found[1]!)) break;
-    labels.push(`(${found[1]!})`);
-    rest = rest.slice(found[0].length);
+    const found = next(rest);
+    if (!found) break;
+    const [whole, token, after] = found as unknown as [string, string, string];
+    const on = (labels.length > 0 || bracketed) && goesOn(token, comma);
+    if (!isLabel(token) && !on) break;
+    // A comma after it binds it to a label that follows: else it is no label's.
+    const following = after === "," ? next(rest.slice(whole.length)) : null;
+    if (after === "," && !(following && goesOn(following[1]!, true))) break;
+    const text = `${token}${after}`;
+    if (on && labels.length > 0) labels[labels.length - 1] += ` ${text}`;
+    else if (on) {
+      // Into the bracket the edition wrote: "(мн. ч.)".
+      const at = opening.lastIndexOf(")");
+      return withLabelsInBrackets(
+        `${opening.slice(0, at)} ${text}${opening.slice(at)}${rest.slice(whole.length)}`,
+        isLabel,
+        isAbbreviation,
+      );
+    } else labels.push(text);
+    comma = after === ",";
+    rest = rest.slice(whole.length);
   }
-  return labels.length === 0 ? gloss : `${opening}${labels.join(" ")} ${rest}`;
+  return labels.length === 0
+    ? gloss
+    : `${opening}${labels.map((label) => `(${label})`).join(" ")} ${rest}`;
 }
+
+/**
+ * A gloss with a no-break space after each of the edition's abbreviations that a
+ * space follows ("unnötiger Gegenstand bzw.\u00a0Ergänzung", pl "np.\u00a0Mięsień"), so
+ * the line does not end at one as at a sentence (`firstSentence` ends sentences at
+ * ordinary spaces only). `isAbbreviation`: the edition's abbreviations
+ * (`abbreviations` in `readEdition`).
+ */
+export const withAbbreviations = (
+  gloss: string,
+  isAbbreviation: (token: string) => boolean,
+): string =>
+  gloss.replace(ABBREVIATION, (whole, token: string) =>
+    isAbbreviation(token) ? `${token}\u00a0` : whole,
+  );
+
+/** A lower-case word with a period, a space after it: "bzw. ", "np. ". */
+const ABBREVIATION =
+  /(?<![\p{L}\p{M}'’-])(\p{Ll}[\p{L}\p{M}-]*\.)[ \t]+(?=\S)/gu;
 
 /**
  * A gloss's identity as a placeholder: without notes in brackets and closing marks, in
@@ -740,6 +794,8 @@ export async function readEdition(
     string,
     { heads: Set<string>; uses: number; english: number }
   >();
+  /** a lower-case word with a period that a space follows, anywhere → its headwords */
+  const periods = new Map<string, Set<string>>();
   for (const { head, gloss, marked } of glosses) {
     const words = new Set(head.split(/\s+/));
     if (!marked)
@@ -756,6 +812,11 @@ export async function readEdition(
     let heads = repeated.get(key);
     if (!heads) repeated.set(key, (heads = new Set()));
     heads.add(head);
+    for (const [, token] of gloss.matchAll(ABBREVIATION)) {
+      let heads = periods.get(token!);
+      if (!heads) periods.set(token!, (heads = new Set()));
+      heads.add(head);
+    }
     const opener = OPENING_ABBREVIATION.exec(gloss);
     if (opener) {
       const [, token, next] = opener;
@@ -839,6 +900,26 @@ export async function readEdition(
       .map(([token]) => token),
   );
   /**
+   * The edition's abbreviations: a lower-case word with a period that a space follows in
+   * the glosses of LABEL_HEADWORDS headwords or more, that is no word of the edition
+   * without its period nor an English term (a sentence that ends with one: "… de have.
+   * Usado …"): de "bzw.", "z.", pl "np.", "tzw.", ru "мн.", "т.", and the labels. A line
+   * does not end at one (`withAbbreviations`), and one after a label is part of it
+   * ("мн. ч.").
+   */
+  const abbreviations = new Set([
+    ...labels,
+    ...[...periods]
+      .filter(([token, heads]) => {
+        const word = token.slice(0, -1);
+        return (
+          heads.size >= LABEL_HEADWORDS && !isNativeWord(word) && !isTerm(word)
+        );
+      })
+      .map(([token]) => token),
+  ]);
+  const isAbbreviation = (token: string) => abbreviations.has(token);
+  /**
    * The term a gloss points to in one of the edition's templates (`isFrame`): the whole
    * gloss, else its first item, which the rest qualifies (pt might: "pretérito perfeito
    * do verbo may, indicando possibilidade").
@@ -917,9 +998,16 @@ export async function readEdition(
           (found.gloss !== written && found.gloss.toLowerCase() === head)
         )
           continue;
-        const shaped = beforeReference(
-          withLabelsInBrackets(found.gloss, (token) => labels.has(token)),
-          isFrame,
+        const shaped = withAbbreviations(
+          beforeReference(
+            withLabelsInBrackets(
+              found.gloss,
+              (token) => labels.has(token),
+              isAbbreviation,
+            ),
+            isFrame,
+          ),
+          isAbbreviation,
         );
         if (
           !capital &&
@@ -975,6 +1063,7 @@ export async function readEdition(
       /** Glosses with labels put in brackets, a closing reference cut, or the translation first. */
       reshaped,
       labels: [...labels],
+      abbreviations: [...abbreviations].filter((token) => !labels.has(token)),
       placeholders: [...placeholders],
     },
     templates,
@@ -1104,6 +1193,8 @@ export async function readTranslationTables(
   const lowercase = new Set<string>();
   /** term key ("french", "French") → the most languages one sense's table translates */
   const coverage = new Map<string, number>();
+  /** term key → the tags of its English form-of senses ("past", "participle", "plural") */
+  const formTags = new Map<string, Set<string>>();
   const stats = await eachEntry(path, (entry) => {
     // English text writes Translingual symbols too ("kg").
     if (entry.lang_code === "en" || entry.lang_code === "mul") {
@@ -1117,6 +1208,12 @@ export async function readTranslationTables(
     if (!key) return;
     const into = capitalKey !== undefined ? capitalFound : found;
     const pos = posOf(entry.pos);
+    for (const sense of entry.senses ?? [])
+      if ((sense.tags ?? []).includes("form-of")) {
+        let tags = formTags.get(key);
+        if (!tags) formTags.set(key, (tags = new Set()));
+        for (const tag of sense.tags ?? []) tags.add(tag);
+      }
     // hint → words, and every language its table translates, in the order the senses
     // first appear
     const groups = new Map<
@@ -1215,8 +1312,70 @@ export async function readTranslationTables(
     capital: finish(capital.terms, firstWord),
     lowercase,
     coverage,
+    formTags,
     stats: { ...stats, foreign: lower.foreign + capital.foreign },
   };
+}
+
+/**
+ * LEARNING (English): the parts of speech a form of each kind is used as on its own,
+ * by the tags of English Wiktionary's form-of senses: a past participle as an adjective
+ * ("used", "tired"), a present participle or gerund as an adjective or a noun
+ * ("pleasing", "meeting"), a plural as a noun, a comparative or superlative as an
+ * adjective or adverb; a simple past or a third person as nothing but itself ("dug" is
+ * no noun "teat": that is another word).
+ */
+export function usesOfForm(tags: ReadonlySet<string>): string[] {
+  const uses = new Set<string>();
+  if (tags.has("participle") && tags.has("past")) uses.add("adjective");
+  if (tags.has("gerund") || (tags.has("participle") && tags.has("present"))) {
+    uses.add("adjective");
+    uses.add("noun");
+  }
+  if (tags.has("plural")) uses.add("noun");
+  if (tags.has("comparative") || tags.has("superlative")) {
+    uses.add("adjective");
+    uses.add("adverb");
+  }
+  return [...uses];
+}
+
+/** A form's own table sense is a use of it when translated at least 1/FORM_RATIO as widely as its base. */
+const FORM_RATIO = 5;
+
+/**
+ * Whether a later source's term `later` is another word than the form a term that
+ * only points (`taken`) is: it has no meaning in a part of speech the form can be (its
+ * pointers', or what English uses a form of its kind as: `usesOfForm` over the tags of
+ * English Wiktionary's form-of senses, `formTags`), and the translation tables translate
+ * it into fewer than 1/FORM_RATIO of the languages its base's most translated sense
+ * reaches (`coverage`): dug, a past, is no noun, and "teat" (7 languages) is not what it
+ * means beside dig. A noun that is a word of its own is as widely translated as its
+ * base: stranger (55 against strange's 109), the accused (44 against accuse's 63).
+ * Without English's tags nothing is said (a spelling: armor → armadura).
+ */
+export function isOtherWord(
+  key: string,
+  taken: readonly PairSense[],
+  later: readonly PairSense[],
+  {
+    formTags,
+    coverage,
+  }: {
+    formTags: ReadonlyMap<string, ReadonlySet<string>>;
+    coverage: ReadonlyMap<string, number>;
+  },
+): boolean {
+  const tags = formTags.get(key);
+  if (tags === undefined) return false;
+  const can = new Set([...taken.map(([pos]) => pos), ...usesOfForm(tags)]);
+  if (later.some((sense) => !isPointerSense(sense) && can.has(sense[0])))
+    return false;
+  const base = Math.max(
+    0,
+    ...taken.map((sense) => coverage.get(sense[3] ?? "") ?? 0),
+  );
+  return (coverage.get(key) ?? 0) * FORM_RATIO < base;
 }
 
 /** A word translating this many of a term's table senses is its general translation. */
@@ -1569,8 +1728,9 @@ function translatesAlike(senses: readonly PairSense[], sense: PairSense) {
  * source that has it, as [short, senses, source index]. A term that only points
  * (every sense of it a pointer: pt "used", "passado … do verbo use") comes whole from
  * the first later source that has a meaning for it (the tables' "usado,
- * acostumado"), and stays with its pointers when none has. Likewise a term of a closed
- * class that a source only describes (`describedOnly`: pl "the") comes whole from the
+ * acostumado"), and stays with its pointers when none has, or when that source's term
+ * is another word (`otherWord`, `isOtherWord`: dug, the tables' noun "teat", is no form
+ * of dig). Likewise a term of a closed class that a source only describes (`describedOnly`: pl "the") comes whole from the
  * first later source that translates it in one of those parts of speech (a sense of
  * that part of speech that does not describe), and stays described when none does
  * (pl "a": the tables have only the letter's name).
@@ -1591,16 +1751,27 @@ export function mergeSources(
   {
     mainPos = () => undefined,
     degree = () => false,
+    otherWord = () => false,
   }: {
     mainPos?: (key: string) => string | undefined;
     /** A sense that is an unmarked degree of another word (`degreeOf`). */
     degree?: (key: string, sense: PairSense) => boolean;
+    /**
+     * Whether a later source's term is another word than the form a term that only
+     * points is (`isOtherWord`): the term keeps its pointers.
+     */
+    otherWord?: (
+      key: string,
+      taken: readonly PairSense[],
+      later: readonly PairSense[],
+    ) => boolean;
   } = {},
 ) {
   const dict: Record<string, [string, PairSense[], number]> = {};
   const counts: Record<string, number> = {};
   const described: string[] = [];
   const lacking: string[] = [];
+  const pointing: string[] = [];
   const means = (senses: readonly PairSense[]) =>
     senses.some((sense) => !isPointerSense(sense));
   /** Whether `senses` mean something as a `pos` (no pointer, no degree). */
@@ -1615,7 +1786,14 @@ export function mergeSources(
     taken: readonly PairSense[],
     later: readonly PairSense[],
   ): "points" | "describes" | "lacks" | false => {
-    if (!means(taken)) return means(later) && "points";
+    if (!means(taken)) {
+      if (!means(later)) return false;
+      if (otherWord(key, taken, later)) {
+        pointing.push(key);
+        return false;
+      }
+      return "points";
+    }
     const described = describedOnly(taken);
     if (
       described !== undefined &&
@@ -1666,5 +1844,7 @@ export function mergeSources(
     described,
     /** The terms a later source took from one with no meaning in their main part of speech. */
     lacking,
+    /** The terms that only point and kept their pointers, the later source's being another word. */
+    pointing,
   };
 }

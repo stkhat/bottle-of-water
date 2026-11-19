@@ -29,6 +29,7 @@ import {
   capitalDictionary,
   convertTerms,
   inCapitalCase,
+  isOtherWord,
   lastScriptForm,
   mergeSources,
   nativeLetterOf,
@@ -133,6 +134,8 @@ export async function buildPairDictionary(
     },
     degree: (key, sense) =>
       degreeOf(sense, key, [lemmas[key] ?? []].flat(), pos) !== undefined,
+    otherWord: (key, taken, later) =>
+      isOtherWord(key, taken, later, tableTerms),
   });
   const {
     capital,
@@ -189,6 +192,8 @@ export async function buildPairDictionary(
       /** Pointer senses with no part of speech given the word's main one in English. */
       pointerPos: posed,
       labels: editionTerms?.stats.labels ?? [],
+      /** The edition's abbreviations, learned (`withAbbreviations`). */
+      abbreviations: editionTerms?.stats.abbreviations ?? [],
       /** Edition glosses put in the edition's own case (`inNativeCase`). */
       cased: (editionTerms?.stats.cased ?? 0) + capitalCased,
       /** Whether the edition opens its glosses with capitals, as sentences. */
@@ -200,6 +205,8 @@ export async function buildPairDictionary(
       described: merged.described,
       /** Terms taken from a later source for a meaning in their main part of speech. */
       lacking: merged.lacking,
+      /** Terms that only point and kept their pointers beside a later source's other word (dug). */
+      pointing: merged.pointing,
       /** Lowercase terms of words English writes only capitalised, left out. */
       uncased,
       capitals,
@@ -308,11 +315,13 @@ async function main() {
     );
     console.log(
       `  ${stats.lacking.length} terms taken from a later source for their main part of speech: ${stats.lacking.slice(0, 30).join(", ")}; ` +
+        `${stats.pointing.length} pointing terms kept beside another word: ${stats.pointing.slice(0, 30).join(", ")}; ` +
         `${stats.uncased.length} lowercase terms of words English writes capitalised left out: ${stats.uncased.slice(0, 20).join(", ")}; ${stats.capitals.personSenses} person senses left out`,
     );
     console.log(
       `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
-        `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}`,
+        `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}; ` +
+        `abbreviations: ${stats.abbreviations.slice(0, 30).join(" ")}`,
     );
     console.log(
       "  class glosses:",

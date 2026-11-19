@@ -87,6 +87,12 @@ export interface Span {
    */
   pos?: string;
   /**
+   * What a contraction's clitic stands for here, when its sentence decides (K4: "has" in
+   * "he's been", "is" in "he's going"; `WordUse.clitic`): its lookup names that
+   * expansion alone ("he has"), not both ("he is / he has").
+   */
+  clitic?: string;
+  /**
    * A phrase's words by its key's words: the part of speech each one's trusted tag
    * gives it here (rule A2, `sensePos`), so the card's word line ("other" in "in
    * other words") shows a sense of that part of speech, as the word's own hover does.
@@ -310,6 +316,14 @@ export function createClassifier(pack: LanguagePack): Classifier {
           return {};
         const name = names(written, before(i));
         if (name === "name") return { category: "ignored", name: true };
+        // A word in capitals English also writes so as a common word (the names
+        // lexicon's "!": "OK", an interjection) is that word, not an acronym: its
+        // capitals ask for no acronym's senses (U1-8: "OK" → Oklahoma first).
+        if (
+          written.written === "upper" &&
+          pack.name(written.key)?.endsWith("!") === true
+        )
+          return {};
         return name === "kept" ||
           (!pack.capitalsForNames && capitalHere(casing, written))
           ? { capital: true }
@@ -544,7 +558,12 @@ export function createClassifier(pack: LanguagePack): Classifier {
         // no headword ("gets") is looked up by its base like any form.
         const ownEntry = !bases.includes(form) || outline(form) !== undefined;
         const pos = sensePos(form, key, reading, ownEntry);
-        return { key, ...(pos !== undefined && { pos }) };
+        const { clitic } = reading.use;
+        return {
+          key,
+          ...(pos !== undefined && { pos }),
+          ...(clitic !== undefined && { clitic }),
+        };
       };
 
       const pushWord = (i: number) => {

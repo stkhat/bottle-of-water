@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zymurgy"},{"file":"dict-1.json","first":"a","last":"editorialize"},{"file":"dict-2.json","first":"editorship","last":"millionaire"},{"file":"dict-3.json","first":"millionth","last":"storm petrel"},{"file":"dict-4.json","first":"storm surge","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zymurgy"},{"file":"dict-1.json","first":"a","last":"editorial"},{"file":"dict-2.json","first":"editorialize","last":"milling cutter"},{"file":"dict-3.json","first":"milling machine","last":"stork"},{"file":"dict-4.json","first":"storm","last":"éclair"}],
 "sources":["enwiktionary-translations","ruwiktionary"]
 }

@@ -278,7 +278,9 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
  * can stand ("Including …"): its verb tag says nothing of which of its adjective or
  * preposition senses fits. A use may give another part of speech than the tag (a
  * gerund noun). An auxiliary's is AUXILIARY, whatever its tag: no sense is labelled
- * so, and a pair dictionary shows its grammar pointer ("has been"); AUXILIARY_BASE
+ * so, and a pair dictionary shows its grammar pointer ("has been"); one that keeps its
+ * verb's meaning (`WordUse.lexical`: be in "was built", U1-8) is read by its tag, as
+ * the verb it is ("ser / estar", not the edition's whole pointer first); AUXILIARY_BASE
  * when it is looked up by its base for want of an entry of its own (`ownEntry` false:
  * en-ru "has" → have), whose lexical meanings are not what it means.
  */
@@ -288,7 +290,7 @@ export function sensePos(
   { tag, use }: WordReading,
   ownEntry = true,
 ): string | undefined {
-  if (use.auxiliary)
+  if (use.auxiliary && !use.lexical)
     return key !== form && !ownEntry ? AUXILIARY_BASE : AUXILIARY;
   if (!tag) return undefined;
   if (
