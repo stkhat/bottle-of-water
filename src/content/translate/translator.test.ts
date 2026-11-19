@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   builtInTranslatorAvailable,
   createBuiltInTranslator,
+  downloadModelsOnFirstActivation,
   downloadTranslationModels,
+  type ModelDownload,
   type TranslatorGlobal,
 } from "./translator";
 
@@ -219,5 +221,161 @@ describe("downloadTranslationModels", () => {
     await expect(downloadTranslationModels("en", "ja", g)).resolves.toBe(
       undefined,
     );
+  });
+});
+
+/** A Translator whose `create()` reports the download through its monitor when told. */
+function downloading(availability: { value: string }, active = true) {
+  const monitors: EventTarget[] = [];
+  const created: string[] = [];
+  const g: TranslatorGlobal = {
+    Translator: {
+      availability: async () => availability.value,
+      create: async (options) => {
+        created.push(`${options.sourceLanguage}>${options.targetLanguage}`);
+        const monitor = new EventTarget();
+        options.monitor?.(monitor);
+        monitors.push(monitor);
+        return { translate: async (text: string) => `ja(${text})` };
+      },
+    },
+    navigator: { userActivation: { isActive: active } },
+  };
+  const progress = (loaded: number) => {
+    for (const monitor of monitors)
+      monitor.dispatchEvent(
+        Object.assign(new Event("downloadprogress"), { loaded }),
+      );
+  };
+  return { g, created, progress };
+}
+
+describe("createBuiltInTranslator().watchDownload", () => {
+  it("tells that the model is still to come, then how much of it has downloaded", async () => {
+    const availability = { value: "downloadable" };
+    const { g, progress } = downloading(availability);
+    const translator = createBuiltInTranslator("en", "ja", g);
+    const seen: (ModelDownload | undefined)[] = [];
+    const unwatch = translator.watchDownload!((download) =>
+      seen.push(download),
+    );
+    await expect.poll(() => seen).toEqual([{}]);
+    await translator.open!();
+    progress(0.25);
+    progress(1);
+    expect(seen).toEqual([{}, { share: 0.25 }, { share: 1 }]);
+    unwatch();
+    progress(1);
+    expect(seen).toHaveLength(3);
+  });
+
+  it("hears a download another part of the page started (the first click)", async () => {
+    const availability = { value: "downloadable" };
+    const { g, progress } = downloading(availability);
+    await downloadTranslationModels("en", "ja", g);
+    availability.value = "downloading";
+    progress(0.5);
+    const seen: (ModelDownload | undefined)[] = [];
+    createBuiltInTranslator("en", "ja", g).watchDownload!((download) =>
+      seen.push(download),
+    );
+    await expect.poll(() => seen).toEqual([{ share: 0.5 }]);
+  });
+
+  it("tells nothing is coming when the model is there or cannot be had, or without the API", async () => {
+    for (const value of ["available", "unavailable"]) {
+      const { g } = downloading({ value });
+      const seen: (ModelDownload | undefined)[] = [];
+      createBuiltInTranslator("en", "ja", g).watchDownload!((download) =>
+        seen.push(download),
+      );
+      await expect.poll(() => seen).toEqual([undefined]);
+    }
+    const seen: unknown[] = [];
+    createBuiltInTranslator("en", "ja", {}).watchDownload!((download) =>
+      seen.push(download),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(seen).toEqual([]);
+  });
+});
+
+describe("downloadModelsOnFirstActivation", () => {
+  const languages = () => ({ learning: "en", native: "ja" });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+  it("starts the downloads at the first click, once, and never on hover", async () => {
+    const { g, created } = downloading({ value: "downloadable" });
+    const page = new EventTarget();
+    downloadModelsOnFirstActivation(page, languages, {}, g);
+    for (const type of ["pointerover", "pointermove", "mouseover"])
+      page.dispatchEvent(new Event(type));
+    await settle();
+    expect(created).toEqual([]);
+    page.dispatchEvent(new Event("pointerdown"));
+    await expect.poll(() => created).toEqual(["en>ja"]);
+    page.dispatchEvent(new Event("pointerdown"));
+    page.dispatchEvent(new Event("keydown"));
+    await settle();
+    expect(created).toEqual(["en>ja"]);
+  });
+
+  it("waits for the input that gives the activation (a tap's pointerup)", async () => {
+    const { g, created } = downloading({ value: "downloadable" }, false);
+    const page = new EventTarget();
+    downloadModelsOnFirstActivation(page, languages, {}, g);
+    page.dispatchEvent(new Event("pointerdown"));
+    await settle();
+    expect(created).toEqual([]);
+    g.navigator!.userActivation!.isActive = true;
+    page.dispatchEvent(new Event("pointerup"));
+    await expect.poll(() => created).toEqual(["en>ja"]);
+  });
+
+  it("arms a page once, and again after the disarm", async () => {
+    const { g, created } = downloading({ value: "downloadable" });
+    const page = new EventTarget();
+    const disarm = downloadModelsOnFirstActivation(page, languages, {}, g);
+    downloadModelsOnFirstActivation(page, languages, {}, g);
+    disarm();
+    page.dispatchEvent(new Event("pointerdown"));
+    await settle();
+    expect(created).toEqual([]);
+    downloadModelsOnFirstActivation(page, languages, {}, g);
+    page.dispatchEvent(new Event("pointerdown"));
+    await expect.poll(() => created).toEqual(["en>ja"]);
+  });
+
+  it("starts at once in a page a click just opened (the toolbar popup)", async () => {
+    const { g, created } = downloading({ value: "downloadable" });
+    downloadModelsOnFirstActivation(
+      new EventTarget(),
+      languages,
+      { now: true },
+      g,
+    );
+    await expect.poll(() => created).toEqual(["en>ja"]);
+    const idle = downloading({ value: "downloadable" }, false);
+    downloadModelsOnFirstActivation(
+      new EventTarget(),
+      languages,
+      { now: true },
+      idle.g,
+    );
+    await settle();
+    expect(idle.created).toEqual([]);
+  });
+
+  it("downloads nothing that is there already, and nothing without the API", async () => {
+    const { g, created } = downloading({ value: "available" });
+    const page = new EventTarget();
+    downloadModelsOnFirstActivation(page, languages, {}, g);
+    page.dispatchEvent(new Event("pointerdown"));
+    await settle();
+    expect(created).toEqual([]);
+    const bare = new EventTarget();
+    const listen = vi.spyOn(bare, "addEventListener");
+    downloadModelsOnFirstActivation(bare, languages, {}, {});
+    expect(listen).not.toHaveBeenCalled();
   });
 });

@@ -120,6 +120,49 @@ describe("DictionaryWindow", () => {
     expect(screen.container.textContent).not.toContain("Machine translation");
   });
 
+  test("says on the Meanings heading how the translator's model download goes", async () => {
+    const english = {
+      ...figureOut.entry,
+      short: "To come to understand",
+      shortLang: "en",
+      senses: [{ pos: "verb", text: "To come to understand; to discover." }],
+      glossLang: "en",
+    };
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...figureOut}
+        entry={{ ...english, downloading: {} }}
+      />,
+    );
+    await expect
+      .element(screen.getByRole("status"))
+      .toHaveTextContent("Downloading translator…");
+    await screen.rerender(
+      <DictionaryWindow
+        {...figureOut}
+        entry={{ ...english, downloading: { share: 0.453 } }}
+      />,
+    );
+    await expect
+      .element(screen.getByRole("status"))
+      .toHaveTextContent("Downloading translator · 45%");
+    expect(screen.container.textContent).not.toContain("Machine translation");
+    // Translated: the mark takes its place.
+    await screen.rerender(
+      <DictionaryWindow
+        {...figureOut}
+        entry={{
+          ...english,
+          senses: [{ ...english.senses[0]!, translated: "理解する" }],
+        }}
+      />,
+    );
+    await expect
+      .element(screen.getByText("Machine translation", { exact: true }))
+      .toBeVisible();
+    expect(screen.container.textContent).not.toContain("Downloading");
+  });
+
   test("marks an English definition and its senses as English", async () => {
     const screen = await mountInShadowRoot(
       <DictionaryWindow

@@ -1,4 +1,4 @@
-import type { TranslationProvider } from "./translator";
+import type { ModelDownload, TranslationProvider } from "./translator";
 
 /**
  * Who waits for a translation, the most urgent first: the playing subtitle line, the
@@ -32,6 +32,11 @@ export interface TranslationQueue {
    * asked for it; returns an unsubscribe.
    */
   onTranslated(listener: TranslationListener): () => void;
+  /** The pair's model download as its translator reports it (`TranslationProvider.watchDownload`). */
+  watchDownload(
+    pair: TranslationPair,
+    listener: (download: ModelDownload | undefined) => void,
+  ): () => void;
 }
 
 type TranslationListener = (
@@ -158,6 +163,9 @@ export function createTranslationQueue(
   }
 
   return {
+    watchDownload(pair, listener) {
+      return translator(pair).watchDownload?.(listener) ?? (() => {});
+    },
     onTranslated(listener) {
       listeners.add(listener);
       return () => {
