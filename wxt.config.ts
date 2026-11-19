@@ -1,11 +1,13 @@
 import { defineConfig } from "wxt";
 import preact from "@preact/preset-vite";
 import pkg from "./package.json" with { type: "json" };
+import { noticesPlugin } from "./scripts/notices.ts";
 
 export default defineConfig({
   srcDir: "src",
   manifestVersion: 3,
-  vite: () => ({ plugins: [preact()] }),
+  // The data sources and licenses page's data (`virtual:langle-notices`).
+  vite: () => ({ plugins: [preact(), noticesPlugin()] }),
   manifest: ({ browser }) => ({
     name: "Langle",
     version: pkg.version,

@@ -11,6 +11,7 @@ import {
   setup,
 } from "../../testing/article";
 import { testBackground } from "../../testing/background";
+import { createBuiltInTranslator } from "../translate/translator";
 
 const ARTICLE = `
   <p>They knead the dough and bake loaves.</p>
@@ -756,5 +757,84 @@ describe("dictionary phrases", () => {
       )
       .toHaveAttribute("lang", "en");
     expect(panel.getByText("Machine translation").query()).toBeNull();
+    expect(panel.getByText(/Downloading translator/).query()).toBeNull();
+  });
+
+  it("downloads the translator's model from the first click, never on hover, and the window says how it goes", async () => {
+    let availability = "downloadable";
+    const created: string[] = [];
+    const monitors: EventTarget[] = [];
+    let finish!: () => void;
+    const downloaded = new Promise<void>((resolve) => (finish = resolve));
+    vi.stubGlobal("Translator", {
+      availability: async () => availability,
+      async create(options: {
+        sourceLanguage: string;
+        targetLanguage: string;
+        monitor?(monitor: EventTarget): void;
+      }) {
+        created.push(`${options.sourceLanguage}>${options.targetLanguage}`);
+        const monitor = new EventTarget();
+        options.monitor?.(monitor);
+        monitors.push(monitor);
+        if (availability !== "available") await downloaded;
+        return { translate: async (text: string) => `訳: ${text}` };
+      },
+    });
+    const progress = (loaded: number) => {
+      for (const monitor of monitors)
+        monitor.dispatchEvent(
+          Object.assign(new Event("downloadprogress"), { loaded }),
+        );
+    };
+    try {
+      const { root } = await setup(PHRASES, {
+        settings: withNew,
+        translator: createBuiltInTranslator("en", "ja"),
+      });
+      // No click for a while (the earlier tests' clicks leave the page activated).
+      const activation = vi
+        .spyOn(UserActivation.prototype, "isActive", "get")
+        .mockReturnValue(false);
+      await pointAt(root, "figure");
+      await expect.element(hoverCard()).toBeVisible();
+      await expect
+        .element(page.getByText("To come to understand", { exact: true }))
+        .toHaveAttribute("lang", "en");
+      expect(created).toEqual([]);
+      expect(page.getByText(/Downloading translator/).query()).toBeNull();
+
+      activation.mockRestore();
+      await clickOn(root, "figure");
+      const panel = dictionary();
+      await expect.poll(() => created).toContain("en>ja");
+      availability = "downloading";
+      await expect
+        .element(panel.getByRole("status"))
+        .toHaveTextContent("Downloading translator…");
+      progress(0.45);
+      await expect
+        .element(panel.getByRole("status"))
+        .toHaveTextContent("Downloading translator · 45%");
+      expect(panel.getByText("Machine translation").query()).toBeNull();
+
+      availability = "available";
+      finish();
+      await expect
+        .element(panel.getByText("Machine translation", { exact: true }))
+        .toBeVisible();
+      await expect
+        .element(
+          panel.getByText(
+            "訳: To come to understand; to discover or find a solution.",
+          ),
+        )
+        .toHaveAttribute("lang", "ja");
+      expect(panel.getByText(/Downloading translator/).query()).toBeNull();
+    } finally {
+      await cleanUp();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
   });
 });

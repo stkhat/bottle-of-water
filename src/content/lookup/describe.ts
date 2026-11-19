@@ -32,6 +32,7 @@ import type {
   SenseView,
 } from "../../ui/lookup/DictionaryWindow";
 import type { TranslationPair, TranslationQueue } from "../translate/queue";
+import type { ModelDownload } from "../translate/translator";
 
 /** A sense as the dictionary window shows it. */
 interface CardSense extends Sense {
@@ -87,6 +88,11 @@ export interface TermCard {
   yourMeanings: YourMeaning[];
   /** The key of the meaning chosen for the sentence it was looked up in. */
   chosenHere?: string;
+  /**
+   * The dictionary window's English definitions wait for the translator's model,
+   * still to be downloaded or downloading (`untranslatedPair`).
+   */
+  downloading?: ModelDownload;
 }
 
 /** A row of the dictionary window's Meanings, and what choosing it for this sentence sends. */
@@ -244,6 +250,7 @@ export const windowView = (
   machineTranslated: card.machineTranslated === "literal",
   senses: meaningRows(card, answer).map((row) => row.sense),
   glossLang: card.glossLang,
+  ...(card.downloading && { downloading: card.downloading }),
 });
 
 /**
@@ -338,6 +345,24 @@ function definitionPair(
   return glossLang !== undefined && glossLang !== nativeLang
     ? { from: glossLang, to: nativeLang }
     : undefined;
+}
+
+/**
+ * The pair the card's English definitions are still to be translated in, as
+ * `translateSenses` would translate them (its short meaning while in English, its
+ * first senses); undefined when nothing is left to translate.
+ */
+export function untranslatedPair(
+  card: TermCard,
+  nativeLang: string,
+): TranslationPair | undefined {
+  const pair = definitionPair(card.glossLang, nativeLang);
+  const left =
+    card.shortLang !== undefined ||
+    card.senses.some(
+      (sense, i) => i < MAX_TRANSLATED_SENSES && sense.translated === undefined,
+    );
+  return left ? pair : undefined;
 }
 
 /** Keeps translations of definitions in the background's cache (best effort). */

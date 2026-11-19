@@ -16,6 +16,7 @@ import {
   mainWord,
   meaningRows,
   translateSenses,
+  untranslatedPair,
   windowView,
   type TermCard,
 } from "./describe";
@@ -1022,6 +1023,38 @@ describe("hoverView and windowView", () => {
       shortLang: "en",
       machineTranslated: false,
     });
+  });
+
+  it("shows the model download in the window only, never on the hover card", () => {
+    const english: TermCard = {
+      ...card,
+      short: "To reveal a secret.",
+      shortLang: "en",
+      glossLang: "en",
+      downloading: { share: 0.5 },
+    };
+    expect(windowView(english).downloading).toEqual({ share: 0.5 });
+    expect(hoverView(english)).not.toHaveProperty("downloading");
+  });
+
+  it("names the pair a card's English definitions are still to be translated in", () => {
+    const english: TermCard = {
+      ...card,
+      short: "To reveal a secret.",
+      shortLang: "en",
+      glossLang: "en",
+      senses: [{ pos: "verb", text: "To reveal a secret." }],
+    };
+    expect(untranslatedPair(english, "ja")).toEqual({ from: "en", to: "ja" });
+    // Nothing to translate into English, nor once it is translated.
+    expect(untranslatedPair(english, "en")).toBeUndefined();
+    const done: TermCard = {
+      ...english,
+      short: "秘密を漏らす",
+      senses: [{ ...english.senses[0]!, translated: "秘密を漏らす" }],
+    };
+    delete done.shortLang;
+    expect(untranslatedPair(done, "ja")).toBeUndefined();
   });
 
   it("shows the card's lines on the hover card, else its short meaning alone, else nothing", () => {

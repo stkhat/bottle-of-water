@@ -11,6 +11,7 @@ import type {
   ExplanationSession,
 } from "../../core/explain/provider";
 import type { LanguagePair } from "../../core/packs/pairs";
+import { progressShare } from "../download-progress";
 
 /** A Prompt API session, current members and the older names (`inputQuota`, …). */
 interface ModelSession {
@@ -32,11 +33,6 @@ interface ModelSession {
   ): Promise<string>;
   clone(options?: { signal?: AbortSignal }): Promise<ModelSession>;
   destroy(): void;
-}
-
-interface DownloadProgress extends Event {
-  readonly loaded: number;
-  readonly total?: number;
 }
 
 interface LanguageOptions {
@@ -87,13 +83,6 @@ type Brands = readonly { brand: string; version: string }[];
  */
 export const majorVersion = (brands: Brands | undefined) =>
   brands?.find((b) => b.brand === "Chromium")?.version.split(".")[0] ?? "0";
-
-/** Download progress as a share, whether `loaded` is one (current) or bytes of `total`. */
-function share(event: DownloadProgress): number {
-  const { loaded, total } = event;
-  const value = total !== undefined && total > 1 ? loaded / total : loaded;
-  return Math.min(1, Math.max(0, value));
-}
 
 /** `promise`, or the signal's reason as soon as it aborts. */
 function unlessAborted<T>(promise: Promise<T>, signal: AbortSignal) {
@@ -176,7 +165,7 @@ export function createChromePromptApi(
         ...languages(pair),
         monitor(monitor) {
           monitor.addEventListener("downloadprogress", (event) =>
-            onProgress(share(event as DownloadProgress)),
+            onProgress(progressShare(event)),
           );
         },
       });

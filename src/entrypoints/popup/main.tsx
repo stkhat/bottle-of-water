@@ -1,4 +1,5 @@
 import { browser } from "wxt/browser";
+import { downloadModelsOnFirstActivation } from "../../content/translate/translator";
 import { createBrowserEnv } from "../../core/browser-env";
 import { send } from "../../messaging/client";
 import { watchPackState, watchSettings } from "../../messaging/storage";
@@ -7,6 +8,17 @@ import { mountPage } from "../../ui/mount-page";
 import { Popup, type PopupDeps } from "./Popup";
 
 mountPage(() => {
+  // The click that opened the popup, or the first one in it, starts the translator's
+  // model downloads for the chosen languages (a new install chooses them without one).
+  send({ type: "getSettings" }).then(
+    ({ learningLang, nativeLang }) =>
+      downloadModelsOnFirstActivation(
+        document,
+        () => ({ learning: learningLang, native: nativeLang }),
+        { now: true },
+      ),
+    () => {},
+  );
   const deps: PopupDeps = {
     send,
     // Content scripts answer by tab; `tabs.sendMessage` needs no permission.

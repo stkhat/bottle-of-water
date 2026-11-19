@@ -41,6 +41,8 @@ export interface SettingsDeps extends BackupDeps, PackStatusDeps {
   explainProvider?: ExplanationProvider;
   /** The extension's version, from the manifest. */
   version: string;
+  /** The data sources and licenses page, which About links to. */
+  noticesUrl: string;
   /** How often the sync and history status and the relative times are refreshed. */
   refreshMs: number;
 }
@@ -260,7 +262,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
           onExported={() => setNow(deps.now())}
         />
         <ArticlesSection {...section} />
-        <AboutSection version={deps.version} />
+        <AboutSection version={deps.version} noticesUrl={deps.noticesUrl} />
       </main>
     </div>
   );

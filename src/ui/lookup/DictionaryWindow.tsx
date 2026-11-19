@@ -67,6 +67,12 @@ export interface DictionaryEntryView {
    * definition).
    */
   glossLang?: string;
+  /**
+   * The English definitions wait for the translator's model to download: the Meanings
+   * heading says so, with the share downloaded once known, where "Machine
+   * translation" goes once they are translated.
+   */
+  downloading?: { share?: number };
 }
 
 /** Another occurrence in the same video (with its time; clicking seeks) or page. */
@@ -410,7 +416,22 @@ function SenseList(props: {
         }}
       >
         {meanings}
-        {translated && <MachineTranslationMark />}
+        {translated ? (
+          <MachineTranslationMark />
+        ) : (
+          entry.downloading && (
+            <MachineTranslationMark
+              status
+              text={
+                entry.downloading.share === undefined
+                  ? t("lookup.downloadingTranslator")
+                  : t("lookup.downloadingTranslatorShare", {
+                      percent: Math.round(entry.downloading.share * 100),
+                    })
+              }
+            />
+          )
+        )}
       </div>
       {entry.senses.map((sense, i) => (
         <SenseRow

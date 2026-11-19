@@ -14,9 +14,15 @@ import type { Store } from "../store";
 import { createTranslationQueue } from "../translate/queue";
 import {
   createBuiltInTranslator,
+  downloadModelsOnFirstActivation,
   type TranslationProvider,
 } from "../translate/translator";
-import { describeTerm, translateSenses, type TermCard } from "./describe";
+import {
+  describeTerm,
+  translateSenses,
+  untranslatedPair,
+  type TermCard,
+} from "./describe";
 import { speak } from "./speak";
 import { warn } from "./warn";
 
@@ -79,6 +85,14 @@ export interface PageAnswers {
   summary(): PageSummary;
 }
 
+/** `card` without the model download it showed (`TermCard.downloading`). */
+function withoutDownload(card: TermCard): TermCard {
+  if (!card.downloading) return card;
+  const copy = { ...card };
+  delete copy.downloading;
+  return copy;
+}
+
 /** Drops answers that come after a newer request, or after the request was dropped. */
 export function latest() {
   let ticket = 0;
@@ -130,7 +144,8 @@ export function describeSpan(
  * What the article and video sessions share: one translator queue (subtitles, hover
  * cards and windows in that order), the term lookups, the dictionary panel, the
  * analysis that waits for language data not on the device (`packsReady` runs once it
- * is there), and one change to saved terms at a time.
+ * is there), and one change to saved terms at a time. The page's first click (or tap,
+ * or key) starts the translator's model downloads for its languages, once per page.
  */
 export function createLookup(
   deps: LookupDeps,
@@ -170,6 +185,10 @@ export function createLookup(
     lang: page.lang(),
     nativeLang: page.settings().nativeLang,
     translator,
+  });
+  const disarm = downloadModelsOnFirstActivation(document, () => {
+    const { learningLang, nativeLang } = page.settings();
+    return { learning: learningLang, native: nativeLang };
   });
 
   function run(task: () => Promise<unknown>) {
@@ -224,21 +243,43 @@ export function createLookup(
     },
     /**
      * Shows the panel, then its card's English definitions translated as they come
-     * (the click that opened it lets the translator download its model the first time).
+     * (the click that opened it lets the translator download its model the first time),
+     * saying meanwhile that the model downloads when it does.
      */
     showPanel<P extends { card: TermCard }>(
       store: Store<{ panel: P | null }>,
       panel: P,
     ) {
       store.set({ panel });
-      const { card } = panel;
-      void translateSenses(card, translation())
+      let shownCard = panel.card;
+      /** Shows `next` in place of the card shown, unless the panel moved on. */
+      const show = (next: TermCard) => {
+        const shown = store.get().panel;
+        if (shown?.card !== shownCard || next === shownCard) return;
+        shownCard = next;
+        store.set({ panel: { ...shown, card: next } });
+      };
+      const deps = translation();
+      const pair = untranslatedPair(panel.card, deps.nativeLang);
+      const unwatch = pair
+        ? translator.watchDownload(pair, (downloading) =>
+            show(
+              downloading
+                ? { ...shownCard, downloading }
+                : withoutDownload(shownCard),
+            ),
+          )
+        : () => {};
+      void translateSenses(panel.card, deps)
         .then((translated) => {
-          const shown = store.get().panel;
-          if (translated !== card && shown?.card === card)
-            store.set({ panel: { ...shown, card: translated } });
+          unwatch();
+          if (translated !== panel.card || shownCard.downloading)
+            show(withoutDownload(translated));
         })
-        .catch(warn);
+        .catch((error: unknown) => {
+          unwatch();
+          warn(error);
+        });
     },
     speak(head: string | undefined) {
       if (head) speak(head, page.lang());
@@ -287,6 +328,7 @@ export function createLookup(
     /** The card at `place` is not wanted any more: a pending `showWhenReady` is dropped. */
     dropShow: (place: CardPlace) => retries.delete(place),
     stop() {
+      disarm();
       retries.clear();
       packs.stop();
     },
