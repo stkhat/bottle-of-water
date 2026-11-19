@@ -4,7 +4,7 @@ import { accepts } from "./lexicon/sense-order";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
 import { fitContext, markerPos, phraseMisfit } from "./phrases/fit";
-import { longestMatch, type PhraseMatch } from "./phrases/matcher";
+import { longestMatch, matchStart, type PhraseMatch } from "./phrases/matcher";
 import {
   capitalHere,
   wordCases,
@@ -168,6 +168,14 @@ export interface Classifier {
 const isIgnorable = (text: string) =>
   /\p{N}/u.test(text) || [...text].length === 1;
 
+/** Parts of speech of a pattern that governs what follows, as a preposition does. */
+const PREPOSITIONAL: ReadonlySet<string> = new Set(["prep", "prep_phrase"]);
+
+/** A pattern (`pos`) is prepositional, and another (`other`) is not. */
+const prepositional = (pos: readonly string[], other: readonly string[]) =>
+  pos.some((name) => PREPOSITIONAL.has(name)) &&
+  !other.some((name) => PREPOSITIONAL.has(name));
+
 /** A match's words as runs of consecutive words, each as [first, last]. */
 function runsOf(words: readonly number[]): [number, number][] {
   const runs: [number, number][] = [];
@@ -206,6 +214,10 @@ function runsOf(words: readonly number[]): [number, number][] {
  *   capitalised meaning; that one and a word capitalised in a way that counts
  *   (`capitalHere`) get `capital`, unless the language capitalises common words only
  *   in names and titles (`LanguagePack.capitalsForNames`).
+ * - A phrase, saved or not, matches no word the document reads as a name ("recuerdo
+ *   al Chile" is no `al chile`). A pronominal verb's reflexive pronoun before it is
+ *   part of its match (`PhraseMatch.lead`: "me di cuenta"); the words between them
+ *   ("se ha quitado la vida") are a gap.
  * - With a tagger, each sentence is tagged once. A dictionary phrase is matched only
  *   where its context fits it (`phraseMisfit`: "what kind of music" is no adverb "kind
  *   of"); its words are words otherwise. A discourse marker at a clause start takes
@@ -236,7 +248,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
   };
   return {
     classify(tokens, { terms, knownLevel, casing, capitalMeaning, outline }) {
-      const input = matcher.prepare(tokens);
+      const input = matcher.prepare(tokens, casing?.mode === "upper");
       const { words, joined } = input;
       const spans: Span[] = [];
       const withCases = casing?.mode === "mixed" && pack.namesByCase;
@@ -272,6 +284,27 @@ export function createClassifier(pack: LanguagePack): Classifier {
       /** The word before word i when only spaces come between them. */
       const before = (i: number) =>
         i > 0 && joined[i - 1] ? words[i - 1]!.form : undefined;
+
+      /** Rule D reads word i as a name here. */
+      const nameAt = (i: number) => {
+        const written = cases?.[i];
+        const { token, bases } = words[i]!;
+        return (
+          written !== undefined &&
+          names !== undefined &&
+          bases.length > 0 &&
+          !isIgnorable(token.text) &&
+          names(written, before(i)) === "name"
+        );
+      };
+      /**
+       * A phrase has no word the document reads as a name ("recuerdo al Chile que ya
+       * no es" is no `al chile`): a name is no word.
+       */
+      const withName = (match: PhraseMatch) =>
+        cases !== undefined &&
+        (match.words.some(nameAt) ||
+          (match.lead !== undefined && nameAt(match.lead)));
 
       /** A word span's casing marks: a name, or capitalised in a way that counts. */
       const casingOf = (
@@ -313,8 +346,18 @@ export function createClassifier(pack: LanguagePack): Classifier {
       const inSaved: boolean[] = [];
       const savedMatches: PhraseMatch[] = [];
       for (let i = 0; i < words.length; i++)
-        savedMatches.push(...matcher.matchesAt(input, i, "saved", terms));
-      const first = (m: PhraseMatch) => m.words[0]!;
+        savedMatches.push(
+          ...matcher
+            .matchesAt(input, i, "saved", terms)
+            .filter((match) => !withName(match)),
+        );
+      const first = matchStart;
+      /** A match's words, its lead first. */
+      const allWords = (m: PhraseMatch) =>
+        m.lead === undefined ? m.words : [m.lead, ...m.words];
+      /** A match's words, its lead included. */
+      const size = (m: PhraseMatch) =>
+        m.words.length + (m.lead === undefined ? 0 : 1);
       const last = (m: PhraseMatch) => m.words.at(-1)!;
       savedMatches.sort(
         (a, b) =>
@@ -347,7 +390,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         return match.words.some((j, n) => {
           const { form, bases } = words[j]!;
           const reading = readings[j];
-          const word = keyWords[n]!;
+          const word = verbOf(keyWords[n]!, bases);
           const tag = reading?.tag;
           if (
             tag === undefined ||
@@ -369,6 +412,22 @@ export function createClassifier(pack: LanguagePack): Classifier {
         });
       };
 
+      /**
+       * A pattern word as a word's base: a pronominal verb's plain verb when the word
+       * is a form of that ("darse" for "di" in "me di cuenta").
+       */
+      const verbOf = (word: string, bases: readonly string[]) => {
+        const ending = pack.rules.reflexive?.ending;
+        if (
+          ending === undefined ||
+          bases.includes(word) ||
+          !word.endsWith(ending)
+        )
+          return word;
+        const verb = word.slice(0, -ending.length);
+        return bases.includes(verb) ? verb : word;
+      };
+
       /** The `select` matches without a gap that start at each word. */
       const selectAt = new Map<number, readonly PhraseMatch[]>();
       const contiguousAt = (s: number) => {
@@ -376,7 +435,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         if (!found) {
           found = matcher
             .matchesAt(input, s, "select")
-            .filter((m) => last(m) - first(m) + 1 === m.words.length);
+            .filter((m) => last(m) - first(m) + 1 === size(m));
           selectAt.set(s, found);
         }
         return found;
@@ -409,6 +468,39 @@ export function createClassifier(pack: LanguagePack): Classifier {
       };
 
       /**
+       * Rule LITERAL: a detected phrase that reads a word as a form of another word, a
+       * word the tagger is unsure of, is not that phrase where the words as written are
+       * a preposition of their own that the phrase is not ("Fuera de Chile": the
+       * preposition `fuera de`, not `ir de`): the text is that other expression.
+       */
+      const written = (word: string, form: string) =>
+        word === form || pack.rules.contractions?.get(form) === word;
+      const writtenOther = (match: PhraseMatch) => {
+        const keyWords = match.key.split(" ").map(normalizeWord);
+        // A trusted tag has read the word already (rule BASE).
+        const untrusted = match.words.some(
+          (j, n) =>
+            !written(keyWords[n]!, words[j]!.form) &&
+            readings[j]?.tag === undefined,
+        );
+        if (!untrusted) return false;
+        const own = pack.phrasePos(match.key);
+        return contiguousAt(first(match)).some(
+          (other) =>
+            other.key !== match.key &&
+            other.lead === undefined &&
+            other.words.length === match.words.length &&
+            other.words.every((j, n) => j === match.words[n]) &&
+            other.key
+              .split(" ")
+              .every((word, n) =>
+                written(word, words[match.words[n]!]!.form),
+              ) &&
+            prepositional(pack.phrasePos(other.key), own),
+        );
+      };
+
+      /**
        * The phrase starting at word i, with its context in its sentence (`fitContext`):
        * the saved phrase there, or the longest dictionary phrase without a word saved
        * as learning or inside a saved phrase, when it is that phrase here
@@ -427,10 +519,16 @@ export function createClassifier(pack: LanguagePack): Classifier {
             : longestMatch(
                 matches.filter(
                   (match) =>
-                    !match.words.some((j) => learning[j] || inSaved[j]),
+                    !allWords(match).some((j) => learning[j] || inSaved[j]) &&
+                    !withName(match),
                 ),
               );
-        if (!longest || offBase(longest) || insideLonger(longest))
+        if (
+          !longest ||
+          offBase(longest) ||
+          insideLonger(longest) ||
+          writtenOther(longest)
+        )
           return undefined;
         const context = fitContext(pack, longest, readings);
         return phraseMisfit(pack, longest, readings, punctuated, context) ===
@@ -500,7 +598,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const category = terms.get(key) ?? "new";
         const pos = markerPos(pack, match, readings, punctuated, context);
         const last = match.words.at(-1)!;
-        const runs = runsOf(match.words);
+        const runs = runsOf(allWords(match));
         const keyWords = key.split(" ").map(normalizeWord);
         const slot = match.words.some(
           (j, n) => !words[j]!.forms.includes(keyWords[n]!),

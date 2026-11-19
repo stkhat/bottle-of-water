@@ -448,3 +448,127 @@ describe("matchSelection", () => {
     expect(select("The big dog barked.", "big dog")).toBeUndefined();
   });
 });
+
+describe("Spanish pronominal verbs and contractions", () => {
+  // Base forms as the Spanish pack gives them: a form with a pronoun attached is a form
+  // of its verb ("darme" → dar).
+  const ES_BASES: Record<string, string[]> = {
+    di: ["di", "dar", "decir"],
+    dimos: ["dar"],
+    da: ["dar"],
+    dado: ["dar"],
+    dando: ["dar"],
+    darme: ["dar"],
+    darle: ["dar"],
+    darse: ["dar"],
+    dándose: ["dar"],
+    date: ["dar"],
+    dame: ["dar"],
+    llevase: ["llevar"],
+    lleva: ["llevar"],
+    ha: ["haber"],
+    cuenta: ["cuenta", "contar"],
+    bien: ["bien"],
+    través: ["través"],
+    de: ["de"],
+    a: ["a"],
+    del: ["del"],
+    al: ["al"],
+    tiempo: ["tiempo"],
+    fondo: ["fondo"],
+  };
+  const esLemmas = (word: string) => ES_BASES[word.toLowerCase()] ?? [];
+  const spanish = createPhraseMatcher({
+    rules: SPANISH_RULES,
+    patterns: {
+      detect: [
+        "a fondo",
+        "a tiempo",
+        "a través de",
+        "dar cuenta de",
+        "darse cuenta",
+        "llevarse bien",
+      ],
+      more: [],
+      gap: [],
+    },
+    lemmas: esLemmas,
+  });
+  /** The longest match starting at the first word that has one, as its words' text. */
+  const first = (text: string) => {
+    const words = spanish.prepare(tokenize(text, "es"));
+    for (let i = 0; i < words.words.length; i++) {
+      const match = spanish.longestAt(words, i, "detect");
+      if (!match) continue;
+      const all =
+        match.lead === undefined ? match.words : [match.lead, ...match.words];
+      return {
+        key: match.key,
+        words: all.map((j) => words.words[j]!.token.text).join(" "),
+      };
+    }
+    return undefined;
+  };
+
+  it("matches a pronominal verb after its reflexive pronoun, which leads the match", () => {
+    const words = spanish.prepare(tokenize("Me di cuenta de todo.", "es"));
+    expect(spanish.longestAt(words, 0, "detect")).toEqual({
+      key: "darse cuenta",
+      words: [1, 2],
+      lead: 0,
+    });
+    expect(first("Nos dimos cuenta de que era tarde.")).toEqual({
+      key: "darse cuenta",
+      words: "Nos dimos cuenta",
+    });
+  });
+
+  it("lets other pronouns and an auxiliary's forms stand between, as a gap", () => {
+    const words = spanish.prepare(tokenize("Se lo ha dado cuenta", "es"));
+    expect(spanish.longestAt(words, 0, "detect")).toEqual({
+      key: "darse cuenta",
+      words: [3, 4],
+      lead: 0,
+    });
+  });
+
+  it("matches a pronominal verb with its pronoun attached, and not the plain verb's pattern", () => {
+    expect(first("Tardé en darme cuenta de eso.")).toEqual({
+      key: "darse cuenta",
+      words: "darme cuenta",
+    });
+    expect(first("Dándose cuenta de eso, se fue.")?.key).toBe("darse cuenta");
+    expect(first("Date cuenta de lo que pasa.")?.key).toBe("darse cuenta");
+  });
+
+  it("leaves a verb without a reflexive pronoun to the plain verb's patterns", () => {
+    expect(first("Le di cuenta de todo.")?.key).toBe("dar cuenta de");
+    expect(first("Vino a darle cuenta de todo.")?.key).toBe("dar cuenta de");
+    // An imperative takes "me" as its object, not as a reflexive pronoun.
+    expect(first("Dame cuenta de todo.")?.key).toBe("dar cuenta de");
+    // A past subjunctive ends in "-se" without the accent an imperative writes.
+    expect(first("Llevase bien.")).toBeUndefined();
+  });
+
+  it("reads a contraction as its preposition only at a pattern's end", () => {
+    expect(first("Lo vimos a través del cristal.")).toEqual({
+      key: "a través de",
+      words: "a través del",
+    });
+    expect(first("Está al fondo del pasillo.")).toBeUndefined();
+    expect(first("Llegó al tiempo que salía.")).toBeUndefined();
+  });
+
+  it("reads a word in capitals by the one known spelling with its accent", () => {
+    const matcher = createPhraseMatcher({
+      rules: SPANISH_RULES,
+      patterns: { detect: [], more: [], gap: [] },
+      lemmas: (word) => (word === "están" ? ["estar"] : []),
+      accented: (word) => (word === "estan" ? "están" : undefined),
+    });
+    const [upper] = matcher.prepare(tokenize("ESTAN", "es"), true).words;
+    expect(upper).toMatchObject({ form: "están", bases: ["estar"] });
+    const [mixed] = matcher.prepare(tokenize("Estan", "es")).words;
+    expect(mixed).toMatchObject({ form: "estan", bases: [] });
+  });
+});

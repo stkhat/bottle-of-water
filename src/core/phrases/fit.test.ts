@@ -28,6 +28,12 @@ const PHRASE_POS: Record<string, string[]> = {
   "come from below": ["verb"],
   "to go": ["adj"],
   "break up": ["noun", "verb"],
+  "eso es": ["intj"],
+  "al día": ["adj", "adv"],
+  "base de datos": ["noun"],
+  "mi vida": ["pron"],
+  "my goodness": ["intj"],
+  "darse cuenta": ["verb"],
 };
 /** Words' main parts of speech. */
 const WORD_POS: Record<string, string[]> = {
@@ -44,6 +50,14 @@ const WORD_POS: Record<string, string[]> = {
   me: ["pronoun"],
   just: ["adverb"],
   about: ["preposition", "adverb"],
+  eso: ["pronoun"],
+  es: ["verb"],
+  día: ["noun"],
+  datos: ["noun"],
+  mi: ["determiner"],
+  my: ["determiner"],
+  vida: ["noun"],
+  goodness: ["noun"],
 };
 const pack = {
   phrasePos: (key: string) => PHRASE_POS[key] ?? [],
@@ -307,6 +321,118 @@ describe("phraseMisfit: interjections", () => {
     expect(
       misfit("you know", "you/pronoun know/verb ,the/determiner guy/noun", 0),
     ).toBeUndefined();
+  });
+});
+
+describe("phraseMisfit: a copula's complement", () => {
+  it("drops an interjection ending in be before its complement", () => {
+    expect(
+      misfit("eso es", "eso/pronoun es/verb/be lo/pronoun que/conjunction", 0),
+    ).toBe("copula");
+    expect(misfit("eso es", "eso/pronoun es/verb/be bueno/adjective", 0)).toBe(
+      "copula",
+    );
+  });
+  it("keeps it alone, before a pause, or before a word the tag is unsure of", () => {
+    expect(misfit("eso es", "eso/pronoun es/verb/be", 0)).toBeUndefined();
+    expect(
+      misfit("eso es", "eso/pronoun es/verb/be ,claro/adjective", 0),
+    ).toBeUndefined();
+    expect(
+      misfit("eso es", "eso/pronoun es/verb/be bueno/?", 0),
+    ).toBeUndefined();
+  });
+});
+
+describe("phraseMisfit: adjectives after nouns", () => {
+  const after = {
+    ...pack,
+    rules: { ...pack.rules, adjectivesAfterNouns: true },
+  };
+  const modified = (
+    key: string,
+    text: string,
+    from: number,
+    p: typeof pack = after,
+  ) =>
+    phraseMisfit(
+      p,
+      { key, words: key.split(" ").map((_, i) => from + i) },
+      readings(text),
+      true,
+    );
+  it("drops a pattern ending in a bare noun that an adjective follows", () => {
+    expect(
+      modified("al día", "al/preposition día/noun siguiente/adjective", 0),
+    ).toBe("modified");
+    expect(
+      modified("al día", "al/preposition día/noun ,siguiente/adjective", 0),
+    ).toBeUndefined();
+  });
+  it("keeps a noun pattern, which an adjective modifies as a whole", () => {
+    expect(
+      modified(
+        "base de datos",
+        "base/noun de/preposition datos/noun relacional/adjective",
+        0,
+      ),
+    ).toBeUndefined();
+  });
+  it("only in a language whose adjectives follow nouns", () => {
+    expect(
+      modified(
+        "al día",
+        "al/preposition día/noun siguiente/adjective",
+        0,
+        pack,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("phraseMisfit: terms of address", () => {
+  it("drops a possessive and a noun next to words of a sentence", () => {
+    expect(
+      misfit("mi vida", "toda/determiner mi/determiner/personal vida/noun", 1),
+    ).toBe("address");
+    expect(
+      misfit("mi vida", "mi/determiner/personal vida/noun cambió/verb", 0),
+    ).toBe("address");
+  });
+  it("keeps one standing apart, and an exclamation", () => {
+    expect(
+      misfit(
+        "mi vida",
+        "hola/interjection ,mi/determiner/personal vida/noun",
+        1,
+      ),
+    ).toBeUndefined();
+    expect(
+      misfit(
+        "my goodness",
+        "oh/interjection my/determiner/personal goodness/noun",
+        1,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("fitContext: a match with a lead", () => {
+  it("reads the word before the lead as the word before the match", () => {
+    const text = "la/determiner me/pronoun di/noun cuenta/noun";
+    const drop = (lead?: number) =>
+      phraseMisfit(
+        pack,
+        {
+          key: "darse cuenta",
+          words: [2, 3],
+          ...(lead !== undefined && { lead }),
+        },
+        readings(text),
+        true,
+      );
+    expect(drop()).toBeUndefined();
+    expect(drop(1)).toBe("verb");
   });
 });
 

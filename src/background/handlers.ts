@@ -29,7 +29,7 @@ import {
   translationPair,
 } from "../core/packs/pairs";
 import { allOf, PacksUnavailableError } from "../core/packs/unavailable";
-import type { MatchWord } from "../core/phrases/matcher";
+import { matchStart, type MatchWord } from "../core/phrases/matcher";
 import {
   hostBlocked,
   type Settings,
@@ -415,7 +415,7 @@ export function createHandlers({
       if (!match) return {};
       return {
         key: match.key,
-        start: input.words[match.words[0]!]!.token.start,
+        start: input.words[matchStart(match)]!.token.start,
         end: input.words[match.words.at(-1)!]!.token.end,
       };
     },

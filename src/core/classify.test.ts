@@ -606,6 +606,111 @@ describe("a detected phrase's words read through their bases (rule BASE)", () =>
   });
 });
 
+describe("a detected phrase whose written words are a preposition (rule LITERAL)", () => {
+  // "fuera" is a form of ir and ser, and a headword; the tagger is unsure of it.
+  const make = (more: string[]) =>
+    createLanguagePack("en", {
+      lemmas: { fuera: ["fuera", "ir", "ser"] },
+      freq: ["ir", "ser", "de", "fuera"],
+      ipa: {},
+      vocab: new Set(["ir", "ser", "de", "fuera", "chile"]),
+      patterns: {
+        detect: ["ir de"],
+        more,
+        gap: [],
+        pos: { detect: "v", more: more.map(() => "p").join(" ") },
+      },
+      pos: { ir: ["verb"], ser: ["verb"], fuera: ["adverb"] },
+      tagger: { tags: ["NN", "RB"], words: {}, weights: {}, scale: 10 },
+    });
+  const run = (more: string[]) => {
+    const lang = make(more);
+    const text = "fuera de chile";
+    return createClassifier(lang)
+      .classify(lang.tokenize(text), {
+        terms: terms(),
+        knownLevel: 10,
+        outline: () => ({ firstMeaning: true, meaning: true, pos: ["verb"] }),
+      })
+      .filter((s) => s.kind === "phrase")
+      .map((s) => s.key);
+  };
+  it("does not read a word as another's form where its written words are a preposition", () => {
+    expect(run(["fuera de"])).toEqual([]);
+  });
+  it("reads it so without that pattern", () => {
+    expect(run([])).toEqual(["ir de"]);
+  });
+});
+
+describe("Spanish pronominal verbs, contractions and names in phrases", () => {
+  const spanish = createLanguagePack("es", {
+    lemmas: {
+      di: ["dar", "decir"],
+      dado: "dar",
+      ha: "haber",
+      cuenta: "contar",
+    },
+    freq: ["de", "a", "el", "me", "se", "ha", "dar", "cuenta", "haber"],
+    ipa: {},
+    vocab: new Set([
+      ...["de", "a", "el", "me", "se", "dar", "decir", "cuenta", "haber"],
+      ...["recuerdo", "al", "del", "chile", "que", "ya", "no", "es"],
+      ...["través", "contar", "picante", "come", "un"],
+    ]),
+    patterns: {
+      detect: ["a través de", "al chile", "darse cuenta"],
+      more: [],
+      gap: [],
+    },
+    names: { chile: "pc" },
+  });
+  const run = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(spanish.tokenize(b), "es")),
+    );
+    const classifier = createClassifier(spanish);
+    return blocks.flatMap((block) =>
+      classifier
+        .classify(spanish.tokenize(block), {
+          terms: terms(),
+          knownLevel: 10,
+          casing,
+        })
+        .filter((s) => s.kind === "phrase")
+        .map((s) => `${block.slice(s.start, s.end)}:${s.key}`),
+    );
+  };
+
+  it("highlights the reflexive pronoun with its verb, and a word between as a word", () => {
+    expect(run("Me di cuenta.")).toEqual(["Me di cuenta:darse cuenta"]);
+    const spans = createClassifier(spanish).classify(
+      spanish.tokenize("Se ha dado cuenta."),
+      { terms: terms(), knownLevel: 10 },
+    );
+    expect(
+      spans.map((s) => [s.key, s.kind, s.part?.index ?? "-"].join(":")),
+    ).toEqual([
+      "darse cuenta:phrase:0",
+      "haber:word:-",
+      "darse cuenta:phrase:1",
+    ]);
+  });
+  it("reads a contraction as its preposition at a pattern's end", () => {
+    expect(run("Lo vi a través del cristal.")).toEqual([
+      "a través del:a través de",
+    ]);
+  });
+  it("matches no pattern over a word the document reads as a name", () => {
+    expect(run("Recuerdo al Chile que ya no es.", "Chile es un país.")).toEqual(
+      [],
+    );
+    expect(run("Come un chile picante, al chile.")).toEqual([
+      "al chile:al chile",
+    ]);
+  });
+});
+
 describe("unsavedKeys", () => {
   it("lists each new key once, leaving out known, saved and ignored words", () => {
     const spans = classifier.classify(

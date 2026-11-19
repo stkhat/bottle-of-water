@@ -42,7 +42,8 @@ const PAUSE = /[,.;:!?…"“”()[\]—–]|\s-\s|--|>>/;
 /**
  * Tags a block's tokens sentence by sentence, and reads how each of its words (`words`,
  * the phrase matcher's) is used. In an ALL-CAPS document (`upper`) the tagger reads the
- * text in lower case, closer to what it learned from. Empty without a tagger. `block`:
+ * words as the matcher read them, in lower case and with the accents capitals left out
+ * ("están"), closer to what it learned from. Empty without a tagger. `block`:
  * the tokens' text and sentences, when the caller has read them already.
  */
 export function readWords(
@@ -56,6 +57,10 @@ export function readWords(
   if (!tagger || words.length === 0) return [];
   const { text, sentences } = block ?? blockText(tokens, pack.lang);
   const tagAt = new Map<number, TokenTag>();
+  /** In capitals, words the matcher read with an accent capitals left out ("están"). */
+  const spelt = new Map(
+    upper ? words.map(({ token, form }) => [token.start, form] as const) : [],
+  );
   /** Each word's sentence, by its index. */
   const sentenceOf: number[] = [];
   let t = 0;
@@ -70,7 +75,9 @@ export function readWords(
     sentence++;
     if (parts.length === 0) continue;
     const tags = tagger.tag(
-      parts.map((part) => (upper ? part.text.toLowerCase() : part.text)),
+      parts.map((part) =>
+        upper ? (spelt.get(part.start) ?? part.text.toLowerCase()) : part.text,
+      ),
     );
     parts.forEach((part, i) => tagAt.set(part.start, tags[i]!));
   }

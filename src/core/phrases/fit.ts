@@ -30,7 +30,13 @@ export type PhraseRule =
   /** An intransitive verb pattern whose particle takes a noun phrase ("fly in the morning"). */
   | "intransitive"
   /** An adjective or noun pattern with a word read as a bare verb ("have to go"). */
-  | "nominal";
+  | "nominal"
+  /** An interjection ending in "be" before its complement ("eso es lo que", "eso es bueno"). */
+  | "copula"
+  /** A pattern's last noun with an adjective after it ("al día siguiente"). */
+  | "modified"
+  /** A possessive and a noun inside a sentence, not said to someone ("toda mi vida"). */
+  | "address";
 
 type FitPack = Pick<
   LanguagePack,
@@ -40,8 +46,10 @@ type FitPack = Pick<
 /** A phrase's match: its pattern's key and its words. */
 interface Match {
   key: string;
-  /** Indices of the match's words in `readings`. */
+  /** Indices of the match's pattern words in `readings`. */
   words: readonly number[];
+  /** A word before them that belongs to the match (`PhraseMatch.lead`). */
+  lead?: number;
 }
 
 /** A match in its sentence, as the fit rules read it (`fitContext`). */
@@ -65,7 +73,7 @@ export interface FitContext {
  */
 export function fitContext(
   pack: FitPack,
-  { key, words }: Match,
+  { key, words, lead }: Match,
   readings: readonly WordReading[],
 ): FitContext | undefined {
   const first = words[0]!;
@@ -73,7 +81,8 @@ export function fitContext(
   const head = readings[first];
   const tail = readings[last];
   if (!head || !tail) return undefined;
-  const previous = readings[first - 1];
+  const start = lead ?? first;
+  const previous = readings[start - 1];
   const next = readings[last + 1];
   return {
     pos: pack.phrasePos(key),
@@ -82,7 +91,7 @@ export function fitContext(
       word === undefined ? undefined : pack.partsOfSpeech(word)[0],
     head,
     tail,
-    ...(previous && !head.pauseBefore && { before: previous }),
+    ...(previous && !readings[start]?.pauseBefore && { before: previous }),
     ...(next && !next.pauseBefore && { after: next }),
   };
 }
@@ -112,6 +121,29 @@ const ADVERB_FOLLOWERS: ReadonlySet<string> = new Set([
   "verb",
   "adjective",
   "adverb",
+]);
+
+/** What may follow "be" as its complement. */
+const COMPLEMENTS: ReadonlySet<string> = new Set([
+  "noun",
+  "pronoun",
+  "determiner",
+  "adjective",
+  "adverb",
+  "numeral",
+]);
+
+/**
+ * The patterns' own parts of speech whose noun stands bare ("al día"), unlike a noun
+ * pattern's head or a verb's object, which an adjective may follow.
+ */
+const BARE_NOUN: ReadonlySet<string> = new Set([
+  "adv",
+  "prep_phrase",
+  "adj",
+  "intj",
+  "particle",
+  "phrase",
 ]);
 
 /** A verb-final interjection before an object is the verb ("you know the guy"). */
@@ -185,6 +217,23 @@ export function phraseMisfit(
   const { pos, pattern, head, tail, before, after } = c;
   const particles = pack.rules.particles;
   if (
+    pack.rules.adjectivesAfterNouns === true &&
+    c.main(pattern.at(-1)) === "noun" &&
+    after?.tag?.label === "adjective" &&
+    pos.length > 0 &&
+    pos.every((name) => BARE_NOUN.has(name))
+  )
+    return "modified";
+  if (
+    pattern.length === 2 &&
+    head.role?.personal === true &&
+    c.main(pattern[0]) === "determiner" &&
+    c.main(pattern[1]) === "noun" &&
+    !pos.some((name) => name === "verb" || name === "intj") &&
+    (before !== undefined || after !== undefined)
+  )
+    return "address";
+  if (
     pattern.length === 2 &&
     pos.includes("verb") &&
     particles?.has(pattern[1]!) === true &&
@@ -235,6 +284,12 @@ export function phraseMisfit(
           (first === "verb" && role.subject))
       )
         return "interjection";
+      if (
+        tail.role?.be === true &&
+        after?.tag !== undefined &&
+        COMPLEMENTS.has(after.tag.label)
+      )
+        return "copula";
       return takesObject(c, punctuated) || insideClause(c, punctuated)
         ? "interjection"
         : undefined;

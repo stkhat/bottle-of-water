@@ -522,6 +522,36 @@ describe("Spanish phrases over the generated packs", () => {
     expect(es.phrases.more).toContain("lo que");
     expect(phrases("No sé lo que quiere.")).not.toContain("lo que");
   });
+  it("matches a pronominal verb by its reflexive pronoun, before the verb or attached", () => {
+    expect(phrases("Me di cuenta de que era tarde.")).toEqual(["darse cuenta"]);
+    expect(phrases("Nos dimos cuenta de la verdad.")).toEqual(["darse cuenta"]);
+    expect(phrases("Tardé mucho en darme cuenta.")).toContain("darse cuenta");
+    expect(phrases("Le di cuenta de todo al jefe.")).toContain("dar cuenta de");
+  });
+  it("reads al and del as their preposition only at a pattern's end", () => {
+    expect(phrases("Lo vimos a través del cristal.")).toContain("a través de");
+    expect(phrases("La cocina está al fondo del pasillo.")).not.toContain(
+      "a fondo",
+    );
+  });
+  it("reads eso es before its complement as words", () => {
+    expect(phrases("¡Eso es!")).toEqual(["eso es"]);
+    expect(phrases("Eso es lo que quiero.")).not.toContain("eso es");
+  });
+  it("reads a word in capitals by its one accented spelling", () => {
+    const text = "LOS NIÑOS ESTAN EN LA CASA SEGUN LA POLICIA";
+    const keys = classifier
+      .classify(tagged.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        casing: { mode: "upper", words: {} },
+        outline: (key) => dictionary.outline(key),
+      })
+      .map((s) => `${text.slice(s.start, s.end)}:${s.key}`);
+    expect(keys).toEqual(
+      expect.arrayContaining(["ESTAN:estar", "SEGUN:según", "POLICIA:policía"]),
+    );
+  });
 });
 
 describe("Spanish names over the generated packs (rule D)", () => {
@@ -596,6 +626,14 @@ describe("Spanish names over the generated packs (rule D)", () => {
     expect(words).toContain("Entonces:entonces");
     expect(words).toContain("Yo:yo");
     expect(words.filter((w) => w.endsWith(":name"))).toEqual([]);
+  });
+  it("matches no phrase over a name: al Chile is no `al chile`", () => {
+    expect(es.phrases.detect).toContain("al chile");
+    expect(
+      read(
+        "Chile es un país inventado, porque recuerdo al Chile que ya no es.",
+      ),
+    ).toEqual(expect.arrayContaining(["Chile:name", "al:al"]));
   });
 });
 

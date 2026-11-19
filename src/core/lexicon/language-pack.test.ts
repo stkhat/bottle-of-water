@@ -148,6 +148,23 @@ describe("createLanguagePack", () => {
     expect(es.rules).toBe(SPANISH_RULES);
   });
 
+  it("spells a word capitals left without its accent the one known way", () => {
+    const accented = createLanguagePack("es", {
+      lemmas: { están: "estar", policía: "policía" },
+      freq: [],
+      ipa: {},
+      vocab: new Set(["estar", "policía", "inglés", "íngles", "berlín"]),
+      patterns: { detect: [], more: [], gap: [] },
+      names: { berlín: "p" },
+    });
+    expect(accented.accented("estan")).toBe("están");
+    expect(accented.accented("policia")).toBe("policía");
+    // A name ("berlín") is left alone, and so is a word with two known spellings.
+    expect(accented.accented("berlin")).toBeUndefined();
+    expect(accented.accented("ingles")).toBeUndefined();
+    expect(pack.accented("estan")).toBeUndefined();
+  });
+
   it("has no slots or gaps for a language without phrase rules", () => {
     const xx = createLanguagePack("xx", {
       lemmas: {},
