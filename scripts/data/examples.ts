@@ -102,8 +102,9 @@ export function* entryExamplePieces(
     }
 }
 
-/** The words of a piece of an example, as written. */
-export const pieceWords = (piece: string): string[] => piece.match(TOKEN) ?? [];
+/** The words of a piece of an example, as written (`token`: how a word is read). */
+export const pieceWords = (piece: string, token = TOKEN): string[] =>
+  piece.match(token) ?? [];
 
 /**
  * Counts the words and the phrases (`variants`) of the examples of the `lang` entries
@@ -114,6 +115,7 @@ export async function countExamples(
   paths: string | readonly string[],
   variants: PhraseVariants,
   lang = "en",
+  token = TOKEN,
 ): Promise<ExampleCounts> {
   let longest = 2;
   for (const variant of variants.keys())
@@ -122,7 +124,7 @@ export async function countExamples(
   const phrases = new Map<string, number>();
   let tokens = 0;
   const count = (piece: string) => {
-    const found = pieceWords(piece).map((t) => t.toLowerCase());
+    const found = pieceWords(piece, token).map((t) => t.toLowerCase());
     tokens += found.length;
     for (let i = 0; i < found.length; i++) {
       let gram = found[i]!;

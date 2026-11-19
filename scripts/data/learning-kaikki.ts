@@ -629,6 +629,7 @@ export async function buildLearningPacks(
     casePaths = [],
     ipaPaths = [],
     phraseScoring = {},
+    ownEditionExamples = true,
   }: {
     freqTop?: number;
     /** The treebanks' lemma counts (`treebankLemmas`), which order a form's bases. */
@@ -647,6 +648,12 @@ export async function buildLearningPacks(
     ipaPaths?: readonly string[];
     /** The phrase score's stopwords, for a small extract (`importPhrases`). */
     phraseScoring?: Pick<PhraseInputs, "stopwords">;
+    /**
+     * Whether `casePaths`' examples join the phrase build's example corpus (Spanish:
+     * yes; French: no, judged, as its score's count terms were tuned on fewer examples;
+     * they still attest multi-word nouns, B1's size cap).
+     */
+    ownEditionExamples?: boolean;
   } = {},
 ) {
   /** The frequency list's forms in current use (`withoutHeadLabels`). */
@@ -684,7 +691,7 @@ export async function buildLearningPacks(
     const entry = inUse.has(lower) ? withoutHeadLabels(read) : read;
     // Multi-word entries are the phrase build's (`importPhrases`).
     if (/\s/.test(lower) || !WORD.test(lower)) return;
-    if (lower.includes("'") && language.ownWord) {
+    if (/['-]/.test(lower) && language.ownWord) {
       const found = apostrophes.get(lower);
       if (found) found.push(entry);
       else apostrophes.set(lower, [entry]);
@@ -718,11 +725,12 @@ export async function buildLearningPacks(
       bucket.altBases.push(...pointerBases(entry, true, WORD));
     }
   });
-  // A headword with an apostrophe that is no word of its own ("qu'il": que + il) is
-  // left to its parts, which the tokenizer splits it into.
+  // A headword with an apostrophe or a hyphen that is no word of its own ("qu'il": que
+  // + il), or that text reads in parts ("j'aime", "est-il"), is left to its parts,
+  // which the tokenizer splits it into.
   for (const [word, entries] of apostrophes)
     if (
-      splitElisions(word, lang).length > 1 &&
+      (splitElisions(word, lang).length > 1 || word.includes("-")) &&
       (!language.ownWord!(entries) || language.readWhole?.(word) === false)
     ) {
       exact.delete(word);
@@ -908,7 +916,8 @@ export async function buildLearningPacks(
     dict: {},
     language: ENGLISH_PHRASES,
     build: language.phraseBuild(pos, lemmas),
-    examples: [path, ...casePaths],
+    examples: ownEditionExamples ? [path, ...casePaths] : [path],
+    ...(!ownEditionExamples && { attestation: [path, ...casePaths] }),
     ...phraseScoring,
   });
   const phrases = language.selectOnlyPhrases

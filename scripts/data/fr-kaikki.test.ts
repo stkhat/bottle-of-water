@@ -38,9 +38,9 @@ const forms = frenchForms(
 );
 
 describe("frenchForms", () => {
-  it("keeps the list's words with their apostrophes, without hyphenated ones", () => {
+  it("keeps the list's words with their apostrophes and hyphens", () => {
     expect(forms).toContain("l'");
-    expect(forms).not.toContain("peut-être");
+    expect(forms).toContain("peut-être");
   });
 });
 

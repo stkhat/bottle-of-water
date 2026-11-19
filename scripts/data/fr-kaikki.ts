@@ -5,9 +5,8 @@
 // (then run npm run data:publish). The build is the learning-pack build Spanish uses
 // (learning-kaikki.ts) with French's settings.
 // The French Wiktionary extract (Wiktionnaire, kaikki-fr-edition.jsonl, 6.9 GB) gives
-// its examples, which say how French writes each name and, with kaikki-fr's own, make
-// the phrase build's example corpus, and the IPA of the words English Wiktionary has
-// none for. Its French entries are first cut to those two parts, once, into
+// its examples, which say how French writes each name, and the IPA of the words English
+// Wiktionary has none for. The phrase build's example corpus is kaikki-fr's own. Its French entries are first cut to those two parts, once, into
 // kaikki-fr-edition-slim.jsonl.
 // Usage: node scripts/data/fr-kaikki.ts [path]   (default data/raw/kaikki-fr.jsonl)
 import { createWriteStream, existsSync, renameSync } from "node:fs";
@@ -62,10 +61,18 @@ export function frenchOwnWord(entries: readonly KaikkiEntry[]): boolean {
   );
 }
 
+/** A French word starting with a vowel, which "se" elides before ("s'attendre à"). */
+const VOWEL_START = /^[aeiouyàâäéèêëîïôöùûü]/u;
+
 /**
  * The phrase build's LEARNING settings for French (`PhraseBuildLanguage`), as Spanish's:
- * its words (`FRENCH_WORD`, lower case), the slot "quelqu'un", the auxiliaries whose
- * patterns are not detected (être, avoir) and its closed classes.
+ * its words (`FRENCH_WORD`, lower case, hyphenated compounds included), the slots
+ * "quelqu'un" and "quelque chose" (Wiktionary also writes qqn, qqch), the auxiliary
+ * whose patterns are not detected (être: "être à" would match every "est à"; avoir's
+ * are idioms, "avoir envie", "avoir l'air", and avoir as an auxiliary is followed by a
+ * participle, which no pattern has), its closed classes, and pronominal
+ * verbs written with "se" or "s'" before the infinitive ("se rendre compte", from the
+ * plain verb's senses English Wiktionary tags reflexive).
  */
 export function frenchPhraseBuild(
   pos: Readonly<Record<string, readonly string[]>>,
@@ -82,10 +89,20 @@ export function frenchPhraseBuild(
   };
   return {
     lang: "fr",
-    slots: new Set(FRENCH_RULES.slots.keys()),
-    slotSpellings: new Map(),
-    auxiliaries: new Set(["être", "avoir"]),
-    word: /^\p{Ll}+(?:'\p{Ll}+)*'?$/u,
+    slots: new Set([...FRENCH_RULES.slots.keys(), "quelque chose"]),
+    slotSpellings: new Map([
+      ["qqn", "quelqu'un"],
+      ["qqch", "quelque chose"],
+    ]),
+    auxiliaries: new Set(["être"]),
+    word: /^\p{Ll}+(?:['-]\p{Ll}+)*'?$/u,
+    pronominal: (key) =>
+      /^(?:se |s')/u.test(key)
+        ? key
+        : VOWEL_START.test(key)
+          ? `s'${key}`
+          : `se ${key}`,
+    exampleToken: /\p{L}+(?:['-]\p{L}+)*/gu,
     wordSenses: PHRASE_WORD_SENSES,
     functionWordSenses: 1,
     functionWord: (word) =>
@@ -95,17 +112,12 @@ export function frenchPhraseBuild(
   };
 }
 
-/**
- * French as the learning-pack build reads it. Its phrase patterns are only matched
- * for saved phrases and selections until French's phrase rules (pronominal verbs,
- * elisions inside patterns) are built and judged (L1-4).
- */
+/** French as the learning-pack build reads it (`LearningBuild`). */
 export const FRENCH_BUILD: LearningBuild = {
   lang: "fr",
   word: FRENCH_WORD,
   ownWord: frenchOwnWord,
   phraseBuild: frenchPhraseBuild,
-  selectOnlyPhrases: true,
 };
 
 /** A French entry of the edition cut to what the build reads of it: examples and IPA. */
@@ -161,6 +173,10 @@ async function main() {
       treebank: await frenchTreebankLemmas(),
       casePaths: [KAIKKI_FR_EDITION_SLIM_PATH],
       ipaPaths: [KAIKKI_FR_EDITION_SLIM_PATH],
+      // The phrase score reads English Wiktionary's French examples alone: with
+      // Wiktionnaire's too, its count terms leave most common expressions undetected
+      // ("par contre", "bien sûr", "se rendre compte"); judged blind (L1-4).
+      ownEditionExamples: false,
     },
   );
   console.log(buildSummary("fr", packs, writeLearningPacks("fr", packs)));

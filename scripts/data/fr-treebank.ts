@@ -66,21 +66,51 @@ export function elisionPairs(text: string) {
   return pairs;
 }
 
+/**
+ * How often the treebank writes each hyphenated word, and how often as one token: it
+ * keeps compounds whole ("peut-être", "c'est-à-dire", "nord-est") and splits a verb
+ * from the pronoun after it ("est" + "-ce", "a" + "-t-il").
+ */
+export function hyphenPairs(text: string) {
+  const pairs = new Map<string, { joined: number; total: number }>();
+  const add = (key: string, joined: boolean) => {
+    const found = pairs.get(key) ?? { joined: 0, total: 0 };
+    found.total++;
+    if (joined) found.joined++;
+    pairs.set(key, found);
+  };
+  for (const sentence of text.split(/\r?\n\r?\n/)) {
+    const forms: string[] = [];
+    for (const line of sentence.split(/\r?\n/)) {
+      const columns = line.split("\t");
+      if (/^\d+$/.test(columns[0] ?? ""))
+        forms.push((columns[1] ?? "").toLowerCase().replaceAll("’", "'"));
+    }
+    forms.forEach((form, i) => {
+      if (/\p{L}-\p{L}/u.test(form) && !form.startsWith("-")) add(form, true);
+      const next = forms[i + 1];
+      if (next?.startsWith("-") && /\p{L}$/u.test(form))
+        add(form + next, false);
+    });
+  }
+  return pairs;
+}
+
 /** Below this many occurrences the treebank says nothing of a word read whole. */
 const MIN_PAIRS = 3;
 
 /**
- * Whether French text reads a word written with an elision as one (`readWhole`): the
- * treebank joins its parts in at least half of its occurrences, or has it too rarely
- * to tell ("jusqu'ici").
+ * Whether French text reads a word written with an elision or a hyphen as one
+ * (`readWhole`): the treebank joins its parts in at least half of its occurrences, or
+ * has it too rarely to tell ("jusqu'ici", "vas-y").
  */
 export async function frenchReadWhole() {
   await downloadGsd();
-  const pairs = elisionPairs(
-    readFileSync(pathOf(`${GSD.prefix}-train.conllu`), "utf8"),
-  );
+  const text = readFileSync(pathOf(`${GSD.prefix}-train.conllu`), "utf8");
+  const elided = elisionPairs(text);
+  const hyphenated = hyphenPairs(text);
   return (word: string) => {
-    const found = pairs.get(word);
+    const found = (word.includes("-") ? hyphenated : elided).get(word);
     return !found || found.total < MIN_PAIRS || found.joined * 2 >= found.total;
   };
 }

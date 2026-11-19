@@ -74,6 +74,28 @@ describe("snapWords", () => {
     expect(fromEnd!.words).toBe(8);
   });
 
+  it("joins an elided word to the next with nothing, as French writes it", () => {
+    const text = "Il a l'air content.";
+    const spans = tokenize(text, "fr")
+      .filter((t) => t.isWord)
+      .map((t): Span => ({
+        start: t.start,
+        end: t.end,
+        key: normalizeWord(t.text),
+        kind: "word",
+        category: "new",
+      }));
+    const air = select(text, spans, "l'", "air");
+    expect(selectionKey(text, air!.spans)).toBe("l'air");
+    // A key that writes the elided word otherwise ("le") takes a space after it.
+    const le = spans.map((span) =>
+      span.key === "l'" ? { ...span, key: "le" } : span,
+    );
+    expect(selectionKey(text, select(text, le, "l'", "air")!.spans)).toBe(
+      "le air",
+    );
+  });
+
   it("takes words across punctuation, not across a line break", () => {
     const text = 'WH-WHAT? Well, I think "so".\nNext line';
     const spans = wordSpans(text);

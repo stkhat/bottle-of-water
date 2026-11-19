@@ -1,4 +1,4 @@
-import { normalizeWord, tokenize } from "../text/tokenize";
+import { elides, normalizeWord, tokenize } from "../text/tokenize";
 
 /**
  * A word as a key writes it, as the word segmenter keeps it whole: letters and
@@ -15,14 +15,17 @@ const SPACED = new RegExp(`^${WORD_SOURCE}(?: ${WORD_SOURCE})+$`, "u");
  * What separates two words of a phrase as its key writes it (2026-11-19): the text
  * between them, whitespace as one space and curly quotes straight. " " for words
  * separated by whitespace alone or by nothing (a script written without spaces); "-"
- * in "wh-what", ", " in "well, i think".
+ * in "wh-what", ", " in "well, i think". Nothing after an elided word (`previous`, as
+ * the key writes it, ends with an apostrophe: "l'homme", "avoir l'air"), which text
+ * joins to the next one.
  */
-export function separatorKey(between: string): string {
+export function separatorKey(between: string, previous?: string): string {
   const separator = between
     .replace(/\s+/g, " ")
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"');
-  return separator === "" ? " " : separator;
+  if (separator !== "") return separator;
+  return previous !== undefined && /['’]$/.test(previous) ? "" : " ";
 }
 
 /** A key's words and what separates them (`between[i]` follows `words[i]`). */
@@ -33,25 +36,35 @@ export interface KeyParts {
 
 /**
  * A key's words (normalized: `normalizeWord`) and their separators (`separatorKey`),
- * split as text in `lang` is: "well, i think" is "well", "i", "think" after ", " and
- * " ". One word for a word's key.
+ * split as text in `lang` is, with `whole` the words the language reads whole
+ * (`tokenize`): "well, i think" is "well", "i", "think" after ", " and " "; French
+ * "avoir l'air" is "avoir", "l'", "air" after " " and "" (an elided word is a word of
+ * its own), "d'accord" and "peut-être" one word each when `whole` knows them. One
+ * word for a word's key.
  */
-export function splitKey(key: string, lang: string): KeyParts {
-  if (ONE_WORD.test(key)) return { words: [normalizeWord(key)], between: [] };
-  if (SPACED.test(key)) {
+export function splitKey(
+  key: string,
+  lang: string,
+  whole?: (word: string) => boolean,
+): KeyParts {
+  const plain = !elides(lang) || !/['’]/.test(key);
+  if (plain && ONE_WORD.test(key))
+    return { words: [normalizeWord(key)], between: [] };
+  if (plain && SPACED.test(key)) {
     const words = key.split(" ").map(normalizeWord);
     return { words, between: words.slice(1).map(() => " ") };
   }
   const words: string[] = [];
   const between: string[] = [];
   let gap = "";
-  for (const token of tokenize(key, lang)) {
+  for (const token of tokenize(key, lang, whole)) {
     if (!token.isWord) {
       gap += token.text;
       continue;
     }
-    if (words.length > 0) between.push(separatorKey(gap));
-    words.push(normalizeWord(token.text));
+    const word = normalizeWord(token.text);
+    if (words.length > 0) between.push(separatorKey(gap, words.at(-1)));
+    words.push(word);
     gap = "";
   }
   return { words, between };

@@ -16,6 +16,33 @@ describe("separatorKey", () => {
   });
 });
 
+describe("separatorKey after an elided word", () => {
+  it("writes nothing between an elided word and the next, as text joins them", () => {
+    expect(separatorKey("", "l'")).toBe("");
+    expect(separatorKey("", "le")).toBe(" ");
+    expect(separatorKey(" ", "l'")).toBe(" ");
+  });
+});
+
+describe("splitKey in a language with elisions", () => {
+  it("splits elided words off, and keeps the words `whole` knows", () => {
+    expect(splitKey("avoir l'air", "fr")).toEqual({
+      words: ["avoir", "l'", "air"],
+      between: [" ", ""],
+    });
+    const whole = (word: string) => ["d'accord", "peut-être"].includes(word);
+    expect(splitKey("mettre d'accord", "fr", whole).words).toEqual([
+      "mettre",
+      "d'accord",
+    ]);
+    expect(splitKey("peut-être que", "fr", whole).words).toEqual([
+      "peut-être",
+      "que",
+    ]);
+    expect(splitKey("don't know", "en").words).toEqual(["don't", "know"]);
+  });
+});
+
 describe("splitKey", () => {
   it("splits a key into its words and what separates them", () => {
     expect(splitKey("figure out", "en")).toEqual({

@@ -240,3 +240,35 @@ describe("frenchTagger: role", () => {
     expect(voir).toMatchObject({ pastParticiple: false, infinitive: false });
   });
 });
+
+describe("frenchTagger: pronominal verbs and the relative que", () => {
+  const use = (text: string, i: number) => usesOf(text)[i]!;
+  it("reads a verb after a reflexive pronoun that agrees with its subject as pronominal", () => {
+    expect(
+      use("il/PRON se/PRON rend/VERB.Fin/rend/rendre compte/NOUN", 2)
+        .pronominal,
+    ).toBe(true);
+    expect(
+      use("je/PRON me/PRON suis/AUX.Fin/suis/être rendu/VERB.Part/rendre", 3)
+        .pronominal,
+    ).toBe(true);
+    // "me" with another subject is an object.
+    expect(
+      use("ça/PRON me/PRON fait/VERB.Fin/fait/faire plaisir/NOUN", 2)
+        .pronominal,
+    ).toBeUndefined();
+  });
+  it("reads que after its antecedent as the relative pronoun, by the conjunction's senses", () => {
+    expect(
+      use("la/DET chose/NOUN qu'/PRON il/PRON dit/VERB.Fin/dire", 2).grammarPos,
+    ).toBe("conjunction");
+    // After a neuter pronoun it is "what"; before an inverted verb, a question.
+    expect(
+      use("ce/PRON qu'/PRON il/PRON dit/VERB.Fin/dire", 1).grammarPos,
+    ).toBeUndefined();
+    expect(
+      use("chose/NOUN qu'/PRON est/AUX.Fin/être ce/PRON que/PRON", 1)
+        .grammarPos,
+    ).toBeUndefined();
+  });
+});
