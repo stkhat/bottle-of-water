@@ -6,7 +6,7 @@
 // out, most old spellings ("clepe"), and names, which the examples write capitalised.
 // Language-independent (CORE): the language gives the shape of its words, the part of
 // speech of its proper nouns and its possessive.
-import { byCodeUnit, type KaikkiEntry } from "./common.ts";
+import { byCodeUnit, GIVEN_NAME, SURNAME, type KaikkiEntry } from "./common.ts";
 import { entryExamplePieces, pieceWords } from "./examples.ts";
 import { entrySenses } from "./senses.ts";
 
@@ -14,8 +14,18 @@ import { entrySenses } from "./senses.ts";
 export interface WordLanguage {
   /** A word as the tokenizer keeps it, in lower case. */
   word: RegExp;
+  /**
+   * A word written with capitals as the tokenizer keeps it (AI, Tokyo, iPhone): a
+   * capital-only word may have this shape. None: the language has no capital-only words.
+   */
+  capitalWord?: RegExp;
   /** kaikki's part of speech of proper nouns: an entry of it is no meaning of a word. */
   name: string;
+  /**
+   * A proper noun's sense that names a person (a given name, a surname), read in its
+   * gloss and categories, in lower case.
+   */
+  person?: RegExp;
   /** The possessive ending: a possessive of a vocabulary word is no word of its own. */
   possessive?: string;
 }
@@ -23,10 +33,18 @@ export interface WordLanguage {
 /**
  * English words: letters with inner apostrophes ("y'all", "ma'am"). The tokenizer
  * splits at hyphens and digits, so a hyphenated headword never meets a token.
+ * Capital-only words: Latin letters (with accents: Gruyère) and inner apostrophes,
+ * one of them a capital.
  */
 const ENGLISH_WORDS: WordLanguage = {
   word: /^[a-z][a-z']*$/,
+  capitalWord: /^(?=.*\p{Lu})\p{Script=Latin}+(?:'\p{Script=Latin}+)*$/u,
   name: "name",
+  // Glosses write "the male given names Timothy and Timon"; categories "English
+  // surnames".
+  person: new RegExp(
+    `${GIVEN_NAME.source}|${SURNAME.source}|\\bgiven names\\b|\\bsurnames\\b`,
+  ),
   possessive: "'s",
 };
 
@@ -68,7 +86,36 @@ export interface VocabularyRule {
     lemmas: Readonly<Record<string, unknown>>;
     formsOf: (word: string) => readonly string[];
   }): string[];
+  /** Whether a headword has the shape of a capital-only word (`capitals`). */
+  capitalShaped(headword: string): boolean;
+  /**
+   * How often the examples write a capital-only word as it is written, with its
+   * inflected forms written alike (AED, AEDs).
+   */
+  capitalCount(written: string): number;
+  /**
+   * The capital-only words, as written, sorted: each headword with a capital
+   * (`WordLanguage.capitalWord`: AI, Tokyo, iPhone) whose lower-case key is no
+   * vocabulary word (`vocab`, rule E's words included), no form of one (`lemmas`) and
+   * no possessive, with a meaning of its own (as `select` asks; a proper noun's sense
+   * counts) that a translation table translates (Wiktionary translates what is
+   * notable: Tokyo, AI, ATM; not "Vito", a barangay, or "IC", an initialism of two
+   * dozen things none translated, which text means in ways the hover cannot tell),
+   * no sense of any entry so written that names a person (Harvey, Kane; and
+   * "Corp", a surname, though CORP abbreviates corporation) or points to one's name
+   * (Dmitri: alternative form of Dmitry; Jer: diminutive of Jeremy), written so at least
+   * `minExamples` times with its inflected forms (AEDs) and more often than in lower
+   * case (not "Hitman", a common word's capital). Text that writes them so means them;
+   * other text is not read as them (`lemmatize`).
+   */
+  capitals(inputs: {
+    vocab: ReadonlySet<string>;
+    lemmas: Readonly<Record<string, unknown>>;
+  }): string[];
 }
+
+/** Tags of the forms a capital-only word's examples count with it (AEDs). */
+const CAPITAL_FORM_TAGS: ReadonlySet<string> = new Set(["plural"]);
 
 export function createVocabularyRule(
   language: WordLanguage = ENGLISH_WORDS,
@@ -88,15 +135,68 @@ export function createVocabularyRule(
     [word, ...forms].reduce((sum, form) => sum + (lower.get(form) ?? 0), 0);
   const bump = (counts: Map<string, number>, word: string) =>
     counts.set(word, (counts.get(word) ?? 0) + 1);
+  /** Token as written, with a capital → how often the examples write it so. */
+  const written = new Map<string, number>();
+  /** Capitalised headwords with a meaning of their own, as written. */
+  const capitalMeaning = new Set<string>();
+  /** Capitalised headwords with a sense that names a person, as written. */
+  const persons = new Set<string>();
+  /** Capitalised headword → its inflected forms, as written (AED → AEDs). */
+  const capitalForms = new Map<string, Set<string>>();
+  const capitalCount = (headword: string) =>
+    [headword, ...(capitalForms.get(headword) ?? [])].reduce(
+      (sum, form) => sum + (written.get(form) ?? 0),
+      0,
+    );
+  const capitalShaped = (headword: string) =>
+    language.capitalWord !== undefined && language.capitalWord.test(headword);
+  /** Proper nouns that point to another (Jer: diminutive of Jeremy) → their targets. */
+  const namePointers = new Map<string, Set<string>>();
+  /** Capitalised headwords with a sense a translation table translates, as written. */
+  const translated = new Set<string>();
+  /** A capitalised entry's meanings, persons and forms (`capitals`). */
+  const addCapital = (entry: KaikkiEntry) => {
+    const headword = entry.word.replaceAll("’", "'");
+    for (const sense of entrySenses(entry).senses) {
+      if (sense.inflection) continue;
+      if (entry.pos === language.name && sense.target !== undefined) {
+        let targets = namePointers.get(headword);
+        if (!targets) namePointers.set(headword, (targets = new Set()));
+        targets.add(sense.target);
+      }
+      if (
+        entry.pos === language.name &&
+        language.person?.test(
+          [sense.gloss, ...sense.categories].join(" | ").toLowerCase(),
+        )
+      )
+        persons.add(headword);
+      else {
+        capitalMeaning.add(headword);
+        if (sense.tables > 0) translated.add(headword);
+      }
+    }
+    for (const { form, tags = [] } of entry.forms ?? []) {
+      if (typeof form !== "string" || form === headword) continue;
+      if (!tags.some((tag) => CAPITAL_FORM_TAGS.has(tag))) continue;
+      let forms = capitalForms.get(headword);
+      if (!forms) capitalForms.set(headword, (forms = new Set()));
+      forms.add(form);
+    }
+  };
   return {
     add(entry) {
       for (const piece of entryExamplePieces(entry, since))
         for (const token of pieceWords(piece)) {
           const folded = token.toLowerCase();
           if (token === folded) bump(lower, token);
-          else if (token.length > 1 && token === token.toUpperCase())
-            bump(capitals, folded);
+          else {
+            if (token.length > 1 && token === token.toUpperCase())
+              bump(capitals, folded);
+            bump(written, token);
+          }
         }
+      if (capitalShaped(entry.word.replaceAll("’", "'"))) addCapital(entry);
       const word = entry.word;
       if (!language.word.test(word)) return;
       for (const sense of entrySenses(entry).senses) {
@@ -120,6 +220,34 @@ export function createVocabularyRule(
     },
     shaped: (word) => language.word.test(word),
     count,
+    capitalShaped,
+    capitalCount,
+    capitals({ vocab, lemmas }) {
+      const { possessive } = language;
+      return [...capitalMeaning]
+        .filter((headword) => {
+          if (!translated.has(headword)) return false;
+          // A person's name, or a spelling or diminutive of one (Dmitri, Jer).
+          if (persons.has(headword)) return false;
+          if (
+            [...(namePointers.get(headword) ?? [])].some((target) =>
+              persons.has(target),
+            )
+          )
+            return false;
+          const key = headword.toLowerCase();
+          if (vocab.has(key) || Object.hasOwn(lemmas, key)) return false;
+          if (
+            possessive !== undefined &&
+            key.endsWith(possessive) &&
+            vocab.has(key.slice(0, -possessive.length))
+          )
+            return false;
+          const times = capitalCount(headword);
+          return times >= minExamples && times > (lower.get(key) ?? 0);
+        })
+        .sort(byCodeUnit);
+    },
     select({ vocab, lemmas, formsOf }) {
       const { possessive } = language;
       const isForm = (word: string) =>

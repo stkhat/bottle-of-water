@@ -601,7 +601,11 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const word = classifyWord(
           token.text,
           form,
-          bases,
+          // In a document in capitals, case says nothing: no capital-only word
+          // (PAM is Pam there, not an acronym).
+          casing?.mode === "upper"
+            ? bases.filter((base) => !pack.capitalOnly(base))
+            : bases,
           terms,
           knownLevel,
           pack,

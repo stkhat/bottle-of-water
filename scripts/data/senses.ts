@@ -307,3 +307,22 @@ export function rankSenses(
     .sort((a, b) => a.penalty - b.penalty || a.i - b.i)
     .map(({ sense }) => sense);
 }
+
+/**
+ * The senses of a capital-only word (rule E: AI, Tokyo, CNC), best first, as its
+ * entries (a proper noun, a noun, an initialism's) are in no order of their own: those
+ * the translation tables translate into more languages first (what is notable: Ebola
+ * the virus before the river; CNC computer numerical control, not the other
+ * expansions), then as a phrase's (`rankSenses`). Ordering an abbreviation's
+ * expansions by how often the example corpus writes them was tried and dropped: the
+ * corpus has too few of them (USB took "US Bancorp", CV coronavirus).
+ */
+export function rankCapitalSenses(
+  senses: readonly SourceSense[],
+  options: RankOptions = {},
+): RankedSense[] {
+  return rankSenses(senses, true, options)
+    .map((sense, i) => ({ sense, i }))
+    .sort((a, b) => b.sense.tables - a.sense.tables || a.i - b.i)
+    .map(({ sense }) => sense);
+}

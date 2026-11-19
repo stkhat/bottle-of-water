@@ -1292,3 +1292,60 @@ describe("keys and parts of speech by tags (rules A1 and A2)", () => {
     expect(spans.some((s) => "pos" in s)).toBe(false);
   });
 });
+
+describe("capital-only words", () => {
+  const capitals = createLanguagePack("en", {
+    lemmas: {},
+    freq: ["the", "we", "in", "saw"],
+    ipa: {},
+    vocab: new Set(["the", "we", "in", "saw", "said", "it", "was"]),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: { the: ["article"], we: ["pronoun"] },
+    names: { tokyo: "p", pam: "g", ai: "g" },
+    capitals: ["AI", "PAM", "Tokyo"],
+  });
+  const run = (blocks: string[], mode?: "upper") => {
+    const casing =
+      mode === "upper"
+        ? { mode, words: {} }
+        : documentCasing(
+            blocks.map((b) => blockCasing(capitals.tokenize(b), "en")),
+          );
+    return blocks.flatMap((block) =>
+      createClassifier(capitals)
+        .classify(capitals.tokenize(block), {
+          terms: terms(),
+          knownLevel: 4,
+          casing,
+          capitalMeaning: (key) => (key === "tokyo" ? "word" : undefined),
+        })
+        .map((s) => `${block.slice(s.start, s.end)}:${s.category}`),
+    );
+  };
+
+  it("are words where the text writes them so", () => {
+    expect(run(["We saw AI in Tokyo.", "It was in Tokyo."])).toEqual([
+      "We:known",
+      "saw:known",
+      "AI:new",
+      "in:known",
+      "Tokyo:new",
+      "It:new",
+      "was:new",
+      "in:known",
+      "Tokyo:new",
+    ]);
+    // Speech recognition in lower case: no case to read them by.
+    expect(run(["we saw ai in tokyo"])).toContain("ai:ignored");
+  });
+
+  it("are none in a document in capitals, whose case says nothing", () => {
+    expect(run(["WE SAW PAM IN TOKYO."], "upper")).toEqual([
+      "WE:known",
+      "SAW:known",
+      "PAM:ignored",
+      "IN:known",
+      "TOKYO:ignored",
+    ]);
+  });
+});

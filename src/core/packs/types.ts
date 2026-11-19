@@ -43,6 +43,11 @@ export type VocabPack = readonly string[];
  */
 export type ContractionPack = Readonly<Record<string, readonly string[]>>;
 /**
+ * en/capitals.json: the vocabulary's capital-only words, as written (AI, Tokyo, iPhone),
+ * sorted: words only where the text writes them so, keyed in lower case.
+ */
+export type CapitalsPack = readonly string[];
+/**
  * en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. en-ja/phrases.json has
  * the same shape: Japanese translations of phrases EJDict lacks, from Wiktionary's
  * translation tables, each sense "《English sense》word,word", with its senses' parts

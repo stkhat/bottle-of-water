@@ -88,6 +88,64 @@ describe("createLanguagePack (en)", () => {
     expect(pack.rank("loaf")).toBe(Infinity);
   });
 
+  it("reads a contraction of known words as a word, ranked as its rarest word", () => {
+    const withClitics = createLanguagePack("en", {
+      lemmas: { did: "do" },
+      freq: ["the", "what", "do", "you"],
+      ipa: {},
+      vocab: new Set(["the", "what", "do", "you", "loaf"]),
+      patterns: { detect: [], more: [], gap: [] },
+      contractions: {
+        "what'd": ["what did", "what would"],
+        "you'd": ["you had"],
+        "loaf'd": ["loaf would"],
+      },
+    });
+    expect(withClitics.lemmas("What’d")).toEqual(["what'd"]);
+    expect(withClitics.rank("what'd")).toBe(3);
+    expect(withClitics.rank("loaf'd")).toBe(Infinity);
+    expect(withClitics.lemmas("whatever'd")).toEqual([]);
+  });
+
+  it("ranks an abbreviation the list does not rank by its letters", () => {
+    const dotted = createLanguagePack("en", {
+      lemmas: {},
+      freq: ["the", "us"],
+      ipa: {},
+      vocab: new Set(["the", "us", "u.s.", "e.g."]),
+      patterns: { detect: [], more: [], gap: [] },
+      capitals: ["U.S."],
+    });
+    expect(dotted.lemmas("U.S")).toEqual(["u.s."]);
+    expect(dotted.lemmas("e.g")).toEqual(["e.g."]);
+    expect(dotted.capitalOnly("u.s.")).toBe(false);
+    expect(dotted.rank("u.s.")).toBe(2);
+    expect(dotted.rank("e.g.")).toBe(Infinity);
+  });
+
+  it("knows a capital-only word only as it is written", () => {
+    const withCapitals = createLanguagePack("en", {
+      lemmas: { aeds: "aed" },
+      freq: ["the"],
+      ipa: {},
+      vocab: new Set(["the"]),
+      patterns: { detect: [], more: [], gap: [] },
+      capitals: ["AED", "AI", "Tokyo", "iPhone"],
+    });
+    expect(withCapitals.lemmas("AI")).toEqual(["ai"]);
+    expect(withCapitals.lemmas("AI’s")).toEqual(["ai"]);
+    expect(withCapitals.lemmas("ai")).toEqual([]);
+    expect(withCapitals.lemmas("Ai")).toEqual([]);
+    expect(withCapitals.lemmas("Tokyo")).toEqual(["tokyo"]);
+    expect(withCapitals.lemmas("tokyo")).toEqual([]);
+    expect(withCapitals.lemmas("iPhone")).toEqual(["iphone"]);
+    expect(withCapitals.lemmas("Iphone")).toEqual([]);
+    expect(withCapitals.lemmas("AEDs")).toEqual(["aed"]);
+    expect(withCapitals.lemmas("aeds")).toEqual([]);
+    expect(withCapitals.capitalOnly("ai")).toBe(true);
+    expect(withCapitals.capitalOnly("the")).toBe(false);
+  });
+
   it("gives the IPA of words and phrases", () => {
     expect(pack.ipa("figure")).toBe("/ˈfɪɡjər/");
     expect(pack.ipa("figure out")).toBe("/ˈfɪɡjər aʊt/");
