@@ -197,6 +197,10 @@ describe("frenchTagger: uses", () => {
     // Not after a determiner or preposition: "l'été", "en été".
     expect(base("l'/DET été/AUX.Part/été/être", 1)).toBeUndefined();
     expect(base("en/ADP été/VERB.Part?/été/être", 1)).toBeUndefined();
+    // A noun tag there stands however unsure ("vers l'Est"), but not after a subject
+    // pronoun, whose object pronoun the tagger read as the determiner ("tu l'as").
+    expect(base("vers/ADP l'/DET est/NOUN?/est/être", 2)).toBeUndefined();
+    expect(base("tu/PRON l'/DET as/NOUN?/as/avoir", 2)).toBe("avoir");
   });
   it("finds a participle standing for a preposition at a clause's start or after a noun", () => {
     const slot = (text: string, i: number) => usesOf(text)[i]?.prepositionSlot;

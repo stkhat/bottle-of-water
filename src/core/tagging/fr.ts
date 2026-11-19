@@ -170,10 +170,27 @@ function negation(words: readonly TaggedWord[], i: number): string | undefined {
  * "est" and "été" are far more often verbs, so the tagger misses some.
  */
 function nounAfter(words: readonly TaggedWord[], i: number): boolean {
+  return (
+    /^(VERB|AUX)\.(Fin|Part)$/.test(words[i]!.tag.tag) && afterArticle(words, i)
+  );
+}
+
+/**
+ * A noun tag right after a trusted determiner or preposition stands whatever its
+ * margin: no closed class of verbs claims the word ("vers l'Est": the east, not
+ * être); but not after a subject pronoun, whose object pronoun the tagger read as the determiner ("tu l'as",
+ * "je la garde").
+ */
+const nounTagAfter = (words: readonly TaggedWord[], i: number) =>
+  words[i]!.tag.tag === "NOUN" &&
+  afterArticle(words, i) &&
+  !afterSubject(words, i);
+
+/** Right after a trusted determiner or preposition, with no pause between. */
+function afterArticle(words: readonly TaggedWord[], i: number): boolean {
   const word = words[i]!;
   const before = words[i - 1];
   return (
-    /^(VERB|AUX)\.(Fin|Part)$/.test(word.tag.tag) &&
     before !== undefined &&
     !word.pauseBefore &&
     before.trusted &&
@@ -295,7 +312,10 @@ function use(
   const previousTag = trustedTagOf(words[i - 1]);
   const noun = nounAfter(words, i);
   const negated = negation(words, i);
-  const base = noun ? undefined : closedBase(words, i, auxiliaries);
+  const base =
+    noun || nounTagAfter(words, i)
+      ? undefined
+      : closedBase(words, i, auxiliaries);
   // A participle in a state reads as the adjective it is ("c'est fait": done).
   const state = how === false && trustedTagOf(word)?.label === "verb";
   return {

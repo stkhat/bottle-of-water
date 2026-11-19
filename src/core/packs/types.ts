@@ -69,7 +69,15 @@ export type DefsPack = Readonly<
     string,
     readonly [
       short: string,
-      senses: readonly (readonly [pos: string, text: string])[],
+      /**
+       * Each sense's part of speech and text, and "auxiliary" for a sense the source
+       * marks as the verb's use as an auxiliary (`Sense.auxiliary`).
+       */
+      senses: readonly (readonly [
+        pos: string,
+        text: string,
+        use?: "auxiliary",
+      ])[],
     ]
   >
 >;

@@ -40,6 +40,18 @@ const neverName = (pack: LanguagePack, word: string) =>
 const DETERMINERS: ReadonlySet<string> = new Set(["article", "determiner"]);
 
 /**
+ * The word opens a noun phrase: it is an article or a determiner, and not mainly a
+ * preposition (French "de" is also the partitive article, but before a name it is
+ * "of", "from": "la chambre de Clémentine", "le tunnel de Monaco").
+ */
+const determiner = (pack: LanguagePack, word: string) => {
+  const parts = pack.partsOfSpeech(word);
+  return (
+    parts[0] !== "preposition" && parts.some((pos) => DETERMINERS.has(pos))
+  );
+};
+
+/**
  * A word ranked within this many as a common word is, when capitalised inside a name,
  * mostly a titled common noun (World Cup, Central Park, Space Center), unless the
  * lexicon has it as a given name (Mike, Frank).
@@ -120,7 +132,7 @@ export type NameVerdict = "kept" | "name" | false;
  *   "Democratic Republic").
  *
  * In a language that capitalises common words only in names and titles
- * (`LanguagePack.capitalsForNames`: Spanish, not English, whose Democrats and Christians are
+ * (`LanguagePack.capitalsForNames`: Spanish and French, not English, whose Democrats and Christians are
  * common words), a word the names lexicon lacks and the language knows only as an
  * inflected form of another word (no vocabulary word itself) is a name, as one the
  * lexicon has as a place would be, when the document always capitalises it and the
@@ -255,15 +267,32 @@ export function documentNames(
       return false;
     return keptOrName(kinds, meaning(key));
   };
+  /**
+   * After a determiner, a place's name that the language's own sentences write
+   * capitalised mostly (the names lexicon's "p" and "c") is still a name, where the
+   * document always capitalises it: place names take an article in many languages
+   * ("la France", "le Japon", "du Mali", "les Alpes"; Spanish "la India", "los
+   * Andes"; English "the Alps", "the Netherlands"), while a titled common noun is no
+   * place ("the Enlightenment", "la République").
+   */
+  const placeAfterDeterminer = (key: string): NameVerdict => {
+    const kinds = pack.name(key) ?? "";
+    if (
+      !kinds.includes("p") ||
+      !kinds.includes("c") ||
+      kinds.endsWith("!") ||
+      !alwaysCapitalised(casing, key) ||
+      neverName(pack, key)
+    )
+      return false;
+    return keptOrName(kinds, meaning(key));
+  };
   return (word, before) => {
     if (!pack.namesByCase || casing.mode !== "mixed") return false;
     const speaker = word.speaker === true && speakerName(word.key);
     if (speaker) return speaker;
-    if (
-      before !== undefined &&
-      pack.partsOfSpeech(before).some((pos) => DETERMINERS.has(pos))
-    )
-      return verbAfterDeterminer(word.key);
+    if (before !== undefined && determiner(pack, before))
+      return placeAfterDeterminer(word.key) || verbAfterDeterminer(word.key);
     return verdictOf(word.key, new Set());
   };
 }

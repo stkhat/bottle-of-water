@@ -257,8 +257,9 @@ const inRun = (word: WordCase, text: string) =>
   word.written === "capital" && !word.label && !pluralAcronym(word, text);
 
 /**
- * The block's runs of capitalised words with only spaces between them, as each word's
- * predecessors: the words written right before it in a run, not at a start.
+ * The block's runs of capitalised words with only spaces or a hyphen between them
+ * (French "États-Unis", "Saint-Pétersbourg"), as each word's predecessors: the words
+ * written right before it in a run, not at a start.
  */
 function capitalRuns(tokens: readonly Token[], cases: readonly WordCase[]) {
   const runs = new Map<string, Set<string>>();
@@ -267,7 +268,7 @@ function capitalRuns(tokens: readonly Token[], cases: readonly WordCase[]) {
   let i = 0;
   for (const token of tokens) {
     if (!token.isWord) {
-      if (!/^\s+$/.test(token.text)) previous = undefined;
+      if (!/^(?:\s+|-)$/.test(token.text)) previous = undefined;
       continue;
     }
     const word = cases[i++]!;

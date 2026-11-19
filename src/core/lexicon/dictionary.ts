@@ -940,5 +940,12 @@ function definitionOf(head: string, defs: DefsPack): Entry | undefined {
   const found = own(defs, head);
   if (!found) return undefined;
   const [short, senses] = found;
-  return { short, senses: senses.map(([pos, text]) => ({ pos, text })) };
+  return {
+    short,
+    senses: senses.map(([pos, text, use]) => ({
+      pos,
+      text,
+      ...(use === "auxiliary" && { auxiliary: true as const }),
+    })),
+  };
 }

@@ -1180,6 +1180,78 @@ describe("capitalised inflected forms (rule D, a language that capitalises only 
   });
 });
 
+describe("French names (rule D after a determiner)", () => {
+  // japon (japanware) and clémentine (the fruit) are words too; "de" is also the
+  // partitive article, but mainly a preposition.
+  const pack = createLanguagePack("fr", {
+    lemmas: {},
+    freq: [
+      "de",
+      "la",
+      "le",
+      "du",
+      "chambre",
+      "japon",
+      "clémentine",
+      "république",
+    ],
+    ipa: {},
+    vocab: new Set([
+      ...[
+        "on",
+        "voit",
+        "de",
+        "la",
+        "le",
+        "du",
+        "chambre",
+        "japon",
+        "clémentine",
+      ],
+      ...["république", "et"],
+    ]),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: {
+      de: ["preposition", "article", "noun"],
+      la: ["article", "pronoun"],
+      le: ["article", "pronoun"],
+      du: ["article", "contraction"],
+    },
+    names: { japon: "pc", clémentine: "gc", république: "x" },
+  });
+  const verdicts = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(pack.tokenize(b), "fr")),
+    );
+    return blocks.flatMap((block) =>
+      createClassifier(pack)
+        .classify(pack.tokenize(block), {
+          terms: terms(),
+          knownLevel: 0,
+          casing,
+        })
+        .map((s) => ({ ...s, text: block.slice(s.start, s.end) }))
+        .filter((s) => /^\p{Lu}/u.test(s.text) && s.text !== "On")
+        .map((s) => `${s.text}:${s.name ? "name" : s.category}`),
+    );
+  };
+
+  it("reads a place the language writes capitalised for a name after an article", () => {
+    expect(
+      verdicts("On voit le Japon et la République.", "On voit du Japon."),
+    ).toEqual(["Japon:name", "République:new", "Japon:name"]);
+    // Written in lower case once, it is the word.
+    expect(verdicts("On voit le Japon.", "On voit du japon.")).toEqual([
+      "Japon:new",
+    ]);
+  });
+  it("reads a name after a preposition that is also an article (de)", () => {
+    expect(verdicts("On voit la chambre de Clémentine.")).toEqual([
+      "Clémentine:name",
+    ]);
+  });
+});
+
 describe("Spanish words the sentence decides (utterances, the article lo, ser or ir)", () => {
   // The tagger is sure of these words only; "fue" is a form of ser and ir.
   const spanish = createLanguagePack("es", {

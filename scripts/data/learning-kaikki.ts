@@ -121,7 +121,51 @@ const MIN_CAPITALISED = 3;
 /** Alt-of senses that stand for a longer term ("ESO", "ONU"). */
 const ACRONYM_TAGS: ReadonlySet<string> = new Set(["acronym", "initialism"]);
 
-type Sense = [pos: string, text: string];
+/** A sense's part of speech and text, and "auxiliary" for an auxiliary's (`auxiliaryUse`). */
+type Sense = [pos: string, text: string, use?: "auxiliary"];
+
+/**
+ * A qualifier's part saying the verb comes before an infinitive, a gerund or a
+ * participle, as an auxiliary does ("when followed by an infinitive verb": aller's
+ * "to be going (to)"; "preceding the gerund of a verb": ir's "to go on").
+ */
+const AUXILIARY_CONSTRUCTION =
+  /^(?:when )?(?:followed by|preceding)\b.*\b(?:infinitive|gerund|participle)\b/i;
+/** Qualifier parts that leave a sense the construction's alone. */
+const TRANSITIVITY = /^(?:in)?transitive$/i;
+
+/**
+ * A raw gloss's leading qualifier names only the auxiliary's construction
+ * (`AUXILIARY_CONSTRUCTION`), with or without a transitivity: not one that asks for
+ * another use too ("(reflexive, followed by an infinitive) to get": se faire, not the
+ * causative "faire construire").
+ */
+function auxiliaryQualifier(gloss: string): boolean {
+  const qualifier = /^\(([^)]*)\)/u.exec(gloss.trim())?.[1];
+  if (qualifier === undefined) return false;
+  const parts = qualifier.split(",").map((part) => part.trim());
+  return (
+    parts.some((part) => AUXILIARY_CONSTRUCTION.test(part)) &&
+    parts.every(
+      (part) => AUXILIARY_CONSTRUCTION.test(part) || TRANSITIVITY.test(part),
+    )
+  );
+}
+
+/**
+ * The sense is the verb's use as an auxiliary: kaikki tags it so (avoir "used to form
+ * the compound tenses", haber, estar before a gerund, ir "to be going to"), or its
+ * qualifier names the construction (`auxiliaryQualifier`). Rule A2 shows these first
+ * where the grammar reads the word as an auxiliary (`Sense.auxiliary`).
+ */
+export function auxiliaryUse(sense: KaikkiSense): boolean {
+  return (
+    (sense.tags ?? []).includes("auxiliary") ||
+    (sense.raw_glosses ?? []).some(
+      (gloss) => typeof gloss === "string" && auxiliaryQualifier(gloss),
+    )
+  );
+}
 
 function firstPhonemicIpa(
   entry: KaikkiEntry,
@@ -291,11 +335,18 @@ export function altMeaning(gloss: string): string | undefined {
 
 /**
  * The quoted gloss of a pointer's one-word target, put first: "masculine plural of el
- * (“the”)" → "the; masculine plural of el". Undefined without one.
+ * (“the”)" → "the; masculine plural of el", also with a note after it in the bracket:
+ * "plural of un (“some”, the plural indefinite article)" → "some; plural of un (the
+ * plural indefinite article)". Undefined without one.
  */
 export function quotedMeaning(gloss: string): string | undefined {
-  const quoted = /^(.*?\bof\s+[^\s,;:()]+)\s*\(“([^”]+)”\)\s*$/u.exec(gloss);
-  return quoted ? `${quoted[2]!.trim()}; ${quoted[1]!.trim()}` : undefined;
+  const quoted =
+    /^(.*?\bof\s+[^\s,;:()]+)\s*\(“([^”]+)”(?:\s*,\s*([^()]+))?\)\s*$/u.exec(
+      gloss,
+    );
+  if (!quoted) return undefined;
+  const note = quoted[3]?.trim();
+  return `${quoted[2]!.trim()}; ${quoted[1]!.trim()}${note ? ` (${note})` : ""}`;
 }
 
 /**
@@ -395,6 +446,15 @@ function usableSenses(entry: KaikkiEntry): SenseItem[] {
   const closed = CLOSED_CLASSES.has(pos);
   return (entry.senses ?? []).flatMap((sense): SenseItem[] => {
     if (isUsable(sense)) {
+      // An auxiliary's first gloss is what it does ("used to form compound tenses");
+      // the ones under it list where (être: "the passive voice", "all reflexive verbs").
+      if (pos === "verb" && auxiliaryUse(sense)) {
+        const [first] = sense.glosses;
+        const gloss = (
+          typeof first === "string" ? first : glossOf(sense)
+        ).trim();
+        return [{ def: [pos, gloss, "auxiliary"], sense }];
+      }
       const gloss = glossOf(sense).trim();
       return [{ def: [pos, closed ? translationFirst(gloss) : gloss], sense }];
     }
@@ -523,8 +583,23 @@ export function byTreebank(
   return [...bases].sort((a, b) => score(b) - score(a));
 }
 
+/**
+ * A term's senses as the pack keeps them: each once (être's auxiliary senses differ
+ * only in what kaikki lists under them), the first MAX_SENSES, and an auxiliary's
+ * senses after them wherever the source lists them (ir: "to be going to" is its
+ * eleventh), since they are what the word means where the grammar reads it as one.
+ */
 function definition(senses: Sense[]): DefsPack[string] {
-  const kept = senses.slice(0, MAX_SENSES);
+  const once = senses.filter(
+    (sense, i) =>
+      senses.findIndex(
+        (other) => other[0] === sense[0] && other[1] === sense[1],
+      ) === i,
+  );
+  const kept = [
+    ...once.slice(0, MAX_SENSES),
+    ...once.slice(MAX_SENSES).filter((sense) => sense[2] === "auxiliary"),
+  ];
   return [shortOfDefinition(kept[0]![1]), kept];
 }
 
@@ -579,7 +654,7 @@ export async function buildLearningPacks(
   interface Bucket {
     /** Its senses with a meaning, in the source's order (`usableSenses`). */
     items: Omit<SenseItem, "sense">[];
-    /** Its senses as the pack gives them (up to MAX_SENSES). */
+    /** Its senses, which the pack keeps the first of (`definition`). */
     senses: Sense[];
     /** An entry of it says it is an inflected form (only for exact spellings). */
     form: boolean;
@@ -686,10 +761,9 @@ export async function buildLearningPacks(
     const form = exact.get(word)?.form ?? false;
     for (const { def, alt } of bucket.items) {
       if (alt && form) continue;
-      if (bucket.senses.length < MAX_SENSES)
-        bucket.senses.push(
-          alt?.pointerOnly ? targetMeaning(def, alt.target) : def,
-        );
+      bucket.senses.push(
+        alt?.pointerOnly ? targetMeaning(def, alt.target) : def,
+      );
       if (def[0]) bucket.pos.add(def[0]);
     }
     if (!form) bucket.bases.push(...bucket.altBases);
