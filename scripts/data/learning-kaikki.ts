@@ -705,8 +705,15 @@ interface SenseItem {
   capital?: true;
 }
 
+/** The parts of speech whose senses in mathematics are an operator's (`usableSenses`). */
+const OPERATOR_POS: ReadonlySet<string> = new Set([
+  "adverb",
+  "conjunction",
+  "preposition",
+]);
+
 /**
- * An entry's senses with a meaning, in the source's order: a usable sense's gloss; a
+ * An entry's senses with a meaning, in the source's order (an operator's last): a usable sense's gloss; a
  * form-of sense's meaning after its pointer ("me": "accusative of yo: me"; the clitic
  * pronouns, possessives and demonstratives have no other); an alt-of sense's
  * `altMeaning`, else its pointer. Proper-noun entries (Brasil, Carlos, Acapulco) give
@@ -730,7 +737,16 @@ function usableSenses(
   );
   const leading = leadingParents(entry.word ?? "", entry.senses ?? [], own);
   const parents = new Set<string>();
-  return (entry.senses ?? []).flatMap((sense): SenseItem[] => {
+  // An operator's sense (a function word's or an adverb's sense in mathematics: "mal",
+  // times; "plus") comes after the word's other senses: it needs numbers around it,
+  // which "noch mal" and "guck mal" have not.
+  const operator = (sense: KaikkiSense) =>
+    OPERATOR_POS.has(pos) && (sense.topics ?? []).includes("mathematics");
+  const senses = [
+    ...(entry.senses ?? []).filter((sense) => !operator(sense)),
+    ...(entry.senses ?? []).filter(operator),
+  ];
+  return senses.flatMap((sense): SenseItem[] => {
     if (isUsable(sense)) {
       // An auxiliary's first gloss is what it does ("used to form compound tenses");
       // the ones under it list where (être: "the passive voice", "all reflexive verbs").
@@ -1001,6 +1017,8 @@ export async function buildLearningPacks(
     lower: new Map<string, Spelling>(),
     capital: new Map<string, Spelling>(),
   };
+  /** Whether a verb's first sense is reflexive, by its first verb entry. */
+  const reflexiveFirst = new Map<string, boolean>();
   /** A separable verb's finite forms written apart: "fängt" → anfangen, … */
   const separated = new Map<string, Set<string>>();
   const stats = await eachEntry(path, (read) => {
@@ -1035,7 +1053,18 @@ export async function buildLearningPacks(
       if (found) found.push(entry);
       else apostrophes.set(lower, [entry]);
     }
-    const items = usableSenses(entry, language.pronominalVerb);
+    // A verb whose first sense (its first verb entry's) is reflexive keeps its
+    // order wherever it is read: the label would put that sense back where the
+    // grammar reads no reflexive pronoun (German treffen "to meet", duschen).
+    if (entry.pos === "verb" && !reflexiveFirst.has(lower))
+      reflexiveFirst.set(
+        lower,
+        ((entry.senses ?? []).find(isUsable)?.tags ?? []).includes("reflexive"),
+      );
+    const items = usableSenses(
+      entry,
+      reflexiveFirst.get(lower) === true ? undefined : language.pronominalVerb,
+    );
     const capital =
       language.nounsCapitalised === true && capitalisedSpelling(word, lower);
     // A capitalised word of a language that capitalises nouns is spelt as one.
@@ -1118,7 +1147,20 @@ export async function buildLearningPacks(
     return found ? [pos, `${found[1]}; ${pointer}`] : [pos, pointer];
   };
   // Alt-of senses count, with their targets as bases, unless the word is an inflected
-  // form: "os" is a form of vosotros, not "alternative form of ox".
+  // form: "os" is a form of vosotros, not "alternative form of ox". An inflected form's
+  // alt-of sense still counts, without its target as a base, when the target is
+  // more frequent than every word its form-of senses point to: German "mal" is
+  // einmal's informal form ("once, sometime", the "mal" of "noch mal", "guck mal")
+  // more than malen's imperative.
+  const rankOf = (word: string) => ranks.get(word) ?? Infinity;
+  const likelierAlt = (word: string, target: string | undefined) => {
+    if (target === undefined) return false;
+    const bases = exact.get(word)?.bases ?? [];
+    return (
+      bases.length > 0 &&
+      bases.every((base) => rankOf(target.toLowerCase()) < rankOf(base))
+    );
+  };
   if (inside)
     for (const more of casePaths)
       await eachEntry(
@@ -1151,7 +1193,22 @@ export async function buildLearningPacks(
   // speech keeps its first sense (`keptSenses`).
   for (const [word, bucket] of [...exact, ...folded]) {
     const form = exact.get(word)?.form ?? false;
-    const counted = bucket.items.filter(({ alt }) => !(alt && form));
+    const items = bucket.items.filter(
+      ({ alt }) => !(alt && form) || likelierAlt(word, alt.target),
+    );
+    // A rescued alt-of sense of a part of speech the word has no other sense of comes
+    // last: "los" is "rid of", "going on" before lose's "loose".
+    const rescued = (item: (typeof items)[number]) =>
+      item.alt !== undefined && form;
+    const ownPos = new Set(
+      items.filter((item) => !rescued(item)).map(({ def }) => def[0]),
+    );
+    const late = (item: (typeof items)[number]) =>
+      rescued(item) && !ownPos.has(item.def[0]);
+    const counted = [
+      ...items.filter((item) => !late(item)),
+      ...items.filter(late),
+    ];
     const marked = counted.every((item) => item.capital) || capitalMarked(word);
     const senseOf = ({
       def,

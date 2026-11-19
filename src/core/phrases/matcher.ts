@@ -1,6 +1,11 @@
 import { normalizeWord, type Token } from "../text/tokenize";
 import { separatorKey, splitKey, type KeyParts } from "./key";
-import { NO_RULES, type PhrasePatterns, type PhraseRules } from "./pattern";
+import {
+  NO_RULES,
+  phrasePosIndex,
+  type PhrasePatterns,
+  type PhraseRules,
+} from "./pattern";
 
 /**
  * - `detect`: the pack's `detect` patterns, contiguous, every word literal.
@@ -64,6 +69,12 @@ export interface PhraseMatch {
    * and the verb ("se ha quitado la vida") are a gap.
    */
   readonly lead?: number;
+  /**
+   * The lead is the pattern's verb, its last word, moved before the others (German
+   * "nimmt … in Kauf" for `in kauf nehmen`; `PhraseRules.verbLast`): `words` are the
+   * others, a separable verb's particle after them ("gibt den Löffel ab").
+   */
+  readonly moved?: true;
 }
 
 /** A match's first word: its lead, or its first pattern word. */
@@ -322,7 +333,64 @@ export function createPhraseMatcher({
    */
   const stepsOf = (trie: Trie, word: MatchWord): readonly string[] =>
     trie.slots ? word.steps : word.literals;
-  const { reflexive, contractions } = rules;
+  const { reflexive, contractions, verbLast } = rules;
+  /** With `verbLast`: the verb patterns, whose verb may move (their parts of speech). */
+  const verbKeys = new Set<string>();
+  if (verbLast)
+    for (const [key, pos] of phrasePosIndex(patterns))
+      if (pos.includes("verb")) verbKeys.add(key);
+  /**
+   * The words between word `from` and word `to` may stand between a moved verb and
+   * its pattern's other words: only spaces between them, none of `gapStop`.
+   */
+  const between = (input: MatchInput, from: number, to: number) => {
+    for (let k = from; k < to; k++)
+      if (
+        !input.joined[k] ||
+        (k > from && rules.gapStop?.has(input.words[k]!.form))
+      )
+        return false;
+    return true;
+  };
+
+  /**
+   * With `verbLast`: a separable verb among a word's forms is matched as written only
+   * with its particle joined ("aufhören", not "hören": the lemma table also lists
+   * aufhören for "hören", which "hört … auf" is); a moved verb takes its particle
+   * apart (`verbLastAt`). A base is such a verb when another base ends it and the
+   * written word does not start with what comes before ("gelassen" is lassen's
+   * participle, not a separable verb).
+   */
+  const joinedForm =
+    (written: string, forms: readonly string[]) => (form: string) =>
+      form === written ||
+      !forms.some(
+        (part) =>
+          part.length < form.length &&
+          form.endsWith(part) &&
+          !written.startsWith(form.slice(0, -part.length)),
+      );
+
+  /**
+   * With `verbLast`: a pronoun that stands for the patterns' reflexive one in its
+   * clause (the words with no punctuation between them) also reads as it ("mich"
+   * with "ich": `sich`).
+   */
+  function agreeReflexives(words: MatchWord[], joined: readonly boolean[]) {
+    const { reflexive: pronoun, pronouns } = verbLast!;
+    words.forEach((word, w) => {
+      const subjects = pronouns.get(word.form);
+      if (!subjects || word.literals.includes(pronoun)) return;
+      let agrees = subjects.size === 0;
+      for (let k = w - 1; !agrees && k >= 0 && joined[k]; k--)
+        agrees = subjects.has(words[k]!.form);
+      for (let k = w + 1; !agrees && k < words.length && joined[k - 1]; k++)
+        agrees = subjects.has(words[k]!.form);
+      if (!agrees) return;
+      const literals = [...word.literals, pronoun];
+      words[w] = { ...word, literals, steps: slotSteps(literals, word.slots) };
+    });
+  }
 
   /** A word's `steps`, prepared once. */
   const slotSteps = (forms: readonly string[], slots: readonly string[]) =>
@@ -358,6 +426,88 @@ export function createPhraseMatcher({
         ? undefined
         : trie.ends.get(node + separator + preposition);
     if (ends) for (const key of ends) out.push({ key, words: [...path, j] });
+    // "zu" before a verb pattern's infinitive ("in Kauf zu nehmen").
+    const next = input.words[j + 1];
+    if (
+      verbLast !== undefined &&
+      word.form === verbLast.infinitive &&
+      next !== undefined &&
+      input.joined[j]
+    )
+      for (const step of stepsOf(trie, next))
+        for (const key of trie.ends.get(node + separator + step) ?? [])
+          if (verbKeys.has(key)) out.push({ key, words: [...path, j + 1] });
+  }
+
+  /**
+   * German word order (`PhraseRules.verbLast`), from word `i`:
+   * - a verb pattern whose verb is word `i`, moved before the pattern's other words
+   *   in its clause ("Er nimmt das gern in Kauf" for `in kauf nehmen`), with up to
+   *   `maxBetween` words before them (and before and after the reflexive pronoun:
+   *   "macht er sich schnell auf den Weg"), a separable verb's particle right after
+   *   them ("gibt den Löffel ab" for `den löffel abgeben`): the verb is the match's
+   *   `lead`;
+   * - a pattern starting with the reflexive pronoun, word `i`, with words between it
+   *   and the others ("sich endlich auf den Weg machen").
+   */
+  function verbLastAt(
+    trie: Trie,
+    input: MatchInput,
+    i: number,
+    out: PhraseMatch[],
+  ) {
+    const { reflexive: pronoun, maxBetween } = verbLast!;
+    const { words } = input;
+    const verb = words[i]!;
+    const last = Math.min(words.length, i + 2 + maxBetween);
+    // The pronoun, then the others after a gap.
+    if (verb.literals.includes(pronoun) && trie.nodes.has(pronoun))
+      for (let j = i + 2; j < last && between(input, i, j); j++)
+        for (const step of stepsOf(trie, words[j]!)) {
+          const node = `${pronoun} ${step}`;
+          if (trie.nodes.has(node)) walk(trie, input, node, j + 1, [i, j], out);
+        }
+    /** The others from word `k` on, `node` and `path` matched so far. */
+    const others = (node: string, k: number, path: readonly number[]) => {
+      for (const form of verb.forms) {
+        const keys = trie.ends.get(`${node} ${form}`);
+        if (!keys) continue;
+        // A separable verb: the verb it is made of is among the word's forms.
+        const stem = verb.forms.find(
+          (part) => part.length < form.length && form.endsWith(part),
+        );
+        const particle =
+          stem === undefined ? undefined : form.slice(0, -stem.length);
+        if (
+          particle !== undefined &&
+          (words[k]?.form !== particle || !input.joined[k - 1])
+        )
+          continue;
+        const matched = particle === undefined ? path : [...path, k];
+        for (const key of keys)
+          if (verbKeys.has(key))
+            out.push({ key, lead: i, words: matched, moved: true });
+      }
+      const word = words[k];
+      if (!word || !input.joined[k - 1]) return;
+      for (const step of stepsOf(trie, word)) {
+        const child = `${node} ${step}`;
+        if (trie.nodes.has(child)) others(child, k + 1, [...path, k]);
+      }
+    };
+    for (let j = i + 1; j < last && between(input, i, j); j++) {
+      const word = words[j]!;
+      for (const step of stepsOf(trie, word))
+        if (trie.nodes.has(step)) others(step, j + 1, [j]);
+      if (!word.literals.includes(pronoun) || !trie.nodes.has(pronoun))
+        continue;
+      const after = Math.min(words.length, j + 2 + maxBetween);
+      for (let k = j + 1; k < after && between(input, j, k); k++)
+        for (const step of stepsOf(trie, words[k]!)) {
+          const node = `${pronoun} ${step}`;
+          if (trie.nodes.has(node)) others(node, k + 1, [j, k]);
+        }
+    }
   }
 
   /**
@@ -553,6 +703,7 @@ export function createPhraseMatcher({
       out.push(...kept);
     }
     afterPronoun(trie, input, i, out);
+    if (verbLast) verbLastAt(trie, input, i, out);
     return out;
   }
 
@@ -596,10 +747,14 @@ export function createPhraseMatcher({
           const verb = reflexive?.attached?.(form, bases, lemmas);
           const pronominal =
             verb === undefined ? undefined : verb + reflexive!.ending!;
-          const literals =
-            pronominal === undefined || forms.includes(pronominal)
+          const own =
+            verbLast === undefined
               ? forms
-              : [...forms, pronominal];
+              : forms.filter(joinedForm(form, forms));
+          const literals =
+            pronominal === undefined || own.includes(pronominal)
+              ? own
+              : [...own, pronominal];
           const slots = slotsFilledBy(form);
           words.push({
             token,
@@ -616,6 +771,7 @@ export function createPhraseMatcher({
         }
       }
       if (words.length > 0) joined.push(false);
+      if (verbLast) agreeReflexives(words, joined);
       return { words, joined, between };
     },
     matchesAt,

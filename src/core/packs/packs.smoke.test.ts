@@ -1004,10 +1004,11 @@ describe("generated German pack and de-en dictionary", () => {
     expect(pack.accented("fur")).toBeUndefined();
   });
 
-  it("highlight no phrase yet, and have a meaning for every selectable one", () => {
-    expect(de.phrases.detect).toEqual([]);
-    expect(de.phrases.more.length).toBeGreaterThan(1000);
-    for (const phrase of de.phrases.more)
+  it("highlight phrases, and have a meaning for every one", () => {
+    expect(de.phrases.detect.length).toBeGreaterThan(1000);
+    expect(de.phrases.detect).toContain("vor allem");
+    expect(de.phrases.detect).toContain("in kauf nehmen");
+    for (const phrase of [...de.phrases.detect, ...de.phrases.more])
       expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
   });
 });

@@ -20,3 +20,9 @@
 {"pos": "prep", "word": "an", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["on, at"]}]}
 {"pos": "pron", "word": "mensch", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["one, they"]}]}
 {"pos": "noun", "word": "Mensch", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["human being"], "tags": ["masculine"]}]}
+{"pos": "adv", "word": "mal", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["times (indicating multiplication of two numbers)"], "topics": ["mathematics", "sciences"]}, {"glosses": ["alternative form of einmal (“sometime, ever, once”)"], "tags": ["alt-of", "alternative", "informal"], "alt_of": [{"word": "einmal"}]}]}
+{"pos": "verb", "word": "mal", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["singular imperative of malen"], "tags": ["form-of", "imperative", "singular"], "form_of": [{"word": "malen"}]}]}
+{"pos": "adv", "word": "einmal", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["once"]}]}
+{"pos": "verb", "word": "malen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to paint"]}]}
+{"pos": "verb", "word": "freuen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to gladden"], "tags": ["transitive"]}, {"glosses": ["to be glad"], "tags": ["reflexive"]}]}
+{"pos": "verb", "word": "treffen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to meet"], "tags": ["reflexive"]}, {"glosses": ["to hit"], "tags": ["transitive"]}]}

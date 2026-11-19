@@ -92,6 +92,12 @@ export interface WordUse {
    */
   separable?: true;
   /**
+   * The separable verb whose particle this word is, its finite verb earlier in the
+   * clause (German "sieht … aus": aussehen): the word reads as that verb, as its
+   * finite verb does (`separable`).
+   */
+  particleOf?: string;
+  /**
    * A verb the grammar reads as pronominal here, from a reflexive pronoun before it
    * that decided its base ("se fueron de campamento": irse): a plain verb's pattern
    * does not start at it (`ir de`, to act like), a pronominal verb's may.

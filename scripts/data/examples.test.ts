@@ -34,10 +34,19 @@ describe("phraseVariants", () => {
     );
     expect([...variants]).toEqual([
       ["give up", "give up"],
+      ["spill the beans", "spill the beans"],
       ["gave up", "give up"],
       ["given up", "give up"],
-      ["spill the beans", "spill the beans"],
     ]);
+  });
+
+  it("counts a key as written for itself, not as another key's variant", () => {
+    const variants = phraseVariants(
+      ["nach haus", "nach hause"],
+      new Map([["haus", ["hause", "häuser"]]]),
+    );
+    expect(variants.get("nach hause")).toBe("nach hause");
+    expect(variants.get("nach häuser")).toBe("nach haus");
   });
 });
 

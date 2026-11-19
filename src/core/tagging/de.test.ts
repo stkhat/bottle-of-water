@@ -191,6 +191,99 @@ describe("germanTagger: separable verbs", () => {
   });
 });
 
+describe("germanTagger: a separable verb's particle", () => {
+  const FANGT = "fängt/VERB.Fin/fangen/anfangen/auffangen";
+  it("reads the particle as its verb", () => {
+    expect(usesOf(`er/PRON ${FANGT} morgen/ADV an/PART.Vz`)[3]).toMatchObject({
+      particleOf: "anfangen",
+      grammarPos: "verb",
+    });
+    expect(usesOf(`er/PRON ${FANGT} den/DET ball/NOUN`)[3]).not.toHaveProperty(
+      "particleOf",
+    );
+  });
+  it("gives the particle to the nearest finite verb before it", () => {
+    const uses = usesOf(
+      `er/PRON ${FANGT} den/DET ball/NOUN und/CCONJ sie/PRON steht/VERB.Fin/stehen/aufstehen auf/ADV`,
+    );
+    expect(uses[1]).toMatchObject({ base: "fangen" });
+    expect(uses[6]).toMatchObject({ base: "aufstehen" });
+    expect(uses[7]).toMatchObject({ particleOf: "aufstehen" });
+  });
+  it("makes the particle pronominal with its verb", () => {
+    expect(
+      usesOf(
+        "er/PRON stellt/VERB.Fin/stellen/vorstellen sich/PRON vor/PART.Vz",
+      )[3],
+    ).toMatchObject({ particleOf: "vorstellen", pronominal: true });
+  });
+});
+
+describe("germanTagger: pronominal verbs", () => {
+  it("reads a verb with sich in its clause as pronominal", () => {
+    expect(
+      usesOf("er/PRON freut/VERB.Fin/freuen sich/PRON sehr/ADV")[1],
+    ).toMatchObject({ pronominal: true });
+    expect(
+      usesOf("er/PRON freut/VERB.Fin/freuen uns/PRON sehr/ADV")[1],
+    ).not.toHaveProperty("pronominal");
+  });
+  it("reads mich, dich, uns, euch as reflexive with their own subject, or dich after an imperative", () => {
+    expect(usesOf("ich/PRON freue/VERB.Fin/freuen mich/PRON")[1]).toMatchObject(
+      { pronominal: true },
+    );
+    expect(
+      usesOf("er/PRON sieht/VERB.Fin/sehen mich/PRON")[1],
+    ).not.toHaveProperty("pronominal");
+    expect(usesOf("beeil/VERB.Fin/beeilen dich/PRON")[0]).toMatchObject({
+      pronominal: true,
+    });
+  });
+  it("makes the verb an auxiliary takes pronominal, not the auxiliary", () => {
+    const uses = usesOf(
+      "ich/PRON habe/AUX.Fin/haben mich/PRON gefreut/VERB.Part/freuen",
+    );
+    expect(uses[1]).not.toHaveProperty("pronominal");
+    expect(uses[3]).toMatchObject({ pronominal: true });
+  });
+  it("leaves a pronoun after a preposition its object", () => {
+    expect(
+      usesOf("er/PRON denkt/VERB.Fin/denken an/ADP sich/PRON")[1],
+    ).not.toHaveProperty("pronominal");
+  });
+});
+
+describe("germanTagger: adverbs inside the clause", () => {
+  it("reads a modal particle after the clause's first word as an adverb", () => {
+    expect(
+      usesOf("das/PRON ist/AUX.Fin/sein ja/ADV toll/ADJ")[2],
+    ).toMatchObject({ grammarPos: "adverb" });
+    expect(
+      usesOf("ja/ADV ,das/PRON stimmt/VERB.Fin/stimmen")[0],
+    ).not.toHaveProperty("grammarPos");
+    // A noun after a determiner, or a capital, is no particle.
+    expect(usesOf("jedes/DET mal/NOUN")[1]).not.toMatchObject({
+      grammarPos: "adverb",
+    });
+  });
+  it("reads an adjective without an ending as an adverb, unless predicative", () => {
+    expect(
+      usesOf(
+        "ich/PRON mache/VERB.Fin/machen das/PRON schnell/ADJ fertig/ADJ",
+      )[3],
+    ).toMatchObject({ grammarPos: "adverb" });
+    expect(
+      usesOf("das/PRON ist/AUX.Fin/sein schnell/ADJ")[2],
+    ).not.toMatchObject({ grammarPos: "adverb" });
+    expect(
+      usesOf("wie/ADV schnell/ADJ ist/AUX.Fin/sein er/PRON")[1],
+    ).not.toMatchObject({ grammarPos: "adverb" });
+    expect(
+      usesOf("ein/DET schnelles/ADJ/schnell auto/NOUN")[1],
+    ).not.toMatchObject({ grammarPos: "adverb" });
+  });
+});
+
 describe("germanTagger: closed classes", () => {
   it("reads an infinitive after a determiner or preposition as a noun, not a finite verb after a postposition", () => {
     expect(

@@ -763,6 +763,70 @@ describe("German written case, compounds and names over the generated packs (L2-
     expect(word(spans, "haben").lines[0]).toMatch(/perfect/);
     expect(word(spans, "vermisst").key).toBe("vermissen");
   });
+  it("takes a given name opening a sentence and the surname after it for a name (L2-3)", () => {
+    const spans = read(
+      "Albert Einstein war ein Physiker.",
+      "Bastian Schweinsteiger spielte Fußball.",
+    );
+    // Albert and Bastian are no words of the language: no card either way.
+    expect(word(spans, "Einstein").name).toBe(true);
+    expect(word(spans, "Schweinsteiger").name).toBe(true);
+  });
+});
+
+describe("German phrases, separable verbs, sich and modal particles over the generated packs (L2-3)", () => {
+  const pack = createLanguagePack("de", {
+    lemmas: de.lemmas,
+    freq: de.freq,
+    ipa: de.ipa,
+    vocab: new Set(de.vocab),
+    patterns: de.phrases,
+    pos: de.pos,
+    names: de.names,
+    tagger: de.tagger,
+  });
+  const classifier = createClassifier(pack);
+  const dictionary = createDefsDictionary({ defs: deEn.defs, ipa: de.ipa });
+  const spansOf = (text: string) =>
+    classifier
+      .classify(pack.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .map((span) => ({
+        ...span,
+        text: text.slice(span.start, span.end),
+        lines: dictionary.entry(span.key, undefined, span.pos)?.lines ?? [],
+      }));
+  const at = (text: string, word: string) =>
+    spansOf(text).find((span) => span.text === word)!;
+
+  it("highlights a verb phrase with its finite verb moved before the others", () => {
+    const spans = spansOf("Er nimmt das gern in Kauf.");
+    const parts = spans.filter((span) => span.kind === "phrase");
+    expect(parts.map((span) => span.text)).toEqual(["nimmt", "in Kauf"]);
+    expect(parts.every((span) => span.key === "in kauf nehmen")).toBe(true);
+    expect(spans.find((span) => span.text === "gern")?.kind).toBe("word");
+  });
+  it("highlights a phrase as written, and one inside another's gap", () => {
+    expect(at("Das ist vor allem wichtig.", "vor allem").key).toBe("vor allem");
+  });
+  it("does not read a verb through a base that is no verb (rule BASE)", () => {
+    const spans = spansOf("Die Fotos landen unter anderem bei Zeitungen.");
+    expect(spans.some((span) => span.key === "land unter")).toBe(false);
+  });
+  it("reads a separable verb's particle as its verb", () => {
+    expect(at("Der Mann sieht müde aus.", "aus").key).toBe("aussehen");
+  });
+  it("shows a pronominal verb's reflexive senses where sich stands in its clause", () => {
+    expect(at("Ich freue mich sehr.", "freue").lines[0]).toMatch(/^to be glad/);
+    expect(at("Das freut mich.", "freut").lines[0]).toMatch(/^to gladden/);
+  });
+  it("reads a modal particle inside a clause as an adverb, not mal as times", () => {
+    expect(at("Guck mal hier.", "mal").lines[0]).not.toMatch(/^times/);
+    expect(at("Das ist halt so.", "halt").lines[0]).not.toMatch(/stop/);
+  });
 });
 
 describe("Spanish phrases over the generated packs", () => {
