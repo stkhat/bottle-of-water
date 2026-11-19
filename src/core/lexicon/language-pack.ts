@@ -1,4 +1,5 @@
 import type {
+  CapitalsPack,
   ContractionPack,
   FreqPack,
   IpaPack,
@@ -15,12 +16,12 @@ import {
   type PhraseRules,
 } from "../phrases/pattern";
 import { rulesFor } from "../phrases/rules";
-import { tokenize, type Token } from "../text/tokenize";
+import { normalizeWord, tokenize, type Token } from "../text/tokenize";
 import { englishTagger } from "../tagging/en";
 import { spanishTagger } from "../tagging/es";
 import type { Tagger, TaggerModel } from "../tagging/tagger";
 import { ipaFor } from "./ipa";
-import { lemmatize } from "./lemmatize";
+import { lemmatize, type CapitalWords } from "./lemmatize";
 
 /**
  * Languages whose names stand out by a capital (rule D). Not those without letter case
@@ -110,8 +111,17 @@ export interface LanguagePack {
    * form as the first base that fits its tag; otherwise as the most frequent one.
    */
   readonly basesInOrder: boolean;
-  /** 1-based frequency rank of a base form; Infinity when it is not ranked. */
+  /**
+   * 1-based frequency rank of a base form; Infinity when it is not ranked. A contraction
+   * the list does not rank has the rank of the rarest word it is short for.
+   */
   rank(base: string): number;
+  /**
+   * A capital-only word (`LanguagePackData.capitals`: "ai", written AI): a word only
+   * where the text writes it so. Not a vocabulary word whose capitals the pack lists
+   * because its case matters (U.S.).
+   */
+  capitalOnly(key: string): boolean;
   /** IPA of a word, or of a phrase's words inside one pair of slashes. */
   ipa(term: string): string | undefined;
   /** The dictionary's phrase patterns, keyed like saved phrases ("figure out"). */
@@ -179,6 +189,23 @@ export interface LanguagePackData {
   tagger?: TaggerModel;
   /** The language's contractions and their expansions (English). */
   contractions?: ContractionPack;
+  /**
+   * The vocabulary's capital-only words, as written (AI, Tokyo, iPhone): words only
+   * where the text writes them so (`lemmatize`).
+   */
+  capitals?: CapitalsPack;
+}
+
+/** The capital-only words by key: "ai" → ["AI"] (`CapitalWords`). */
+function capitalWords(capitals: CapitalsPack): CapitalWords {
+  const byKey = new Map<string, string[]>();
+  for (const written of capitals) {
+    const key = normalizeWord(written);
+    const list = byKey.get(key);
+    if (list) list.push(written);
+    else byKey.set(key, [written]);
+  }
+  return byKey;
 }
 
 export function createLanguagePack(
@@ -187,16 +214,45 @@ export function createLanguagePack(
 ): LanguagePack {
   const ranks = new Map(data.freq.map((word, i) => [word, i + 1]));
   const rules = rulesFor(lang);
+  const capitals = data.capitals && capitalWords(data.capitals);
+  const expansions = (word: string) =>
+    data.contractions ? (own(data.contractions, word) ?? []) : [];
   /** Every block's words are lemmatized, most of them common: each written form once. */
   const lemmaCache = new Map<string, readonly string[]>();
   const lemmas = (word: string): readonly string[] => {
     let found = lemmaCache.get(word);
     if (!found) {
       if (lemmaCache.size >= LEMMA_CACHE_SIZE) lemmaCache.clear();
-      found = lemmatize(word, data.lemmas, data.vocab);
+      found = lemmatize(word, data.lemmas, data.vocab, capitals);
+      // A contraction of vocabulary words is a word ("what'd", "how'd": what did).
+      if (found.length === 0) {
+        const key = normalizeWord(word);
+        if (expansions(key).length > 0) found = [key];
+      }
       lemmaCache.set(word, found);
     }
     return found;
+  };
+  /** A word's own rank, or its best base's: how the frequency list ranks it as written. */
+  const rankOfWord = (word: string) =>
+    Math.min(
+      ranks.get(word) ?? Infinity,
+      ...lemmas(word).map((base) => ranks.get(base) ?? Infinity),
+    );
+  /**
+   * A base form's rank. The list writes no periods, so an abbreviation it does not rank
+   * takes its letters' rank ("u.s." → us); a contraction the list does not rank takes
+   * the rank of the rarest word it is short for ("what'd": what did → do).
+   */
+  const rank = (base: string) => {
+    const key = base.toLowerCase();
+    const found =
+      ranks.get(key) ??
+      (key.includes(".") ? ranks.get(key.replaceAll(".", "")) : undefined);
+    if (found !== undefined) return found;
+    const [expansion] = expansions(key);
+    if (expansion === undefined) return Infinity;
+    return Math.max(...expansion.toLowerCase().split(" ").map(rankOfWord));
   };
   const accents = own(CAPITAL_ACCENTS, lang);
   const isName = (word: string) =>
@@ -222,7 +278,8 @@ export function createLanguagePack(
     tokenize: (text) => tokenize(text, lang),
     lemmas,
     basesInOrder: BASES_IN_ORDER.has(lang),
-    rank: (base) => ranks.get(base.toLowerCase()) ?? Infinity,
+    rank,
+    capitalOnly: (key) => capitals?.has(key) === true && !data.vocab.has(key),
     // English -s forms ("beans") take their base's IPA with the English ending.
     ipa: (term) => ipaFor(term, data.ipa, lang === "en" ? lemmas : undefined),
     patterns: data.patterns,
@@ -232,8 +289,7 @@ export function createLanguagePack(
     name: (word) => (data.names ? own(data.names, word) : undefined),
     accented,
     partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
-    expansions: (word) =>
-      data.contractions ? (own(data.contractions, word) ?? []) : [],
+    expansions,
     phrasePos: (key) =>
       (phrasePos ??= phrasePosIndex(data.patterns)).get(key) ?? [],
     intransitive: (key) =>
