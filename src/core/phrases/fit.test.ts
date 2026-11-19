@@ -34,6 +34,8 @@ const PHRASE_POS: Record<string, string[]> = {
   "mi vida": ["pron"],
   "my goodness": ["intj"],
   "darse cuenta": ["verb"],
+  "por lo que": ["conj"],
+  "a menos que": ["conj"],
 };
 /** Words' main parts of speech. */
 const WORD_POS: Record<string, string[]> = {
@@ -58,6 +60,10 @@ const WORD_POS: Record<string, string[]> = {
   my: ["determiner"],
   vida: ["noun"],
   goodness: ["noun"],
+  por: ["preposition"],
+  lo: ["pronoun", "article"],
+  que: ["pronoun", "conjunction"],
+  menos: ["adverb"],
 };
 const pack = {
   phrasePos: (key: string) => PHRASE_POS[key] ?? [],
@@ -340,6 +346,34 @@ describe("phraseMisfit: a copula's complement", () => {
     ).toBeUndefined();
     expect(
       misfit("eso es", "eso/pronoun es/verb/be bueno/?", 0),
+    ).toBeUndefined();
+  });
+});
+
+describe("phraseMisfit: a free relative", () => {
+  it("drops a conjunction ending in an article and a pronoun right before a verb", () => {
+    expect(
+      misfit(
+        "por lo que",
+        "juzgar/verb por/preposition lo/determiner que/pronoun ha/verb",
+        1,
+      ),
+    ).toBe("relative");
+  });
+  it("keeps it before a noun phrase, and a conjunction with no article", () => {
+    expect(
+      misfit(
+        "por lo que",
+        "años/noun ,por/preposition lo/determiner que/pronoun la/determiner",
+        1,
+      ),
+    ).toBeUndefined();
+    expect(
+      misfit(
+        "a menos que",
+        "a/preposition menos/adverb que/pronoun vengas/verb",
+        0,
+      ),
     ).toBeUndefined();
   });
 });

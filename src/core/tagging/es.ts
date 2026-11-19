@@ -115,12 +115,97 @@ function verbal(words: readonly TaggedWord[], i: number): WordUse["verbal"] {
   return "other";
 }
 
+/**
+ * The unstressed object pronouns (a closed class), which stand right before their
+ * verb, or before another of them ("se lo dijo"), when they are not attached to it.
+ */
+const CLITICS: ReadonlySet<string> = new Set([
+  ...["me", "te", "se", "nos", "os", "lo", "la", "los", "las", "le", "les"],
+]);
+
+/** The clitics that are also definite articles: lo (neuter), la, los, las. */
+const ARTICLE_CLITICS: ReadonlySet<string> = new Set([
+  "lo",
+  "la",
+  "los",
+  "las",
+]);
+
+/**
+ * A clitic that is also an article, tagged as a pronoun with no verb (nor another
+ * clitic) right after it, is not used as a clitic but as the article: "lo que", "lo
+ * mejor", "lo de ayer" (the neuter article "the, that which is", not "him, it"). A noun
+ * right after it is more often a verb the tagger missed than the
+ * article's noun, which the tagger tags as a determiner's ("la casa").
+ */
+function articleNotClitic(words: readonly TaggedWord[], i: number): boolean {
+  const word = words[i]!;
+  if (!word.tag.tag.startsWith("PRON") || !ARTICLE_CLITICS.has(word.form))
+    return false;
+  const next = words[i + 1];
+  return (
+    next !== undefined &&
+    !next.pauseBefore &&
+    !/^(VERB|AUX|NOUN|PROPN)/.test(next.tag.tag) &&
+    !CLITICS.has(next.form)
+  );
+}
+
+/** A verb's base, its infinitive ("ir"; not the letter "e" of "es"). */
+const INFINITIVE = /(ar|er|ir|ír)$/;
+
+/** The reflexive pronouns among the clitics. */
+const REFLEXIVES: ReadonlySet<string> = new Set([
+  "me",
+  "te",
+  "se",
+  "nos",
+  "os",
+]);
+
+/**
+ * A form the copula ser shares with another verb (fui, fue, fuera: ser and ir) is the
+ * other verb where the copula cannot stand: right after an object clitic ("se fue",
+ * "me fue bien"; not the attribute "lo": "lo fue") or before "a" ("fui a Madrid",
+ * "fue a ver"), as ser takes neither. After a reflexive pronoun it is that verb's
+ * pronominal use ("se fueron de campamento": irse).
+ */
+function notCopula(
+  words: readonly TaggedWord[],
+  i: number,
+): Pick<WordUse, "base" | "pronominal"> {
+  const word = words[i]!;
+  if (!word.bases.includes("ser")) return {};
+  const other = word.bases.find(
+    (base) => base !== "ser" && base !== word.form && INFINITIVE.test(base),
+  );
+  if (other === undefined) return {};
+  const before = words[i - 1];
+  const next = words[i + 1];
+  const clitic =
+    before !== undefined &&
+    !word.pauseBefore &&
+    CLITICS.has(before.form) &&
+    !ARTICLE_CLITICS.has(before.form);
+  const toA =
+    next !== undefined &&
+    !next.pauseBefore &&
+    (next.form === "a" || next.form === "al");
+  if (!clitic && !toA) return {};
+  return {
+    base: other,
+    ...(clitic && REFLEXIVES.has(before.form) && { pronominal: true }),
+  };
+}
+
 function use(words: readonly TaggedWord[], i: number): WordUse {
   return {
     auxiliary: auxiliary(words, i),
     verbal: verbal(words, i),
     // A participle does not stand for a preposition in Spanish.
     prepositionSlot: false,
+    ...(articleNotClitic(words, i) && { label: "determiner" }),
+    ...notCopula(words, i),
   };
 }
 

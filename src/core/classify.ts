@@ -528,7 +528,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
           !longest ||
           offBase(longest) ||
           insideLonger(longest) ||
-          writtenOther(longest)
+          writtenOther(longest) ||
+          (longest.lead === undefined &&
+            readings[first(longest)]?.use.pronominal === true)
         )
           return undefined;
         const context = fitContext(pack, longest, readings);
@@ -536,6 +538,31 @@ export function createClassifier(pack: LanguagePack): Classifier {
           undefined
           ? { match: longest, context }
           : undefined;
+      };
+
+      /**
+       * Word i is an utterance of its own, a word whose entry has interjection senses,
+       * with punctuation or the block's start before it and a sentence's punctuation
+       * right after it, in a punctuated document ("¿Vale?", "Mira, …", "Tranquilos."):
+       * its interjection senses come first (rule A2), whatever its tag, as a discourse
+       * marker's do (`markerPos`). Not inside brackets, a caption's sound label
+       * ("[sighs]"), nor a word that is mainly a pronoun or a determiner.
+       */
+      const standsAlone = (i: number, key: string) => {
+        if (!punctuated || !block || !outline) return false;
+        const { start, end } = words[i]!.token;
+        const opening = i > 0 ? words[i - 1]!.token.end : 0;
+        const between = block.text.slice(opening, start);
+        if (i > 0 && !readings[i]!.pauseBefore) return false;
+        if (/[[(]/.test(between)) return false;
+        const closing =
+          i + 1 < words.length ? words[i + 1]!.token.start : block.text.length;
+        if (!/^["”»'’]?[,.;:!?…]/u.test(block.text.slice(end, closing)))
+          return false;
+        // A pronoun or determiner standing alone is itself ("¿Tú?", "Esa.").
+        const main = pack.partsOfSpeech(key)[0];
+        if (main === "pronoun" || main === "determiner") return false;
+        return outline(key)?.pos.includes("interjection") === true;
       };
 
       /**
@@ -558,7 +585,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
         // A headword this dictionary has no entry for ("has" in en-ru); a form that is
         // no headword ("gets") is looked up by its base like any form.
         const ownEntry = !bases.includes(form) || outline(form) !== undefined;
-        const pos = sensePos(form, key, reading, ownEntry);
+        const pos = standsAlone(i, key)
+          ? "interjection"
+          : sensePos(form, key, reading, ownEntry);
         const { clitic } = reading.use;
         return {
           key,
