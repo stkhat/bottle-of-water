@@ -437,6 +437,50 @@ describe("byTreebankTags", () => {
   });
 });
 
+describe("the names lexicon (rule D)", () => {
+  const namesFixture = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-es-names.jsonl",
+  );
+  const edition = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-es-edition-names.jsonl",
+  );
+  const nameForms = ["chile", "marina", "argentino", "argentina", "sosa"];
+  let packs: EsPacks;
+  beforeAll(async () => {
+    packs = await buildEsPacks(namesFixture, nameForms, {
+      casePaths: [edition],
+    });
+  });
+
+  it("lists proper names that are vocabulary words, their forms or given names, with their kinds", () => {
+    expect(packs.names).toEqual({
+      argentina: "p",
+      carlos: "g",
+      chile: "pc",
+      marina: "g",
+      sosa: "s",
+    });
+  });
+  it("leaves out a name that is neither a vocabulary word, a form nor a given name", () => {
+    expect(packs.names).not.toHaveProperty("acapulco");
+    expect(packs.vocab).not.toContain("acapulco");
+  });
+  it("marks a name the examples write capitalised inside sentences at least twice as often as in lower case", async () => {
+    // Chile: "a Chile", "de Chile" twice in the Spanish edition; "el chile" once.
+    // Sentence starts ("Chile es…", ". Marina") and the English entry's examples
+    // do not count.
+    const alone = await buildEsPacks(namesFixture, nameForms);
+    expect(alone.names.chile).toBe("p");
+    expect(packs.names.chile).toBe("pc");
+    // Argentina: capitalised 3 times, in lower case twice.
+    expect(packs.names.argentina).toBe("p");
+  });
+});
+
 describe("writeEsPacks", () => {
   let dir: string;
   let written: string[];
@@ -462,6 +506,7 @@ describe("writeEsPacks", () => {
       "es/ipa.json",
       "es/lemmas/dict-1.json",
       "es/lemmas/index.json",
+      "es/names.json",
       "es/phrases.json",
       "es/pos.json",
       "es/vocab.json",

@@ -1,7 +1,9 @@
 // kaikki.org Spanish Wiktionary extract (CC BY-SA), the Spanish frequency list and the
-// UD Spanish treebanks' lemmas → data/packs/es/{freq,vocab,ipa,pos,phrases}.json,
+// UD Spanish treebanks' lemmas → data/packs/es/{freq,vocab,ipa,pos,phrases,names}.json,
 // data/packs/es/lemmas/{index,dict-<n>}.json and data/packs/es-en/{index,dict-<n>}.json
 // (then run npm run data:publish)
+// The Spanish Wiktionary extract (kaikki-es-edition.jsonl) gives only its examples, which
+// say how Spanish writes each name (`MOSTLY_CAPITALISED`).
 // Usage: node scripts/data/es-kaikki.ts [path]   (default data/raw/kaikki-es.jsonl; run es-frequency.ts first)
 import { rmSync } from "node:fs";
 import { join } from "node:path";
@@ -23,9 +25,21 @@ import {
 import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.ts";
 import { treebankLemmas, type LemmaCounts } from "./es-tagger.ts";
 import { buildFrequency } from "./frequency.ts";
+import { createCaseCounter } from "./examples.ts";
+import { createNames } from "./kaikki.ts";
 import { glossOf, isNonConstituent, isUsable } from "./phrases.ts";
 
 const KAIKKI_ES_PATH = join(RAW_DIR, "kaikki-es.jsonl");
+/** The Spanish Wiktionary extract: its examples only (`MOSTLY_CAPITALISED`). */
+const KAIKKI_ES_EDITION_PATH = join(RAW_DIR, "kaikki-es-edition.jsonl");
+/**
+ * A name the examples write capitalised inside a sentence at least this many times as
+ * often as in lower case (and at least `MIN_CAPITALISED` times) is marked "c" in the
+ * names lexicon: rule D counts it as rare whatever the frequency list says, since the
+ * list folds case ("chile" ranks among the 3,000 most common words because of Chile).
+ */
+const MOSTLY_CAPITALISED = 2;
+const MIN_CAPITALISED = 3;
 /** kaikki parts of speech whose entries are phrases. */
 const PHRASE_POS: ReadonlySet<string> = new Set(["phrase", "prep_phrase"]);
 /**
@@ -382,6 +396,7 @@ export async function buildEsPacks(
     commonRank = PHRASE_COMMON_RANK,
     treebank = NO_LEMMAS,
     headRank = HEAD_RANK,
+    casePaths = [],
   }: {
     freqTop?: number;
     commonRank?: number;
@@ -389,6 +404,11 @@ export async function buildEsPacks(
     treebank?: LemmaCounts;
     /** How many of `forms` are in current use (`withoutHeadLabels`). */
     headRank?: number;
+    /**
+     * More extracts whose Spanish examples say how names are written (`path`'s own
+     * examples always count).
+     */
+    casePaths?: readonly string[];
   } = {},
 ) {
   /** The frequency list's forms in current use (`withoutHeadLabels`). */
@@ -411,8 +431,12 @@ export async function buildEsPacks(
   const exact = new Map<string, Bucket>();
   const folded = new Map<string, Bucket>();
   const multiWord = new Map<string, { phrase: boolean; senses: Sense[] }>();
+  const names = createNames();
+  const cases = createCaseCounter("es");
   const stats = await eachEntry(path, (read) => {
     if (read.lang_code !== "es") return;
+    names.add(read);
+    cases.add(read);
     const word = read.word.trim();
     const lower = word.toLowerCase();
     const entry = inUse.has(lower) ? withoutHeadLabels(read) : read;
@@ -541,6 +565,24 @@ export async function buildEsPacks(
     }
   }
   const vocab = [...vocabSet].sort(byCodeUnit);
+  for (const more of casePaths)
+    await eachEntry(
+      more,
+      (entry) => cases.add(entry),
+      (line) => !line.includes('"examples"'),
+    );
+  // The names lexicon (rule D): kaikki's proper-name entries that are vocabulary words,
+  // inflected forms of them (Argentina, Marina) or given names.
+  const namesPack = names.pack(
+    (key) => vocabSet.has(key) || Object.hasOwn(lemmas, key),
+    (key) => {
+      const [capitalised, lower] = cases.counts.get(key) ?? [0, 0];
+      return (
+        capitalised >= MIN_CAPITALISED &&
+        capitalised >= MOSTLY_CAPITALISED * lower
+      );
+    },
+  );
   const ipa: Record<string, string> = {};
   const defs: Record<string, DefsPack[string]> = {};
   const pos: Record<string, string[]> = {};
@@ -599,6 +641,7 @@ export async function buildEsPacks(
     pos,
     phrases,
     defs,
+    names: namesPack,
     stats: {
       ...stats,
       forms: forms.length,
@@ -612,6 +655,10 @@ export async function buildEsPacks(
       detect: detect.length,
       more: more.length,
       terms: Object.keys(defs).length,
+      names: Object.keys(namesPack).length,
+      capitalisedNames: Object.values(namesPack).filter((kinds) =>
+        kinds.includes("c"),
+      ).length,
     },
   };
 }
@@ -622,7 +669,7 @@ export async function buildEsPacks(
  * es/lemmas/ like a dictionary. Returns the paths written, relative to `dir`.
  */
 export function writeEsPacks(
-  { freq, vocab, lemmas, ipa, pos, phrases, defs }: EsPacks,
+  { freq, vocab, lemmas, ipa, pos, phrases, defs, names }: EsPacks,
   dir = PACKS_DIR,
 ) {
   const index = writeShards("es-en", defs, dir);
@@ -633,8 +680,11 @@ export function writeEsPacks(
   writePack("es/ipa.json", ipa, dir);
   writePack("es/pos.json", pos, dir);
   writePack("es/phrases.json", phrases, dir, { lists: true });
+  writePack("es/names.json", names, dir);
   return [
-    ...["freq", "vocab", "ipa", "pos", "phrases"].map((f) => `es/${f}.json`),
+    ...["freq", "vocab", "ipa", "pos", "phrases", "names"].map(
+      (f) => `es/${f}.json`,
+    ),
     ...lemmaIndex.shards.map(({ file }) => `es/lemmas/${file}`),
     "es/lemmas/index.json",
     ...index.shards.map(({ file }) => `es-en/${file}`),
@@ -646,6 +696,7 @@ async function main() {
   const forms = frequencyForms(await readEsFrequency(ES_FORMS));
   const packs = await buildEsPacks(process.argv[2] ?? KAIKKI_ES_PATH, forms, {
     treebank: await treebankLemmas(),
+    casePaths: [KAIKKI_ES_EDITION_PATH],
   });
   const written = writeEsPacks(packs);
   const { stats } = packs;
@@ -659,6 +710,7 @@ async function main() {
       `${written.filter((p) => p.startsWith("es/lemmas/dict-")).length} shards, ` +
       `${stats.ipa} IPA, ${stats.pos} words with parts of speech, ` +
       `${stats.detect} detected and ${stats.more} more phrase patterns, ` +
+      `${stats.names} names (${stats.capitalisedNames} mostly capitalised), ` +
       `${stats.terms} dictionary terms in ` +
       `${written.filter((p) => p.startsWith("es-en/dict-")).length} shards`,
   );

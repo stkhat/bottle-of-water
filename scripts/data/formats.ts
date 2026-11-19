@@ -149,6 +149,13 @@ const SOURCES = {
     by: "the contributors to Wikcionario, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
+  wiktionaryEsEditionSpanish: {
+    title: "Spanish Wiktionary (Wikcionario), Spanish entries",
+    via: KAIKKI,
+    url: "https://es.wiktionary.org/",
+    by: "the contributors to Wikcionario, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
   wiktionaryPtEdition: {
     title: "Portuguese Wiktionary (Wikcionário), English entries",
     via: KAIKKI,
@@ -385,11 +392,15 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   es: pack("es", {
     title: "Spanish word data",
     description:
-      "Spanish base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns and a part-of-speech tagger",
+      "Spanish base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names and a part-of-speech tagger",
     sources: [
       {
         ...SOURCES.wiktionaryEs,
-        used: "inflections, IPA, parts of speech, vocabulary, phrase patterns",
+        used: "inflections, IPA, parts of speech, vocabulary, phrase patterns, names, how usage examples write names",
+      },
+      {
+        ...SOURCES.wiktionaryEsEditionSpanish,
+        used: "how usage examples write names (capitalised or in lower case)",
       },
       { ...SOURCES.freqEs, used: "frequency ranks" },
       {

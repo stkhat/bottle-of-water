@@ -29,6 +29,18 @@ import { lemmatize } from "./lemmatize";
 const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es"]);
 
 /**
+ * Languages that capitalise a common word inside a sentence only in a name or a title,
+ * not for a people, a party's members, a believer, a month or an acronym that is
+ * another word (English Germans, Democrats, Christians, March, US; Spanish alemanes,
+ * demócratas, cristianos, marzo, EE. UU.). There a capitalised inflected form the
+ * names lexicon lacks is a name when its reading as the form is unlikely (rule D,
+ * `documentNames`), and a capitalised word that is no name is a title's word, read by
+ * its tag like any other ("Nueva York": nuevo; "la Segunda Guerra Mundial": segundo):
+ * it asks for no capitalised senses.
+ */
+const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es"]);
+
+/**
  * Languages whose lemma table lists an inflected form's likelier base first, from a
  * treebank's lemmas (Spanish "creo": creer before crear). English lists them in
  * code-unit order.
@@ -75,6 +87,13 @@ export interface LanguagePack {
    * lexicon.
    */
   readonly namesByCase: boolean;
+  /**
+   * The language capitalises common words inside a sentence only in names and titles
+   * (`CAPITALS_FOR_NAMES`): rule D also takes a capitalised inflected form the names
+   * lexicon lacks for a name when its reading as the form is unlikely
+   * (`documentNames`), and a capitalised word asks for no capitalised senses.
+   */
+  readonly capitalsForNames: boolean;
   /**
    * The names lexicon's entry of a lowercase word: the kinds of name, then "!" for a
    * capitalised common word (`NamesPack`). Undefined when it is no name.
@@ -150,6 +169,7 @@ export function createLanguagePack(
     patterns: data.patterns,
     rules,
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
+    capitalsForNames: CAPITALS_FOR_NAMES.has(lang),
     name: (word) => (data.names ? own(data.names, word) : undefined),
     partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
     expansions: (word) =>

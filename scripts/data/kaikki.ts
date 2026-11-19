@@ -215,8 +215,11 @@ export function nameTypes(entry: KaikkiEntry): string {
   return types.size > 0 ? [...types].join("") : "x";
 }
 
-/** Collects the names lexicon from every English entry (`importKaikki` feeds it). */
-function createNames() {
+/**
+ * Collects the names lexicon from every entry of a kaikki extract (`importKaikki` and
+ * the Spanish build, `buildEsPacks`, feed it).
+ */
+export function createNames() {
   const types = new Map<string, Set<string>>();
   const common = new Set<string>();
   return {
@@ -232,14 +235,22 @@ function createNames() {
         common.add(key);
     },
     /**
-     * Each name that is a vocabulary word or a given name → its types, with "!" when
-     * the word is also a capitalised common word.
+     * Each name that is one of `words` (vocabulary words; in Spanish their inflected
+     * forms too) or a given name → its types, then "c" when `capitalised` says the
+     * language's own sentences write it capitalised mostly, then "!" when the word is
+     * also a capitalised common word.
      */
-    pack(words: ReadonlySet<string>): NamesPack {
+    pack(
+      words: (key: string) => boolean,
+      capitalised: (key: string) => boolean = () => false,
+    ): NamesPack {
       const names: Record<string, string> = {};
       for (const [key, found] of types) {
-        if (!words.has(key) && !found.has("g")) continue;
-        names[key] = [...found].join("") + (common.has(key) ? "!" : "");
+        if (!words(key) && !found.has("g")) continue;
+        names[key] =
+          [...found].join("") +
+          (capitalised(key) ? "c" : "") +
+          (common.has(key) ? "!" : "");
       }
       return names;
     },
@@ -346,7 +357,7 @@ export async function importKaikki(
     lemmas: lemmas as LemmaPack,
     ipa: ipa as IpaPack,
     pos: pos as PosPack,
-    names: names.pack(words),
+    names: names.pack((key) => words.has(key)),
     added,
     examples,
     stats,

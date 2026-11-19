@@ -474,6 +474,11 @@
           "size": 344
         },
         {
+          "path": "names.json",
+          "sha256": "b27926027d8d878f58d1dd41418e274c8b0dbdfbc62e5faf8cebba470c62e9ff",
+          "size": 37120
+        },
+        {
           "path": "phrases.json",
           "sha256": "c0acf2ee31b8ffde5c5d8e5b5366886ff104d34b21f45ca865ec93a98c81dccc",
           "size": 53715
@@ -494,9 +499,9 @@
           "size": 462125
         }
       ],
-      "format": 3,
+      "format": 4,
       "package": "@langle/es",
-      "version": "2026.1118.1"
+      "version": "2026.1119.0"
     },
     "es-en": {
       "files": [

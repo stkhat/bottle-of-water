@@ -23,11 +23,13 @@ export type FreqPack = readonly string[];
 /** en/pos.json: word → parts of speech. */
 export type PosPack = Readonly<Record<string, readonly string[]>>;
 /**
- * en/names.json: the names lexicon (Wiktionary's proper-name entries), by lowercase
- * word → the kinds of name ("g" given name, "s" surname, "p" place, "o" organisation,
- * "x" other), its main kind first, then "!" when the word is also a capitalised common
- * word (English, Christian), which rule D never takes for a name. Only vocabulary
- * words and given names.
+ * en/names.json, es/names.json: the names lexicon (Wiktionary's proper-name entries),
+ * by lowercase word → the kinds of name ("g" given name, "s" surname, "p" place, "o"
+ * organisation, "x" other), its main kind first, then "c" when the language's own
+ * sentences write it capitalised mostly (Spanish Chile: rare as a common word whatever
+ * its rank), then "!" when the word is also a capitalised common word (English,
+ * Christian), which rule D never takes for a name. Only vocabulary words (in Spanish
+ * also their inflected forms) and given names.
  */
 export type NamesPack = Readonly<Record<string, string>>;
 /**

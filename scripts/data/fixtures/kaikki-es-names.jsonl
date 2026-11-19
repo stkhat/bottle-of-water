@@ -1,0 +1,12 @@
+{"pos": "name", "word": "Chile", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["Chile (a country in South America; capital: Santiago)"], "examples": [{"text": "Chile es un país largo."}, {"text": "Viajé a Chile en mayo."}]}]}
+{"pos": "noun", "word": "chile", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["chili pepper"], "tags": ["masculine"], "examples": [{"text": "Me gusta el chile picante."}]}]}
+{"pos": "name", "word": "Marina", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["a female given name"]}]}
+{"pos": "noun", "word": "marina", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["navy"], "tags": ["feminine"], "examples": [{"text": "Sirvió en la marina. Marina lo sabe.", "bold_text_offsets": [[13, 19]]}, {"text": "Ayer vi a Marina."}]}]}
+{"pos": "name", "word": "Argentina", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["Argentina (a country in South America)"]}]}
+{"pos": "adj", "word": "argentino", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["Argentinian, Argentine"], "examples": [{"text": "Vivió en Argentina, de Argentina a «Argentina»."}]}]}
+{"pos": "adj", "word": "argentina", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["feminine singular of argentino"], "tags": ["feminine", "form-of", "singular"], "form_of": [{"word": "argentino"}], "examples": [{"text": "La comida argentina, la carne argentina."}]}]}
+{"pos": "name", "word": "Carlos", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["a male given name, equivalent to English Charles"]}]}
+{"pos": "name", "word": "Acapulco", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["Acapulco (a city in Guerrero, Mexico)"]}]}
+{"pos": "name", "word": "Sosa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["a surname"]}]}
+{"pos": "noun", "word": "sosa", "lang": "Spanish", "lang_code": "es", "senses": [{"glosses": ["soda (sodium carbonate)"], "tags": ["feminine"]}]}
+{"pos": "name", "word": "Chile", "lang": "English", "lang_code": "en", "senses": [{"glosses": ["Chile (a country)"], "examples": [{"text": "We flew to Chile, then to Chile again."}]}]}
