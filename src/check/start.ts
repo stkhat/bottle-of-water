@@ -131,5 +131,9 @@ export function startContentCheck(name: string): void {
     // Chrome may refuse, and the dictionary window's click starts them later.
     pairChosen: (learning, native) =>
       void downloadTranslationModels(learning, native),
+    // Settings' "Remove": refuses a pack the chosen pair uses.
+    removePack: async (pack) => {
+      await send({ type: "removePack", pack });
+    },
   });
 }

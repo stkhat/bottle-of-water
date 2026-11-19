@@ -128,6 +128,48 @@ describe("answerSettingsRequests", () => {
     });
   });
 
+  it("removes a pack through the background, then reports the pair's packs", async () => {
+    const bg = background();
+    const removed: string[] = [];
+    stops.push(
+      answerSettingsRequests({
+        window,
+        ...bg.deps,
+        removePack: async (pack) => {
+          removed.push(pack);
+        },
+      }),
+    );
+    const reply = await new Promise<SettingsPageReply>((resolve) => {
+      const id = "remove-1";
+      const onMessage = (e: MessageEvent) => {
+        const data = e.data as SettingsPageReply;
+        if (
+          data?.type !== SETTINGS_MESSAGE_TYPE ||
+          !data.reply ||
+          data.id !== id
+        )
+          return;
+        window.removeEventListener("message", onMessage);
+        resolve(data);
+      };
+      window.addEventListener("message", onMessage);
+      window.postMessage(
+        { type: SETTINGS_MESSAGE_TYPE, action: "remove", id, pack: "en-fr" },
+        "*",
+      );
+    });
+    expect(removed).toEqual(["en-fr"]);
+    expect(reply).toMatchObject({ ok: true, packs: packsFor("en", "ja") });
+
+    // Without a pack name nothing is removed.
+    expect(await askFromPage("remove")).toMatchObject({
+      ok: false,
+      error: "remove needs a pack name",
+    });
+    expect(removed).toEqual(["en-fr"]);
+  });
+
   it("answers with the error when the background cannot be reached", async () => {
     stops.push(
       answerSettingsRequests({

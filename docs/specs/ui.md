@@ -108,6 +108,7 @@ The [UI mock](https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS) is canonical: w
 ## Article UI (content script)
 - Detect the page language (`<html lang>` → `i18n.detectLanguage`) and run only when it matches the learning language
 - While the language's data is missing (downloaded packs), the page shows nothing; it is analyzed once the data is there (the popup and Settings show the download)
+- A new learning language applies to open pages without a reload (2026-11-19): a page in that language starts (it is analyzed once its data is there), and a page in the old one loses its highlights and cards; a new native language changes the cards' meanings at the next hover
 - Color by category with the **CSS Custom Highlight API** (no DOM rewriting). `::highlight()` cannot draw padding, rounded corners or box shadows, so the mock's bottom bar is drawn as a 2px underline and the Learning background covers only the text height — the closest the API allows. Process only the visible range, progressively, and follow page changes with a MutationObserver
   - In browsers where highlights cannot be underlined, use background colors only (see [architecture](architecture.md) "Browser differences")
   - The text of a word with a background (New, Learning) is drawn in the mock's ink (`#14182B`): the backgrounds are light, and a dark page's white text (YouTube's dark theme) would vanish on them

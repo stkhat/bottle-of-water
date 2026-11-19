@@ -655,7 +655,9 @@ export interface ArticleRunner {
 /**
  * Runs the article UI (`startArticle`) while the site is allowed: when the settings
  * switch the site off (popup "On this site", Settings → Sites) the UI goes away at
- * once; when they switch it back on, it starts again.
+ * once; when they switch it back on, it starts again. A new learning language starts
+ * it again too: a page in that language gets highlights without a reload, and a page
+ * in the old one loses them.
  */
 export function runArticle(
   deps: ArticleDeps,
@@ -664,16 +666,23 @@ export function runArticle(
   const { hostname, surface } = pageOf(options);
   let session: ArticleSession | undefined;
   let allowed: boolean | undefined;
+  /** The learning language of the last start: the page qualifies (or not) for it. */
+  let learning: string | undefined;
   let stopped = false;
 
   async function apply(settings: Settings) {
     if (stopped) return;
     const was = allowed;
     allowed = surface.allowed(settings);
+    const relearn =
+      learning !== undefined && settings.learningLang !== learning;
     if (!allowed) {
       session?.stop();
       session = undefined;
-    } else if (!was && !session) {
+    } else if ((!was && !session) || relearn) {
+      session?.stop();
+      session = undefined;
+      learning = settings.learningLang;
       session = await startArticle(deps, {
         ...options,
         surface,
