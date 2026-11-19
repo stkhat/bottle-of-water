@@ -566,7 +566,7 @@ describe("French tags over the generated packs (rules A1 and A2)", () => {
   it("reads the forms of être and avoir as the verbs, not the nouns they also are", () => {
     expect(hover("Il est à Paris.", "est").key).toBe("être");
     expect(hover("Elle a été malade.", "été").key).toBe("être");
-    expect(hover("Tu as raison.", "as").key).toBe("avoir");
+    expect(hover("Tu as un chien.", "as").key).toBe("avoir");
     expect(hover("Est-ce que tu viens ?", "Est").key).toBe("être");
     // After a determiner or preposition, the noun.
     expect(hover("Nous partons à la mer l'été.", "été").key).toBe("été");
@@ -579,6 +579,24 @@ describe("French tags over the generated packs (rules A1 and A2)", () => {
     expect(hover("Je ne connais personne.", "personne").lines[0]).toBe(
       "no one, nobody",
     );
+  });
+  it("highlights pronominal verbs and phrases with elided words, not an auxiliary's", () => {
+    const phrases = (text: string) =>
+      classifier
+        .classify(tagged.tokenize(text), {
+          terms: new Map(),
+          knownLevel: 3000,
+          outline: (key) => dictionary.outline(key),
+        })
+        .filter((s) => s.kind === "phrase")
+        .map((s) => `${text.slice(s.start, s.end)} [${s.key}]`);
+    expect(phrases("Je me suis rendu compte de tout.")).toEqual([
+      "me [se rendre compte]",
+      "rendu compte [se rendre compte]",
+    ]);
+    expect(phrases("Il a l'air content.")).toEqual(["a l'air [avoir l'air]"]);
+    expect(phrases("Ça va ?")).toEqual(["Ça va [ça va]"]);
+    expect(phrases("Ça va être difficile.")).toEqual([]);
   });
   it("reads a participle after avoir and a form of aller before an infinitive as their verbs", () => {
     expect(hover("Il a fait ses devoirs.", "fait").key).toBe("faire");
@@ -892,7 +910,8 @@ describe("tags over the generated packs (rules A1 and A2)", () => {
     const has = hover("She has spent all her money.", "has", enEs);
     expect(has).toMatchObject({ key: "has", pos: "auxiliary" });
     expect(has.lines[0]).toMatch(/^tercera persona .* de have$/);
-    expect(has.lines[1]).toBe("tener");
+    // Its base read as an auxiliary: the edition's auxiliary sense (U1-9).
+    expect(has.lines[1]).toBe("haber (como verbo auxiliar)");
     expect(hover("She has a dog.", "has", enEs).lines[0]).toBe("tener");
     // Be keeps its meaning as an auxiliary (U1-8): the copula's hover, not the
     // edition's whole pointer ("primera persona del singular del pasado simple … be").

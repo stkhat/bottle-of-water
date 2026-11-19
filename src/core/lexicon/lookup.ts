@@ -18,6 +18,12 @@ export interface Sense {
    * illumination"), shown before its words.
    */
   hint?: string;
+  /**
+   * The source marks the sense as the verb's use as an auxiliary (a definitions pack's
+   * "auxiliary": French avoir "used to form the compound tenses", aller "to be going
+   * (to)"), which rule A2 puts first where the word is one.
+   */
+  auxiliary?: true;
 }
 export interface Entry {
   short: string;

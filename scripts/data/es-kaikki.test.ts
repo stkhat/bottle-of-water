@@ -501,6 +501,10 @@ describe("quotedMeaning", () => {
       "the; masculine plural of el",
     );
     expect(quotedMeaning("plural of casa")).toBeUndefined();
+    // A note after the quote stays with the pointer.
+    expect(
+      quotedMeaning("plural of un (“some”, the plural indefinite article)"),
+    ).toBe("some; plural of un (the plural indefinite article)");
   });
 });
 

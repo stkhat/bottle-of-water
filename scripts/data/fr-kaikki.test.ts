@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { frenchForms, parseFrequencyWords } from "./fr-frequency.ts";
 import { FRENCH_BUILD, frenchOwnWord, slimEntry } from "./fr-kaikki.ts";
 import {
+  auxiliaryUse,
   buildLearningPacks,
   contractionMeaning,
   selectOnly,
@@ -37,9 +38,9 @@ const forms = frenchForms(
 );
 
 describe("frenchForms", () => {
-  it("keeps the list's words with their apostrophes, without hyphenated ones", () => {
+  it("keeps the list's words with their apostrophes and hyphens", () => {
     expect(forms).toContain("l'");
-    expect(forms).not.toContain("peut-être");
+    expect(forms).toContain("peut-être");
   });
 });
 
@@ -86,6 +87,44 @@ describe("buildLearningPacks with French's settings", () => {
 
   it("matches no phrase pattern for highlights", () => {
     expect(packs.phrases.detect).toEqual([]);
+  });
+});
+
+describe("auxiliaryUse", () => {
+  it("finds the senses kaikki tags auxiliary or qualifies by the auxiliary's construction", () => {
+    expect(
+      auxiliaryUse({
+        tags: ["auxiliary"],
+        glosses: ["used to form the compound tenses of most verbs"],
+      }),
+    ).toBe(true);
+    expect(
+      auxiliaryUse({
+        glosses: ["to be going (to); will soon; forms a near-future tense"],
+        raw_glosses: [
+          "(when followed by an infinitive verb) to be going (to); will soon",
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      auxiliaryUse({
+        raw_glosses: [
+          "(preceding the gerund of a verb, intransitive) to go on (doing)",
+        ],
+      }),
+    ).toBe(true);
+    // A qualifier that asks for another use too: se faire, not causative faire.
+    expect(
+      auxiliaryUse({
+        raw_glosses: ["(reflexive, followed by an infinitive) to be, to get"],
+      }),
+    ).toBe(false);
+    expect(
+      auxiliaryUse({
+        tags: ["transitive"],
+        raw_glosses: ["(transitive) to have"],
+      }),
+    ).toBe(false);
   });
 });
 

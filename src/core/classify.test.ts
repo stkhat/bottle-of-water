@@ -540,6 +540,42 @@ describe("a detected phrase inside a longer pattern (rule LONGEST)", () => {
   });
 });
 
+describe("a verb and its complement (rule COMPLEMENT)", () => {
+  const pack = createLanguagePack("en", {
+    lemmas: { fell: "fall" },
+    freq: ["in", "we", "they", "love", "might", "as", "well", "go"],
+    ipa: {},
+    vocab: new Set([
+      ...["in", "we", "they", "love", "might", "as", "well", "go", "fall"],
+      ...["fell", "home"],
+    ]),
+    patterns: {
+      detect: ["fall in", "in love", "as well"],
+      // Matched only when saved or selected.
+      more: ["fall in love", "might as well"],
+      gap: [],
+      // fall in: verb; in love: prepositional phrase; as well: adverb; fall in
+      // love, might as well: verbs.
+      pos: { detect: "v P r", more: "v v" },
+    },
+    pos: { fall: ["verb"], might: ["noun", "verb"], go: ["verb"] },
+  });
+  const run = (text: string) =>
+    brief(
+      createClassifier(pack)
+        .classify(pack.tokenize(text), { terms: terms(), knownLevel: 10 })
+        .map((s) => ({ ...s, text: text.slice(s.start, s.end) })),
+    ).filter((s) => s.includes(" "));
+
+  it("keeps the complement highlighted inside the verb's pattern, and no phrase across it", () => {
+    expect(run("They fell in love.")).toEqual(["in love:in love:new"]);
+    expect(run("They fell in.")).toEqual(["fell in:fall in:new"]);
+  });
+  it("leaves another expression inside a modal's pattern out (rule LONGEST)", () => {
+    expect(run("We might as well go.")).toEqual([]);
+  });
+});
+
 describe("a detected phrase's words read through their bases (rule BASE)", () => {
   // "fue" is a form of ir and of ser; the tagger reads it as a past tense.
   const make = (freq: string[]) =>
@@ -1141,6 +1177,78 @@ describe("capitalised inflected forms (rule D, a language that capitalises only 
       "Leímos:new",
     ]);
     expect(verdicts("en", "Vimos los Andes.")).toEqual(["Andes:capital"]);
+  });
+});
+
+describe("French names (rule D after a determiner)", () => {
+  // japon (japanware) and clémentine (the fruit) are words too; "de" is also the
+  // partitive article, but mainly a preposition.
+  const pack = createLanguagePack("fr", {
+    lemmas: {},
+    freq: [
+      "de",
+      "la",
+      "le",
+      "du",
+      "chambre",
+      "japon",
+      "clémentine",
+      "république",
+    ],
+    ipa: {},
+    vocab: new Set([
+      ...[
+        "on",
+        "voit",
+        "de",
+        "la",
+        "le",
+        "du",
+        "chambre",
+        "japon",
+        "clémentine",
+      ],
+      ...["république", "et"],
+    ]),
+    patterns: { detect: [], more: [], gap: [] },
+    pos: {
+      de: ["preposition", "article", "noun"],
+      la: ["article", "pronoun"],
+      le: ["article", "pronoun"],
+      du: ["article", "contraction"],
+    },
+    names: { japon: "pc", clémentine: "gc", république: "x" },
+  });
+  const verdicts = (...blocks: string[]) => {
+    const casing = documentCasing(
+      blocks.map((b) => blockCasing(pack.tokenize(b), "fr")),
+    );
+    return blocks.flatMap((block) =>
+      createClassifier(pack)
+        .classify(pack.tokenize(block), {
+          terms: terms(),
+          knownLevel: 0,
+          casing,
+        })
+        .map((s) => ({ ...s, text: block.slice(s.start, s.end) }))
+        .filter((s) => /^\p{Lu}/u.test(s.text) && s.text !== "On")
+        .map((s) => `${s.text}:${s.name ? "name" : s.category}`),
+    );
+  };
+
+  it("reads a place the language writes capitalised for a name after an article", () => {
+    expect(
+      verdicts("On voit le Japon et la République.", "On voit du Japon."),
+    ).toEqual(["Japon:name", "République:new", "Japon:name"]);
+    // Written in lower case once, it is the word.
+    expect(verdicts("On voit le Japon.", "On voit du japon.")).toEqual([
+      "Japon:new",
+    ]);
+  });
+  it("reads a name after a preposition that is also an article (de)", () => {
+    expect(verdicts("On voit la chambre de Clémentine.")).toEqual([
+      "Clémentine:name",
+    ]);
   });
 });
 

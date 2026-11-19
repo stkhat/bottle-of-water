@@ -1,11 +1,6 @@
 import { normalizeWord, type Token } from "../text/tokenize";
-import { separatorKey, splitKey } from "./key";
-import {
-  NO_RULES,
-  parsePattern,
-  type PhrasePatterns,
-  type PhraseRules,
-} from "./pattern";
+import { separatorKey, splitKey, type KeyParts } from "./key";
+import { NO_RULES, type PhrasePatterns, type PhraseRules } from "./pattern";
 
 /**
  * - `detect`: the pack's `detect` patterns, contiguous, every word literal.
@@ -43,11 +38,15 @@ export interface MatchWord {
 /** The words of one block of text, prepared once for every match in it. */
 export interface MatchInput {
   readonly words: readonly MatchWord[];
-  /** `joined[i]`: only whitespace separates word i from word i + 1 (false for the last). */
+  /**
+   * `joined[i]`: only whitespace, or nothing after an elided word, separates word i
+   * from word i + 1 (false for the last).
+   */
   readonly joined: readonly boolean[];
   /**
    * `between[i]`: what separates word i from word i + 1, as a key writes it
-   * (`separatorKey`: " " for whitespace alone); none after the last.
+   * (`separatorKey`: " " for whitespace alone, "" after an elided word: "l'homme");
+   * none after the last.
    */
   readonly between: readonly string[];
 }
@@ -135,9 +134,21 @@ export interface PhraseMatcher {
     from: number,
     to: number,
   ): PhraseMatch | undefined;
+  /**
+   * A key's words and separators as the language's text has them (`splitKey` with the
+   * words its tokenizer reads whole): French "avoir l'air" is "avoir", "l'", "air", as
+   * a match's words are.
+   */
+  keyParts(key: string): KeyParts;
 }
 
 const NO_SLOTS: readonly string[] = [];
+
+/** The most words a pronominal verb's match is walked over (its pronoun included). */
+const REACH = 12;
+
+/** How many keys' words a matcher keeps (`keyParts`); then it starts over. */
+const KEY_CACHE_SIZE = 5_000;
 
 /** Follows a gap pattern's first word in a trie: its next word may come after a gap. */
 const GAP = "\u0000";
@@ -165,26 +176,19 @@ interface TrieWords {
   between: readonly string[];
 }
 
-/** A dictionary pattern: words joined by spaces. */
-const spacedPattern = (key: string, rules: PhraseRules): TrieWords => {
-  const { words } = parsePattern(key, rules);
-  return { words, between: words.slice(1).map(() => " ") };
-};
-
-/** Patterns of two words or more; `split` gives each key's words (none for one word). */
+/** Patterns of two words or more; `split` gives each key's words (one for a word). */
 function buildTrie(
   keys: Iterable<string>,
   rules: PhraseRules,
   hasGap: (key: string) => boolean,
-  split: (key: string) => TrieWords | undefined = (key) =>
-    key.includes(" ") ? spacedPattern(key, rules) : undefined,
+  split: (key: string) => TrieWords,
 ): Trie {
   const nodes = new Set<string>();
   const ends = new Map<string, string[]>();
   const gapStarts = new Set<string>();
   for (const key of keys) {
     const pattern = split(key);
-    if (!pattern || pattern.words.length < 2) continue;
+    if (pattern.words.length < 2) continue;
     const { words, between } = pattern;
     const gap = hasGap(key);
     if (gap) gapStarts.add(words[0]!.text);
@@ -255,7 +259,32 @@ export function createPhraseMatcher({
 }: PhraseMatcherOptions): PhraseMatcher {
   const gaps = new Set(patterns.gap);
   const hasGap = (key: string) => gaps.has(key);
-  const detect = buildTrie(patterns.detect, NO_RULES, () => false);
+  /** The words the language's tokenizer reads whole ("d'accord", "peut-être"). */
+  const whole = (word: string) => lemmas(word).length > 0;
+  const parts = new Map<string, KeyParts>();
+  const keyParts = (key: string): KeyParts => {
+    let found = parts.get(key);
+    if (!found) {
+      if (parts.size >= KEY_CACHE_SIZE) parts.clear();
+      found = splitKey(key, lang, whole);
+      parts.set(key, found);
+    }
+    return found;
+  };
+  /** A key's words as text splits them; slot words are slots under `slotRules`. */
+  const patternWords = (slotRules: PhraseRules) => (key: string) => {
+    const { words, between } = splitKey(key, lang, whole);
+    return {
+      words: words.map((text) => ({ text, slot: slotRules.slots.has(text) })),
+      between,
+    };
+  };
+  const detect = buildTrie(
+    patterns.detect,
+    NO_RULES,
+    () => false,
+    patternWords(NO_RULES),
+  );
   let select: Trie | undefined;
   const saved = new WeakMap<SavedKeys, Trie>();
 
@@ -332,6 +361,106 @@ export function createPhraseMatcher({
   }
 
   /**
+   * Matches of pronominal verbs whose pattern writes the reflexive pronoun as a word of
+   * its own before the verb (`ReflexiveRules.leading`, French "se rendre compte",
+   * "s'en aller"), with word `i` as that pronoun: any reflexive pronoun ("je me suis
+   * rendu compte", "tu t'en vas"; "me", "te", "nous", "vous" only with their own
+   * subject before them: `ReflexiveRules.subjects`), the auxiliaries' forms right
+   * after it and its object pronouns left out ("il s'est rendu compte", "je m'en suis
+   * allé"). Or
+   * word `i` as the verb of an imperative with the pronoun after it
+   * (`ReflexiveRules.after`: "rends-toi compte"). The match's words are in text
+   * order, the pronoun among them.
+   */
+  function pronounWord(
+    trie: Trie,
+    input: MatchInput,
+    i: number,
+    out: PhraseMatch[],
+  ) {
+    const rules = reflexive!;
+    const leading = rules.leading!;
+    const { words } = input;
+    const word = words[i]!;
+    /** Walks `order` (word indices) with the pronoun first as the pattern's `lead`. */
+    const walkWith = (order: readonly number[], pronoun: number) => {
+      const view: MatchInput = {
+        words: order.map((k) => words[k]!),
+        joined: order.map(() => true),
+        // A word left out between two others: a space ("s'en est allé").
+        between: order
+          .slice(1)
+          .map((k, n) =>
+            k === order[n]! + 1 ? input.between[order[n]!]! : " ",
+          ),
+      };
+      for (const lead of leading) {
+        if (!trie.nodes.has(lead)) continue;
+        // The pattern's own separator after its pronoun ("se rendre", "s'attendre").
+        const found: PhraseMatch[] = [];
+        const first = { ...view, between: [...view.between] };
+        first.between[0] = lead.endsWith("'") ? "" : " ";
+        walk(trie, first, lead, 1, [0], found);
+        for (const match of found)
+          out.push({
+            key: match.key,
+            words: [
+              pronoun,
+              ...match.words.slice(1).map((n) => order[n]!),
+            ].sort((a, b) => a - b),
+          });
+      }
+    };
+    // The imperative: "rends-toi compte", the pronoun after the verb and a hyphen.
+    const next = words[i + 1];
+    if (next && input.between[i] === "-" && rules.after?.has(next.form)) {
+      const order = [i + 1, i];
+      for (
+        let k = i + 2;
+        k < words.length && input.joined[k - 1] && order.length < REACH;
+        k++
+      )
+        order.push(k);
+      walkWith(order, i + 1);
+    }
+    if (!rules.pronouns.has(word.form)) return;
+    const subjects = rules.subjects?.get(word.form);
+    if (subjects) {
+      let found = false;
+      for (
+        let k = i - 1;
+        k >= Math.max(0, i - (rules.subjectReach ?? 1)) &&
+        input.joined[k] === true &&
+        !found;
+        k--
+      )
+        found = subjects.has(words[k]!.form);
+      if (!found) return;
+    }
+    const order = [i];
+    let left = 0;
+    for (
+      let k = i + 1;
+      k < words.length && input.joined[k - 1] && order.length < REACH;
+      k++
+    ) {
+      const objectsOnly = order
+        .slice(1)
+        .every((n) => rules.objects.has(words[n]!.form));
+      if (
+        objectsOnly &&
+        left < rules.maxBetween &&
+        words[k]!.bases.some((base) => rules.auxiliaries.has(base))
+      ) {
+        left++;
+        continue;
+      }
+      order.push(k);
+    }
+    if (order.length > 1) walkWith(order, i);
+  }
+
+  /**
    * Matches of pronominal verbs whose reflexive pronoun is word `i`, written before
    * the verb ("me di cuenta"), with up to `maxBetween` other pronouns or auxiliaries'
    * forms between ("se lo tomó", "se ha quitado").
@@ -342,6 +471,10 @@ export function createPhraseMatcher({
     i: number,
     out: PhraseMatch[],
   ) {
+    if (reflexive?.leading !== undefined) {
+      pronounWord(trie, input, i, out);
+      return;
+    }
     if (!reflexive?.pronouns.has(input.words[i]!.form)) return;
     for (let j = i + 1; j <= i + 1 + reflexive.maxBetween; j++) {
       const word = input.words[j];
@@ -351,7 +484,7 @@ export function createPhraseMatcher({
       if (word.reflexive === undefined)
         for (const base of word.bases) {
           if (base === word.form) continue;
-          const node = base + reflexive.ending;
+          const node = base + reflexive.ending!;
           if (!trie.nodes.has(node)) continue;
           const found: PhraseMatch[] = [];
           walk(trie, input, node, j + 1, [j], found);
@@ -371,6 +504,7 @@ export function createPhraseMatcher({
         new Set([...patterns.detect, ...patterns.more]),
         rules,
         hasGap,
+        patternWords(rules),
       ));
     if (!keys) return undefined;
     let trie = saved.get(keys);
@@ -378,7 +512,7 @@ export function createPhraseMatcher({
       // A saved key's words are split as text is: a phrase saved across punctuation
       // keeps its separators ("wh-what").
       trie = buildTrie(keys.keys(), rules, hasGap, (key) => {
-        const { words, between } = splitKey(key, lang);
+        const { words, between } = splitKey(key, lang, whole);
         return { words: words.map((text) => ({ text })), between };
       });
       saved.set(keys, trie);
@@ -413,7 +547,7 @@ export function createPhraseMatcher({
     // The plain verb's patterns give way to its pronominal verb's ("darse cuenta de").
     const pronominal = word.reflexive;
     if (pronominal !== undefined && firsts.includes(pronominal)) {
-      const plain = pronominal.slice(0, -reflexive!.ending.length);
+      const plain = pronominal.slice(0, -reflexive!.ending!.length);
       const kept = out.filter((_, m) => firsts[m] !== plain);
       out.length = 0;
       out.push(...kept);
@@ -439,9 +573,9 @@ export function createPhraseMatcher({
       for (const token of tokens) {
         if (token.isWord) {
           if (words.length > 0) {
-            const separator = separatorKey(gap);
+            const separator = separatorKey(gap, words.at(-1)!.form);
             between.push(separator);
-            joined.push(separator === " ");
+            joined.push(separator === " " || separator === "");
           }
           gap = "";
           let form = normalizeWord(token.text);
@@ -459,9 +593,9 @@ export function createPhraseMatcher({
               : bases.length === 1 && bases[0] === form
                 ? bases
                 : [...new Set([form, ...bases])];
-          const verb = reflexive?.attached(form, bases, lemmas);
+          const verb = reflexive?.attached?.(form, bases, lemmas);
           const pronominal =
-            verb === undefined ? undefined : verb + reflexive!.ending;
+            verb === undefined ? undefined : verb + reflexive!.ending!;
           const literals =
             pronominal === undefined || forms.includes(pronominal)
               ? forms
@@ -486,6 +620,7 @@ export function createPhraseMatcher({
     },
     matchesAt,
     longestAt,
+    keyParts,
     matchSelection(input, from, to) {
       const selected = (i: number) => i >= from && i < to;
       let best: PhraseMatch | undefined;

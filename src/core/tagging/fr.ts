@@ -75,16 +75,46 @@ const REFLEXIVES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * A reflexive pronoun among the object pronouns right before the word at `k` ("s'est",
- * "me le suis", "vous vous êtes").
+ * Where a reflexive pronoun is among the object pronouns right before the word at `k`
+ * ("s'est", "me le suis", "vous vous êtes"); undefined without one.
  */
-function reflexiveBefore(words: readonly TaggedWord[], k: number): boolean {
+function reflexiveIndex(
+  words: readonly TaggedWord[],
+  k: number,
+): number | undefined {
   for (let j = k - 1; j >= 0 && !words[j + 1]!.pauseBefore; j--) {
     const { form } = words[j]!;
-    if (REFLEXIVES.has(form)) return true;
+    if (REFLEXIVES.has(form)) return j;
     if ((form === "nous" || form === "vous") && words[j - 1]?.form === form)
-      return !words[j]!.pauseBefore;
-    if (!VERB_CLITICS.has(form)) return false;
+      return words[j]!.pauseBefore ? undefined : j;
+    if (!VERB_CLITICS.has(form)) return undefined;
+  }
+  return undefined;
+}
+
+const reflexiveBefore = (words: readonly TaggedWord[], k: number) =>
+  reflexiveIndex(words, k) !== undefined;
+
+/** The subjects "me" and "te" are reflexive with ("je me lève"; "ça me plaît": an object). */
+const SUBJECTS: Readonly<Record<string, readonly string[]>> = {
+  me: ["je", "j'"],
+  "m'": ["je", "j'"],
+  te: ["tu"],
+  "t'": ["tu"],
+};
+
+/**
+ * Whether the pronoun at `j` is reflexive, not an object: "se" always, "nous" and
+ * "vous" after themselves (`reflexiveIndex`), "me" and "te" with their own subject
+ * within four words before, no pause between ("je me suis rendu compte", "je vais me
+ * lever"; "ça me fait plaisir", "pour me mettre la pression" are objects).
+ */
+function agrees(words: readonly TaggedWord[], j: number): boolean {
+  const subjects = SUBJECTS[words[j]!.form];
+  if (!subjects) return true;
+  for (let k = j - 1; k >= Math.max(0, j - 4); k--) {
+    if (words[k + 1]!.pauseBefore) return false;
+    if (subjects.includes(words[k]!.form)) return true;
   }
   return false;
 }
@@ -170,10 +200,27 @@ function negation(words: readonly TaggedWord[], i: number): string | undefined {
  * "est" and "été" are far more often verbs, so the tagger misses some.
  */
 function nounAfter(words: readonly TaggedWord[], i: number): boolean {
+  return (
+    /^(VERB|AUX)\.(Fin|Part)$/.test(words[i]!.tag.tag) && afterArticle(words, i)
+  );
+}
+
+/**
+ * A noun tag right after a trusted determiner or preposition stands whatever its
+ * margin: no closed class of verbs claims the word ("vers l'Est": the east, not
+ * être); but not after a subject pronoun, whose object pronoun the tagger read as the determiner ("tu l'as",
+ * "je la garde").
+ */
+const nounTagAfter = (words: readonly TaggedWord[], i: number) =>
+  words[i]!.tag.tag === "NOUN" &&
+  afterArticle(words, i) &&
+  !afterSubject(words, i);
+
+/** Right after a trusted determiner or preposition, with no pause between. */
+function afterArticle(words: readonly TaggedWord[], i: number): boolean {
   const word = words[i]!;
   const before = words[i - 1];
   return (
-    /^(VERB|AUX)\.(Fin|Part)$/.test(word.tag.tag) &&
     before !== undefined &&
     !word.pauseBefore &&
     before.trusted &&
@@ -285,6 +332,42 @@ function closedBase(
   return undefined;
 }
 
+/** The subject pronouns a question puts after its verb ("est-ce", "fais-tu"). */
+const INVERTED: ReadonlySet<string> = new Set([
+  ...["je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "ce"],
+]);
+
+/** The neuter pronouns "que" after which is "what" ("ce qu'il veut": what he wants). */
+const NEUTER: ReadonlySet<string> = new Set(["ce", "c'", "ça", "cela", "ceci"]);
+
+/**
+ * The relative pronoun "que": a pronoun "que" right after the noun or pronoun it
+ * refers to ("la chose qu'il a dite", "celui que je vois"), not after a neuter pronoun
+ * ("ce qu'il veut": what) nor before an inverted verb and subject, a question ("avant
+ * toute chose qu'est-ce que…"). The dictionary
+ * lists its "that, which" with the conjunction, and "what" (the interrogative) as the
+ * pronoun.
+ */
+function relativeQue(words: readonly TaggedWord[], i: number): boolean {
+  const word = words[i]!;
+  if (word.form !== "que" && word.form !== "qu'") return false;
+  if (word.tag.label !== "pronoun" || i === 0 || word.pauseBefore) return false;
+  // A question inverts its verb and subject: "qu'est-ce", "que fais-tu".
+  const verb = words[i + 1];
+  if (
+    verb !== undefined &&
+    (verb.tag.label === "verb" || verb.tag.label === "auxiliary") &&
+    INVERTED.has(words[i + 2]?.form ?? "")
+  )
+    return false;
+  const before = words[i - 1]!;
+  const tag = trustedTagOf(before);
+  return (
+    !NEUTER.has(before.form) &&
+    (tag?.label === "noun" || tag?.label === "pronoun" || before.tag.proper)
+  );
+}
+
 function use(
   words: readonly TaggedWord[],
   i: number,
@@ -295,9 +378,23 @@ function use(
   const previousTag = trustedTagOf(words[i - 1]);
   const noun = nounAfter(words, i);
   const negated = negation(words, i);
-  const base = noun ? undefined : closedBase(words, i, auxiliaries);
+  const base =
+    noun || nounTagAfter(words, i)
+      ? undefined
+      : closedBase(words, i, auxiliaries);
   // A participle in a state reads as the adjective it is ("c'est fait": done).
   const state = how === false && trustedTagOf(word)?.label === "verb";
+  // A verb after a reflexive pronoun, or a participle after être and one ("il se rend
+  // compte", "il s'est rendu compte"), is its pronominal verb's (`WordUse.pronominal`).
+  const k = how === "aux" ? nearestAuxiliaryVerb(words, i) : undefined;
+  const reflexive =
+    trustedTagOf(word)?.label !== "verb"
+      ? undefined
+      : (reflexiveIndex(words, i) ??
+        (k !== undefined && formOf(words[k]!, "être")
+          ? reflexiveIndex(words, k)
+          : undefined));
+  const pronominal = reflexive !== undefined && agrees(words, reflexive);
   return {
     auxiliary: auxiliaries[i]!,
     verbal: noun ? "other" : how,
@@ -311,6 +408,8 @@ function use(
     ...(negated !== undefined && { grammarPos: negated }),
     ...(state && !noun && { grammarPos: "adjective" }),
     ...(base !== undefined && { base }),
+    ...(pronominal && { pronominal: true }),
+    ...(relativeQue(words, i) && { grammarPos: "conjunction" }),
     // A base the grammar decides against the tag ("tu les as": not "the aces") is a verb.
     ...(base !== undefined &&
       word.tag.label !== "verb" && { grammarPos: "verb" }),

@@ -1,4 +1,5 @@
 {
+"fix":["reparieren",[["verb","reparieren, flicken","to mend or repair"],["verb","fixieren, befestigen, anhängen","to attach; to affix; to hold in place"],["verb","vorbereiten, machen, zubereiten","to prepare"],["noun","Reparatur","an instance of fixing"]],0],
 "fix room":["Druckraum",[["noun","Druckraum, Fixerstube","Translations"]],0],
 "fix up":["herrichten",[["verb","herrichten, reparieren, ausbessern","to repair or refurbish"],["verb","versorgen, ausstatten","to provide someone with something"],["verb","vorbereiten, fertig machen, arrangieren","to prepare or provide something"]],0],
 "fixate":["fixieren",[["verb","fixieren, festmachen, befestigen","to make something fixed and stable; to fix"],["verb","seine volle Aufmerksamkeit schenken, sich vollständig konzentrieren","to attend to something to the exclusion of others"],["verb","fixieren, seinen Blick heften auf","to stare fixedly at something"],["verb","sich fixieren","psychology: to attach oneself to a person or thing in a pathological, neurotic, or obsessive manner"]],0],
@@ -15810,7 +15811,6 @@
 "point of departure":["Ausgangspunkt",[["noun","Ausgangspunkt, Ausgangsposition","initial circumstances"]],0],
 "point of inflection":["Wendepunkt",[["noun","Wendepunkt","point on a curve"]],0],
 "point of interest":["Sonderziel",[["noun","Sonderziel","location that is worth visiting"]],0],
-"point of no return":["Umkehrgrenzpunkt",[["noun","Umkehrgrenzpunkt","(aviation) the point in a flight when there is insufficient fuel to return to the origin"]],0],
 "point of order":["Antrag zur Geschäftsordnung",[["noun","Antrag zur Geschäftsordnung, Geschäftsordnungsantrag","motion"]],0],
 "point of reference":["Bezugspunkt",[["noun","Bezugspunkt","A particular point from which to measure or compare the changes in some quantity"]],0],
 "point of sale":["Kasse",[["noun","Kasse","location at which payment for goods is made"],["noun","Verkaufsplatz, Verkaufsort, Verkaufsstelle","establishment that sells goods or services"]],0],
@@ -15949,6 +15949,5 @@
 "polygonal":["mehreckig",[["adjective","mehreckig, vieleckig, polygonal","having many angles"]],0],
 "polygraph":["Lügendetektor",[["noun","Lügendetektor","device to discern if a subject is lying"]],0],
 "polygyny":["Polygynie",[["noun","Polygynie","plurality of wives at the same time"]],0],
-"polyhedral":["polyhedral",[["adjective","polyhedral","(geometry) having multiple planar faces or facets"]],0],
-"polyhedron":["Polyeder",[["noun","Polyeder, Vielflach, Vielflächner","geometry: solid figure"]],0]
+"polyhedral":["polyhedral",[["adjective","polyhedral","(geometry) having multiple planar faces or facets"]],0]
 }

@@ -47,43 +47,116 @@ export function splitElisions(word: string, lang: string): string[] {
   return [...parts, rest];
 }
 
+/** Whether a language writes elided words joined to the next one (`ELISIONS`). */
+export const elides = (lang: string) => Object.hasOwn(ELISIONS, lang);
+
+/**
+ * A word's tokens as the tokenizer gives them: its elided words split off one by one
+ * ("qu'aujourd'hui" → "qu'", "aujourd'hui"), until what is left is a word `whole`
+ * knows ("d'accord") or has none.
+ */
+export function elisionParts(
+  word: string,
+  lang: string,
+  whole?: (word: string) => boolean,
+): string[] {
+  const parts: string[] = [];
+  let rest = word;
+  while (!whole?.(rest)) {
+    const [elided, ...after] = splitElisions(rest, lang);
+    if (after.length === 0) break;
+    parts.push(elided!);
+    rest = rest.slice(elided!.length);
+  }
+  return [...parts, rest];
+}
+
+/** A hyphen between the parts of a compound ("peut-être", "well-known"). */
+const HYPHEN = /^[-\u2010]$/u;
+
+/**
+ * The segmenter's segments with each hyphenated compound that `whole` knows joined
+ * into one word segment ("peut", "-", "être" → "peut-être"; "c'est-à-dire"): the
+ * longest run of words joined by single hyphens that is one. Hyphens otherwise split
+ * words ("est-ce", "a-t-il": the language reads their parts).
+ */
+function joinCompounds(
+  segments: readonly Token[],
+  whole: (word: string) => boolean,
+): Token[] {
+  const out: Token[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const first = segments[i]!;
+    let joined = -1;
+    if (first.isWord)
+      for (
+        let k = i + 2;
+        k < segments.length &&
+        HYPHEN.test(segments[k - 1]!.text) &&
+        segments[k]!.isWord &&
+        segments[k - 1]!.start === segments[k - 2]!.end;
+        k += 2
+      ) {
+        const text = segments
+          .slice(i, k + 1)
+          .map((s) => s.text)
+          .join("");
+        if (whole(text)) joined = k;
+      }
+    if (joined < 0) {
+      out.push(first);
+      continue;
+    }
+    const last = segments[joined]!;
+    out.push({
+      text: segments
+        .slice(i, joined + 1)
+        .map((s) => s.text)
+        .join(""),
+      start: first.start,
+      end: last.end,
+      isWord: true,
+    });
+    i = joined;
+  }
+  return out;
+}
+
 /**
  * Apostrophes inside words stay in the token ("don't", "teacher’s"); hyphens and dashes
- * split words. A language's elisions are split off the word they are joined to ("l'",
- * "homme"), unless `whole` says the word as written is one of its own ("d'accord",
- * "jusqu'à": the vocabulary's), and so is each rest of it.
+ * split words, unless `whole` knows the hyphenated compound as one word ("peut-être",
+ * "well-known": `joinCompounds`). A language's elisions are split off the word they
+ * are joined to ("l'", "homme"), unless `whole` says the word as written is one of its
+ * own ("d'accord", "jusqu'à": the vocabulary's), and so is each rest of it.
  */
 export function tokenize(
   text: string,
   lang: string,
   whole?: (word: string) => boolean,
 ): Token[] {
-  const elides = Object.hasOwn(ELISIONS, lang);
-  return Array.from(segmenterFor(lang, "word").segment(text)).flatMap((s) => {
-    const token = {
+  const segments = Array.from(segmenterFor(lang, "word").segment(text)).map(
+    (s): Token => ({
       text: s.segment,
       start: s.index,
       end: s.index + s.segment.length,
       isWord: s.isWordLike ?? false,
-    };
-    if (!elides || !token.isWord || !/['’]/.test(token.text)) return [token];
-    const tokens: Token[] = [];
+    }),
+  );
+  const tokens = whole ? joinCompounds(segments, whole) : segments;
+  if (!elides(lang)) return tokens;
+  return tokens.flatMap((token) => {
+    if (!token.isWord || !/['’]/.test(token.text)) return [token];
     let start = token.start;
-    let rest = token.text;
-    while (!whole?.(rest)) {
-      const [elided, ...after] = splitElisions(rest, lang);
-      if (after.length === 0) break;
-      tokens.push({
-        text: elided!,
+    return elisionParts(token.text, lang, whole).map((part) => {
+      const piece = {
+        text: part,
         start,
-        end: start + elided!.length,
+        end: start + part.length,
         isWord: true,
-      });
-      start += elided!.length;
-      rest = rest.slice(elided!.length);
-    }
-    tokens.push({ text: rest, start, end: token.end, isWord: true });
-    return tokens;
+      };
+      start += part.length;
+      return piece;
+    });
   });
 }
 

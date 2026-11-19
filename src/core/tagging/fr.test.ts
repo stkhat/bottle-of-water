@@ -197,6 +197,10 @@ describe("frenchTagger: uses", () => {
     // Not after a determiner or preposition: "l'été", "en été".
     expect(base("l'/DET été/AUX.Part/été/être", 1)).toBeUndefined();
     expect(base("en/ADP été/VERB.Part?/été/être", 1)).toBeUndefined();
+    // A noun tag there stands however unsure ("vers l'Est"), but not after a subject
+    // pronoun, whose object pronoun the tagger read as the determiner ("tu l'as").
+    expect(base("vers/ADP l'/DET est/NOUN?/est/être", 2)).toBeUndefined();
+    expect(base("tu/PRON l'/DET as/NOUN?/as/avoir", 2)).toBe("avoir");
   });
   it("finds a participle standing for a preposition at a clause's start or after a noun", () => {
     const slot = (text: string, i: number) => usesOf(text)[i]?.prepositionSlot;
@@ -234,5 +238,37 @@ describe("frenchTagger: role", () => {
     const [vu, voir] = roles("vu/VERB.Part/voir voir/VERB.Inf");
     expect(vu!.pastParticiple).toBe(true);
     expect(voir).toMatchObject({ pastParticiple: false, infinitive: false });
+  });
+});
+
+describe("frenchTagger: pronominal verbs and the relative que", () => {
+  const use = (text: string, i: number) => usesOf(text)[i]!;
+  it("reads a verb after a reflexive pronoun that agrees with its subject as pronominal", () => {
+    expect(
+      use("il/PRON se/PRON rend/VERB.Fin/rend/rendre compte/NOUN", 2)
+        .pronominal,
+    ).toBe(true);
+    expect(
+      use("je/PRON me/PRON suis/AUX.Fin/suis/être rendu/VERB.Part/rendre", 3)
+        .pronominal,
+    ).toBe(true);
+    // "me" with another subject is an object.
+    expect(
+      use("ça/PRON me/PRON fait/VERB.Fin/fait/faire plaisir/NOUN", 2)
+        .pronominal,
+    ).toBeUndefined();
+  });
+  it("reads que after its antecedent as the relative pronoun, by the conjunction's senses", () => {
+    expect(
+      use("la/DET chose/NOUN qu'/PRON il/PRON dit/VERB.Fin/dire", 2).grammarPos,
+    ).toBe("conjunction");
+    // After a neuter pronoun it is "what"; before an inverted verb, a question.
+    expect(
+      use("ce/PRON qu'/PRON il/PRON dit/VERB.Fin/dire", 1).grammarPos,
+    ).toBeUndefined();
+    expect(
+      use("chose/NOUN qu'/PRON est/AUX.Fin/être ce/PRON que/PRON", 1)
+        .grammarPos,
+    ).toBeUndefined();
   });
 });

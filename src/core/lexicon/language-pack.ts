@@ -29,19 +29,21 @@ import { lemmatize, type CapitalWords } from "./lemmatize";
  * Languages whose names stand out by a capital (rule D). Not those without letter case
  * or those that capitalise every noun (German): their capitals say nothing of names.
  */
-const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es"]);
+const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es", "fr"]);
 
 /**
  * Languages that capitalise a common word inside a sentence only in a name or a title,
- * not for a people, a party's members, a believer, a month or an acronym that is
- * another word (English Germans, Democrats, Christians, March, US; Spanish alemanes,
- * demócratas, cristianos, marzo, EE. UU.). There a capitalised inflected form the
- * names lexicon lacks is a name when its reading as the form is unlikely (rule D,
+ * not for a party's members, a believer, a month or an acronym that is another word
+ * (English Democrats, Christians, March, US; Spanish demócratas, cristianos, marzo,
+ * EE. UU.; French démocrates, chrétiens, mars). There a capitalised inflected form
+ * the names lexicon lacks is a name when its reading as the form is unlikely (rule D,
  * `documentNames`), and a capitalised word that is no name is a title's word, read by
- * its tag like any other ("Nueva York": nuevo; "la Segunda Guerra Mundial": segundo):
- * it asks for no capitalised senses.
+ * its tag like any other ("Nueva York": nuevo; "la Segunda Guerra Mundial": segundo;
+ * "la Seconde Guerre mondiale"): it asks for no capitalised senses. French also
+ * capitalises a people's noun ("les Français"): a vocabulary word, read by its tag,
+ * and after an article, where the form rule does not reach it.
  */
-const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es"]);
+const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es", "fr"]);
 
 /**
  * Languages whose lemma table lists an inflected form's likelier base first, from a
@@ -255,7 +257,8 @@ export function createLanguagePack(
   /**
    * A base form's rank. The list writes no periods, so an abbreviation it does not rank
    * takes its letters' rank ("u.s." → us); a contraction the list does not rank takes
-   * the rank of the rarest word it is short for ("what'd": what did → do).
+   * the rank of the rarest word it is short for ("what'd": what did → do), and so does
+   * a hyphenated compound of its parts ("well-known": known), as the list splits it.
    */
   const rank = (base: string) => {
     const key = base.toLowerCase();
@@ -263,6 +266,8 @@ export function createLanguagePack(
       ranks.get(key) ??
       (key.includes(".") ? ranks.get(key.replaceAll(".", "")) : undefined);
     if (found !== undefined) return found;
+    if (/\p{L}-\p{L}/u.test(key))
+      return Math.max(...key.split("-").map(rankOfWord));
     const [expansion] = expansions(key);
     if (expansion === undefined) return Infinity;
     return Math.max(...expansion.toLowerCase().split(" ").map(rankOfWord));

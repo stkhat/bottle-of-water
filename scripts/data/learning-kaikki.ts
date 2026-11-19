@@ -118,11 +118,12 @@ const MAX_SENSES = 6;
 const CAPITAL_ROOM = 2;
 
 /**
- * The part of speech a verb's sense that kaikki tags auxiliary is given ("haben":
- * forms the perfect aspect; "werden": forms the future tense; "sein": forms the
- * present perfect): rule A2 shows it first where the grammar reads the verb as an
- * auxiliary (`AUXILIARY`) and the verb's other senses first where the tag reads it as
- * a verb ("ich habe ein Auto": to have). The word's parts of speech count it as a verb.
+ * The part of speech a verb's sense that is its use as an auxiliary (`auxiliaryUse`) is
+ * given ("haben": forms the perfect aspect; "werden": forms the future tense; avoir:
+ * used to form the compound tenses; aller: to be going (to)): rule A2 shows it first
+ * where the grammar reads the verb as an auxiliary (`AUXILIARY`) and the verb's other
+ * senses first where the tag reads it as a verb ("ich habe ein Auto": to have). The
+ * word's parts of speech count it as a verb.
  */
 const AUXILIARY_LABEL = "auxiliary";
 
@@ -188,6 +189,58 @@ const MIN_CAPITALISED = 3;
 const ACRONYM_TAGS: ReadonlySet<string> = new Set(["acronym", "initialism"]);
 
 type Sense = [pos: string, text: string];
+
+/** `senses` with each part of speech and text once, the first of each kept. */
+const onceEach = (senses: readonly Sense[]) =>
+  senses.filter(
+    (sense, i) =>
+      senses.findIndex(
+        (other) => other[0] === sense[0] && other[1] === sense[1],
+      ) === i,
+  );
+
+/**
+ * A qualifier's part saying the verb comes before an infinitive, a gerund or a
+ * participle, as an auxiliary does ("when followed by an infinitive verb": aller's
+ * "to be going (to)"; "preceding the gerund of a verb": ir's "to go on").
+ */
+const AUXILIARY_CONSTRUCTION =
+  /^(?:when )?(?:followed by|preceding)\b.*\b(?:infinitive|gerund|participle)\b/i;
+/** Qualifier parts that leave a sense the construction's alone. */
+const TRANSITIVITY = /^(?:in)?transitive$/i;
+
+/**
+ * A raw gloss's leading qualifier names only the auxiliary's construction
+ * (`AUXILIARY_CONSTRUCTION`), with or without a transitivity: not one that asks for
+ * another use too ("(reflexive, followed by an infinitive) to get": se faire, not the
+ * causative "faire construire").
+ */
+function auxiliaryQualifier(gloss: string): boolean {
+  const qualifier = /^\(([^)]*)\)/u.exec(gloss.trim())?.[1];
+  if (qualifier === undefined) return false;
+  const parts = qualifier.split(",").map((part) => part.trim());
+  return (
+    parts.some((part) => AUXILIARY_CONSTRUCTION.test(part)) &&
+    parts.every(
+      (part) => AUXILIARY_CONSTRUCTION.test(part) || TRANSITIVITY.test(part),
+    )
+  );
+}
+
+/**
+ * The sense is the verb's use as an auxiliary: kaikki tags it so (avoir "used to form
+ * the compound tenses", haber, estar before a gerund, ir "to be going to"), or its
+ * qualifier names the construction (`auxiliaryQualifier`). Rule A2 shows these first
+ * where the grammar reads the word as an auxiliary (AUXILIARY_LABEL).
+ */
+export function auxiliaryUse(sense: KaikkiSense): boolean {
+  return (
+    (sense.tags ?? []).includes("auxiliary") ||
+    (sense.raw_glosses ?? []).some(
+      (gloss) => typeof gloss === "string" && auxiliaryQualifier(gloss),
+    )
+  );
+}
 
 /** A key's headwords of one spelling: one has a meaning; their form-of senses' bases. */
 interface Spelling {
@@ -366,11 +419,18 @@ export function altMeaning(gloss: string): string | undefined {
 
 /**
  * The quoted gloss of a pointer's one-word target, put first: "masculine plural of el
- * (“the”)" → "the; masculine plural of el". Undefined without one.
+ * (“the”)" → "the; masculine plural of el", also with a note after it in the bracket:
+ * "plural of un (“some”, the plural indefinite article)" → "some; plural of un (the
+ * plural indefinite article)". Undefined without one.
  */
 export function quotedMeaning(gloss: string): string | undefined {
-  const quoted = /^(.*?\bof\s+[^\s,;:()]+)\s*\(“([^”]+)”\)\s*$/u.exec(gloss);
-  return quoted ? `${quoted[2]!.trim()}; ${quoted[1]!.trim()}` : undefined;
+  const quoted =
+    /^(.*?\bof\s+[^\s,;:()]+)\s*\(“([^”]+)”(?:\s*,\s*([^()]+))?\)\s*$/u.exec(
+      gloss,
+    );
+  if (!quoted) return undefined;
+  const note = quoted[3]?.trim();
+  return `${quoted[2]!.trim()}; ${quoted[1]!.trim()}${note ? ` (${note})` : ""}`;
 }
 
 /**
@@ -499,14 +559,17 @@ function usableSenses(entry: KaikkiEntry): SenseItem[] {
   const closed = CLOSED_CLASSES.has(pos);
   return (entry.senses ?? []).flatMap((sense): SenseItem[] => {
     if (isUsable(sense)) {
+      // An auxiliary's first gloss is what it does ("used to form compound tenses");
+      // the ones under it list where (être: "the passive voice", "all reflexive verbs").
+      if (pos === "verb" && auxiliaryUse(sense)) {
+        const [first] = sense.glosses;
+        const gloss = (
+          typeof first === "string" ? first : glossOf(sense)
+        ).trim();
+        return [{ def: [AUXILIARY_LABEL, gloss], sense }];
+      }
       const gloss = glossOf(sense).trim();
-      const label =
-        pos === "verb" && (sense.tags ?? []).includes("auxiliary")
-          ? AUXILIARY_LABEL
-          : pos;
-      return [
-        { def: [label, closed ? translationFirst(gloss) : gloss], sense },
-      ];
+      return [{ def: [pos, closed ? translationFirst(gloss) : gloss], sense }];
     }
     const last: unknown = sense.glosses?.at(-1);
     const gloss = typeof last === "string" ? last.trim() : "";
@@ -633,8 +696,18 @@ export function byTreebank(
   return [...bases].sort((a, b) => score(b) - score(a));
 }
 
+/**
+ * A term's senses as the pack keeps them: each once (être's auxiliary senses differ
+ * only in what kaikki lists under them), the first MAX_SENSES, and an auxiliary's
+ * senses after them wherever the source lists them (ir: "to be going to" is its
+ * eleventh), since they are what the word means where the grammar reads it as one.
+ */
 function definition(senses: Sense[]): DefsPack[string] {
-  const kept = senses.slice(0, MAX_SENSES);
+  const once = onceEach(senses);
+  const kept = [
+    ...once.slice(0, MAX_SENSES),
+    ...once.slice(MAX_SENSES).filter(([pos]) => pos === AUXILIARY_LABEL),
+  ];
   return [shortOfDefinition(kept[0]![1]), kept];
 }
 
@@ -664,6 +737,7 @@ export async function buildLearningPacks(
     casePaths = [],
     ipaPaths = [],
     phraseScoring = {},
+    ownEditionExamples = true,
     written,
   }: {
     freqTop?: number;
@@ -684,6 +758,12 @@ export async function buildLearningPacks(
     /** The phrase score's stopwords, for a small extract (`importPhrases`). */
     phraseScoring?: Pick<PhraseInputs, "stopwords">;
     /**
+     * Whether `casePaths`' examples join the phrase build's example corpus (Spanish:
+     * yes; French: no, judged, as its score's count terms were tuned on fewer examples;
+     * they still attest multi-word nouns, B1's size cap).
+     */
+    ownEditionExamples?: boolean;
+    /**
      * The frequency list's forms as written, case kept, in rank order, for a language
      * that capitalises its nouns: a form ranks the bases of the headword spelt as it
      * is ("Reisen" ranks Reise, "reisen" itself; `rankedBases`).
@@ -696,7 +776,7 @@ export async function buildLearningPacks(
   interface Bucket {
     /** Its senses with a meaning, in the source's order (`usableSenses`). */
     items: Omit<SenseItem, "sense">[];
-    /** Its senses as the pack gives them (up to MAX_SENSES). */
+    /** Its senses, which the pack keeps the first of (`definition`). */
     senses: Sense[];
     /** An entry of it says it is an inflected form (only for exact spellings). */
     form: boolean;
@@ -761,7 +841,7 @@ export async function buildLearningPacks(
         verbs.add(lower);
         separated.set(stem, verbs);
       }
-    if (lower.includes("'") && language.ownWord) {
+    if (/['-]/.test(lower) && language.ownWord) {
       const found = apostrophes.get(lower);
       if (found) found.push(entry);
       else apostrophes.set(lower, [entry]);
@@ -810,11 +890,12 @@ export async function buildLearningPacks(
       bucket.altBases.push(...pointerBases(entry, true, WORD));
     }
   });
-  // A headword with an apostrophe that is no word of its own ("qu'il": que + il) is
-  // left to its parts, which the tokenizer splits it into.
+  // A headword with an apostrophe or a hyphen that is no word of its own ("qu'il": que
+  // + il), or that text reads in parts ("j'aime", "est-il"), is left to its parts,
+  // which the tokenizer splits it into.
   for (const [word, entries] of apostrophes)
     if (
-      splitElisions(word, lang).length > 1 &&
+      (splitElisions(word, lang).length > 1 || word.includes("-")) &&
       (!language.ownWord!(entries) || language.readWhole?.(word) === false)
     ) {
       exact.delete(word);
@@ -879,14 +960,28 @@ export async function buildLearningPacks(
     const counted = bucket.items.filter(({ alt }) => !(alt && form));
     for (const { def } of counted)
       if (def[0]) bucket.pos.add(def[0] === AUXILIARY_LABEL ? "verb" : def[0]);
-    const lower = counted.filter((item) => !item.capital).map(senseOf);
-    const capital = counted.filter((item) => item.capital).map(senseOf);
+    const lower = onceEach(
+      counted.filter((item) => !item.capital).map(senseOf),
+    );
+    const capital = onceEach(
+      counted.filter((item) => item.capital).map(senseOf),
+    );
     const [first, second] = capitalFirst(word)
       ? [capital, lower]
       : [lower, capital];
     const room = Math.min(CAPITAL_ROOM, second.length);
+    const kept = keptSenses([
+      ...keptSenses(first, MAX_SENSES - room),
+      ...second,
+    ]);
+    // An auxiliary's senses past the cap come after the others (`definition`).
+    const shown = new Set(kept.map(([pos, text]) => `${pos}\n${text}`));
     bucket.senses.push(
-      ...keptSenses([...keptSenses(first, MAX_SENSES - room), ...second]),
+      ...kept,
+      ...[...first, ...second].filter(
+        ([pos, text]) =>
+          pos === AUXILIARY_LABEL && !shown.has(`${pos}\n${text}`),
+      ),
     );
     if (!form) bucket.bases.push(...bucket.altBases);
   }
@@ -1074,7 +1169,8 @@ export async function buildLearningPacks(
     dict: {},
     language: ENGLISH_PHRASES,
     build: language.phraseBuild(pos, lemmas),
-    examples: [path, ...casePaths],
+    examples: ownEditionExamples ? [path, ...casePaths] : [path],
+    ...(!ownEditionExamples && { attestation: [path, ...casePaths] }),
     ...phraseScoring,
   });
   const phrases = language.selectOnlyPhrases
