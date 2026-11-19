@@ -1105,6 +1105,132 @@ describe("DictionaryWindow: in this sentence", () => {
     expect(calls.onRetry).toHaveBeenCalledOnce();
   });
 
+  describe("the phrase of selected words (mock CorrectPhrase)", () => {
+    const phraseActions = () => ({
+      onEditPhrase: vi.fn(),
+      onCancelPhrase: vi.fn(),
+      onSavePhrase: vi.fn(),
+    });
+    const withPhrase = (
+      phrase: NonNullable<Extract<ExplainView, { state: "answer" }>["phrase"]>,
+    ) => {
+      const calls = phraseActions();
+      const { props } = withExplain(
+        {
+          state: "answer",
+          answer: { meaning: "決心する", sense: null },
+          phrase,
+        },
+        { hasSenses: false, ...calls },
+      );
+      return { props, calls };
+    };
+
+    test("offers the proposal under the answer, with the pencil and Save phrase", async () => {
+      const { props, calls } = withPhrase({
+        state: "proposal",
+        key: "make up one's mind",
+      });
+      const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+      const key = screen.getByText("make up one's mind", { exact: true });
+      await expect.element(key).toBeVisible();
+      expect(style(key.element())).toMatchObject({
+        fontSize: "15px",
+        fontWeight: "600",
+      });
+      // After Use this meaning and the line, inside the card.
+      const text = screen.container.textContent;
+      expect(text.indexOf("On-device AI")).toBeLessThan(
+        text.indexOf("make up one's mind"),
+      );
+      const save = screen.getByRole("button", { name: "Save phrase" });
+      // Mock `.btn`: as Use this meaning, 34px, green outline.
+      expect(style(save.element())).toMatchObject({
+        height: "34px",
+        borderTopColor: "rgb(143, 211, 188)",
+        color: "rgb(7, 92, 73)",
+      });
+      const edit = screen.getByRole("button", { name: "Edit phrase" });
+      expect(style(edit.element())).toMatchObject({
+        width: "34px",
+        height: "34px",
+      });
+      // One row: the phrase, the pencil and the button.
+      const top = (l: { element(): Element }) =>
+        Math.round(l.element().getBoundingClientRect().top);
+      expect(top(edit)).toBe(top(save));
+      await save.click();
+      expect(calls.onSavePhrase).toHaveBeenCalledWith();
+      await edit.click();
+      expect(calls.onEditPhrase).toHaveBeenCalledOnce();
+    });
+
+    test("offers Edit phrase alone without a proposal", async () => {
+      const { props, calls } = withPhrase({ state: "none" });
+      const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+      const edit = screen.getByRole("button", { name: "Edit phrase" });
+      await expect.element(edit).toHaveTextContent("Edit phrase");
+      expect(
+        screen.getByRole("button", { name: "Save phrase" }).query(),
+      ).toBeNull();
+      await edit.click();
+      expect(calls.onEditPhrase).toHaveBeenCalledOnce();
+    });
+
+    test("edits: the field starts with the text and saves what is typed; Cancel leaves it", async () => {
+      const { props, calls } = withPhrase({
+        state: "editing",
+        text: "kicked the",
+      });
+      const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+      const field = screen.getByRole("textbox", { name: "Phrase" });
+      await expect.element(field).toHaveValue("kicked the");
+      // Focused in the shadow root, its text selected.
+      const input = field.element() as HTMLInputElement;
+      expect((input.getRootNode() as ShadowRoot).activeElement).toBe(input);
+      expect([input.selectionStart, input.selectionEnd]).toEqual([0, 10]);
+      await userEvent.fill(field, "kicked the bucket");
+      await screen.getByRole("button", { name: "Save phrase" }).click();
+      expect(calls.onSavePhrase).toHaveBeenCalledWith("kicked the bucket");
+      await userEvent.keyboard("{Enter}");
+      expect(calls.onSavePhrase).toHaveBeenCalledTimes(2);
+      await screen.getByRole("button", { name: "Cancel" }).click();
+      expect(calls.onCancelPhrase).toHaveBeenCalledOnce();
+    });
+
+    test("says why the phrase typed cannot be saved, until it is changed", async () => {
+      const { props } = withPhrase({
+        state: "editing",
+        text: "put the bag away",
+        problem: { text: "put the bag away", why: "sentence" },
+      });
+      const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+      const alert = screen.getByRole("alert");
+      await expect.element(alert).toHaveTextContent("Not in this sentence.");
+      expect(style(alert.element())).toMatchObject({
+        fontSize: "12px",
+        color: "rgb(180, 35, 24)",
+      });
+      const field = screen.getByRole("textbox", { name: "Phrase" });
+      await expect.element(field).toHaveAttribute("aria-invalid", "true");
+      await userEvent.type(field, "s");
+      expect(screen.getByRole("alert").query()).toBeNull();
+      await expect.element(field).toHaveAttribute("aria-invalid", "false");
+    });
+
+    test("says a phrase needs two words", async () => {
+      const { props } = withPhrase({
+        state: "editing",
+        text: "mind",
+        problem: { text: "mind", why: "words" },
+      });
+      const screen = await mountInShadowRoot(<DictionaryWindow {...props} />);
+      await expect
+        .element(screen.getByRole("alert"))
+        .toHaveTextContent("Two words or more.");
+    });
+  });
+
   test("tags the meaning the answer names Fits here", async () => {
     const { props } = withExplain({ state: "answer", answer: ANSWER });
     const screen = await mountInShadowRoot(

@@ -162,6 +162,22 @@ export type Request =
       start: number;
       end: number;
     }
+  /**
+   * A phrase for words selected at `start`–`end` of `sentence` (the on-device AI's
+   * proposal, or what the user typed), in dictionary form: kept only when, saved, it
+   * would be highlighted in the sentence over the selection (`core/phrases/correct.ts`).
+   * `proposal`: the model's, which must also correct the selection (not repeat it)
+   * and be a phrase the dictionary lists.
+   */
+  | {
+      type: "checkPhrase";
+      lang: string;
+      sentence: string;
+      start: number;
+      end: number;
+      text: string;
+      proposal?: boolean;
+    }
   /** Loads the dictionary into the native language ahead of the first lookup. */
   | { type: "warmDictionary"; lang: string }
   /**
@@ -426,6 +442,15 @@ interface ResponseMap {
    * included (the match may reach past the selection). Empty when no pattern matches.
    */
   matchSelection: { key?: string; start?: number; end?: number };
+  /**
+   * The key the phrase is saved under and where it is in the sentence; or why it cannot
+   * be ("words": fewer than two; "sentence": not here over the selection; "same": a
+   * proposal that only repeats the selection; "dictionary": a proposal the dictionary
+   * does not list).
+   */
+  checkPhrase:
+    | { key: string; start: number; end: number }
+    | { why: "words" | "sentence" | "same" | "dictionary" };
   warmDictionary: null;
   lookup: LookupResult;
   saveTerm: TermRecord;

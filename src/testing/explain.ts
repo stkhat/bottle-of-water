@@ -35,10 +35,14 @@ export interface FakeProviderOptions {
 export const answerJson = ({
   meaning = "意味",
   sense = null,
+  phrase,
 }: {
   meaning?: string;
   sense?: number | null;
-} = {}) => JSON.stringify({ meaning, sense });
+  /** For selected words (`PHRASE_ANSWER_SCHEMA`). */
+  phrase?: string;
+} = {}) =>
+  JSON.stringify({ meaning, sense, ...(phrase !== undefined && { phrase }) });
 
 /** Rejects with the signal's reason once it aborts. */
 const aborted = (signal: AbortSignal) =>
@@ -64,6 +68,8 @@ export function fakeExplanationProvider(options: FakeProviderOptions = {}) {
     measured: [] as string[],
     /** Every prompt, in order. */
     prompts: [] as string[],
+    /** Each prompt's schema, in order. */
+    schemas: [] as object[],
     /** Prompts that were aborted. */
     aborted: 0,
     /** What `onStarting` was told, in order. */
@@ -106,9 +112,10 @@ export function fakeExplanationProvider(options: FakeProviderOptions = {}) {
           log.measured.push(text);
           return measure(text);
         },
-        async prompt(text, _schema, signal) {
+        async prompt(text, schema, signal) {
           signal.throwIfAborted();
           log.prompts.push(text);
+          log.schemas.push(schema);
           const next = answers.length > 1 ? answers.shift()! : answers[0]!;
           const answer =
             next === HANG

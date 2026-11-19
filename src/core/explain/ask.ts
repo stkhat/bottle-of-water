@@ -4,14 +4,21 @@
  */
 import {
   ANSWER_SCHEMA,
+  answerSchema,
   checkAnswer,
+  PHRASE_ANSWER_SCHEMA,
   type Answer,
   type BadAnswer,
 } from "./answer";
 import type { LanguagePair } from "../packs/pairs";
 import { fnv1a64 } from "../url";
 import { fitContext } from "./context";
-import { instructions, type ExplainInput } from "./prompt";
+import {
+  instructions,
+  proposesPhrase,
+  selectedNote,
+  type ExplainInput,
+} from "./prompt";
 import type { ExplanationProvider } from "./provider";
 
 /** The model answered badly twice. */
@@ -35,8 +42,17 @@ export interface Explained {
  * in the cache key next to the provider's version, so a changed prompt asks again
  * instead of showing answers kept from the one before.
  */
-export const answerVersion = (pair: LanguagePair) =>
-  fnv1a64(`${instructions(pair)}\n${JSON.stringify(ANSWER_SCHEMA)}`);
+export const answerVersion = (
+  input: LanguagePair & Pick<ExplainInput, "selected">,
+) => {
+  const base = `${instructions(input)}\n${JSON.stringify(ANSWER_SCHEMA)}`;
+  // Selected words' answers carry the phrase: their own version, so a kept answer
+  // made without it is not shown for a selection (and the other way round).
+  if (!proposesPhrase(input)) return fnv1a64(base);
+  return fnv1a64(
+    `${base}\n${selectedNote(input)}\n${JSON.stringify(PHRASE_ANSWER_SCHEMA)}`,
+  );
+};
 
 /** Times an answer is asked for: once, and once again when it is bad. */
 const ATTEMPTS = 2;
@@ -56,14 +72,19 @@ export async function ask(
 ): Promise<Explained> {
   const pair = { learning: input.learning, native: input.native };
   const system = instructions(pair);
+  const phrase = proposesPhrase(input);
   let fitted: { prompt: string; lines: number } | undefined;
   let why: BadAnswer = "notJson";
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const session = await provider.session(pair, system, signal, onStarting);
     try {
       fitted ??= await fitContext(input, session, signal);
-      const json = await session.prompt(fitted.prompt, ANSWER_SCHEMA, signal);
-      const checked = checkAnswer(json, input.senses.length);
+      const json = await session.prompt(
+        fitted.prompt,
+        answerSchema(phrase),
+        signal,
+      );
+      const checked = checkAnswer(json, input.senses.length, phrase);
       if (checked.ok) return { answer: checked.answer, lines: fitted.lines };
       why = checked.why;
     } finally {

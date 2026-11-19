@@ -39,6 +39,11 @@ export interface ExplainInput extends LanguagePair {
   before: readonly string[];
   /** Whole lines after the sentence, the nearest first. */
   after: readonly string[];
+  /**
+   * The user selected the words by hand: the answer also proposes the phrase they are
+   * part of (`selectedNote`, `PHRASE_ANSWER_SCHEMA`).
+   */
+  selected?: boolean;
 }
 
 const NAMES = new Intl.DisplayNames(["en"], { type: "language" });
@@ -133,8 +138,62 @@ export function alternate(x: Pick<ExplainInput, "before" | "after">): Around[] {
   return out;
 }
 
+/**
+ * What a prompt for selected words adds at its end (notes "Correcting a selected
+ * phrase"): the selection may be off by a word, so the model first names the whole
+ * expression in dictionary form, with the language's slots. In the prompt, not the
+ * instructions, so the base session and the answers for other terms stay as they are.
+ */
+export function selectedNote({
+  learning,
+  native,
+}: LanguagePair): string | undefined {
+  if (!Object.hasOwn(PHRASE_FORMS, learning)) return undefined;
+  const own = PHRASE_FORMS[learning]!;
+  const mind = (
+    nativeLanguage(native)?.examples ?? NATIVE_LANGUAGES.en.examples
+  ).mind;
+  return [
+    `The learner selected the marked words by hand, so they may be too many or too few for the expression they mean.`,
+    `After "sense", also answer "phrase": the fixed expression (an idiom, a phrasal verb, a set phrase) that the marked words are part of or overlap, written as a dictionary lists it: ${own.form} "" when the marked words are not part of a fixed expression.`,
+    `Example: for "${own.example.sentence}" the phrase is "${own.example.phrase}" and the meaning ${mind}.`,
+  ].join("\n");
+}
+
+/**
+ * How a learning language's dictionary writes a phrase (its slots, as `PhraseRules`
+ * has them), and a selection a word off one, whose meaning is the native language's
+ * `examples.mind`. A language without them gets no proposal: the user can still type
+ * the phrase.
+ */
+const PHRASE_FORMS: Readonly<
+  Record<
+    string,
+    { form: string; example: { sentence: string; phrase: string } }
+  >
+> = {
+  en: {
+    form: `verbs in the base form; "one's" for a possessive (my, his, her, their), "someone" or "something" for an object (him, her, them, it), "oneself" for myself, herself and the like; every other word as it is in the sentence.`,
+    example: {
+      sentence: "She finally [[made up her]] mind.",
+      phrase: "make up one's mind",
+    },
+  },
+};
+
+/** The answer proposes a phrase: selected words, in a language with a note. */
+export const proposesPhrase = (
+  x: LanguagePair & Pick<ExplainInput, "selected">,
+) => x.selected === true && selectedNote(x) !== undefined;
+
 /** The prompt with the `lines` nearest lines around the sentence, in text order. */
 export function buildPrompt(x: ExplainInput, lines: number): string {
+  const prompt = withLines(x, lines);
+  return proposesPhrase(x) ? `${prompt}\n${selectedNote(x)}` : prompt;
+}
+
+/** The term, its sentence and the `lines` nearest lines around it, in text order. */
+function withLines(x: ExplainInput, lines: number): string {
   const taken = alternate(x).slice(0, lines);
   const text = head(x);
   if (taken.length === 0) return text;
