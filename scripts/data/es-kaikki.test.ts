@@ -7,12 +7,21 @@ import {
   buildEsPacks,
   byTreebank,
   byTreebankTags,
+  partsOfSpeech,
   pointerMeaning,
+  quotedMeaning,
+  spanishPhraseBuild,
+  translationFirst,
   withoutHeadLabels,
   writeEsPacks,
   type EsPacks,
 } from "./es-kaikki.ts";
 import type { LemmaCounts } from "./es-tagger.ts";
+import {
+  importPhrases,
+  type PatternVerdict,
+  type PhraseBuildLanguage,
+} from "./phrases.ts";
 
 const counts = (
   byForm: Record<string, number> = {},
@@ -47,7 +56,7 @@ const forms = [
 ];
 // Base ranks: de 1, la 2, el 3, comer 4, casa 5, casar 6, hablar 7, tomar 8, pelo 9,
 // rosa 10, a 11. "brasil" has only a proper-noun entry, so it is not a vocabulary word.
-const options = { commonRank: 4 };
+const options = { phraseScoring: { stopwords: { gloss: 4, function: 2 } } };
 
 describe("buildEsPacks", () => {
   let packs: EsPacks;
@@ -160,28 +169,29 @@ describe("buildEsPacks", () => {
     expect(packs.defs).not.toHaveProperty("casas");
     expect(packs.defs).not.toHaveProperty("zapato");
   });
-  it("detects idiomatic and phrase entries of vocabulary words and forms with a word outside the common ranks", () => {
-    expect(packs.phrases.detect).toEqual([
+  it("makes every multi-word entry of vocabulary words, forms and slots a pattern, whatever their ranks (B1)", () => {
+    // Without examples nothing is detected: the score needs the example corpus.
+    expect(packs.phrases.detect).toEqual([]);
+    expect(packs.phrases.more).toEqual([
+      "de la",
       "de la casa",
       "de pelos",
       "tomar el pelo",
+      "tomar el pelo a alguien",
     ]);
     expect(packs.defs["tomar el pelo"]).toEqual([
       "to pull someone's leg",
       [["verb", "to pull someone's leg; to tease"]],
     ]);
-  });
-  it("ranks a form outside the vocabulary as its base", () => {
-    // "pelos" ranks as "pelo" (9), outside the common ranks (4).
-    expect(packs.phrases.detect).toContain("de pelos");
     expect(packs.defs["de pelos"]?.[0]).toBe("great, awesome");
   });
-  it("keeps patterns with a slot apart, defined, for selections only", () => {
-    expect(packs.phrases.more).toEqual(["tomar el pelo a alguien"]);
+  it("leaves out non-constituents and entries with a word outside the vocabulary", () => {
+    expect(packs.defs).not.toHaveProperty("comer la casa");
+    expect(packs.defs).not.toHaveProperty("tomar el zapato");
+  });
+  it("gives the patterns their parts of speech and no gaps", () => {
+    expect(packs.phrases.pos?.more).toBe("h h h v v");
     expect(packs.phrases.gap).toEqual([]);
-    expect(packs.defs["tomar el pelo a alguien"]?.[0]).toBe(
-      "to pull someone's leg",
-    );
   });
   it("merges phrase entries that differ only in case", () => {
     expect(packs.defs["de la casa"]?.[1]).toEqual([
@@ -228,9 +238,9 @@ describe("buildEsPacks", () => {
       moreForms: 1,
       moreWords: 0,
       ipa: 10,
-      detect: 3,
-      more: 1,
-      terms: 15,
+      detect: 0,
+      more: 5,
+      terms: 16,
     });
   });
 });
@@ -437,6 +447,189 @@ describe("byTreebankTags", () => {
   });
 });
 
+describe("partsOfSpeech", () => {
+  const tags = counts({}, {}, { "una DET": 9, "una PRON": 2, "una VERB": 1 });
+  it("adds the closed classes of a word's form-of senses that the treebanks tag it with", () => {
+    expect(
+      partsOfSpeech("una", ["pronoun"], ["article", "noun", "verb"], tags),
+    ).toEqual(["article", "pronoun"]);
+  });
+  it("adds none the treebanks do not give, nor a content word's", () => {
+    expect(partsOfSpeech("una", ["pronoun"], ["determiner"], counts())).toEqual(
+      ["pronoun"],
+    );
+    expect(partsOfSpeech("una", ["pronoun"], ["verb"], tags)).toEqual([
+      "pronoun",
+    ]);
+  });
+});
+
+describe("translationFirst", () => {
+  it("puts a closed-class word's translation before the description of its grammar", () => {
+    expect(translationFirst("feminine plural definite article; the")).toBe(
+      "the; feminine plural definite article",
+    );
+    expect(
+      translationFirst(
+        "first-person singular pronoun in the nominative case; I",
+      ),
+    ).toBe("I; first-person singular pronoun in the nominative case");
+    expect(
+      translationFirst(
+        "A reflexive or reciprocal pronoun: oneself, himself; themselves",
+      ),
+    ).toBe("oneself, himself; themselves; A reflexive or reciprocal pronoun");
+  });
+  it("leaves a gloss that starts with a translation or gives none", () => {
+    for (const gloss of [
+      "them; accusative of ellos",
+      "you (second-person singular pronoun)",
+      "plural masculine or neuter pronoun",
+      "with",
+    ])
+      expect(translationFirst(gloss)).toBe(gloss);
+  });
+});
+
+describe("quotedMeaning", () => {
+  it("reads the quoted gloss of a pointer's target", () => {
+    expect(quotedMeaning("masculine plural of el (“the”)")).toBe(
+      "the; masculine plural of el",
+    );
+    expect(quotedMeaning("plural of casa")).toBeUndefined();
+  });
+});
+
+describe("buildEsPacks: closed-class meanings", () => {
+  const phraseFixture = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-es-phrases.jsonl",
+  );
+  let packs: EsPacks;
+  beforeAll(async () => {
+    packs = await buildEsPacks(
+      phraseFixture,
+      ["el", "los", "lo", "una", "un"],
+      {
+        treebank: counts({}, {}, { "una DET": 9, "una PRON": 2 }),
+      },
+    );
+  });
+  it("leads with the translation a closed-class gloss gives after its description", () => {
+    expect(packs.defs.el).toEqual([
+      "the",
+      [["article", "the; masculine singular definite article"]],
+    ]);
+    expect(packs.defs.lo?.[1][1]).toEqual([
+      "article",
+      "the, that which is; neuter definite article used only before nominalized adjectives",
+    ]);
+  });
+  it("gives a closed-class form its target's quoted gloss, and both classes", () => {
+    expect(packs.defs.los).toEqual([
+      "the",
+      [
+        ["article", "the; masculine plural of el"],
+        ["pronoun", "them; accusative of ellos"],
+      ],
+    ]);
+    expect(packs.pos.los).toEqual(["article", "pronoun"]);
+    // "una" is only a form of un as an article: the treebanks' class, no meaning.
+    expect(packs.defs.una).toEqual(["one", [["pronoun", "one"]]]);
+    expect(packs.pos.una).toEqual(["article", "pronoun"]);
+  });
+});
+
+describe("buildEsPacks: phrases with the Spanish settings (B1, B2, B2b, B4)", () => {
+  const phraseFixture = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-es-phrases.jsonl",
+  );
+  // The Spanish edition's examples ("estamos de acuerdo"), and an English entry's.
+  const editionFixture = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-es-phrases-edition.jsonl",
+  );
+  const phraseForms = [
+    ...["de", "la", "el", "que", "a", "lo", "los", "por", "ya", "una", "un"],
+    ...["estar", "estamos", "casa", "vez", "veces", "tomar", "pelo", "gato"],
+    ...["acuerdo", "supuesto", "través", "alguien"],
+  ];
+  // The fixture's gloss vocabulary is small: its few most frequent tokens are its
+  // stopwords.
+  const stopwords = { gloss: 4, function: 2 };
+  let packs: EsPacks;
+  beforeAll(async () => {
+    packs = await buildEsPacks(phraseFixture, phraseForms, {
+      casePaths: [editionFixture],
+      phraseScoring: { stopwords },
+    });
+  });
+  const verdicts = async (
+    change: Partial<PhraseBuildLanguage> = {},
+    examples = [phraseFixture, editionFixture],
+  ) =>
+    (
+      await importPhrases(phraseFixture, {
+        vocab: packs.vocab,
+        lemmas: packs.lemmas,
+        dict: {},
+        build: { ...spanishPhraseBuild(packs.pos, packs.lemmas), ...change },
+        examples,
+        stopwords,
+      })
+    ).verdicts;
+
+  it("detects patterns of accented words by their score over the example corpus", () => {
+    expect(packs.phrases.detect).toEqual([
+      "a través de",
+      "por supuesto",
+      "ya que",
+    ]);
+    expect(packs.defs["a través de"]).toEqual([
+      "through, across",
+      [["prepositional phrase", "through, across"]],
+    ]);
+    expect(packs.phrases.pos?.detect).toBe("P r c");
+  });
+  it("keeps patterns with a Spanish slot or starting with an auxiliary for selections", () => {
+    expect(packs.phrases.more).toContain("tomar el pelo a alguien");
+    expect(packs.phrases.more).toContain("estar de acuerdo");
+  });
+  it("detects no pattern of closed-class words only, whatever its score", async () => {
+    expect(packs.phrases.more).toContain("lo que");
+    const without = await verdicts({ closedClass: undefined });
+    expect(without.find((v) => v.key === "lo que")?.detect).toBe(true);
+  });
+  it("reads a word's first 3 senses for the gloss bag", async () => {
+    // "ya": already, now, right away, since, finally.
+    // Its sense "since, because" against its words' bags.
+    const overlap = (found: PatternVerdict[]) => {
+      const { evidence } = found.find((v) => v.key === "ya que")!;
+      return evidence.overlap(evidence.senses[0]!);
+    };
+    expect(overlap(await verdicts())).toBe(0);
+    expect(overlap(await verdicts({ wordSenses: 12 }))).toBe(0.5);
+  });
+  it("counts the Spanish examples of both editions", async () => {
+    const count = (found: PatternVerdict[], key: string) =>
+      found.find((v) => v.key === key)!.evidence.count;
+    const both = await verdicts();
+    const one = await verdicts({}, [phraseFixture]);
+    expect(count(both, "estar de acuerdo")).toBe(1);
+    expect(count(one, "estar de acuerdo")).toBe(0);
+    // The edition's English entry does not count.
+    expect(count(both, "por supuesto")).toBe(3);
+  });
+  it("leaves out unattested nouns and entries with a word outside the vocabulary", () => {
+    expect(packs.defs).not.toHaveProperty("gato de la casa");
+    expect(packs.defs).not.toHaveProperty("de vez en cuando");
+  });
+});
+
 describe("the names lexicon (rule D)", () => {
   const namesFixture = join(
     import.meta.dirname,
@@ -515,8 +708,9 @@ describe("writeEsPacks", () => {
   });
   it("writes the phrase patterns as lists, one pattern per line", () => {
     expect(readFileSync(join(dir, "es", "phrases.json"), "utf8")).toBe(
-      '{\n"detect":[\n"de la casa",\n"de pelos",\n"tomar el pelo"\n],\n' +
-        '"gap":[],\n"more":[\n"tomar el pelo a alguien"\n]\n}\n',
+      '{\n"detect":[],\n"gap":[],\n"intransitive":[],\n"more":[\n"de la",\n' +
+        '"de la casa",\n"de pelos",\n"tomar el pelo",\n"tomar el pelo a alguien"\n],\n' +
+        '"pos":{\n"detect":"",\n"more":"h h h v v"\n}\n}\n',
     );
   });
   it("shards the lemma table with an index, as a dictionary", () => {

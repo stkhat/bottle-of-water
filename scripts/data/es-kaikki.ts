@@ -3,7 +3,8 @@
 // data/packs/es/lemmas/{index,dict-<n>}.json and data/packs/es-en/{index,dict-<n>}.json
 // (then run npm run data:publish)
 // The Spanish Wiktionary extract (kaikki-es-edition.jsonl) gives only its examples, which
-// say how Spanish writes each name (`MOSTLY_CAPITALISED`).
+// say how Spanish writes each name (`MOSTLY_CAPITALISED`) and, with kaikki-es's own,
+// make the phrase build's example corpus (`importPhrases`, rule B2).
 // Usage: node scripts/data/es-kaikki.ts [path]   (default data/raw/kaikki-es.jsonl; run es-frequency.ts first)
 import { rmSync } from "node:fs";
 import { join } from "node:path";
@@ -26,11 +27,18 @@ import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.ts";
 import { treebankLemmas, type LemmaCounts } from "./es-tagger.ts";
 import { buildFrequency } from "./frequency.ts";
 import { createCaseCounter } from "./examples.ts";
+import { ENGLISH_PHRASES } from "./idiomaticity.ts";
 import { createNames } from "./kaikki.ts";
-import { glossOf, isNonConstituent, isUsable } from "./phrases.ts";
+import {
+  glossOf,
+  importPhrases,
+  isUsable,
+  type PhraseBuildLanguage,
+  type PhraseInputs,
+} from "./phrases.ts";
 
 const KAIKKI_ES_PATH = join(RAW_DIR, "kaikki-es.jsonl");
-/** The Spanish Wiktionary extract: its examples only (`MOSTLY_CAPITALISED`). */
+/** The Spanish Wiktionary extract: its examples only (`MOSTLY_CAPITALISED`, rule B2). */
 const KAIKKI_ES_EDITION_PATH = join(RAW_DIR, "kaikki-es-edition.jsonl");
 /**
  * A name the examples write capitalised inside a sentence at least this many times as
@@ -40,33 +48,62 @@ const KAIKKI_ES_EDITION_PATH = join(RAW_DIR, "kaikki-es-edition.jsonl");
  */
 const MOSTLY_CAPITALISED = 2;
 const MIN_CAPITALISED = 3;
-/** kaikki parts of speech whose entries are phrases. */
-const PHRASE_POS: ReadonlySet<string> = new Set(["phrase", "prep_phrase"]);
 /**
- * A phrase or prepositional-phrase entry counts only when a literal word is rarer than
- * this rank ("de la" does not). English decides by its idiomaticity score instead
- * (`idiomaticity.ts`); Spanish keeps the rank rule until its example corpus is larger.
+ * Closed classes whose words name no thing, quality or action: a phrase pattern of
+ * these only is not detected ("lo que"; `closedClass`).
  */
-const PHRASE_COMMON_RANK = 1000;
+const GRAMMAR_CLASSES: ReadonlySet<string> = new Set([
+  "pronoun",
+  "article",
+  "determiner",
+  "conjunction",
+]);
+/** The closed classes, prepositions included: function words. */
+const CLOSED_CLASSES: ReadonlySet<string> = new Set([
+  ...GRAMMAR_CLASSES,
+  "preposition",
+  "contraction",
+]);
+/**
+ * Senses of a word read for a phrase's gloss bag: its first ones. kaikki-es glosses a
+ * function word with every phrase it makes ("de": of, from, about…; "sobre todo" and
+ * "ya que" would look explained by their words).
+ */
+const PHRASE_WORD_SENSES = 3;
 
-/** The rank of a word as its most common base when it is not a vocabulary word. */
-function rankOfWord(
-  ranks: ReadonlyMap<string, number>,
-  vocab: ReadonlySet<string>,
+/**
+ * The phrase build's LEARNING settings for Spanish (`PhraseBuildLanguage`): its words
+ * (accented lowercase letters), Wiktionary's slots ("tomar el pelo a alguien"), the
+ * auxiliaries whose patterns are not detected (detection matches by base: "estar en"
+ * would match every "está en"), and its closed classes from the words' main parts of
+ * speech (`pos`; a form outside the vocabulary takes its first base's).
+ */
+export function spanishPhraseBuild(
+  pos: Readonly<Record<string, readonly string[]>>,
   lemmas: Readonly<Record<string, string | readonly string[]>>,
-) {
-  return (word: string) =>
-    ranks.get(word) ??
-    (vocab.has(word)
-      ? Infinity
-      : Math.min(
-          ...[Object.hasOwn(lemmas, word) ? lemmas[word]! : []]
-            .flat()
-            .map((b) => ranks.get(b) ?? Infinity),
-        ));
+): PhraseBuildLanguage {
+  const main = (word: string) => {
+    if (Object.hasOwn(pos, word)) return pos[word]![0];
+    const base = Object.hasOwn(lemmas, word)
+      ? [lemmas[word]!].flat()[0]
+      : undefined;
+    return base !== undefined && Object.hasOwn(pos, base)
+      ? pos[base]![0]
+      : undefined;
+  };
+  return {
+    lang: "es",
+    slots: new Set(SPANISH_RULES.slots.keys()),
+    slotSpellings: new Map(),
+    auxiliaries: new Set(["ser", "estar", "haber"]),
+    word: /^\p{Ll}+$/u,
+    wordSenses: PHRASE_WORD_SENSES,
+    functionWord: (word) =>
+      Object.hasOwn(pos, word) && CLOSED_CLASSES.has(pos[word]![0] ?? ""),
+    closedClass: (key) =>
+      key.split(" ").every((word) => GRAMMAR_CLASSES.has(main(word) ?? "")),
+  };
 }
-/** Wiktionary's slot words ("tomar el pelo a alguien"). */
-const SLOT_WORDS: ReadonlySet<string> = new Set(SPANISH_RULES.slots.keys());
 const WORD = /^\p{L}+$/u;
 const FREQ_TOP = 30000;
 const MAX_SENSES = 6;
@@ -254,11 +291,68 @@ export function pointerMeaning(gloss: string): string | undefined {
  * target's meaning (`buildEsPacks`).
  */
 export function altMeaning(gloss: string): string | undefined {
+  return pointerMeaning(gloss) ?? quotedMeaning(gloss);
+}
+
+/**
+ * The quoted gloss of a pointer's one-word target, put first: "masculine plural of el
+ * (“the”)" → "the; masculine plural of el". Undefined without one.
+ */
+export function quotedMeaning(gloss: string): string | undefined {
   const quoted = /^(.*?\bof\s+[^\s,;:()]+)\s*\(“([^”]+)”\)\s*$/u.exec(gloss);
-  return (
-    pointerMeaning(gloss) ??
-    (quoted ? `${quoted[2]!.trim()}; ${quoted[1]!.trim()}` : undefined)
-  );
+  return quoted ? `${quoted[2]!.trim()}; ${quoted[1]!.trim()}` : undefined;
+}
+
+/**
+ * A part of a closed-class gloss that describes the word's grammar rather than
+ * translating it: it names a part of speech ("feminine plural definite article",
+ * "first-person singular pronoun in the nominative case").
+ */
+const GRAMMAR_NAME =
+  /\b(?:article|pronoun|determiner|preposition|conjunction|contraction)s?\b/i;
+
+/** The parts of a gloss split at each `separator` outside brackets and quotes. */
+function topLevelParts(gloss: string, separator: string) {
+  const parts: string[] = [];
+  let depth = 0;
+  let at = 0;
+  for (let i = 0; i < gloss.length; i++) {
+    const c = gloss[i]!;
+    if (OPENING.includes(c)) depth++;
+    else if (CLOSING.includes(c)) depth = Math.max(0, depth - 1);
+    else if (depth === 0 && c === separator) {
+      parts.push(gloss.slice(at, i));
+      at = i + 1;
+    }
+  }
+  parts.push(gloss.slice(at));
+  return parts.map((part) => part.trim()).filter(Boolean);
+}
+
+/**
+ * A closed-class gloss (article, determiner, pronoun, preposition, conjunction,
+ * contraction) with its translation first, as a content word's is: kaikki-es often
+ * describes such a word before translating it ("feminine plural definite article;
+ * the" → "the; feminine plural definite article"; "A reflexive or reciprocal pronoun:
+ * oneself, himself" → "oneself, himself; A reflexive or reciprocal pronoun"), and the
+ * hover line is the first part. The parts are split at ";" and, after a description,
+ * at ":"; a description names a part of speech (`GRAMMAR_NAME`). Unchanged when it
+ * already starts with a translation or gives none ("plural masculine or neuter
+ * pronoun").
+ */
+export function translationFirst(gloss: string): string {
+  const parts = topLevelParts(gloss, ";").flatMap((part) => {
+    const [head, ...rest] = topLevelParts(part, ":");
+    return rest.length > 0 && GRAMMAR_NAME.test(head!)
+      ? [head!, rest.join(": ")]
+      : [part];
+  });
+  const describes = (part: string) => GRAMMAR_NAME.test(part);
+  if (!describes(parts[0] ?? "") || parts.every(describes)) return gloss;
+  return [
+    ...parts.filter((part) => !describes(part)),
+    ...parts.filter(describes),
+  ].join("; ");
 }
 
 /**
@@ -282,8 +376,12 @@ interface SenseItem {
 function usableSenses(entry: KaikkiEntry): SenseItem[] {
   if (entry.pos === "name") return [];
   const pos = typeof entry.pos === "string" ? posLabel(entry.pos) : "";
+  const closed = CLOSED_CLASSES.has(pos);
   return (entry.senses ?? []).flatMap((sense): SenseItem[] => {
-    if (isUsable(sense)) return [{ def: [pos, glossOf(sense).trim()], sense }];
+    if (isUsable(sense)) {
+      const gloss = glossOf(sense).trim();
+      return [{ def: [pos, closed ? translationFirst(gloss) : gloss], sense }];
+    }
     const last: unknown = sense.glosses?.at(-1);
     const gloss = typeof last === "string" ? last.trim() : "";
     if (!gloss) return [];
@@ -301,7 +399,11 @@ function usableSenses(entry: KaikkiEntry): SenseItem[] {
     }
     if (!Array.isArray(sense.form_of)) return [];
     if ((sense.tags ?? []).some((tag) => UNUSABLE_TAGS.has(tag))) return [];
-    const meaning = pointerMeaning(gloss);
+    // A closed-class form translates as its base does: its target's quoted gloss is
+    // its meaning ("los": masculine plural of el (“the”)). Not a content word's: the
+    // quote glosses one sense of the base ("colas": … of colar (“to confer”)).
+    const meaning =
+      pointerMeaning(gloss) ?? (closed ? quotedMeaning(gloss) : undefined);
     return meaning ? [{ def: [pos, meaning], sense }] : [];
   });
 }
@@ -336,14 +438,40 @@ const TAGS_OF: Readonly<Record<string, readonly string[]>> = {
 export function byTreebankTags(
   word: string,
   labels: readonly string[],
-  { byTag }: LemmaCounts,
+  treebank: LemmaCounts,
 ): string[] {
-  const count = (label: string) =>
-    (Object.hasOwn(TAGS_OF, label) ? TAGS_OF[label]! : []).reduce(
-      (sum, tag) => sum + (byTag.get(`${word} ${tag}`) ?? 0),
-      0,
-    );
+  const count = (label: string) => taggedAs(word, label, treebank);
   return [...labels].sort((a, b) => count(b) - count(a));
+}
+
+/** How often the treebanks tag `word` with the tags of a dictionary part of speech. */
+function taggedAs(word: string, label: string, { byTag }: LemmaCounts) {
+  return (Object.hasOwn(TAGS_OF, label) ? TAGS_OF[label]! : []).reduce(
+    (sum, tag) => sum + (byTag.get(`${word} ${tag}`) ?? 0),
+    0,
+  );
+}
+
+/**
+ * A word's parts of speech (`pos.json`): those of its senses with a meaning, then the
+ * closed classes of its form-of senses that the treebanks tag it with ("una": the
+ * pronoun, and the determiner it is a form of uno as), the treebanks' most frequent
+ * first (`byTreebankTags`). A form-of sense of a closed class gives the word its
+ * grammar, which the fit and name rules read ("los Párrocos": a determiner), even
+ * when its meaning is its base's; a content word's form-of senses add nothing (the
+ * verb forms "una", "como" stay what their own senses say).
+ */
+export function partsOfSpeech(
+  word: string,
+  meant: Iterable<string>,
+  forms: Iterable<string>,
+  treebank: LemmaCounts,
+): string[] {
+  const labels = new Set(meant);
+  for (const label of forms)
+    if (CLOSED_CLASSES.has(label) && taggedAs(word, label, treebank) > 0)
+      labels.add(label);
+  return byTreebankTags(word, [...labels], treebank);
 }
 
 /**
@@ -393,22 +521,23 @@ export async function buildEsPacks(
   forms: string[],
   {
     freqTop = FREQ_TOP,
-    commonRank = PHRASE_COMMON_RANK,
     treebank = NO_LEMMAS,
     headRank = HEAD_RANK,
     casePaths = [],
+    phraseScoring = {},
   }: {
     freqTop?: number;
-    commonRank?: number;
     /** The treebanks' lemma counts (`treebankLemmas`), which order a form's bases. */
     treebank?: LemmaCounts;
     /** How many of `forms` are in current use (`withoutHeadLabels`). */
     headRank?: number;
     /**
-     * More extracts whose Spanish examples say how names are written (`path`'s own
-     * examples always count).
+     * More extracts whose Spanish examples say how names are written and make the
+     * phrase build's example corpus (`path`'s own examples always count).
      */
     casePaths?: readonly string[];
+    /** The phrase score's stopwords, for a small extract (`importPhrases`). */
+    phraseScoring?: Pick<PhraseInputs, "stopwords">;
   } = {},
 ) {
   /** The frequency list's forms in current use (`withoutHeadLabels`). */
@@ -427,10 +556,11 @@ export async function buildEsPacks(
     altBases: string[];
     /** The parts of speech of its senses, in the source's order. */
     pos: Set<string>;
+    /** The parts of speech of its form-of senses (only for exact spellings). */
+    formPos: Set<string>;
   }
   const exact = new Map<string, Bucket>();
   const folded = new Map<string, Bucket>();
-  const multiWord = new Map<string, { phrase: boolean; senses: Sense[] }>();
   const names = createNames();
   const cases = createCaseCounter("es");
   const stats = await eachEntry(path, (read) => {
@@ -440,24 +570,9 @@ export async function buildEsPacks(
     const word = read.word.trim();
     const lower = word.toLowerCase();
     const entry = inUse.has(lower) ? withoutHeadLabels(read) : read;
+    // Multi-word entries are the phrase build's (`importPhrases`).
+    if (/\s/.test(lower) || !WORD.test(lower)) return;
     const items = usableSenses(entry);
-    if (/\s/.test(lower)) {
-      const parts = lower.split(/\s+/);
-      if (!parts.every((part) => WORD.test(part)) || isNonConstituent(entry))
-        return;
-      const key = parts.join(" ");
-      let item = multiWord.get(key);
-      if (!item) multiWord.set(key, (item = { phrase: false, senses: [] }));
-      for (const { sense, def, alt } of items) {
-        if (alt) continue;
-        item.phrase ||=
-          (sense.tags ?? []).includes("idiomatic") ||
-          PHRASE_POS.has(entry.pos!);
-        item.senses.push(def);
-      }
-      return;
-    }
-    if (!WORD.test(lower)) return;
     const buckets = word === lower ? exact : folded;
     let bucket = buckets.get(lower);
     if (!bucket)
@@ -471,6 +586,7 @@ export async function buildEsPacks(
           bases: [],
           altBases: [],
           pos: new Set(),
+          formPos: new Set(),
         }),
       );
     for (const { def, alt } of items)
@@ -479,6 +595,8 @@ export async function buildEsPacks(
     if (word === lower) {
       const bases = pointerBases(entry, false);
       bucket.form ||= bases.length > 0;
+      if (bases.length > 0 && typeof entry.pos === "string")
+        bucket.formPos.add(posLabel(entry.pos));
       bucket.bases.push(...bases);
       bucket.altBases.push(...pointerBases(entry, true));
     }
@@ -591,8 +709,13 @@ export async function buildEsPacks(
     if (wordIpa) ipa[word] = wordIpa;
     const bucket = meaningOf(word)!;
     defs[word] = definition(bucket.senses);
-    if (bucket.pos.size > 0)
-      pos[word] = byTreebankTags(word, [...bucket.pos], treebank);
+    const labels = partsOfSpeech(
+      word,
+      bucket.pos,
+      exact.get(word)?.formPos ?? [],
+      treebank,
+    );
+    if (labels.length > 0) pos[word] = labels;
   }
   // A form that is a vocabulary word ranks only itself: "para", "pero" and "como" would
   // otherwise put parar, perar and comer among the most common words.
@@ -605,33 +728,27 @@ export async function buildEsPacks(
     freqTop,
   );
 
-  // Phrase patterns: each word is a slot, a vocabulary word or a listed form. The rank
-  // threshold looks at the literal words only, and ranks a form outside the vocabulary
-  // as its most common base.
-  const isPatternWord = (w: string) =>
-    SLOT_WORDS.has(w) || vocabSet.has(w) || Object.hasOwn(lemmas, w);
-  const rankOf = rankOfWord(
-    new Map(freq.map((word, i) => [word, i + 1])),
-    vocabSet,
+  // Phrase patterns as English's (rules B1, B2, B2b, B4), with the Spanish settings:
+  // every multi-word entry with a sense of its own whose words are vocabulary words,
+  // forms or slots; highlighted by the idiomaticity score over the example corpus of
+  // both editions. Each is defined by its senses, best first (rule C2).
+  const built = await importPhrases(path, {
+    vocab,
     lemmas,
-  );
-  const detect: string[] = [];
-  const more: string[] = [];
-  for (const [key, item] of multiWord) {
-    if (!item.phrase) continue;
-    const words = key.split(" ");
-    if (!words.every(isPatternWord)) continue;
-    const literals = words.filter((w) => !SLOT_WORDS.has(w));
-    if (literals.length === 0) continue;
-    if (Math.max(...literals.map(rankOf)) <= commonRank) continue;
-    (literals.length < words.length ? more : detect).push(key);
-    defs[key] = definition(item.senses);
+    dict: {},
+    language: ENGLISH_PHRASES,
+    build: spanishPhraseBuild(pos, lemmas),
+    examples: [path, ...casePaths],
+    ...phraseScoring,
+  });
+  const { phrases } = built;
+  for (const { key, evidence } of built.verdicts) {
+    const senses = evidence.senses.map(({ pos: label, gloss }): Sense => [
+      posLabel(label),
+      gloss,
+    ]);
+    if (senses.length > 0) defs[key] = definition(senses);
   }
-  const phrases = {
-    detect: detect.sort(byCodeUnit),
-    more: more.sort(byCodeUnit),
-    gap: [],
-  };
 
   return {
     freq,
@@ -652,8 +769,8 @@ export async function buildEsPacks(
       ipa: Object.keys(ipa).length,
       pos: Object.keys(pos).length,
       reordered,
-      detect: detect.length,
-      more: more.length,
+      detect: phrases.detect.length,
+      more: phrases.more.length,
       terms: Object.keys(defs).length,
       names: Object.keys(namesPack).length,
       capitalisedNames: Object.values(namesPack).filter((kinds) =>
