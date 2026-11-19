@@ -1,0 +1,170 @@
+// kaikki.org English Wiktionary's French entries (CC BY-SA), the French frequency list
+// (fr-frequency.ts) and UD French GSD's lemmas (fr-treebank.ts) →
+// data/packs/fr/{freq,vocab,ipa,pos,phrases,names}.json,
+// data/packs/fr/lemmas/{index,dict-<n>}.json and data/packs/fr-en/{index,dict-<n>}.json
+// (then run npm run data:publish). The build is the learning-pack build Spanish uses
+// (learning-kaikki.ts) with French's settings.
+// The French Wiktionary extract (Wiktionnaire, kaikki-fr-edition.jsonl, 6.9 GB) gives
+// its examples, which say how French writes each name and, with kaikki-fr's own, make
+// the phrase build's example corpus, and the IPA of the words English Wiktionary has
+// none for. Its French entries are first cut to those two parts, once, into
+// kaikki-fr-edition-slim.jsonl.
+// Usage: node scripts/data/fr-kaikki.ts [path]   (default data/raw/kaikki-fr.jsonl)
+import { createWriteStream, existsSync, renameSync } from "node:fs";
+import { join } from "node:path";
+import { FRENCH_RULES } from "../../src/core/phrases/fr.ts";
+import { eachEntry, RAW_DIR, type KaikkiEntry } from "./common.ts";
+import {
+  FR_FORMS,
+  FRENCH_WORD,
+  frenchForms,
+  readFrFrequency,
+} from "./fr-frequency.ts";
+import { frenchReadWhole, frenchTreebankLemmas } from "./fr-treebank.ts";
+import {
+  buildLearningPacks,
+  buildSummary,
+  CLOSED_CLASSES,
+  GRAMMAR_CLASSES,
+  writeLearningPacks,
+  type LearningBuild,
+} from "./learning-kaikki.ts";
+import type { PhraseBuildLanguage } from "./phrases.ts";
+
+const KAIKKI_FR_PATH = join(RAW_DIR, "kaikki-fr.jsonl");
+const KAIKKI_FR_EDITION_PATH = join(RAW_DIR, "kaikki-fr-edition.jsonl");
+/** The French edition's French entries, with only their examples and pronunciations. */
+const KAIKKI_FR_EDITION_SLIM_PATH = join(
+  RAW_DIR,
+  "kaikki-fr-edition-slim.jsonl",
+);
+/** Senses of a word read for a phrase's gloss bag, as Spanish's (`spanishPhraseBuild`). */
+const PHRASE_WORD_SENSES = 3;
+
+/**
+ * A French headword written with an apostrophe is a word of its own ("d'accord",
+ * "jusqu'à", "s'agir", "presqu'île") unless every sense of it is a contraction of the
+ * words the tokenizer splits it into ("qu'il": contraction of que + il; "c'est"; "n'ai")
+ * or a compound of them ("j'ai": compound of je and ai), as kaikki tags or glosses it.
+ */
+export function frenchOwnWord(entries: readonly KaikkiEntry[]): boolean {
+  return entries.some(
+    (entry) =>
+      entry.pos !== "name" &&
+      (entry.senses ?? []).some(
+        (sense) =>
+          !(sense.tags ?? []).includes("contraction") &&
+          !(sense.glosses ?? []).some(
+            (gloss) =>
+              typeof gloss === "string" && /\bcompound of\b/i.test(gloss),
+          ),
+      ),
+  );
+}
+
+/**
+ * The phrase build's LEARNING settings for French (`PhraseBuildLanguage`), as Spanish's:
+ * its words (`FRENCH_WORD`, lower case), the slot "quelqu'un", the auxiliaries whose
+ * patterns are not detected (être, avoir) and its closed classes.
+ */
+export function frenchPhraseBuild(
+  pos: Readonly<Record<string, readonly string[]>>,
+  lemmas: Readonly<Record<string, string | readonly string[]>>,
+): PhraseBuildLanguage {
+  const main = (word: string) => {
+    if (Object.hasOwn(pos, word)) return pos[word]![0];
+    const base = Object.hasOwn(lemmas, word)
+      ? [lemmas[word]!].flat()[0]
+      : undefined;
+    return base !== undefined && Object.hasOwn(pos, base)
+      ? pos[base]![0]
+      : undefined;
+  };
+  return {
+    lang: "fr",
+    slots: new Set(FRENCH_RULES.slots.keys()),
+    slotSpellings: new Map(),
+    auxiliaries: new Set(["être", "avoir"]),
+    word: /^\p{Ll}+(?:'\p{Ll}+)*'?$/u,
+    wordSenses: PHRASE_WORD_SENSES,
+    functionWordSenses: 1,
+    functionWord: (word) =>
+      Object.hasOwn(pos, word) && CLOSED_CLASSES.has(pos[word]![0] ?? ""),
+    closedClass: (key) =>
+      key.split(" ").every((word) => GRAMMAR_CLASSES.has(main(word) ?? "")),
+  };
+}
+
+/**
+ * French as the learning-pack build reads it. Its phrase patterns are only matched
+ * for saved phrases and selections until French's phrase rules (pronominal verbs,
+ * elisions inside patterns) are built and judged (L1-4).
+ */
+export const FRENCH_BUILD: LearningBuild = {
+  lang: "fr",
+  word: FRENCH_WORD,
+  ownWord: frenchOwnWord,
+  phraseBuild: frenchPhraseBuild,
+  selectOnlyPhrases: true,
+};
+
+/** A French entry of the edition cut to what the build reads of it: examples and IPA. */
+export function slimEntry(entry: KaikkiEntry): KaikkiEntry | undefined {
+  const senses = (entry.senses ?? []).flatMap((sense) => {
+    const examples = (sense as { examples?: unknown[] }).examples;
+    return Array.isArray(examples) && examples.length > 0 ? [{ examples }] : [];
+  });
+  const sounds = (entry.sounds ?? []).filter(
+    (sound) => typeof sound.ipa === "string",
+  );
+  if (senses.length === 0 && sounds.length === 0) return undefined;
+  return {
+    word: entry.word,
+    lang_code: entry.lang_code,
+    ...(entry.pos !== undefined && { pos: entry.pos }),
+    ...(senses.length > 0 && { senses }),
+    ...(sounds.length > 0 && {
+      sounds: sounds.map(({ ipa }) => ({ ipa })),
+    }),
+  } as KaikkiEntry;
+}
+
+/** Writes the slim edition once (`slimEntry` of each French entry). */
+async function slimEdition() {
+  if (existsSync(KAIKKI_FR_EDITION_SLIM_PATH)) return;
+  console.log(`Cutting ${KAIKKI_FR_EDITION_PATH} to its examples and IPA`);
+  const partial = `${KAIKKI_FR_EDITION_SLIM_PATH}.partial`;
+  const out = createWriteStream(partial);
+  await eachEntry(
+    KAIKKI_FR_EDITION_PATH,
+    (entry) => {
+      if (entry.lang_code !== "fr") return;
+      const slim = slimEntry(entry);
+      if (slim) out.write(`${JSON.stringify(slim)}\n`);
+    },
+    (line) => !line.includes('"lang_code": "fr"'),
+  );
+  await new Promise<void>((resolve, reject) =>
+    out.end((error?: Error | null) => (error ? reject(error) : resolve())),
+  );
+  renameSync(partial, KAIKKI_FR_EDITION_SLIM_PATH);
+}
+
+async function main() {
+  await slimEdition();
+  const forms = frenchForms(await readFrFrequency(FR_FORMS));
+  const packs = await buildLearningPacks(
+    { ...FRENCH_BUILD, readWhole: await frenchReadWhole() },
+    process.argv[2] ?? KAIKKI_FR_PATH,
+    forms,
+    {
+      treebank: await frenchTreebankLemmas(),
+      casePaths: [KAIKKI_FR_EDITION_SLIM_PATH],
+      ipaPaths: [KAIKKI_FR_EDITION_SLIM_PATH],
+    },
+  );
+  console.log(buildSummary("fr", packs, writeLearningPacks("fr", packs)));
+  if (packs.stats.unparsable > 0) process.exitCode = 1;
+}
+
+if (import.meta.main) await main();

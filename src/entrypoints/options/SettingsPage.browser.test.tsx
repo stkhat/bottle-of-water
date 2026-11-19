@@ -237,6 +237,7 @@ describe("SettingsPage", () => {
     expect(optionLabels(learning.element())).toEqual([
       "English",
       "Spanish (Español)",
+      "French (Français)",
     ]);
     const native = screen.getByRole("combobox", { name: /Your language/ });
     await expect.element(native).toHaveDisplayValue("Japanese (日本語)");
@@ -270,6 +271,24 @@ describe("SettingsPage", () => {
       .element(
         screen.getByRole("slider", {
           name: "Treat the 3,000 most common Spanish words as known",
+        }),
+      )
+      .toBeVisible();
+  });
+
+  it("offers French → English, with French words in the level", async () => {
+    const { screen } = await open({
+      settings: { learningLang: "fr", nativeLang: "en" },
+    });
+    await expect
+      .element(screen.getByRole("combobox", { name: /Learning language/ }))
+      .toHaveDisplayValue("French (Français)");
+    const native = screen.getByRole("combobox", { name: /Your language/ });
+    expect(optionLabels(native.element())).toEqual(["English"]);
+    await expect
+      .element(
+        screen.getByRole("slider", {
+          name: "Treat the 3,000 most common French words as known",
         }),
       )
       .toBeVisible();

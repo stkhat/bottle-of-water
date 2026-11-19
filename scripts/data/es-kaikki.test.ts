@@ -303,11 +303,15 @@ describe("buildEsPacks: alt-of senses, head-line labels, every form", () => {
       ["noun", "script; superseded spelling of guion, deprecated in 2010"],
     ]);
   });
-  it("gives no meaning or base from an acronym of a longer term or a contraction of two words", () => {
+  it("gives no base from an acronym of a longer term or a contraction of two words", () => {
     expect(senses("eso")).toEqual([
       ["pronoun", "that; neuter singular of ése"],
     ]);
-    expect(senses("al")).toEqual([["contraction", "upon"]]);
+    // A contraction's literal meaning is its meaning, and it points to no base.
+    expect(senses("al")).toEqual([
+      ["contraction", "at the, to the; contraction of a + el"],
+      ["contraction", "upon"],
+    ]);
     expect(packs.lemmas).not.toHaveProperty("al");
   });
   it("keeps a word that is an inflected form a form: no alt-of senses or bases", () => {

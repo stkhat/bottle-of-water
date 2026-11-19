@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createLanguagePack } from "./language-pack";
 import { ENGLISH_RULES } from "../phrases/en";
 import { SPANISH_RULES } from "../phrases/es";
+import { FRENCH_RULES } from "../phrases/fr";
 
 const pack = createLanguagePack("en", {
   lemmas: { loaves: "loaf", figured: "figure", better: ["good", "well"] },
@@ -232,5 +233,54 @@ describe("createLanguagePack", () => {
       patterns: { detect: [], more: [], gap: [] },
     });
     expect(xx.rules).toEqual({ slots: new Map(), maxGap: 0 });
+  });
+});
+
+describe("createLanguagePack (fr)", () => {
+  const fr = createLanguagePack("fr", {
+    lemmas: [{ "l'": "le", été: ["être", "aller"], élèves: "élève" }],
+    freq: ["de", "le", "être"],
+    ipa: {},
+    vocab: new Set([
+      ...["de", "le", "être", "été", "aller", "élève", "homme"],
+      ...["côte", "côté"],
+    ]),
+    patterns: { detect: [], more: [], gap: [] },
+  });
+  const words = (text: string) =>
+    fr
+      .tokenize(text)
+      .filter((token) => token.isWord)
+      .map((token) => token.text);
+
+  it("has French's phrase rules and lists a form's likelier base first", () => {
+    expect(fr.rules).toBe(FRENCH_RULES);
+    expect(fr.basesInOrder).toBe(true);
+    expect(fr.lemmas("été")).toEqual(["été", "être", "aller"]);
+  });
+
+  it("splits an elided word off the next one, unless the whole is a word", () => {
+    expect(words("L'homme a été")).toEqual(["L'", "homme", "a", "été"]);
+    const withWhole = createLanguagePack("fr", {
+      lemmas: {},
+      freq: [],
+      ipa: {},
+      vocab: new Set(["d'accord", "accord"]),
+      patterns: { detect: [], more: [], gap: [] },
+    });
+    expect(
+      withWhole
+        .tokenize("D’accord")
+        .filter((token) => token.isWord)
+        .map((token) => token.text),
+    ).toEqual(["D’accord"]);
+  });
+
+  it("spells a word capitals left without its accents, several a word", () => {
+    expect(fr.accented("ete")).toBe("été");
+    expect(fr.accented("eleves")).toBe("élèves");
+    expect(fr.accented("etre")).toBe("être");
+    // Two known spellings: left alone.
+    expect(fr.accented("cote")).toBeUndefined();
   });
 });

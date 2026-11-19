@@ -1,0 +1,18 @@
+{"pos": "article", "word": "le", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/lə/"}], "senses": [{"glosses": ["the"], "tags": ["masculine", "singular"]}]}
+{"pos": "article", "word": "l'", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["apocopic form of le, la: the"], "tags": ["abbreviation", "alt-of", "apocopic"], "alt_of": [{"word": "le"}, {"word": "la"}]}]}
+{"pos": "noun", "word": "homme", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/ɔm/"}], "senses": [{"glosses": ["man"]}]}
+{"pos": "prep", "word": "à", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/a/"}], "senses": [{"glosses": ["to, at"]}]}
+{"pos": "contraction", "word": "au", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["contraction of à + le, literally “to the, for the, at the”"], "tags": ["abbreviation", "alt-of", "contraction"], "alt_of": [{"word": "à", "extra": "+ le"}]}]}
+{"pos": "conj", "word": "que", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/kə/"}], "senses": [{"glosses": ["that"]}]}
+{"pos": "conj", "word": "qu'", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["apocopic form of que (“that”)"], "tags": ["abbreviation", "alt-of", "apocopic"], "alt_of": [{"word": "que"}]}]}
+{"pos": "pron", "word": "il", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/il/"}], "senses": [{"glosses": ["he"]}]}
+{"pos": "contraction", "word": "qu'il", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["contraction of que + il"], "tags": ["abbreviation", "alt-of", "contraction"], "alt_of": [{"word": "que", "extra": "+ il"}]}]}
+{"pos": "contraction", "word": "n'", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["Prevocalic form of ne."], "tags": ["contraction"]}]}
+{"pos": "noun", "word": "accord", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/a.kɔʁ/"}], "senses": [{"glosses": ["agreement"]}]}
+{"pos": "prep", "word": "d'", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["apocopic form of de: of"], "tags": ["abbreviation", "alt-of", "apocopic"], "alt_of": [{"word": "de"}]}]}
+{"pos": "adv", "word": "d'accord", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["in agreement"]}]}
+{"pos": "verb", "word": "appeler", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/a.ple/"}], "senses": [{"glosses": ["to call"]}]}
+{"pos": "verb", "word": "appelé", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["past participle of appeler"], "tags": ["form-of", "participle", "past"], "form_of": [{"word": "appeler"}]}]}
+{"pos": "verb", "word": "appelés", "lang": "French", "lang_code": "fr", "senses": [{"glosses": ["masculine plural of appelé"], "tags": ["form-of", "masculine", "plural"], "form_of": [{"word": "appelé"}]}]}
+{"pos": "noun", "word": "maison", "lang": "French", "senses": [{"glosses": ["house"]}], "lang_code": "fr"}
+{"pos": "prep", "word": "de", "lang": "French", "lang_code": "fr", "sounds": [{"ipa": "/də/"}], "senses": [{"glosses": ["of"]}]}

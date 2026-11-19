@@ -45,7 +45,7 @@ describe("packsFor", () => {
 
   it("lists what has a recipe of a pair Langle does not offer", () => {
     expect(packsFor("en", "nl")).toEqual(["en"]);
-    expect(packsFor("fr", "ja")).toEqual([]);
+    expect(packsFor("nl", "ja")).toEqual([]);
     expect(packsFor("constructor", "toString")).toEqual([]);
   });
 
@@ -73,7 +73,7 @@ describe("pairsOfPack", () => {
   });
 
   it("names none for a pack no offered pair uses", () => {
-    expect(pairsOfPack("fr")[0]).toBeUndefined();
+    expect(pairsOfPack("nl")[0]).toBeUndefined();
     expect(pairsOfPack("constructor")[0]).toBeUndefined();
   });
 });

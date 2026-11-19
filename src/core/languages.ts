@@ -16,6 +16,7 @@ const LANGUAGE_PAIRS: Readonly<Record<string, readonly string[]>> =
 const SPEECH_LANGS: Readonly<Record<string, string>> = {
   en: "en-US",
   es: "es-ES",
+  fr: "fr-FR",
 };
 
 /** The learning languages, in the order the settings offer them. */
