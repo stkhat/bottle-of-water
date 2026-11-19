@@ -107,11 +107,16 @@ export interface DictionaryProvider {
    * first sense is labelled with another (rule A2, `senseOrder`); an entry shown by
    * its short meaning alone (an English definition) takes that from the first of them.
    * `senses` stay in the dictionary's order.
+   *
+   * `clitic`: what a contraction's clitic stands for on the page, when its sentence
+   * decides (`Span.clitic`: "has" in "he's been"); a contraction then names that
+   * expansion alone (`withContractions`). Other dictionaries ignore it.
    */
   entry(
     term: string,
     written?: Written,
     pos?: string,
+    clitic?: string,
   ): DictionaryEntry | undefined;
   /** What rule A1 reads of a headword; undefined when the dictionary does not have it. */
   outline(term: string): EntryOutline | undefined;
@@ -565,6 +570,9 @@ export function createPairDictionary({
   pos?: PosPack;
 }): DictionaryProvider {
   const dense = native !== undefined && nativeLanguage(native)?.dense === true;
+  /** Whether the pair writes most of its nouns capitalised (`nounsCapitalised`), read once. */
+  let nounCased: boolean | undefined;
+  const nounCase = () => (nounCased ??= nounsCapitalised(dict));
   /** Unmarked degrees read as pointers: their line stays a gloss's, cut to the cap. */
   const degrees = new WeakSet<PairSenses[number]>();
   /** A term's entry, with its unmarked degrees read as pointers (`degreeOf`). */
@@ -655,9 +663,17 @@ export function createPairDictionary({
       const plural =
         pos === "noun" &&
         raw.some((sense) => sense[0] === "noun" && sense[3] !== undefined);
-      const lines = onTag(
-        raw.map((sense) => ({ line: lineOf(sense), pos: sense[0] })),
-        plural ? undefined : pos,
+      const lines = caseOnce(
+        onTag(
+          raw.map((sense) => ({
+            line: lineOf(sense),
+            pos: sense[0],
+            meaning: sense[3] === undefined,
+          })),
+          plural ? undefined : pos,
+        ),
+        written,
+        nounCase,
       ).map(({ line }) => line);
       const usable = (i: number) => lines[i] !== "";
       const order =
@@ -676,7 +692,10 @@ export function createPairDictionary({
       const linePos = new Map<string, string>();
       raw.forEach((sense, i) => {
         const [sensePos, , , target] = sense;
-        if (!points(sense) || meaningLine.has(lines[i]!)) return;
+        // A pointer the tag leaves without a line (`onTag`) says nothing of how its
+        // target is read (it needs/VBZ: not as need's plural, "bisogno").
+        if (!points(sense) || lines[i] === "" || meaningLine.has(lines[i]!))
+          return;
         pointers.set(lines[i]!, { kind: "form", target: target! });
         if (!linePos.has(lines[i]!)) linePos.set(lines[i]!, sensePos);
         if (!pointerPos.has(target!)) pointerPos.set(target!, sensePos);
@@ -714,7 +733,8 @@ export function createPairDictionary({
             const along = pointerPos.get(target) ?? pos;
             const found = meaningsOf(target, along);
             // The target's meanings the form can have (told: tell's verbs, not "a tell").
-            const meanings = found && onTag(found, along);
+            const meanings =
+              found && caseOnce(onTag(found, along), written, nounCase);
             meanings?.forEach((meaning) => away(meaning.line, meaning.pos));
             return meanings?.map((meaning) => meaning.line);
           },
@@ -781,6 +801,72 @@ function onTag<T extends { line: string; pos: string }>(
   const off = items.map((item) => conflicts(pos, item.pos));
   if (!items.some((item, i) => item.line !== "" && !off[i])) return [...items];
   return items.map((item, i) => (off[i] ? { ...item, line: "" } : item));
+}
+
+/**
+ * Whether a pair writes most of its nouns' meanings capitalised (German: "Haus"), read
+ * from its lowercase terms' noun senses, as the data build reads its edition's
+ * (`capitalNouns`): there case tells a noun from another word, and English's case says
+ * nothing of it (`caseOnce`).
+ */
+function nounsCapitalised(dict: PairPack): boolean {
+  let upper = 0;
+  let lower = 0;
+  for (const [key, [, senses]] of Object.entries(dict)) {
+    if (key !== key.toLowerCase()) continue;
+    for (const [pos, text, , target] of senses) {
+      if (pos !== "noun" || target !== undefined) continue;
+      const letter = /\p{L}/u.exec(text)?.[0];
+      if (letter === undefined) continue;
+      if (letter !== letter.toLowerCase()) upper++;
+      else if (letter !== letter.toUpperCase()) lower++;
+    }
+  }
+  return upper > lower;
+}
+
+/** A part of speech as case variants compare it: a proper noun is a noun. */
+const posClass = (pos: string) => (pos === "proper noun" ? "noun" : pos);
+
+/**
+ * Lines equal apart from case, of the same part of speech (a proper noun counts as a
+ * noun), are one line: es "Congreso" (the capitalised headword's, joined) and
+ * "congreso" (the lowercase one's), it "paese" and "Paese" in one table, ru "Бог" and
+ * "бог". The line stays where the first one is, written as the page writes the word:
+ * capitalised where it is capitalised or in capitals ("Congreso"), else in lower case
+ * (it assumption: "supposizione / assunzione", not the feast "Assunzione"). Where case
+ * marks another part of speech, both stay ("Englisch", the language, and "englisch",
+ * English); and in a pair that writes its nouns capitalised (`nounCase`, German), case
+ * is part of every word, and English's says nothing of it (de irish: "irisch", the
+ * adjective, and "Irisch", the language, both stay): no list of languages. Pointers
+ * (`meaning` false) are left as they are.
+ */
+function caseOnce<T extends { line: string; pos: string; meaning?: boolean }>(
+  items: readonly T[],
+  written: Written | undefined,
+  nounCase: () => boolean,
+): T[] {
+  const capital = written === "capital" || written === "upper";
+  const groups = new Map<string, number[]>();
+  items.forEach((item, i) => {
+    if (item.line === "" || item.meaning === false) return;
+    const id = `${posClass(item.pos)}\n${item.line.toLowerCase()}`;
+    const group = groups.get(id);
+    if (group) group.push(i);
+    else groups.set(id, [i]);
+  });
+  const out = [...items];
+  for (const group of groups.values()) {
+    const variants = group.map((i) => items[i]!.line);
+    if (new Set(variants).size < 2 || nounCase()) continue;
+    const chosen =
+      variants.find((line) => /^\P{L}*\p{Lu}/u.test(line) === capital) ??
+      variants[0]!;
+    group.forEach((i, k) => {
+      out[i] = { ...items[i]!, line: k === 0 ? chosen : "" };
+    });
+  }
+  return out;
 }
 
 /**

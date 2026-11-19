@@ -122,6 +122,13 @@ const BETWEEN: ReadonlySet<string> = new Set([
 /**
  * Whether the word at `i` is an auxiliary: its verb follows within four words, with
  * only adverbs or an inverted subject between ("does Harvey know", "has never been").
+ * Be as one keeps its meaning (`WordUse.lexical`, U1-8): before a participle or an -ing
+ * form ("was built", "is going") the native languages say it with their own "be" (ser,
+ * estar; être; быть), so its hover is the copula's, judged better than the edition's
+ * whole grammar pointer first (es was: "primera persona del singular del pasado simple
+ * … del verbo be", ser, estar; 13 vs 6). Have, do and get as auxiliaries are grammar
+ * (has done, does he know, got hurt): their pointer says what they are there, judged
+ * better than their verb's meaning (has: "tener", 9 vs 4).
  * Tags count here whether trusted or not: a closed class, and a wrong guess only keeps
  * the auxiliary's grammar pointer.
  */
@@ -178,6 +185,46 @@ function verbal(words: readonly TaggedWord[], i: number): WordUse["verbal"] {
   return "other";
 }
 
+/** Adverbs and "not" between a clitic and the word that decides it: "he's never been". */
+const SKIPPED = /^(RB|RBR|RBS)$/;
+
+/**
+ * What the clitic of a contraction stands for here, where the next word decides (K4,
+ * U1-8): "'s" is "has" only before a past participle (contracted "has" is an
+ * auxiliary), and surely so before "been" or "got" ("he's been", "it's got to"); before
+ * another participle it may be the passive "is" ("it's called") and nothing is said;
+ * before anything else it is "is" ("it's a", "he's going", "that's it."). "'d" is "had"
+ * before a participle or "better" ("I'd seen", "you'd better"), "would" before a bare
+ * verb or "rather"; nothing is said otherwise ("how'd you": did). The clitic's own tag
+ * says nothing: the tagger tags every "'s" VBZ and every "'d" MD. Tags count whether
+ * trusted or not, as for auxiliaries: a closed class. On the 2026-11 corpus (2,167
+ * shown tokens of 's and 'd contractions with two readings): 2,010 decided (is 1,883,
+ * would 67, has 55, had 5); a hand-read sample of 53 all right, and one error among the
+ * judged items ("we'd sung": "sung" tagged a bare verb).
+ */
+function cliticOf(words: readonly TaggedWord[], i: number): string | undefined {
+  const clitic = /'(s|d)$/.exec(words[i]!.form.replaceAll("’", "'"))?.[1];
+  if (clitic === undefined) return undefined;
+  let next: TaggedWord | undefined;
+  for (let j = i + 1; j < words.length; j++) {
+    const word = words[j]!;
+    if (word.pauseBefore) break;
+    const plain = word.form !== "better" && word.form !== "rather";
+    if ((plain && SKIPPED.test(word.tag.tag)) || word.form === "not") continue;
+    next = word;
+    break;
+  }
+  const participle = next !== undefined && /^VB[ND]$/.test(next.tag.tag);
+  if (clitic === "s") {
+    if (next && ["been", "got", "gotten"].includes(next.form)) return "has";
+    return participle ? undefined : "is";
+  }
+  if (!next) return undefined;
+  if (participle || next.form === "better" || next.form === "best")
+    return "had";
+  return next.tag.tag === "VB" || next.form === "rather" ? "would" : undefined;
+}
+
 function use(words: readonly TaggedWord[], i: number): WordUse {
   const word = words[i]!;
   const tag = trustedTagOf(word);
@@ -189,14 +236,18 @@ function use(words: readonly TaggedWord[], i: number): WordUse {
     how !== "aux" &&
     !word.pauseBefore &&
     (previousTag?.label === "determiner" || previousTag?.label === "adjective");
+  const clitic = cliticOf(words, i);
+  const aux = auxiliary(words, i);
   return {
-    auxiliary: auxiliary(words, i),
+    auxiliary: aux,
+    ...(aux && formOf(word, "be") && { lexical: true }),
     verbal: how,
     prepositionSlot:
       /^(VBG|VBN)$/.test(tag?.tag ?? "") &&
       how !== "aux" &&
       (i === 0 || word.pauseBefore || previousTag?.label === "noun"),
     ...(gerund && { label: "noun" }),
+    ...(clitic !== undefined && { clitic }),
   };
 }
 

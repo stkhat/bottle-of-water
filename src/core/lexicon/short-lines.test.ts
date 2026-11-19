@@ -454,6 +454,10 @@ describe("firstSentence", () => {
     );
     expect(firstSentence("3. Person Singular")).toBe("3. Person Singular");
     expect(firstSentence("Más. comparativo")).toBe("Más. comparativo");
+    // An abbreviation the data build learned has a no-break space after it.
+    expect(firstSentence("Gegenstand bzw.\u00a0Ergänzung. Note")).toBe(
+      "Gegenstand bzw.\u00a0Ergänzung",
+    );
   });
 });
 

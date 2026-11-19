@@ -11459,7 +11459,7 @@
 "duet":["dúo",[["noun","dúo, dueto","a musical composition for two performers"]],1],
 "duffel bag":["petate",[["noun","petate, talega, talego","large duffel cloth bag used to carry personal gear"]],1],
 "duffel coat":["trenca",[["noun","trenca","hooded coat made from duffel"]],1],
-"dug":["teta",[["noun","teta","mammary gland on domestic mammal"]],1],
+"dug":["pasado simple del verbo (to) dig",[["verb","pasado simple del verbo (to) dig",null,"dig"],["verb","participio pasado de dig",null,"dig"]],0],
 "dugong":["dugongo",[["noun","dugongo","Dugong dugon"]],1],
 "dugout":["canoa",[["noun","canoa; cualquier embarcación hecha a base de un solo tronco vaciado"],["noun","refugio subterráneo"],["noun","cada uno de los refugios a los lados del campo de juego y donde permanecen los jugadores mientras no están en el campo de juego"]],0],
 "duh":["obvio",[["interjection","obvio","disdainful indication that something is obvious"]],1],
@@ -18068,6 +18068,5 @@
 "horizontal dancing":["echar un polvo",[["noun","echar un polvo","euphemistically: sexual intercourse"]],1],
 "horizontally":["horizontalmente",[["adverb","horizontalmente","in a horizontal direction or position"]],1],
 "hormonal":["hormonal",[["adjective","hormonal","pertaining to hormones"]],1],
-"hormone":["hormona",[["noun","hormona"]],0],
-"hormone therapy":["terapia de hormonas",[["noun","terapia de hormonas","Translations"]],1]
+"hormone":["hormona",[["noun","hormona"]],0]
 }

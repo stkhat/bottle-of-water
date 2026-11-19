@@ -711,6 +711,49 @@ describe("generated packs: native hygiene (U1-7)", () => {
   });
 });
 
+// U1-8: native follow-ups.
+describe("generated packs: native follow-ups (U1-8)", () => {
+  const pair = (native: RecipeNative) =>
+    loadPack(`en-${native}`).then(({ dict }) =>
+      createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+    );
+  const shown = async (
+    native: RecipeNative,
+    ...args: Parameters<Awaited<ReturnType<typeof pair>>["entry"]>
+  ) => ((await pair(native)).entry(...args)?.lines ?? []).join(" / ");
+
+  it("show a capitalised and a lowercase line equal apart from case once (es Congreso)", async () => {
+    expect(await shown("es", "congress", "capital")).toMatch(
+      /^Congreso(?! \/ congreso)/,
+    );
+    expect(await shown("ru", "god", "capital")).not.toMatch(/Бог \/ бог/);
+    // German: case tells the noun from the adjective.
+    expect(await shown("de", "irish", "capital")).toMatch(/irisch/);
+  });
+  it("show forms of be read as verbs by their meanings where the edition's pointer is too wide", async () => {
+    // Be as an auxiliary keeps its meaning (`WordUse.lexical`): looked up as a verb.
+    for (const native of ["es", "pt"] as const)
+      expect(await shown(native, "was", undefined, "verb")).toMatch(
+        /^ser \/ estar/,
+      );
+    // Have as one keeps its pointer.
+    expect(await shown("ru", "has", undefined, "auxiliary")).toMatch(
+      /^форма третьего лица/,
+    );
+  });
+  it("keep a form's pointer beside another word of its spelling (es dug: no teat)", async () => {
+    expect(await shown("es", "dug")).not.toMatch(/teta/);
+    expect(await shown("es", "dug")).toMatch(/cavar/);
+  });
+  it("leave a two-part label and a mid-gloss abbreviation out of the line", async () => {
+    expect(await shown("ru", "lyric", undefined, "noun")).not.toMatch(/ч\./);
+    expect(await shown("de", "frippery")).not.toMatch(/bzw$/);
+  });
+  it("show an adjective's sense first where the tag says so (pt low)", async () => {
+    expect(await shown("pt", "low", "lower", "adjective")).toMatch(/^baixo/);
+  });
+});
+
 describe("generated contractions", () => {
   it("say what each contraction is short for, in the source's case", () => {
     expect(contractions["i'm"]).toEqual(["I am"]);
@@ -741,6 +784,16 @@ describe("generated contractions", () => {
     );
   it("show a contraction no source has by its expansions (ru I'm)", async () => {
     expect((await pair("ru")).entry("I'm")?.lines).toEqual(["I am"]);
+  });
+  it("name the expansion the clitic stands for, when the sentence says (K4: he's)", async () => {
+    const ru = await pair("ru");
+    expect(ru.entry("he's", undefined, undefined, "has")?.lines).toEqual([
+      "he has",
+    ]);
+    expect(ru.entry("he's", undefined, undefined, "is")?.lines).toEqual([
+      "he is",
+    ]);
+    expect(ru.entry("he's")?.lines).toEqual(["he is / he has"]);
   });
   it("show a contraction's own native meaning with its expansion as a note (pl don't)", async () => {
     expect((await pair("pl")).entry("don't")).toMatchObject({

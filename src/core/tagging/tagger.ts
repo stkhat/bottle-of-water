@@ -60,6 +60,18 @@ export interface WordUse {
   prepositionSlot: boolean;
   /** The part of speech the use gives instead of the tag's: a gerund after a determiner is a noun. */
   label?: string;
+  /**
+   * An auxiliary that keeps its verb's meaning here (English be: "was built", "is
+   * going"), which the native languages say with their own verb; its hover is that
+   * verb's (`sensePos`), not an auxiliary's grammar pointer.
+   */
+  lexical?: true;
+  /**
+   * What a contraction's clitic stands for here, when the sentence decides (English
+   * "he's been": "has", "it's a": "is", "I'd seen": "had", "I'd go": "would"): the
+   * hover names that expansion alone (`Span.clitic`).
+   */
+  clitic?: string;
 }
 
 /**
