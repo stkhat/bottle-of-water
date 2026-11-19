@@ -1,5 +1,6 @@
 // UD French GSD (CC BY-SA 4.0): the treebank's lemmas, which order a French form's
-// bases (fr-kaikki.ts), as Spanish's treebanks do (es-tagger.ts). French Sequoia
+// bases (fr-kaikki.ts), as Spanish's treebanks do (es-tagger.ts), and the French
+// tagger's training sentences (fr-tagger.ts). French Sequoia
 // (LGPL-LR) and ParTUT (CC BY-NC-SA) are not used: their licences are not allowed.
 // Usage: node scripts/data/fr-treebank.ts   (downloads missing raw files into data/raw/ud-french/)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -15,9 +16,12 @@ export const GSD = {
 } as const;
 const SPLITS = ["train", "dev", "test"] as const;
 
-const pathOf = (file: string) => join(UD_DIR, `GSD-${file}`);
+/** A raw file of the treebank, as downloaded into data/raw/ud-french/. */
+export const gsdPath = (file: string) => join(UD_DIR, `GSD-${file}`);
+const pathOf = gsdPath;
 
-async function download() {
+/** Downloads the treebank's missing raw files. */
+export async function downloadGsd() {
   mkdirSync(UD_DIR, { recursive: true });
   const files = [
     "LICENSE.txt",
@@ -71,7 +75,7 @@ const MIN_PAIRS = 3;
  * to tell ("jusqu'ici").
  */
 export async function frenchReadWhole() {
-  await download();
+  await downloadGsd();
   const pairs = elisionPairs(
     readFileSync(pathOf(`${GSD.prefix}-train.conllu`), "utf8"),
   );
@@ -83,7 +87,7 @@ export async function frenchReadWhole() {
 
 /** The training sentences' lemma counts (`lemmaCounts`). */
 export async function frenchTreebankLemmas() {
-  await download();
+  await downloadGsd();
   return lemmaCounts([
     readFileSync(pathOf(`${GSD.prefix}-train.conllu`), "utf8"),
   ]);

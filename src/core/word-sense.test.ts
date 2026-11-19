@@ -385,7 +385,37 @@ describe("chooseKey (rule A1)", () => {
   });
 });
 
+describe("chooseKey: the grammar's part of speech (French)", () => {
+  it("keeps a state's participle only when its entry has a sense of that part of speech", () => {
+    const state = { verbal: false as const, grammarPos: "adjective" };
+    expect(
+      key("established", ["established", "establish"], reading(VBN, state)),
+    ).toBe("established");
+    // "being" has a noun sense only: the verb.
+    expect(key("being", ["being", "be"], reading(VBN, state))).toBe("be");
+  });
+});
+
 describe("sensePos (rule A2's part of speech)", () => {
+  it("gives the grammar's part of speech for the word's own entry, trusted tag or not", () => {
+    const negation = { grammarPos: "pronoun" };
+    expect(sensePos("personne", "personne", reading(undefined, negation))).toBe(
+      "pronoun",
+    );
+    expect(
+      sensePos("personne", "personne", reading(tag("noun", "NN"), negation)),
+    ).toBe("pronoun");
+    // Looked up by its base: the tag's, unless the grammar made it a verb.
+    const state = { verbal: false as const, grammarPos: "adjective" };
+    expect(sensePos("being", "be", reading(VBN, state))).toBe("verb");
+    expect(
+      sensePos(
+        "as",
+        "avoir",
+        reading(tag("noun", "NN"), { grammarPos: "verb" }),
+      ),
+    ).toBe("verb");
+  });
   it("gives a trusted tag's part of speech", () => {
     expect(
       sensePos("fine", "fine", reading(tag("adjective", "JJ", false))),

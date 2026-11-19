@@ -447,7 +447,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   fr: pack("fr", {
     title: "French word data",
     description:
-      "French base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns and names",
+      "French base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns, names and a part-of-speech tagger",
     sources: [
       {
         ...SOURCES.wiktionaryFr,
@@ -460,7 +460,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       { ...SOURCES.freqFr, used: "frequency ranks" },
       {
         ...SOURCES.udFrenchGsd,
-        used: "the order of a form's base forms and of a word's parts of speech",
+        used: "the part-of-speech tagger's model (trained on it), the order of a form's base forms and of a word's parts of speech",
       },
     ],
   }),

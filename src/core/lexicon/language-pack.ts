@@ -19,6 +19,7 @@ import { rulesFor } from "../phrases/rules";
 import { normalizeWord, tokenize, type Token } from "../text/tokenize";
 import { englishTagger } from "../tagging/en";
 import { spanishTagger } from "../tagging/es";
+import { frenchTagger } from "../tagging/fr";
 import type { Tagger, TaggerModel } from "../tagging/tagger";
 import { ipaFor } from "./ipa";
 import { lemmatize, type CapitalWords } from "./lemmatize";
@@ -100,6 +101,7 @@ function accentedSpelling(
 const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
   en: englishTagger,
   es: spanishTagger,
+  fr: frenchTagger,
 };
 
 /** How many words' base forms a pack keeps (`lemmas`), as written; then it starts over. */
@@ -179,7 +181,7 @@ export interface LanguagePack {
   intransitive(key: string): boolean;
   /**
    * The language's part-of-speech tagger and grammar (rules A1 and A2,
-   * `word-sense.ts`), when the pack has a model for it (English, Spanish).
+   * `word-sense.ts`), when the pack has a model for it (English, Spanish, French).
    */
   readonly tagger?: Tagger;
 }

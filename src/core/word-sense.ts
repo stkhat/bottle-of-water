@@ -261,8 +261,15 @@ export function chooseKey(
   // Only verb forms: a comparative keeps its own entry ("later": 後で).
   if (!tag?.inflected || tag.label !== "verb") return undefined;
   // Used as an adjective, with a meaning of its own ("was established"; "are we
-  // done": "doの過去分詞", then "仕上がった").
-  if (use.verbal === false && own.meaning) return undefined;
+  // done": "doの過去分詞", then "仕上がった"); of the part of speech the grammar
+  // gives it, where it gives one (French "c'est fait": done; not "a noun only").
+  const grammar = use.grammarPos;
+  if (
+    use.verbal === false &&
+    own.meaning &&
+    (grammar === undefined || own.pos.some((pos) => accepts(grammar, pos)))
+  )
+    return undefined;
   // A gerund used as a noun, whose entry has noun senses ("a large following").
   const noun = use.label;
   if (noun !== undefined && own.pos.some((pos) => accepts(noun, pos)))
@@ -287,7 +294,8 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
  * not for a participle not used as a verb or kept as its own entry where a preposition
  * can stand ("Including …"): its verb tag says nothing of which of its adjective or
  * preposition senses fits. A use may give another part of speech than the tag (a
- * gerund noun). An auxiliary's is AUXILIARY, whatever its tag: no sense is labelled
+ * gerund noun), and the grammar one whatever the tag (`WordUse.grammarPos`: French
+ * "ne … personne"). An auxiliary's is AUXILIARY, whatever its tag: no sense is labelled
  * so, and a pair dictionary shows its grammar pointer ("has been"); one that keeps its
  * verb's meaning (`WordUse.lexical`: be in "was built", U1-8) is read by its tag, as
  * the verb it is ("ser / estar", not the edition's whole pointer first); AUXILIARY_BASE
@@ -302,6 +310,14 @@ export function sensePos(
 ): string | undefined {
   if (use.auxiliary && !use.lexical)
     return key !== form && !ownEntry ? AUXILIARY_BASE : AUXILIARY;
+  // The grammar's part of speech, for the word's own entry; a base it is looked up by
+  // instead is read by the tag (a state's participle with no adjective sense: its
+  // verb), unless the grammar made it a verb ("tu les as": avoir).
+  const grammar = use.grammarPos;
+  if (grammar !== undefined) {
+    if (key === form || grammar === "verb" || !tag) return grammar;
+    return tag.label === "other" ? undefined : tag.label;
+  }
   if (!tag) return undefined;
   if (
     tag.label === "verb" &&
