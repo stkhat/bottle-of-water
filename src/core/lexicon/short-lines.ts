@@ -733,3 +733,48 @@ export const pointerLine = (text: string) =>
  */
 export const fitsPairCap = (line: string, second = false) =>
   displayWidth(line) <= (second ? NATIVE_CAP : DEFINITION_CAP);
+
+/** The parts of speech whose forms are degrees: comparatives and superlatives. */
+const DEGREES: readonly string[] = ["adjective", "adverb"];
+
+/**
+ * The base an edition's unmarked degree names (es better: "Comparativo irregular de
+ * good"; editions mark verb forms and plurals, which the data build keeps as pointers,
+ * but often not comparatives and superlatives): a pair sense with no target and no hint
+ * (an edition's, not a table's) of an adjective or adverb that writes, after other
+ * words, one of its headword's base forms (`bases`, the learning language's lemmas:
+ * better → good, well) whose main part of speech (`learningPos`) is the sense's own, in
+ * its line (`editionLine`). A gloss that starts with the base is a native word spelt the
+ * same (fr contented: "Content, satisfait"); one whose line is the meaning a qualifier
+ * introduces is that meaning (es later: "Comparativo de late: más tarde" → "más
+ * tarde"). The pair dictionary reads such a sense as a pointer, and the data build as
+ * no meaning of its own.
+ */
+export function degreeOf(
+  [pos, gloss, hint, target]: readonly [
+    pos: string,
+    text: string,
+    hint?: string | null,
+    target?: string,
+  ],
+  head: string,
+  bases: readonly string[],
+  learningPos: Readonly<Record<string, readonly string[]>>,
+): string | undefined {
+  if (target !== undefined || hint != null || !DEGREES.includes(pos))
+    return undefined;
+  const text = editionLine(gloss);
+  return bases.find((base) => {
+    if (
+      base === head ||
+      !Object.hasOwn(learningPos, base) ||
+      learningPos[base]![0] !== pos
+    )
+      return false;
+    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const at = text.search(
+      new RegExp(`(?<![\\p{L}\\p{N}'-])${escaped}(?![\\p{L}\\p{N}'-])`, "iu"),
+    );
+    return at > 0 && /\p{L}/u.test(text.slice(0, at));
+  });
+}

@@ -57,6 +57,7 @@ describe("buildPairDictionary", () => {
     expect(dict["upset"]?.[0]).toBe("molestar");
     expect(stats.capitals).toEqual({
       classSenses: 0,
+      personSenses: 0,
       word: 1,
       name: 1,
       none: 0,
@@ -125,6 +126,47 @@ describe("buildPairDictionary", () => {
       ],
       0,
     ]);
+  });
+  describe("words English capitalises, and terms' main parts of speech", () => {
+    const orderKey = termKeyOf({
+      vocab: new Set(["january", "better", "english"]),
+      lemmas: {},
+      phrases: new Set(),
+    });
+    const build = (native: string, pos = {}) =>
+      buildPairDictionary(native, {
+        termKey: orderKey,
+        rawDir: FIXTURES,
+        englishPath: join(FIXTURES, "tables-order.jsonl"),
+        recipe: {
+          edition: {
+            tag: `${native}wiktionary`,
+            file: "edition-uncased.jsonl",
+          },
+          tables: { langCodes: [native] },
+        },
+        pos,
+      });
+    it("leaves out an edition's lowercase entry of a word English writes only capitalised", async () => {
+      // ru "january" → январский: English writes the month January.
+      const { dict, capital, stats } = await build("ru");
+      expect(dict["january"]).toBeUndefined();
+      expect(capital["January"]?.[0]).toBe("январь");
+      expect(stats.uncased).toEqual(["january"]);
+    });
+    it("takes a term from the tables when the edition has no meaning in its main part of speech", async () => {
+      // pl better: the edition's verb only; the tables' most translated sense, an
+      // adjective, is English Wiktionary's first part of speech too.
+      const { dict, stats } = await build("pl", {
+        better: ["adjective", "verb"],
+      });
+      expect(dict["better"]?.[0]).toBe("lepszy");
+      expect(stats.lacking).toEqual(["better"]);
+      // Where English Wiktionary lists another part of speech first, the edition stays.
+      expect(
+        (await build("pl", { better: ["verb", "adjective"] })).dict["better"],
+      ).toEqual(["poprawić, ulepszyć", [["verb", "poprawić, ulepszyć"]], 0]);
+    });
   });
   it("refuses a native language without a recipe", async () => {
     await expect(buildPairDictionary("xx", { termKey })).rejects.toThrow(

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"five senses"},{"file":"dict-2.json","first":"five thousand","last":"polygyny"},{"file":"dict-3.json","first":"polyhedral","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"fivefold"},{"file":"dict-2.json","first":"fiver","last":"polyglot"},{"file":"dict-3.json","first":"polygon","last":"éclair"}],
 "sources":["enwiktionary-translations","dewiktionary"]
 }

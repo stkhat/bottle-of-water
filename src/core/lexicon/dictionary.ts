@@ -15,6 +15,7 @@ import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
 import {
   accepts,
+  conflicts,
   AUXILIARY_BASE,
   hasAuxiliarySense,
   inOrder,
@@ -24,6 +25,7 @@ import {
 import {
   capitalKey,
   cleanShort,
+  degreeOf,
   definitionLine,
   editionLine,
   fitsPairCap,
@@ -641,8 +643,17 @@ export function createPairDictionary({
       if (!found) return definitionInEnglish(head, defs, pos);
       const [short, raw] = found;
       const senses = sensesOf(raw);
-      // A translation table's sense is a list of words: its line is the first one.
-      const lines = raw.map(lineOf);
+      // A translation table's sense is a list of words: its line is the first one. With
+      // a tag, a sense of an open class the tag cannot mean shows no line while one it
+      // can mean does (`onTag`: es better/JJR, not the verb "mejorar"). Not for a
+      // plural's own senses ("nuts": crazy), as a plural's tag says little of them.
+      const plural =
+        pos === "noun" &&
+        raw.some((sense) => sense[0] === "noun" && sense[3] !== undefined);
+      const lines = onTag(
+        raw.map((sense) => ({ line: lineOf(sense), pos: sense[0] })),
+        plural ? undefined : pos,
+      ).map(({ line }) => line);
       const usable = (i: number) => lines[i] !== "";
       const order =
         pos === undefined ? undefined : senseOrder(senses, pos, usable);
@@ -695,7 +706,10 @@ export function createPairDictionary({
           head,
           pointer: (line) => pointers.get(line),
           follow: (target) => {
-            const meanings = meaningsOf(target, pointerPos.get(target) ?? pos);
+            const along = pointerPos.get(target) ?? pos;
+            const found = meaningsOf(target, along);
+            // The target's meanings the form can have (told: tell's verbs, not "a tell").
+            const meanings = found && onTag(found, along);
             meanings?.forEach((meaning) => away(meaning.line, meaning.pos));
             return meanings?.map((meaning) => meaning.line);
           },
@@ -746,38 +760,22 @@ const joinedPair = (
   ];
 };
 
-/** The parts of speech whose forms are degrees: comparatives and superlatives. */
-const DEGREES: readonly string[] = ["adjective", "adverb"];
-
 /**
- * The base an edition's unmarked degree names (es better: "Comparativo irregular de
- * good"; editions mark verb forms and plurals, which the data build keeps as pointers,
- * but often not comparatives and superlatives): a sense with no target and no hint (an
- * edition's, not a table's) of an adjective or adverb that writes, after other words,
- * one of its headword's base forms (`bases`, the learning language's lemmas: better →
- * good, well) whose main part of speech is the sense's own, in its line
- * (`editionLine`). A gloss that starts with the base is a native word spelt the same
- * (fr contented: "Content, satisfait"); one whose line is the meaning a qualifier
- * introduces is that meaning (es later: "Comparativo de late: más tarde" → "más
- * tarde").
+ * Rule A2 over a pair's senses, whose parts of speech the source states: for a word
+ * tagged `pos`, the lines of senses it cannot mean (`conflicts`: an open class the tag
+ * does not accept) are emptied while a line of one it can mean is left (es better/JJR:
+ * "mejor", not the verb "mejorar"; told → tell's verbs, not the noun "a tell"). As it
+ * was without a tag, or when every line is of another part of speech (a mistag: the
+ * lines are all there is).
  */
-function degreeOf(
-  [pos, gloss, hint, target]: PairSenses[number],
-  head: string,
-  bases: readonly string[],
-  learningPos: PosPack,
-): string | undefined {
-  if (target !== undefined || hint != null || !DEGREES.includes(pos))
-    return undefined;
-  const text = editionLine(gloss);
-  return bases.find((base) => {
-    if (base === head || own(learningPos, base)?.[0] !== pos) return false;
-    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const at = text.search(
-      new RegExp(`(?<![\\p{L}\\p{N}'-])${escaped}(?![\\p{L}\\p{N}'-])`, "iu"),
-    );
-    return at > 0 && /\p{L}/u.test(text.slice(0, at));
-  });
+function onTag<T extends { line: string; pos: string }>(
+  items: readonly T[],
+  pos: string | undefined,
+): T[] {
+  if (pos === undefined) return [...items];
+  const off = items.map((item) => conflicts(pos, item.pos));
+  if (!items.some((item, i) => item.line !== "" && !off[i])) return [...items];
+  return items.map((item, i) => (off[i] ? { ...item, line: "" } : item));
 }
 
 /**

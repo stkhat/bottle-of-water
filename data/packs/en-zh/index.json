@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"fluency"},{"file":"dict-2.json","first":"fluent","last":"providence"},{"file":"dict-3.json","first":"province","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"fluorescent"},{"file":"dict-2.json","first":"fluorescent lamp","last":"psychiatry"},{"file":"dict-3.json","first":"psychic","last":"épée"}],
 "sources":["enwiktionary-translations","zhwiktionary","omw-cmn"]
 }

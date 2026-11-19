@@ -577,6 +577,66 @@ describe.each(recipeNatives())(
   },
 );
 
+// The 2026-11-19 real-site check (U1-6): what the first line of these words is in each
+// pair, and lines they must not show.
+const FIRST_LINES: Readonly<
+  Record<
+    string,
+    { english: string; january: string; be: string; better: string }
+  >
+> = {
+  es: { english: "inglés", january: "enero", be: "ser", better: "mejor" },
+  pt: { english: "inglês", january: "janeiro", be: "ser", better: "melhor" },
+  fr: {
+    english: "anglais",
+    january: "janvier",
+    be: "être",
+    better: "meilleur",
+  },
+  de: { english: "englisch", january: "januar", be: "sein", better: "besser" },
+  ru: { english: "английск", january: "январь", be: "быть", better: "лучше" },
+  zh: { english: "英语", january: "一月", be: "是", better: "更好" },
+  it: {
+    english: "inglese",
+    january: "gennaio",
+    be: "essere",
+    better: "migliore",
+  },
+  pl: { english: "angielski", january: "styczeń", be: "być", better: "lepszy" },
+};
+
+describe.each(recipeNatives())("generated en-%s first lines", (native) => {
+  const expected = FIRST_LINES[native]!;
+  const load = loadPack(`en-${native}`).then(({ dict }) =>
+    createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+  );
+  const first = async (...args: Parameters<Awaited<typeof load>["entry"]>) =>
+    (await load).entry(...args)?.lines[0]?.toLowerCase();
+
+  it("give English the language's word, not a type size, a sport's spin or a surname", async () => {
+    const lines = (await load).entry("english", "capital")?.lines ?? [];
+    expect(lines[0]?.toLowerCase()).toContain(expected.english);
+    for (const line of lines)
+      expect(line).not.toMatch(/Инглиш|silvio|Mittel|台球|billard|bilard/i);
+  });
+  it("give January the month however it is written, not an adjective", async () => {
+    for (const written of ["capital", undefined] as const)
+      expect(await first("january", written)).toContain(expected.january);
+    expect((await load).entry("january")?.lines).toHaveLength(1);
+  });
+  it("give be the copula first, as a verb and as an auxiliary", async () => {
+    expect(await first("be", "lower", "verb")).toContain(expected.be);
+    expect(await first("be", "lower", "auxiliary")).toContain(expected.be);
+  });
+  it("give better the comparative, not good's other senses or the verb", async () => {
+    expect(await first("better", "lower", "adjective")).toContain(
+      expected.better,
+    );
+    const lines = (await load).entry("better", "lower", "adjective")?.lines;
+    expect(lines?.join(" / ")).not.toMatch(/mejorar|sage|grzeczne/i);
+  });
+});
+
 describe("generated en-zh dictionary", () => {
   it("is written in simplified characters", async () => {
     const { dict } = await loadPack("en-zh");

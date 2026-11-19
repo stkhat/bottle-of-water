@@ -11,7 +11,9 @@ import {
 import type { LemmaPack } from "../../../src/core/packs/types.ts";
 import {
   eachEntry,
+  GIVEN_NAME,
   posLabel,
+  SURNAME,
   type KaikkiSense,
   type KaikkiTranslation,
 } from "../common.ts";
@@ -86,8 +88,12 @@ export function capitalTermOf(
   return capitalKey(lower, acronym);
 }
 
-export function addSense(item: SourceTerm, sense: PairSense) {
-  if (item.senses.length >= MAX_SENSES) return;
+export function addSense(
+  item: SourceTerm,
+  sense: PairSense,
+  max: number = MAX_SENSES,
+) {
+  if (item.senses.length >= max) return;
   if (item.senses.some(([, text]) => text === sense[1])) return;
   item.senses.push(sense);
 }
@@ -201,6 +207,28 @@ const isMarkedForm = (sense: KaikkiSense) =>
 
 /** Senses no source meaning comes from: obsolete, archaic, misspelt. */
 const UNUSED_TAGS = ["obsolete", "archaic", "misspelling"];
+
+/**
+ * English Wiktionary's labels of a sense outside standard current use (kaikki's tags):
+ * a translation table's sense with one comes after the unmarked ones.
+ */
+const MARKED_TAGS = [
+  "dated",
+  "rare",
+  "vulgar",
+  "slang",
+  "offensive",
+  "derogatory",
+  "dialectal",
+  "nonstandard",
+  "euphemistic",
+];
+
+/** A translation table's own label that opens with such a label ("slang: have sex with"). */
+const MARKED_LABEL = new RegExp(
+  `^\\(?(?:${[...MARKED_TAGS, ...UNUSED_TAGS].join("|")})\\b`,
+  "i",
+);
 
 /** The English terms a gloss writes, other than the entry's own headword, in order. */
 const termsWritten = (
@@ -544,10 +572,15 @@ export async function readEdition(
             : inNativeCase(trimmed, entriesOf, { head, capitalNouns });
         if (text !== trimmed) cased++;
         const target = pointerOf(gloss, head, sense);
+        // A capitalised headword keeps every sense here: its classes and persons are
+        // left out, and its senses capped, once the sources are merged
+        // (`capitalDictionary`).
+        const max = capital ? Infinity : MAX_SENSES;
         if (target !== undefined) {
           pointers++;
-          addSense(termOf(terms, key), [pos, text, null, target]);
-        } else if (isUsable(sense)) addSense(termOf(terms, key), [pos, text]);
+          addSense(termOf(terms, key), [pos, text, null, target], max);
+        } else if (isUsable(sense))
+          addSense(termOf(terms, key), [pos, text], max);
       }
     foreign += keepNativeScript(terms, letter);
     return finish(terms, shortOfDefinition);
@@ -630,6 +663,23 @@ const senseLabel = (text: unknown) =>
  * rewrites it, or drops it by returning undefined. With a native script (`letter`),
  * words with no letter of it are left out beside words that have one
  * (`keepNativeScript`).
+ *
+ * A term's senses come in the order of how many languages their English sense's table
+ * translates (its coverage; file order among equals), not the page's, and are capped
+ * after that: Wiktionary's editors translate the senses that matter first, so "be"
+ * leads with "to occupy a place" (150 languages) and "to exist" (123), not the passive
+ * auxiliary's table its page lists first (61: de werden), and "English" with the
+ * language (227), not a size of type (7: de Mittel) or a surname's transliteration (3:
+ * ru Инглиш). A sense outside standard current use (`MARKED_TAGS`, or obsolete,
+ * archaic, misspelt; or a table labelled so: ru do, "slang: have sex with") comes after
+ * the others, and a capitalised headword's is left out beside them (it English:
+ * inglese, not "silvio", the dated size of type). Unlike an edition's, such senses are
+ * not left out of a lowercase term: kaikki's tags on English senses are noisy ("folk",
+ * "a people", and "broil", "to cook by direct heat", come tagged archaic and obsolete),
+ * and "thy" has no other. Capitalised headwords keep every other sense
+ * (`capitalDictionary` caps them). Also gives the words English writes in lower
+ * case (`lowercase`: lowercase headwords of English Wiktionary, Translingual ones
+ * too; "english", "kg", not "january").
  */
 export async function readTranslationTables(
   path: string,
@@ -650,32 +700,53 @@ export async function readTranslationTables(
 ) {
   const codes = new Set(langCodes);
   const names = langs && new Set<unknown>(langs);
-  const terms = new Map<string, SourceTerm>();
-  const capital = new Map<string, SourceTerm>();
+  /** Each term's senses, with how many languages translate each, in file order. */
+  type Ranked = Map<
+    string,
+    { sense: PairSense; coverage: number; marked: boolean }[]
+  >;
+  const found: Ranked = new Map();
+  const capitalFound: Ranked = new Map();
+  const lowercase = new Set<string>();
   const stats = await eachEntry(path, (entry) => {
+    // English text writes Translingual symbols too ("kg").
+    if (entry.lang_code === "en" || entry.lang_code === "mul") {
+      const headword = entry.word.trim();
+      if (headword === headword.toLowerCase()) lowercase.add(headword);
+    }
     if (entry.lang_code !== "en") return;
     // A capitalised headword ("Japan", "Thursday") is kept apart (`capitalTermOf`).
     const capitalKey = capitalTermOf(entry.word, termKey);
     const key = capitalKey ?? termKey(entry.word);
     if (!key) return;
-    const into = capitalKey !== undefined ? capital : terms;
+    const into = capitalKey !== undefined ? capitalFound : found;
     const pos = posOf(entry.pos);
-    // hint → words, in the order the senses first appear
-    const groups = new Map<string, string[]>();
+    // hint → words, and every language its table translates, in the order the senses
+    // first appear
+    const groups = new Map<
+      string,
+      { words: string[]; langs: Set<string>; marked: boolean }
+    >();
     const add = (
       translations: KaikkiTranslation[] | undefined,
       fallbackHint: string | undefined,
+      marked = false,
     ) => {
       for (const translation of translations ?? []) {
-        if (!codes.has(translation?.lang_code as string)) continue;
+        const hint = senseLabel(translation?.sense) ?? fallbackHint;
+        if (!hint) continue;
+        let group = groups.get(hint);
+        if (!group)
+          groups.set(hint, (group = { words: [], langs: new Set(), marked }));
+        if (typeof translation.lang_code === "string")
+          group.langs.add(translation.lang_code);
+        if (!codes.has(translation.lang_code as string)) continue;
         if (names && !names.has(translation.lang)) continue;
         if (typeof translation.word !== "string") continue;
         const written = rewrite(withoutStressMarks(translation.word.trim()));
-        if (!written) continue;
-        const hint = senseLabel(translation.sense) ?? fallbackHint;
-        if (!hint) continue;
-        let words = groups.get(hint);
-        if (!words) groups.set(hint, (words = []));
+        // A template the extraction left unexpanded ("{{t+|1=it|2=francese}}") is no word.
+        if (!written || /\{\{|\}\}/.test(written)) continue;
+        const { words } = group;
         if (words.length < MAX_WORDS && !words.includes(written))
           words.push(written);
       }
@@ -688,20 +759,97 @@ export async function readTranslationTables(
       add(
         sense.translations,
         typeof gloss === "string" ? shortOfDefinition(gloss.trim()) : undefined,
+        (sense.tags ?? []).some(
+          (tag) => MARKED_TAGS.includes(tag) || UNUSED_TAGS.includes(tag),
+        ),
       );
     }
-    for (const [hint, words] of groups)
-      addSense(termOf(into, key), [pos, words.join(", "), hint]);
+    for (const [hint, { words, langs, marked }] of groups) {
+      if (words.length === 0) continue;
+      let ranked = into.get(key);
+      if (!ranked) into.set(key, (ranked = []));
+      ranked.push({
+        sense: [pos, words.join(", "), hint],
+        coverage: langs.size,
+        marked: marked || MARKED_LABEL.test(hint),
+      });
+    }
   });
+  const termsOf = (ranked: Ranked, max: number, capital: boolean) => {
+    const terms = new Map<string, SourceTerm>();
+    for (const [key, list] of ranked) {
+      const item = termOf(terms, key);
+      // A capitalised headword's marked senses are left out beside unmarked ones (it
+      // English: "silvio", a dated size of type, beside "inglese").
+      const kept =
+        capital && list.some(({ marked }) => !marked)
+          ? list.filter(({ marked }) => !marked)
+          : list;
+      // A stable sort: equals keep the file's order.
+      const ordered = withSharedFirst(
+        kept
+          .sort(
+            (a, b) =>
+              Number(a.marked) - Number(b.marked) || b.coverage - a.coverage,
+          )
+          .map(({ sense }) => sense),
+      );
+      for (const sense of ordered) addSense(item, sense, Infinity);
+    }
+    const foreign = keepNativeScript(terms, letter);
+    for (const item of terms.values()) item.senses = item.senses.slice(0, max);
+    return { terms, foreign };
+  };
+  const lower = termsOf(found, MAX_SENSES, false);
+  const capital = termsOf(capitalFound, Infinity, true);
   // The short meaning is the first sense's first word.
   const firstWord = (text: string) => text.split(", ")[0]!;
-  const foreign =
-    keepNativeScript(terms, letter) + keepNativeScript(capital, letter);
   return {
-    terms: finish(terms, firstWord),
-    capital: finish(capital, firstWord),
-    stats: { ...stats, foreign },
+    terms: finish(lower.terms, firstWord),
+    capital: finish(capital.terms, firstWord),
+    lowercase,
+    stats: { ...stats, foreign: lower.foreign + capital.foreign },
   };
+}
+
+/** A word translating this many of a term's table senses is its general translation. */
+const SHARED_SENSES = 3;
+
+/**
+ * A translation-table term's senses with its general translation first: the word its
+ * senses share most, when SHARED_SENSES or more of them have it and more than have the
+ * first sense's first word. The most translated sense that has it comes first, with it
+ * as its first word. zh be: 是 (six senses) before 在, "to occupy a place", the most
+ * translated sense (four); de it: es (four) before er, the first of the row "er, sie,
+ * es" of "subject — inanimate thing", which lists the genders.
+ */
+export function withSharedFirst(senses: readonly PairSense[]): PairSense[] {
+  const wordsOf = (sense: PairSense) => sense[1].split(", ");
+  const count = new Map<string, number>();
+  for (const sense of senses)
+    for (const word of new Set(wordsOf(sense)))
+      count.set(word, (count.get(word) ?? 0) + 1);
+  let shared: string | undefined;
+  for (const [word, n] of count)
+    if (n > (shared === undefined ? 0 : count.get(shared)!)) shared = word;
+  const first = senses[0] && wordsOf(senses[0])[0]!;
+  if (
+    shared === undefined ||
+    first === undefined ||
+    count.get(shared)! < SHARED_SENSES ||
+    count.get(shared)! <= count.get(first)!
+  )
+    return [...senses];
+  const at = senses.findIndex((sense) => wordsOf(sense).includes(shared));
+  const [pos, , hint] = senses[at]!;
+  const lead: PairSense = [
+    pos,
+    [shared, ...wordsOf(senses[at]!).filter((word) => word !== shared)].join(
+      ", ",
+    ),
+    hint,
+  ];
+  return [lead, ...senses.filter((_, i) => i !== at)];
 }
 
 /** What a capitalised headword's meaning is (`DictionaryProvider.capitalMeaning`). */
@@ -763,14 +911,57 @@ function shapeKind(item: string): CapitalMeaning | undefined {
 }
 
 /**
+ * In a script without case, where the native edition does not say: a sense of a common
+ * word's part of speech is a word (English, an adjective: 英国人的, "English
+ * person's"); a proper noun's says nothing.
+ */
+const commonKind = ([pos]: PairSense): CapitalMeaning | undefined =>
+  pos !== "" && pos !== "proper noun" ? "word" : undefined;
+
+/**
+ * A translation table's sense whose English sense is about a person's name ("An
+ * English surname…", "transliterations of the surname", "A male given name"): its
+ * words are the name, not what the headword means.
+ */
+const aboutAPerson = ([, , hint]: PairSense) =>
+  hint != null &&
+  (GIVEN_NAME.test(hint.toLowerCase()) || SURNAME.test(hint.toLowerCase()));
+
+/**
+ * An edition's senses with the first of each part of speech first, in the order the
+ * parts first come, then the rest as they were (fr English: "anglais" the adjective,
+ * "Anglais, le peuple anglais", "Anglais, langue anglaise", before the adjective's
+ * three other senses). A capitalised word's hover is not ordered by its tag (rule A2
+ * leaves capitals alone), so its lines show what each part of speech means. A
+ * translation table's senses (with a hint) stay in their order, the order of how many
+ * languages translate them.
+ */
+function inPosTurns(senses: readonly PairSense[]): PairSense[] {
+  if (senses[0]?.[2] != null) return [...senses];
+  const seen = new Set<string>();
+  const firsts = senses.filter((sense) => {
+    if (seen.has(sense[0])) return false;
+    seen.add(sense[0]);
+    return true;
+  });
+  return [...firsts, ...senses.filter((sense) => !firsts.includes(sense))];
+}
+
+/**
  * The capitalised headwords of a recipe pair (merged by `mergeSources`, by their
- * `capitalKey`: Japan, TV), each with what its meaning is:
+ * `capitalKey`: Japan, TV), each with its senses and what its meaning is:
  * - a sense whose main item is shared by CLASS_HEADWORDS or more headwords is a class
  *   gloss and is left out (Louis, Michael, Churchill: "Nombre de pila de varón");
+ * - a sense about a person's name (`aboutAPerson`) is left out when the headword has
+ *   a meaning besides: a person's name is no line of a language's or a nationality's
+ *   word (ru English: not Инглиш, the surname's transliteration);
+ * - an edition's senses come in turns by part of speech (`inPosTurns`), then all are
+ *   capped at MAX_SENSES (the sources keep every sense of a capitalised headword);
  * - the first sense that is no pointer gives the meaning: none when its main item is
  *   the headword itself (Texas → Texas, German Japan → Japan); else "name" or "word"
  *   by the native edition's entry for it (`nativeKind`), else by its shape
- *   (`shapeKind`);
+ *   (`shapeKind`), else, in a script without case, by its part of speech
+ *   (`commonKind`);
  * - a "word" meaning of a person's name first (`personFirst`: the names lexicon's main
  *   kind a given name or a surname) is a use of the name, not what it means (Einstein
  *   → genio, Frank → franco): none. Wiktionary's glosses do not mark a sense about one
@@ -802,14 +993,20 @@ export function capitalDictionary(
     !isPointerSense(sense) &&
     (headwordsOf.get(classItem(sense))?.size ?? 0) >= CLASS_HEADWORDS;
   const capital: Record<string, CapitalEntry> = {};
-  const counts = { classSenses: 0, word: 0, name: 0, none: 0 };
+  const counts = { classSenses: 0, personSenses: 0, word: 0, name: 0, none: 0 };
   for (const [key, [short, senses, source]] of Object.entries(dict)) {
-    const kept = senses.filter((sense) => !isClass(sense));
-    counts.classSenses += senses.length - kept.length;
+    const unclassed = senses.filter((sense) => !isClass(sense));
+    counts.classSenses += senses.length - unclassed.length;
+    const impersonal = unclassed.filter((sense) => !aboutAPerson(sense));
+    const chosen = impersonal.some((sense) => !isPointerSense(sense))
+      ? impersonal
+      : unclassed;
+    counts.personSenses += unclassed.length - chosen.length;
+    const kept = inPosTurns(chosen).slice(0, MAX_SENSES);
     if (kept.length === 0) continue;
     const first = kept[0]!;
     const shortOf =
-      kept.length === senses.length
+      first === senses[0]
         ? short
         : first[2] != null
           ? first[1].split(", ")[0]!
@@ -818,7 +1015,7 @@ export function capitalDictionary(
     const item = meaningSense && mainItem(meaningSense);
     let meaning: CapitalMeaning | undefined =
       item && bare(item) !== bare(key)
-        ? (nativeKind(item) ?? shapeKind(item))
+        ? (nativeKind(item) ?? shapeKind(item) ?? commonKind(meaningSense!))
         : undefined;
     if (meaning === "word" && personFirst(key.toLowerCase()))
       meaning = undefined;
@@ -936,6 +1133,30 @@ function describedOnly(senses: readonly PairSense[]) {
   return new Set(meanings.map(([pos]) => pos));
 }
 
+/** The open classes, which every source labels alike (unlike numerals, articles…). */
+const OPEN_CLASSES: readonly string[] = ["noun", "verb", "adjective", "adverb"];
+
+/** A gloss's items (what its commas and semicolons separate), in lower case, without notes. */
+const itemsOf = (text: string) =>
+  text
+    .replace(NOTES, " ")
+    .toLowerCase()
+    .replaceAll("’", "'")
+    .split(/[,;，；]/)
+    .map((item) => item.replace(/[\s.:。：]+$/u, "").trim())
+    .filter((item) => item !== "");
+
+/**
+ * Whether `senses` already give one of `sense`'s words as an item: the same
+ * translation under another label (es yesterday: the edition's adverb "ayer", the
+ * tables' noun "ayer"; seven: an adjective and a numeral). A description that uses the
+ * word ("ktoś lepszy w czymś", someone better at something) does not.
+ */
+function translatesAlike(senses: readonly PairSense[], sense: PairSense) {
+  const given = new Set(senses.flatMap(([, text]) => itemsOf(text)));
+  return itemsOf(sense[1]).some((item) => given.has(item));
+}
+
 /**
  * Merges the sources (in order of preference): each term comes whole from the first
  * source that has it, as [short, senses, source index]. A term that only points
@@ -946,20 +1167,50 @@ function describedOnly(senses: readonly PairSense[]) {
  * first later source that translates it in one of those parts of speech (a sense of
  * that part of speech that does not describe), and stays described when none does
  * (pl "a": the tables have only the letter's name).
+ *
+ * And a term with no meaning in its main part of speech (`mainPos`: that of its most
+ * translated sense, the translation tables' first; an open class) comes whole from the
+ * first later source that has one, unless the term already writes that meaning's
+ * translation under another label (`translatesAlike`): fr and pl "better", whose
+ * editions have only the verb and the noun, from the tables' "meilleur", "lepszy" (A1
+ * sent the adjective to "good": "bon", "sage"); es "better", whose edition's
+ * adjective is only "comparativo irregular de good" (a `degree`), from the tables'
+ * "mejor"; es "spring", whose edition has only the verb (saltar), from the tables'
+ * "primavera". A pointer or a degree names another word's meaning; it has none of its
+ * own.
  */
 export function mergeSources(
   sources: { tag: string; terms: Map<string, SourceTerm> }[],
+  {
+    mainPos = () => undefined,
+    degree = () => false,
+  }: {
+    mainPos?: (key: string) => string | undefined;
+    /** A sense that is an unmarked degree of another word (`degreeOf`). */
+    degree?: (key: string, sense: PairSense) => boolean;
+  } = {},
 ) {
   const dict: Record<string, [string, PairSense[], number]> = {};
   const counts: Record<string, number> = {};
   const described: string[] = [];
+  const lacking: string[] = [];
   const means = (senses: readonly PairSense[]) =>
     senses.some((sense) => !isPointerSense(sense));
+  /** Whether `senses` mean something as a `pos` (no pointer, no degree). */
+  const meansAs = (key: string, senses: readonly PairSense[], pos: string) =>
+    senses.some(
+      (sense) =>
+        sense[0] === pos && !isPointerSense(sense) && !degree(key, sense),
+    );
   /** Whether `later` replaces `taken`, a term a former source gave. */
-  const yields = (taken: readonly PairSense[], later: readonly PairSense[]) => {
-    if (!means(taken)) return means(later);
+  const yields = (
+    key: string,
+    taken: readonly PairSense[],
+    later: readonly PairSense[],
+  ): "points" | "describes" | "lacks" | false => {
+    if (!means(taken)) return means(later) && "points";
     const described = describedOnly(taken);
-    return (
+    if (
       described !== undefined &&
       later.some(
         (sense) =>
@@ -967,6 +1218,22 @@ export function mergeSources(
           described.has(sense[0]) &&
           !describing(sense),
       )
+    )
+      return "describes";
+    const main = mainPos(key);
+    return (
+      main !== undefined &&
+      OPEN_CLASSES.includes(main) &&
+      !meansAs(key, taken, main) &&
+      meansAs(key, later, main) &&
+      !translatesAlike(
+        taken,
+        later.find(
+          (sense) =>
+            sense[0] === main && !isPointerSense(sense) && !degree(key, sense),
+        )!,
+      ) &&
+      "lacks"
     );
   };
   sources.forEach(({ tag, terms }, index) => {
@@ -974,9 +1241,11 @@ export function mergeSources(
     for (const [key, { short, senses }] of terms) {
       if (Object.hasOwn(dict, key)) {
         const [, taken, from] = dict[key]!;
-        if (!yields(taken, senses)) continue;
+        const why = yields(key, taken, senses);
+        if (!why) continue;
         counts[sources[from]!.tag]!--;
-        if (means(taken)) described.push(key);
+        if (why === "describes") described.push(key);
+        if (why === "lacks") lacking.push(key);
       }
       dict[key] = [short, senses, index];
       counts[tag]++;
@@ -988,5 +1257,7 @@ export function mergeSources(
     counts,
     /** The terms a later source took from one that only described them. */
     described,
+    /** The terms a later source took from one with no meaning in their main part of speech. */
+    lacking,
   };
 }
