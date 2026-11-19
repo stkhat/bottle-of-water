@@ -9,6 +9,7 @@
 import type { LanguagePack } from "../lexicon/language-pack";
 import { normalizeWord, type Token } from "../text/tokenize";
 import { readWords, type WordReading } from "../word-sense";
+import { splitKey, wordsOfKey, type KeyParts } from "./key";
 import { matchStart, type MatchInput, type MatchWord } from "./matcher";
 
 /** Why a phrase cannot be saved for this sentence. */
@@ -216,12 +217,19 @@ function keysAt(
   const keys: string[] = [];
   const match = pack.matcher.matchSelection(read.input, at.first, at.last + 1);
   if (match) keys.push(match.key);
-  const words: string[] = [];
+  // Separated as the sentence separates them ("wh-what", "well, i think").
+  let key = "";
   for (let i = at.first; i <= at.last; i++)
-    words.push(dictionaryWord(pack, read, i, i === at.first));
-  keys.push(words.join(" "));
+    key +=
+      (i > at.first ? read.input.between[i - 1]! : "") +
+      dictionaryWord(pack, read, i, i === at.first);
+  keys.push(key);
   return keys;
 }
+
+/** A key from its words and their separators (`splitKey`). */
+const joinKey = ({ words, between }: KeyParts) =>
+  words.map((word, i) => (i > 0 ? between[i - 1]! : "") + word).join("");
 
 /**
  * A phrase that corrects the selection at `start`–`end`: it takes in other words of
@@ -237,7 +245,7 @@ export const corrects = (
   fix.ok &&
   (fix.start !== start ||
     fix.end !== end ||
-    fix.key.split(" ").some((word) => rules.slots.has(word)));
+    wordsOfKey(fix.key).some((word) => rules.slots.has(normalizeWord(word))));
 
 /**
  * The phrase `text` (an answer of the model, or what the user typed) for the words
@@ -270,7 +278,7 @@ export function correctPhrase(
   const keys: string[] = [];
   const at = locate(read, typed);
   if (at) keys.push(...keysAt(pack, read, at));
-  keys.push(typed.join(" "));
+  keys.push(joinKey(splitKey(text.trim(), pack.lang)));
   const bare = typed.filter((word) => !pack.rules.slots.has(word));
   if (bare.length >= 2 && bare.length < typed.length) {
     const key = bare.join(" ");

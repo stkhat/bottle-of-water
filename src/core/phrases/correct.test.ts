@@ -92,6 +92,15 @@ describe("correctPhrase: the dictionary form", () => {
     ).toBe("in the hope that");
   });
 
+  it("keeps the sentence's separators between the words", () => {
+    expect(key("Well, I think so.", "Well, I", "well I think")).toBe(
+      "well, i think",
+    );
+    expect(key("Well, I think so.", "Well, I", "Well, I think")).toBe(
+      "well, i think",
+    );
+  });
+
   it("takes the dictionary's pattern for the words, gap included", () => {
     expect(
       key(
