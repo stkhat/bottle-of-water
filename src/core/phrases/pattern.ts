@@ -32,6 +32,55 @@ export interface PhraseRules {
    * ("at", "of", "to", "with"): P2 needs no tag to drop a verb pattern ending in one.
    */
   readonly prepositions?: ReadonlySet<string>;
+  /** Pronominal verbs: how patterns and text write a verb with its reflexive pronoun. */
+  readonly reflexive?: ReflexiveRules;
+  /**
+   * Contractions of a preposition and an article, by the preposition ("al" → "a",
+   * "del" → "de"). Such a word stands for its preposition only as a pattern's last
+   * word, where the article opens what follows ("a través del tiempo" is `a través
+   * de`); inside a pattern the article would be missing from it ("al tiempo" is no `a
+   * tiempo`).
+   */
+  readonly contractions?: ReadonlyMap<string, string>;
+  /**
+   * The language puts adjectives after the noun ("al día siguiente"): a pattern ending
+   * in a noun that an adjective follows is that noun phrase, read word by word.
+   */
+  readonly adjectivesAfterNouns?: boolean;
+}
+
+/**
+ * Pronominal verbs (Spanish "darse cuenta", unlike "dar cuenta de"): a pattern writes
+ * the verb with its reflexive pronoun attached to the infinitive ("darse"), text with
+ * the pronoun before a finite verb ("me di cuenta", "se ha dado cuenta") or attached
+ * to an infinitive, a gerund or an imperative ("darme cuenta", "dándose cuenta",
+ * "date cuenta").
+ */
+export interface ReflexiveRules {
+  /** What a pattern writes after the infinitive of a pronominal verb ("darse": "se"). */
+  readonly ending: string;
+  /** The reflexive pronouns, written before a finite verb ("me", "te", "se", "nos", "os"). */
+  readonly pronouns: ReadonlySet<string>;
+  /** Other pronouns that may stand between the reflexive one and its verb ("se lo tomó"). */
+  readonly objects: ReadonlySet<string>;
+  /**
+   * Auxiliaries whose forms may stand between the pronoun and its verb ("se ha quitado
+   * la vida", "me estoy dando cuenta").
+   */
+  readonly auxiliaries: ReadonlySet<string>;
+  /** At most this many words between the pronoun and its verb. */
+  readonly maxBetween: number;
+  /**
+   * The verb that a written form with a reflexive pronoun attached is a form of
+   * ("darme", "dándose", "date" → "dar"), among the form's `bases`; undefined for a
+   * form without one, or whose attached pronoun is no reflexive one ("dame": an
+   * imperative takes "me" as its object). `lemmas`: any word's base forms.
+   */
+  attached(
+    form: string,
+    bases: readonly string[],
+    lemmas: (word: string) => readonly string[],
+  ): string | undefined;
 }
 
 /**

@@ -47,6 +47,46 @@ const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es"]);
  */
 const BASES_IN_ORDER: ReadonlySet<string> = new Set(["es"]);
 
+/**
+ * Letters whose accented forms text written in capitals tends to leave out (Spanish
+ * ESTAN for están, POLICIA for policía): letter → its accented forms. A word takes at
+ * most one of them, as Spanish writes one accent a word.
+ */
+const CAPITAL_ACCENTS: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = {
+  es: { a: "á", e: "é", i: "í", o: "ó", u: "úü", n: "ñ" },
+};
+
+/**
+ * The one spelling of `word` with an accented letter (`accents`) that `known` knows;
+ * undefined when none or several do ("esta": está and ésta are left alone, though
+ * only unknown words are asked about).
+ */
+function accentedSpelling(
+  word: string,
+  accents: Readonly<Record<string, string>>,
+  known: (word: string) => boolean,
+): string | undefined {
+  let found: string | undefined;
+  const letters = [...word];
+  for (let i = 0; i < letters.length; i++) {
+    const options = own(accents, letters[i]!);
+    if (options === undefined) continue;
+    for (const accented of options) {
+      const spelling = [
+        ...letters.slice(0, i),
+        accented,
+        ...letters.slice(i + 1),
+      ].join("");
+      if (!known(spelling)) continue;
+      if (found !== undefined) return undefined;
+      found = spelling;
+    }
+  }
+  return found;
+}
+
 /** Each language's tagger over its pack's model. */
 const TAGGERS: Readonly<Record<string, (model: TaggerModel) => Tagger>> = {
   en: englishTagger,
@@ -99,6 +139,12 @@ export interface LanguagePack {
    * capitalised common word (`NamesPack`). Undefined when it is no name.
    */
   name(word: string): string | undefined;
+  /**
+   * The one known spelling of an unknown word with an accent that capitals leave out
+   * (`accentedSpelling`: "estan" → "están"); undefined in a language that writes its
+   * accents in capitals too, or when no one spelling is known.
+   */
+  accented(word: string): string | undefined;
   /** A word's parts of speech, its main one first; [] when the pack has none. */
   partsOfSpeech(word: string): readonly string[];
   /**
@@ -152,6 +198,19 @@ export function createLanguagePack(
     }
     return found;
   };
+  const accents = own(CAPITAL_ACCENTS, lang);
+  const isName = (word: string) =>
+    data.names !== undefined && Object.hasOwn(data.names, word);
+  /** A name ("berlín") is no word to read in capitals, where names do not show. */
+  const accented = (word: string) => {
+    if (accents === undefined) return undefined;
+    const spelling = accentedSpelling(
+      word,
+      accents,
+      (option) => isName(option) || lemmas(option).length > 0,
+    );
+    return spelling === undefined || isName(spelling) ? undefined : spelling;
+  };
   let phrases: ReadonlySet<string> | undefined;
   let matcher: PhraseMatcher | undefined;
   let phrasePos: ReadonlyMap<string, readonly string[]> | undefined;
@@ -171,6 +230,7 @@ export function createLanguagePack(
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
     capitalsForNames: CAPITALS_FOR_NAMES.has(lang),
     name: (word) => (data.names ? own(data.names, word) : undefined),
+    accented,
     partsOfSpeech: (word) => (data.pos ? (own(data.pos, word) ?? []) : []),
     expansions: (word) =>
       data.contractions ? (own(data.contractions, word) ?? []) : [],
@@ -187,6 +247,7 @@ export function createLanguagePack(
         rules,
         patterns: data.patterns,
         lemmas,
+        accented,
       }));
     },
   };
