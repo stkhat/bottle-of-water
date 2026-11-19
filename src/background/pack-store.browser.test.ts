@@ -86,6 +86,8 @@ async function testLock(
         packs["es-en"] ?? (await lockEntry("es-en", "2026.1111.0", ES_EN)),
       fr: unused("fr"),
       "fr-en": unused("fr-en"),
+      de: unused("de"),
+      "de-en": unused("de-en"),
       "en-es": unused("en-es"),
       "en-pt": unused("en-pt"),
       "en-ru": unused("en-ru"),
@@ -99,6 +101,7 @@ async function testLock(
       en: ["ja", "es", "pt", "ru", "fr", "de", "zh", "it", "pl"],
       es: ["en"],
       fr: ["en"],
+      de: ["en"],
     },
   };
 }

@@ -52,6 +52,8 @@ interface BuiltOtherwise {
   "es-en": { defs: DefsPack };
   fr: LearningPackFiles & { tagger: TaggerPack };
   "fr-en": { defs: DefsPack };
+  de: LearningPackFiles & { tagger: TaggerPack };
+  "de-en": { defs: DefsPack };
 }
 
 /** A learning language's pack built from English Wiktionary (learning-kaikki.ts). */
@@ -147,6 +149,21 @@ const LOADERS: {
   },
   "fr-en": async (fetchJson) => ({
     defs: await loadShards("/packs/fr-en", fetchJson),
+  }),
+  // German's lemma table is sharded as Spanish's.
+  de: async (fetchJson) => {
+    const [lemmas, files] = await Promise.all([
+      readShards<LemmaPack>("/packs/de/lemmas", fetchJson),
+      loadFiles(
+        "de",
+        ["freq", "ipa", "pos", "vocab", "phrases", "names", "tagger"],
+        fetchJson,
+      ),
+    ]);
+    return { ...files, lemmas };
+  },
+  "de-en": async (fetchJson) => ({
+    defs: await loadShards("/packs/de-en", fetchJson),
   }),
   ...(Object.fromEntries(
     recipeNatives().map((native) => [

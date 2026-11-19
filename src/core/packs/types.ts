@@ -71,7 +71,9 @@ export type DefsPack = Readonly<
       short: string,
       /**
        * Each sense's part of speech and text, and "auxiliary" for a sense the source
-       * marks as the verb's use as an auxiliary (`Sense.auxiliary`).
+       * marks as the verb's use as an auxiliary (`Sense.auxiliary`): learning packs
+       * built in L1-3 and L1-4 (`fr-en`, `es-en`); the data build now labels such a
+       * sense "auxiliary" instead.
        */
       senses: readonly (readonly [
         pos: string,

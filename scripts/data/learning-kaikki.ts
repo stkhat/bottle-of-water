@@ -5,7 +5,7 @@
 // data/packs/<lang>/lemmas/{index,dict-<n>}.json and the dictionary into English,
 // data/packs/<lang>-en/{index,dict-<n>}.json. CORE: what a language changes is its
 // `LearningBuild` (es-kaikki.ts, fr-kaikki.ts).
-import { rmSync } from "node:fs";
+import { createWriteStream, existsSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { singleIpa } from "../../src/core/lexicon/ipa.ts";
 import { splitElisions } from "../../src/core/text/tokenize.ts";
@@ -71,6 +71,26 @@ export interface LearningBuild {
    * none highlighted: while the language's phrase rules are not judged yet.
    */
   selectOnlyPhrases?: boolean;
+  /**
+   * The language capitalises every noun (German "Haus", "Essen"): a headword written
+   * with a capital and then lower case is a word like a lowercase one, its form-of
+   * senses count ("Häuser": plural of Haus), and a key both spellings share ("essen":
+   * essen, to eat; Essen, food) has the senses of both, the lowercase headword's first
+   * (`CAPITAL_ROOM`). Spanish and French write such headwords for names only.
+   */
+  nounsCapitalised?: boolean;
+  /**
+   * A pronunciation as the language's own edition writes it (`ipaPaths`), in slashes:
+   * Wiktionnaire's "\\me.zɔ̃\\" (the default), de.wiktionary's "[haʊ̯s]".
+   */
+  editionIpa?: (ipa: string) => string;
+  /**
+   * The language writes a separable verb's particle apart in a main clause ("er fängt
+   * morgen an": anfangen): a finite form the verb's entry lists with its particle
+   * ("fängt an") is a form of the verb too, after its other bases, which the grammar
+   * chooses where the particle stands in the clause (src/core/tagging/de.ts).
+   */
+  separableVerbs?: boolean;
 }
 
 /**
@@ -91,6 +111,53 @@ export const CLOSED_CLASSES: ReadonlySet<string> = new Set([
 ]);
 const FREQ_TOP = 30000;
 const MAX_SENSES = 6;
+/**
+ * Senses a key's capitalised headword keeps at least when the lowercase one fills the
+ * rest (`LearningBuild.nounsCapitalised`): "sie" (she; they) keeps Sie's "you (polite)".
+ */
+const CAPITAL_ROOM = 2;
+
+/**
+ * The part of speech a verb's sense that is its use as an auxiliary (`auxiliaryUse`) is
+ * given ("haben": forms the perfect aspect; "werden": forms the future tense; avoir:
+ * used to form the compound tenses; aller: to be going (to)): rule A2 shows it first
+ * where the grammar reads the verb as an auxiliary (`AUXILIARY`) and the verb's other
+ * senses first where the tag reads it as a verb ("ich habe ein Auto": to have). The
+ * word's parts of speech count it as a verb.
+ */
+const AUXILIARY_LABEL = "auxiliary";
+
+/**
+ * Up to `max` of a word's senses, in their order, each part of speech keeping its
+ * first: a part whose first sense falls past the cap takes the place of the last sense
+ * of a part that has more than one ("sein": the determiner "his" after the verb's
+ * senses and the noun), so rule A2 has a sense of each part to show.
+ */
+export function keptSenses(senses: readonly Sense[], max = MAX_SENSES) {
+  const kept = senses.slice(0, max);
+  for (const sense of senses.slice(max)) {
+    if (kept.some(([pos]) => pos === sense[0])) continue;
+    for (let i = kept.length - 1; i >= 0; i--) {
+      const pos = kept[i]![0];
+      if (kept.filter(([other]) => other === pos).length < 2) continue;
+      kept.splice(i, 1);
+      kept.push(sense);
+      break;
+    }
+  }
+  return kept;
+}
+
+/**
+ * How many times as often as in lower case the examples must write a key capitalised
+ * inside a sentence for its capitalised headword's senses to come first
+ * (`capitalFirst`).
+ */
+const CAPITAL_FIRST = 3;
+
+/** A word written with a capital, then lower case ("Haus"; not "USA", "McDonald"). */
+const capitalisedSpelling = (word: string, lower: string) =>
+  word !== lower && word === lower.charAt(0).toUpperCase() + lower.slice(1);
 // Form-of and alt-of senses that do not make the word a form of the word they point to.
 const IGNORED_FORM_TAGS = new Set([
   "obsolete",
@@ -121,8 +188,16 @@ const MIN_CAPITALISED = 3;
 /** Alt-of senses that stand for a longer term ("ESO", "ONU"). */
 const ACRONYM_TAGS: ReadonlySet<string> = new Set(["acronym", "initialism"]);
 
-/** A sense's part of speech and text, and "auxiliary" for an auxiliary's (`auxiliaryUse`). */
-type Sense = [pos: string, text: string, use?: "auxiliary"];
+type Sense = [pos: string, text: string];
+
+/** `senses` with each part of speech and text once, the first of each kept. */
+const onceEach = (senses: readonly Sense[]) =>
+  senses.filter(
+    (sense, i) =>
+      senses.findIndex(
+        (other) => other[0] === sense[0] && other[1] === sense[1],
+      ) === i,
+  );
 
 /**
  * A qualifier's part saying the verb comes before an infinitive, a gerund or a
@@ -156,7 +231,7 @@ function auxiliaryQualifier(gloss: string): boolean {
  * The sense is the verb's use as an auxiliary: kaikki tags it so (avoir "used to form
  * the compound tenses", haber, estar before a gerund, ir "to be going to"), or its
  * qualifier names the construction (`auxiliaryQualifier`). Rule A2 shows these first
- * where the grammar reads the word as an auxiliary (`Sense.auxiliary`).
+ * where the grammar reads the word as an auxiliary (AUXILIARY_LABEL).
  */
 export function auxiliaryUse(sense: KaikkiSense): boolean {
   return (
@@ -165,6 +240,12 @@ export function auxiliaryUse(sense: KaikkiSense): boolean {
       (gloss) => typeof gloss === "string" && auxiliaryQualifier(gloss),
     )
   );
+}
+
+/** A key's headwords of one spelling: one has a meaning; their form-of senses' bases. */
+interface Spelling {
+  meaning: boolean;
+  bases: string[];
 }
 
 function firstPhonemicIpa(
@@ -232,7 +313,7 @@ const named = (gloss: string) =>
  * apocopic form of mucho; "vídeo": alternative form of video; "este": superseded
  * spelling of éste), else undefined: an abbreviation of a longer term ("ESO": acronym
  * of Educación Secundaria Obligatoria; "al": contraction of a + el) is none, nor is a
- * sense with no meaning (obsolete, archaic, misspelt). kaikki splits a gloss at its
+ * sense with no meaning (obsolete, archaic, misspelt), nor a contraction. kaikki splits a gloss at its
  * commas into more targets ("apocopic form of tuyo, your": tuyo, your); the one the
  * gloss names after "of" is the target.
  */
@@ -244,6 +325,9 @@ function altOfTarget(sense: KaikkiSense): string | undefined {
   const tags = sense.tags ?? [];
   if (tags.some((tag) => ACRONYM_TAGS.has(tag) || UNUSABLE_TAGS.has(tag)))
     return undefined;
+  // A contraction stands for more than the word it names first ("ins": contraction
+  // of in (“(in)to”) + das).
+  if (tags.includes("contraction")) return undefined;
   return target;
 }
 
@@ -358,16 +442,34 @@ export function quotedMeaning(gloss: string): string | undefined {
  */
 export function contractionMeaning(gloss: string): string | undefined {
   const literal = /,?\s*\bliterally\s+“([^”]+)”/u.exec(gloss);
+  const parts = literal ? undefined : partsMeaning(gloss);
+  if (parts !== undefined) return parts;
   const quoted = literal
     ? undefined
     : /\s*\(\s*(['‘“][^)]*['’”])\s*\)\s*$/u.exec(gloss);
   const found = literal ?? quoted;
-  if (!found) return undefined;
+  if (!found) return pointerMeaning(gloss);
   const meaning = found[1]!.replace(/['‘’“”]/gu, "").trim();
   const pointer = (
     gloss.slice(0, found.index) + gloss.slice(found.index + found[0].length)
   ).trim();
   return meaning ? `${meaning}; ${pointer}` : undefined;
+}
+
+/**
+ * A contraction's meaning from its parts' quoted glosses, each part having one:
+ * "contraction of an (“on(to)”) + das (“the”)" → "on(to) the; contraction of an + das";
+ * "dem (“the”, masculine/neuter dative singular)" counts as "the".
+ */
+function partsMeaning(gloss: string): string | undefined {
+  const of = /^(.*?\bof\s+)(.+)$/su.exec(gloss);
+  if (!of) return undefined;
+  const parts = of[2]!
+    .split(/\s+\+\s+/u)
+    .map((part) => /^([^\s(]+)\s*\(“([^”]+)”[^)]*\)/u.exec(part.trim()));
+  if (parts.length < 2 || parts.some((part) => !part)) return undefined;
+  const meaning = parts.map((part) => part![2]!.trim()).join(" ");
+  return `${meaning}; ${of[1]!}${parts.map((part) => part![1]!).join(" + ")}`;
 }
 
 /**
@@ -377,6 +479,10 @@ export function contractionMeaning(gloss: string): string | undefined {
  */
 const GRAMMAR_NAME =
   /\b(?:article|pronoun|determiner|preposition|conjunction|contraction)s?\b/i;
+
+/** A description ending in a part of speech's name, a comma, then the rest. */
+const DESCRIBED =
+  /^([^,()]*\b(?:article|pronoun|determiner|preposition|conjunction|contraction)s?)\s*,\s*([^,]+)$/i;
 
 /** The parts of a gloss split at each `separator` outside brackets and quotes. */
 function topLevelParts(gloss: string, separator: string) {
@@ -403,16 +509,21 @@ function topLevelParts(gloss: string, separator: string) {
  * the" → "the; feminine plural definite article"; "A reflexive or reciprocal pronoun:
  * oneself, himself" → "oneself, himself; A reflexive or reciprocal pronoun"), and the
  * hover line is the first part. The parts are split at ";" and, after a description,
- * at ":"; a description names a part of speech (`GRAMMAR_NAME`). Unchanged when it
+ * at ":" or a last "," ("nominative masculine singular definite article, the" → "the;
+ * nominative masculine singular definite article"); a description names a part of
+ * speech (`GRAMMAR_NAME`). Unchanged when it
  * already starts with a translation or gives none ("plural masculine or neuter
  * pronoun").
  */
 export function translationFirst(gloss: string): string {
   const parts = topLevelParts(gloss, ";").flatMap((part) => {
     const [head, ...rest] = topLevelParts(part, ":");
-    return rest.length > 0 && GRAMMAR_NAME.test(head!)
-      ? [head!, rest.join(": ")]
-      : [part];
+    if (rest.length > 0 && GRAMMAR_NAME.test(head!))
+      return [head!, rest.join(": ")];
+    // A description that names the part of speech, then a comma and the translation:
+    // "nominative masculine singular definite article, the".
+    const named = DESCRIBED.exec(part);
+    return named ? [named[1]!, named[2]!] : [part];
   });
   const describes = (part: string) => GRAMMAR_NAME.test(part);
   if (!describes(parts[0] ?? "") || parts.every(describes)) return gloss;
@@ -430,6 +541,8 @@ interface SenseItem {
   def: Sense;
   sense: KaikkiSense;
   alt?: { target: string; pointerOnly: boolean };
+  /** From a capitalised headword the key shares (`LearningBuild.nounsCapitalised`). */
+  capital?: true;
 }
 
 /**
@@ -453,7 +566,7 @@ function usableSenses(entry: KaikkiEntry): SenseItem[] {
         const gloss = (
           typeof first === "string" ? first : glossOf(sense)
         ).trim();
-        return [{ def: [pos, gloss, "auxiliary"], sense }];
+        return [{ def: [AUXILIARY_LABEL, gloss], sense }];
       }
       const gloss = glossOf(sense).trim();
       return [{ def: [pos, closed ? translationFirst(gloss) : gloss], sense }];
@@ -590,15 +703,10 @@ export function byTreebank(
  * eleventh), since they are what the word means where the grammar reads it as one.
  */
 function definition(senses: Sense[]): DefsPack[string] {
-  const once = senses.filter(
-    (sense, i) =>
-      senses.findIndex(
-        (other) => other[0] === sense[0] && other[1] === sense[1],
-      ) === i,
-  );
+  const once = onceEach(senses);
   const kept = [
     ...once.slice(0, MAX_SENSES),
-    ...once.slice(MAX_SENSES).filter((sense) => sense[2] === "auxiliary"),
+    ...once.slice(MAX_SENSES).filter(([pos]) => pos === AUXILIARY_LABEL),
   ];
   return [shortOfDefinition(kept[0]![1]), kept];
 }
@@ -630,6 +738,7 @@ export async function buildLearningPacks(
     ipaPaths = [],
     phraseScoring = {},
     ownEditionExamples = true,
+    written,
   }: {
     freqTop?: number;
     /** The treebanks' lemma counts (`treebankLemmas`), which order a form's bases. */
@@ -654,6 +763,12 @@ export async function buildLearningPacks(
      * they still attest multi-word nouns, B1's size cap).
      */
     ownEditionExamples?: boolean;
+    /**
+     * The frequency list's forms as written, case kept, in rank order, for a language
+     * that capitalises its nouns: a form ranks the bases of the headword spelt as it
+     * is ("Reisen" ranks Reise, "reisen" itself; `rankedBases`).
+     */
+    written?: readonly string[];
   } = {},
 ) {
   /** The frequency list's forms in current use (`withoutHeadLabels`). */
@@ -680,24 +795,63 @@ export async function buildLearningPacks(
   const names = createNames();
   const { lang, word: WORD } = language;
   const cases = createCaseCounter(lang);
+  /**
+   * How the examples write each word inside a sentence (`capitalFirst`), read before
+   * the senses are ordered: a language that capitalises its nouns only.
+   */
+  const inside = language.nounsCapitalised
+    ? createCaseCounter(lang)
+    : undefined;
   /** The entries of each headword written with an apostrophe (`ownWord`). */
   const apostrophes = new Map<string, KaikkiEntry[]>();
+  /**
+   * Each key's headwords by spelling, lowercase and capitalised (German): whether one
+   * has a meaning and what its form-of senses point to (`rankedBases`).
+   */
+  const spellings = {
+    lower: new Map<string, Spelling>(),
+    capital: new Map<string, Spelling>(),
+  };
+  /** A separable verb's finite forms written apart: "fängt" → anfangen, … */
+  const separated = new Map<string, Set<string>>();
   const stats = await eachEntry(path, (read) => {
     if (read.lang_code !== lang) return;
     names.add(read);
     cases.add(read);
+    inside?.add(read);
     const word = read.word.trim().replaceAll("’", "'");
     const lower = word.toLowerCase();
     const entry = inUse.has(lower) ? withoutHeadLabels(read) : read;
     // Multi-word entries are the phrase build's (`importPhrases`).
     if (/\s/.test(lower) || !WORD.test(lower)) return;
+    if (language.separableVerbs && entry.pos === "verb" && word === lower)
+      for (const { form } of entry.forms ?? []) {
+        const written = typeof form === "string" ? form.trim() : "";
+        const [stem, particle, ...more] = written.split(/\s+/);
+        if (
+          more.length > 0 ||
+          !stem ||
+          !particle ||
+          !WORD.test(stem) ||
+          !lower.startsWith(particle) ||
+          lower === particle
+        )
+          continue;
+        const verbs = separated.get(stem) ?? new Set<string>();
+        verbs.add(lower);
+        separated.set(stem, verbs);
+      }
     if (/['-]/.test(lower) && language.ownWord) {
       const found = apostrophes.get(lower);
       if (found) found.push(entry);
       else apostrophes.set(lower, [entry]);
     }
     const items = usableSenses(entry);
-    const buckets = word === lower ? exact : folded;
+    const capital =
+      language.nounsCapitalised === true && capitalisedSpelling(word, lower);
+    // A capitalised word of a language that capitalises nouns is spelt as one.
+    const spelt = word === lower || capital;
+    const buckets = spelt ? exact : folded;
     let bucket = buckets.get(lower);
     if (!bucket)
       buckets.set(
@@ -714,10 +868,21 @@ export async function buildLearningPacks(
         }),
       );
     for (const { def, alt } of items)
-      bucket.items.push(alt ? { def, alt } : { def });
+      bucket.items.push({
+        def,
+        ...(alt && { alt }),
+        ...(capital && { capital: true as const }),
+      });
     bucket.ipa ??= firstPhonemicIpa(entry);
-    if (word === lower) {
+    if (spelt) {
       const bases = pointerBases(entry, false, WORD);
+      if (language.nounsCapitalised) {
+        const byCase = capital ? spellings.capital : spellings.lower;
+        const found = byCase.get(lower) ?? { meaning: false, bases: [] };
+        found.meaning ||= items.length > 0;
+        found.bases.push(...bases);
+        byCase.set(lower, found);
+      }
       bucket.form ||= bases.length > 0;
       if (bases.length > 0 && typeof entry.pos === "string")
         bucket.formPos.add(posLabel(entry.pos));
@@ -765,15 +930,59 @@ export async function buildLearningPacks(
   };
   // Alt-of senses count, with their targets as bases, unless the word is an inflected
   // form: "os" is a form of vosotros, not "alternative form of ox".
+  if (inside)
+    for (const more of casePaths)
+      await eachEntry(
+        more,
+        (entry) => inside.add(entry),
+        (line) => !line.includes('"examples"'),
+      );
+  /**
+   * The examples write the key capitalised inside a sentence CAPITAL_FIRST times as
+   * often as in lower case or more (MIN_CAPITALISED times at least): its capitalised
+   * headword is the word most text means ("Mensch", a human being, not the pronoun
+   * "mensch"; "Laden", a shop, not "laden", to load). Inside a sentence, where a
+   * capital marks a noun, not an utterance's start ("Nein", "Hallo").
+   */
+  const capitalFirst = (key: string) => {
+    const [capitalised, lower] = inside?.counts.get(key) ?? [0, 0];
+    return (
+      capitalised >= MIN_CAPITALISED && capitalised >= CAPITAL_FIRST * lower
+    );
+  };
+  // A key's capitalised headwords' senses come after its lowercase ones' (before them
+  // when `capitalFirst`), with room for CAPITAL_ROOM of the second; each part of
+  // speech keeps its first sense (`keptSenses`).
   for (const [word, bucket] of [...exact, ...folded]) {
     const form = exact.get(word)?.form ?? false;
-    for (const { def, alt } of bucket.items) {
-      if (alt && form) continue;
-      bucket.senses.push(
-        alt?.pointerOnly ? targetMeaning(def, alt.target) : def,
-      );
-      if (def[0]) bucket.pos.add(def[0]);
-    }
+    const senseOf = ({ def, alt }: Omit<SenseItem, "sense">): Sense =>
+      alt?.pointerOnly ? targetMeaning(def, alt.target) : def;
+    const counted = bucket.items.filter(({ alt }) => !(alt && form));
+    for (const { def } of counted)
+      if (def[0]) bucket.pos.add(def[0] === AUXILIARY_LABEL ? "verb" : def[0]);
+    const lower = onceEach(
+      counted.filter((item) => !item.capital).map(senseOf),
+    );
+    const capital = onceEach(
+      counted.filter((item) => item.capital).map(senseOf),
+    );
+    const [first, second] = capitalFirst(word)
+      ? [capital, lower]
+      : [lower, capital];
+    const room = Math.min(CAPITAL_ROOM, second.length);
+    const kept = keptSenses([
+      ...keptSenses(first, MAX_SENSES - room),
+      ...second,
+    ]);
+    // An auxiliary's senses past the cap come after the others (`definition`).
+    const shown = new Set(kept.map(([pos, text]) => `${pos}\n${text}`));
+    bucket.senses.push(
+      ...kept,
+      ...[...first, ...second].filter(
+        ([pos, text]) =>
+          pos === AUXILIARY_LABEL && !shown.has(`${pos}\n${text}`),
+      ),
+    );
     if (!form) bucket.bases.push(...bucket.altBases);
   }
 
@@ -859,7 +1068,7 @@ export async function buildLearningPacks(
         if (!vocabSet.has(word) || ownIpa(word) !== undefined) return;
         // An entry spelt exactly like the word wins, as in `path`.
         if (written !== word && moreIpa.has(word)) return;
-        const found = firstPhonemicIpa(entry, slashed);
+        const found = firstPhonemicIpa(entry, language.editionIpa ?? slashed);
         if (found) moreIpa.set(word, found);
       },
       (line) =>
@@ -897,14 +1106,58 @@ export async function buildLearningPacks(
   }
   // A form that is a vocabulary word ranks only itself: "para", "pero" and "como" would
   // otherwise put parar, perar and comer among the most common words.
+  /**
+   * The bases a written form of the list ranks (`written`): those of the headword spelt
+   * as it is, capitalised ("Reisen": Reise) or lowercase ("reisen": itself), a
+   * headword with a meaning only itself, as a listed form does; a form of a form, its
+   * base's bases. A capital no headword is spelt with (a sentence's first word) is the
+   * lowercase word's; a spelling with no bases, every base of its key.
+   */
+  const rankedBases = (form: string): string[] => {
+    const key = form.toLowerCase().replaceAll("’", "'");
+    const found =
+      (capitalisedSpelling(form, key)
+        ? spellings.capital.get(key)
+        : undefined) ?? spellings.lower.get(key);
+    const all = vocabSet.has(key) ? [key] : [lemmas[key] ?? []].flat();
+    if (!found) return all;
+    if (found.meaning && vocabSet.has(key)) return [key];
+    const bases = [
+      ...new Set(
+        found.bases.flatMap((base) =>
+          vocabSet.has(base) ? [base] : [lemmas[base] ?? []].flat(),
+        ),
+      ),
+    ].filter((base) => vocabSet.has(base));
+    return bases.length > 0
+      ? byTreebank(form.toLowerCase(), bases, treebank)
+      : all;
+  };
   const freq = buildFrequency(
-    listed.map((form) => ({ rank: ranks.get(form)!, words: [form] })),
+    written
+      ? written.map((form, i) => ({ rank: i + 1, words: rankedBases(form) }))
+      : listed.map((form) => ({ rank: ranks.get(form)!, words: [form] })),
     Object.fromEntries(
       Object.entries(lemmas).filter(([form]) => !vocabSet.has(form)),
     ),
     vocab,
     freqTop,
   );
+
+  // A separable verb's forms written apart reach it after their other bases, once the
+  // frequency list has ranked those: "geht" ranks gehen, not ausgehen.
+  let separableForms = 0;
+  for (const [stem, verbs] of separated) {
+    const own = [lemmas[stem] ?? []].flat();
+    if (own.length === 0 && !vocabSet.has(stem)) continue;
+    const more = [...verbs]
+      .filter((verb) => vocabSet.has(verb) && !own.includes(verb))
+      .sort(byCodeUnit);
+    if (more.length === 0) continue;
+    const bases = [...(own.length > 0 ? own : [stem]), ...more];
+    lemmas[stem] = bases;
+    separableForms++;
+  }
 
   // Phrase patterns as English's (rules B1, B2, B2b, B4), with the language's settings:
   // every multi-word entry with a sense of its own whose words are vocabulary words,
@@ -950,6 +1203,7 @@ export async function buildLearningPacks(
       ipa: Object.keys(ipa).length,
       pos: Object.keys(pos).length,
       reordered,
+      separableForms,
       detect: phrases.detect.length,
       more: phrases.more.length,
       terms: Object.keys(defs).length,
@@ -1028,11 +1282,60 @@ export function buildSummary(
     `${stats.forms} frequency-list forms → ` +
     `${stats.vocab} vocabulary words, ${stats.lemmas} lemma forms ` +
     `(${stats.moreForms} outside the list, ${stats.moreWords} of them vocabulary words; ` +
-    `${stats.reordered} with their bases reordered by the treebanks) in ` +
+    `${stats.reordered} with their bases reordered by the treebanks, ` +
+    `${stats.separableForms} with a separable verb) in ` +
     `${shards(`${lang}/lemmas`)} shards, ` +
     `${stats.ipa} IPA, ${stats.pos} words with parts of speech, ` +
     `${stats.detect} detected and ${stats.more} more phrase patterns, ` +
     `${stats.names} names (${stats.capitalisedNames} mostly capitalised), ` +
     `${stats.terms} dictionary terms in ${shards(`${lang}-en`)} shards`
   );
+}
+
+/**
+ * A learning language's entry of its own edition cut to what the build reads of it:
+ * examples and IPA.
+ */
+export function slimEntry(entry: KaikkiEntry): KaikkiEntry | undefined {
+  const senses = (entry.senses ?? []).flatMap((sense) => {
+    const examples = (sense as { examples?: unknown[] }).examples;
+    return Array.isArray(examples) && examples.length > 0 ? [{ examples }] : [];
+  });
+  const sounds = (entry.sounds ?? []).filter(
+    (sound) => typeof sound.ipa === "string",
+  );
+  if (senses.length === 0 && sounds.length === 0) return undefined;
+  return {
+    word: entry.word,
+    lang_code: entry.lang_code,
+    ...(entry.pos !== undefined && { pos: entry.pos }),
+    ...(senses.length > 0 && { senses }),
+    ...(sounds.length > 0 && {
+      sounds: sounds.map(({ ipa }) => ({ ipa })),
+    }),
+  } as KaikkiEntry;
+}
+
+/**
+ * Writes `slim`, the `lang` entries of the edition at `edition` cut by `slimEntry`,
+ * once: the editions are several GB.
+ */
+export async function slimEdition(lang: string, edition: string, slim: string) {
+  if (existsSync(slim)) return;
+  console.log(`Cutting ${edition} to its examples and IPA`);
+  const partial = `${slim}.partial`;
+  const out = createWriteStream(partial);
+  await eachEntry(
+    edition,
+    (entry) => {
+      if (entry.lang_code !== lang) return;
+      const cut = slimEntry(entry);
+      if (cut) out.write(`${JSON.stringify(cut)}\n`);
+    },
+    (line) => !line.includes(`"lang_code": "${lang}"`),
+  );
+  await new Promise<void>((resolve, reject) =>
+    out.end((error?: Error | null) => (error ? reject(error) : resolve())),
+  );
+  renameSync(partial, slim);
 }

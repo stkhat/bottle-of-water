@@ -9,10 +9,9 @@
 // Wiktionary has none for. The phrase build's example corpus is kaikki-fr's own. Its French entries are first cut to those two parts, once, into
 // kaikki-fr-edition-slim.jsonl.
 // Usage: node scripts/data/fr-kaikki.ts [path]   (default data/raw/kaikki-fr.jsonl)
-import { createWriteStream, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { FRENCH_RULES } from "../../src/core/phrases/fr.ts";
-import { eachEntry, RAW_DIR, type KaikkiEntry } from "./common.ts";
+import { RAW_DIR, type KaikkiEntry } from "./common.ts";
 import {
   FR_FORMS,
   FRENCH_WORD,
@@ -25,10 +24,13 @@ import {
   buildSummary,
   CLOSED_CLASSES,
   GRAMMAR_CLASSES,
+  slimEdition,
   writeLearningPacks,
   type LearningBuild,
 } from "./learning-kaikki.ts";
 import type { PhraseBuildLanguage } from "./phrases.ts";
+
+export { slimEntry } from "./learning-kaikki.ts";
 
 const KAIKKI_FR_PATH = join(RAW_DIR, "kaikki-fr.jsonl");
 const KAIKKI_FR_EDITION_PATH = join(RAW_DIR, "kaikki-fr-edition.jsonl");
@@ -120,50 +122,8 @@ export const FRENCH_BUILD: LearningBuild = {
   phraseBuild: frenchPhraseBuild,
 };
 
-/** A French entry of the edition cut to what the build reads of it: examples and IPA. */
-export function slimEntry(entry: KaikkiEntry): KaikkiEntry | undefined {
-  const senses = (entry.senses ?? []).flatMap((sense) => {
-    const examples = (sense as { examples?: unknown[] }).examples;
-    return Array.isArray(examples) && examples.length > 0 ? [{ examples }] : [];
-  });
-  const sounds = (entry.sounds ?? []).filter(
-    (sound) => typeof sound.ipa === "string",
-  );
-  if (senses.length === 0 && sounds.length === 0) return undefined;
-  return {
-    word: entry.word,
-    lang_code: entry.lang_code,
-    ...(entry.pos !== undefined && { pos: entry.pos }),
-    ...(senses.length > 0 && { senses }),
-    ...(sounds.length > 0 && {
-      sounds: sounds.map(({ ipa }) => ({ ipa })),
-    }),
-  } as KaikkiEntry;
-}
-
-/** Writes the slim edition once (`slimEntry` of each French entry). */
-async function slimEdition() {
-  if (existsSync(KAIKKI_FR_EDITION_SLIM_PATH)) return;
-  console.log(`Cutting ${KAIKKI_FR_EDITION_PATH} to its examples and IPA`);
-  const partial = `${KAIKKI_FR_EDITION_SLIM_PATH}.partial`;
-  const out = createWriteStream(partial);
-  await eachEntry(
-    KAIKKI_FR_EDITION_PATH,
-    (entry) => {
-      if (entry.lang_code !== "fr") return;
-      const slim = slimEntry(entry);
-      if (slim) out.write(`${JSON.stringify(slim)}\n`);
-    },
-    (line) => !line.includes('"lang_code": "fr"'),
-  );
-  await new Promise<void>((resolve, reject) =>
-    out.end((error?: Error | null) => (error ? reject(error) : resolve())),
-  );
-  renameSync(partial, KAIKKI_FR_EDITION_SLIM_PATH);
-}
-
 async function main() {
-  await slimEdition();
+  await slimEdition("fr", KAIKKI_FR_EDITION_PATH, KAIKKI_FR_EDITION_SLIM_PATH);
   const forms = frenchForms(await readFrFrequency(FR_FORMS));
   const packs = await buildLearningPacks(
     { ...FRENCH_BUILD, readWhole: await frenchReadWhole() },

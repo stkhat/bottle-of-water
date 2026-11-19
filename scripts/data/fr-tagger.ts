@@ -37,6 +37,9 @@ export function frenchTag(upos: string, feats: string): string {
   return `${upos}.${form === "Conv" ? "Ger" : form}`;
 }
 
+/** A treebank word's tag for the tagger, from its UPOS, features and language tag (XPOS). */
+export type TagOf = (upos: string, feats: string, xpos: string) => string;
+
 /** A token of the treebank's text: as written, where it is, and its tag. */
 interface Surface {
   form: string;
@@ -53,13 +56,13 @@ const textOf = (lines: readonly string[]) =>
  * a multiword token ("du" = de + le, "auquel") is one, with its first word's tag.
  * Undefined when a token is not found in the text.
  */
-function surfaceOf(lines: readonly string[], text: string) {
+function surfaceOf(lines: readonly string[], text: string, tagOf: TagOf) {
   const tokens: Omit<Surface, "start" | "end">[] = [];
   let multiword: string | undefined;
   let skipTo = 0;
   for (const line of lines) {
     if (line.startsWith("#")) continue;
-    const [id = "", form, , upos, , feats = "_"] = line.split("\t");
+    const [id = "", form, , upos, xpos = "_", feats = "_"] = line.split("\t");
     if (!form || !upos || id.includes(".")) continue;
     const range = /^(\d+)-(\d+)$/.exec(id);
     if (range) {
@@ -67,7 +70,7 @@ function surfaceOf(lines: readonly string[], text: string) {
       skipTo = Number(range[2]);
       continue;
     }
-    const tag = frenchTag(upos, feats);
+    const tag = tagOf(upos, feats, xpos);
     if (multiword !== undefined) {
       tokens.push({ form: multiword, tag });
       multiword = undefined;
@@ -94,6 +97,7 @@ function surfaceOf(lines: readonly string[], text: string) {
 export function readAligned(
   text: string,
   split: (sentence: string) => readonly { text: string; start: number }[],
+  tagOf: TagOf = frenchTag,
 ): { sentences: TaggedSentence[]; skipped: number } {
   const sentences: TaggedSentence[] = [];
   let skipped = 0;
@@ -102,7 +106,7 @@ export function readAligned(
     if (lines.length === 0) continue;
     const sentence = textOf(lines);
     const surface =
-      sentence === undefined ? undefined : surfaceOf(lines, sentence);
+      sentence === undefined ? undefined : surfaceOf(lines, sentence, tagOf);
     if (sentence === undefined || !surface) {
       skipped++;
       continue;
@@ -151,7 +155,7 @@ function frenchTokens() {
 }
 
 /** Share of the tokens tagged at or above `threshold`, and how many of those are right. */
-function trusted(
+export function trusted(
   model: PerceptronModel,
   sentences: readonly TaggedSentence[],
   threshold: number,

@@ -1,0 +1,22 @@
+{"pos": "article", "word": "der", "lang": "German", "lang_code": "de", "sounds": [{"ipa": "/deːɐ̯/"}], "senses": [{"glosses": ["nominative masculine singular definite article, the"]}]}
+{"pos": "noun", "word": "Haus", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["house"], "tags": ["neuter"]}]}
+{"pos": "noun", "word": "Häuser", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["nominative plural of Haus"], "tags": ["form-of", "nominative", "plural"], "form_of": [{"word": "Haus"}]}]}
+{"pos": "verb", "word": "essen", "lang": "German", "lang_code": "de", "sounds": [{"ipa": "/ˈɛsn̩/"}], "senses": [{"glosses": ["to eat"]}]}
+{"pos": "noun", "word": "Essen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["meal"], "tags": ["neuter"]}, {"glosses": ["food"], "tags": ["neuter"]}]}
+{"pos": "name", "word": "Essen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["Essen (a city in Germany)"], "tags": ["proper-noun"]}]}
+{"pos": "verb", "word": "aufessen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to eat up"]}], "forms": [{"form": "essen auf", "tags": ["present", "plural"]}]}
+{"pos": "verb", "word": "fangen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to catch"]}]}
+{"pos": "verb", "word": "fängt", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["third-person singular present of fangen"], "tags": ["form-of"], "form_of": [{"word": "fangen"}]}]}
+{"pos": "verb", "word": "anfangen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to begin"]}], "forms": [{"form": "fängt an", "tags": ["present", "singular", "third-person"]}, {"form": "fing an", "tags": ["past"]}]}
+{"pos": "noun", "word": "Reise", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["journey, trip"], "tags": ["feminine"]}]}
+{"pos": "noun", "word": "Reisen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["plural of Reise"], "tags": ["form-of", "plural"], "form_of": [{"word": "Reise"}]}]}
+{"pos": "verb", "word": "reisen", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["to travel"]}]}
+{"pos": "verb", "word": "haben", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["forms the perfect aspect (have)"], "tags": ["auxiliary", "irregular"]}, {"glosses": ["to have; to own"], "tags": ["irregular", "transitive"]}]}
+{"pos": "pron", "word": "sie", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["she; her"]}, {"glosses": ["it"]}, {"glosses": ["he"]}, {"glosses": ["they; them"]}, {"glosses": ["one"]}, {"glosses": ["someone"]}]}
+{"pos": "pron", "word": "Sie", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["you (polite, singular and plural)"]}]}
+{"pos": "contraction", "word": "im", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["contraction of in + dem; in the"], "tags": ["abbreviation", "alt-of", "contraction"], "alt_of": [{"word": "in"}]}]}
+{"pos": "contraction", "word": "ans", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["contraction of an (“on(to)”) + das (“the”)"], "tags": ["abbreviation", "alt-of", "contraction"], "alt_of": [{"word": "an"}]}]}
+{"pos": "prep", "word": "in", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["in, inside"]}]}
+{"pos": "prep", "word": "an", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["on, at"]}]}
+{"pos": "pron", "word": "mensch", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["one, they"]}]}
+{"pos": "noun", "word": "Mensch", "lang": "German", "lang_code": "de", "senses": [{"glosses": ["human being"], "tags": ["masculine"]}]}

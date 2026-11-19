@@ -315,6 +315,36 @@ describe("createLanguageResources", () => {
     ]);
   });
 
+  it("looks words up from German to English with the de and de-en packs, capitalised nouns by their key", async () => {
+    const loadPack = stubLoader();
+    const resources = createLanguageResources(loadPack);
+    const pack = await resources.pack("de");
+    expect(pack.lemmas("Häuser")).toEqual(["haus"]);
+    expect(pack.lemmas("Haus")).toEqual(["haus"]);
+    expect(pack.tagger).toBeDefined();
+    const dictionary = await resources.dictionary("de", "en");
+    expect(dictionary.entry("haus")).toMatchObject({
+      kind: "word",
+      // Shown in dictionary style, without the non-syllabic mark.
+      ipa: "/haʊs/",
+      short: "house",
+    });
+    expect(dictionary.entry("im")?.short).toBe("in the");
+    expect(filesRead(loadPack)).toEqual([
+      "/packs/de-en/dict-1.json",
+      "/packs/de-en/index.json",
+      "/packs/de/freq.json",
+      "/packs/de/ipa.json",
+      "/packs/de/lemmas/dict-1.json",
+      "/packs/de/lemmas/index.json",
+      "/packs/de/names.json",
+      "/packs/de/phrases.json",
+      "/packs/de/pos.json",
+      "/packs/de/tagger.json",
+      "/packs/de/vocab.json",
+    ]);
+  });
+
   it("looks words up from French to English with the fr and fr-en packs, elisions apart", async () => {
     const loadPack = stubLoader();
     const resources = createLanguageResources(loadPack);

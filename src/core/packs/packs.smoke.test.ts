@@ -946,3 +946,68 @@ describe("generated contractions", () => {
     expect(ja.entry("I'm")).not.toHaveProperty("expansion");
   });
 });
+
+const de = await loadPack("de");
+const { defs: deEn } = await loadPack("de-en");
+
+describe("generated German pack and de-en dictionary", () => {
+  const pack = createLanguagePack("de", {
+    lemmas: de.lemmas,
+    freq: de.freq,
+    ipa: de.ipa,
+    vocab: new Set(de.vocab),
+    patterns: de.phrases,
+    pos: de.pos,
+    names: de.names,
+  });
+  const dictionary = createDefsDictionary({ defs: deEn, ipa: de.ipa });
+
+  it("reach capitalised nouns and their forms by their lowercase key", () => {
+    // "haus" is also an imperative of hausen.
+    expect(pack.lemmas("Haus")[0]).toBe("haus");
+    expect(pack.lemmas("Häuser")).toEqual(["haus"]);
+    expect(pack.lemmas("Straßen")).toEqual(["straße"]);
+    expect(dictionary.entry("haus")).toMatchObject({
+      kind: "word",
+      short: expect.stringMatching(/^house\b/),
+    });
+  });
+
+  it("give a separable verb's forms the verb after their own bases", () => {
+    const bases = pack.lemmas("fängt");
+    expect(bases[0]).toBe("fangen");
+    expect(bases).toContain("anfangen");
+  });
+
+  it("have English meanings, the contractions' and the article's included", () => {
+    expect(dictionary.entry("im")?.short).toBe("in the");
+    expect(dictionary.entry("zum")?.short).toMatch(/^to the\b/);
+    expect(dictionary.entry("der")?.short).toBe("the");
+    // A noun and a verb that share a key both have their senses.
+    const essen = dictionary.entry("essen")!.senses.map((sense) => sense.pos);
+    expect(essen).toContain("noun");
+    expect(essen).toContain("verb");
+  });
+
+  it("have the IPA of nearly every word, from either edition", () => {
+    expect(pack.ipa("haus")).toMatch(/^\/haʊ̯?s\/$/);
+    const top = de.freq.slice(0, 5000);
+    expect(top.filter((word) => pack.ipa(word)).length).toBeGreaterThan(4800);
+  });
+
+  it("rank common words first", () => {
+    expect(pack.rank("der")).toBeLessThanOrEqual(20);
+    expect(pack.rank("haus")).toBeLessThan(pack.rank("hütte"));
+  });
+
+  it("restore no accents in capitals: German writes its umlauts there", () => {
+    expect(pack.accented("fur")).toBeUndefined();
+  });
+
+  it("highlight no phrase yet, and have a meaning for every selectable one", () => {
+    expect(de.phrases.detect).toEqual([]);
+    expect(de.phrases.more.length).toBeGreaterThan(1000);
+    for (const phrase of de.phrases.more)
+      expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
+  });
+});

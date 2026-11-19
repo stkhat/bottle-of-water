@@ -156,6 +156,30 @@ const TEST_PACKS: PackFiles = {
       maison: ["house", [["noun", "house"]]],
     },
   },
+  de: {
+    lemmas: [{ häuser: "haus", im: "in" }],
+    freq: ["der", "in", "haus"],
+    ipa: { haus: "/haʊ̯s/" },
+    pos: { der: ["article"], haus: ["noun"], essen: ["noun", "verb"] },
+    vocab: ["der", "essen", "haus", "im", "in"],
+    phrases: { detect: [], more: [], gap: [] },
+    names: {},
+    // Sure of no word: every tag stays under the threshold.
+    tagger: { tags: ["NOUN"], words: {}, weights: {}, scale: 10 },
+  },
+  "de-en": {
+    defs: {
+      essen: [
+        "to eat",
+        [
+          ["verb", "to eat"],
+          ["noun", "food"],
+        ],
+      ],
+      haus: ["house", [["noun", "house"]]],
+      im: ["in the", [["contraction", "in the; contraction of in + dem"]]],
+    },
+  },
   // "loaf" from the Spanish Wiktionary, "crust" from a translation table (with its
   // English sense as the hint); anything else falls back to en-defs.
   "en-es": {
@@ -259,6 +283,19 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     shards: [{ file: "dict-1.json", first: "d'accord", last: "maison" }],
   },
   "/packs/fr-en/dict-1.json": TEST_PACKS["fr-en"].defs,
+  ...Object.fromEntries(
+    Object.entries(TEST_PACKS.de)
+      .filter(([file]) => file !== "lemmas")
+      .map(([file, value]) => [`/packs/de/${file}.json`, value]),
+  ),
+  "/packs/de/lemmas/index.json": {
+    shards: [{ file: "dict-1.json", first: "häuser", last: "im" }],
+  },
+  "/packs/de/lemmas/dict-1.json": TEST_PACKS.de.lemmas[0],
+  "/packs/de-en/index.json": {
+    shards: [{ file: "dict-1.json", first: "essen", last: "im" }],
+  },
+  "/packs/de-en/dict-1.json": TEST_PACKS["de-en"].defs,
   "/packs/en-es/index.json": {
     shards: [{ file: "dict-1.json", first: "crust", last: "loaf" }],
     sources: ["eswiktionary", "enwiktionary-translations"],
