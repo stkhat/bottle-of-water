@@ -7,7 +7,12 @@
  */
 import type { EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
-import { accepts, AUXILIARY, AUXILIARY_BASE } from "./lexicon/sense-order";
+import {
+  accepts,
+  AUXILIARY,
+  AUXILIARY_BASE,
+  PRONOMINAL,
+} from "./lexicon/sense-order";
 import type { MatchWord } from "./phrases/matcher";
 import {
   trustedTag,
@@ -307,13 +312,27 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
  * verb's meaning (`WordUse.lexical`: be in "was built", U1-8) is read by its tag, as
  * the verb it is ("ser / estar", not the edition's whole pointer first); AUXILIARY_BASE
  * when it is looked up by its base for want of an entry of its own (`ownEntry` false:
- * en-ru "has" → have), whose lexical meanings are not what it means.
+ * en-ru "has" → have), whose lexical meanings are not what it means. A verb the
+ * grammar reads as pronominal (`WordUse.pronominal`) is PRONOMINAL.
  */
 export function sensePos(
   form: string,
   key: string,
-  { tag, use }: WordReading,
+  reading: WordReading,
   ownEntry = true,
+): string | undefined {
+  const pos = readingPos(form, key, reading, ownEntry);
+  // A verb the grammar reads as pronominal: its reflexive senses first ("il se
+  // passe": to happen; PRONOMINAL).
+  return pos === "verb" && reading.use.pronominal ? PRONOMINAL : pos;
+}
+
+/** `sensePos` but for a pronominal verb. */
+function readingPos(
+  form: string,
+  key: string,
+  { tag, use }: WordReading,
+  ownEntry: boolean,
 ): string | undefined {
   if (use.auxiliary && !use.lexical)
     return key !== form && !ownEntry ? AUXILIARY_BASE : AUXILIARY;

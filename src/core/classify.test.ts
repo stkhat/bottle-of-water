@@ -1360,11 +1360,12 @@ describe("Spanish words the sentence decides (utterances, the article lo, ser or
     expect(run("lo dijo")[0]).toBe("lo:lo:pronoun");
   });
   it("reads a form of ser and ir as ir where ser cannot stand, and keeps a plain verb's pattern off it after a reflexive", () => {
-    expect(run("se fue con")[1]).toBe("fue:ir:verb");
+    // After a reflexive, a pronominal verb (rule A2 shows its "reflexive" senses).
+    expect(run("se fue con")[1]).toBe("fue:ir:pronominal");
     expect(run("fui a Madrid")[0]).toBe("fui:ir:verb");
     expect(run("me fui de vacaciones")).toEqual([
       "me:me:pronoun",
-      "fui:ir:verb",
+      "fui:ir:pronominal",
       "de:de:preposition",
       "vacaciones:vacaciones:-",
     ]);

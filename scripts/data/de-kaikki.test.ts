@@ -180,4 +180,18 @@ describe("keptSenses", () => {
     ).toEqual([...verbs.slice(0, 4), ["noun", "n"], ["determiner", "his"]]);
     expect(keptSenses(verbs, 6)).toEqual(verbs);
   });
+  it("gives no place to a part whose first sense only describes its use", () => {
+    const preps = ["a", "b", "c", "d", "e", "f"].map(
+      (x) => ["preposition", x] as [string, string],
+    );
+    expect(
+      keptSenses(
+        [
+          ...preps,
+          ["article", "Used in the plural with prepositioned adjectives."],
+        ],
+        6,
+      ),
+    ).toEqual(preps);
+  });
 });

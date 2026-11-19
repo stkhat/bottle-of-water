@@ -94,6 +94,31 @@ describe("frenchTagger: uses", () => {
     expect(aux("va/VERB.Fin/va/aller à/ADP Paris/PROPN")[0]).toBe(false);
     expect(aux("veut/VERB.Fin/vouloir partir/VERB.Inf")[0]).toBe(false);
   });
+  it("takes pouvoir and devoir for modal auxiliaries, but after a reflexive pronoun", () => {
+    const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);
+    expect(aux("peux/VERB.Fin/pouvoir pas/ADV venir/VERB.Inf")[0]).toBe(true);
+    expect(aux("doit/VERB.Fin/devoir partir/VERB.Inf")[0]).toBe(true);
+    expect(
+      aux("a/AUX.Fin/avoir pu/VERB.Part/pouvoir le/PRON voir/VERB.Inf")[1],
+    ).toBe(true);
+    // The infinitive left unsaid ("oui, je peux"), an object ("j'en peux plus").
+    expect(aux("je/PRON peux/VERB.Fin/pouvoir")[1]).toBe(true);
+    expect(aux("tu/PRON peux/VERB.Fin/pouvoir pas/ADV ,non/ADV")[1]).toBe(true);
+    expect(aux("j'/PRON en/PRON peux/ADJ/pouvoir plus/ADV")[2]).toBe(true);
+    // The impersonal "il se peut"; the noun.
+    expect(aux("il/PRON se/PRON peut/VERB.Fin/pouvoir")[2]).toBe(false);
+    expect(aux("le/DET pouvoir/NOUN")[1]).toBe(false);
+    expect(aux("les/DET devoirs/VERB.Fin/devoir")[1]).toBe(false);
+    expect(aux("pour/ADP pouvoir/VERB.Inf partir/VERB.Inf")[1]).toBe(true);
+    expect(aux("tu/DET peux/VERB.Fin/pouvoir ,tu/PRON")[1]).toBe(true);
+    // A form only of a modal whatever the tags ("tu peux faire", "on peut l'écrire");
+    // one that is a word of its own as a verb only ("puis": then).
+    expect(aux("tu/PRON peux/ADJ/pouvoir faire/VERB.Inf")[1]).toBe(true);
+    expect(aux("on/PRON peut/VERB.Fin/pouvoir l'/DET écrire/NOUN")[1]).toBe(
+      true,
+    );
+    expect(aux("puis/ADV?/puis/pouvoir partir/VERB.Inf")[0]).toBe(false);
+  });
   it("tells how a verb is used: a participle after avoir is a compound tense", () => {
     const verbal = (text: string) => usesOf(text).map((u) => u.verbal);
     expect(verbal("dit/VERB.Fin/dit/dire")[0]).toBe("finite");

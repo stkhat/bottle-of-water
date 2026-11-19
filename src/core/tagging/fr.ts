@@ -30,17 +30,28 @@ const isAuxiliaryVerb = (word: TaggedWord) =>
 const BETWEEN: ReadonlySet<string> = new Set(["adverb", "pronoun"]);
 
 /**
+ * The modal auxiliaries, as French grammar lists them (a closed class): pouvoir and
+ * devoir say that an action can or must happen, its infinitive said or not ("je peux
+ * venir", "j'ai pu le voir", "oui, je peux", "j'en peux plus"). The treebank tags them
+ * as verbs; kaikki tags pouvoir's "can" and "may" senses auxiliary, which rule A2
+ * shows first for an auxiliary. After a reflexive pronoun pouvoir is the impersonal
+ * "to be possible" ("ça se peut", "il se peut que"), devoir "to have a duty to".
+ */
+const MODALS = ["pouvoir", "devoir"];
+
+/**
  * Whether the word at `i` is an auxiliary: tagged AUX (avoir, être; the treebank also
  * tags causative faire so) with a participle or an infinitive within four words and
  * only adverbs or pronouns between ("a mangé", "s'est levé", "n'avait jamais vu",
- * "fait construire"); or a finite form of aller with an infinitive so (the near
- * future: "va pleuvoir", "je vais le faire"), which the treebank tags as a verb. A
- * copula is AUX too but takes no verb ("est grand"). Tags count here whether trusted
- * or not: a closed class.
+ * "fait construire"); a finite form of aller with an infinitive so (the near
+ * future: "va pleuvoir", "je vais le faire"), which the treebank tags as a verb; or a
+ * modal (`MODALS`) not after a reflexive pronoun. A copula is AUX too but takes no
+ * verb ("est grand"). Tags count here whether trusted or not: a closed class.
  */
 function auxiliary(words: readonly TaggedWord[], i: number): boolean {
   const word = words[i]!;
   const aux = word.tag.tag.startsWith("AUX");
+  if (!aux && modal(words, i)) return !reflexiveBefore(words, i);
   const nearFuture =
     !aux && word.tag.tag === "VERB.Fin" && formOf(word, "aller");
   if (!aux && !nearFuture) return false;
@@ -52,6 +63,21 @@ function auxiliary(words: readonly TaggedWord[], i: number): boolean {
     if (!BETWEEN.has(tag.label)) return false;
   }
   return false;
+}
+
+/**
+ * A form of a modal (`MODALS`): a form only of a modal whatever the tag ("peux" read
+ * as an adjective); a form that is also a word of its own with a verb tag ("puis":
+ * then; "le pouvoir": power), and no determiner right before ("les devoirs"; but "tu
+ * peux", whose subject the tagger may read as one).
+ */
+function modal(words: readonly TaggedWord[], i: number): boolean {
+  const word = words[i]!;
+  return (
+    MODALS.some((verb) => formOf(word, verb)) &&
+    (word.tag.label === "verb" || !word.bases.includes(word.form)) &&
+    !(afterDeterminer(words, i) && !afterSubject(words, i))
+  );
 }
 
 /**
@@ -215,6 +241,10 @@ const nounTagAfter = (words: readonly TaggedWord[], i: number) =>
   words[i]!.tag.tag === "NOUN" &&
   afterArticle(words, i) &&
   !afterSubject(words, i);
+
+/** Right after a trusted determiner, with no pause between. */
+const afterDeterminer = (words: readonly TaggedWord[], i: number) =>
+  afterArticle(words, i) && words[i - 1]!.tag.tag === "DET";
 
 /** Right after a trusted determiner or preposition, with no pause between. */
 function afterArticle(words: readonly TaggedWord[], i: number): boolean {

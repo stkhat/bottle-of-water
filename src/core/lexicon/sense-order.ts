@@ -42,6 +42,21 @@ export const AUXILIARY = "auxiliary";
  */
 export const AUXILIARY_BASE = "auxiliary base";
 
+/**
+ * The part of speech of a verb the grammar reads as pronominal ("il se passe", "je
+ * m'appelle"; `WordUse.pronominal`): the senses its source labels REFLEXIVE come
+ * first, else it is read as the verb it is.
+ */
+export const PRONOMINAL = "pronominal";
+
+/**
+ * The label a learning pack gives a pronominal verb's senses its source tags
+ * reflexive (French passer: "to take place, to happen"): what the verb means where
+ * the grammar reads it as pronominal, and no verb's sense where it reads a plain verb
+ * ("il passe": to pass).
+ */
+const REFLEXIVE = "reflexive";
+
 /** A word used as an auxiliary, with or without an entry of its own. */
 export const isAuxiliary = (pos: string | undefined) =>
   pos === AUXILIARY || pos === AUXILIARY_BASE;
@@ -119,14 +134,37 @@ export const lacksSenseOf = (senses: readonly Sense[], pos: string) =>
  * Then those come first — with the unlabelled senses right before one of them, which
  * head its block (EJDict: "企て,試み" before the labelled nouns of "attempt") — the
  * first core translation among them leading when the source marks one (EJDict's 『』).
- * For an auxiliary (AUXILIARY), the senses its source calls auxiliary come first.
+ * For an auxiliary (AUXILIARY), the senses its source calls auxiliary come first;
+ * with none, a lead of another open class gives way to the verb's senses. For a
+ * pronominal verb (PRONOMINAL), its REFLEXIVE senses, else the verb's.
  */
 export function senseOrder(
   senses: readonly Sense[],
   pos: string,
   usable: (index: number) => boolean = () => true,
 ): number[] | undefined {
-  if (isAuxiliary(pos)) return auxiliaryOrder(senses, usable);
+  if (pos === PRONOMINAL) {
+    const lead = senses.findIndex((_, i) => usable(i));
+    const front = senses
+      .map((_, k) => k)
+      .filter((k) => usable(k) && senses[k]!.pos === REFLEXIVE);
+    if (front.length === 0) return senseOrder(senses, "verb", usable);
+    if (front[0] === lead) return undefined;
+    return [
+      ...front,
+      ...senses.map((_, k) => k).filter((k) => !front.includes(k)),
+    ];
+  }
+  if (isAuxiliary(pos)) {
+    if (hasAuxiliarySense(senses)) return auxiliaryOrder(senses, usable);
+    // An auxiliary whose source calls none of its senses an auxiliary's is the verb
+    // it is, where its lead is of another open class (French devoir before an
+    // infinitive: "must", not the noun "duty").
+    const lead = senses.find((_, i) => usable(i));
+    return conflicts("verb", lead?.pos) && lead?.posBy === undefined
+      ? senseOrder(senses, "verb", usable)
+      : undefined;
+  }
   const first = senses.findIndex((_, i) => usable(i));
   const lead = senses[first];
   if (
