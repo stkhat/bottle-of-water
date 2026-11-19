@@ -204,19 +204,24 @@ export function Transcript(props: TranscriptProps) {
   // It catches up once a card or a selection goes.
   useLayoutEffect(followPlaying, [props.current, props.holdScroll]);
 
+  /** Stops a smooth scroll to the playing card where it is. */
+  function stopFollowing() {
+    const el = list.current;
+    if (!el || !following.current) return;
+    following.current = false;
+    // An instant scroll ends the smooth one; to where it is now, Firefox would take
+    // it for no scroll and let the smooth one go on.
+    const top = el.scrollTop;
+    el.scrollTo({ top: top > 0 ? top - 1 : top + 1, behavior: "instant" });
+    el.scrollTo({ top, behavior: "instant" });
+  }
+
   /** A press stops the list where it is (a smooth scroll may be under way). */
   function onPressList(event: PointerEvent) {
     const el = list.current;
     if (!el || !event.isTrusted) return;
     pressed.current = true;
-    if (following.current) {
-      following.current = false;
-      // An instant scroll ends the smooth one; to where it is now, Firefox would
-      // take it for no scroll and let the smooth one go on.
-      const top = el.scrollTop;
-      el.scrollTo({ top: top > 0 ? top - 1 : top + 1, behavior: "instant" });
-      el.scrollTo({ top, behavior: "instant" });
-    }
+    stopFollowing();
     const onUp = (up: PointerEvent) => {
       if (up.pointerId !== event.pointerId) return;
       removeEventListener("pointerup", onUp, true);
@@ -239,7 +244,9 @@ export function Transcript(props: TranscriptProps) {
       onKeyDown={userScrolled}
       onPointerDownCapture={onPressList}
       onPointerEnter={() => {
+        // The cards hold still under the pointer.
         over.current = true;
+        stopFollowing();
       }}
       onPointerLeave={() => {
         over.current = false;
