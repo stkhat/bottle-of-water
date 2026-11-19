@@ -57,6 +57,26 @@ const emulateMedia = defineBrowserCommand<
   await context.page.emulateMedia(options);
 });
 
+/** A mouse step for `mouse` (src/testing/mouse.ts): points in the test page's viewport. */
+type MouseStep =
+  | { type: "move"; x: number; y: number; steps?: number }
+  | { type: "down" | "up" };
+
+/** Playwright's real mouse over the test page, step by step (src/testing/mouse.ts). */
+const mouse = defineBrowserCommand<[MouseStep[]]>(async (context, steps) => {
+  if (context.provider.name !== "playwright")
+    throw new Error("mouse needs Playwright");
+  const frame = await context.iframe.owner().boundingBox();
+  if (!frame) throw new Error("The test page has no box");
+  for (const step of steps) {
+    if (step.type === "move")
+      await context.page.mouse.move(frame.x + step.x, frame.y + step.y, {
+        steps: step.steps ?? 1,
+      });
+    else await context.page.mouse[step.type]();
+  }
+});
+
 export default defineConfig({
   test: {
     projects: [
@@ -86,7 +106,7 @@ export default defineConfig({
               browser,
               fileParallelism: browser !== "firefox",
             })),
-            commands: { emulateMedia },
+            commands: { emulateMedia, mouse },
           },
         },
       },

@@ -1,5 +1,5 @@
 import { Component, type CSSProperties } from "preact";
-import { useLayoutEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import type { Span, WordStatus } from "../../core/classify";
 import type { Settings } from "../../core/settings";
 import type { Cue } from "../../core/subtitles/types";
@@ -12,7 +12,11 @@ import { Switch } from "../Switch";
 import { renderTerms, termStyle } from "./terms";
 import { TermSpan } from "./TermSpan";
 import type { SelectedOffsets } from "../selection-in-root";
-import { useTextSelection, type SelectedText } from "./text-selection";
+import {
+  useTextSelection,
+  type Anchor,
+  type SelectedText,
+} from "./text-selection";
 
 export interface TranscriptControlsProps {
   showTranslation: boolean;
@@ -40,6 +44,13 @@ export interface TranscriptProps {
   onWordClick: (cue: number, span: number) => void;
   /** A press on a card's original began selecting words in it. */
   onSelectStart?: (cue: number) => void;
+  /** The words a drag in a card's original selects (see `TextSelectionProps.onSnap`). */
+  onSnap?: (
+    cue: number,
+    from: number,
+    to: number,
+    anchor: Anchor,
+  ) => SelectedOffsets | undefined;
   /** Words were selected in a card's original (see `TextSelectionProps.onSelect`). */
   onSelect?: (
     cue: number,
@@ -47,7 +58,10 @@ export interface TranscriptProps {
   ) => SelectedOffsets | undefined;
   /** The list scrolled (a word's card would no longer be by its word). */
   onListScroll?: () => void;
-  /** A word's card shows: the playing card does not pull the list along meanwhile. */
+  /**
+   * A word's card or a selection shows: the playing card does not pull the list along
+   * meanwhile.
+   */
   holdScroll?: boolean;
   learningLang: string;
   nativeLang: string;
@@ -118,6 +132,7 @@ type CardHandlers = Required<
     | "onWordLeave"
     | "onWordClick"
     | "onSelectStart"
+    | "onSnap"
     | "onSelect"
   >
 >;
@@ -139,6 +154,8 @@ export function Transcript(props: TranscriptProps) {
       onWordLeave: () => latest.current.onWordLeave(),
       onWordClick: (cue, span) => latest.current.onWordClick(cue, span),
       onSelectStart: (cue) => latest.current.onSelectStart?.(cue),
+      onSnap: (cue, from, to, anchor) =>
+        latest.current.onSnap?.(cue, from, to, anchor),
       onSelect: (cue, selected) => latest.current.onSelect?.(cue, selected),
     }),
     [],
@@ -148,16 +165,70 @@ export function Transcript(props: TranscriptProps) {
     pausedUntil.current = Date.now() + pauseMs;
   };
 
-  useLayoutEffect(() => {
+  /** The pointer is over the list, or a press that began in it is held. */
+  const over = useRef(false);
+  const pressed = useRef(false);
+  /** A smooth scroll to the playing card is under way. */
+  const following = useRef(false);
+
+  /**
+   * Scrolls the playing card into view, unless the list holds still: while the
+   * pointer is over it or presses it (2026-11-19: a card moving under the pointer took
+   * the press, and the scroll ended a fresh selection), a word's card or a selection
+   * shows, or the user scrolled it a moment ago.
+   */
+  const followPlaying = () => {
     const el = list.current;
-    if (!el || props.current < 0 || props.holdScroll) return;
+    const { current, holdScroll } = latest.current;
+    if (!el || current < 0 || holdScroll || over.current || pressed.current)
+      return;
     if (Date.now() < pausedUntil.current) return;
-    const card = el.querySelector<HTMLElement>(`[data-cue="${props.current}"]`);
+    const card = el.querySelector<HTMLElement>(`[data-cue="${current}"]`);
     if (!card) return;
     // Within the list only: scrollIntoView would scroll the page too.
-    const top = card.offsetTop - el.clientHeight / 3;
-    el.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  }, [props.current]);
+    const top = Math.max(0, card.offsetTop - el.clientHeight / 3);
+    if (Math.abs(el.scrollTop - top) < 1) return;
+    following.current = true;
+    el.scrollTo({ top, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    const el = list.current;
+    const ended = () => {
+      following.current = false;
+    };
+    el?.addEventListener("scrollend", ended);
+    return () => el?.removeEventListener("scrollend", ended);
+  }, []);
+
+  // It catches up once a card or a selection goes.
+  useLayoutEffect(followPlaying, [props.current, props.holdScroll]);
+
+  /** A press stops the list where it is (a smooth scroll may be under way). */
+  function onPressList(event: PointerEvent) {
+    const el = list.current;
+    if (!el || !event.isTrusted) return;
+    pressed.current = true;
+    if (following.current) {
+      following.current = false;
+      // An instant scroll ends the smooth one; to where it is now, Firefox would
+      // take it for no scroll and let the smooth one go on.
+      const top = el.scrollTop;
+      el.scrollTo({ top: top > 0 ? top - 1 : top + 1, behavior: "instant" });
+      el.scrollTo({ top, behavior: "instant" });
+    }
+    const onUp = (up: PointerEvent) => {
+      if (up.pointerId !== event.pointerId) return;
+      removeEventListener("pointerup", onUp, true);
+      removeEventListener("pointercancel", onUp, true);
+      pressed.current = false;
+      // Let go away from the list (a drag past it), it catches up as the pointer
+      // leaves it, once the drag's hold on the pointer ends.
+      followPlaying();
+    };
+    addEventListener("pointerup", onUp, true);
+    addEventListener("pointercancel", onUp, true);
+  }
 
   return (
     <div
@@ -166,6 +237,14 @@ export function Transcript(props: TranscriptProps) {
       onWheel={userScrolled}
       onTouchStart={userScrolled}
       onKeyDown={userScrolled}
+      onPointerDownCapture={onPressList}
+      onPointerEnter={() => {
+        over.current = true;
+      }}
+      onPointerLeave={() => {
+        over.current = false;
+        followPlaying();
+      }}
       onScroll={() => props.onListScroll?.()}
       style={{
         position: "relative",
@@ -248,6 +327,7 @@ function CardBody(props: CardProps) {
   const time = formatTime(cue.startMs);
   const selection = useTextSelection<HTMLSpanElement>({
     onSelectStart: () => handlers.onSelectStart(index),
+    onSnap: (from, to, anchor) => handlers.onSnap(index, from, to, anchor),
     onSelect: props.selectable
       ? (selected) => handlers.onSelect(index, selected)
       : undefined,

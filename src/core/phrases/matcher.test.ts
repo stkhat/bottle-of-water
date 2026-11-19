@@ -28,6 +28,7 @@ const BASES: Record<string, string[]> = {
 const lemmas = (word: string) => BASES[word.toLowerCase()] ?? [];
 
 const english = createPhraseMatcher({
+  lang: "en",
   rules: ENGLISH_RULES,
   patterns: {
     detect: [
@@ -108,10 +109,16 @@ describe("prepare", () => {
     ]);
     expect(words.words[1]).toMatchObject({ form: "made", bases: ["make"] });
     expect(words.joined).toEqual([true, true, false, true, false]);
+    expect(words.between).toEqual([" ", " ", ", ", " "]);
+  });
+
+  it("writes what separates two words as a key does", () => {
+    expect(input("WH-WHAT?").between).toEqual(["-"]);
+    expect(input("Well,\n  I “said”").between).toEqual([", ", ' "']);
   });
 
   it("prepares a block without words", () => {
-    expect(input(" ... ")).toEqual({ words: [], joined: [] });
+    expect(input(" ... ")).toEqual({ words: [], joined: [], between: [] });
   });
 });
 
@@ -218,6 +225,7 @@ describe("slots", () => {
 
   it("fills a Spanish slot only with itself", () => {
     const spanish = createPhraseMatcher({
+      lang: "es",
       rules: SPANISH_RULES,
       patterns: { detect: [], more: ["tomar el pelo a alguien"], gap: [] },
       lemmas: () => [],
@@ -331,6 +339,33 @@ describe("saved mode", () => {
     expect(find("A dough.", "saved", saved)).toBeUndefined();
   });
 
+  it("matches a saved key across the separators it writes, and only those", () => {
+    const saved = new Set(["wh-what", "well, i think", "she-she's"]);
+    expect(find("WH-WHAT did you say?", "saved", saved)).toEqual({
+      key: "wh-what",
+      words: "WH WHAT",
+    });
+    expect(find("Well,  I think so.", "saved", saved)).toEqual({
+      key: "well, i think",
+      words: "Well I think",
+    });
+    expect(find("SHE-SHE’S here.", "saved", saved)?.key).toBe("she-she's");
+    expect(find("Wh what?", "saved", saved)).toBeUndefined();
+    expect(find("Well. I think so.", "saved", saved)).toBeUndefined();
+    expect(find("Well I think so.", "saved", saved)).toBeUndefined();
+  });
+
+  it("matches a saved key of words joined by spaces across spaces only", () => {
+    const saved = new Set(["tangy dough"]);
+    expect(find("A tangy, dough.", "saved", saved)).toBeUndefined();
+    expect(find("A tangy-dough.", "saved", saved)).toBeUndefined();
+  });
+
+  it("keeps dictionary patterns to words joined by spaces", () => {
+    expect(find("We gave-up early.", "detect")).toBeUndefined();
+    expect(find("We gave, up early.", "detect")).toBeUndefined();
+  });
+
   it("keeps every saved key written with the same words", () => {
     const words = input("Don't pull his leg.");
     const saved = new Set(["pull someone's leg", "pull someone’s leg"]);
@@ -432,6 +467,7 @@ describe("matchSelection", () => {
 
   it("gives ties to the earliest start", () => {
     const matcher = createPhraseMatcher({
+      lang: "en",
       rules: ENGLISH_RULES,
       patterns: { detect: ["look up to", "up to you"], more: [], gap: [] },
       lemmas,
@@ -479,6 +515,7 @@ describe("Spanish pronominal verbs and contractions", () => {
   };
   const esLemmas = (word: string) => ES_BASES[word.toLowerCase()] ?? [];
   const spanish = createPhraseMatcher({
+    lang: "es",
     rules: SPANISH_RULES,
     patterns: {
       detect: [
@@ -561,6 +598,7 @@ describe("Spanish pronominal verbs and contractions", () => {
 
   it("reads a word in capitals by the one known spelling with its accent", () => {
     const matcher = createPhraseMatcher({
+      lang: "es",
       rules: SPANISH_RULES,
       patterns: { detect: [], more: [], gap: [] },
       lemmas: (word) => (word === "están" ? ["estar"] : []),

@@ -4,6 +4,7 @@ import { accepts } from "./lexicon/sense-order";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
 import { fitContext, markerPos, phraseMisfit } from "./phrases/fit";
+import { splitKey } from "./phrases/key";
 import { longestMatch, matchStart, type PhraseMatch } from "./phrases/matcher";
 import {
   capitalHere,
@@ -599,7 +600,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const pos = markerPos(pack, match, readings, punctuated, context);
         const last = match.words.at(-1)!;
         const runs = runsOf(allWords(match));
-        const keyWords = key.split(" ").map(normalizeWord);
+        // A saved key may write other separators than spaces ("wh-what").
+        const keyWords = splitKey(key, pack.lang).words;
         const slot = match.words.some(
           (j, n) => !words[j]!.forms.includes(keyWords[n]!),
         );
