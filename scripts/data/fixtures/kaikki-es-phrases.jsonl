@@ -1,0 +1,37 @@
+{"word": "a", "lang_code": "es", "pos": "prep", "senses": [{"glosses": ["to"]}, {"glosses": ["at"]}]}
+{"word": "de", "lang_code": "es", "pos": "prep", "senses": [{"glosses": ["of"]}, {"glosses": ["from"]}]}
+{"word": "el", "lang_code": "es", "pos": "article", "senses": [{"glosses": ["masculine singular definite article; the"]}]}
+{"word": "la", "lang_code": "es", "pos": "article", "senses": [{"glosses": ["feminine singular definite article; the"]}]}
+{"word": "los", "lang_code": "es", "pos": "article", "senses": [{"glosses": ["masculine plural of el (“the”)"], "tags": ["form-of"], "form_of": [{"word": "el"}]}]}
+{"word": "los", "lang_code": "es", "pos": "pron", "senses": [{"glosses": ["accusative of ellos; them"], "tags": ["form-of"], "form_of": [{"word": "ellos"}]}]}
+{"word": "lo", "lang_code": "es", "pos": "pron", "senses": [{"glosses": ["him, it"]}]}
+{"word": "lo", "lang_code": "es", "pos": "article", "senses": [{"glosses": ["neuter definite article used only before nominalized adjectives: the, that which is"]}]}
+{"word": "que", "lang_code": "es", "pos": "conj", "senses": [{"glosses": ["that"]}, {"glosses": ["than"]}]}
+{"word": "que", "lang_code": "es", "pos": "pron", "senses": [{"glosses": ["who; that"]}]}
+{"word": "ya", "lang_code": "es", "pos": "adv", "senses": [{"glosses": ["already"]}, {"glosses": ["now"]}, {"glosses": ["right away"]}, {"glosses": ["since"]}, {"glosses": ["finally"]}]}
+{"word": "través", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["crossbeam"]}, {"glosses": ["bias"]}]}
+{"word": "supuesto", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["assumption"]}]}
+{"word": "supuesto", "lang_code": "es", "pos": "adj", "senses": [{"glosses": ["supposed"]}]}
+{"word": "por", "lang_code": "es", "pos": "prep", "senses": [{"glosses": ["by"]}, {"glosses": ["for"]}]}
+{"word": "estar", "lang_code": "es", "pos": "verb", "senses": [{"glosses": ["to be (temporarily)"]}]}
+{"word": "estamos", "lang_code": "es", "pos": "verb", "senses": [{"glosses": ["first-person plural present indicative of estar"], "tags": ["form-of"], "form_of": [{"word": "estar"}]}]}
+{"word": "acuerdo", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["agreement"]}]}
+{"word": "tomar", "lang_code": "es", "pos": "verb", "senses": [{"glosses": ["to take"]}, {"glosses": ["to drink"]}]}
+{"word": "pelo", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["hair"]}]}
+{"word": "alguien", "lang_code": "es", "pos": "pron", "senses": [{"glosses": ["someone, somebody"]}]}
+{"word": "gato", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["cat"]}]}
+{"word": "casa", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["house"]}]}
+{"word": "vez", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["time, instance"]}]}
+{"word": "veces", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["plural of vez"], "tags": ["form-of", "plural"], "form_of": [{"word": "vez"}]}]}
+{"word": "una", "lang_code": "es", "pos": "pron", "senses": [{"glosses": ["one"]}]}
+{"word": "una", "lang_code": "es", "pos": "article", "senses": [{"glosses": ["feminine singular of un"], "tags": ["form-of"], "form_of": [{"word": "un"}]}]}
+{"word": "un", "lang_code": "es", "pos": "article", "senses": [{"glosses": ["an; a"]}]}
+{"word": "a través de", "lang_code": "es", "pos": "prep_phrase", "senses": [{"glosses": ["through, across"]}]}
+{"word": "por supuesto", "lang_code": "es", "pos": "adv", "senses": [{"glosses": ["of course"]}]}
+{"word": "ya que", "lang_code": "es", "pos": "conj", "senses": [{"glosses": ["since, because"]}]}
+{"word": "lo que", "lang_code": "es", "pos": "pron", "senses": [{"glosses": ["what"]}]}
+{"word": "estar de acuerdo", "lang_code": "es", "pos": "verb", "senses": [{"glosses": ["to agree"]}]}
+{"word": "tomar el pelo a alguien", "lang_code": "es", "pos": "verb", "senses": [{"glosses": ["to pull someone's leg"], "tags": ["idiomatic"]}]}
+{"word": "de vez en cuando", "lang_code": "es", "pos": "adv", "senses": [{"glosses": ["from time to time"]}]}
+{"word": "gato de la casa", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["a house cat"]}]}
+{"word": "ejemplo", "lang_code": "es", "pos": "noun", "senses": [{"glosses": ["example"], "examples": [{"text": "lo vi a través de la ventana"}, {"text": "pasamos a través de la ciudad"}, {"text": "por supuesto que sí"}, {"text": "sí, por supuesto"}, {"text": "me voy ya que es tarde"}, {"text": "no sé lo que quiere"}, {"text": "eso es lo que dijo"}, {"text": "lo que pasa es que no viene"}, {"text": "dime lo que piensas"}, {"text": "el gato come pescado en la casa"}, {"text": "la casa es grande y el perro duerme"}, {"text": "hoy el niño come pan con queso"}, {"text": "mi madre habla con el vecino"}, {"text": "el tren llega tarde a la ciudad"}, {"text": "la niña lee un libro en el parque"}]}]}

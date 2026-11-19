@@ -107,10 +107,11 @@ export const pieceWords = (piece: string): string[] => piece.match(TOKEN) ?? [];
 
 /**
  * Counts the words and the phrases (`variants`) of the examples of the `lang` entries
- * in a kaikki extract. N-grams do not bridge a cut-out headword.
+ * in kaikki extracts (`paths`: one, or the same language in several editions). N-grams
+ * do not bridge a cut-out headword.
  */
 export async function countExamples(
-  path: string,
+  paths: string | readonly string[],
   variants: PhraseVariants,
   lang = "en",
 ): Promise<ExampleCounts> {
@@ -133,10 +134,15 @@ export async function countExamples(
       }
     }
   };
-  await eachEntry(path, (entry: KaikkiEntry) => {
-    if (entry.lang_code !== lang) return;
-    for (const piece of entryExamplePieces(entry)) count(piece);
-  });
+  for (const path of [paths].flat())
+    await eachEntry(
+      path,
+      (entry: KaikkiEntry) => {
+        if (entry.lang_code !== lang) return;
+        for (const piece of entryExamplePieces(entry)) count(piece);
+      },
+      (line) => !line.includes('"examples"'),
+    );
   return { tokens, words, phrases };
 }
 

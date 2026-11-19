@@ -52,28 +52,59 @@ import {
   type SourceSense,
 } from "./senses.ts";
 
-/** Wiktionary's words that stand for any person or thing ("make up one's mind"). */
-const SLOT_WORDS: ReadonlySet<string> = new Set(ENGLISH_RULES.slots.keys());
-/** Wiktionary's other spellings of slots, written as the slot in pattern keys. */
-const SLOT_SPELLINGS = new Map([
-  ["somebody", "someone"],
-  ["sb", "someone"],
-  ["sth", "something"],
-  ["somebody's", "someone's"],
-  ["sb's", "someone's"],
-]);
 /**
- * Patterns starting with one of these are not detected (only selected or saved):
- * detection matches by base form, so "be on" would match every "is on" / "was on".
+ * What the phrase build needs to know of the learning language (LEARNING settings;
+ * English by default, `ENGLISH_BUILD`).
  */
-const AUXILIARIES = new Set(["be", "have", "do"]);
-const WORD = /^[a-z][a-z']*$/;
+export interface PhraseBuildLanguage {
+  /** The kaikki language code of its entries. */
+  lang: string;
+  /** Wiktionary's words that stand for any person or thing ("make up one's mind"). */
+  slots: ReadonlySet<string>;
+  /** Wiktionary's other spellings of slots, written as the slot in pattern keys. */
+  slotSpellings: ReadonlyMap<string, string>;
+  /**
+   * Patterns starting with one of these are not detected (only selected or saved):
+   * detection matches by base form, so "be on" would match every "is on" / "was on".
+   */
+  auxiliaries: ReadonlySet<string>;
+  /** A pattern word as written (lowercase). */
+  word: RegExp;
+  /**
+   * Senses of a word read for its gloss bag (what its own definitions say). A
+   * bilingual source glosses a function word with the phrases it makes ("de": of,
+   * from, about, …, so every phrase with "de" looks explained), so there only its
+   * first senses.
+   */
+  wordSenses: number;
+  /** Words that name nothing, besides the source's most frequent gloss tokens (B2b). */
+  functionWord?: (word: string) => boolean;
+  /**
+   * A pattern of closed-class words only, which names no thing, quality or action
+   * (Spanish "lo que"): selected and saved, never detected.
+   */
+  closedClass?: (key: string) => boolean;
+}
+
+export const ENGLISH_BUILD: PhraseBuildLanguage = {
+  lang: "en",
+  slots: new Set(ENGLISH_RULES.slots.keys()),
+  slotSpellings: new Map([
+    ["somebody", "someone"],
+    ["sb", "someone"],
+    ["sth", "something"],
+    ["somebody's", "someone's"],
+    ["sb's", "someone's"],
+  ]),
+  auxiliaries: new Set(["be", "have", "do"]),
+  word: /^[a-z][a-z']*$/,
+  wordSenses: 12,
+};
+
 /** A possessive makes a word of a word ("for God's sake"). */
 const POSSESSIVE = "'s";
 /** A gloss naming a slot: the sense takes an object ("To surrender (someone or something)"). */
 const OBJECT_GLOSS = /\b(something|someone|somebody|sth|sb)\b/;
-/** Senses of a word read for its gloss bag (what its own definitions say). */
-const WORD_SENSES = 12;
 /** The source's most frequent gloss tokens are its stopwords (no list per language). */
 const GLOSS_STOPWORDS = 200;
 /** …and the most frequent of all are function words, which name nothing. */
@@ -92,25 +123,23 @@ const HINT_LENGTH = 60;
 export function patternKey(
   headword: string,
   isWord: (word: string) => boolean,
+  { slots, slotSpellings, word }: PhraseBuildLanguage = ENGLISH_BUILD,
 ) {
   const parts = headword
     .trim()
     .replace(/’/g, "'")
     .toLowerCase()
     .split(/ +/)
-    .map((part) => SLOT_SPELLINGS.get(part) ?? part);
+    .map((part) => slotSpellings.get(part) ?? part);
   if (parts.length < 2) return undefined;
   let literal = false;
   for (const part of parts) {
-    if (SLOT_WORDS.has(part)) continue;
-    if (!WORD.test(part) || !isWord(part)) return undefined;
+    if (slots.has(part)) continue;
+    if (!word.test(part) || !isWord(part)) return undefined;
     literal = true;
   }
   return literal ? parts.join(" ") : undefined;
 }
-
-const hasSlot = (key: string) =>
-  key.split(" ").some((word) => SLOT_WORDS.has(word));
 
 /** A sense with a gloss of its own: not a form-of / alt-of pointer, not obsolete, archaic or a misspelling, not a literal-meaning note. */
 export function isUsable(
@@ -182,20 +211,21 @@ async function readSource(
   isWord: (word: string) => boolean,
   needed: ReadonlySet<string>,
   language: PhraseLanguage,
+  build: PhraseBuildLanguage,
 ) {
   const patterns = new Map<string, Collected>();
   const words: WordGlosses = { glosses: new Map(), tokens: new Map() };
   let entries = 0;
   const { unparsable } = await eachEntry(path, (entry) => {
-    if (entry.lang_code !== "en") return;
+    if (entry.lang_code !== build.lang) return;
     const headword = entry.word.trim();
     const pos = entry.pos ?? "";
     if (!headword.includes(" ")) {
-      readWord(entry, headword, pos, needed, language, words);
+      readWord(entry, headword, pos, needed, language, words, build.wordSenses);
       return;
     }
     entries++;
-    const key = patternKey(headword, isWord);
+    const key = patternKey(headword, isWord, build);
     if (!key) return;
     let item = patterns.get(key);
     if (!item)
@@ -255,6 +285,7 @@ function readWord(
   needed: ReadonlySet<string>,
   language: PhraseLanguage,
   words: WordGlosses,
+  wordSenses: number,
 ) {
   for (const sense of entry.senses ?? []) {
     const gloss: unknown = sense.glosses?.at(-1);
@@ -271,7 +302,7 @@ function readWord(
   let list = words.glosses.get(word);
   if (!list) words.glosses.set(word, (list = []));
   for (const sense of entrySenses(entry).senses) {
-    if (list.length >= WORD_SENSES) break;
+    if (list.length >= wordSenses) break;
     if (!sense.inflection) list.push(sense.gloss);
   }
 }
@@ -287,6 +318,13 @@ export interface PhraseInputs {
   /** How the pair's native glosses compare (Japanese for EJDict and the translation tables). */
   native?: NativeGlosses;
   language?: PhraseLanguage;
+  /** The learning language's words, slots and closed classes (English by default). */
+  build?: PhraseBuildLanguage;
+  /**
+   * The extracts whose usage examples are the example corpus (B2), `path` by default:
+   * a bilingual extract's and a native edition's examples of the same language.
+   */
+  examples?: readonly string[];
   /**
    * How many of the source's most frequent gloss tokens are stopwords, and how many
    * function words (the defaults fit the full English extract).
@@ -408,9 +446,18 @@ export async function importPhrases(
     titleCase: ejdictTitleCase = new Set(),
     native = JAPANESE_GLOSSES,
     language = ENGLISH_PHRASES,
+    build = ENGLISH_BUILD,
+    examples = [path],
     stopwords = { gloss: GLOSS_STOPWORDS, function: FUNCTION_TOKENS },
   }: PhraseInputs,
 ): Promise<PhrasesResult> {
+  const hasSlot = (key: string) =>
+    key.split(" ").some((word) => build.slots.has(word));
+  /** Not detected: a slot, a leading auxiliary, closed-class words only. */
+  const undetectable = (key: string) =>
+    hasSlot(key) ||
+    build.auxiliaries.has(key.slice(0, key.indexOf(" "))) ||
+    build.closedClass?.(key) === true;
   const words = new Set(vocab);
   const known = (word: string) =>
     words.has(word) || Object.hasOwn(lemmas, word);
@@ -428,11 +475,13 @@ export async function importPhrases(
     needed.add(form);
     for (const base of [bases].flat()) needed.add(base);
   }
-  const source = await readSource(path, isWord, needed, language);
+  const source = await readSource(path, isWord, needed, language, build);
   const { patterns } = source;
 
   const fromEjdict = Object.keys(dict)
-    .filter((key) => key.includes(" ") && patternKey(key, isWord) === key)
+    .filter(
+      (key) => key.includes(" ") && patternKey(key, isWord, build) === key,
+    )
     .sort(byCodeUnit);
   const inEjdict = (key: string) => Object.hasOwn(dict, key);
   const allKeys = [...new Set([...patterns.keys(), ...fromEjdict])].sort(
@@ -447,7 +496,11 @@ export async function importPhrases(
       if (!list) forms.set(base, (list = []));
       list.push(form);
     }
-  const corpus = await countExamples(path, phraseVariants(allKeys, forms));
+  const corpus = await countExamples(
+    examples,
+    phraseVariants(allKeys, forms),
+    build.lang,
+  );
 
   // The source's gloss stopwords: its most frequent gloss tokens.
   const byFrequency = [...source.words.tokens]
@@ -509,7 +562,7 @@ export async function importPhrases(
     const japanese =
       item && !ejdict ? japaneseSenses(ranked, item.looseJa) : undefined;
     if (japanese) ja[key] = japanese;
-    const literal = key.split(" ").filter((word) => !SLOT_WORDS.has(word));
+    const literal = key.split(" ").filter((word) => !build.slots.has(word));
     const bag = new Set(literal.flatMap((word) => [...bagOf(word)]));
     const overlap = (sense: { gloss: string }) => {
       const tokens = glossTokens(sense.gloss, stop);
@@ -522,7 +575,12 @@ export async function importPhrases(
       .map((word) =>
         word.endsWith(POSSESSIVE) ? word.slice(0, -POSSESSIVE.length) : word,
       )
-      .filter((word) => word.length >= 3 && !functionTokens.has(word));
+      .filter(
+        (word) =>
+          word.length >= 3 &&
+          !functionTokens.has(word) &&
+          build.functionWord?.(word) !== true,
+      );
     let parts: number | undefined;
     if (ranked.length > 0 && content.length > 0) {
       const first = glossTokens(ranked[0]!.gloss, stop);
@@ -586,8 +644,7 @@ export async function importPhrases(
       transparent: isTransparent,
       phrasalVerb: item?.gap === true,
       detect:
-        !hasSlot(key) &&
-        !AUXILIARIES.has(key.slice(0, key.indexOf(" "))) &&
+        !undetectable(key) &&
         !named &&
         !isTransparent &&
         (score >= threshold || item?.gap === true),
@@ -615,12 +672,7 @@ export async function importPhrases(
     }),
   };
   const plain = verdicts.filter(
-    (v) =>
-      !v.detect &&
-      !v.named &&
-      !v.transparent &&
-      !hasSlot(v.key) &&
-      !AUXILIARIES.has(v.key.slice(0, v.key.indexOf(" "))),
+    (v) => !v.detect && !v.named && !v.transparent && !undetectable(v.key),
   );
   return {
     phrases,

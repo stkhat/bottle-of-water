@@ -544,15 +544,15 @@ describe("a detected phrase's words read through their bases (rule BASE)", () =>
   // "fue" is a form of ir and of ser; the tagger reads it as a past tense.
   const make = (freq: string[]) =>
     createLanguagePack("en", {
-      lemmas: { fue: ["ir", "ser"], went: "go" },
+      lemmas: { fue: ["ir", "ser"], went: "go", fuera: ["ir", "ser"] },
       freq,
       ipa: {},
-      vocab: new Set([...freq, "went", "de", "on"]),
+      vocab: new Set([...freq, "went", "de", "on", "fuera"]),
       patterns: { detect: ["ir de", "go on"], more: [], gap: [] },
-      pos: { ir: ["verb"], ser: ["verb"], go: ["verb"] },
+      pos: { ir: ["verb"], ser: ["verb"], go: ["verb"], fuera: ["adverb"] },
       tagger: {
-        tags: ["NN", "VBD"],
-        words: { fue: "VBD", went: "VBD" },
+        tags: ["NN", "VBD", "RB"],
+        words: { fue: "VBD", went: "VBD", fuera: "RB" },
         weights: {},
         scale: 10,
       },
@@ -563,6 +563,7 @@ describe("a detected phrase's words read through their bases (rule BASE)", () =>
     // went: goの過去 and nothing else.
     went: { formOf: "go", firstMeaning: false, meaning: false, pos: ["verb"] },
     go: { firstMeaning: true, meaning: true, pos: ["verb"] },
+    fuera: { firstMeaning: true, meaning: true, pos: ["adverb"] },
   };
   const run = (freq: string[], text: string) => {
     const lang = make(freq);
@@ -584,6 +585,13 @@ describe("a detected phrase's words read through their bases (rule BASE)", () =>
       "de:de:new",
     ]);
     expect(run(["ir", "ser", "go"], "fue de")).toEqual(["fue de:ir de:new"]);
+  });
+  it("does not match through a base a headword's tag rules out", () => {
+    // "fuera" (outside) is also a form of ir and ser; read as the adverb it is none.
+    expect(run(["ir", "ser", "go"], "fuera de")).toEqual([
+      "fuera:fuera:known",
+      "de:de:new",
+    ]);
   });
   it("matches through the base a form's own entry points to", () => {
     expect(run(["ir", "ser", "go"], "went on")).toEqual(["went on:go on:new"]);
