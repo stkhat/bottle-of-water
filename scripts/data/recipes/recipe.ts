@@ -5,6 +5,7 @@ import {
   capitalKey,
   describes,
   editionLine,
+  firstSentence,
   keyOf,
   shortOfDefinition,
 } from "../../../src/core/lexicon/short-lines.ts";
@@ -144,12 +145,15 @@ export function withoutStressMarks(text: string): string {
     .normalize("NFC");
 }
 
-/** A heading ("==葡萄牙语==", "====翻译====") or a list item ("* 汉语：…") of a wiki page. */
-const PAGE_MARKUP = /={2,}|\n\s*[*#]/;
+/**
+ * A heading ("==葡萄牙语==", "====翻译===="), a list item ("* 汉语：…") or a new paragraph
+ * (a blank line: ru "…\n\nЭто болванка статьи…", "this is a stub article") of a wiki page.
+ */
+const PAGE_MARKUP = /={2,}|\n\s*[*#]|\n\s*\n/;
 
 /**
- * A gloss without the page structure the extraction let into it: cut where a heading
- * or a list item starts ("消色差透镜\n* 正体: …" → "消色差透镜").
+ * A gloss without the page structure the extraction let into it: cut where a heading,
+ * a list item or another paragraph starts ("消色差透镜\n* 正体: …" → "消色差透镜").
  */
 export function withoutPageMarkup(gloss: string) {
   const at = gloss.search(PAGE_MARKUP);
@@ -183,20 +187,215 @@ export function pointerTemplates(gloss: string, target: string): string[] {
     "gi",
   );
   return [...gloss.matchAll(written)].flatMap((found) => {
-    const template = (
+    const template = asTemplate(
       gloss.slice(0, found.index) +
-      SLOT +
-      gloss.slice(found.index + found[0].length)
-    )
-      .replace(NOTES, " ")
-      .replace(/\s+/g, " ")
-      .replace(/[\s.:;。：；]+$/, "")
-      .trim()
-      .toLowerCase();
+        SLOT +
+        gloss.slice(found.index + found[0].length),
+    );
     return /\p{L}/u.test(template.replace(SLOT, "")) && template.includes(SLOT)
       ? [template]
       : [];
   });
+}
+
+/** Text with a slot as a template: without notes in brackets and closing punctuation, in lower case. */
+const asTemplate = (text: string) =>
+  text
+    .replace(NOTES, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[\s.:;。：；]+$/, "")
+    .trim()
+    .toLowerCase();
+
+/**
+ * An English word a gloss writes whole: not English letters inside a native word
+ * ("Ruanda", "bastón").
+ */
+const WHOLE_ENGLISH_WORD =
+  /(?<![\p{L}\p{M}'’-])[A-Za-z][A-Za-z'-]*(?![\p{L}\p{M}'’-])/gu;
+
+/** A template's words besides its slot, in lower case. */
+const frameWords = (template: string) =>
+  (template.replace(SLOT, " ").match(/[\p{L}\p{M}'’-]+/gu) ?? []).map((word) =>
+    word.toLowerCase(),
+  );
+
+/**
+ * A template its slot ends, a word of its own: "pasado simple de {x}", "→ voir {x}";
+ * not "{x}ón" (English letters inside a native word) or "{x} metal".
+ */
+const endsWithSlot = (template: string) =>
+  template.endsWith(SLOT) &&
+  !/[\p{L}\p{M}]$/u.test(template.slice(0, -SLOT.length));
+
+/**
+ * Whether a template is written in an edition's own words: each of its words is a word
+ * of the edition's language (`native`) or no English term (`term`), and one is the
+ * edition's and no English term ("grafía alternativa de {x}", "вариант {x}", "→ voir
+ * {x}"; not "american {x} association", an English name with a slot).
+ */
+export function nativeFrame(
+  template: string,
+  native: (word: string) => boolean,
+  term: (word: string) => boolean,
+) {
+  const words = frameWords(template);
+  return (
+    words.length > 0 &&
+    words.every((word) => native(word) || !term(word)) &&
+    words.some((word) => native(word) && !term(word))
+  );
+}
+
+/**
+ * Whether a template is said in an edition's pointer syntax: its slot ends it, two
+ * words or more of it are words of the edition's learned templates (`vocabulary`), and
+ * at most one other, a word of the edition's own (`native`) that qualifies them. es
+ * "pasado simple de {x}" (wore: a template with one target, in the words of "pasado
+ * simple del verbo {x}" and "participio pasado de {x}"); fr "prétérit du verbe
+ * auxiliaire {x}" (might), pt "pretérito perfeito do verbo {x}", it "variante
+ * statunitense di {x}" (labor). Not "pronome riflessivo di {x}" (two other words) or
+ * "persona de {x}".
+ */
+export function grammarFrame(
+  template: string,
+  vocabulary: ReadonlySet<string>,
+  native: (word: string) => boolean = () => false,
+) {
+  // One clause: no sentence end or list in it ("prismatique. variante de {x}").
+  if (!endsWithSlot(template) || /[.,;:!?。，；：]/u.test(template))
+    return false;
+  const words = frameWords(template);
+  const other = words.filter((word) => !vocabulary.has(word));
+  return (
+    words.length - other.length >= 2 &&
+    (other.length === 0 || (other.length === 1 && native(other[0]!)))
+  );
+}
+
+/**
+ * A gloss without the reference that closes it after an arrow ("doge → voir duke" →
+ * "doge"; "Rouge cardinal. → voir cardinal red" → "Rouge cardinal"): a reference is the
+ * edition's pointer syntax (`isFrame`, a template) with English words in its slot, and
+ * says nothing the learner reads. The gloss as it is when it closes otherwise ("United
+ * States → Stany Zjednoczone") or has nothing before the arrow.
+ */
+export function beforeReference(
+  gloss: string,
+  isFrame: (template: string) => boolean,
+): string {
+  const arrow = gloss.lastIndexOf("→");
+  if (arrow <= 0) return gloss;
+  const before = gloss
+    .slice(0, arrow)
+    .replace(/[\s.;:,]+$/u, "")
+    .trim();
+  if (!/\p{L}/u.test(before)) return gloss;
+  const words = gloss
+    .slice(arrow)
+    .replace(/[\s.;:。]+$/u, "")
+    .split(/\s+/);
+  for (let at = words.length - 1; at > 0; at--) {
+    if (!/^[A-Za-z][A-Za-z'-]*$/.test(words[at]!)) break;
+    if (isFrame(asTemplate([...words.slice(0, at), SLOT].join(" "))))
+      return before;
+  }
+  return gloss;
+}
+
+/**
+ * NATIVE: a gloss whose first sentence is about the English word (it writes English:
+ * "Superlatif de soon", "Variante de prismatic", pl "I don't know") and whose next
+ * sentence translates it ("Le plus tôt.", "Prismatique.", "Nie wiem") with the
+ * translation first ("Le plus tôt. Superlatif de soon."), as the hover's line is a
+ * gloss's first sentence (`editionLine`). The next sentence translates when it writes
+ * no English and its line does not describe (`describes`), as for the translations a
+ * description and a ";" are followed by (es we're: "Nosotros somos o nosotros
+ * estamos" describes, and stays second). `english`: whether a text writes English.
+ */
+export function meaningFirst(
+  gloss: string,
+  english: (text: string) => boolean,
+): string {
+  const text = gloss.trim();
+  const first = firstSentence(text);
+  if (first === text) return gloss;
+  const rest = text
+    .slice(first.length)
+    .replace(/^[\s.]+/u, "")
+    .replace(/^→\s*/u, "")
+    .trim();
+  // A sentence about the English word names it last ("… de soon"; "I don't know"),
+  // not in passing ("… équivalent à 8 fluid ounces, … ml").
+  const last = /[A-Za-z][A-Za-z'’-]*$/.exec(
+    first.replace(NOTES, " ").replace(/[\s.,;:!?"“”«»]+$/u, ""),
+  )?.[0];
+  if (rest === "" || !last || !english(last) || english(rest)) return gloss;
+  const line = editionLine(rest);
+  if (line === "" || describes(line)) return gloss;
+  return `${/[.!?。]$/u.test(rest) ? rest : `${rest}.`} ${first}.`;
+}
+
+/**
+ * Usage labels that open a gloss, in brackets ("истор. Британия" → "(истор.)
+ * Британия"; "(the Plough) астрон. Большая Медведица" → "(the Plough) (астрон.) …"), so
+ * the line leaves them out as it does labels in brackets (`editionLine`), and does not
+ * end at them as at a sentence. `isLabel`: the edition's label abbreviations
+ * (`labelAbbreviations`).
+ */
+export function withLabelsInBrackets(
+  gloss: string,
+  isLabel: (token: string) => boolean,
+): string {
+  const opening = /^\s*(?:[(（][^()（）]*[)）]\s*)?/u.exec(gloss)![0];
+  let rest = gloss.slice(opening.length);
+  const labels: string[] = [];
+  for (;;) {
+    const found = /^(\p{Ll}[\p{L}\p{M}-]*\.)\s+(?=\S)/u.exec(rest);
+    if (!found || !isLabel(found[1]!)) break;
+    labels.push(`(${found[1]!})`);
+    rest = rest.slice(found[0].length);
+  }
+  return labels.length === 0 ? gloss : `${opening}${labels.join(" ")} ${rest}`;
+}
+
+/**
+ * A gloss's identity as a placeholder: without notes in brackets and closing marks, in
+ * lower case ("Définition manquante ou à compléter. (Ajouter)" and "…(Ajouter)." alike).
+ */
+export const placeholderKey = (gloss: string) =>
+  gloss
+    .replace(NOTES, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[\s.:;,!?…]+$/u, "")
+    .trim()
+    .toLowerCase();
+
+/** A label abbreviation opening a gloss, after a note in brackets: "истор.", "разг.". */
+const OPENING_ABBREVIATION =
+  /^\s*(?:[(（][^()（）]*[)）]\s*)?(\p{Ll}[\p{L}\p{M}-]*\.)\s+(\S+)/u;
+
+/** A label opens the glosses of this many headwords. */
+const LABEL_HEADWORDS = 10;
+
+/** Whether a gloss writes `word` whole and in lower case. */
+const writtenLower = (gloss: string, word: string) =>
+  new RegExp(
+    `(?<![\\p{L}\\p{M}'’-])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{M}'’-])`,
+    "u",
+  ).test(gloss);
+
+/** A gloss up to its first comma or semicolon outside brackets. */
+function firstItem(gloss: string): string {
+  let depth = 0;
+  for (let i = 0; i < gloss.length; i++) {
+    const ch = gloss[i]!;
+    if ("(（[".includes(ch)) depth++;
+    else if (")）]".includes(ch)) depth = Math.max(0, depth - 1);
+    else if (depth === 0 && ",;，；".includes(ch))
+      return gloss.slice(0, i).trim();
+  }
+  return gloss;
 }
 
 /** A sense the source marks as a form or a variant of another word (kaikki's tags or fields). */
@@ -433,6 +632,8 @@ export async function readEdition(
   const learned = new Map<string, Set<string>>();
   /** The edition's own language's headwords, in lower case. */
   const nativeWords = new Set<string>();
+  /** Its common words it writes in lower case (not fr "May", a place, for "may"). */
+  const nativeLower = new Set<string>();
   /** The edition's own language's headwords as written: proper nouns, and the rest. */
   const nativeNames = new Set<string>();
   const nativeCommon = new Set<string>();
@@ -450,10 +651,14 @@ export async function readEdition(
   }
   const read: Read[] = [];
   const capitalRead: Read[] = [];
+  /** Every English sense's gloss, for what is learned once the native words are known. */
+  const glosses: { head: string; gloss: string; marked: boolean }[] = [];
   const stats = await eachEntry(path, (entry) => {
     if (native !== undefined && entry.lang_code === native) {
       const written = entry.word.trim();
       nativeWords.add(written.toLowerCase());
+      if (entry.pos !== "name" && written === written.toLowerCase())
+        nativeLower.add(written);
       (entry.pos === "name" ? nativeNames : nativeCommon).add(
         nativeForm(written),
       );
@@ -474,10 +679,13 @@ export async function readEdition(
     if (entry.lang_code !== "en") return;
     const head = entry.word.trim().toLowerCase();
     for (const sense of entry.senses ?? []) {
-      const opening = /\p{L}/u.exec(cleanGloss(sense)?.gloss ?? "")?.[0];
+      const clean = cleanGloss(sense);
+      const opening = /\p{L}/u.exec(clean?.gloss ?? "")?.[0];
       if (opening !== undefined)
         glossOpenings[/\p{Lu}/u.test(opening) ? "upper" : "lower"]++;
-      const found = isMarkedForm(sense) ? cleanGloss(sense) : undefined;
+      if (clean?.gloss)
+        glosses.push({ head, gloss: clean.gloss, marked: isMarkedForm(sense) });
+      const found = isMarkedForm(sense) ? clean : undefined;
       if (!found) continue;
       const target = markedTarget(
         sense,
@@ -510,28 +718,170 @@ export async function readEdition(
       senses: entry.senses ?? [],
     });
   });
-  const templates = new Set(
-    [...learned]
-      .filter(
-        ([, targets]) =>
-          targets.size >= MIN_TEMPLATE_TARGETS &&
-          [...targets].some((target) => !nativeWords.has(target)),
-      )
-      .map(([template]) => template),
+  // A target is no word of the edition when the edition has no common word written so;
+  // a template's own words are the edition's when it has them in any case (de
+  // "Hilfsverbs", a noun; fr "may" as a target is English, though "May" is a place).
+  const isNative = (word: string) => nativeLower.has(word);
+  const isNativeWord = (word: string) => nativeWords.has(word.toLowerCase());
+  /** English terms a text writes whole that are no words of the edition's language. */
+  const englishOf = (text: string) =>
+    (text.replace(NOTES, " ").match(WHOLE_ENGLISH_WORD) ?? [])
+      .map((word) => word.toLowerCase())
+      .filter((word) => isTerm(word) && !isNative(word));
+  // What the unmarked glosses show, once the edition's own words are known: the pointer
+  // syntax they write without marking it, the placeholders they repeat, the labels
+  // they open with.
+  /** template → its distinct targets, from unmarked senses */
+  const unmarked = new Map<string, Set<string>>();
+  /** placeholder key → the headwords whose glosses it is */
+  const repeated = new Map<string, Set<string>>();
+  /** label abbreviation → the headwords it opens a gloss of, and what follows it */
+  const openers = new Map<
+    string,
+    { heads: Set<string>; uses: number; english: number }
+  >();
+  for (const { head, gloss, marked } of glosses) {
+    const words = new Set(head.split(/\s+/));
+    if (!marked)
+      for (const target of new Set(englishOf(gloss))) {
+        if (words.has(target) || !writtenLower(gloss, target)) continue;
+        for (const template of pointerTemplates(gloss, target)) {
+          if (!endsWithSlot(template)) continue;
+          let targets = unmarked.get(template);
+          if (!targets) unmarked.set(template, (targets = new Set()));
+          targets.add(target);
+        }
+      }
+    const key = placeholderKey(gloss);
+    let heads = repeated.get(key);
+    if (!heads) repeated.set(key, (heads = new Set()));
+    heads.add(head);
+    const opener = OPENING_ABBREVIATION.exec(gloss);
+    if (opener) {
+      const [, token, next] = opener;
+      let seen = openers.get(token!);
+      if (!seen)
+        openers.set(token!, (seen = { heads: new Set(), uses: 0, english: 0 }));
+      seen.heads.add(head);
+      seen.uses++;
+      if (englishOf(next!).length > 0) seen.english++;
+    }
+  }
+  // A marked template needs MIN_TEMPLATE_TARGETS targets, not all of them words of the
+  // edition's language; an unmarked one, that many that are none.
+  const accepted = (from: Map<string, Set<string>>, unmarkedOnes = false) =>
+    [...from]
+      .filter(([, targets]) => {
+        const english = [...targets].filter((target) => !isNative(target));
+        return unmarkedOnes
+          ? english.length >= MIN_TEMPLATE_TARGETS
+          : targets.size >= MIN_TEMPLATE_TARGETS && english.length > 0;
+      })
+      .map(([template]) => template);
+  // Templates the edition writes without marking them as forms count when they are
+  // said in its own words and end with their target ("grafía alternativa de {x}" of
+  // armor, "вариант {x}" of been, "→ voir {x}", "prétérit du verbe auxiliaire {x}").
+  const unmarkedTemplates = accepted(unmarked, true).filter((template) =>
+    nativeFrame(template, isNativeWord, isTerm),
   );
-  /** The term a gloss points to in one of the edition's templates. */
-  const pointerOf = (gloss: string, head: string, sense: KaikkiSense) => {
+  const markedTemplates = new Set(accepted(learned));
+  const templates = new Set([...markedTemplates, ...unmarkedTemplates]);
+  /** The words the edition's pointer syntax is said in. */
+  const vocabulary = new Set([...templates].flatMap(frameWords));
+  const isFrame = (template: string) =>
+    templates.has(template) ||
+    grammarFrame(
+      template,
+      vocabulary,
+      (word) => isNativeWord(word) && !isTerm(word),
+    );
+  /**
+   * A gloss written alike under CLASS_HEADWORDS headwords or more that describes
+   * (`describes`: more words than a translation has, in its main item or as a whole:
+   * it "Definizione mancante; se vuoi, aggiungila tu") and whose main item is no word
+   * of the edition is a placeholder, not a meaning ("Définition manquante ou à compléter"):
+   * one description does not define ten words. Synonyms share a translation ("pénis",
+   * "aller aux toilettes").
+   */
+  const placeholders = new Set(
+    [...repeated]
+      .filter(([key, heads]) => {
+        const main = key.split(/[,;]/)[0]!.trim();
+        return (
+          heads.size >= CLASS_HEADWORDS &&
+          (describes(main) || describes(key)) &&
+          !isNativeWord(main)
+        );
+      })
+      .map(([key]) => key),
+  );
+  /**
+   * The edition's label abbreviations: a lower-case word with a period that opens the
+   * glosses of LABEL_HEADWORDS headwords or more, that is no word of the edition
+   * without its period, that native text follows (not a reference word that names
+   * English ones: pl "zob. Middle East"), and that opens no template but as a label of
+   * another (ru "сокр. от {x}", "abbreviation of"; "разг. то же, что {x}" is "то же, что
+   * {x}" labelled).
+   */
+  const labels = new Set(
+    [...openers]
+      .filter(
+        ([token, { heads, uses, english }]) =>
+          heads.size >= LABEL_HEADWORDS &&
+          !isNativeWord(token.slice(0, -1)) &&
+          english * 2 < uses &&
+          ![...templates].some(
+            (template) =>
+              template.startsWith(`${token.toLowerCase()} `) &&
+              !templates.has(template.slice(token.length + 1)),
+          ),
+      )
+      .map(([token]) => token),
+  );
+  /**
+   * The term a gloss points to in one of the edition's templates (`isFrame`): the whole
+   * gloss, else its first item, which the rest qualifies (pt might: "pretérito perfeito
+   * do verbo may, indicando possibilidade").
+   */
+  const pointerOf = (
+    gloss: string,
+    head: string,
+    sense: KaikkiSense,
+    pos: string,
+  ) => {
     const written = termsWritten(gloss, head, isTerm);
     const marked = isMarkedForm(sense)
       ? markedTarget(sense, gloss, written)
       : undefined;
-    return [...(marked ? [marked] : []), ...written].find((word) =>
-      pointerTemplates(gloss, word).some((template) => templates.has(template)),
+    // A word of the edition's own language as the target ("plural", Spanish too; fr
+    // "may", a rare noun) only where the whole gloss is the pointer.
+    // A contraction's senses only in the marked templates, as before U1-7: how
+    // contractions show is the runtime's (`contractions.ts`).
+    const contraction = pos === "contraction";
+    // Beyond the marked templates, a target the gloss writes in lower case: a
+    // capitalised one is a name's (es Joe: "hipocorístico de Joseph").
+    const pointing = (text: string, whole: boolean) =>
+      [...(marked ? [marked] : []), ...written].find((word) =>
+        pointerTemplates(text, word).some((template) =>
+          whole && markedTemplates.has(template)
+            ? true
+            : !contraction &&
+              writtenLower(text, word) &&
+              (isNative(word) ? whole : true) &&
+              isFrame(template),
+        ),
+      );
+    const item = firstItem(gloss);
+    return (
+      pointing(gloss, true) ??
+      (item !== gloss && !contraction ? pointing(item, false) : undefined)
     );
   };
   let pointers = 0;
   let cased = 0;
   let foreign = 0;
+  let placeheld = 0;
+  let reshaped = 0;
   // The edition writes most of its common nouns capitalised (German).
   const capitalNouns = capitalisedNouns > nouns / 2;
   // The edition opens most of its glosses with a capital, as a sentence (es, fr): only
@@ -557,11 +907,33 @@ export async function readEdition(
           continue;
         const found = cleanGloss(sense);
         if (!found) continue;
-        const { written, gloss } = found;
+        const { written } = found;
         // Page markup with only the headword before it ("adoring\n====翻译====…") is no
-        // gloss; a gloss that is the headword itself is (a loanword: "pizza").
-        if (!gloss || (gloss !== written && gloss.toLowerCase() === head))
+        // gloss; a gloss that is the headword itself is (a loanword: "pizza"). Nor is
+        // one with no letter ("[[]]"), or a placeholder of a lowercase term (capitalised
+        // headwords leave out repeated glosses as classes: `capitalDictionary`).
+        if (
+          !/\p{L}/u.test(found.gloss) ||
+          (found.gloss !== written && found.gloss.toLowerCase() === head)
+        )
           continue;
+        const shaped = beforeReference(
+          withLabelsInBrackets(found.gloss, (token) => labels.has(token)),
+          isFrame,
+        );
+        if (
+          !capital &&
+          (placeholders.has(placeholderKey(found.gloss)) ||
+            placeholders.has(placeholderKey(shaped)))
+        ) {
+          placeheld++;
+          continue;
+        }
+        const gloss = meaningFirst(
+          shaped,
+          (text) => englishOf(text).length > 0,
+        );
+        if (gloss !== found.gloss) reshaped++;
         const trimmed =
           trimPeriod && /^[^.。]+[.。]$/.test(gloss)
             ? gloss.slice(0, -1)
@@ -571,7 +943,7 @@ export async function readEdition(
             ? trimmed
             : inNativeCase(trimmed, entriesOf, { head, capitalNouns });
         if (text !== trimmed) cased++;
-        const target = pointerOf(gloss, head, sense);
+        const target = pointerOf(gloss, head, sense, pos);
         // A capitalised headword keeps every sense here: its classes and persons are
         // left out, and its senses capped, once the sources are merged
         // (`capitalDictionary`).
@@ -594,9 +966,16 @@ export async function readEdition(
       ...stats,
       pointers,
       templates: templates.size,
+      unmarkedTemplates: unmarkedTemplates.length,
       cased,
       foreign,
       sentenceCase,
+      /** Lowercase terms' glosses left out as placeholders. */
+      placeheld,
+      /** Glosses with labels put in brackets, a closing reference cut, or the translation first. */
+      reshaped,
+      labels: [...labels],
+      placeholders: [...placeholders],
     },
     templates,
     /** A capitalised headword's gloss in the edition's case (`inNativeCase`). */
@@ -651,6 +1030,21 @@ export function nativeKindOf(
 
 const senseLabel = (text: unknown) =>
   typeof text === "string" && text.trim() ? text.trim() : undefined;
+
+/**
+ * Whether a translation table's note gives an example of the headword and its
+ * translation ("We would sit by the hole on the frozen lake… - Winters saßen wir…"):
+ * English that writes the headword, then " - ".
+ */
+export function isExampleNote(note: unknown, headword: string): boolean {
+  if (typeof note !== "string") return false;
+  const dash = note.indexOf(" - ");
+  if (dash < 0) return false;
+  const escaped = headword.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\p{L}'’-])${escaped}(?![\\p{L}'’-])`, "iu").test(
+    note.slice(0, dash),
+  );
+}
 
 /**
  * English Wiktionary's translation tables (kaikki's English extract) into the native
@@ -708,6 +1102,8 @@ export async function readTranslationTables(
   const found: Ranked = new Map();
   const capitalFound: Ranked = new Map();
   const lowercase = new Set<string>();
+  /** term key ("french", "French") → the most languages one sense's table translates */
+  const coverage = new Map<string, number>();
   const stats = await eachEntry(path, (entry) => {
     // English text writes Translingual symbols too ("kg").
     if (entry.lang_code === "en" || entry.lang_code === "mul") {
@@ -725,7 +1121,7 @@ export async function readTranslationTables(
     // first appear
     const groups = new Map<
       string,
-      { words: string[]; langs: Set<string>; marked: boolean }
+      { words: string[]; langs: Set<string>; marked: boolean; example: boolean }
     >();
     const add = (
       translations: KaikkiTranslation[] | undefined,
@@ -737,11 +1133,15 @@ export async function readTranslationTables(
         if (!hint) continue;
         let group = groups.get(hint);
         if (!group)
-          groups.set(hint, (group = { words: [], langs: new Set(), marked }));
+          groups.set(
+            hint,
+            (group = { words: [], langs: new Set(), marked, example: false }),
+          );
         if (typeof translation.lang_code === "string")
           group.langs.add(translation.lang_code);
         if (!codes.has(translation.lang_code as string)) continue;
         if (names && !names.has(translation.lang)) continue;
+        if (isExampleNote(translation.note, entry.word)) group.example = true;
         if (typeof translation.word !== "string") continue;
         const written = rewrite(withoutStressMarks(translation.word.trim()));
         // A template the extraction left unexpanded ("{{t+|1=it|2=francese}}") is no word.
@@ -764,8 +1164,13 @@ export async function readTranslationTables(
         ),
       );
     }
-    for (const [hint, { words, langs, marked }] of groups) {
-      if (words.length === 0) continue;
+    let most = 0;
+    for (const [hint, { words, langs, marked, example }] of groups) {
+      most = Math.max(most, langs.size);
+      // A row that gives an example ("We would sit by the hole… - Winters saßen
+      // wir…") has the example's pieces as its words ("In the winters", "er sei sofort
+      // wieder da."), not translations.
+      if (words.length === 0 || example) continue;
       let ranked = into.get(key);
       if (!ranked) into.set(key, (ranked = []));
       ranked.push({
@@ -774,6 +1179,7 @@ export async function readTranslationTables(
         marked: marked || MARKED_LABEL.test(hint),
       });
     }
+    coverage.set(key, Math.max(coverage.get(key) ?? 0, most));
   });
   const termsOf = (ranked: Ranked, max: number, capital: boolean) => {
     const terms = new Map<string, SourceTerm>();
@@ -808,6 +1214,7 @@ export async function readTranslationTables(
     terms: finish(lower.terms, firstWord),
     capital: finish(capital.terms, firstWord),
     lowercase,
+    coverage,
     stats: { ...stats, foreign: lower.foreign + capital.foreign },
   };
 }

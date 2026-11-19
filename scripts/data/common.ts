@@ -179,6 +179,8 @@ export interface KaikkiTranslation {
   lang?: unknown;
   word?: unknown;
   sense?: unknown;
+  /** A row's free text in place of a word: a usage note or an example ("… - …"). */
+  note?: unknown;
 }
 type Categories = (string | { name?: unknown } | null)[];
 export interface KaikkiSense {

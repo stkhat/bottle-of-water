@@ -15,7 +15,7 @@ import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
 import { capitalKey, displayWidth } from "../lexicon/short-lines";
-import { recipeNatives } from "../natives";
+import { recipeNatives, type RecipeNative } from "../natives";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
 import type { DictPack, ShardIndex } from "./types";
@@ -649,6 +649,65 @@ describe("generated en-zh dictionary", () => {
       ),
     );
     expect(traditional.length).toBeLessThan(10);
+  });
+});
+
+// U1-7: what an edition writes that is no meaning, and the classes found after U1-4/U1-6.
+describe("generated packs: native hygiene (U1-7)", () => {
+  const pair = (native: RecipeNative) =>
+    loadPack(`en-${native}`).then(({ dict }) =>
+      createPairDictionary({ dict, defs, ipa, native, lemmas, pos }),
+    );
+  const shown = async (
+    native: RecipeNative,
+    ...args: Parameters<Awaited<ReturnType<typeof pair>>["entry"]>
+  ) => ((await pair(native)).entry(...args)?.lines ?? []).join(" / ");
+  const ja = createEnJaDictionary({
+    dict,
+    phrases: jaPhrases,
+    capital,
+    sensePos,
+    defs,
+    pos,
+    ipa,
+  });
+
+  it("ja: okay follows the first of OK's spellings past the Oklahoma abbreviation", () => {
+    expect(ja.entry("okay")?.lines[0]).toBe("大丈夫な");
+    expect(ja.entry("ok", "lower")?.lines.join()).not.toMatch(/Oklahoma/);
+    expect(capital.OK?.[1]).toEqual(["Oklahoma(オクラホマ州)の略"]);
+  });
+  it("fr: no placeholder lines, no closing references", async () => {
+    for (const word of ["because", "catch", "scoff"])
+      expect(await shown("fr", word)).not.toMatch(/manquante/);
+    expect(await shown("fr", "premise")).not.toMatch(/voir premises/);
+  });
+  it("fr: the translation after a sentence about the English word", async () => {
+    expect(await shown("fr", "least", "lower", "adjective")).toMatch(
+      /^le moins/,
+    );
+  });
+  it("ru: a label abbreviation is not the line, even before a capital", async () => {
+    expect(await shown("ru", "britannia", "capital")).toMatch(/^Британия/);
+    expect(await shown("ru", "gonna")).not.toMatch(/разг/);
+  });
+  it("reads unmarked pointers and gives a modal's pointer its verb senses", async () => {
+    // es armor: "grafía alternativa de armour" only points, so the tables' term.
+    expect(await shown("es", "armor")).toMatch(/^armadura/);
+    expect(await shown("fr", "might", "lower", "verb")).toMatch(/pouvoir/);
+    expect(await shown("de", "could", "lower", "verb")).toMatch(/können/);
+    expect(await shown("de", "could", "lower", "verb")).not.toMatch(
+      /Blechdose/,
+    );
+  });
+  it("has no example text as table words, and no lesser lowercase line under a capital", async () => {
+    for (const native of ["pt", "it", "de", "ru"] as const)
+      expect(await shown(native, "would", "lower", "verb")).not.toMatch(
+        /In the winters|We sat on the bench/,
+      );
+    expect(await shown("es", "french", "capital")).not.toMatch(/cortar/);
+    // At a sentence start too: English is the language, not a billiards spin.
+    expect(await shown("zh", "english")).toMatch(/^英语/);
   });
 });
 

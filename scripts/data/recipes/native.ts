@@ -35,6 +35,7 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
+  type PairSense,
   type SourceTerm,
   type TermKey,
 } from "./recipe.ts";
@@ -146,17 +147,20 @@ export async function buildPairDictionary(
   // A word English writes only capitalised (no lowercase headword in English
   // Wiktionary: January, Monday) is its capitalised headword: an edition's lowercase
   // entry for it (ru "january" → январский) is left out, so the word takes the
-  // capitalised one however it is written.
+  // capitalised one however it is written. So is a word English writes capitalised but
+  // for a lesser use (`lesserLowercase`: french, to cut in strips; english, a spin).
   const uncased = Object.keys(merged.dict).filter(
     (key) =>
       !/\s/.test(key) &&
-      !tableTerms.lowercase.has(key) &&
-      Object.hasOwn(capital, capitalKey(key, false)),
+      Object.hasOwn(capital, capitalKey(key, false)) &&
+      (!tableTerms.lowercase.has(key) ||
+        lesserLowercase(key, tableTerms.coverage, lemmas)),
   );
   const left = new Set(uncased);
   const dict = Object.fromEntries(
     Object.entries(merged.dict).filter(([key]) => !left.has(key)),
   );
+  const posed = withPointerPos(dict, pos);
   // The edition's capitalised glosses in its case, once their meanings are read.
   const editionSource = capitalSources.findIndex(
     ({ tag }) => tag === edition?.tag,
@@ -175,6 +179,16 @@ export async function buildPairDictionary(
       terms: Object.keys(dict).length,
       pointers: editionTerms?.stats.pointers ?? 0,
       templates: editionTerms?.stats.templates ?? 0,
+      /** Of the templates, those learned from senses the edition does not mark as forms. */
+      unmarkedTemplates: editionTerms?.stats.unmarkedTemplates ?? 0,
+      /** Lowercase terms' edition glosses left out as placeholders, and which. */
+      placeheld: editionTerms?.stats.placeheld ?? 0,
+      placeholders: editionTerms?.stats.placeholders ?? [],
+      /** Edition glosses reshaped: labels in brackets, a closing reference cut, the translation first. */
+      reshaped: editionTerms?.stats.reshaped ?? 0,
+      /** Pointer senses with no part of speech given the word's main one in English. */
+      pointerPos: posed,
+      labels: editionTerms?.stats.labels ?? [],
       /** Edition glosses put in the edition's own case (`inNativeCase`). */
       cased: (editionTerms?.stats.cased ?? 0) + capitalCased,
       /** Whether the edition opens its glosses with capitals, as sentences. */
@@ -193,6 +207,61 @@ export async function buildPairDictionary(
       classes,
     },
   };
+}
+
+/** Parts of speech that say none: kaikki's "unknown", or nothing. */
+const NO_POS: readonly string[] = ["", "unknown"];
+
+/**
+ * LEARNING: a pointer sense whose source gives it no part of speech takes the word's
+ * main one in English (en/pos.json): the hover follows a pointer in its sense's part
+ * of speech, so de could ("Präteritum des Hilfsverbs can", unknown) shows can's verbs
+ * (können), not its noun (Blechdose, a tin can). Gives how many senses it set.
+ */
+export function withPointerPos(
+  dict: Record<string, [string, PairSense[], number]>,
+  pos: PosPack,
+): number {
+  let set = 0;
+  for (const [key, entry] of Object.entries(dict)) {
+    const main = pos[key]?.[0];
+    if (main === undefined) continue;
+    entry[1] = entry[1].map((sense): PairSense => {
+      if (sense[3] === undefined || !NO_POS.includes(sense[0])) return sense;
+      set++;
+      return [main, sense[1], sense[2], sense[3]];
+    });
+  }
+  return set;
+}
+
+/** A capitalised headword's tables translate into at least this many languages… */
+const CAPITAL_COVERAGE = 50;
+/** …and this many times the languages its lowercase headword's do. */
+const LESSER_RATIO = 15;
+
+/**
+ * LEARNING: a lowercase headword English uses far less than the same word capitalised:
+ * English Wiktionary's tables translate the capitalised one's main sense into
+ * CAPITAL_COVERAGE languages or more, LESSER_RATIO times as many as any sense of the
+ * lowercase one (French 180 against french, to cut in strips, 4; English 227 against
+ * the billiards spin 8; Japan 217 against the lacquer 8). Not an inflected form, whose
+ * tables are its base's ("numbers", not Numbers), nor a word with a use of its own
+ * (china 17 against China 224; turkey, may, polish). A capitalised word at a
+ * sentence start then reads as the capitalised one, as written mid-sentence.
+ */
+export function lesserLowercase(
+  key: string,
+  coverage: ReadonlyMap<string, number>,
+  lemmas: LemmaPack,
+): boolean {
+  const bases = [lemmas[key] ?? []].flat();
+  if (bases.some((base) => base !== key)) return false;
+  const capital = coverage.get(capitalKey(key, false)) ?? 0;
+  return (
+    capital >= CAPITAL_COVERAGE &&
+    (coverage.get(key) ?? 0) * LESSER_RATIO <= capital
+  );
 }
 
 /** The term keys English packs file meanings under: vocabulary words and phrase patterns. */
@@ -240,6 +309,10 @@ async function main() {
     console.log(
       `  ${stats.lacking.length} terms taken from a later source for their main part of speech: ${stats.lacking.slice(0, 30).join(", ")}; ` +
         `${stats.uncased.length} lowercase terms of words English writes capitalised left out: ${stats.uncased.slice(0, 20).join(", ")}; ${stats.capitals.personSenses} person senses left out`,
+    );
+    console.log(
+      `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
+        `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}`,
     );
     console.log(
       "  class glosses:",

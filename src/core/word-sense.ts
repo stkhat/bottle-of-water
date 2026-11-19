@@ -124,7 +124,8 @@ export function readWords(
  *    rule 1: "podemos" → poder) keeps its own entry while that starts with a
  *    pointer, which states the grammar ("haveの三人称単数現在"); an entry that starts
  *    with a meaning of its own goes to the base ("being" → be), and so does one whose
- *    pointer names a word that is not mainly a verb ("does": plural of doe → do). An
+ *    pointer names a word that is not mainly a verb ("does": plural of doe → do) or
+ *    none of its bases (ru "were": "вариант wear" → be). An
  *    auxiliary without an entry goes to its base by rule 1 (en-ru "has" → have), never
  *    to nothing; its lookup shows the base's auxiliary senses where the source has
  *    some, else no meaning beside the card's "has → have" (`sensePos`, AUXILIARY_BASE).
@@ -195,8 +196,13 @@ export function chooseKey(
   if (!own) return likeliest();
   if (auxiliary) {
     // An auxiliary is a verb: an entry whose first sense is a form of a word that is
-    // not mainly one ("does": plural of doe) is another word's, so the verb base.
-    if (own.formOf !== undefined && !mainlyVerb(own.formOf, pack)) {
+    // not mainly one ("does": plural of doe), or of a word that is none of its bases
+    // (ru "were": "вариант wear", a variant of wear), is another word's, so the verb
+    // base.
+    if (
+      own.formOf !== undefined &&
+      (!mainlyVerb(own.formOf, pack) || !bases.includes(own.formOf))
+    ) {
       const verb = others.find(
         (base) => mainlyVerb(base, pack) && outline(base),
       );
