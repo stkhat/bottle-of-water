@@ -1,6 +1,4 @@
 {
-"hormone therapy":["terapia de hormonas",[["noun","terapia de hormonas","Translations"]],1],
-"horn":["cuerno, asta",[["noun","cuerno, asta"],["noun","carey"],["noun","bocina de un vehículo, claxon"]],0],
 "horn of africa":["Cuerno de África",[["proper noun","Cuerno de África","peninsula in East Africa"]],1],
 "hornbeam":["carpe",[["noun","carpe","tree of the genus Carpinus"]],1],
 "hornbill":["cálao",[["noun","cálao","bird"]],1],
@@ -17834,7 +17832,6 @@
 "stilt house":["palafito",[["noun","palafito","house raised on stilts"]],1],
 "stilt sandpiper":["playero zancón",[["noun","playero zancón","Calidris himantopus"]],1],
 "stilted":["forzado",[["adjective","forzado"],["adjective","poco natural"],["adjective","elevado"],["adjective","peraltado"]],0],
-"stim":["autoestimular[se]",[["verb","autoestimular[se], estimularse","to perform a repetitive self-stimulating action"]],1],
 "stimulant":["estimulante",[["noun","estimulante","substance acting to increase physiological or nervous activity in the body"]],1],
 "stimulate":["estimular",[["verb","estimular","to encourage into action"]],1],
 "stimulating":["estimulante",[["adjective","estimulante","that stimulates"]],1],
@@ -18079,5 +18076,7 @@
 "string bean":["vainica",[["noun","vainica, habichuela","a long, slender variety of green bean"],["noun","larguirucho","tall and thin person"]],1],
 "string quartet":["cuarteto de cuerda",[["noun","cuarteto de cuerda","group of four string players"]],1],
 "string theory":["teoría de cuerdas",[["noun","teoría de cuerdas","candidate unified theory of all physical forces and particles"]],1],
-"string together":["hilvanar",[["verb","hilvanar, hilar, encordar","put together in a series"]],1]
+"string together":["hilvanar",[["verb","hilvanar, hilar, encordar","put together in a series"]],1],
+"string trimmer":["desbrozadora",[["noun","desbrozadora, desmalezadora, bordeadora","powered, hand-held garden implement that uses a rotating monofilament line to cut grass, etc."]],1],
+"stringed instrument":["instrumento de cuerda",[["noun","instrumento de cuerda","Translations"]],1]
 }

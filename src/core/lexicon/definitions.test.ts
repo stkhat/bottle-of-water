@@ -19,6 +19,15 @@ describe("cleanDefinition", () => {
     );
   });
 
+  it("is no definition for a spelling named by the standards that write it", () => {
+    expect(
+      cleanDefinition("Non-Oxford British standard spelling of prioritize."),
+    ).toBeUndefined();
+    expect(cleanDefinition("A Japanese form of martial art.")).toBe(
+      "A Japanese form of martial art.",
+    );
+  });
+
   it("drops leading labels", () => {
     expect(cleanDefinition("(idiomatic, informal) To reveal a secret.")).toBe(
       "To reveal a secret.",
@@ -220,6 +229,29 @@ describe("definitionPointer", () => {
       kind: "reference",
       target: "i can tell you",
     });
+  });
+  it("knows spellings named by the standards and places that write them", () => {
+    for (const text of [
+      "American and Oxford British spelling of popularise.",
+      "Commonwealth, UK, Australia, New Zealand, and South Africa standard spelling of aging.",
+      "Non-Oxford British English standard spelling of realize.",
+      "US, Canada, and Oxford British English standard spelling of organise",
+      "Alternative letter-case form of all caps.",
+    ])
+      expect(definitionPointer(text)).toMatchObject({ kind: "reference" });
+    expect(
+      definitionPointer("American and Oxford British spelling of popularise."),
+    ).toEqual({ kind: "reference", target: "popularise" });
+  });
+  it("leaves definitions that only look like those", () => {
+    for (const text of [
+      "Any form of address.",
+      "A Japanese form of martial art.",
+      "Roman Catholic form of worship.",
+      "Pertaining to a university or other form of higher education.",
+      "Having the form of a ring.",
+    ])
+      expect(definitionPointer(text)).toBeUndefined();
   });
   it("names no term when the pointer glosses it: it means one of its senses", () => {
     expect(

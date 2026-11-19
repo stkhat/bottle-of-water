@@ -7014,7 +7014,7 @@
 "carotid sinus":["颈动脉窦",[["noun","颈动脉窦","innervated arterial enlargement"]],0],
 "carotid triangle":["颈动脉三角",[["noun","颈动脉三角","space in the lateral neck"]],0],
 "carouse":["畅饮",[["verb","畅饮","To drink to excess"]],0],
-"carousel":["行李传送带",[["noun","行李传送带","revolving device to deliver items"]],0],
+"carousel":["行李传送带",[["noun","行李传送带","a conveyer belt that carries luggage to be claimed by air travelers"],["noun","旋木, 旋转木马","a large, rotating machine with seats for children to ride or amusement"]],2],
 "carp":["鲤鱼",[["noun","鲤鱼","any of various freshwater fish of the family Cyprinidae"]],0],
 "carpal":["腕的",[["adjective","腕的","of or relating to the wrist"]],2],
 "carpal bone":["腕骨",[["noun","腕骨"]],1],
@@ -9775,7 +9775,6 @@
 "concise":["简明",[["adjective","简明","brief and precise"]],0],
 "concisely":["简洁地",[["unknown","简洁地"]],1],
 "concision":["切断",[["unknown","切断"],["unknown","分离"],["unknown","简洁"]],1],
-"conclave":["枢机团",[["noun","枢机团","group of cardinals assembled to elect a new pope; cardinals of the Roman Catholic Church collectively"],["noun","秘密会议","closed, private, or secret meeting, especially one of an ecclesiastical nature"]],0],
 "conclude":["结束",[["verb","结束"],["verb","这个故事以一个寓意结束"],["verb","使结束"]],1],
 "concluder":["得出结论的人或事物",[["noun","得出结论的人或事物"]],1],
 "conclusion":["结束",[["noun","结束","end, final part"],["noun","结论","decision, judgment"],["noun","结果","outcome"]],0],
@@ -17729,5 +17728,6 @@
 "flute":["长笛",[["noun","长笛, 笛","woodwind instrument"]],0],
 "fluting":["吹笛子",[["unknown","吹笛子"],["unknown","笛声"],["unknown","刻凹槽"]],1],
 "flutist":["横笛吹奏者",[["unknown","横笛吹奏者"],["unknown","笛手"]],1],
-"flutter":["扑扇",[["verb","扑扇","to flap the wings without flying"]],0]
+"flutter":["扑扇",[["verb","扑扇","to flap the wings without flying"]],0],
+"fluvial":["河流的",[["adjective","河流的","of, pertaining to, inhabiting, or produced by the action of a river or stream"]],0]
 }

@@ -1,4 +1,7 @@
 {
+"unmarried":["nieżonaty, niezamężny, stanu wolnego",[["adjective","nieżonaty, niezamężny, stanu wolnego"]],0],
+"unmask":["demaskować, ujawniać",[["verb","demaskować, ujawniać"],["verb","zrzucić maskę, ujawniać się"]],0],
+"unmatched":["niezrównany",[["adjective","niezrównany"]],0],
 "unmeasured":["niemierzalny",[["adjective","niemierzalny","impossible to measure"]],2],
 "unmediated":["ścisły",[["adjective","ścisły","having no intervening persons, agents, conditions"]],2],
 "unmeet":["niepasujący, niewłaściwy, nieodpowiedni",[["adjective","niepasujący, niewłaściwy, nieodpowiedni"]],0],
@@ -1515,7 +1518,7 @@
 "wanted poster":["list gończy",[["noun","list gończy","printed announcement"]],1],
 "wanton":["nieposkromiony, niepohamowany",[["adjective","nieposkromiony, niepohamowany"],["adjective","rozpustny"]],0],
 "wantonly":["swawolnie, figlarnie",[["adverb","swawolnie, figlarnie"],["adverb","lubieżnie, rozwiąźle"]],0],
-"wapiti":["Cervus canadensis wapiti",[["noun","Cervus canadensis wapiti"],["noun","lm od: wapiti"]],0],
+"wapiti":["Cervus canadensis wapiti",[["noun","Cervus canadensis wapiti"]],0],
 "war":["wojna",[["noun","wojna"],["noun","konflikt, wojenka, wojna"],["verb","toczyć wojnę"]],0],
 "war bonnet":["pióropusz indiański",[["noun","pióropusz indiański"]],0],
 "war chest":["fundusze na wojnę",[["noun","fundusze na wojnę, fundusze wojenne","fund to finance a war"]],1],
