@@ -472,7 +472,9 @@ describe("the Transcript tab", () => {
     };
     const screen = await mountInShadowRoot(narrow(<VideoPanel {...props} />));
     const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
-    await moveTo(pointIn(cards(screen)[1]!, 0.5));
+    // Inside the list's visible box: in a narrow panel the header's chips wrap to
+    // more lines on some systems (Linux fonts), leaving the list less room.
+    await moveTo(middleOf(list));
     await screen.rerender(narrow(<VideoPanel {...props} current={2} />));
     await screen.rerender(narrow(<VideoPanel {...props} current={30} />));
     await new Promise((resolve) => setTimeout(resolve, 200));
