@@ -75,3 +75,31 @@ describe("tokenize with elisions", () => {
     ]);
   });
 });
+
+describe("tokenize with hyphenated compounds", () => {
+  const words = (text: string, lang: string, known: string[]) =>
+    tokenize(text, lang, (word) => known.includes(word.toLowerCase()))
+      .filter((token) => token.isWord)
+      .map(({ text, start, end }) => `${text}@${start}-${end}`);
+
+  it("joins a compound `whole` knows, the longest one, and splits the others", () => {
+    expect(
+      words("Peut-être, c'est-à-dire est-ce", "fr", [
+        "peut-être",
+        "c'est-à-dire",
+      ]),
+    ).toEqual(["Peut-être@0-9", "c'est-à-dire@11-23", "est@24-27", "ce@28-30"]);
+    expect(words("a well-known well-to-do man", "en", ["well-known"])).toEqual([
+      "a@0-1",
+      "well-known@2-12",
+      "well@13-17",
+      "to@18-20",
+      "do@21-23",
+      "man@24-27",
+    ]);
+  });
+
+  it("keeps hyphens splitting words without `whole`", () => {
+    expect(words("well-known", "en", [])).toEqual(["well@0-4", "known@5-10"]);
+  });
+});

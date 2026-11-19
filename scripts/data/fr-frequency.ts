@@ -16,11 +16,11 @@ const LIST_URL = `https://raw.githubusercontent.com/hermitdave/FrequencyWords/${
 export const FR_FORMS = 150000;
 /**
  * A French word as the list and the tokenizer write it, in lower case: letters with
- * inner apostrophes ("aujourd'hui") and an elided word's final one ("l'", "jusqu'").
- * The list, like the tokenizer, splits at hyphens' places differently ("peut-être" is
- * one entry): hyphenated entries are left out.
+ * inner apostrophes ("aujourd'hui") and an elided word's final one ("l'", "jusqu'"),
+ * and hyphenated compounds ("peut-être", "c'est-à-dire"), which the tokenizer reads
+ * whole where the pack has them as words.
  */
-export const FRENCH_WORD = /^\p{L}+(?:'\p{L}+)*'?$/u;
+export const FRENCH_WORD = /^\p{L}+(?:['-]\p{L}+)*'?$/u;
 
 /** The list's lines ("de 8435682") as forms in rank order. */
 export function parseFrequencyWords(text: string) {

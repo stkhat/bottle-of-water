@@ -17,6 +17,7 @@ import type { DictPack, LemmaPack } from "../../src/core/packs/types.ts";
 import { ENGLISH_RULES } from "../../src/core/phrases/en.ts";
 import { encodePhrasePos } from "../../src/core/phrases/phrase-pos.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
+import { elisionParts } from "../../src/core/text/tokenize.ts";
 import {
   byCodeUnit,
   eachEntry,
@@ -59,7 +60,10 @@ import {
 export interface PhraseBuildLanguage {
   /** The kaikki language code of its entries. */
   lang: string;
-  /** Wiktionary's words that stand for any person or thing ("make up one's mind"). */
+  /**
+   * Wiktionary's words that stand for any person or thing ("make up one's mind"; French
+   * "quelque chose", two words).
+   */
   slots: ReadonlySet<string>;
   /** Wiktionary's other spellings of slots, written as the slot in pattern keys. */
   slotSpellings: ReadonlyMap<string, string>;
@@ -68,8 +72,20 @@ export interface PhraseBuildLanguage {
    * detection matches by base form, so "be on" would match every "is on" / "was on".
    */
   auxiliaries: ReadonlySet<string>;
-  /** A pattern word as written (lowercase). */
+  /**
+   * A pattern word as written (lowercase). In a language with elisions a word written
+   * with one counts when its parts are words ("avoir l'air": l', air).
+   */
   word: RegExp;
+  /**
+   * The pronominal verb a verb pattern's reflexive senses belong to, as the source
+   * writes such patterns (French "rendre compte" → "se rendre compte": English
+   * Wiktionary lists "(reflexive) to realize" under the plain verb). Its reflexive
+   * senses make that pattern instead.
+   */
+  pronominal?: (key: string) => string;
+  /** How the example corpus reads a word (`examples.ts`; letters and apostrophes by default). */
+  exampleToken?: RegExp;
   /**
    * Senses of a word read for its gloss bag (what its own definitions say). A
    * bilingual source glosses a function word with the phrases it makes ("de": of,
@@ -128,7 +144,7 @@ const HINT_LENGTH = 60;
 export function patternKey(
   headword: string,
   isWord: (word: string) => boolean,
-  { slots, slotSpellings, word }: PhraseBuildLanguage = ENGLISH_BUILD,
+  { slots, slotSpellings, word, lang }: PhraseBuildLanguage = ENGLISH_BUILD,
 ) {
   const parts = headword
     .trim()
@@ -137,14 +153,27 @@ export function patternKey(
     .split(/ +/)
     .map((part) => slotSpellings.get(part) ?? part);
   if (parts.length < 2) return undefined;
+  /** A word, or words joined by elisions as text splits them ("l'air"). */
+  const known = (part: string) => {
+    if (isWord(part)) return true;
+    const pieces = elisionParts(part, lang, isWord);
+    return pieces.length > 1 && pieces.every(isWord);
+  };
   let literal = false;
   for (const part of parts) {
     if (slots.has(part)) continue;
-    if (!word.test(part) || !isWord(part)) return undefined;
+    if (!word.test(part) || !known(part)) return undefined;
     literal = true;
   }
   return literal ? parts.join(" ") : undefined;
 }
+
+/** Whether a pattern key has a slot, a word or words in a row ("quelque chose"). */
+export const hasSlotIn = (key: string, slots: ReadonlySet<string>) => {
+  const spaced = ` ${key} `;
+  for (const slot of slots) if (spaced.includes(` ${slot} `)) return true;
+  return false;
+};
 
 /** A sense with a gloss of its own: not a form-of / alt-of pointer, not obsolete, archaic or a misspelling, not a literal-meaning note. */
 export function isUsable(
@@ -236,6 +265,38 @@ async function readSource(
     entries++;
     const key = patternKey(headword, isWord, build);
     if (!key) return;
+    const { senses, looseJa } = entrySenses(entry, 0);
+    // A verb's reflexive senses are its pronominal verb's ("rendre compte": "(reflexive)
+    // to realize" is `se rendre compte`), when the source has more senses than those.
+    const pronominal = pos === "verb" ? build.pronominal?.(key) : undefined;
+    const reflexive = (sense: SourceSense) =>
+      sense.tags.includes("reflexive") || sense.tags.includes("pronominal");
+    if (
+      pronominal !== undefined &&
+      pronominal !== key &&
+      senses.some(reflexive) &&
+      !senses.every(reflexive)
+    ) {
+      collect(key, headword, entry, pos, {
+        senses: senses.filter((sense) => !reflexive(sense)),
+        looseJa,
+      });
+      collect(pronominal, headword, entry, pos, {
+        senses: senses.filter(reflexive),
+        looseJa: [],
+      });
+      return;
+    }
+    collect(key, headword, entry, pos, { senses, looseJa });
+  });
+  /** Adds an entry's senses to pattern `key`. */
+  function collect(
+    key: string,
+    headword: string,
+    entry: KaikkiEntry,
+    pos: string,
+    found: ReturnType<typeof entrySenses>,
+  ) {
     let item = patterns.get(key);
     if (!item)
       patterns.set(
@@ -260,7 +321,12 @@ async function readSource(
       )
     )
       item.literalNote = true;
-    const { senses, looseJa } = entrySenses(entry, item.senses.length);
+    const order = item.senses.length;
+    const senses = found.senses.map((sense, n) => ({
+      ...sense,
+      order: order + n,
+    }));
+    const { looseJa } = found;
     const own = senses.filter((sense) => sense.target === undefined);
     item.senses.push(...own);
     item.looseJa.push(
@@ -283,7 +349,7 @@ async function readSource(
         item.transitive = true;
       else if (sense.tags.includes("intransitive")) item.intransitive = true;
     }
-  });
+  }
   return { patterns, words, entries, unparsable };
 }
 
@@ -334,6 +400,11 @@ export interface PhraseInputs {
    * a bilingual extract's and a native edition's examples of the same language.
    */
   examples?: readonly string[];
+  /**
+   * Extracts whose examples attest a multi-word noun or name (B1's size cap), when
+   * more than `examples` (French: both editions, while the score reads one).
+   */
+  attestation?: readonly string[];
   /**
    * How many of the source's most frequent gloss tokens are stopwords, and how many
    * function words (the defaults fit the full English extract).
@@ -457,11 +528,11 @@ export async function importPhrases(
     language = ENGLISH_PHRASES,
     build = ENGLISH_BUILD,
     examples = [path],
+    attestation,
     stopwords = { gloss: GLOSS_STOPWORDS, function: FUNCTION_TOKENS },
   }: PhraseInputs,
 ): Promise<PhrasesResult> {
-  const hasSlot = (key: string) =>
-    key.split(" ").some((word) => build.slots.has(word));
+  const hasSlot = (key: string) => hasSlotIn(key, build.slots);
   /** Not detected: a slot, a leading auxiliary, closed-class words only. */
   const undetectable = (key: string) =>
     hasSlot(key) ||
@@ -509,7 +580,19 @@ export async function importPhrases(
     examples,
     phraseVariants(allKeys, forms),
     build.lang,
+    build.exampleToken,
   );
+
+  const attested = attestation
+    ? (
+        await countExamples(
+          attestation,
+          phraseVariants(allKeys, forms),
+          build.lang,
+          build.exampleToken,
+        )
+      ).phrases
+    : corpus.phrases;
 
   // The source's gloss stopwords: its most frequent gloss tokens.
   const byFrequency = [...source.words.tokens]
@@ -560,7 +643,7 @@ export async function importPhrases(
     // B1's size cap: a multi-word noun or name with no table and no example.
     if (
       !ejdict &&
-      count === 0 &&
+      (attested.get(key) ?? 0) === 0 &&
       tables === 0 &&
       pos.every((p) => p === "noun" || language.name.has(p))
     ) {

@@ -36,6 +36,9 @@ const PHRASE_POS: Record<string, string[]> = {
   "darse cuenta": ["verb"],
   "por lo que": ["conj"],
   "a menos que": ["conj"],
+  "ça va": ["intj"],
+  "s'en être": ["verb"],
+  "histoire de": ["conj"],
 };
 /** Words' main parts of speech. */
 const WORD_POS: Record<string, string[]> = {
@@ -64,6 +67,7 @@ const WORD_POS: Record<string, string[]> = {
   lo: ["pronoun", "article"],
   que: ["pronoun", "conjunction"],
   menos: ["adverb"],
+  histoire: ["noun"],
 };
 const pack = {
   phrasePos: (key: string) => PHRASE_POS[key] ?? [],
@@ -122,7 +126,11 @@ function readings(text: string): WordReading[] {
           };
     return {
       ...(tag && { tag }),
-      use: { auxiliary: false, verbal: false, prepositionSlot: false },
+      use: {
+        auxiliary: flags?.split(",").includes("aux") === true,
+        verbal: false,
+        prepositionSlot: false,
+      },
       role,
       pauseBefore,
     };
@@ -535,5 +543,28 @@ describe("markerPos: discourse markers", () => {
       marker("you know", "you/pronoun know/verb the/determiner guy/noun", 0),
     ).toBeUndefined();
     expect(marker("find out", "find/verb out/adverb", 0)).toBeUndefined();
+  });
+});
+
+describe("phraseMisfit: auxiliaries and connectives after a determiner", () => {
+  it("does not end a phrase in the auxiliary of the verb after it", () => {
+    expect(misfit("ça va", "ça/pronoun va/verb/aux être/verb", 0)).toBe(
+      "auxiliary",
+    );
+    expect(
+      misfit("ça va", "ça/pronoun va/verb ,bien/adverb", 0),
+    ).toBeUndefined();
+    expect(
+      misfit("s'en être", "s'en/pronoun est/verb/aux aperçu/verb", 0),
+    ).toBe("auxiliary");
+  });
+
+  it("reads a connective opening with a noun after a determiner as that noun's", () => {
+    expect(
+      misfit("histoire de", "l'/determiner histoire/noun de/preposition", 1),
+    ).toBe("determiner");
+    expect(
+      misfit("histoire de", "c'/pronoun histoire/noun de/preposition", 1),
+    ).toBeUndefined();
   });
 });

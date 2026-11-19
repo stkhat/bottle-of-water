@@ -422,11 +422,44 @@ describe("generated French pack and fr-en dictionary", () => {
     expect(pack.accented("eleves")).toBeUndefined();
   });
 
-  it("highlight no phrase yet, and have a meaning for every selectable one", () => {
-    expect(fr.phrases.detect).toEqual([]);
-    expect(fr.phrases.more.length).toBeGreaterThan(1000);
-    for (const phrase of fr.phrases.more)
+  it("highlight phrases, and have a meaning for every one", () => {
+    expect(fr.phrases.detect.length).toBeGreaterThan(3000);
+    expect(fr.phrases.more.length).toBeGreaterThan(3000);
+    for (const phrase of [...fr.phrases.detect, ...fr.phrases.more])
       expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
+  });
+
+  it("have pronominal verbs from reflexive senses, and elided words inside patterns", () => {
+    const all = new Set([...fr.phrases.detect, ...fr.phrases.more]);
+    expect(all).toContain("se rendre compte");
+    expect(all).toContain("avoir l'air");
+    expect(fr.phrases.detect).toContain("avoir envie");
+    expect(dictionary.entry("se rendre compte")?.short).toMatch(/realize/);
+    expect(dictionary.entry("rendre compte")?.short).not.toMatch(/realize/);
+  });
+
+  it("read hyphenated compounds whole, and a verb with its pronoun in parts", () => {
+    const words = (text: string) =>
+      pack
+        .tokenize(text)
+        .filter((token) => token.isWord)
+        .map((token) => token.text);
+    expect(words("Peut-être, c'est-à-dire là-bas")).toEqual([
+      "Peut-être",
+      "c'est-à-dire",
+      "là-bas",
+    ]);
+    expect(words("Qu'est-ce qu'il a-t-il dit")).toEqual([
+      "Qu'",
+      "est",
+      "ce",
+      "qu'",
+      "il",
+      "a",
+      "t",
+      "il",
+      "dit",
+    ]);
   });
 });
 

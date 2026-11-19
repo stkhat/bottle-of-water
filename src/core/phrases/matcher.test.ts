@@ -9,6 +9,7 @@ import {
   type PhraseMatch,
 } from "./matcher";
 import { SPANISH_RULES } from "./es";
+import { FRENCH_RULES } from "./fr";
 
 // Base forms as LanguagePack.lemmas gives them: "beans" has only "bean", so
 // `spill the beans` must match its written form.
@@ -608,5 +609,129 @@ describe("Spanish pronominal verbs and contractions", () => {
     expect(upper).toMatchObject({ form: "están", bases: ["estar"] });
     const [mixed] = matcher.prepare(tokenize("Estan", "es")).words;
     expect(mixed).toMatchObject({ form: "estan", bases: [] });
+  });
+});
+
+describe("French pronominal verbs, elisions and compounds", () => {
+  const FR_BASES: Record<string, string[]> = {
+    je: ["je"],
+    il: ["il"],
+    nous: ["nous"],
+    me: ["me"],
+    "m'": ["m'"],
+    se: ["se"],
+    "s'": ["s'"],
+    toi: ["toi"],
+    en: ["en"],
+    suis: ["être", "suivre"],
+    est: ["être"],
+    rendu: ["rendre"],
+    rends: ["rendre"],
+    rendons: ["rendre"],
+    rend: ["rendre"],
+    rendre: ["rendre"],
+    compte: ["compte", "compter"],
+    vais: ["aller"],
+    allé: ["aller"],
+    aller: ["aller"],
+    a: ["avoir"],
+    avoir: ["avoir"],
+    "l'": ["l'", "le"],
+    "d'": ["d'", "de"],
+    air: ["air"],
+    "d'accord": ["d'accord"],
+    mettre: ["mettre"],
+    "peut-être": ["peut-être"],
+    peut: ["pouvoir"],
+    être: ["être"],
+    que: ["que"],
+  };
+  const frLemmas = (word: string) => FR_BASES[word.toLowerCase()] ?? [];
+  const whole = (word: string) => frLemmas(word).length > 0;
+  const french = createPhraseMatcher({
+    lang: "fr",
+    rules: FRENCH_RULES,
+    patterns: {
+      detect: [
+        "avoir l'air",
+        "mettre d'accord",
+        "peut-être que",
+        "rendre compte",
+        "s'en aller",
+        "se rendre compte",
+      ],
+      more: [],
+      gap: [],
+    },
+    lemmas: frLemmas,
+  });
+  const first = (text: string) => {
+    const words = french.prepare(tokenize(text, "fr", whole));
+    for (let i = 0; i < words.words.length; i++) {
+      const match = french.longestAt(words, i, "detect");
+      if (match) return described(words, match);
+    }
+    return undefined;
+  };
+
+  it("splits a key's elided words as text does, and keeps the words text reads whole", () => {
+    expect(french.keyParts("avoir l'air")).toEqual({
+      words: ["avoir", "l'", "air"],
+      between: [" ", ""],
+    });
+    expect(french.keyParts("mettre d'accord").words).toEqual([
+      "mettre",
+      "d'accord",
+    ]);
+    expect(french.keyParts("peut-être que").words).toEqual([
+      "peut-être",
+      "que",
+    ]);
+    expect(first("Il a l'air content.")).toEqual({
+      key: "avoir l'air",
+      words: "a l' air",
+    });
+    expect(first("On va les mettre d'accord.")?.key).toBe("mettre d'accord");
+    expect(first("Peut-être que oui.")?.key).toBe("peut-être que");
+  });
+
+  it("joins an elided word to the next with nothing, as the key writes it", () => {
+    const { between, joined } = french.prepare(
+      tokenize("l'air du temps", "fr", whole),
+    );
+    expect(between[0]).toBe("");
+    expect(joined[0]).toBe(true);
+  });
+
+  it("matches a pronominal verb with any reflexive pronoun, être's forms left out", () => {
+    expect(first("Je me suis rendu compte de tout.")).toEqual({
+      key: "se rendre compte",
+      words: "me rendu compte",
+    });
+    expect(first("Il s'est rendu compte.")).toEqual({
+      key: "se rendre compte",
+      words: "s' rendu compte",
+    });
+    expect(first("Il faut se rendre compte.")?.key).toBe("se rendre compte");
+    expect(first("Nous nous rendons compte.")).toEqual({
+      key: "se rendre compte",
+      words: "nous rendons compte",
+    });
+    expect(first("Je m'en vais.")).toEqual({
+      key: "s'en aller",
+      words: "m' en vais",
+    });
+    expect(first("Il s'en est allé.")?.key).toBe("s'en aller");
+  });
+
+  it("matches an imperative with the pronoun after it", () => {
+    expect(first("Rends-toi compte !")).toEqual({
+      key: "se rendre compte",
+      words: "Rends toi compte",
+    });
+  });
+
+  it("leaves a subject and its verb to the plain verb", () => {
+    expect(first("Nous rendons compte de tout.")?.key).toBe("rendre compte");
   });
 });

@@ -566,7 +566,7 @@ describe("French tags over the generated packs (rules A1 and A2)", () => {
   it("reads the forms of être and avoir as the verbs, not the nouns they also are", () => {
     expect(hover("Il est à Paris.", "est").key).toBe("être");
     expect(hover("Elle a été malade.", "été").key).toBe("être");
-    expect(hover("Tu as raison.", "as").key).toBe("avoir");
+    expect(hover("Tu as un chien.", "as").key).toBe("avoir");
     expect(hover("Est-ce que tu viens ?", "Est").key).toBe("être");
     // After a determiner or preposition, the noun.
     expect(hover("Nous partons à la mer l'été.", "été").key).toBe("été");
@@ -579,6 +579,24 @@ describe("French tags over the generated packs (rules A1 and A2)", () => {
     expect(hover("Je ne connais personne.", "personne").lines[0]).toBe(
       "no one, nobody",
     );
+  });
+  it("highlights pronominal verbs and phrases with elided words, not an auxiliary's", () => {
+    const phrases = (text: string) =>
+      classifier
+        .classify(tagged.tokenize(text), {
+          terms: new Map(),
+          knownLevel: 3000,
+          outline: (key) => dictionary.outline(key),
+        })
+        .filter((s) => s.kind === "phrase")
+        .map((s) => `${text.slice(s.start, s.end)} [${s.key}]`);
+    expect(phrases("Je me suis rendu compte de tout.")).toEqual([
+      "me [se rendre compte]",
+      "rendu compte [se rendre compte]",
+    ]);
+    expect(phrases("Il a l'air content.")).toEqual(["a l'air [avoir l'air]"]);
+    expect(phrases("Ça va ?")).toEqual(["Ça va [ça va]"]);
+    expect(phrases("Ça va être difficile.")).toEqual([]);
   });
   it("reads a participle after avoir and a form of aller before an infinitive as their verbs", () => {
     expect(hover("Il a fait ses devoirs.", "fait").key).toBe("faire");

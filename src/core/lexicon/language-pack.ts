@@ -254,7 +254,8 @@ export function createLanguagePack(
   /**
    * A base form's rank. The list writes no periods, so an abbreviation it does not rank
    * takes its letters' rank ("u.s." → us); a contraction the list does not rank takes
-   * the rank of the rarest word it is short for ("what'd": what did → do).
+   * the rank of the rarest word it is short for ("what'd": what did → do), and so does
+   * a hyphenated compound of its parts ("well-known": known), as the list splits it.
    */
   const rank = (base: string) => {
     const key = base.toLowerCase();
@@ -262,6 +263,8 @@ export function createLanguagePack(
       ranks.get(key) ??
       (key.includes(".") ? ranks.get(key.replaceAll(".", "")) : undefined);
     if (found !== undefined) return found;
+    if (/\p{L}-\p{L}/u.test(key))
+      return Math.max(...key.split("-").map(rankOfWord));
     const [expansion] = expansions(key);
     if (expansion === undefined) return Infinity;
     return Math.max(...expansion.toLowerCase().split(" ").map(rankOfWord));

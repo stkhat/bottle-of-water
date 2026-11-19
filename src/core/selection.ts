@@ -143,7 +143,11 @@ export function selectionKey(text: string, spans: readonly Span[]): string {
   /** Words of the key that the phrase's earlier parts gave. */
   let given = 0;
   spans.forEach((span, i) => {
-    if (i > 0) key += separatorKey(text.slice(spans[i - 1]!.end, span.start));
+    if (i > 0)
+      key += separatorKey(
+        text.slice(spans[i - 1]!.end, span.start),
+        spans[i - 1]!.key,
+      );
     if (!span.part) {
       key += span.key;
       return;

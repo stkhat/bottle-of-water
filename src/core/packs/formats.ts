@@ -29,8 +29,9 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
   // 4: names.json (2026-11-19).
   es: 4,
   "es-en": 1,
-  // 2: tagger.json (2026-11-19).
-  fr: 2,
+  // 2: tagger.json (2026-11-19). 3: detected phrases, read with elisions split, pronominal
+  // verbs and hyphenated compounds (2026-11-20).
+  fr: 3,
   "fr-en": 1,
   ...(Object.fromEntries(
     RECIPE_PAIRS.map(([pack, native]) => [

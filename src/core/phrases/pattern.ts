@@ -56,33 +56,59 @@ export interface PhraseRules {
 }
 
 /**
- * Pronominal verbs (Spanish "darse cuenta", unlike "dar cuenta de"): a pattern writes
- * the verb with its reflexive pronoun attached to the infinitive ("darse"), text with
- * the pronoun before a finite verb ("me di cuenta", "se ha dado cuenta") or attached
- * to an infinitive, a gerund or an imperative ("darme cuenta", "dándose cuenta",
- * "date cuenta").
+ * Pronominal verbs (Spanish "darse cuenta", unlike "dar cuenta de"; French "se rendre
+ * compte"). Spanish patterns write the verb with its reflexive pronoun attached to the
+ * infinitive ("darse": `ending`), text with the pronoun before a finite verb ("me di
+ * cuenta", "se ha dado cuenta") or attached to an infinitive, a gerund or an
+ * imperative ("darme cuenta", "dándose cuenta", "date cuenta"). French patterns write
+ * the pronoun as a word before the infinitive ("se rendre compte", "s'en aller":
+ * `leading`), text with any reflexive pronoun there ("je me suis rendu compte") or
+ * after an imperative ("rends-toi compte": `after`).
  */
 export interface ReflexiveRules {
   /** What a pattern writes after the infinitive of a pronominal verb ("darse": "se"). */
-  readonly ending: string;
+  readonly ending?: string;
+  /**
+   * The pronoun a pattern writes as a word of its own before the infinitive, as the
+   * language spells it ("se rendre compte", "s'attendre à": "se", "s'"). Its match
+   * has the text's pronoun among its words, in text order.
+   */
+  readonly leading?: ReadonlySet<string>;
   /** The reflexive pronouns, written before a finite verb ("me", "te", "se", "nos", "os"). */
   readonly pronouns: ReadonlySet<string>;
-  /** Other pronouns that may stand between the reflexive one and its verb ("se lo tomó"). */
+  /**
+   * The pronouns that are reflexive only with their own subject within
+   * `subjectReach` words before, no pause between ("je me suis rendu compte", "nous
+   * nous rendons compte"); otherwise objects ("ça me fait plaisir") or subjects ("nous
+   * rendons compte").
+   */
+  readonly subjects?: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly subjectReach?: number;
+  /**
+   * Other pronouns that may stand between the reflexive one and its verb ("se lo
+   * tomó"; French "s'en est allé", where they may be pattern words: `s'en aller`).
+   */
   readonly objects: ReadonlySet<string>;
   /**
    * Auxiliaries whose forms may stand between the pronoun and its verb ("se ha quitado
-   * la vida", "me estoy dando cuenta").
+   * la vida", "me estoy dando cuenta"; "il s'est rendu compte").
    */
   readonly auxiliaries: ReadonlySet<string>;
-  /** At most this many words between the pronoun and its verb. */
+  /** At most this many words between the pronoun and its verb (auxiliaries for `leading`). */
   readonly maxBetween: number;
+  /**
+   * The reflexive pronouns an imperative takes after it and a hyphen ("rends-toi
+   * compte", "rendez-vous compte"), with `leading`.
+   */
+  readonly after?: ReadonlySet<string>;
   /**
    * The verb that a written form with a reflexive pronoun attached is a form of
    * ("darme", "dándose", "date" → "dar"), among the form's `bases`; undefined for a
    * form without one, or whose attached pronoun is no reflexive one ("dame": an
-   * imperative takes "me" as its object). `lemmas`: any word's base forms.
+   * imperative takes "me" as its object). `lemmas`: any word's base forms. With
+   * `ending` only.
    */
-  attached(
+  attached?(
     form: string,
     bases: readonly string[],
     lemmas: (word: string) => readonly string[],

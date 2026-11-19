@@ -33,6 +33,10 @@ export type PhraseRule =
   | "nominal"
   /** An interjection ending in "be" before its complement ("eso es lo que", "eso es bueno"). */
   | "copula"
+  /** A pattern ending in an auxiliary of the verb after it ("ça va être", "s'en est aperçu"). */
+  | "auxiliary"
+  /** A connective opening with a noun, after a determiner: that noun's phrase ("l'histoire de"). */
+  | "determiner"
   /** A conjunction ending in a free relative right before its verb ("por lo que ha hecho"). */
   | "relative"
   /** A pattern's last noun with an adjective after it ("al día siguiente"). */
@@ -43,7 +47,8 @@ export type PhraseRule =
 type FitPack = Pick<
   LanguagePack,
   "phrasePos" | "intransitive" | "partsOfSpeech" | "rules"
->;
+> &
+  Partial<Pick<LanguagePack, "matcher">>;
 
 /** A phrase's match: its pattern's key and its words. */
 interface Match {
@@ -88,7 +93,8 @@ export function fitContext(
   const next = readings[last + 1];
   return {
     pos: pack.phrasePos(key),
-    pattern: key.split(" "),
+    // As text splits them ("avoir l'air": avoir, l', air).
+    pattern: pack.matcher?.keyParts(key).words ?? key.split(" "),
     main: (word) =>
       word === undefined ? undefined : pack.partsOfSpeech(word)[0],
     head,
@@ -118,6 +124,9 @@ function afterBe(readings: readonly WordReading[], i: number) {
   }
   return false;
 }
+
+/** Patterns that join or introduce other words: a conjunction, preposition or determiner. */
+const CONNECTIVES: ReadonlySet<string> = new Set(["conj", "prep", "det"]);
 
 const ADVERB_FOLLOWERS: ReadonlySet<string> = new Set([
   "verb",
@@ -176,6 +185,10 @@ const insideClause = (c: FitContext, punctuated: boolean) =>
  *   a preposition, which a preposition does not take ("sneak out of here"); an
  *   untrusted tag keeps the match, unless the particle is one the language never uses
  *   as an adverb (`PhraseRules.prepositions`: "going to try", "went to Broadway").
+ * - Any pattern of two words or more ending in a word the grammar reads as the
+ *   auxiliary of the verb after it ("ça va être": it's going to be; "s'en est
+ *   aperçu"); a conjunction, preposition or determiner pattern opening with a noun,
+ *   right after a determiner ("l'histoire de Marseille" is no `histoire de`).
  * - By the phrase's main part of speech, punctuation between the phrase and a
  *   neighbour cutting the link:
  *   - adverb: not after a determiner when a word of it is mainly a noun, unless a
@@ -244,6 +257,18 @@ export function phraseMisfit(
     after?.role?.preposition !== true
   )
     return "particle";
+  // Its last word is the auxiliary of the verb after it: "ça va être" (it's going to
+  // be), not "ça va" (how are you); "s'en est aperçu" (apercevoir), not `s'en être`.
+  if (tail.use.auxiliary && match.words.length > 1) return "auxiliary";
+  // A connective (a conjunction, preposition or determiner pattern) that opens with a
+  // noun, right after a determiner, is that noun's phrase: "l'histoire de Marseille",
+  // not `histoire de` (in order to).
+  if (
+    CONNECTIVES.has(pos[0] ?? "") &&
+    before?.role?.determiner === true &&
+    c.main(pattern[0]) === "noun"
+  )
+    return "determiner";
   switch (pos[0]) {
     case "adj":
     case "noun":

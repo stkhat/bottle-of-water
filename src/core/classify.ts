@@ -4,7 +4,6 @@ import { accepts } from "./lexicon/sense-order";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
 import { fitContext, markerPos, phraseMisfit } from "./phrases/fit";
-import { splitKey } from "./phrases/key";
 import { longestMatch, matchStart, type PhraseMatch } from "./phrases/matcher";
 import {
   capitalHere,
@@ -13,7 +12,7 @@ import {
   type WordCase,
 } from "./text/casing";
 import { blockText } from "./text/sentences";
-import { normalizeWord, type Token } from "./text/tokenize";
+import type { Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
 /** A term as the UI shows it: saved, or `new` while not saved. Also the highlight categories. */
@@ -171,6 +170,11 @@ const isIgnorable = (text: string) =>
 
 /** Parts of speech of a pattern that governs what follows, as a preposition does. */
 const PREPOSITIONAL: ReadonlySet<string> = new Set(["prep", "prep_phrase"]);
+
+/** The source's parts of speech whose words inflect (rule FIXED). */
+const INFLECTING: ReadonlySet<string> = new Set([
+  ...["verb", "noun", "adj", "name", "phrase", "proverb"],
+]);
 
 /** A pattern (`pos`) is prepositional, and another (`other`) is not. */
 const prepositional = (pos: readonly string[], other: readonly string[]) =>
@@ -393,7 +397,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
        */
       const offBase = (match: PhraseMatch) => {
         if (!outline) return false;
-        const keyWords = match.key.split(" ").map(normalizeWord);
+        const keyWords = matcher.keyParts(match.key).words;
         return match.words.some((j, n) => {
           const { form, bases } = words[j]!;
           const reading = readings[j];
@@ -433,6 +437,24 @@ export function createClassifier(pack: LanguagePack): Classifier {
           return word;
         const verb = word.slice(0, -ending.length);
         return bases.includes(verb) ? verb : word;
+      };
+
+      /**
+       * Rule FIXED: a pattern the source has only as an invariable expression (no verb,
+       * noun, adjective or name among its parts of speech: a conjunction, adverb,
+       * interjection…) is written as it is: a word of it matched through a base form
+       * is another expression ("ils disent que" is no `dire que`, to think that; "faire
+       * mieux" no `faire bien`). A contraction for its preposition, and an elided
+       * spelling ("parce qu'il"), count as written.
+       */
+      const inflectedFixed = (match: PhraseMatch) => {
+        const own = pack.phrasePos(match.key);
+        if (own.length === 0 || own.some((pos) => INFLECTING.has(pos)))
+          return false;
+        const keyWords = matcher.keyParts(match.key).words;
+        return match.words.some(
+          (j, n) => !written(keyWords[n]!, words[j]!.form),
+        );
       };
 
       /** The `select` matches without a gap that start at each word. */
@@ -493,7 +515,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const verb = first(outer);
         const role = readings[verb]?.role;
         if (role?.modal || role?.be) return undefined;
-        const head = normalizeWord(outer.key.split(" ")[0]!);
+        const head = matcher.keyParts(outer.key).words[0]!;
         if (pack.partsOfSpeech(head)[0] !== "verb") return undefined;
         const rest = outer.words.slice(1);
         return contiguousAt(verb + 1).find((inner) => {
@@ -528,9 +550,14 @@ export function createClassifier(pack: LanguagePack): Classifier {
        * preposition `fuera de`, not `ir de`): the text is that other expression.
        */
       const written = (word: string, form: string) =>
-        word === form || pack.rules.contractions?.get(form) === word;
+        word === form ||
+        pack.rules.contractions?.get(form) === word ||
+        // An elided spelling of the word ("qu'" for que, "d'" for de).
+        (form.length > 1 &&
+          form.endsWith("'") &&
+          word.startsWith(form.slice(0, -1)));
       const writtenOther = (match: PhraseMatch) => {
-        const keyWords = match.key.split(" ").map(normalizeWord);
+        const keyWords = matcher.keyParts(match.key).words;
         // A trusted tag has read the word already (rule BASE).
         const untrusted = match.words.some(
           (j, n) =>
@@ -545,9 +572,9 @@ export function createClassifier(pack: LanguagePack): Classifier {
             other.lead === undefined &&
             other.words.length === match.words.length &&
             other.words.every((j, n) => j === match.words[n]) &&
-            other.key
-              .split(" ")
-              .every((word, n) =>
+            matcher
+              .keyParts(other.key)
+              .words.every((word, n) =>
                 written(word, words[match.words[n]!]!.form),
               ) &&
             prepositional(pack.phrasePos(other.key), own),
@@ -583,6 +610,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
           insideLonger(longest) ||
           crossesComplement(longest) ||
           writtenOther(longest) ||
+          inflectedFixed(longest) ||
           (longest.lead === undefined &&
             readings[first(longest)]?.use.pronominal === true)
         )
@@ -688,7 +716,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const last = match.words.at(-1)!;
         const runs = runsOf(allWords(match));
         // A saved key may write other separators than spaces ("wh-what").
-        const keyWords = splitKey(key, pack.lang).words;
+        const keyWords = matcher.keyParts(key).words;
         const slot = match.words.some(
           (j, n) => !words[j]!.forms.includes(keyWords[n]!),
         );
