@@ -534,11 +534,14 @@ export function translatedLine(text: string, lang: string): string {
  * The text up to its first sentence end in a spaced script: a period followed by a
  * capital or an arrow ("Más. Comparativo de much" → "Más"; "Enfant . Note d'usage : …"
  * → "Enfant"; "Coche. → voir check mark" → "Coche"). Not after an abbreviation: a
- * single letter or a word in capitals ("J. C.", "EE. UU."), a number ("3. Person").
+ * single letter or a word in capitals ("J. C.", "EE. UU."), a number ("3. Person"), or
+ * one the data build learned from the edition, which a no-break space follows
+ * ("Gegenstand bzw.\u00a0Ergänzung").
  */
 export function firstSentence(text: string): string {
   const end = indicesOutside(text, (t, i) => {
-    if (t[i] !== "." || !/^\s+[\p{Lu}→]/u.test(t.slice(i + 1))) return false;
+    if (t[i] !== "." || !/^[^\S\u00a0]+[\p{Lu}→]/u.test(t.slice(i + 1)))
+      return false;
     return /\s$/.test(t.slice(0, i)) || !endsAbbreviation(t.slice(0, i));
   }).find((i) => i > 0);
   return end === undefined ? text : text.slice(0, end).trim();

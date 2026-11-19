@@ -682,7 +682,7 @@ describe("names by document casing (rule D)", () => {
   const vocab = [
     ...["park", "the", "mark", "badger", "world", "english", "hey", "a"],
     ...["japan", "germany", "helen", "met", "saw", "we", "in", "and", "it"],
-    ...["enlightenment", "on", "rained", "then", "um"],
+    ...["enlightenment", "on", "rained", "then", "um", "ok", "us", "said"],
   ];
   const names = createLanguagePack("en", {
     lemmas: {},
@@ -710,6 +710,7 @@ describe("names by document casing (rule D)", () => {
       germany: "pg",
       helen: "xg",
       enlightenment: "g",
+      ok: "xp!",
     },
   });
   const meanings: Record<string, CapitalMeaning> = {
@@ -743,6 +744,13 @@ describe("names by document casing (rule D)", () => {
         (s) =>
           `${s.text}:${s.name ? "name" : s.capital ? "capital" : s.category}`,
       );
+
+  it("reads a word English writes in capitals as a common word as no acronym (OK)", () => {
+    const spans = run(["We said OK to US and Japan in the park."]);
+    // "OK" is the interjection ("!": a capitalised common word), "US" the acronym.
+    expect(spans.find((s) => s.text === "OK")).not.toHaveProperty("capital");
+    expect(spans.find((s) => s.text === "US")).toMatchObject({ capital: true });
+  });
 
   it("ignores a name the document always capitalises inside sentences", () => {
     expect(

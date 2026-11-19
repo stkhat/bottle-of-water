@@ -181,6 +181,11 @@ export type Request =
       sentence?: string;
       written?: Written;
       pos?: string;
+      /**
+       * What a contraction's clitic stands for there, when its sentence decides
+       * (`Span.clitic`: "has" in "he's been"): its expansion with it alone is named.
+       */
+      clitic?: string;
       /** The word as written on the page, when it is not the key ("it's" keyed "it"). */
       surface?: string;
     }
