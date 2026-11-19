@@ -19,6 +19,6 @@ More native languages for English learners, and Spanish learning brought to Engl
 - [x] D2 natives ru, fr, de: recipes over the tables and the ru, fr, de editions (fr edition first; ru and de tables first, judged blind), Cyrillic stress marks dropped, names, prompt examples (fr, de), smoke and E2E download tests. Before merging: `@langle/en-ru`, `@langle/en-fr`, `@langle/en-de` (new packages) and the new `@langle/en-defs` version published to npm by hand
 - [x] D3 natives zh, it, pl: zh from the Mandarin rows of the tables, the zh edition and the Chinese Open Wordnet, all in simplified characters (OpenCC dictionaries at build time); it from the tables, Wikizionario, MultiWordNet and ItalWordNet; pl from Wikisłownik first, the tables and plWordNet (without its edition pl is under the gate, 94.5%); orders judged blind; names, smoke and E2E download tests. Before merging: `@langle/en-zh`, `@langle/en-it`, `@langle/en-pl` (new packages) and the new `@langle/en-defs` (and any changed D2 pack) versions published to npm by hand
 - [x] D4 vi: dropped
-- [ ] D5 measure tr, uk, ko, id, th
+- [x] D5 measure tr, uk, ko, id, th: none passes (th 93.9, id 92.7, ko 89.1, tr 86.8, uk 80.7% with main senses); id and th reach 95% only if a lesser wordnet sense could cover a term alone, which D1 ruled out. Nothing added
 - [ ] U1 native-side quality (es, pt, then each new native)
 - [ ] U2 Spanish learning pack (tagger, names, accent-aware patterns, phrase POS, rule E)

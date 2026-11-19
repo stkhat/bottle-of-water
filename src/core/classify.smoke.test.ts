@@ -463,6 +463,18 @@ describe("Spanish tags over the generated packs (rules A1 and A2)", () => {
       "to them, for them",
     );
   });
+  it("gives apocopic and archaic-labelled words their meanings, and every form its base", () => {
+    expect(hover("Es muy grande.", "muy").lines[0]).toBe("very");
+    expect(hover("Es tu casa.", "tu").lines[0]).toBe("your");
+    expect(hover("Es un gran día.", "gran").lines[0]).toMatch(/^great\b/);
+    expect(hover("Al fin llegó.", "fin").lines[0]).toBe("end");
+    expect(hover("Os lo dije.", "Os")).toMatchObject({
+      key: "os",
+      lines: [expect.stringMatching(/^you\b/)],
+    });
+    expect(hover("Cuéntales la historia.", "Cuéntales").key).toBe("contar");
+    expect(hover("Eso es todo.", "Eso").lines[0]).toBe("that");
+  });
 });
 
 describe("tags over the generated packs (rules A1 and A2)", () => {

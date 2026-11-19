@@ -41,7 +41,14 @@ const files: Record<string, unknown> = {
   "/packs/en-defs/dict-1.json": {
     "figure out": ["To come to understand", [["verb", "To calculate."]]],
   },
-  "/packs/es/lemmas.json": { comiendo: "comer", casas: ["casa", "casar"] },
+  "/packs/es/lemmas/index.json": {
+    shards: [
+      { file: "dict-1.json", first: "casas", last: "casas" },
+      { file: "dict-2.json", first: "comiendo", last: "comiendo" },
+    ],
+  },
+  "/packs/es/lemmas/dict-1.json": { casas: ["casa", "casar"] },
+  "/packs/es/lemmas/dict-2.json": { comiendo: "comer" },
   "/packs/es/freq.json": ["de", "comer"],
   "/packs/es/ipa.json": { comer: "/koˈmeɾ/" },
   "/packs/es/vocab.json": ["casa", "casar", "comer", "de"],
@@ -130,10 +137,10 @@ describe("createPackLoader", () => {
     ]);
   });
 
-  it("loads every file of the Spanish pack", async () => {
+  it("loads every file of the Spanish pack, the lemma shards kept apart", async () => {
     const fetchJson = stubFetch();
     expect(await createPackLoader(fetchJson)("es")).toEqual({
-      lemmas: { comiendo: "comer", casas: ["casa", "casar"] },
+      lemmas: [{ casas: ["casa", "casar"] }, { comiendo: "comer" }],
       freq: ["de", "comer"],
       ipa: { comer: "/koˈmeɾ/" },
       vocab: ["casa", "casar", "comer", "de"],
@@ -144,7 +151,9 @@ describe("createPackLoader", () => {
     expect(fetchJson.mock.calls.map(([path]) => path).sort()).toEqual([
       "/packs/es/freq.json",
       "/packs/es/ipa.json",
-      "/packs/es/lemmas.json",
+      "/packs/es/lemmas/dict-1.json",
+      "/packs/es/lemmas/dict-2.json",
+      "/packs/es/lemmas/index.json",
       "/packs/es/phrases.json",
       "/packs/es/pos.json",
       "/packs/es/tagger.json",
@@ -225,7 +234,7 @@ describe("createPackLoader", () => {
     expect(after).toEqual(before);
     expect(after).not.toBe(before);
     expect(await loadPack("es")).toBe(es);
-    expect(fetchJson).toHaveBeenCalledTimes(3 + 7 + 3);
+    expect(fetchJson).toHaveBeenCalledTimes(3 + 9 + 3);
   });
 
   it("keeps the new load when a load forgotten mid-way then fails", async () => {

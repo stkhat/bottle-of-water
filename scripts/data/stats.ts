@@ -164,7 +164,7 @@ function main() {
   console.log("Spanish (es, es-en):");
   console.log(`  Vocabulary: ${es<Words>("vocab.json").length}`);
   console.log(
-    `  Lemma entries (inflected forms): ${Object.keys(es<Table>("lemmas.json")).length}`,
+    `  Lemma entries (inflected forms): ${Object.keys(readDictPacks(join(PACKS.es.dir, "lemmas"))).length}`,
   );
   console.log(`  Words with IPA: ${Object.keys(esIpa).length}`);
   console.log(`  Frequency list: ${esFreq.length} base forms`);

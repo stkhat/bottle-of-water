@@ -1,3 +1,4 @@
+import type { LemmaShards } from "../packs/types";
 import { describe, expect, it } from "vitest";
 import { lemmatize } from "./lemmatize";
 
@@ -36,5 +37,14 @@ describe("lemmatize", () => {
   it("returns nothing for an unknown word", () => {
     expect(lemmatize("zzyzx", lemmas, vocab)).toEqual([]);
     expect(lemmatize("zzyzx's", lemmas, vocab)).toEqual([]);
+  });
+  it("reads a lemma table in shards", () => {
+    const shards: LemmaShards = [
+      { better: ["good", "well"] },
+      { left: "leave" },
+    ];
+    expect(lemmatize("better", shards, vocab)).toEqual(["good", "well"]);
+    expect(lemmatize("left", shards, vocab)).toEqual(["left", "leave"]);
+    expect(lemmatize("loaves", shards, vocab)).toEqual([]);
   });
 });
