@@ -188,6 +188,12 @@ function runsOf(words: readonly number[]): [number, number][] {
 }
 
 /**
+ * The parts of speech (the source's, `PhrasePatterns.pos`) of a phrase that can be a
+ * verb's complement (rule COMPLEMENT): a noun, an adjective, a prepositional phrase.
+ */
+const COMPLEMENT_POS: readonly string[] = ["noun", "adj", "prep_phrase"];
+
+/**
  * Classifies words, saved phrases and the pack's dictionary phrases.
  *
  * - Phrases (`pack.matcher`): a pattern's word matches a word as written or by any of
@@ -460,12 +466,59 @@ export function createClassifier(pack: LanguagePack): Classifier {
               (outer) =>
                 last(outer) >= end &&
                 !pack.phrases.has(outer.key) &&
-                !pack.phrasePos(outer.key).some((pos) => own.includes(pos)),
+                !pack.phrasePos(outer.key).some((pos) => own.includes(pos)) &&
+                complementIn(outer)?.key !== match.key,
             )
           )
             return true;
         return false;
       };
+
+      /**
+       * Rule COMPLEMENT: a verb pattern matched only on selection that is one lexical
+       * verb and a pattern of a complement's part of speech after it (a noun, an
+       * adjective, a prepositional phrase: "fall" + `in love`, "get" + `in touch`) is
+       * that verb with its complement, which keeps its meaning there (a detected one
+       * stays highlighted): the complement's match, else undefined. Not a modal's
+       * ("might as well": the adverb `as well` is another expression there), nor an
+       * adverb's or an interjection's.
+       */
+      const complementIn = (outer: PhraseMatch): PhraseMatch | undefined => {
+        if (outer.lead !== undefined || outer.words.length < 3)
+          return undefined;
+        const outerPos = pack.phrasePos(outer.key);
+        if (outerPos.length === 0 || outerPos.some((pos) => pos !== "verb"))
+          return undefined;
+        const verb = first(outer);
+        const role = readings[verb]?.role;
+        if (role?.modal || role?.be) return undefined;
+        const head = normalizeWord(outer.key.split(" ")[0]!);
+        if (pack.partsOfSpeech(head)[0] !== "verb") return undefined;
+        const rest = outer.words.slice(1);
+        return contiguousAt(verb + 1).find((inner) => {
+          const pos = pack.phrasePos(inner.key);
+          return (
+            inner.lead === undefined &&
+            inner.words.length === rest.length &&
+            inner.words.every((j, n) => j === rest[n]) &&
+            pos.length > 0 &&
+            pos.every((one) => COMPLEMENT_POS.includes(one))
+          );
+        });
+      };
+
+      /**
+       * A detected phrase that a verb and its complement there (rule COMPLEMENT) cut
+       * across: "fell in" in "fell in love" is no `fall in`, "got in" in "got in
+       * touch" no `get in`.
+       */
+      const crossesComplement = (match: PhraseMatch) =>
+        contiguousAt(first(match)).some((outer) => {
+          if (last(outer) <= last(match) || pack.phrases.has(outer.key))
+            return false;
+          const inner = complementIn(outer);
+          return inner !== undefined && first(inner) <= last(match);
+        });
 
       /**
        * Rule LITERAL: a detected phrase that reads a word as a form of another word, a
@@ -527,6 +580,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
           !longest ||
           offBase(longest) ||
           insideLonger(longest) ||
+          crossesComplement(longest) ||
           writtenOther(longest) ||
           (longest.lead === undefined &&
             readings[first(longest)]?.use.pronominal === true)

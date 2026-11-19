@@ -29,8 +29,10 @@ import {
   capitalDictionary,
   convertTerms,
   inCapitalCase,
+  inTablesCase,
   isOtherWord,
   lastScriptForm,
+  withAuxiliarySenses,
   mergeSources,
   nativeLetterOf,
   readEdition,
@@ -168,9 +170,21 @@ export async function buildPairDictionary(
   const editionSource = capitalSources.findIndex(
     ({ tag }) => tag === edition?.tag,
   );
+  // Edition senses an auxiliary's, by the tables' words for "auxiliary".
+  const auxiliarySenses =
+    editionSource >= 0
+      ? withAuxiliarySenses(
+          dict,
+          editionSource,
+          (tableTerms.terms.get("auxiliary")?.senses ?? []).flatMap(
+            ([, text]) => text.split(", "),
+          ),
+        )
+      : 0;
   const capitalCased =
     editionTerms && editionSource >= 0
-      ? inCapitalCase(capital, editionSource, editionTerms.capitalCase)
+      ? inCapitalCase(capital, editionSource, editionTerms.capitalCase) +
+        inTablesCase(capital, editionSource, tableTerms.capital)
       : 0;
   return {
     ...merged,
@@ -191,6 +205,10 @@ export async function buildPairDictionary(
       reshaped: editionTerms?.stats.reshaped ?? 0,
       /** Pointer senses with no part of speech given the word's main one in English. */
       pointerPos: posed,
+      /** Edition verb senses labelled an auxiliary's (`withAuxiliarySenses`). */
+      auxiliarySenses,
+      /** Terms the tables left to later sources, their main sense said with no word. */
+      wordless: tableTerms.stats.wordless,
       labels: editionTerms?.stats.labels ?? [],
       /** The edition's abbreviations, learned (`withAbbreviations`). */
       abbreviations: editionTerms?.stats.abbreviations ?? [],
@@ -322,6 +340,9 @@ async function main() {
       `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
         `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}; ` +
         `abbreviations: ${stats.abbreviations.slice(0, 30).join(" ")}`,
+    );
+    console.log(
+      `  ${stats.wordless} table terms left to later sources (their main sense said with no word); ${stats.auxiliarySenses} edition senses labelled an auxiliary's`,
     );
     console.log(
       "  class glosses:",

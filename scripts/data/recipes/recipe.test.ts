@@ -15,6 +15,7 @@ import {
   convertTerms,
   inCapitalCase,
   inNativeCase,
+  inTablesCase,
   lastScriptForm,
   mergeSources,
   nativeKindOf,
@@ -25,6 +26,7 @@ import {
   termKeyOf,
   usesOfForm,
   withAbbreviations,
+  withAuxiliarySenses,
   withSharedFirst,
   withoutPageMarkup,
   withoutStressMarks,
@@ -525,6 +527,25 @@ describe("U1-7 gloss helpers", () => {
 });
 
 describe("readTranslationTables", () => {
+  it("leaves a term whose most translated sense the language says with no word to later sources", async () => {
+    const read = (langCodes: string[]) =>
+      readTranslationTables(join(FIXTURES, "tables-wordless.jsonl"), {
+        langCodes,
+        termKey: termKeyOf({
+          vocab: new Set(["the"]),
+          lemmas: {},
+          phrases: new Set(),
+        }),
+      });
+    // "not used in Mandarin": 越……越…… is no meaning of "the".
+    const zh = await read(["cmn"]);
+    expect(zh.terms.has("the")).toBe(false);
+    expect(zh.stats.wordless).toBe(1);
+    // A lesser sense said with no word is only left out.
+    const es = await read(["es"]);
+    expect(es.terms.get("the")?.senses).toEqual([["article", "el", "article"]]);
+  });
+
   it("leaves out a row's words where its note gives an example", async () => {
     const { terms } = await readTranslationTables(
       join(FIXTURES, "tables-example.jsonl"),
@@ -959,6 +980,15 @@ describe("capitalTermOf", () => {
     expect(capitalTermOf("Lights", termKey)).toBeUndefined();
     expect(capitalTermOf("Give Up", termKey)).toBeUndefined();
   });
+  it("reads a typographic apostrophe as the vocabulary's (Wiktionnaire's I’m)", () => {
+    const keys = termKeyOf({
+      vocab: new Set(["i'm"]),
+      lemmas: {},
+      phrases: new Set(),
+    });
+    expect(capitalTermOf("I’m", keys)).toBe("I'm");
+    expect(keys("i’m")).toBe("i'm");
+  });
 });
 
 describe("nativeLetterOf", () => {
@@ -1016,6 +1046,75 @@ describe("inNativeCase", () => {
     expect(inNativeCase("China", es, { head: "China", capital: true })).toBe(
       "China",
     );
+  });
+});
+
+describe("inTablesCase", () => {
+  it("writes an edition's capitalised gloss in the case the tables write it", () => {
+    const capital: Parameters<typeof inTablesCase>[0] = {
+      March: ["Marzo", [["noun", "Marzo"]], 0, "word"],
+      God: ["Dios", [["proper noun", "Dios"]], 0, "word"],
+      Japan: ["Japón", [["proper noun", "Japón"]], 1, "name"],
+    };
+    const tables = new Map<string, SourceTerm>([
+      [
+        "March",
+        { short: "marzo", senses: [["proper noun", "marzo", "month"]] },
+      ],
+      ["God", { short: "Dios", senses: [["proper noun", "Dios", "deity"]] }],
+      ["Japan", { short: "japón", senses: [["proper noun", "japón", "x"]] }],
+    ]);
+    expect(inTablesCase(capital, 0, tables)).toBe(1);
+    expect(capital["March"]).toEqual(["marzo", [["noun", "marzo"]], 0, "word"]);
+    expect(capital["God"]?.[0]).toBe("Dios");
+    // Another source's words stay as written.
+    expect(capital["Japan"]?.[0]).toBe("Japón");
+  });
+});
+
+describe("withAuxiliarySenses", () => {
+  it("labels an edition's verb senses that name the tables' word for auxiliary", () => {
+    const dict: Record<string, [string, PairSense[], number]> = {
+      have: [
+        "tener",
+        [
+          ["verb", "tener"],
+          ["verb", "haber (como verbo auxiliar)"],
+        ],
+        0,
+      ],
+      help: ["auxiliar", [["noun", "auxiliar"]], 0],
+      do: ["hacer", [["verb", "hacer", "to perform"]], 1],
+    };
+    expect(withAuxiliarySenses(dict, 0, ["auxiliar", "aux"])).toBe(1);
+    expect(dict["have"]?.[1][1]).toEqual([
+      "auxiliary",
+      "haber (como verbo auxiliar)",
+    ]);
+    expect(dict["help"]?.[1][0]?.[0]).toBe("noun");
+  });
+});
+
+describe("capitalDictionary: an exclamation's senses", () => {
+  it("come after the word's others", () => {
+    const { capital } = capitalDictionary(
+      {
+        God: [
+          "interjeição que mostra frustração",
+          [
+            ["interjection", "interjeição que mostra frustração"],
+            ["noun", "Deus"],
+          ],
+          0,
+        ],
+      },
+      { nativeKind: () => "word", personFirst: () => false },
+    );
+    expect(capital["God"]?.[1].map(([pos]) => pos)).toEqual([
+      "noun",
+      "interjection",
+    ]);
+    expect(capital["God"]?.[0]).toBe("Deus");
   });
 });
 

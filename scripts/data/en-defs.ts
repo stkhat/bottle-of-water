@@ -10,7 +10,8 @@
 // definition, except a contraction's sense that names only its host ("Contraction of
 // you + are."), which keeps its own; a contraction's own senses come first (U1-5).
 // Inflections ("Plural of X") are left out: the extension follows them.
-// A term every English pair dictionary has is left out: no lookup reaches it.
+// A term every English pair dictionary has is left out: no lookup reaches it (a recipe
+// pair's capitalised headword counts for its lowercase lookup: thursday).
 // Usage: node scripts/data/en-defs.ts [path]   (default data/raw/kaikki-en.jsonl; run
 // ejdict.ts, kaikki.ts, phrases.ts and the pair recipes, recipes/native.ts, first)
 import { definitionPointer } from "../../src/core/lexicon/definitions.ts";
@@ -200,7 +201,13 @@ function pairTerms(): ReadonlySet<string>[] {
     .filter(([pair]) => pair.startsWith("en-"))
     .map(([pair]) => {
       const { dir } = PACKS[pair as keyof typeof PACKS];
-      const terms = new Set(Object.keys(readDictPacks(dir)));
+      const terms = new Set<string>();
+      // A recipe pair's capitalised headwords (its capital.json shard) answer the
+      // lowercase lookup too where it has no lowercase entry: Thursday, January.
+      for (const key of Object.keys(readDictPacks(dir))) {
+        terms.add(key);
+        if (key !== key.toLowerCase()) terms.add(key.toLowerCase());
+      }
       if (existsSync(join(dir, "phrases.json")))
         for (const key of Object.keys(readPack<object>("phrases.json", dir)))
           terms.add(key);

@@ -99,6 +99,12 @@ describe("senseOrder (rule A2)", () => {
     // None, or one first already: the dictionary's order.
     expect(senseOrder(have.slice(0, 2), AUXILIARY)).toBeUndefined();
     expect(senseOrder(have.slice(2), AUXILIARY)).toBeUndefined();
+    // An edition's sense the data build labelled an auxiliary's (es "haber").
+    const esHave: Sense[] = [
+      { pos: "verb", text: "tener" },
+      { pos: "auxiliary", text: "haber (como verbo auxiliar)" },
+    ];
+    expect(senseOrder(esHave, AUXILIARY)).toEqual([1, 0]);
   });
 });
 

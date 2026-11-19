@@ -730,7 +730,10 @@ export function createPairDictionary({
           head,
           pointer: (line) => pointers.get(line),
           follow: (target) => {
-            const along = pointerPos.get(target) ?? pos;
+            // An auxiliary's base is read as one ("has been": haber, not tener).
+            const along = isAuxiliary(pos)
+              ? pos
+              : (pointerPos.get(target) ?? pos);
             const found = meaningsOf(target, along);
             // The target's meanings the form can have (told: tell's verbs, not "a tell").
             const meanings =

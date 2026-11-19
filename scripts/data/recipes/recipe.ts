@@ -48,7 +48,8 @@ export type TermKey = (headword: string) => string | undefined;
 /**
  * The key a headword is filed under, or undefined when it is not one Langle looks up: a
  * single word must be a vocabulary word written in lowercase (names and inflected forms
- * are left out); several words must form one of the phrase patterns.
+ * are left out); several words must form one of the phrase patterns. A typographic
+ * apostrophe is the vocabulary's straight one (Wiktionnaire's "I’m", "don’t").
  */
 export function termKeyOf({
   vocab,
@@ -62,7 +63,8 @@ export function termKeyOf({
   const isWord = (word: string) =>
     vocab.has(word) || Object.hasOwn(lemmas, word);
   return (headword) => {
-    const word = headword.trim();
+    // Some editions title English words with a typographic apostrophe (fr "I’m").
+    const word = headword.trim().replaceAll("’", "'");
     if (!/\s/.test(word)) return vocab.has(word) ? word : undefined;
     const key = patternKey(word, isWord);
     return key && phrases.has(key) ? key : undefined;
@@ -81,7 +83,7 @@ export function capitalTermOf(
   termKey: TermKey,
   { proper = false }: { proper?: boolean } = {},
 ): string | undefined {
-  const word = headword.trim();
+  const word = headword.trim().replaceAll("’", "'");
   if (/\s/.test(word) || !(proper || /^\p{Lu}/u.test(word))) return undefined;
   const lower = word.toLowerCase();
   if (termKey(lower) !== lower) return undefined;
@@ -312,10 +314,14 @@ export function beforeReference(
  * no English and its line does not describe (`describes`), as for the translations a
  * description and a ";" are followed by (es we're: "Nosotros somos o nosotros
  * estamos" describes, and stays second). `english`: whether a text writes English.
+ * `marked`: the edition marks the sense as a form, so its first sentence is about the
+ * English word whatever its last word (fr I’m: "Variante de I am. Je suis.", where
+ * "am" is also a word of the edition).
  */
 export function meaningFirst(
   gloss: string,
   english: (text: string) => boolean,
+  marked = false,
 ): string {
   const text = gloss.trim();
   const first = firstSentence(text);
@@ -330,7 +336,8 @@ export function meaningFirst(
   const last = /[A-Za-z][A-Za-z'’-]*$/.exec(
     first.replace(NOTES, " ").replace(/[\s.,;:!?"“”«»]+$/u, ""),
   )?.[0];
-  if (rest === "" || !last || !english(last) || english(rest)) return gloss;
+  if (rest === "" || !last || !(marked || english(last)) || english(rest))
+    return gloss;
   const line = editionLine(rest);
   if (line === "" || describes(line)) return gloss;
   return `${/[.!?。]$/u.test(rest) ? rest : `${rest}.`} ${first}.`;
@@ -899,6 +906,7 @@ export async function readEdition(
       )
       .map(([token]) => token),
   );
+
   /**
    * The edition's abbreviations: a lower-case word with a period that a space follows in
    * the glosses of LABEL_HEADWORDS headwords or more, that is no word of the edition
@@ -1020,6 +1028,7 @@ export async function readEdition(
         const gloss = meaningFirst(
           shaped,
           (text) => englishOf(text).length > 0,
+          isMarkedForm(sense),
         );
         if (gloss !== found.gloss) reshaped++;
         const trimmed =
@@ -1031,7 +1040,10 @@ export async function readEdition(
             ? trimmed
             : inNativeCase(trimmed, entriesOf, { head, capitalNouns });
         if (text !== trimmed) cased++;
-        const target = pointerOf(gloss, head, sense, pos);
+        // A gloss reshaped to translate first ("Je suis. Variante de I am.") is that
+        // translation, not a pointer to the word it names.
+        const target =
+          gloss !== shaped ? undefined : pointerOf(gloss, head, sense, pos);
         // A capitalised headword keeps every sense here: its classes and persons are
         // left out, and its senses capped, once the sources are merged
         // (`capitalDictionary`).
@@ -1039,7 +1051,8 @@ export async function readEdition(
         if (target !== undefined) {
           pointers++;
           addSense(termOf(terms, key), [pos, text, null, target], max);
-        } else if (isUsable(sense))
+        } else if (isUsable(sense) || gloss !== shaped)
+          // So is a marked form's: fr I’m → je suis (`meaningFirst`).
           addSense(termOf(terms, key), [pos, text], max);
       }
     foreign += keepNativeScript(terms, letter);
@@ -1186,7 +1199,13 @@ export async function readTranslationTables(
   /** Each term's senses, with how many languages translate each, in file order. */
   type Ranked = Map<
     string,
-    { sense: PairSense; coverage: number; marked: boolean }[]
+    {
+      sense: PairSense;
+      coverage: number;
+      marked: boolean;
+      /** The language says the sense without a word: its row is only a note. */
+      wordless?: boolean;
+    }[]
   >;
   const found: Ranked = new Map();
   const capitalFound: Ranked = new Map();
@@ -1218,7 +1237,13 @@ export async function readTranslationTables(
     // first appear
     const groups = new Map<
       string,
-      { words: string[]; langs: Set<string>; marked: boolean; example: boolean }
+      {
+        words: string[];
+        langs: Set<string>;
+        marked: boolean;
+        example: boolean;
+        noted: boolean;
+      }
     >();
     const add = (
       translations: KaikkiTranslation[] | undefined,
@@ -1232,14 +1257,26 @@ export async function readTranslationTables(
         if (!group)
           groups.set(
             hint,
-            (group = { words: [], langs: new Set(), marked, example: false }),
+            (group = {
+              words: [],
+              langs: new Set(),
+              marked,
+              example: false,
+              noted: false,
+            }),
           );
         if (typeof translation.lang_code === "string")
           group.langs.add(translation.lang_code);
         if (!codes.has(translation.lang_code as string)) continue;
         if (names && !names.has(translation.lang)) continue;
         if (isExampleNote(translation.note, entry.word)) group.example = true;
-        if (typeof translation.word !== "string") continue;
+        if (typeof translation.word !== "string") {
+          // "not used in Mandarin", "Use the future perfective…": a row with a note
+          // and no word.
+          if (typeof translation.note === "string" && translation.note.trim())
+            group.noted = true;
+          continue;
+        }
         const written = rewrite(withoutStressMarks(translation.word.trim()));
         // A template the extraction left unexpanded ("{{t+|1=it|2=francese}}") is no word.
         if (!written || /\{\{|\}\}/.test(written)) continue;
@@ -1262,22 +1299,24 @@ export async function readTranslationTables(
       );
     }
     let most = 0;
-    for (const [hint, { words, langs, marked, example }] of groups) {
+    for (const [hint, { words, langs, marked, example, noted }] of groups) {
       most = Math.max(most, langs.size);
       // A row that gives an example ("We would sit by the hole… - Winters saßen
       // wir…") has the example's pieces as its words ("In the winters", "er sei sofort
       // wieder da."), not translations.
-      if (words.length === 0 || example) continue;
+      if (example || (words.length === 0 && !noted)) continue;
       let ranked = into.get(key);
       if (!ranked) into.set(key, (ranked = []));
       ranked.push({
         sense: [pos, words.join(", "), hint],
         coverage: langs.size,
         marked: marked || MARKED_LABEL.test(hint),
+        ...(words.length === 0 && { wordless: true }),
       });
     }
     coverage.set(key, Math.max(coverage.get(key) ?? 0, most));
   });
+  let wordless = 0;
   const termsOf = (ranked: Ranked, max: number, capital: boolean) => {
     const terms = new Map<string, SourceTerm>();
     for (const [key, list] of ranked) {
@@ -1289,13 +1328,20 @@ export async function readTranslationTables(
           ? list.filter(({ marked }) => !marked)
           : list;
       // A stable sort: equals keep the file's order.
+      const sorted = kept.sort(
+        (a, b) =>
+          Number(a.marked) - Number(b.marked) || b.coverage - a.coverage,
+      );
+      // The language says the term's most translated sense without a word ("the":
+      // "not used in Mandarin"): its other senses ("the … the …" → 越……越……) are no
+      // meaning of the term, which is left to the next source.
+      if (sorted[0]?.wordless) {
+        wordless++;
+        terms.delete(key);
+        continue;
+      }
       const ordered = withSharedFirst(
-        kept
-          .sort(
-            (a, b) =>
-              Number(a.marked) - Number(b.marked) || b.coverage - a.coverage,
-          )
-          .map(({ sense }) => sense),
+        sorted.filter((one) => !one.wordless).map(({ sense }) => sense),
       );
       for (const sense of ordered) addSense(item, sense, Infinity);
     }
@@ -1313,7 +1359,7 @@ export async function readTranslationTables(
     lowercase,
     coverage,
     formTags,
-    stats: { ...stats, foreign: lower.foreign + capital.foreign },
+    stats: { ...stats, foreign: lower.foreign + capital.foreign, wordless },
   };
 }
 
@@ -1498,19 +1544,26 @@ const aboutAPerson = ([, , hint]: PairSense) =>
  * parts first come, then the rest as they were (fr English: "anglais" the adjective,
  * "Anglais, le peuple anglais", "Anglais, langue anglaise", before the adjective's
  * three other senses). A capitalised word's hover is not ordered by its tag (rule A2
- * leaves capitals alone), so its lines show what each part of speech means. A
- * translation table's senses (with a hint) stay in their order, the order of how many
- * languages translate them.
+ * leaves capitals alone), so its lines show what each part of speech means; an
+ * interjection's turn comes last. A translation table's senses (with a hint) stay in
+ * their order, the order of how many languages translate them.
  */
 function inPosTurns(senses: readonly PairSense[]): PairSense[] {
   if (senses[0]?.[2] != null) return [...senses];
+  // An exclamation's senses after the others: a capitalised word said as one ("God!",
+  // "Jesus!") is the word used so; pt God: "Deus" before "interjeição que mostra
+  // frustração".
+  const ordered = [
+    ...senses.filter(([pos]) => pos !== "interjection"),
+    ...senses.filter(([pos]) => pos === "interjection"),
+  ];
   const seen = new Set<string>();
-  const firsts = senses.filter((sense) => {
+  const firsts = ordered.filter((sense) => {
     if (seen.has(sense[0])) return false;
     seen.add(sense[0]);
     return true;
   });
-  return [...firsts, ...senses.filter((sense) => !firsts.includes(sense))];
+  return [...firsts, ...ordered.filter((sense) => !firsts.includes(sense))];
 }
 
 /**
@@ -1625,6 +1678,88 @@ export function inCapitalCase(
       entry[0] = shortOfDefinition(entry[1][0]![1]);
   }
   return cased;
+}
+
+/**
+ * NATIVE + PAIR: the capitalised headwords that came from source `source` (an edition)
+ * with the word that opens a gloss in the case the translation tables write it for the
+ * same headword: Wikcionario's "Marzo", "Julio", "Domingo" and Wiktionnaire's "Mars",
+ * "Janvier" go to lower case where the tables write "marzo", "mars", "janvier" (es
+ * and fr write months and weekdays in lower case; "Mars" is the planet). A word the
+ * tables also write as written stays ("Dios", "China", German "Januar"). Gives how
+ * many glosses changed.
+ */
+export function inTablesCase(
+  capital: Record<string, CapitalEntry>,
+  source: number,
+  tables: ReadonlyMap<string, SourceTerm>,
+): number {
+  let cased = 0;
+  for (const [key, entry] of Object.entries(capital)) {
+    if (entry[2] !== source) continue;
+    const term = tables.get(key);
+    if (!term) continue;
+    const written = new Set(
+      term.senses.flatMap(([, text]) =>
+        text.split(", ").map((word) => word.trim()),
+      ),
+    );
+    const first = entry[1][0]![1];
+    entry[1] = entry[1].map((sense): PairSense => {
+      const text = sense[1].replace(
+        /^(\s*(?:[(（[][^()（）[\]]*[)）\]]\s*)?)(\p{Lu}[\p{L}\p{M}'’-]*)/u,
+        (found, before: string, word: string) => {
+          const lower = word.charAt(0).toLowerCase() + word.slice(1);
+          return written.has(lower) && !written.has(word)
+            ? before + lower
+            : found;
+        },
+      );
+      if (text === sense[1]) return sense;
+      cased++;
+      const copy: PairSense = [...sense];
+      copy[1] = text;
+      return copy;
+    });
+    if (entry[1][0]![1] !== first)
+      entry[0] = shortOfDefinition(entry[1][0]![1]);
+  }
+  return cased;
+}
+
+/**
+ * PAIR + NATIVE: an edition's verb senses that say they are an auxiliary's, in the
+ * native word the translation tables give for English "auxiliary" (es "haber (como
+ * verbo auxiliar)", fr "avoir. Auxiliaire utilisé pour former l’aspect accompli"), are
+ * labelled "auxiliary", so an auxiliary's lookup shows them first (rule A2: "has been"
+ * → haber, not tener). `words`: the tables' words for "auxiliary". Gives how many
+ * senses changed.
+ */
+export function withAuxiliarySenses(
+  dict: Record<string, [string, PairSense[], number]>,
+  source: number,
+  words: readonly string[],
+): number {
+  const native = words.filter((word) => [...word].length >= 4);
+  if (native.length === 0) return 0;
+  const auxiliary = new RegExp(
+    `(?<![\\p{L}\\p{M}])(?:${native.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{M}])`,
+    "iu",
+  );
+  let labelled = 0;
+  for (const entry of Object.values(dict)) {
+    if (entry[2] !== source) continue;
+    entry[1] = entry[1].map((sense): PairSense => {
+      if (sense[0] !== "verb" || isPointerSense(sense) || sense[2] != null)
+        return sense;
+      if (!auxiliary.test(sense[1])) return sense;
+      labelled++;
+      const copy: PairSense = [...sense];
+      copy[0] = "auxiliary";
+      return copy;
+    });
+  }
+  return labelled;
 }
 
 /**
