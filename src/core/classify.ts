@@ -515,7 +515,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const verb = first(outer);
         const role = readings[verb]?.role;
         if (role?.modal || role?.be) return undefined;
-        const head = normalizeWord(outer.key.split(" ")[0]!);
+        const head = matcher.keyParts(outer.key).words[0]!;
         if (pack.partsOfSpeech(head)[0] !== "verb") return undefined;
         const rest = outer.words.slice(1);
         return contiguousAt(verb + 1).find((inner) => {
