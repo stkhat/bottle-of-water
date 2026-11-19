@@ -677,10 +677,10 @@ describe("createPairDictionary", () => {
       ]);
     });
     it("shows other forms that fit the cap first: comparatives, plurals", () => {
+      // The verb "to beat" is no adjective's line (`onTag`).
       expect(forms.entry("best", undefined, "adjective")?.lines).toEqual([
         "Superlativo de good",
         "Bueno",
-        "Vencer",
       ]);
       expect(forms.entry("children", undefined, "noun")?.lines).toEqual([
         "Forma del plural de child",
@@ -837,6 +837,7 @@ describe("createPairDictionary", () => {
     });
 
     it("reads an unmarked degree as a pointer: its base's meanings of the tagged part of speech come before the word's own of another", () => {
+      // Not the verb "mejorar", nor good's noun "bien" (`onTag`).
       expect(dictionary.entry("better", undefined, "adjective")?.lines).toEqual(
         ["Comparativo irregular de good", "Bueno", "Mejor"],
       );
@@ -854,8 +855,25 @@ describe("createPairDictionary", () => {
       const plain = createPairDictionary({ dict, defs: {}, ipa: {} });
       expect(plain.entry("better", undefined, "adjective")?.lines).toEqual([
         "Comparativo irregular de good",
-        "Mejorar",
         "Comparativo irregular de well",
+      ]);
+    });
+    it("shows only the senses a word's tag can mean, while it can mean one", () => {
+      // good/JJ: not the noun "bien".
+      expect(dictionary.entry("good", undefined, "adjective")?.lines).toEqual([
+        "Bueno",
+        "Mejor",
+      ]);
+      // A mistag: no sense is a verb, so the lines are all there is.
+      expect(dictionary.entry("nut", undefined, "verb")?.lines).toEqual([
+        "Nuez",
+        "Fruta seca",
+      ]);
+      // No tag, no choice.
+      expect(dictionary.entry("good")?.lines).toEqual([
+        "Bien",
+        "Bueno",
+        "Mejor",
       ]);
     });
     it("keeps a plural's own meanings of another part of speech before more of its base's", () => {

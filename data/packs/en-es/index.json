@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A-bomb","last":"Zurich"},{"file":"dict-1.json","first":"'em","last":"horsemeat"},{"file":"dict-2.json","first":"horseplay","last":"stubble field"},{"file":"dict-3.json","first":"stubborn","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A-bomb","last":"Zurich"},{"file":"dict-1.json","first":"'em","last":"hornless"},{"file":"dict-2.json","first":"horny","last":"strive"},{"file":"dict-3.json","first":"strobe","last":"éclair"}],
 "sources":["eswiktionary","enwiktionary-translations"]
 }

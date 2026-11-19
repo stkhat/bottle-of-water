@@ -15,6 +15,7 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
+  withSharedFirst,
   withoutPageMarkup,
   withoutStressMarks,
   type PairSense,
@@ -409,6 +410,81 @@ describe("readTranslationTables", () => {
       "source of illumination",
     ]);
   });
+  describe("sense order", () => {
+    const orderKey = termKeyOf({
+      vocab: new Set(["be", "do", "english", "january", "better", "kg"]),
+      lemmas: {},
+      phrases: new Set(),
+    });
+    const tables = (langCodes: string[]) =>
+      readTranslationTables(join(FIXTURES, "tables-order.jsonl"), {
+        langCodes,
+        termKey: orderKey,
+      });
+    it("orders a term's senses by how many languages translate them, not the page's order", async () => {
+      // "to occupy a place" (3 languages) before the passive auxiliary's table (2),
+      // which the page lists first; the archaic sense (4) comes last.
+      expect((await tables(["de"])).terms.get("be")?.senses).toEqual([
+        ["verb", "sein", "to occupy a place"],
+        ["verb", "werden", "auxiliary: used to form the passive voice"],
+        ["verb", "wesen", "To be, in an old way"],
+      ]);
+    });
+    it("puts a sense outside standard use after the others, however translated", async () => {
+      expect((await tables(["de"])).terms.get("do")?.senses).toEqual([
+        ["verb", "tun", "perform"],
+        ["verb", "bumsen", "slang: have sex with"],
+      ]);
+    });
+    it("leaves a capitalised headword's marked senses out beside unmarked ones", async () => {
+      const { capital } = await tables(["it"]);
+      expect(capital.get("English")?.senses).toEqual([
+        ["adjective", "inglese", "Of or pertaining to England"],
+      ]);
+      // A surname's transliteration is no marked sense; `capitalDictionary` decides.
+      expect((await tables(["ru"])).capital.get("English")?.senses).toEqual([
+        ["proper noun", "Инглиш", "transliterations of the surname"],
+      ]);
+    });
+    it("gives the words English writes in lower case, Translingual symbols too", async () => {
+      const { lowercase } = await tables(["de"]);
+      expect(lowercase.has("english")).toBe(true);
+      expect(lowercase.has("kg")).toBe(true);
+      expect(lowercase.has("january")).toBe(false);
+    });
+  });
+});
+
+describe("withSharedFirst", () => {
+  it("puts the word most of a term's senses share first, in its most translated sense", () => {
+    // zh be: 在 is "to occupy a place", the most translated sense; 是 has three senses.
+    expect(
+      withSharedFirst([
+        ["verb", "在", "to occupy a place"],
+        ["verb", "有, 存在, 是", "to exist"],
+        ["verb", "是", "identical"],
+        ["verb", "是", "predicate nominal"],
+      ]),
+    ).toEqual([
+      ["verb", "是, 有, 存在", "to exist"],
+      ["verb", "在", "to occupy a place"],
+      ["verb", "是", "identical"],
+      ["verb", "是", "predicate nominal"],
+    ]);
+  });
+  it("keeps the order when the shared word is in fewer than three senses or the first already", () => {
+    const get: PairSense[] = [
+      ["verb", "获得, 得到, 取", "to obtain"],
+      ["verb", "取", "to fetch"],
+    ];
+    expect(withSharedFirst(get)).toEqual(get);
+    const be: PairSense[] = [
+      ["verb", "sein", "to occupy a place"],
+      ["verb", "sein", "to exist"],
+      ["verb", "sein", "identical"],
+    ];
+    expect(withSharedFirst(be)).toEqual(be);
+  });
 });
 
 describe("mergeSources", () => {
@@ -433,6 +509,7 @@ describe("mergeSources", () => {
       sources: ["ptwiktionary", "enwiktionary-translations"],
       counts: { ptwiktionary: 1, "enwiktionary-translations": 1 },
       described: [],
+      lacking: [],
     });
   });
   it("takes a closed-class term a source only describes from the next that translates it", () => {
@@ -519,6 +596,66 @@ describe("mergeSources", () => {
       ptwiktionary: 2,
       "enwiktionary-translations": 1,
     });
+  });
+  it("takes a term with no meaning in its main part of speech from the next source with one", () => {
+    const edition = new Map<string, SourceTerm>([
+      // pl better: the verb and the noun only.
+      [
+        "better",
+        {
+          short: "poprawić",
+          senses: [
+            ["verb", "poprawić, ulepszyć"],
+            ["noun", "ktoś lepszy"],
+          ],
+        },
+      ],
+      // es worse: its adjective is only a degree of "bad".
+      [
+        "worse",
+        {
+          short: "empeorar",
+          senses: [
+            ["verb", "empeorar"],
+            ["adjective", "comparativo de bad"],
+          ],
+        },
+      ],
+      // The same translation under another label.
+      ["yesterday", { short: "ayer", senses: [["adverb", "ayer"]] }],
+      // Not an open class: sources label numerals differently.
+      ["seven", { short: "siete", senses: [["adjective", "siete"]] }],
+    ]);
+    const tables = new Map<string, SourceTerm>([
+      [
+        "better",
+        { short: "lepszy", senses: [["adjective", "lepszy", "comparative"]] },
+      ],
+      ["worse", { short: "peor", senses: [["adjective", "peor", "worse"]] }],
+      ["yesterday", { short: "ayer", senses: [["noun", "ayer", "the day"]] }],
+      ["seven", { short: "siete", senses: [["numeral", "siete", "7"]] }],
+    ]);
+    const main: Record<string, string> = {
+      better: "adjective",
+      worse: "adjective",
+      yesterday: "noun",
+      seven: "numeral",
+    };
+    const { dict, lacking } = mergeSources(
+      [
+        { tag: "plwiktionary", terms: edition },
+        { tag: "enwiktionary-translations", terms: tables },
+      ],
+      {
+        mainPos: (key) => main[key],
+        degree: (_, sense) => sense[1].startsWith("comparativo de"),
+      },
+    );
+    expect(dict["better"]?.[0]).toBe("lepszy");
+    expect(dict["worse"]?.[0]).toBe("peor");
+    expect(dict["yesterday"]?.[2]).toBe(0);
+    expect(dict["seven"]?.[2]).toBe(0);
+    expect(lacking).toEqual(["better", "worse"]);
   });
 });
 
@@ -689,7 +826,13 @@ describe("capitalDictionary", () => {
       // The gloss is the headword itself: no meaning, the entry stays.
       Texas: ["Texas", [sense("Texas")], 0],
     });
-    expect(counts).toEqual({ classSenses: 0, word: 2, name: 2, none: 1 });
+    expect(counts).toEqual({
+      classSenses: 0,
+      personSenses: 0,
+      word: 2,
+      name: 2,
+      none: 1,
+    });
   });
   it("leaves out a gloss shared by CLASS_HEADWORDS headwords: a class of names", () => {
     const dict: Record<string, [string, PairSense[], number]> = {};
@@ -757,6 +900,61 @@ describe("capitalDictionary", () => {
       "源自朝鲜语的姓氏",
       [sense("源自朝鲜语的姓氏")],
       0,
+    ]);
+  });
+  it("reads a common word's sense as a word in a script without case, where the edition does not say", () => {
+    const { capital } = capitalDictionary(
+      { English: ["英国人的", [["adjective", "英国人的", "of England"]], 0] },
+      { nativeKind: () => undefined, personFirst: () => false },
+    );
+    expect(capital["English"]?.[3]).toBe("word");
+  });
+  it("leaves a sense about a person's name out beside a meaning: no surname under a language", () => {
+    const { capital, counts } = capitalDictionary(
+      {
+        English: [
+          "английский",
+          [
+            ["adjective", "английский", "of England"],
+            ["proper noun", "Инглиш", "transliterations of the surname"],
+            ["proper noun", "Инглиш", "A male or female given name"],
+          ],
+          0,
+        ],
+        // A person's name alone keeps what it has.
+        Michael: ["Михаил", [["proper noun", "Михаил", "male given name"]], 0],
+      },
+      { nativeKind: () => undefined, personFirst: () => false },
+    );
+    expect(capital["English"]?.[1]).toEqual([
+      ["adjective", "английский", "of England"],
+    ]);
+    expect(capital["Michael"]?.[1]).toHaveLength(1);
+    expect(counts.personSenses).toBe(2);
+  });
+  it("takes an edition's senses in turns by part of speech, then caps them", () => {
+    const { capital } = capitalDictionary(
+      {
+        English: [
+          "anglais",
+          [
+            ["adjective", "anglais"],
+            ["adjective", "relatif à l'Angleterre"],
+            ["adjective", "relatif aux habitants de l'Angleterre"],
+            ["adjective", "qui n'est pas Amish"],
+            ["noun", "Anglais ; le peuple anglais"],
+            ["proper noun", "anglais, langue anglaise"],
+          ],
+          0,
+        ],
+      },
+      { nativeKind: () => "word", personFirst: () => false },
+    );
+    expect(capital["English"]?.[1]).toEqual([
+      ["adjective", "anglais"],
+      ["noun", "Anglais ; le peuple anglais"],
+      ["proper noun", "anglais, langue anglaise"],
+      ["adjective", "relatif à l'Angleterre"],
     ]);
   });
 });

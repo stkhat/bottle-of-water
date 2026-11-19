@@ -255,6 +255,45 @@ Step 1 starts now, from main. Steps 2–5 run after D1 (`claude/native-infra`: a
    - Not done: a few glosses' second sentence is the translation (es we're: "Contracción de we are. Nosotros somos…" now shows the first); Wiktionnaire's placeholder "Définition manquante ou à compléter" and "→ voir X" references; ru label abbreviations before a capital ("истор. Британия" → "истор"); case variants joined from a capitalised and a lowercase entry (es "Congreso / congreso"); a qualifier rule miss (es laughter: "El sonido de la risa: cualquier sonido similar" → the part after the colon).
 5. **Contractions and sentence-start lookup** (CORE): pt we're/they're (~900 tokens); measure the sentence-start rule on ja too.
 6. **Then the next natives** with the checklist above, starting with fr, de, ru (recipes only, per translation-data-expansion.md).
+7. **Capitalised headwords and sense order** (from the 2026-11-19 real-site check: zh "English" → a billiards spin, it → "silvio", ru → "Инглиш", de → "Mittel", ru "January" → an adjective, fr "English" as a noun → adjectives only; de "been" → werden, fr/pl "better" → sage, grzeczne, es "better" → "mejorar" third).
+   - **Done in U1-6** (PR on `claude/native-capitals-senses`; all eight recipe natives; outputs in `steps/u1-6/`; architecture "Native meanings and the quality gate", "Capitalised headwords of the recipe pairs", rule A2). Root causes and rules:
+     - PAIR, translation tables: a term's senses came in the page's order, capped at four in that order, so the first labelled tables of a page led (be: the passive auxiliary, de werden on 3,600 tokens of is/was/are/be; ru do → ли) and the language sense of "English", listed under the proper noun after the adjective and noun, never got in (zh then had no capital meaning and fell back to the lowercase billiards entry). Now ordered by how many languages translate each sense (be: "to occupy a place" 150, "to exist" 123; English: the language 227; the size of type 7, the surname's transliteration 3), then capped; senses the source labels outside standard use (dated, rare, slang, vulgar…, or a table labelled "slang:") come after the others, and a capitalised headword leaves them out beside others (it English: not silvio). Where one word translates three or more of a term's senses and more than the first sense's first word does, it leads (zh be: 是, six senses, before 在 of "to occupy a place"; de it: es before er, the first of "er, sie, es"). Unexpanded templates in table words ("{{t+|1=it|2=francese}}") are left out.
+     - PAIR, capitalised headwords: a translation table's sense whose English sense is about a person's name (the names lexicon's own given-name and surname patterns) is left out when the headword means something else (no surname under a language or a nationality: ru Инглиш); an edition's senses come in turns by part of speech before the cap, as a capitalised word's hover is not ordered by its tag (fr English: anglais, "anglais, langue anglaise", then the adjective's other senses); capitalised headwords are capped after classes and persons are left out. NATIVE, caseless script: where the edition does not file the gloss, a sense of a common word's part of speech is a word (zh English: 英国人的).
+     - LEARNING + PAIR: a lowercase term of a word English writes only capitalised (no lowercase headword in English Wiktionary, Translingual included: january, monday, japanese) is left out where the word has a capitalised headword, so the word takes it however written (ru "january" → январский; ru 19 terms, zh 70, it 9, pl 13, fr 6, es 4, pt 1).
+     - PAIR merge: a term with no meaning in its main part of speech (the most translated sense's, when English Wiktionary lists it first too) comes whole from the first later source that has one, unless it already gives that translation under another label; a pointer or an unmarked degree has no meaning of its own. fr/pl "better" (edition: verb and noun) → meilleur, lepszy; es "better" (only "comparativo irregular de good") → mejor; fr can → pouvoir (was boîte de conserve), run → courir (liquide), pl go → chodzić (ruch w grach), pt other → outro. Terms: es 73, pt 85, fr 107, pl 135. Without the agreement with English Wiktionary's order, forms went to their tables' noun (es dug → teta).
+     - CORE, rule A2 (`onTag`): with a tag of an open class, a pair's senses of another open class show no line while a sense the tag accepts does (es better/JJR: not "mejorar"; told → tell's verbs only); not for a plural's own senses ("nuts": loco), and as before when no sense fits the tag (a mistag).
+   - Measured (`measure.ts`, before = main at dd94c78), shown words with no hover, names, lines over 50, hovers changed and among them capitalised words:
+
+     | | no hover | names | over 50 | changed | capitalised |
+     |---|---|---|---|---|---|
+     | ja | 0 → 0 | 1,051 → 1,051 | 328 → 328 | 0 | 0 |
+     | es | 126 → 126 | 1,310 → 1,310 | 563 → 563 | 17,078 (11.5%) | 72 |
+     | pt | 69 → 69 | 1,231 → 1,233 | 225 → 225 | 21,732 (14.6%) | 156 |
+     | fr | 442 → 442 | 1,218 → 1,220 | 621 → 621 | 18,753 (12.6%) | 134 |
+     | de | 209 → 209 | 1,316 → 1,319 | 226 → 226 | 78,655 (52.8%) | 1,052 |
+     | ru | 1,077 → 1,077 | 1,041 → 1,043 | 0 → 0 | 73,652 (49.5%) | 1,008 |
+     | zh | 478 → 478 | 1,040 → 1,038 | 0 → 0 | 48,943 (32.9%) | 899 |
+     | it | 474 → 474 | 1,282 → 1,282 | 0 → 0 | 67,908 (45.6%) | 666 |
+     | pl | 1,093 → 1,093 | 1,125 → 1,124 | 621 → 621 | 15,015 (10.1%) | 95 |
+
+     The tables-first pairs change most, mostly function words reordered (you → du, ты, tu before the object forms; is → sein; can → können alone). Pack sizes within ±0.01 MB (en-es 4.85, en-ru 7.30 MB raw).
+   - Judged blind on a fresh sample (seed 2306; per native 50 changed + 15 unchanged hovers from YouTube and articles, Netflix held out, 30 + 10; code frozen; `steps/u1-6/packets/`). Changed hovers, preferred after vs before (same), good before → after, wrong + misleading + missing before → after:
+
+     | | YT + articles: preferred | good | bad | Netflix: preferred | good | bad |
+     |---|---|---|---|---|---|---|
+     | es | 2 vs 1 (47) | 43 → 44 | 2 → 2 | 8 vs 1 (21) | 18 → 20 | 7 → 7 |
+     | pt | 11 vs 4 (35) | 32 → 37 | 5 → 6 | 8 vs 1 (21) | 17 → 20 | 8 → 6 |
+     | fr | 14 vs 2 (34) | 36 → 40 | 7 → 3 | 7 vs 2 (21) | 19 → 23 | 3 → 2 |
+     | de | 20 vs 6 (24) | 33 → 40 | 7 → 4 | 12 vs 5 (13) | 21 → 24 | 1 → 0 |
+     | ru | 22 vs 7 (21) | 21 → 33 | 9 → 4 | 16 vs 5 (9) | 9 → 17 | 6 → 3 |
+     | zh | 17 vs 4 (29) | 30 → 36 | 3 → 4 | 15 vs 3 (12) | 9 → 14 | 5 → 5 |
+     | it | 20 vs 5 (25) | 24 → 33 | 8 → 4 | 10 vs 4 (16) | 16 → 23 | 2 → 4 |
+     | pl | 3 vs 3 (44) | 35 → 35 | 3 → 5 | 7 vs 4 (19) | 17 → 19 | 5 → 3 |
+
+     In all 192 vs 57. Corpus-weighted "good" rose most in the tables-first pairs (YouTube and articles: de 66.3 → 73.5%, ru 68.4 → 80.0%, it 69.2 → 77.3%, zh 60.0 → 64.0%; Netflix ru 49.3 → 63.1%, it 62.1 → 73.1%) and moved under two points elsewhere. By kind of change: hovers reordered 58 vs 22; other changes (new first lines: is → sein, can → pouvoir, better → meilleur) 85 vs 15, bad 49 → 17; lines only left out (mostly `onTag`) 49 vs 20, but bad 22 → 34: where the tagger is wrong the right sense is no longer on the card (pt low/VB → "mugir" alone, process → processo alone, pl work → pracować alone).
+   - Presentation choices (ours, by learning practice and this judging): a word's general translation first (the one most of its senses share, then the most translated sense), as a learner's dictionary leads with the core sense; a capitalised language or nationality word shows the language and the adjective, never a person's name or a specialist sense; a comparative shows its own translation (meilleur) rather than its base's meaning; with a confident part of speech, only senses of it (a mistag costs about one judged item in thirty; see the decision below).
+   - Not done: a capitalised common word at a sentence start with no mid-sentence evidence in the document still takes the lowercase entry (zh, fr, pl "English" → the billiards spin, "French" → to cut in strips: 8 tokens in the corpus; the names lexicon's "!" mark also covers No, White, Mom, so it is no signal); the tagger's mistags made visible by `onTag`; pt "would" table rows that are English example text (pre-existing); ru "been" untagged → "вариант bean" (21 tokens, pre-existing); es French capital's verb sense ("cortar alimentos…", the edition's).
+   - Decision for the user: `onTag` (asked for in the check) trades noise for mistags: judged 49 vs 20 for it, but wrong + misleading + missing rose 22 → 34 on those items. The alternative is the old rule A2 behaviour (other parts of speech after the tag's), which keeps es better → "mejor / mejorar".
 
 ## Measuring
 Everything is in the study folder `data/raw/quality/2026-11/` (git-ignored):

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'ll","last":"fam"},{"file":"dict-2.json","first":"fame","last":"overbearing"},{"file":"dict-3.json","first":"overbid","last":"unmistakable"},{"file":"dict-4.json","first":"unmistakably","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'ll","last":"false friend"},{"file":"dict-2.json","first":"false hellebore","last":"oven"},{"file":"dict-3.json","first":"oven glove","last":"universalism"},{"file":"dict-4.json","first":"universality","last":"épée"}],
 "sources":["plwiktionary","enwiktionary-translations","omw-pl"]
 }
