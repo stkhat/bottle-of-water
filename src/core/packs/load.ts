@@ -46,17 +46,21 @@ interface BuiltOtherwise {
     sensePos: SensePosPack;
   };
   "en-defs": { defs: DefsPack };
-  es: {
-    lemmas: LemmaShards;
-    freq: FreqPack;
-    ipa: IpaPack;
-    pos: PosPack;
-    vocab: VocabPack;
-    phrases: PhrasePatterns;
-    names: NamesPack;
-    tagger: TaggerPack;
-  };
+  es: LearningPackFiles & { tagger: TaggerPack };
   "es-en": { defs: DefsPack };
+  fr: LearningPackFiles;
+  "fr-en": { defs: DefsPack };
+}
+
+/** A learning language's pack built from English Wiktionary (learning-kaikki.ts). */
+interface LearningPackFiles {
+  lemmas: LemmaShards;
+  freq: FreqPack;
+  ipa: IpaPack;
+  pos: PosPack;
+  vocab: VocabPack;
+  phrases: PhrasePatterns;
+  names: NamesPack;
 }
 export type PackName = keyof PackFiles;
 
@@ -125,6 +129,21 @@ const LOADERS: {
   },
   "es-en": async (fetchJson) => ({
     defs: await loadShards("/packs/es-en", fetchJson),
+  }),
+  // French's lemma table is sharded as Spanish's; no tagger yet.
+  fr: async (fetchJson) => {
+    const [lemmas, files] = await Promise.all([
+      readShards<LemmaPack>("/packs/fr/lemmas", fetchJson),
+      loadFiles(
+        "fr",
+        ["freq", "ipa", "pos", "vocab", "phrases", "names"],
+        fetchJson,
+      ),
+    ]);
+    return { ...files, lemmas };
+  },
+  "fr-en": async (fetchJson) => ({
+    defs: await loadShards("/packs/fr-en", fetchJson),
   }),
   ...(Object.fromEntries(
     recipeNatives().map((native) => [

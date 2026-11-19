@@ -28,6 +28,8 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
   // 4: names.json (2026-11-19).
   es: 4,
   "es-en": 1,
+  fr: 1,
+  "fr-en": 1,
   ...(Object.fromEntries(
     RECIPE_PAIRS.map(([pack, native]) => [
       pack,
@@ -40,6 +42,7 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
 export const LANGUAGE_PACKS = [
   "en",
   "es",
+  "fr",
 ] as const satisfies readonly PackName[];
 
 /**
@@ -51,14 +54,19 @@ export const LANGUAGE_PACKS = [
 export const DEFINITION_PACKS = {
   "en-defs": "en",
   "es-en": "en",
+  "fr-en": "en",
 } as const satisfies Partial<Record<PackName, string>>;
 
 export type DefinitionPack = keyof typeof DEFINITION_PACKS;
 
-/** The dictionaries no recipe builds: EJDict's, and English Wiktionary's for Spanish. */
+/**
+ * The dictionaries no recipe builds: EJDict's, and English Wiktionary's for Spanish and
+ * French.
+ */
 const BUILT_OTHERWISE = {
   "en-ja": ["en", "en-ja", "en-defs"],
   "es-en": ["es", "es-en"],
+  "fr-en": ["fr", "fr-en"],
 } as const satisfies Readonly<Record<string, readonly PackName[]>>;
 
 type RecipeDictionaries = {
@@ -76,4 +84,5 @@ export const DICTIONARY_PACKS: typeof BUILT_OTHERWISE & RecipeDictionaries = {
     RECIPE_PAIRS.map(([pack]) => [pack, ["en", pack, "en-defs"]]),
   ) as unknown as RecipeDictionaries),
   "es-en": BUILT_OTHERWISE["es-en"],
+  "fr-en": BUILT_OTHERWISE["fr-en"],
 };

@@ -138,6 +138,39 @@ for (const { native, bread } of [
     expect(reply.value?.entry).not.toHaveProperty("glossLang");
   });
 
+// French (L1-1): a learning language whose pack and dictionary are both new.
+test("choosing French as the learning language downloads fr and fr-en from the mirror", async ({
+  context,
+  extensionId,
+}) => {
+  await pairDownloaded(context, extensionId);
+  expect(
+    await sendToBackground(context, extensionId, {
+      type: "setSettings",
+      patch: { learningLang: "fr", nativeLang: "en" },
+    }),
+  ).toMatchObject({ ok: true });
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "packStatus",
+      })) as {
+        value?: { pair: { packs: { pack: string; state: string }[] } };
+      };
+      return reply.value?.pair.packs.map(({ pack, state }) => [pack, state]);
+    }, COLD_LOAD)
+    .toEqual([
+      ["fr", "ready"],
+      ["fr-en", "ready"],
+    ]);
+  const reply = (await sendToBackground(context, extensionId, {
+    type: "lookup",
+    lang: "fr",
+    key: "maison",
+  })) as { value?: { entry?: { short: string } } };
+  expect(reply.value?.entry).toMatchObject({ short: "house" });
+});
+
 test("a broken file on the mirror: Couldn't download, then Retry in Settings downloads it and the page is highlighted", async ({
   context,
   extensionId,

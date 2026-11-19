@@ -379,8 +379,8 @@ describe("handlers: errors", () => {
 
   it("answers an error for languages without packs", async () => {
     expect(
-      await handle({ type: "analyze", lang: "fr", blocks: ["Bonjour"] }),
-    ).toEqual({ ok: false, error: "No language pack for fr" });
+      await handle({ type: "analyze", lang: "nl", blocks: ["Hallo"] }),
+    ).toEqual({ ok: false, error: "No language pack for nl" });
   });
 });
 
@@ -873,9 +873,9 @@ describe("handlers: matchSelection", () => {
   });
 
   it("answers an error for a language without a pack", async () => {
-    expect(await handle(selecting("made up", "fr"))).toEqual({
+    expect(await handle(selecting("made up", "nl"))).toEqual({
       ok: false,
-      error: "No language pack for fr",
+      error: "No language pack for nl",
     });
   });
 });
@@ -1568,7 +1568,7 @@ describe("handlers: machine translations of English definitions", () => {
 
   it("keeps nothing for a language without a pack, or when nothing is left to keep", async () => {
     for (const request of [
-      { lang: "fr", items: [{ text: SHORT, translated: "comprendre" }] },
+      { lang: "nl", items: [{ text: SHORT, translated: "begrijpen" }] },
       { lang: "en", items: [] },
       { lang: "en", items: [{ text: " ", translated: "空" }] },
       { lang: "en", items: [{ text: 1, translated: null }] },
@@ -1801,7 +1801,7 @@ describe("handlers: recordHistory", () => {
 
   it("keeps nothing for a language without a pack, or a source without a URL", async () => {
     for (const source of [
-      { ...PAGE, lang: "fr" },
+      { ...PAGE, lang: "nl" },
       { ...PAGE, url: "not a url" },
     ]) {
       expect(

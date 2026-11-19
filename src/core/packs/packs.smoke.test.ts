@@ -1,5 +1,5 @@
 // Smoke test over the generated pack files in data/packs/
-// (npm run data:build, npm run data:es), read through the real pack loader.
+// (npm run data:build, npm run data:es, npm run data:fr), read through the real pack loader.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { byCodeUnit } from "../../../scripts/data/common.ts";
@@ -342,6 +342,91 @@ describe("generated Spanish pack and es-en dictionary", () => {
       "la pelota está en el tejado de alguien",
     );
     expect(es.phrases.gap).toEqual([]);
+  });
+});
+
+const fr = await loadPack("fr");
+const { defs: frEn } = await loadPack("fr-en");
+
+describe("generated French pack and fr-en dictionary", () => {
+  const pack = createLanguagePack("fr", {
+    lemmas: fr.lemmas,
+    freq: fr.freq,
+    ipa: fr.ipa,
+    vocab: new Set(fr.vocab),
+    patterns: fr.phrases,
+    pos: fr.pos,
+    names: fr.names,
+  });
+  const dictionary = createDefsDictionary({ defs: frEn, ipa: fr.ipa });
+  const words = (text: string) =>
+    pack
+      .tokenize(text)
+      .filter((token) => token.isWord)
+      .map((token) => token.text);
+
+  it("lemmatize every kaikki form to its base, from the lemma shards", () => {
+    expect(fr.lemmas.length).toBeGreaterThan(1);
+    expect(pack.lemmas("mangeons")).toEqual(["manger"]);
+    expect(pack.lemmas("chevaux")).toEqual(["cheval"]);
+    // A form of a form: the plural of the participle appelé.
+    expect(pack.lemmas("appelés")).toEqual(["appeler"]);
+  });
+
+  it("list a form's likelier base first, from the treebank", () => {
+    expect(pack.lemmas("suis")[0]).toBe("être");
+  });
+
+  it("split elided words off, but keep a fixed expression whole", () => {
+    expect(words("L'homme qu'il a vu")).toEqual([
+      "L'",
+      "homme",
+      "qu'",
+      "il",
+      "a",
+      "vu",
+    ]);
+    expect(words("D’accord, j'aime ça")).toEqual([
+      "D’accord",
+      "j'",
+      "aime",
+      "ça",
+    ]);
+    expect(pack.lemmas("l'")).toEqual(["l'", "le"]);
+  });
+
+  it("have English meanings, contractions' included", () => {
+    expect(dictionary.entry("maison")).toMatchObject({
+      kind: "word",
+      short: "house",
+    });
+    expect(dictionary.entry("au")?.short).toBe("to the, for the, at the");
+    expect(dictionary.entry("d'accord")?.short).toBeTruthy();
+  });
+
+  it("have the IPA of nearly every word, from either edition", () => {
+    expect(pack.ipa("maison")).toMatch(/^\/m[ɛe]\.?zɔ̃\/$/);
+    const top = fr.freq.slice(0, 5000);
+    expect(top.filter((word) => pack.ipa(word)).length).toBeGreaterThan(4900);
+  });
+
+  it("rank common words first", () => {
+    expect(pack.rank("de")).toBeLessThanOrEqual(5);
+    expect(pack.rank("maison")).toBeLessThan(pack.rank("chaumière"));
+  });
+
+  it("spell a word capitals left without its accents", () => {
+    expect(pack.accented("etre")).toBe("être");
+    expect(pack.accented("deja")).toBe("déjà");
+    // élèves and élevés are both known: left alone.
+    expect(pack.accented("eleves")).toBeUndefined();
+  });
+
+  it("highlight no phrase yet, and have a meaning for every selectable one", () => {
+    expect(fr.phrases.detect).toEqual([]);
+    expect(fr.phrases.more.length).toBeGreaterThan(1000);
+    for (const phrase of fr.phrases.more)
+      expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
   });
 });
 

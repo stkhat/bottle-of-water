@@ -137,6 +137,22 @@ const TEST_PACKS: PackFiles = {
       comer: ["to eat", [["verb", "to eat"]]],
     },
   },
+  fr: {
+    lemmas: [{ "l'": "le", maisons: "maison" }],
+    freq: ["de", "le", "maison"],
+    ipa: { maison: "/mɛ.zɔ̃/" },
+    pos: { le: ["article"], maison: ["noun"], "d'accord": ["adverb"] },
+    vocab: ["d'accord", "de", "homme", "l'", "le", "maison"],
+    phrases: { detect: [], more: [], gap: [] },
+    names: {},
+  },
+  "fr-en": {
+    defs: {
+      "d'accord": ["in agreement", [["adverb", "in agreement"]]],
+      homme: ["man", [["noun", "man"]]],
+      maison: ["house", [["noun", "house"]]],
+    },
+  },
   // "loaf" from the Spanish Wiktionary, "crust" from a translation table (with its
   // English sense as the hint); anything else falls back to en-defs.
   "en-es": {
@@ -227,6 +243,19 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
   },
   "/packs/es-en/dict-1.json": esDefs1,
   "/packs/es-en/dict-2.json": { comer },
+  ...Object.fromEntries(
+    Object.entries(TEST_PACKS.fr)
+      .filter(([file]) => file !== "lemmas")
+      .map(([file, value]) => [`/packs/fr/${file}.json`, value]),
+  ),
+  "/packs/fr/lemmas/index.json": {
+    shards: [{ file: "dict-1.json", first: "l'", last: "maisons" }],
+  },
+  "/packs/fr/lemmas/dict-1.json": TEST_PACKS.fr.lemmas[0],
+  "/packs/fr-en/index.json": {
+    shards: [{ file: "dict-1.json", first: "d'accord", last: "maison" }],
+  },
+  "/packs/fr-en/dict-1.json": TEST_PACKS["fr-en"].defs,
   "/packs/en-es/index.json": {
     shards: [{ file: "dict-1.json", first: "crust", last: "loaf" }],
     sources: ["eswiktionary", "enwiktionary-translations"],

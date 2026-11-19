@@ -44,6 +44,7 @@
     "data:native": "node scripts/data/recipes/native.ts",
     "data:freq": "node scripts/data/frequency.ts",
     "data:es": "node scripts/data/es-frequency.ts && node scripts/data/es-tagger.ts && node scripts/data/es-kaikki.ts",
+    "data:fr": "node scripts/data/fr-frequency.ts && node scripts/data/fr-treebank.ts && node scripts/data/fr-kaikki.ts",
     "data:stats": "node scripts/data/stats.ts",
     "data:publish": "node scripts/data/publish.ts",
     "data:npm-publish": "node scripts/data/npm-publish.ts",

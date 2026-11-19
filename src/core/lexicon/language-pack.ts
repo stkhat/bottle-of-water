@@ -45,46 +45,54 @@ const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es"]);
  * treebank's lemmas (Spanish "creo": creer before crear). English lists them in
  * code-unit order.
  */
-const BASES_IN_ORDER: ReadonlySet<string> = new Set(["es"]);
+const BASES_IN_ORDER: ReadonlySet<string> = new Set(["es", "fr"]);
 
 /**
  * Letters whose accented forms text written in capitals tends to leave out (Spanish
- * ESTAN for están, POLICIA for policía): letter → its accented forms. A word takes at
- * most one of them, as Spanish writes one accent a word.
+ * ESTAN for están, POLICIA for policía; French ETE for été, ELEVE for élève): letter →
+ * its accented forms. A word may take one on each of its letters, as French writes
+ * several a word.
  */
 const CAPITAL_ACCENTS: Readonly<
   Record<string, Readonly<Record<string, string>>>
 > = {
   es: { a: "á", e: "é", i: "í", o: "ó", u: "úü", n: "ñ" },
+  fr: { a: "àâ", e: "éèêë", i: "îï", o: "ô", u: "ùûü", c: "ç", y: "ÿ" },
 };
 
 /**
- * The one spelling of `word` with an accented letter (`accents`) that `known` knows;
- * undefined when none or several do ("esta": está and ésta are left alone, though
- * only unknown words are asked about).
+ * Spellings tried for one word at most (`accentedSpelling`): a long word with many
+ * accentable letters is left as written.
+ */
+const MAX_SPELLINGS = 4096;
+
+/**
+ * The one spelling of `word` with accented letters (`accents`, any number of them)
+ * that `known` knows; undefined when none or several do ("esta": está and ésta are
+ * left alone, though only unknown words are asked about), or when the word has too
+ * many accentable letters to try them all (`MAX_SPELLINGS`).
  */
 function accentedSpelling(
   word: string,
   accents: Readonly<Record<string, string>>,
   known: (word: string) => boolean,
 ): string | undefined {
-  let found: string | undefined;
   const letters = [...word];
-  for (let i = 0; i < letters.length; i++) {
-    const options = own(accents, letters[i]!);
-    if (options === undefined) continue;
-    for (const accented of options) {
-      const spelling = [
-        ...letters.slice(0, i),
-        accented,
-        ...letters.slice(i + 1),
-      ].join("");
-      if (!known(spelling)) continue;
-      if (found !== undefined) return undefined;
-      found = spelling;
-    }
-  }
-  return found;
+  const choices = letters.map((letter) => [
+    letter,
+    ...(own(accents, letter) ?? ""),
+  ]);
+  if (choices.reduce((n, options) => n * options.length, 1) > MAX_SPELLINGS)
+    return undefined;
+  let spellings = [""];
+  for (const options of choices)
+    spellings = spellings.flatMap((start) =>
+      options.map((letter) => start + letter),
+    );
+  const found = spellings.filter(
+    (spelling) => spelling !== word && known(spelling),
+  );
+  return found.length === 1 ? found[0] : undefined;
 }
 
 /** Each language's tagger over its pack's model. */
@@ -219,7 +227,8 @@ export function createLanguagePack(
   const tagger = data.tagger && makeTagger?.(data.tagger);
   return {
     lang,
-    tokenize: (text) => tokenize(text, lang),
+    // An elided word ("l'homme") is split off unless the whole is a word of its own.
+    tokenize: (text) => tokenize(text, lang, (word) => lemmas(word).length > 0),
     lemmas,
     basesInOrder: BASES_IN_ORDER.has(lang),
     rank: (base) => ranks.get(base.toLowerCase()) ?? Infinity,

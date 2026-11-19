@@ -142,6 +142,20 @@ const SOURCES = {
     by: WIKTIONARY_AUTHORS,
     license: LICENSES.ccBySa4,
   },
+  wiktionaryFr: {
+    title: "English Wiktionary, French entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/French/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryFrEditionFrench: {
+    title: "French Wiktionary (Wiktionnaire), French entries",
+    via: KAIKKI,
+    url: "https://fr.wiktionary.org/",
+    by: "the contributors to Wiktionnaire, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
   wiktionaryEsEdition: {
     title: "Spanish Wiktionary (Wikcionario), English entries",
     via: KAIKKI,
@@ -228,6 +242,18 @@ const SOURCES = {
     title: "Universal Dependencies Spanish GSD treebank (UD_Spanish-GSD)",
     url: "https://github.com/UniversalDependencies/UD_Spanish-GSD",
     by: "the treebank's contributors (Ballesteros, Martínez Alonso, McDonald, Pascual, Silveira, Zeman, Nivre, Bauer; originally Quirmbach-Brundage, LaMontagne, Souček, Järvinen, Radici), annotations made available by Google",
+    license: LICENSES.ccBySa4,
+  },
+  udFrenchGsd: {
+    title: "Universal Dependencies French GSD treebank (UD_French-GSD)",
+    url: "https://github.com/UniversalDependencies/UD_French-GSD",
+    by: "the treebank's contributors (de Marneffe, Guillaume, McDonald, Suhr, Nivre, Grioni, Dickerson, Perrier), annotations made available by Google",
+    license: LICENSES.ccBySa4,
+  },
+  freqFr: {
+    title: "FrequencyWords, French 2018 list (fr_full)",
+    url: "https://github.com/hermitdave/FrequencyWords",
+    by: "Hermit Dave, from the OpenSubtitles 2018 corpus (OPUS)",
     license: LICENSES.ccBySa4,
   },
   freqEs: {
@@ -417,6 +443,31 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
     title: "Spanish–English dictionary",
     description: "English meanings of Spanish words and phrases",
     sources: [{ ...SOURCES.wiktionaryEs, used: "the English meanings" }],
+  }),
+  fr: pack("fr", {
+    title: "French word data",
+    description:
+      "French base forms, frequency ranks, IPA, parts of speech, vocabulary, phrase patterns and names",
+    sources: [
+      {
+        ...SOURCES.wiktionaryFr,
+        used: "inflections, IPA, parts of speech, vocabulary, phrase patterns, names, how usage examples write names",
+      },
+      {
+        ...SOURCES.wiktionaryFrEditionFrench,
+        used: "IPA of the words English Wiktionary has none for, how usage examples write names (capitalised or in lower case)",
+      },
+      { ...SOURCES.freqFr, used: "frequency ranks" },
+      {
+        ...SOURCES.udFrenchGsd,
+        used: "the order of a form's base forms and of a word's parts of speech",
+      },
+    ],
+  }),
+  "fr-en": pack("fr-en", {
+    title: "French–English dictionary",
+    description: "English meanings of French words and phrases",
+    sources: [{ ...SOURCES.wiktionaryFr, used: "the English meanings" }],
   }),
   ...(Object.fromEntries(
     recipeNatives().map((native) => [`en-${native}`, recipePack(native)]),

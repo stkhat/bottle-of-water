@@ -1,6 +1,6 @@
 // Prints the numbers recorded in docs/notes/data-sizes.md and each language pair's
 // coverage for the quality gate; fails when a pair the lock offers is under the gate.
-// Usage: node scripts/data/stats.ts [--json]   (after npm run data:build, data:es and data:native)
+// Usage: node scripts/data/stats.ts [--json]   (after npm run data:build, data:es, data:fr and data:native)
 //   --json: only the gate report, as JSON
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -126,7 +126,6 @@ function main() {
     return;
   }
   const en = <T>(file: string) => readPack<T>(file, PACKS.en.dir);
-  const es = <T>(file: string) => readPack<T>(file, PACKS.es.dir);
   const dict = readDictPacks(PACKS["en-ja"].dir);
   const freq = en<Words>("freq.json");
   const ipa = en<Record<string, string>>("ipa.json");
@@ -158,25 +157,31 @@ function main() {
     `Phrase meanings (all ${phrases.phrases} patterns): ${phrases.ejdict} EJDict, ` +
       `${phrases.ja} Japanese translations, ${phrases.defs} English definitions, ${phrases.none} none`,
   );
-  const esFreq = es<Words>("freq.json");
-  const esIpa = es<Record<string, string>>("ipa.json");
-  const esCoverage = ipaCoverage(esFreq, esIpa, 20000);
-  console.log("Spanish (es, es-en):");
-  console.log(`  Vocabulary: ${es<Words>("vocab.json").length}`);
-  console.log(
-    `  Lemma entries (inflected forms): ${Object.keys(readDictPacks(join(PACKS.es.dir, "lemmas"))).length}`,
-  );
-  console.log(`  Words with IPA: ${Object.keys(esIpa).length}`);
-  console.log(`  Frequency list: ${esFreq.length} base forms`);
-  console.log(
-    `  IPA coverage, top ${esCoverage.words} base forms: ${esCoverage.withIpa} (${(esCoverage.ratio * 100).toFixed(1)}%)`,
-  );
-  console.log(
-    `  Dictionary terms: ${Object.keys(readDictPacks(PACKS["es-en"].dir)).length}`,
-  );
-  console.log(
-    `  Phrase patterns: ${describePatterns(es<PhrasePatterns>("phrases.json"))}`,
-  );
+  for (const [lang, name] of [
+    ["es", "Spanish"],
+    ["fr", "French"],
+  ] as const) {
+    const read = <T>(file: string) => readPack<T>(file, PACKS[lang].dir);
+    const freq = read<Words>("freq.json");
+    const ipa = read<Record<string, string>>("ipa.json");
+    const coverage = ipaCoverage(freq, ipa, 20000);
+    console.log(`${name} (${lang}, ${lang}-en):`);
+    console.log(`  Vocabulary: ${read<Words>("vocab.json").length}`);
+    console.log(
+      `  Lemma entries (inflected forms): ${Object.keys(readDictPacks(join(PACKS[lang].dir, "lemmas"))).length}`,
+    );
+    console.log(`  Words with IPA: ${Object.keys(ipa).length}`);
+    console.log(`  Frequency list: ${freq.length} base forms`);
+    console.log(
+      `  IPA coverage, top ${coverage.words} base forms: ${coverage.withIpa} (${(coverage.ratio * 100).toFixed(1)}%)`,
+    );
+    console.log(
+      `  Dictionary terms: ${Object.keys(readDictPacks(PACKS[`${lang}-en`].dir)).length}`,
+    );
+    console.log(
+      `  Phrase patterns: ${describePatterns(read<PhrasePatterns>("phrases.json"))}`,
+    );
+  }
   let total = 0;
   for (const file of packFiles(PACKS_DIR)) {
     const size = statSync(join(PACKS_DIR, file)).size;

@@ -350,7 +350,8 @@ describe("the committed lock", () => {
         Object.entries(lock.packs).map(([name, e]) => [name, e.format]),
       ),
     ).toEqual(PACK_FORMATS);
-  });
+    // It hashes every pack file and reads every pair's dictionary for the gate.
+  }, 30_000);
 });
 
 function sortKeys(value: unknown): unknown {

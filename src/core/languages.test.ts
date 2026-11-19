@@ -7,8 +7,8 @@ import {
 } from "./languages";
 
 describe("learningLanguages", () => {
-  it("lists English, then Spanish", () => {
-    expect(learningLanguages()).toEqual(["en", "es"]);
+  it("lists English, then Spanish and French", () => {
+    expect(learningLanguages()).toEqual(["en", "es", "fr"]);
   });
 });
 
@@ -19,6 +19,7 @@ describe("nativeLanguages", () => {
       ...["zh", "it", "pl"],
     ]);
     expect(nativeLanguages("es")).toEqual(["en"]);
+    expect(nativeLanguages("fr")).toEqual(["en"]);
   });
 
   it("has none for a language without a pack", () => {
@@ -31,6 +32,7 @@ describe("speechLang", () => {
   it("picks a regional voice for each learning language", () => {
     expect(speechLang("en")).toBe("en-US");
     expect(speechLang("es")).toBe("es-ES");
+    expect(speechLang("fr")).toBe("fr-FR");
   });
 
   it("keeps other codes as they are", () => {
@@ -54,6 +56,8 @@ describe("firstPair", () => {
     expect(firstPair("zh-CN")).toEqual(pair("en", "zh"));
     expect(firstPair("zh-TW")).toEqual(pair("en", "zh"));
     expect(firstPair("pl")).toEqual(pair("en", "pl"));
+    // English is the default learning language, before French → English.
+    expect(firstPair("fr-FR")).toEqual(pair("en", "fr"));
   });
 
   it("gives an English UI another learning language that has English as its native one", () => {

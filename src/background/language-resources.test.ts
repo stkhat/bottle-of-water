@@ -313,6 +313,38 @@ describe("createLanguageResources", () => {
     ]);
   });
 
+  it("looks words up from French to English with the fr and fr-en packs, elisions apart", async () => {
+    const loadPack = stubLoader();
+    const resources = createLanguageResources(loadPack);
+    const pack = await resources.pack("fr");
+    expect(
+      pack
+        .tokenize("D'accord, l'homme")
+        .filter((token) => token.isWord)
+        .map((token) => token.text),
+    ).toEqual(["D'accord", "l'", "homme"]);
+    expect(pack.lemmas("maisons")).toEqual(["maison"]);
+    const dictionary = await resources.dictionary("fr", "en");
+    expect(dictionary.entry("maison")).toMatchObject({
+      kind: "word",
+      // Shown in dictionary style, without syllable dots.
+      ipa: "/mɛzɔ̃/",
+      short: "house",
+    });
+    expect(filesRead(loadPack)).toEqual([
+      "/packs/fr-en/dict-1.json",
+      "/packs/fr-en/index.json",
+      "/packs/fr/freq.json",
+      "/packs/fr/ipa.json",
+      "/packs/fr/lemmas/dict-1.json",
+      "/packs/fr/lemmas/index.json",
+      "/packs/fr/names.json",
+      "/packs/fr/phrases.json",
+      "/packs/fr/pos.json",
+      "/packs/fr/vocab.json",
+    ]);
+  });
+
   it("loads only the English packs for English", async () => {
     const loadPack = stubLoader();
     const resources = createLanguageResources(loadPack);

@@ -64,7 +64,7 @@ describe("rulesFor", () => {
   });
 
   it("has no slots and no gaps for a language without rules", () => {
-    expect(rulesFor("fr")).toBe(NO_RULES);
+    expect(rulesFor("nl")).toBe(NO_RULES);
     expect(NO_RULES.slots.size).toBe(0);
     expect(NO_RULES.maxGap).toBe(0);
   });
