@@ -291,6 +291,52 @@ describe("names over the generated packs (rule D)", () => {
     // A word EJDict has keeps its own meaning: "the Sun" is no Sunday.
     expect(dictionary.entry("sun", "capital")?.lines[0]).toMatch(/太陽/);
   });
+  it("reads capital-only words, dotted abbreviations and contractions as words", () => {
+    const withCapitals = createLanguagePack("en", {
+      lemmas: en.lemmas,
+      freq: en.freq,
+      ipa: en.ipa,
+      vocab: new Set(en.vocab),
+      patterns: en.phrases,
+      pos: en.pos,
+      names: en.names,
+      contractions: en.contractions,
+      capitals: en.capitals,
+    });
+    const text = [
+      "Experts in Tokyo say AI will change how the U.S. works, and what'd you do?",
+      "The sloth was an ai, and Harvey met Kane at 5 p.m. in Tokyo.",
+    ];
+    const doc = documentCasing(
+      text.map((t) => blockCasing(withCapitals.tokenize(t), "en")),
+    );
+    const spans = text.flatMap((t) =>
+      createClassifier(withCapitals)
+        .classify(withCapitals.tokenize(t), {
+          terms: new Map(),
+          knownLevel: 3000,
+          casing: doc,
+          capitalMeaning: (key) => dictionary.capitalMeaning(key),
+        })
+        .map((s) => ({ ...s, text: t.slice(s.start, s.end) })),
+    );
+    const keyOf = (word: string) =>
+      spans
+        .filter((s) => s.text === word)
+        .map((s) => (s.category === "ignored" ? null : s.key));
+    expect(keyOf("Tokyo")).toEqual(["tokyo", "tokyo"]);
+    expect(keyOf("AI")).toEqual(["ai"]);
+    expect(keyOf("U.S")).toEqual(["u.s."]);
+    expect(keyOf("p.m")).toEqual(["p.m."]);
+    expect(keyOf("what'd")).toEqual(["what'd"]);
+    // The sloth stays out, and persons stay names.
+    expect(keyOf("ai")).toEqual([null]);
+    expect(keyOf("Harvey")).toEqual([null]);
+    expect(keyOf("Kane")).toEqual([null]);
+    expect(dictionary.entry("ai", "upper")?.lines[0]).toBe("人工知能");
+    expect(dictionary.entry("tokyo", "capital")?.lines[0]).toBe("東京");
+    expect(dictionary.entry("p.m.")?.lines[0]).toMatch(/^午後/);
+  });
   it("never takes an interjection, a word after a determiner or one written in lower case for a name", () => {
     expect(of("Yes")[0]?.name).toBeUndefined();
     expect(of("Enlightenment")[0]?.name).toBeUndefined();

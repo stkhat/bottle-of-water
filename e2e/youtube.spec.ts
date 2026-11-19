@@ -8,7 +8,7 @@ import en from "../src/i18n/locales/en.json" with { type: "json" };
 import { cueAt } from "../src/core/subtitles/cues";
 import { parseYouTubeJson3 } from "../src/core/subtitles/youtube-json3";
 import { test, expect } from "./fixtures";
-import { highlighted, ON_TIME, showNewWords } from "./page";
+import { COLD_LOAD, highlighted, ON_TIME, showNewWords } from "./page";
 import { routeYouTube, YOUTUBE_SHORT, YOUTUBE_WATCH } from "./sites";
 
 const subtitles = path.join(
@@ -127,7 +127,12 @@ test("words selected in the transcript are saved as a phrase from their card", a
     .dragTo(card.getByText("evidence", { exact: true }));
 
   const selection = page.locator("langle-video");
-  await expect(selection).toContainText(en["lookup.status.selected"]);
+  // A selection's card waits for the English definitions (the fallback of words the
+  // pair lacks), whose first download may still be going on.
+  await expect(selection).toContainText(
+    en["lookup.status.selected"],
+    COLD_LOAD,
+  );
   await selection
     .getByRole("button", { name: en["hover.addLearning"] })
     .click();
@@ -177,7 +182,11 @@ test("a drag in the transcript while the video plays holds the list and the vide
   await page.mouse.up();
 
   const selection = page.locator("langle-video");
-  await expect(selection).toContainText(en["lookup.status.selected"]);
+  // The card waits for the English definitions' first download (above).
+  await expect(selection).toContainText(
+    en["lookup.status.selected"],
+    COLD_LOAD,
+  );
   // Words of the card, from "extraordinary" to the one nearest the video.
   await expect(selection).toContainText("extraordinary");
   expect(await scrollTop()).toBe(top);

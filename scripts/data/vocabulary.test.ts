@@ -80,6 +80,38 @@ describe("rule E: the vocabulary from the example corpus", () => {
   });
 });
 
+describe("rule E: capital-only words", () => {
+  let result: Awaited<ReturnType<typeof importKaikki>>;
+  beforeAll(async () => {
+    result = await withRule();
+  });
+
+  it("takes capitalised headwords written so often enough, as written", () => {
+    expect(result.capitals).toEqual(["AED", "AI", "Tokyo"]);
+  });
+  it("leaves out persons' names and what no translation table translates", () => {
+    // Kane, a surname; Vito, a barangay nobody translates.
+    expect(result.capitals).not.toContain("Kane");
+    expect(result.capitals).not.toContain("Vito");
+  });
+  it("leaves the vocabulary as it is: the sloth stays out", () => {
+    expect(result.added).not.toContain("ai");
+  });
+  it("collects them like vocabulary words, by their lower-case keys", () => {
+    expect(result.lemmas.aeds).toBe("aed");
+    expect(result.lemmas.ais).toBe("ai");
+    expect(result.ipa.ai).toBe("/ˌeɪˈaɪ/");
+    expect(result.pos.tokyo).toEqual(["proper noun"]);
+    expect(result.names.tokyo).toBe("p");
+    // Counted as written, with their forms written alike: AED 3 times, AEDs twice.
+    expect(result.examples.aed).toBe(5);
+    expect(result.examples.tokyo).toBe(5);
+  });
+  it("asks for none without the rule", async () => {
+    expect((await importKaikki(fixture, vocab)).capitals).toEqual([]);
+  });
+});
+
 describe("importKaikki without rule E", () => {
   it("keeps the vocabulary it is given", async () => {
     const result = await importKaikki(fixture, vocab);

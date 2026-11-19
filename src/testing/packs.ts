@@ -63,6 +63,7 @@ const TEST_PACKS: PackFiles = {
     names: { crust: "gs", yeast: "p" },
     tagger: TEST_TAGGER,
     contractions: {},
+    capitals: [],
   },
   "en-ja": {
     dict: {

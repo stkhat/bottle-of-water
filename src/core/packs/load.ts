@@ -1,4 +1,5 @@
 import type {
+  CapitalsPack,
   ContractionPack,
   DefsPack,
   DictPack,
@@ -37,6 +38,7 @@ interface BuiltOtherwise {
     names: NamesPack;
     tagger: TaggerPack;
     contractions: ContractionPack;
+    capitals: CapitalsPack;
   };
   "en-ja": {
     dict: DictPack;
@@ -93,6 +95,7 @@ const LOADERS: {
         "names",
         "tagger",
         "contractions",
+        "capitals",
       ],
       fetchJson,
     ),

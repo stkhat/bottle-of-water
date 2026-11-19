@@ -184,3 +184,27 @@ describe("buildEnDefs on contractions (U1-5)", () => {
     ]);
   });
 });
+
+describe("buildEnDefs: capital-only words", () => {
+  it("defines them by the entries written so, proper nouns too, under their keys", async () => {
+    const { defs } = await buildEnDefs(
+      join(import.meta.dirname, "fixtures", "kaikki-vocabulary.jsonl"),
+      {
+        vocab: ["story", "the"],
+        lemmas: {},
+        phrases: { detect: [], more: [], gap: [] },
+        capitals: ["AI", "Tokyo"],
+      },
+    );
+    // AI's initialism, not the sloth "ai".
+    expect(defs.ai).toEqual([
+      "Initialism of artificial intelligence",
+      [["noun", "Initialism of artificial intelligence."]],
+    ]);
+    expect(defs.tokyo).toEqual([
+      "The capital city of Japan",
+      [["proper noun", "The capital city of Japan."]],
+    ]);
+    expect(defs).not.toHaveProperty("vito");
+  });
+});

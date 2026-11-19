@@ -29,7 +29,7 @@ import {
   writePack,
   type KaikkiEntry,
 } from "./common.ts";
-import { vocabularyOf } from "./ejdict.ts";
+import { dottedCapitals, readEjdictText, vocabularyOf } from "./ejdict.ts";
 import { PACKS } from "./formats.ts";
 import { createVocabularyRule, type VocabularyRule } from "./vocabulary.ts";
 
@@ -276,11 +276,20 @@ export async function importKaikki(
   const folded = new Map<string, Bucket>();
   const confirmations: Confirmations = new Map();
   const names = createNames();
+  /** A capitalised headword rule E may take as a capital-only word, as written → its bucket. */
+  const capitalBuckets = new Map<string, Bucket>();
   const stats = await eachEntry(path, (entry) => {
     if (entry.lang_code !== "en") return;
     names.add(entry);
     extend?.add(entry);
     const base = entry.word.toLowerCase();
+    const headword = entry.word.replaceAll("’", "'");
+    if (extend?.capitalShaped(headword) && !words.has(base)) {
+      let bucket = capitalBuckets.get(headword);
+      if (!bucket)
+        capitalBuckets.set(headword, (bucket = { pos: [], bases: new Map() }));
+      addEntry(bucket, base, entry);
+    }
     // A word rule E may add is collected like a vocabulary word, from its own spelling.
     const exactly = entry.word === base;
     if (!words.has(base) && !(extend && exactly && extend.shaped(base))) return;
@@ -353,12 +362,29 @@ export async function importKaikki(
       if (count > 0) examples[word] = count;
     }
   }
+  // Capital-only words (rule E, `VocabularyRule.capitals`): their forms, IPA, parts of
+  // speech and names as a vocabulary word's, from the entries written as they are; the
+  // example counts by how they are written.
+  const capitals = extend?.capitals({ vocab: words, lemmas }) ?? [];
+  const capitalKeys = new Set<string>();
+  for (const headword of capitals) {
+    const key = headword.toLowerCase();
+    capitalKeys.add(key);
+    const bucket = capitalBuckets.get(headword)!;
+    for (const form of bucket.bases.keys())
+      if (!words.has(form) && !Object.hasOwn(lemmas, form)) lemmas[form] = key;
+    if (bucket.pos.length > 0) pos[key] ??= bucket.pos;
+    const usIpa = bucket.phonemicIpa ?? bucket.anyIpa ?? bucket.untaggedIpa;
+    if (usIpa && !Object.hasOwn(ipa, key)) ipa[key] = usIpa;
+    examples[key] = (examples[key] ?? 0) + extend!.capitalCount(headword);
+  }
   return {
     lemmas: lemmas as LemmaPack,
     ipa: ipa as IpaPack,
     pos: pos as PosPack,
-    names: names.pack((key) => words.has(key)),
+    names: names.pack((key) => words.has(key) || capitalKeys.has(key)),
     added,
+    capitals,
     examples,
     stats,
   };
@@ -367,10 +393,21 @@ export async function importKaikki(
 async function main() {
   const dict = readDictPacks<DictPack[string]>(PACKS["en-ja"].dir);
   const path = process.argv[2] ?? KAIKKI_PATH;
-  const { lemmas, ipa, pos, names, added, examples, stats } =
+  const { lemmas, ipa, pos, names, added, capitals, examples, stats } =
     await importKaikki(path, vocabularyOf(dict), dict, createVocabularyRule());
   const vocab = [...vocabularyOf(dict), ...added].sort(byCodeUnit);
   writePack("en/vocab.json", vocab);
+  // Capital-only words, and the vocabulary's abbreviations whose case matters.
+  const known = new Set(vocab);
+  writePack(
+    "en/capitals.json",
+    [
+      ...capitals,
+      ...dottedCapitals(readEjdictText()).filter((headword) =>
+        known.has(headword.toLowerCase()),
+      ),
+    ].sort(byCodeUnit),
+  );
   writePack("en/lemmas.json", lemmas);
   writePack("en/ipa.json", ipa);
   writePack("en/pos.json", pos);
@@ -380,6 +417,7 @@ async function main() {
   console.log(
     `kaikki: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `en/vocab.json: ${vocab.length} words (${added.length} from Wiktionary, rule E); ` +
+      `${capitals.length} capital-only words; ` +
       `${Object.keys(lemmas).length} lemma forms, ${Object.keys(ipa).length} IPA, ` +
       `${Object.keys(pos).length} words with parts of speech, ` +
       `${Object.keys(names).length} names`,
