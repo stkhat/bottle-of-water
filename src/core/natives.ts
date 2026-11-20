@@ -38,7 +38,9 @@ export interface NativeLanguage {
   /**
    * English → this language is a pair pack (`en-<code>`) built by the language's recipe
    * (`scripts/data/recipes/native.ts`), read in this data format. Japanese (EJDict, its
-   * own pack) and English (the English definitions) are built otherwise.
+   * own pack) and English (the English definitions) are built otherwise. 2: pointer
+   * senses. 3: capitalised headwords in capital.json. 4: the short meaning stored only
+   * where it is not its senses' (`shortOfPairSenses`, 2026-11-21).
    */
   readonly englishPair?: { readonly format: number };
 }
@@ -67,7 +69,7 @@ export const NATIVE_LANGUAGES = {
       beans: "revelar el secreto",
       mind: "decidirse",
     },
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   pt: {
     option: "language.pt",
@@ -80,7 +82,7 @@ export const NATIVE_LANGUAGES = {
       beans: "revelar o segredo",
       mind: "decidir-se",
     },
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   // Chrome's Prompt API has no Russian (it answers in en, ja, es, de, fr): meaning in
   // context is unavailable, so no examples of its own.
@@ -91,7 +93,7 @@ export const NATIVE_LANGUAGES = {
     dense: false,
     scripts: ["Cyrillic"],
     examples: null,
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   fr: {
     option: "language.fr",
@@ -104,7 +106,7 @@ export const NATIVE_LANGUAGES = {
       beans: "révéler le secret",
       mind: "se décider",
     },
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   de: {
     option: "language.de",
@@ -117,7 +119,7 @@ export const NATIVE_LANGUAGES = {
       beans: "das Geheimnis verraten",
       mind: "sich entscheiden",
     },
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   // Simplified Chinese (the pack converts traditional characters at build time). Like
   // Japanese: no spaces, a dense script. Chrome's Prompt API has no Chinese, Italian
@@ -129,7 +131,7 @@ export const NATIVE_LANGUAGES = {
     dense: true,
     scripts: ["Han"],
     examples: null,
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   it: {
     option: "language.it",
@@ -138,7 +140,7 @@ export const NATIVE_LANGUAGES = {
     dense: false,
     scripts: ["Latin"],
     examples: null,
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   pl: {
     option: "language.pl",
@@ -147,7 +149,7 @@ export const NATIVE_LANGUAGES = {
     dense: false,
     scripts: ["Latin"],
     examples: null,
-    englishPair: { format: 3 },
+    englishPair: { format: 4 },
   },
   en: {
     option: "languageName.en",

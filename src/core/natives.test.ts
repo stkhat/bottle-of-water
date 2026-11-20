@@ -18,8 +18,8 @@ describe("the native-language registry", () => {
       "it",
       "pl",
     ]);
-    expect(PACK_FORMATS["en-es"]).toBe(3);
-    expect(PACK_FORMATS["en-ru"]).toBe(3);
+    expect(PACK_FORMATS["en-es"]).toBe(4);
+    expect(PACK_FORMATS["en-ru"]).toBe(4);
     expect(Object.keys(DICTIONARY_PACKS)).toEqual([
       "en-ja",
       "en-es",

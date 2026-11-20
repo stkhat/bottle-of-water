@@ -1,7 +1,8 @@
 /**
  * Short lines: a sense as the hover card shows it, one sense per line. An entry's
- * `short` comes from its first sense this way (stored by the data build in en-ja and
- * the recipe pairs, made at lookup for the definitions packs: `shortOfSenses`), and the
+ * `short` comes from its first sense this way (stored by the data build in en-ja, made
+ * at lookup for the definitions packs, `shortOfSenses`, and for the pair packs,
+ * `shortOfPairSenses`, which store one only where the build made another), and the
  * dictionaries make the hover card's lines from its first senses the same way
  * (`shortLines`).
  *
@@ -795,6 +796,30 @@ export function shortOfDefinition(text: string): string {
 export const shortOfSenses = (
   senses: readonly (readonly [pos: string, text: string, ...rest: unknown[]])[],
 ): string => shortOfDefinition(senses[0]?.[1] ?? "");
+
+/**
+ * A pair entry's short meaning (`PairPack`, `LearningPairPack`: the recipe pairs and
+ * de-fr), made from its first sense: a sense with an English hint (a translation
+ * table's or a wordnet's) is a list of translations, and the short is its first one
+ * ("corteza, costra" → "corteza"); any other sense (an edition's gloss, a pointer) is
+ * read as a definition (`shortOfDefinition`: "Pieza de pan." → "Pieza de pan"). The
+ * packs store a short only where the data build made another (format 4): a Wikidata
+ * description is the whole description ("ciudad y sede del condado de Summit, estado
+ * de Ohio, Estados Unidos"), a reversed table's word the whole word ("P.G.").
+ */
+export const shortOfPairSenses = (
+  senses: readonly (readonly [
+    pos: string,
+    text: string,
+    hint?: string | null,
+    ...rest: unknown[],
+  ])[],
+): string => {
+  const first = senses[0];
+  if (first === undefined) return "";
+  const [, text, hint] = first;
+  return hint != null ? text.split(", ")[0]! : shortOfDefinition(text);
+};
 
 /** Whether position `at` of `text` is inside parentheses or square brackets. */
 function insideBrackets(text: string, at: number): boolean {

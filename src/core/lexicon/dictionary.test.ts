@@ -782,7 +782,6 @@ describe("createPairDictionary over a learning pair (German → French)", () => 
   const dictionary = createPairDictionary({
     dict: {
       essen: [
-        "manger",
         [
           ["verb", "manger"],
           ["noun", "repas, nourriture"],
@@ -790,8 +789,8 @@ describe("createPairDictionary over a learning pair (German → French)", () => 
         0,
         [1],
       ],
-      vater: ["père", [["noun", "père"]], 0, [0]],
-      gehen: ["aller", [["verb", "aller"]], 1],
+      vater: [[["noun", "père"]], 0, [0]],
+      gehen: [[["verb", "aller"]], 1],
     },
     defs: { laufen: [["verb", "to run"]] },
     ipa: {},
@@ -829,14 +828,19 @@ describe("createPairDictionary over a learning pair (German → French)", () => 
 describe("createPairDictionary", () => {
   const dictionary = createPairDictionary({
     dict: {
+      // A short the pack stores, as the data build made it (format 4: only where it
+      // is not the senses').
       light: [
-        "luz",
         [
           ["noun", "Luz."],
           ["noun", "lámpara, farol", "source of illumination"],
         ],
         0,
+        null,
+        "luz",
       ],
+      lamp: [[["noun", "lámpara, farol", "source of illumination"]], 1],
+      lantern: [[["noun", "Farol."]], 0],
     },
     defs: {
       light: [["noun", "Visible radiation."]],
@@ -863,6 +867,11 @@ describe("createPairDictionary", () => {
         },
       ],
     });
+  });
+  it("makes a short the pack does not store from the first sense", () => {
+    // A translation table's first word; an edition's gloss as a definition.
+    expect(dictionary.entry("lamp")?.short).toBe("lámpara");
+    expect(dictionary.entry("lantern")?.short).toBe("Farol");
   });
   it("falls back to the English definitions, marked as English", () => {
     expect(dictionary.entry("give up")).toEqual({
@@ -900,27 +909,17 @@ describe("createPairDictionary", () => {
     const THIRD = "Tercera persona del singular del presente simple de";
     const dict: PairPack = {
       best: [
-        "Superlativo",
         [
           ["adjective", "Superlativo de good.", null, "good"],
           ["verb", "Vencer."],
         ],
         0,
       ],
-      good: ["Bueno", [["adjective", "Bueno."]], 0],
-      children: [
-        "Plural",
-        [["noun", "Forma del plural de child.", null, "child"]],
-        0,
-      ],
-      child: ["Niño", [["noun", "Niño."]], 0],
-      told: [
-        "Pasado simple",
-        [["verb", "Pasado simple del verbo (to) tell.", null, "tell"]],
-        0,
-      ],
+      good: [[["adjective", "Bueno."]], 0],
+      children: [[["noun", "Forma del plural de child.", null, "child"]], 0],
+      child: [[["noun", "Niño."]], 0],
+      told: [[["verb", "Pasado simple del verbo (to) tell.", null, "tell"]], 0],
       tell: [
-        "Señal",
         [
           ["noun", "Señal."],
           ["verb", "Contar."],
@@ -928,11 +927,10 @@ describe("createPairDictionary", () => {
         ],
         0,
       ],
-      has: ["Tercera", [["verb", `${THIRD} (to) have.`, null, "have"]], 0],
-      have: ["Tener", [["verb", "Tener."]], 0],
-      had: ["Pasado", [["verb", "Pasado de have.", null, "have"]], 0],
+      has: [[["verb", `${THIRD} (to) have.`, null, "have"]], 0],
+      have: [[["verb", "Tener."]], 0],
+      had: [[["verb", "Pasado de have.", null, "have"]], 0],
       does: [
-        "Plural",
         [
           ["noun", "Plural de doe.", null, "doe"],
           ["verb", `${THIRD} do.`, null, "do"],
@@ -1006,11 +1004,11 @@ describe("createPairDictionary", () => {
   describe("capitalised headwords", () => {
     // Capitalised headwords sit under their capital key, with what they mean (format 3).
     const dict = {
-      japan: ["laca", [["noun", "laca japonesa"]], 0],
-      Japan: ["Japón", [["proper noun", "Japón"]], 0, "name"],
-      Thursday: ["jueves", [["noun", "jueves", "day of the week"]], 1, "word"],
-      china: ["porcelana", [["noun", "porcelana"]], 0],
-      China: ["China", [["proper noun", "China"]], 0],
+      japan: [[["noun", "laca japonesa"]], 0],
+      Japan: [[["proper noun", "Japón"]], 0, "name"],
+      Thursday: [[["noun", "jueves", "day of the week"]], 1, "word"],
+      china: [[["noun", "porcelana"]], 0],
+      China: [[["proper noun", "China"]], 0],
     } as unknown as PairPack;
     const capitals = createPairDictionary({ dict, defs: {}, ipa: {} });
 
@@ -1027,10 +1025,10 @@ describe("createPairDictionary", () => {
     it("keeps acronyms for words written in capitals", () => {
       const acronyms = createPairDictionary({
         dict: {
-          and: ["y", [["conjunction", "y"]], 0],
-          AND: ["Y", [["noun", "Y lógico"]], 0, "word"],
-          us: ["nos", [["pronoun", "nos"]], 0],
-          US: ["EE. UU.", [["proper noun", "EE. UU."]], 1, "name"],
+          and: [[["conjunction", "y"]], 0],
+          AND: [[["noun", "Y lógico"]], 0, "word"],
+          us: [[["pronoun", "nos"]], 0],
+          US: [[["proper noun", "EE. UU."]], 1, "name"],
         } as unknown as PairPack,
         defs: {},
         ipa: {},
@@ -1048,16 +1046,14 @@ describe("createPairDictionary", () => {
     it("shows lines equal apart from case once, as the page writes the word", () => {
       const variants = {
         congress: [
-          "congreso",
           [
             ["noun", "congreso"],
             ["verb", "reunirse"],
           ],
           0,
         ],
-        Congress: ["Congreso", [["proper noun", "Congreso"]], 1, "word"],
+        Congress: [[["proper noun", "Congreso"]], 1, "word"],
         assumption: [
-          "supposizione",
           [
             ["noun", "supposizione", "supposition"],
             ["noun", "Assunzione", "feast"],
@@ -1066,10 +1062,9 @@ describe("createPairDictionary", () => {
           1,
         ],
         // German: case tells a noun ("Positiv", the grammar term) from an adjective.
-        house: ["Haus", [["noun", "Haus"]], 0],
-        tree: ["Baum", [["noun", "Baum"]], 0],
+        house: [[["noun", "Haus"]], 0],
+        tree: [[["noun", "Baum"]], 0],
         positive: [
-          "Positiv",
           [
             ["adjective", "Positiv", "grammar: describing the primary sense"],
             ["adjective", "positiv", "legal: formally laid down"],
@@ -1104,7 +1099,6 @@ describe("createPairDictionary", () => {
       const pos = createPairDictionary({
         dict: {
           one: [
-            "uno",
             [
               ["numeral", "uno"],
               ["noun", "Uno"],
@@ -1141,7 +1135,6 @@ describe("createPairDictionary", () => {
     const dict: PairPack = {
       // es: Wikcionario leaves its degrees unmarked.
       better: [
-        "Mejorar",
         [
           ["verb", "Mejorar"],
           ["adjective", "Comparativo irregular de good"],
@@ -1150,7 +1143,6 @@ describe("createPairDictionary", () => {
         0,
       ],
       good: [
-        "Bueno",
         [
           ["noun", "Bien"],
           ["adjective", "Bueno"],
@@ -1159,7 +1151,6 @@ describe("createPairDictionary", () => {
         0,
       ],
       nuts: [
-        "Plural",
         [
           ["noun", "Plural de nut", null, "nut"],
           ["adjective", "Loco"],
@@ -1167,7 +1158,6 @@ describe("createPairDictionary", () => {
         0,
       ],
       nut: [
-        "Nuez",
         [
           ["noun", "Nuez"],
           ["noun", "Fruta seca"],
@@ -1175,11 +1165,10 @@ describe("createPairDictionary", () => {
         0,
       ],
       // fr: a gloss that starts with the base is the native word spelt the same.
-      contented: ["Content", [["adjective", "Content, satisfait"]], 0],
-      content: ["Contenu", [["adjective", "Satisfait"]], 0],
+      contented: [[["adjective", "Content, satisfait"]], 0],
+      content: [[["adjective", "Satisfait"]], 0],
       // A translation table's senses: the auxiliary's is the second.
       have: [
-        "avere",
         [
           ["verb", "avere, tenere", "1. to possess"],
           [
@@ -1258,12 +1247,8 @@ describe("createPairDictionary", () => {
     it("reads a degree whose line is the meaning a qualifier introduces as that meaning", () => {
       const later = createPairDictionary({
         dict: {
-          later: [
-            "Más tarde",
-            [["adverb", "Comparativo de late: más tarde"]],
-            0,
-          ],
-          late: ["Tarde", [["adverb", "Tarde"]], 0],
+          later: [[["adverb", "Comparativo de late: más tarde"]], 0],
+          late: [[["adverb", "Tarde"]], 0],
         },
         defs: {},
         ipa: {},
@@ -1292,7 +1277,7 @@ describe("createPairDictionary", () => {
       // en-ru "has been" → have, which has none: not "to own".
       expect(
         dictionary.entry("good", undefined, "auxiliary base"),
-      ).toMatchObject({ lines: [], short: "Bueno" });
+      ).toMatchObject({ lines: [], short: "Bien" });
     });
   });
 });

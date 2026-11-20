@@ -20,6 +20,7 @@ import {
   mergeSources,
   nativeKindOf,
   nativeLetterOf,
+  packedEntry,
   pointerTemplates,
   readEdition,
   readTranslationTables,
@@ -738,6 +739,27 @@ describe("withSharedFirst", () => {
       ["verb", "sein", "identical"],
     ];
     expect(withSharedFirst(be)).toEqual(be);
+  });
+});
+
+describe("packedEntry", () => {
+  it("leaves out a short the dictionary makes from the senses (format 4)", () => {
+    const senses: PairSense[] = [["noun", "luz, lámpara", "illumination"]];
+    expect(packedEntry("luz", senses, 1)).toEqual([senses, 1]);
+    expect(packedEntry("luz", senses, 1, "word")).toEqual([senses, 1, "word"]);
+  });
+  it("stores any other short last, the third item null when there is none", () => {
+    const senses: PairSense[] = [
+      ["proper noun", "ciudad de Ohio, Estados Unidos", "city in Ohio"],
+    ];
+    const short = "ciudad de Ohio, Estados Unidos";
+    expect(packedEntry(short, senses, 2, "word")).toEqual([
+      senses,
+      2,
+      "word",
+      short,
+    ]);
+    expect(packedEntry(short, senses, 2)).toEqual([senses, 2, null, short]);
   });
 });
 

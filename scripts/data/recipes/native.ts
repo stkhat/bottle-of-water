@@ -35,6 +35,7 @@ import {
   withAuxiliarySenses,
   mergeSources,
   nativeLetterOf,
+  packedEntry,
   readEdition,
   readTranslationTables,
   termKeyOf,
@@ -364,12 +365,25 @@ async function main() {
       native,
       { termKey, names, lemmas, pos, contractions, entities },
     );
+    // Each short stored only where the dictionary would not make it (format 4).
     const index = writeShards(
       `en-${native}`,
-      dict,
+      Object.fromEntries(
+        Object.entries(dict).map(([key, [short, senses, source]]) => [
+          key,
+          packedEntry(short, senses, source),
+        ]),
+      ),
       PACKS_DIR,
       { sources },
-      capital,
+      Object.fromEntries(
+        Object.entries(capital).map(
+          ([key, [short, senses, source, meaning]]) => [
+            key,
+            packedEntry(short, senses, source, meaning),
+          ],
+        ),
+      ),
     );
     const { classSenses, word, name, none } = stats.capitals;
     console.log(

@@ -13,6 +13,7 @@ import {
   pointerLine,
   shortLines,
   shortOfDefinition,
+  shortOfPairSenses,
   shortOfSenses,
   translatedLine,
 } from "./short-lines";
@@ -119,6 +120,28 @@ describe("shortOfSenses", () => {
   });
   it("is empty for an entry with no senses", () => {
     expect(shortOfSenses([])).toBe("");
+  });
+});
+
+describe("shortOfPairSenses", () => {
+  it("is a hinted sense's first translation (a translation table's, a wordnet's)", () => {
+    expect(
+      shortOfPairSenses([
+        ["noun", "corteza, costra", "outer layer of bread"],
+        ["noun", "Pieza de pan."],
+      ]),
+    ).toBe("corteza");
+  });
+  it("reads any other first sense as a definition: an edition's gloss, a pointer", () => {
+    expect(shortOfPairSenses([["noun", "Pieza de pan."]])).toBe("Pieza de pan");
+    expect(
+      shortOfPairSenses([
+        ["verb", "Pasado simple del verbo (to) tell.", null, "tell"],
+      ]),
+    ).toBe("Pasado simple del verbo (to) tell");
+  });
+  it("is empty for an entry with no senses", () => {
+    expect(shortOfPairSenses([])).toBe("");
   });
 });
 

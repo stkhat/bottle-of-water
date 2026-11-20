@@ -14,7 +14,11 @@ import { withContractions } from "../lexicon/contractions";
 import { createLanguagePack } from "../lexicon/language-pack";
 import { ipaFor } from "../lexicon/ipa";
 import { lemmatize } from "../lexicon/lemmatize";
-import { capitalKey, displayWidth } from "../lexicon/short-lines";
+import {
+  capitalKey,
+  displayWidth,
+  shortOfPairSenses,
+} from "../lexicon/short-lines";
 import { recipeNatives, type RecipeNative } from "../natives";
 import { createPackLoader } from "./load";
 import { lookup } from "../lexicon/lookup";
@@ -77,6 +81,31 @@ describe("generated definitions packs (format 2)", () => {
           expect(typeof sense[1]).toBe("string");
         }
       }
+    },
+  );
+});
+
+describe("generated pair packs (recipe pairs format 4, de-fr format 2)", () => {
+  it.each([
+    ...recipeNatives().map((native) => `en-${native}` as const),
+    "de-fr" as const,
+  ])(
+    "%s stores a term's short only where it is not its senses'",
+    async (pack) => {
+      const { dict } = await loadPack(pack);
+      const entries = Object.values(dict);
+      expect(entries.length).toBeGreaterThan(10000);
+      let stored = 0;
+      for (const [senses, source, , short] of entries) {
+        expect(senses.length).toBeGreaterThan(0);
+        expect(typeof source).toBe("number");
+        if (short === undefined) continue;
+        stored++;
+        expect(short).not.toBe(shortOfPairSenses(senses));
+        expect(short).toBe(short.trim());
+      }
+      // Wikidata's descriptions, whole: about 1.5% of en-es.
+      expect(stored).toBeLessThan(entries.length / 50);
     },
   );
 });
@@ -516,14 +545,14 @@ describe("generated en-es dictionary", () => {
 
   it("keeps the English sense as the hint of translation-table senses", () => {
     const fromTables = Object.entries(enEs).filter(
-      ([, [, , source]]) =>
+      ([, [, source]]) =>
         index.sources?.[source] === "enwiktionary-translations",
     );
     expect(fromTables.length).toBeGreaterThan(10000);
-    for (const [, [, senses]] of fromTables.slice(0, 100))
+    for (const [, [senses]] of fromTables.slice(0, 100))
       for (const [, , hint] of senses) expect(hint).toBeTruthy();
+    // Its short, the senses' first word (`shortOfPairSenses`), is not stored (format 4).
     expect(enEs.tangy).toEqual([
-      "acidulado",
       [["adjective", "acidulado, acídulo", "having a sharp, pungent flavor"]],
       index.sources!.indexOf("enwiktionary-translations"),
     ]);
@@ -577,7 +606,7 @@ describe.each([
   it("takes terms from every source and keeps every hover line within the cap", async () => {
     const { dict, dictionary } = await load;
     const bySource = sources.map(() => 0);
-    for (const [, , source] of Object.values(dict)) bySource[source]!++;
+    for (const [, source] of Object.values(dict)) bySource[source]!++;
     expect(bySource.every((n) => n > 1000)).toBe(true);
     for (const word of ["light", "go", "time", "people", "think"])
       for (const line of dictionary.entry(word)?.lines ?? [])
@@ -586,7 +615,7 @@ describe.each([
 
   it("writes Russian without the stress marks Wiktionary adds for learners", async () => {
     const { dict } = await load;
-    const marked = Object.entries(dict).filter(([, [, senses]]) =>
+    const marked = Object.entries(dict).filter(([, [senses]]) =>
       senses.some(([, text]) =>
         /\p{Script=Cyrillic}[̀́]/u.test(text.normalize("NFD")),
       ),
@@ -648,7 +677,7 @@ describe.each([
     expect(index.sources).toEqual(sources);
     const { dict } = await load;
     const bySource = sources.map(() => 0);
-    for (const [, , source] of Object.values(dict)) bySource[source]!++;
+    for (const [, source] of Object.values(dict)) bySource[source]!++;
     expect(bySource.every((n) => n > 500)).toBe(true);
   });
 
@@ -664,7 +693,7 @@ describe.each([
 
   it("keeps no page markup the extraction let into a gloss", async () => {
     const { dict } = await load;
-    const marked = Object.values(dict).filter(([, senses]) =>
+    const marked = Object.values(dict).filter(([senses]) =>
       senses.some(([, text]) => /={2,}|\n\s*[*#]/.test(text)),
     );
     expect(marked).toEqual([]);
@@ -680,7 +709,7 @@ describe.each(recipeNatives())("generated en-%s pointers", (native) => {
 
   it("name a term as their target and are no meaning of their own", async () => {
     const { dict, dictionary } = await load;
-    const pointers = Object.entries(dict).flatMap(([term, [, senses]]) =>
+    const pointers = Object.entries(dict).flatMap(([term, [senses]]) =>
       senses.flatMap(([, , hint, target]) =>
         target === undefined ? [] : [{ term, hint, target }],
       ),
@@ -802,8 +831,8 @@ describe("generated en-zh dictionary", () => {
   it("is written in simplified characters", async () => {
     const { dict } = await loadPack("en-zh");
     const convert = simplifiedConverter();
-    const traditional = Object.values(dict).filter(([short, senses]) =>
-      [short, ...senses.map(([, text]) => text)].some(
+    const traditional = Object.values(dict).filter(([senses, , , short]) =>
+      [short ?? "", ...senses.map(([, text]) => text)].some(
         (text) => convert(text) !== text,
       ),
     );
