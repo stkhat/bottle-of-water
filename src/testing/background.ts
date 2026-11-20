@@ -132,13 +132,18 @@ const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
   "make up one's mind": ["決心する、決める", ["決心する", "決める"]],
 };
 /**
- * English definitions: "figure out", and "DEA", a capital-only word (en/capitals.json)
- * whose first sense is not the one an article that spells it out means.
+ * English definitions: "figure out", and "DEA" and "GPU", capital-only words
+ * (en/capitals.json) whose first sense is not the one an article that spells it out
+ * means.
  */
 const DEFS: PackFiles["en-defs"]["defs"] = {
   dea: [
     ["noun", "diethanolamine: A hydroxy secondary amine."],
     ["noun", "Initialism of Drug Enforcement Administration."],
+  ],
+  gpu: [
+    ["noun", "Initialism of State Political Directorate."],
+    ["noun", "graphics processing unit: A specialized electronic circuit."],
   ],
   "figure out": [
     ["verb", "To come to understand; to discover or find a solution."],
@@ -153,6 +158,9 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
       starches: "starch",
       gave: "give",
       made: "make",
+      // An article's plurals: "Graphics processing units (GPUs)".
+      units: "unit",
+      gpus: "gpu",
     },
     freq: [
       ...COMMON,
@@ -169,7 +177,7 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
     // Sure of no word: no tag counts (rules A1 and A2 change nothing here).
     tagger: { tags: ["NN", "VB"], words: {}, weights: {}, scale: 10 },
     contractions: {},
-    capitals: ["DEA"],
+    capitals: ["DEA", "GPU"],
   },
   "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL, sensePos: {} },
   "en-defs": { defs: DEFS },
@@ -190,7 +198,7 @@ const FILES: Readonly<Record<string, unknown>> = {
   "/packs/en-ja/capital.json": CAPITAL,
   "/packs/en-ja/pos.json": {},
   "/packs/en-defs/index.json": {
-    shards: [{ file: "dict-1.json", first: "dea", last: "figure out" }],
+    shards: [{ file: "dict-1.json", first: "dea", last: "gpu" }],
   },
   "/packs/en-defs/dict-1.json": DEFS,
 };

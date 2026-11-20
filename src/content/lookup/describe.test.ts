@@ -273,6 +273,13 @@ describe("inflectionNote", () => {
     );
     expect(inflectionNote("loaves", "loaf", "loaf")).toBe("loaves → loaf");
   });
+  it("writes an acronym's form as the page does and its headword as written", () => {
+    expect(inflectionNote("GPUs", "gpu", "GPU")).toBe("GPUs → GPU");
+    expect(inflectionNote("DEA’s", "dea", "DEA")).toBe("DEA's → DEA");
+    expect(inflectionNote("iPhones", "iphone", "iPhone")).toBe(
+      "iPhones → iPhone",
+    );
+  });
   it("is empty when the form is the base", () => {
     expect(inflectionNote("Tedious", "tedious")).toBeUndefined();
     expect(inflectionNote("don’t", "don't")).toBeUndefined();

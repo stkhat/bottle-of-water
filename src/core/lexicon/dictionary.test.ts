@@ -111,6 +111,10 @@ const dictionary = createEnJaDictionary({
       ["noun", "A hydroxy secondary amine."],
       ["proper noun", "Initialism of Drug Enforcement Administration."],
     ],
+    gpu: [
+      ["noun", "Initialism of State Political Directorate."],
+      ["noun", "graphics processing unit: A specialized electronic circuit."],
+    ],
     "give up": [["verb", "(unused)"]],
     "search for": [["verb", "Synonym of look for"]],
     "look for": [
@@ -361,6 +365,22 @@ describe("createEnJaDictionary", () => {
       dictionary.entry("dea", "upper", undefined, undefined, spelledOut("DEA"))
         ?.short,
     ).toBe("A hydroxy secondary amine");
+  });
+
+  it("leads with the expansion its document writes inflected, by the pack's base forms", () => {
+    const text = "Graphics processing units (GPUs) are specialized circuits.";
+    const bases = (word: string) => (word === "units" ? ["unit"] : []);
+    expect(
+      dictionary.entry("gpu", "upper", undefined, undefined, (phrase) =>
+        writesPhrase(text, phrase, bases),
+      )?.short,
+    ).toBe("graphics processing unit: A specialized electronic circuit");
+    // As written only, the plural spells nothing out.
+    expect(
+      dictionary.entry("gpu", "upper", undefined, undefined, (phrase) =>
+        writesPhrase(text, phrase),
+      )?.short,
+    ).toBe("Initialism of State Political Directorate");
   });
 
   it("gives a word in lower case its lowercase senses only", () => {
