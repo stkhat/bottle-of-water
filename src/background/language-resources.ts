@@ -4,11 +4,13 @@ import {
   createEnJaDictionary,
   createPairDictionary,
   withCompounds,
+  withPhraseCase,
   withWrittenHeads,
   type DictionaryProvider,
 } from "../core/lexicon/dictionary";
 import {
   createLanguagePack,
+  capitalisesNouns,
   writesCompounds,
   type LanguagePack,
 } from "../core/lexicon/language-pack";
@@ -258,10 +260,17 @@ export function createLanguageResources(loadPack: LoadPack): LanguageResources {
         return Promise.reject(new Error(`No dictionary from ${from} to ${to}`));
       return once(`dictionary:${from}-${to}`, found.packs, async () => {
         const dictionary = await found.build(loadPack);
-        if (!writesCompounds(from)) return dictionary;
-        // Closed compounds ("Bahnsystem") are read by their parts.
+        if (!writesCompounds(from) && !capitalisesNouns(from))
+          return dictionary;
         const learning = await pack(from);
-        return withCompounds(dictionary, (key) => learning.compound(key));
+        // Closed compounds ("Bahnsystem") are read by their parts.
+        const compounds = writesCompounds(from)
+          ? withCompounds(dictionary, (key) => learning.compound(key))
+          : dictionary;
+        // Phrases' headwords keep the language's capitals ("auf jeden Fall").
+        return capitalisesNouns(from)
+          ? withPhraseCase(compounds, (word) => learning.lemmas(word))
+          : compounds;
       });
     },
 

@@ -75,12 +75,14 @@ export type DefsPack = Readonly<
        * built in L1-3 and L1-4 (`fr-en`, `es-en`); the data build now labels such a
        * sense "auxiliary" instead. "capital" for a sense of a capitalised headword
        * the key shares with a lowercase one (`Sense.capital`; `de-en` from L2-2: Sie's
-       * "you (polite)" under "sie", Essen's "food" under "essen").
+       * "you (polite)" under "sie", Essen's "food" under "essen"). "singular" or
+       * "plural" for a personal pronoun's sense of that number (`Sense.number`; `de-en`
+       * from R3: sie's "she; her", "they; them").
        */
       senses: readonly (readonly [
         pos: string,
         text: string,
-        use?: "auxiliary" | "capital",
+        use?: "auxiliary" | "capital" | "singular" | "plural",
       ])[],
     ]
   >

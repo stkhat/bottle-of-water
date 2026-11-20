@@ -8,13 +8,15 @@
 // case.
 // The German Wiktionary extract (de.wiktionary, kaikki-de-edition.jsonl, 3.1 GB) gives
 // its examples, which with kaikki-de's own make the phrase build's example corpus, and
-// the IPA of the words English Wiktionary has none for. Its German entries are first
-// cut to those two parts, once, into kaikki-de-edition-slim.jsonl.
+// the IPA of the words English Wiktionary has none for; its English translation tables,
+// inflection tables and form-of entries give the words and forms English Wiktionary
+// lacks (edition-tables.ts). Its German entries are first cut to those parts, once,
+// into kaikki-de-edition-slim.jsonl and kaikki-de-edition-tables.jsonl.
 // Usage: node scripts/data/de-kaikki.ts [path]   (default data/raw/kaikki-de.jsonl)
 import { join } from "node:path";
 import { COMPOUND_RULES } from "../../src/core/lexicon/compounds.ts";
 import { GERMAN_RULES } from "../../src/core/phrases/de.ts";
-import { RAW_DIR } from "./common.ts";
+import { RAW_DIR, readPack } from "./common.ts";
 import {
   DE_FORMS,
   GERMAN_WORD,
@@ -23,6 +25,7 @@ import {
   readDeFrequency,
 } from "./de-frequency.ts";
 import { germanTreebankLemmas } from "./de-treebank.ts";
+import { slimTables } from "./edition-tables.ts";
 import {
   buildLearningPacks,
   buildSummary,
@@ -40,6 +43,11 @@ const KAIKKI_DE_EDITION_PATH = join(RAW_DIR, "kaikki-de-edition.jsonl");
 const KAIKKI_DE_EDITION_SLIM_PATH = join(
   RAW_DIR,
   "kaikki-de-edition-slim.jsonl",
+);
+/** The German edition's German entries, with only their names, form-of senses and tables. */
+const KAIKKI_DE_EDITION_TABLES_PATH = join(
+  RAW_DIR,
+  "kaikki-de-edition-tables.jsonl",
 );
 /** Senses of a word read for a phrase's gloss bag, as Spanish's and French's. */
 const PHRASE_WORD_SENSES = 3;
@@ -101,8 +109,28 @@ export const GERMAN_BUILD: LearningBuild = {
   compounds: COMPOUND_RULES.de,
 };
 
+/**
+ * Whether a key is an English word, form or name (the `en` pack's vocabulary, lemma
+ * table and names lexicon): the German edition's translations leave those out
+ * (`nativeWord`).
+ */
+function englishWord() {
+  const words = new Set([
+    ...readPack<string[]>("en/vocab.json"),
+    ...Object.keys(readPack<Record<string, unknown>>("en/lemmas.json")),
+    ...Object.keys(readPack<Record<string, unknown>>("en/names.json")),
+  ]);
+  return (key: string) => words.has(key);
+}
+
 async function main() {
   await slimEdition("de", KAIKKI_DE_EDITION_PATH, KAIKKI_DE_EDITION_SLIM_PATH);
+  await slimTables(
+    "de",
+    KAIKKI_DE_EDITION_PATH,
+    KAIKKI_DE_EDITION_TABLES_PATH,
+    GERMAN_WORD,
+  );
   const written = germanWritten(await readDeFrequency(DE_FORMS));
   const packs = await buildLearningPacks(
     GERMAN_BUILD,
@@ -117,6 +145,10 @@ async function main() {
       // French's (L1-4): with de.wiktionary's too, its count terms leave most common
       // expressions undetected ("vor allem", "zum Beispiel"); judged blind (L2-3).
       ownEditionExamples: false,
+      // The German edition's English translations and tables give the words and
+      // forms English Wiktionary lacks (R3; judged 50 : 15 against no meaning in L2-1).
+      tablesPath: KAIKKI_DE_EDITION_TABLES_PATH,
+      nativeWord: englishWord(),
     },
   );
   console.log(buildSummary("de", packs, writeLearningPacks("de", packs)));

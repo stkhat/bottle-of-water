@@ -31,6 +31,13 @@ export interface Sense {
    * a way that counts, and the card's headword is then capitalised.
    */
   capital?: true;
+  /**
+   * The number of a personal pronoun's sense (a definitions pack's "singular",
+   * "plural": German sie's "she; her" and "they; them"): where the grammar reads the
+   * pronoun's number from its verb ("sie sind"), the senses of the other number come
+   * after (`senseOrder`).
+   */
+  number?: "singular" | "plural";
 }
 export interface Entry {
   short: string;

@@ -179,6 +179,16 @@ describe("germanTagger: separable verbs", () => {
       base: "fangen",
     });
   });
+  it("reads no particle in the infinitive's zu that a line cuts off", () => {
+    const HABEN = "haben/VERB.Fin/haben/zuhaben";
+    const cut = sentence(`wir/PRON ${HABEN} keine/DET zeit/NOUN zu/ADP`);
+    expect(
+      tagger.uses(
+        cut.map((word, i) => (i === 4 ? { ...word, pauseAfter: false } : word)),
+      )[1],
+    ).toMatchObject({ base: "haben" });
+    expect(tagger.uses(cut)[1]).toMatchObject({ base: "zuhaben" });
+  });
   it("takes the simple verb the separable ones are made of, not a noun among the bases", () => {
     expect(
       usesOf(
@@ -250,6 +260,47 @@ describe("germanTagger: pronominal verbs", () => {
     expect(
       usesOf("er/PRON denkt/VERB.Fin/denken an/ADP sich/PRON")[1],
     ).not.toHaveProperty("pronominal");
+  });
+  it("gives the pronoun's case where its form shows it", () => {
+    const STELLE = "stelle/VERB.Fin/stellen/vorstellen";
+    expect(
+      usesOf(`ich/PRON ${STELLE} mir/PRON das/PRON vor/PART.Vz`)[1],
+    ).toMatchObject({ pronominal: true, reflexiveCase: "dative" });
+    expect(usesOf(`ich/PRON ${STELLE} mich/PRON vor/PART.Vz`)[3]).toMatchObject(
+      { particleOf: "vorstellen", reflexiveCase: "accusative" },
+    );
+    expect(
+      usesOf("er/PRON freut/VERB.Fin/freuen sich/PRON")[1],
+    ).not.toHaveProperty("reflexiveCase");
+  });
+});
+
+describe("germanTagger: a third-person subject's number", () => {
+  it("reads it from the finite verb after or before it", () => {
+    expect(usesOf("sie/PRON sind/AUX.Fin/sein müde/ADJ")[0]).toMatchObject({
+      number: "plural",
+      grammarPos: "pronoun",
+    });
+    expect(usesOf("sie/PRON ist/AUX.Fin/sein müde/ADJ")[0]).toMatchObject({
+      number: "singular",
+    });
+    expect(
+      usesOf("jetzt/ADV drohen/VERB.Fin/drohen sie/PRON")[2],
+    ).toMatchObject({ number: "plural" });
+    // A past singular spelt like a noun is no plural.
+    expect(
+      usesOf("dann/ADV schloss/VERB.Fin/schließen/schloss sie/PRON")[2],
+    ).toMatchObject({ number: "singular" });
+  });
+  it("reads the verb at the clause's end after a subordinator", () => {
+    expect(
+      usesOf("weil/SCONJ sie/PRON keine/DET zeit/NOUN haben/VERB.Fin/haben")[1],
+    ).toMatchObject({ number: "plural" });
+  });
+  it("says nothing of an object pronoun", () => {
+    expect(
+      usesOf("wir/PRON sehen/VERB.Fin/sehen sie/PRON")[2],
+    ).not.toHaveProperty("number");
   });
 });
 
@@ -333,7 +384,7 @@ describe("germanTagger: capitalised nouns", () => {
     const words = sentence("wissen/VERB.Fin sie/PRON").map((word, i) =>
       i === 1 ? { ...word, capital: true as const } : word,
     );
-    expect(tagger.uses(words)[1]).not.toHaveProperty("grammarPos");
+    expect(tagger.uses(words)[1]?.grammarPos).not.toBe("noun");
   });
 });
 

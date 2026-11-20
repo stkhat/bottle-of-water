@@ -9,7 +9,9 @@ import { GERMAN_BUILD, germanEditionIpa } from "./de-kaikki.ts";
 import {
   buildLearningPacks,
   contractionMeaning,
+  dativeReflexive,
   keptSenses,
+  pronounNumber,
   translationFirst,
   type LearningPacks,
 } from "./learning-kaikki.ts";
@@ -50,6 +52,12 @@ const written = germanWritten(
       "2 [[freuen]]",
       "1 [[treffen]]",
       "1 [[malen]]",
+      "1 [[Rucola]]",
+      "1 [[Daddy]]",
+      "1 [[Hans]]",
+      "1 [[KI]]",
+      "1 [[aufzuholen]]",
+      "1 [[reiste]]",
     ].join("\n"),
   ),
 );
@@ -160,6 +168,78 @@ describe("buildLearningPacks with German's settings", () => {
   });
   it("puts the article's translation first", () => {
     expect(packs.defs["der"]?.[0]).toBe("the");
+  });
+});
+
+describe("buildLearningPacks with the German edition as a second source", () => {
+  let packs: LearningPacks;
+  beforeAll(async () => {
+    packs = await buildLearningPacks(
+      GERMAN_BUILD,
+      fixture,
+      germanForms(written),
+      {
+        written,
+        phraseScoring: { stopwords: { gloss: 4, function: 2 } },
+        tablesPath: join(
+          import.meta.dirname,
+          "fixtures",
+          "kaikki-de-edition-tables.jsonl",
+        ),
+        nativeWord: (key) => key === "daddy",
+      },
+    );
+  });
+
+  it("adds a word English Wiktionary lacks, with its translations and forms", () => {
+    expect(packs.defs["rucola"]?.[1]).toEqual([
+      ["noun", "arugula, rocket", "capital"],
+    ]);
+    expect(packs.lemmas["rucolas"]).toBe("rucola");
+    expect(packs.defs["aufholen"]?.[1]).toEqual([["verb", "to catch up"]]);
+    expect(packs.lemmas["aufzuholen"]).toBe("aufholen");
+  });
+  it("adds the forms English Wiktionary lacks of its own words, and changes none of them", () => {
+    expect(packs.lemmas["reiste"]).toBe("reisen");
+    expect(packs.defs["essen"]?.[1][0]).toEqual(["verb", "to eat"]);
+  });
+  it("leaves out names, English words and initialisms", () => {
+    expect(packs.vocab).not.toContain("hans");
+    expect(packs.vocab).not.toContain("daddy");
+    expect(packs.vocab).not.toContain("ki");
+  });
+});
+
+describe("dativeReflexive", () => {
+  it("reads a transitive sense whose reflexive pronoun is a dative", () => {
+    expect(
+      dativeReflexive({
+        tags: ["dative", "reflexive", "transitive"],
+        raw_glosses: ["(transitive, dative reflexive) to imagine"],
+      }),
+    ).toBe(true);
+    expect(
+      dativeReflexive({
+        tags: ["reflexive", "transitive"],
+        raw_glosses: ["(transitive with dative reflexive) to come up with"],
+      }),
+    ).toBe(true);
+    // No direct object beside it: "ich mache mir Sorgen" is no use of it.
+    expect(
+      dativeReflexive({
+        tags: ["colloquial", "dative", "reflexive"],
+        raw_glosses: ["(dative reflexive, colloquial) to get cracking"],
+      }),
+    ).toBe(false);
+    expect(dativeReflexive({ tags: ["reflexive"] })).toBe(false);
+  });
+});
+
+describe("pronounNumber", () => {
+  it("reads a pronoun sense's number from its tags, a gender as the singular", () => {
+    expect(pronounNumber({ tags: ["feminine"] })).toBe("singular");
+    expect(pronounNumber({ tags: ["plural"] })).toBe("plural");
+    expect(pronounNumber({})).toBeUndefined();
   });
 });
 

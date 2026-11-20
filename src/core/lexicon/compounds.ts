@@ -34,6 +34,14 @@ export interface CompoundRules {
   readonly dropped: readonly string[];
   /** The fewest letters of a part, as written. */
   readonly minPart: number;
+  /**
+   * The suffixes that make a noun of a person its feminine, longest first, the
+   * singular last ("innen", "in": Kommissar-in, Kommissar-innen): a word the language
+   * does not know that is a known noun with one is that noun's feminine, keyed by the
+   * noun and the singular suffix ("Kommissarin": Kommissar, not Kommi + Sarin;
+   * "Polizeikommissarin": Polizei + Kommissar).
+   */
+  readonly feminine?: readonly string[];
 }
 
 /** What a compound's split reads of the language (the pack, without compounds). */
@@ -75,6 +83,7 @@ export const COMPOUND_RULES: Readonly<Record<string, CompoundRules>> = {
     stems: ["en", "n"],
     dropped: ["e"],
     minPart: 3,
+    feminine: ["innen", "in"],
   },
 };
 
@@ -230,6 +239,25 @@ const stemOf = (verb: string, modifier: string, rules: CompoundRules) =>
 /** A modifier that is a compound in turn has a noun for its head ("Weltklima-"). */
 const NOUN: readonly string[] = ["noun"];
 
+/**
+ * A head that is a noun's feminine (`CompoundRules.feminine`: "kommissarin",
+ * "kommissarinnen"): the noun's base with the singular suffix; undefined otherwise.
+ */
+function feminineOf(
+  head: string,
+  words: CompoundWords,
+  rules: CompoundRules,
+): string | undefined {
+  const suffixes = rules.feminine ?? [];
+  for (const suffix of suffixes) {
+    const stem = head.slice(0, -suffix.length);
+    if (!head.endsWith(suffix) || stem.length < rules.minPart) continue;
+    const base = headOf(words, stem, NOUN, true);
+    if (base !== undefined) return base + suffixes.at(-1)!;
+  }
+  return undefined;
+}
+
 function split(
   word: string,
   words: CompoundWords,
@@ -239,18 +267,30 @@ function split(
   noun: boolean,
 ): Compound | undefined {
   for (let i = rules.minPart; i <= word.length - rules.minPart; i++) {
-    const head = headOf(words, word.slice(i), heads, noun);
+    const own = headOf(words, word.slice(i), heads, noun);
+    const feminine =
+      own === undefined && heads.includes("noun")
+        ? feminineOf(word.slice(i), words, rules)
+        : undefined;
+    const head = own ?? feminine;
     if (head === undefined) continue;
     const parts = modifierParts(word.slice(0, i), words, rules, depth, noun);
     if (parts)
       return {
         key: word.slice(0, i) + head,
-        parts: [...parts, head],
-        noun: words.partsOfSpeech(head)[0] === "noun",
+        parts: [
+          ...parts,
+          feminine === undefined ? head : masculine(head, rules),
+        ],
+        noun: feminine !== undefined || words.partsOfSpeech(head)[0] === "noun",
       };
   }
   return undefined;
 }
+
+/** A feminine's noun, its key without the singular suffix (`feminineOf`). */
+const masculine = (feminine: string, rules: CompoundRules) =>
+  feminine.slice(0, -rules.feminine!.at(-1)!.length);
 
 /**
  * `word` (in lower case) as a compound of words the language knows (`words`), by
@@ -266,5 +306,9 @@ export function splitCompound(
 ): Compound | undefined {
   if (!/^\p{Ll}+$/u.test(word) || word.length < 2 * rules.minPart)
     return undefined;
+  // A known noun's feminine before any split ("Kommissarin": not Kommi + Sarin).
+  const feminine = noun ? feminineOf(word, words, rules) : undefined;
+  if (feminine !== undefined)
+    return { key: feminine, parts: [masculine(feminine, rules)], noun: true };
   return split(word, words, rules, 0, HEADS, noun);
 }

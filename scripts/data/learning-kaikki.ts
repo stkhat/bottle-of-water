@@ -31,6 +31,12 @@ import { buildFrequency } from "./frequency.ts";
 import { createCaseCounter } from "./examples.ts";
 import { ENGLISH_PHRASES } from "./idiomaticity.ts";
 import { createNames } from "./kaikki.ts";
+import { slimForms, translationSenses } from "./edition-tables.ts";
+import {
+  COMPOUND_PART,
+  compoundSense,
+  createPartGlosses,
+} from "./compound-senses.ts";
 import {
   glossOf,
   importPhrases,
@@ -152,11 +158,44 @@ const AUXILIARY_LABEL = "auxiliary";
  */
 const REFLEXIVE_LABEL = "reflexive";
 
+/**
+ * The part of speech a pronominal verb's sense whose reflexive pronoun is a dative
+ * (its indirect object, beside a direct one) is given: kaikki's "(transitive, dative
+ * reflexive)" senses (German "sich etwas vorstellen": to imagine; "sich etwas
+ * leisten": to afford). Rule A2 shows them first where the grammar reads a dative
+ * reflexive pronoun ("ich stelle mir … vor"), the REFLEXIVE_LABEL ones where it reads
+ * an accusative one ("ich stelle mich vor": to introduce oneself), both where the
+ * pronoun's case does not show ("sich").
+ */
+const DATIVE_REFLEXIVE_LABEL = "dative reflexive";
+
 /** The labels of a verb's senses that are one use of it (`AUXILIARY_LABEL`, `REFLEXIVE_LABEL`). */
 const VERB_USES: ReadonlySet<string> = new Set([
   AUXILIARY_LABEL,
   REFLEXIVE_LABEL,
+  DATIVE_REFLEXIVE_LABEL,
 ]);
+
+/**
+ * A reflexive sense whose pronoun is a dative beside a direct object (kaikki tags it
+ * dative, or its qualifier says "dative reflexive", and transitive): "(transitive,
+ * dative reflexive) to imagine". Not one with no direct object ("(dative reflexive,
+ * colloquial) to get cracking": "ich mache mir Sorgen" is no use of it).
+ */
+export function dativeReflexive(sense: KaikkiSense): boolean {
+  const tags = sense.tags ?? [];
+  const qualifiers = (sense.raw_glosses ?? []).flatMap((gloss) =>
+    typeof gloss === "string"
+      ? [/^\(([^)]*)\)/u.exec(gloss.trim())?.[1] ?? ""]
+      : [],
+  );
+  const says = (pattern: RegExp) =>
+    qualifiers.some((qualifier) => pattern.test(qualifier));
+  return (
+    (tags.includes("dative") || says(/\bdative reflexive\b/iu)) &&
+    (tags.includes("transitive") || says(/(?<!in)transitive\b/iu))
+  );
+}
 
 /** The parts of speech whose first sense past the cap gains a place (`keptSenses`): function words, adverbs and interjections. */
 const PROMOTED: ReadonlySet<string> = new Set([
@@ -243,7 +282,31 @@ const ACRONYM_TAGS: ReadonlySet<string> = new Set(["acronym", "initialism"]);
  * (polite)" under "sie"), so the hover shows it first where the page writes the word
  * capitalised inside a sentence, and the card writes the headword so.
  */
-type Sense = [pos: string, text: string, use?: typeof CAPITAL_USE];
+type Sense = [pos: string, text: string, use?: SenseUse];
+
+/**
+ * A sense's third item: CAPITAL_USE, or a personal pronoun's number ("singular",
+ * "plural": `pronounNumber`).
+ */
+type SenseUse = typeof CAPITAL_USE | "singular" | "plural";
+
+/** The gender tags kaikki gives a third-person pronoun's sense ("sie": feminine, she). */
+const GENDERS: readonly string[] = ["feminine", "masculine", "neuter"];
+
+/**
+ * A personal pronoun's sense's number, from kaikki's tags: "plural" ("sie": they;
+ * them), "singular" or a gender, which only the singular has ("sie": she; her);
+ * undefined for one tagged neither or both (the polite "Sie", either).
+ */
+export function pronounNumber(
+  sense: KaikkiSense,
+): "singular" | "plural" | undefined {
+  const tags = sense.tags ?? [];
+  const plural = tags.includes("plural");
+  const singular =
+    tags.includes("singular") || GENDERS.some((tag) => tags.includes(tag));
+  return plural === singular ? undefined : plural ? "plural" : "singular";
+}
 
 /** The third item of a capitalised headword's sense (`Sense`). */
 const CAPITAL_USE = "capital";
@@ -759,12 +822,25 @@ function usableSenses(
       }
       const gloss = glossOf(sense).trim();
       if (pronominal && (sense.tags ?? []).includes("reflexive"))
-        return [{ def: [REFLEXIVE_LABEL, gloss], sense }];
+        return [
+          {
+            def: [
+              dativeReflexive(sense) ? DATIVE_REFLEXIVE_LABEL : REFLEXIVE_LABEL,
+              gloss,
+            ],
+            sense,
+          },
+        ];
       const [first] = sense.glosses;
       const parent =
         typeof first === "string" && leading.has(first.trim())
           ? first.trim()
           : undefined;
+      // A personal pronoun's sense carries its number, which the grammar may read
+      // from its verb ("sie sind": they).
+      const number = pos === "pronoun" ? pronounNumber(sense) : undefined;
+      if (number !== undefined)
+        return [{ def: [pos, translated(gloss), number], sense }];
       // The parent's meaning before its group's first subsense, once; a heading
       // subsense gives way to it.
       const before: SenseItem[] =
@@ -944,6 +1020,8 @@ export async function buildLearningPacks(
     phraseScoring = {},
     ownEditionExamples = true,
     written,
+    tablesPath,
+    nativeWord = () => false,
   }: {
     freqTop?: number;
     /** The treebanks' lemma counts (`treebankLemmas`), which order a form's bases. */
@@ -974,6 +1052,22 @@ export async function buildLearningPacks(
      * is ("Reisen" ranks Reise, "reisen" itself; `rankedBases`).
      */
     written?: readonly string[];
+    /**
+     * The language's own edition cut to its names, form-of senses and tables
+     * (`slimTables`): the second source of the words and forms `path` lacks
+     * (`editionWords`).
+     */
+    tablesPath?: string;
+    /**
+     * Whether a key is a word or a name of the dictionary's language (English: its
+     * pack's vocabulary, inflected forms and names), which the second source
+     * (`tablesPath`) leaves out: what the subtitles' frequency list ranks high among
+     * the words English Wiktionary lacks is the subtitles' English ("hey", "sir",
+     * "daddy", "crew") and persons' names (Ken, Mac, Sharon, Bobby), which an English
+     * speaker needs no translation of; a loanword spelt as in English ("Smartphone",
+     * "Gossip") neither.
+     */
+    nativeWord?: (key: string) => boolean;
   } = {},
 ) {
   /** The frequency list's forms in current use (`withoutHeadLabels`). */
@@ -1021,9 +1115,33 @@ export async function buildLearningPacks(
   const reflexiveFirst = new Map<string, boolean>();
   /** A separable verb's finite forms written apart: "fängt" → anfangen, … */
   const separated = new Map<string, Set<string>>();
+  /** How compounds' etymologies gloss their parts (`compoundSense`). */
+  const partGlosses = createPartGlosses();
+  /** The keys of proper-noun headwords (Hans, Berlin), which the second source leaves out. */
+  const proper = new Set<string>();
+  const bucketOf = (buckets: Map<string, Bucket>, key: string) => {
+    let bucket = buckets.get(key);
+    if (!bucket)
+      buckets.set(
+        key,
+        (bucket = {
+          items: [],
+          senses: [],
+          form: false,
+          ipa: undefined,
+          bases: [],
+          altBases: [],
+          pos: new Set(),
+          formPos: new Set(),
+        }),
+      );
+    return bucket;
+  };
   const stats = await eachEntry(path, (read) => {
     if (read.lang_code !== lang) return;
     names.add(read);
+    if (read.pos === "name") proper.add(read.word.trim().toLowerCase());
+    if (language.compounds) partGlosses.add(read);
     cases.add(read);
     inside?.add(read);
     const word = read.word.trim().replaceAll("’", "'");
@@ -1069,22 +1187,7 @@ export async function buildLearningPacks(
       language.nounsCapitalised === true && capitalisedSpelling(word, lower);
     // A capitalised word of a language that capitalises nouns is spelt as one.
     const spelt = word === lower || capital;
-    const buckets = spelt ? exact : folded;
-    let bucket = buckets.get(lower);
-    if (!bucket)
-      buckets.set(
-        lower,
-        (bucket = {
-          items: [],
-          senses: [],
-          form: false,
-          ipa: undefined,
-          bases: [],
-          altBases: [],
-          pos: new Set(),
-          formPos: new Set(),
-        }),
-      );
+    const bucket = bucketOf(spelt ? exact : folded, lower);
     for (const { def, alt } of items)
       bucket.items.push({
         def,
@@ -1108,6 +1211,78 @@ export async function buildLearningPacks(
       bucket.altBases.push(...pointerBases(entry, true, WORD));
     }
   });
+  const edition = tablesPath
+    ? await editionWords(tablesPath)
+    : { words: 0, forms: 0 };
+  /**
+   * The second source (`tablesPath`, the language's own edition): a key `path` gives
+   * no meaning, no base and no proper noun (in either edition) takes the edition's
+   * senses from its English translations (`translationSenses`), and its form-of
+   * entries' and inflection tables' forms as its forms ("Kommissarin": police
+   * commissioner; "Rucola"; "läuft", which English Wiktionary points to "laufen 'to
+   * run'"). A word English Wiktionary has keeps everything it gives, and gains only
+   * forms it lacks. Names stay out: given names and surnames that are words too
+   * (Bobby, Vanessa) are proper nouns in one of the editions.
+   */
+  async function editionWords(tables: string) {
+    /** The parts of speech the second source reads: words, not affixes, phrases or abbreviations. */
+    const EDITION_POS: ReadonlySet<string> = new Set([
+      ...["noun", "verb", "adj", "adv", "intj", "num"],
+      ...["pron", "det", "conj", "prep", "postp", "particle"],
+    ]);
+    await eachEntry(
+      tables,
+      (entry) => {
+        if (entry.lang_code === lang && entry.pos === "name")
+          proper.add(entry.word.trim().toLowerCase());
+      },
+      (line) => !line.includes('"pos":"name"'),
+    );
+    // What `path` gives, before the edition adds to it.
+    const given = new Set(
+      [...exact, ...folded]
+        .filter(([, b]) => b.items.length > 0 || b.bases.length > 0)
+        .map(([key]) => key),
+    );
+    const open = (key: string) =>
+      !given.has(key) && !proper.has(key) && !nativeWord(key);
+    const counts = { words: 0, forms: 0 };
+    const addBase = (form: string, base: string, label: string) => {
+      if (form === base || !WORD.test(form) || !open(form)) return;
+      const bucket = bucketOf(exact, form);
+      if (bucket.bases.includes(base)) return;
+      if (bucket.bases.length === 0) counts.forms++;
+      bucket.form = true;
+      bucket.bases.push(base);
+      bucket.formPos.add(label);
+    };
+    await eachEntry(tables, (entry) => {
+      if (entry.lang_code !== lang || !EDITION_POS.has(entry.pos ?? "")) return;
+      const word = entry.word.trim().replaceAll("’", "'");
+      const key = word.toLowerCase();
+      // A headword written as a word: in lower case, or capitalised where the
+      // language capitalises nouns; an initialism's key ("ELN", "TeX", "IT") is
+      // another word's, which text writes in lower case ("Elngeld", "it").
+      const spelt =
+        word === key ||
+        (language.nounsCapitalised === true && capitalisedSpelling(word, key));
+      if (!spelt || /\s/.test(key) || !WORD.test(key) || proper.has(key))
+        return;
+      const label = posLabel(entry.pos!);
+      for (const base of pointerBases(entry, false, WORD))
+        addBase(key, base, label);
+      for (const form of slimForms(entry)) addBase(form, key, label);
+      const senses = open(key) ? translationSenses(entry) : [];
+      if (senses.length === 0) return;
+      const bucket = bucketOf(exact, key);
+      if (bucket.items.length === 0) counts.words++;
+      const capital =
+        language.nounsCapitalised === true && capitalisedSpelling(word, key);
+      for (const def of senses)
+        bucket.items.push({ def, ...(capital && { capital: true as const }) });
+    });
+    return counts;
+  }
   // A headword with an apostrophe or a hyphen that is no word of its own ("qu'il": que
   // + il), or that text reads in parts ("j'aime", "est-il"), is left to its parts,
   // which the tokenizer splits it into.
@@ -1218,7 +1393,8 @@ export async function buildLearningPacks(
       const [pos, text] = alt?.pointerOnly
         ? targetMeaning(def, alt.target)
         : def;
-      return capital && marked ? [pos, text, CAPITAL_USE] : [pos, text];
+      if (capital && marked) return [pos, text, CAPITAL_USE];
+      return def[2] !== undefined && !alt ? [pos, text, def[2]] : [pos, text];
     };
     for (const { def } of counted)
       if (def[0]) bucket.pos.add(VERB_USES.has(def[0]) ? "verb" : def[0]);
@@ -1354,6 +1530,20 @@ export async function buildLearningPacks(
     );
     if (labels.length > 0) pos[word] = labels;
   }
+  // A word's sense as a compound's part, where its compounds use another than its
+  // first (`compoundSense`): under its key and COMPOUND_PART ("bahn-": railway).
+  let partSenses = 0;
+  if (language.compounds)
+    for (const word of vocab) {
+      const [, senses] = defs[word]!;
+      const chosen = compoundSense(senses, (capital) =>
+        partGlosses.of(word, capital),
+      );
+      if (chosen === undefined) continue;
+      const [label, text] = senses[chosen]!;
+      defs[`${word}${COMPOUND_PART}`] = definition([[label, text]]);
+      partSenses++;
+    }
   /**
    * A name that would read as a closed compound of the language's words (German
    * "Deutschland": deutsch + Land, "Frankreich", "Lehmann", "Wolfenstein"): the names
@@ -1488,6 +1678,9 @@ export async function buildLearningPacks(
       pos: Object.keys(pos).length,
       reordered,
       separableForms,
+      partSenses,
+      editionWords: edition.words,
+      editionForms: edition.forms,
       detect: phrases.detect.length,
       more: phrases.more.length,
       terms: Object.keys(defs).length,
@@ -1570,6 +1763,8 @@ export function buildSummary(
     `${stats.separableForms} with a separable verb) in ` +
     `${shards(`${lang}/lemmas`)} shards, ` +
     `${stats.ipa} IPA, ${stats.pos} words with parts of speech, ` +
+    `${stats.editionWords} words and ${stats.editionForms} forms from the language's own edition, ` +
+    `${stats.partSenses} compound parts' senses, ` +
     `${stats.detect} detected and ${stats.more} more phrase patterns, ` +
     `${stats.names} names (${stats.capitalisedNames} mostly capitalised), ` +
     `${stats.terms} dictionary terms in ${shards(`${lang}-en`)} shards`

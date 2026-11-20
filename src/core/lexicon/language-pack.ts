@@ -109,6 +109,9 @@ function accentedSpelling(
   return found.length === 1 ? found[0] : undefined;
 }
 
+/** The language capitalises every noun (`NOUNS_CAPITALISED`): its phrases' headwords keep that case. */
+export const capitalisesNouns = (lang: string) => NOUNS_CAPITALISED.has(lang);
+
 /** The language writes closed compounds (`COMPOUND_RULES`): its dictionary reads them. */
 export const writesCompounds = (lang: string) =>
   own(COMPOUND_RULES, lang) !== undefined;
