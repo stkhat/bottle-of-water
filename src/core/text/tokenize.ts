@@ -74,29 +74,77 @@ export function elisionParts(
 /** A hyphen between the parts of a compound ("peut-être", "well-known"). */
 const HYPHEN = /^[-\u2010]$/u;
 
+/** A full stop or a colon, as a segment of its own (`INNER_STOP`). */
+const STOP = /^[.:\uFE52\uFE55\uFF0E\uFF1A]$/u;
+
 /**
- * The segmenter's segments with each hyphenated compound that `whole` knows joined
- * into one word segment ("peut", "-", "être" → "peut-être"; "c'est-à-dire"): the
- * longest run of words joined by single hyphens that is one. Hyphens otherwise split
- * words ("est-ce", "a-t-il": the language reads their parts).
+ * A full stop or colon between two letters ("U.S", "e.g", "example.com", "a:b").
+ * Engines segment these differently: Unicode's word rules (UAX #29), which Node's ICU
+ * applies, keep "U.S" one word; Chrome's ICU splits it into "U", ".", "S" (measured
+ * 2026-11-20). Numbers ("3.5") stay whole in both.
+ */
+const INNER_STOP = /(?<=\p{L})([.:\uFE52\uFE55\uFF0E\uFF1A])(?=\p{L})/u;
+
+/**
+ * Word segments split at each full stop or colon between letters (`INNER_STOP`), so
+ * that every engine gives the segments Chrome gives: "U.S" → "U", ".", "S".
+ */
+function splitInnerStops(segments: readonly Token[]): Token[] {
+  return segments.flatMap((segment) => {
+    if (!segment.isWord || !INNER_STOP.test(segment.text)) return [segment];
+    const pieces: Token[] = [];
+    let start = segment.start;
+    for (const part of segment.text.split(INNER_STOP)) {
+      if (part === "") continue;
+      pieces.push({
+        text: part,
+        start,
+        end: start + part.length,
+        isWord: !STOP.test(part),
+      });
+      start += part.length;
+    }
+    return pieces;
+  });
+}
+
+/**
+ * The segments with each compound that `whole` knows joined into one word segment:
+ * hyphenated ("peut", "-", "être" → "peut-être"; "c'est-à-dire"), or an abbreviation
+ * with full stops inside ("U", ".", "S" → "U.S", which the vocabulary reads with the
+ * stop the segmenter leaves after it: "u.s."). The longest run of words joined by
+ * single hyphens or stops that is one; one with a stop inside only as a whole run of
+ * letters and stops (not "S.A" of "S.A.C", nor "P.D" of "A.P.D"). Hyphens and stops
+ * otherwise split words ("est-ce", "a-t-il": the language reads their parts;
+ * "example", "com").
  */
 function joinCompounds(
   segments: readonly Token[],
   whole: (word: string) => boolean,
 ): Token[] {
+  /** Segment j is a stop between two words. */
+  const stopBetween = (j: number) =>
+    j > 0 &&
+    j + 1 < segments.length &&
+    STOP.test(segments[j]!.text) &&
+    segments[j - 1]!.isWord &&
+    segments[j + 1]!.isWord;
   const out: Token[] = [];
   for (let i = 0; i < segments.length; i++) {
     const first = segments[i]!;
     let joined = -1;
+    let stops = false;
     if (first.isWord)
       for (
         let k = i + 2;
         k < segments.length &&
-        HYPHEN.test(segments[k - 1]!.text) &&
+        (HYPHEN.test(segments[k - 1]!.text) || stopBetween(k - 1)) &&
         segments[k]!.isWord &&
         segments[k - 1]!.start === segments[k - 2]!.end;
         k += 2
       ) {
+        stops ||= stopBetween(k - 1);
+        if (stops && (stopBetween(i - 1) || stopBetween(k + 1))) continue;
         const text = segments
           .slice(i, k + 1)
           .map((s) => s.text)
@@ -123,24 +171,25 @@ function joinCompounds(
 }
 
 /**
- * Apostrophes inside words stay in the token ("don't", "teacher’s"); hyphens and dashes
- * split words, unless `whole` knows the hyphenated compound as one word ("peut-être",
- * "well-known": `joinCompounds`). A language's elisions are split off the word they
- * are joined to ("l'", "homme"), unless `whole` says the word as written is one of its
- * own ("d'accord", "jusqu'à": the vocabulary's), and so is each rest of it.
+ * Apostrophes inside words stay in the token ("don't", "teacher’s"); hyphens, dashes,
+ * and full stops and colons between letters split words, unless `whole` knows the
+ * compound as one word ("peut-être", "well-known", "U.S": `joinCompounds`), the same
+ * in every browser (`splitInnerStops`). A language's elisions are split off the word
+ * they are joined to ("l'", "homme"), unless `whole` says the word as written is one
+ * of its own ("d'accord", "jusqu'à": the vocabulary's), and so is each rest of it.
  */
 export function tokenize(
   text: string,
   lang: string,
   whole?: (word: string) => boolean,
 ): Token[] {
-  const segments = Array.from(segmenterFor(lang, "word").segment(text)).map(
-    (s): Token => ({
+  const segments = splitInnerStops(
+    Array.from(segmenterFor(lang, "word").segment(text)).map((s): Token => ({
       text: s.segment,
       start: s.index,
       end: s.index + s.segment.length,
       isWord: s.isWordLike ?? false,
-    }),
+    })),
   );
   const tokens = whole ? joinCompounds(segments, whole) : segments;
   if (!elides(lang)) return tokens;

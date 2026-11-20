@@ -58,8 +58,17 @@ Blind judging (`packets/pn1`, before vs after, one judge per site, 114 changed h
 
 Pack sizes (raw): en 6.51 → 6.62 MB (capitals.json 17 KB; forms, IPA, parts of speech and names of the new words), en-ja 7.75 → 7.81 MB, en-defs 22.00 → 22.37 MB; every file under 4 MB.
 
+## Real-site check: dotted abbreviations in Chrome (2026-11-20)
+
+In the user's Chrome (check build fc905ba), "U.S." on en.wikipedia.org/wiki/Nvidia got no hover and no highlight, while AI worked and the offline smoke test read "the U.S." as `u.s.`. Not the article path nor the casing: the offline classifier over the whole article (en-ja `capitalMeaning`, `outline`, document casing) read it as `u.s.` Known. The cause is the word segmenter. Node's `Intl.Segmenter` (ICU 78) follows Unicode's word rules and keeps "U.S" one word; Chrome's splits a full stop or colon between letters: "U" "." "S" ".", "p" "." "m", "e" "." "g", "example" "." "com", "a" ":" "b" (numbers like "3.5" stay whole). So in Chrome "U" and "S" were two single letters, and the dotted reading of PR #147 never ran there. Every offline measurement (the corpus, the smoke tests) used Node's segmentation.
+
+The fix makes `tokenize` the same in every engine: it splits words at each full stop or colon between letters as Chrome does, then joins a whole run of letters and stops that the pack knows (U.S, p.m, Ph.D; not "S.A" of "S.A.C."), as it joins hyphenated compounds. In the 2026-11 corpus Node kept 65 such tokens whole (U.S 20, p.m 8, a.m 5, D.A 3, domains like audible.com); 42 are now joined in both engines (U.S, p.m, a.m, D.A, Ph.D, H.R, M.O, A.M, U.N), and the unknown rest (I.D, G.I, domains) are split as Chrome splits them. A browser test (`tokenize.browser.test.ts`, Chromium and Firefox) now runs the dotted cases.
+
+Checked after the fix in the user's Chrome: U.S. (Nvidia) Known with "United States 合衆国"; a.m. (September 11 attacks) "ante meridiem 午前"; Tokyo (Sony) New with 東京; iPhone (Apple Inc.) New, English definition machine-translated; GPU (Graphics processing unit) New, "A specialized electronic circuit"; AI and US in a YouTube transcript (人工知能; United States 合衆国); WHAT'D in the Netflix transcript (Friends) "what did / what would". The card no longer shows "u.s → u.s." for a word read with its last period. Error log empty.
+
 ## Still open
 
+- A dotted abbreviation's card shows the vocabulary's lower-case head ("u.s.", not "U.S.") and lists the lower-case word's senses after the capital one (U.S.: unserviceable, ubi supra), as EJDict files them together.
 - Initialisms of several things: the hover shows one expansion, and the most translated is not always the one meant (DEA, GPU). A context check (the words around it, or the on-device model) would be needed.
 - A capital-only word inside a longer name (New Zealand, Europa League): the multi-word name is a phrase the matcher does not detect (B4); handled best there.
 - Words without a translation table (NYPD, ChatGPT, Grammys, AGI: about 50 tokens) and without a Wiktionary entry (Nvidia, AirPods, Binance: 598 tokens) stay without a hover.
