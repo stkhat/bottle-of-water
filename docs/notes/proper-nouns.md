@@ -66,6 +66,36 @@ The fix makes `tokenize` the same in every engine: it splits words at each full 
 
 Checked after the fix in the user's Chrome: U.S. (Nvidia) Known with "United States 合衆国"; a.m. (September 11 attacks) "ante meridiem 午前"; Tokyo (Sony) New with 東京; iPhone (Apple Inc.) New, English definition machine-translated; GPU (Graphics processing unit) New, "A specialized electronic circuit"; AI and US in a YouTube transcript (人工知能; United States 合衆国); WHAT'D in the Netflix transcript (Friends) "what did / what would". The card no longer shows "u.s → u.s." for a word read with its last period. Error log empty.
 
+## Rare words (E1, 2026-11-20)
+
+The plain words below rule E's threshold (hitman, paralegal, fiancé): a kaikki headword joins only when other entries' examples write it in lower case at least 8 times since 1900, and only in ASCII letters. Method as above, on the same corpus and units (171,625 tokens now: `tokenize` splits inner stops since the Chrome fix). The packs on main were last built before several merged script changes, so every candidate is compared with a rebuild of main's scripts (`rw-rebuilt-base`: `en` + `en-ja` + `en-defs` 36.23 MB raw against 36.73 MB in the lock; phrases per 1,000 tokens 26.3 → 25.9, as the merged phrase-build changes move "get it", "take it" to select-only and "call it", "got it" to detect). Sizes are `en` + `en-ja` + `en-defs` raw; unknown is word tokens with no hover.
+
+| Idea | Words added | Size | Unknown | Decision |
+|---|---|---|---|---|
+| Rebuild of main's scripts | 6,328 | 36.23 MB | 3,625 | (baseline) |
+| Accented headwords (fiancé 42 examples, café 212, protégé 22) | +35 | +0.01 MB | −5 | Recommended |
+| 6 examples, any word | +2,672 | +1.01 MB | −172 | Refined: it also lowered the capital-only threshold (+437 of them) and took names (Jim → "To jimmy", Steven → "Voice") |
+| + capital-only words kept at 8, + the examples write it in lower case at least as often as with a capital | +2,573 | +0.80 MB | −107 | Refined |
+| 5 examples, so | +4,719 | +1.44 MB (4.0%) | −135 | Dropped: judged blind (`packets/rw1`, 70 new hovers) 43 good, 9 acceptable, 7 wrong, 11 misleading (26%) |
+| Of those, words with a translation table | | | | 34 judged, 3 wrong (9%); without a table 36, 15 (42%): Plex, HAB, Oculus, Bando (product names and names in text), goomba, lookee, brainer, kickass, unspent → "To recover (money that has been spent)" |
+| A table into the pair's native language (Japanese) | | | | Dropped: the `en` pack is shared by every pair, and the tables into any language already carry the signal |
+| 4 examples with a table (any language), the capital check | +3,588 | +1.21 MB (3.3%) | −102 | Recommended |
+| 3 examples with a table | +5,485 | +1.79 MB (4.9%) | −116 | Dropped: 0.58 MB for 14 tokens |
+| 2 examples with a table | +8,582 | +2.68 MB (7.4%) | −129 | Dropped: over the +5% target |
+
+Results (shipped: 8 examples, or 4 with a table and the capital check; accents in the word shape):
+
+| | YouTube | Netflix | Articles | All |
+|---|---|---|---|---|
+| Unknown tokens, before (main's scripts rebuilt) | 1,004 (1.30%) | 1,537 (2.28%) | 1,084 (3.99%) | 3,625 (2.11%) |
+| After | 956 (1.24%) | 1,493 (2.22%) | 1,074 (3.95%) | 3,523 (2.05%) |
+
+Words shown as New per 1,000 tokens 86.1 → 86.7; names 1,071 unchanged. The 100 newly hovered tokens all show an English definition, translated at display time (en-ja has no Japanese for them). Judged blind on a fresh packet (`packets/rw2`, 48 changed hovers, one judge per site): 40 good, 5 acceptable, 3 wrong (6%; mojo → "A magic spell or hex", perv → "An ogle", recused → "To reject or repudiate"), none misleading; preferred after : before 44 : 0 (4 the same). Rule E's vocabulary 6,328 → 9,916 words (3,553 rarer words with a table: 1,292 written 4 times, 977 5, 722 6, 562 7; 35 accented ones at 8 or more).
+
+Pack sizes (raw), lock → now: `en` 6.63 → 6.88 MB, `en-ja` 7.81 → 7.82, `en-defs` 22.29 → 22.74 (36.73 → 37.44 MB, +1.9%; +3.3% against the rebuild of main's scripts). The recipe pairs gain the tables' meanings of the new words (hitman → sicario, fiancé → novio): 0.14–0.23 MB each.
+
+"perfectionistic" (3 examples, no table) and "paracetamol" (6, no table) stay out. Still open: en-ja could give the rarer words the tables' Japanese as it does for capital-only words: many have one in the tables; the first English sense is sometimes another use (mojo, perv, unspent's verb "unspend").
+
 ## Capital cards (2026-11-20)
 
 Three wrong hovers from the judging above, fixed in code (PR "capital cards"): the U.S. card, initialisms of several things, and the rest of the judged misses. Measured on the same corpus (`cc-base2` → `cc-fix5`; `measure.ts` now sends an acronym's document, as the extension does) and judged blind twice (`packets/cc1`, `packets/cc2`, one judge each).
@@ -99,7 +129,7 @@ Not fixed, and why:
 - Words without a translation table (NYPD, ChatGPT, Grammys, AGI: about 50 tokens) and without a Wiktionary entry (Nvidia, AirPods, Binance: 598 tokens) stay without a hover.
 - Capital-only words in documents in capitals (ALL-CAPS captions) and in caseless speech recognition stay unknown: their case says nothing.
 - The recipe pairs (es, pt, ru, fr, de, zh, it, pl): their `capital.json` is not rebuilt, so they show the English definitions translated at display time, and rule D takes their places for names (no native meaning). Rebuilding them with the capital-only words gives native meanings (Tokyo → Tokio) and 8 more pack versions.
-- Plain words below rule E's threshold (316 tokens: hitman, paralegal, paracetamol, fiancé with its é) are a separate trade-off: the threshold was set by pack size (architecture "Size cut").
+- Plain words below rule E's threshold: handled by "Rare words" above (102 tokens); paracetamol, perfectionistic and other words without a translation table stay without a hover.
 
 ## Measuring
 
@@ -108,4 +138,4 @@ STUDY=2026-11 REPO=<checkout> UNITS=data/raw/quality/2026-11/runs/units-87d8606/
   OUT=data/raw/quality/2026-11/runs/<label> npx jiti .claude/skills/real-content-quality/scripts/measure.ts
 ```
 
-Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`.
+Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`. Rare words: `rw-base-314d78d` (main's packs), `rw-rebuilt-base`, the candidates `rw-acc8`, `rw-t6`, `rw-t5`, `rw-tab1m3`, `rw-m7tab3m3` (capital threshold not yet separate), `rw-g6`, `rw-g5`, `rw-g4t1`, `rw-g3t1`, `rw-g2t1`, and `rw-final`; judging in `packets/rw1` (g5) and `packets/rw2` (g4t1).

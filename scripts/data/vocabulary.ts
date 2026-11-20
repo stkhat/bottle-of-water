@@ -2,8 +2,9 @@
 // dictionary's single-word headwords (EJDict for English) are joined by every kaikki
 // headword that is a word of the language in its own right and in use: written in
 // lower case often enough in the usage examples and quotations of other entries (the
-// example corpus, `examples.ts`) since 1900. The count keeps rare and technical words
-// out, most old spellings ("clepe"), and names, which the examples write capitalised.
+// example corpus, `examples.ts`) since 1900, or fewer times when a translation table
+// translates it too. The count keeps rare and technical words out, most old spellings
+// ("clepe"), and names, which the examples write capitalised.
 // Language-independent (CORE): the language gives the shape of its words, the part of
 // speech of its proper nouns and its possessive.
 import { byCodeUnit, GIVEN_NAME, SURNAME, type KaikkiEntry } from "./common.ts";
@@ -31,13 +32,14 @@ export interface WordLanguage {
 }
 
 /**
- * English words: letters with inner apostrophes ("y'all", "ma'am"). The tokenizer
- * splits at hyphens and digits, so a hyphenated headword never meets a token.
- * Capital-only words: Latin letters (with accents: Gruyère) and inner apostrophes,
- * one of them a capital.
+ * English words: lower-case Latin letters, with accents (fiancé, café: the tokenizer
+ * keeps them, and its key folds only case), and apostrophes after the first letter
+ * ("y'all", "ma'am"). The tokenizer splits at hyphens and digits, so a hyphenated
+ * headword never meets a token. Capital-only words: Latin letters (with accents:
+ * Gruyère) and inner apostrophes, one of them a capital.
  */
 const ENGLISH_WORDS: WordLanguage = {
-  word: /^[a-z][a-z']*$/,
+  word: /^(?:(?=\p{Ll})\p{Script=Latin})(?:(?=\p{Ll})\p{Script=Latin}|')*$/u,
   capitalWord: /^(?=.*\p{Lu})\p{Script=Latin}+(?:'\p{Script=Latin}+)*$/u,
   name: "name",
   // Glosses write "the male given names Timothy and Timon"; categories "English
@@ -50,6 +52,17 @@ const ENGLISH_WORDS: WordLanguage = {
 
 /** A new word is written in lower case at least this often in other entries' examples. */
 const MIN_EXAMPLES = 8;
+/**
+ * …or at least this often (`rarer`: hitman 7, paralegal 6, lossless 4) when a
+ * translation table translates one of its meanings into at least `MIN_TABLES`
+ * languages (Wiktionary translates what is in use; judged on the 2026-11 corpus, 9% of
+ * the new hovers with a table were wrong, 42% without: "plex", "hab", "oculus" are
+ * product names in text) and the examples write it in lower case at least as often as
+ * with a capital (not a name: "Jim", "Pam", "Steven", whose lower-case entries are rare
+ * words).
+ */
+const MIN_RARER_EXAMPLES = 4;
+const MIN_TABLES = 1;
 /** Quotations from before this year are not counted: they write older spellings. */
 const SINCE = 1900;
 
@@ -76,7 +89,9 @@ export interface VocabularyRule {
    * entry that is not a proper noun; a spelling or clipping pointer counts), that is
    * not a form the vocabulary already has (`lemmas`: "years", "based"; an inflection
    * of another word with a meaning; a possessive), written in lower case at least
-   * `minExamples` times with its inflected forms (`formsOf`). A word the examples
+   * `minExamples` times with its inflected forms (`formsOf`), or `rarer.minExamples`
+   * times with a translation table into `rarer.minTables` languages and no more often
+   * with a capital than without (`MIN_RARER_EXAMPLES`). A word the examples
    * write more often as an acronym (AI) joins only when its own entry is that acronym
    * (an abbreviation, or a pointer to the word in capitals), not another word ("ai",
    * a sloth): text that writes it in capitals means the acronym.
@@ -104,7 +119,7 @@ export interface VocabularyRule {
    * no sense of any entry so written that names a person (Harvey, Kane; and
    * "Corp", a surname, though CORP abbreviates corporation) or points to one's name
    * (Dmitri: alternative form of Dmitry; Jer: diminutive of Jeremy), written so at least
-   * `minExamples` times with its inflected forms (AEDs) and more often than in lower
+   * `minCapitalExamples` times with its inflected forms (AEDs) and more often than in lower
    * case (not "Hitman", a common word's capital). Text that writes them so means them;
    * other text is not read as them (`lemmatize`).
    */
@@ -119,12 +134,29 @@ const CAPITAL_FORM_TAGS: ReadonlySet<string> = new Set(["plural"]);
 
 export function createVocabularyRule(
   language: WordLanguage = ENGLISH_WORDS,
-  { minExamples = MIN_EXAMPLES, since = SINCE } = {},
+  {
+    minExamples = MIN_EXAMPLES,
+    since = SINCE,
+    rarer: {
+      minExamples: minRarerExamples = Math.min(MIN_RARER_EXAMPLES, minExamples),
+      minTables = MIN_TABLES,
+    } = {},
+    minCapitalExamples = minExamples,
+  }: {
+    minExamples?: number;
+    since?: number;
+    rarer?: { minExamples?: number; minTables?: number };
+    minCapitalExamples?: number;
+  } = {},
 ): VocabularyRule {
+  /** Word → the most languages a translation table of one of its meanings has. */
+  const tables = new Map<string, number>();
   /** Word → how often the examples write it in lower case. */
   const lower = new Map<string, number>();
   /** Word → how often the examples write it in capitals (two letters or more). */
   const capitals = new Map<string, number>();
+  /** Word → how often the examples write it with a capital (Jim, JIM). */
+  const capitalised = new Map<string, number>();
   /** Headwords with a meaning of their own. */
   const meaning = new Set<string>();
   /** Headwords with an abbreviation sense, or a pointer to another casing of themselves. */
@@ -193,6 +225,7 @@ export function createVocabularyRule(
           else {
             if (token.length > 1 && token === token.toUpperCase())
               bump(capitals, folded);
+            bump(capitalised, folded);
             bump(written, token);
           }
         }
@@ -209,6 +242,8 @@ export function createVocabularyRule(
         }
         if (entry.pos === language.name) continue;
         meaning.add(word);
+        if (sense.tables > (tables.get(word) ?? 0))
+          tables.set(word, sense.tables);
         if (
           sense.tags.some((tag) => ABBREVIATION.has(tag)) ||
           (sense.target !== undefined &&
@@ -244,7 +279,7 @@ export function createVocabularyRule(
           )
             return false;
           const times = capitalCount(headword);
-          return times >= minExamples && times > (lower.get(key) ?? 0);
+          return times >= minCapitalExamples && times > (lower.get(key) ?? 0);
         })
         .sort(byCodeUnit);
     },
@@ -261,12 +296,21 @@ export function createVocabularyRule(
       const otherThanAcronym = (word: string) =>
         (capitals.get(word) ?? 0) > (lower.get(word) ?? 0) &&
         !abbreviation.has(word);
+      const used = (word: string) => {
+        const times = count(word, formsOf(word));
+        return (
+          times >= minExamples ||
+          (times >= minRarerExamples &&
+            times >= (capitalised.get(word) ?? 0) &&
+            (tables.get(word) ?? 0) >= minTables)
+        );
+      };
       return [...meaning]
         .filter(
           (word) =>
             !vocab.has(word) &&
             !isForm(word) &&
-            count(word, formsOf(word)) >= minExamples &&
+            used(word) &&
             !otherThanAcronym(word),
         )
         .sort(byCodeUnit);
