@@ -6,6 +6,8 @@ import {
   inOrder,
   lacksSenseOf,
   PRONOMINAL,
+  PRONOMINAL_ACCUSATIVE,
+  PRONOMINAL_DATIVE,
   senseOrder,
 } from "./sense-order";
 
@@ -149,6 +151,42 @@ describe("senseOrder for a pronominal verb", () => {
     expect(senseOrder(senses("duty:noun", "must:verb"), PRONOMINAL)).toEqual([
       1, 0,
     ]);
+  });
+  it("puts a pronominal verb's senses of its pronoun's case first", () => {
+    const vorstellen = senses(
+      "to introduce:verb",
+      "to introduce oneself:reflexive",
+      "to imagine:dative reflexive",
+    );
+    expect(senseOrder(vorstellen, PRONOMINAL_DATIVE)).toEqual([2, 0, 1]);
+    expect(senseOrder(vorstellen, PRONOMINAL_ACCUSATIVE)).toEqual([1, 0, 2]);
+    expect(senseOrder(vorstellen, PRONOMINAL)).toEqual([1, 2, 0]);
+    // None of that case: the verb's own order.
+    expect(
+      senseOrder(
+        senses("to make:verb", "to fare:reflexive"),
+        PRONOMINAL_DATIVE,
+      ),
+    ).toBeUndefined();
+  });
+  it("puts a pronoun's senses of its number first", () => {
+    const sie: Sense[] = [
+      { text: "she; her", pos: "pronoun", number: "singular" },
+      { text: "they; them", pos: "pronoun", number: "plural" },
+      { text: "you (polite)", pos: "pronoun" },
+    ];
+    expect(senseOrder(sie, "pronoun plural")).toEqual([1, 2, 0]);
+    expect(senseOrder(sie, "pronoun singular")).toBeUndefined();
+    // No pronoun sense of that number: the dictionary's order ("es sind").
+    expect(
+      senseOrder(
+        [
+          { text: "it", pos: "pronoun", number: "singular" },
+          { text: "the", pos: "article" },
+        ],
+        "pronoun plural",
+      ),
+    ).toBeUndefined();
   });
 });
 

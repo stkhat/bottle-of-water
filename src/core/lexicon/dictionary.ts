@@ -392,31 +392,52 @@ export function withWrittenHeads(
   };
 }
 
-/** A line's first item, without brackets: "pistachio (nut)" → "pistachio"; "route, trail" → "route". */
+/**
+ * A line's first item, without brackets or an English article: "pistachio (nut)" →
+ * "pistachio"; "route, trail" → "route"; "railway/railroad or rail transport" →
+ * "railway"; "a key" → "key" (a joined compound line is read as one phrase: "key +
+ * noise", not "a key + noise").
+ */
 const firstItem = (line: string) =>
   line
     .replace(/\s*\([^()]*\)/g, "")
     .split(/[,;] /)[0]!
-    .trim();
+    .split(/\/|\s+or\s+/)[0]!
+    .trim()
+    .replace(/^(?:an?|the)\s+(?=\S)/i, "");
 
 /**
  * The hover lines of a compound from its parts' entries: each part's first meaning,
- * joined as the note joins the parts ("Taube + Shirt": "pigeon + shirt"), then the
+ * joined as the note joins the parts ("Taube + Shirt": "pigeon + shirt"; a part's
+ * sense as a part where the pack gives one, `asParts`: "Bahn": railway), then the
  * head's second line ("Preis + Klasse": "price + form", "class"). Judged blind on 150
  * compounds (L2-2), learners were served better by the parts' meanings (good 50–62%)
  * than by the head's alone (none good; acceptable 84–98%, "Bahnsystem": system),
  * preferred 58 : 26. A joined line wider than a line's cap gives way to the head's
  * lines.
  */
-function compoundLines(parts: readonly DictionaryEntry[]): string[] {
+function compoundLines(
+  parts: readonly DictionaryEntry[],
+  asParts: readonly (DictionaryEntry | undefined)[] = [],
+): string[] {
   const head = parts.at(-1)!;
   const joined = parts
-    .map((part) => firstItem(part.lines[0] ?? part.short))
+    .map((part, i) => {
+      const line = asParts[i] ?? part;
+      return firstItem(line.lines[0] ?? line.short);
+    })
     .join(" + ");
   return fitsPairCap(joined, true)
     ? [joined, ...head.lines.slice(1, 2)]
     : head.lines;
 }
+
+/**
+ * The key suffix of a word's sense as a compound's part in a learning pack's
+ * dictionary ("bahn-": railway, where "Bahn" leads with "route, trail"), from the
+ * etymologies of its compounds (scripts/data/compound-senses.ts).
+ */
+const COMPOUND_PART = "-";
 
 /**
  * `dictionary` reading a closed compound it has no entry for (`compoundOf`, the
@@ -455,17 +476,53 @@ export function withCompounds(
       );
       if (parts.some((part) => part === undefined)) return undefined;
       const entries = parts as DictionaryEntry[];
+      // Each part's sense as a compound's part, where the pack gives one
+      // (COMPOUND_PART: "bahn-", railway).
+      const asParts = compound.parts.map((part) =>
+        dictionary.entry(`${part}${COMPOUND_PART}`),
+      );
       const head = entries.at(-1)!;
       const capital = /^\p{Lu}/u.test(head.head);
       return {
         head: capital ? capitalised(compound.key) : compound.key,
         kind: "word",
         short: head.short,
-        lines: compoundLines(entries),
+        lines: compoundLines(entries, asParts),
         senses: head.senses,
         ...(head.glossLang !== undefined && { glossLang: head.glossLang }),
         expansion: entries.map((part) => part.head).join(" + "),
       };
+    },
+  };
+}
+
+/**
+ * `dictionary` writing a phrase's headword in the case the language writes its words
+ * (a language that capitalises its nouns: German "auf jeden Fall", "nach Hause", "zu
+ * tun haben"; the pack keys phrases in lower case): each word as the card writes its
+ * likeliest base (`lemmas`, the word itself first when it is a headword), capitalised
+ * where that base's card is (its first line a capitalised headword's: Fall, Haus;
+ * not tun, whose verb comes before the noun Tun).
+ */
+export function withPhraseCase(
+  dictionary: DictionaryProvider,
+  lemmas: (word: string) => readonly string[],
+): DictionaryProvider {
+  const capitalHead = (word: string) => {
+    const base = lemmas(word)[0];
+    const head = base === undefined ? undefined : dictionary.entry(base)?.head;
+    return head !== undefined && /^\p{Lu}/u.test(head);
+  };
+  return {
+    ...dictionary,
+    entry(term, written, pos, clitic) {
+      const found = dictionary.entry(term, written, pos, clitic);
+      if (!found || !/\s/.test(found.head)) return found;
+      const head = found.head
+        .split(" ")
+        .map((word) => (capitalHead(word) ? capitalised(word) : word))
+        .join(" ");
+      return head === found.head ? found : { ...found, head };
     },
   };
 }
@@ -1054,6 +1111,7 @@ function definitionOf(head: string, defs: DefsPack): Entry | undefined {
       text,
       ...(use === "auxiliary" && { auxiliary: true as const }),
       ...(use === "capital" && { capital: true as const }),
+      ...((use === "singular" || use === "plural") && { number: use }),
     })),
   };
 }

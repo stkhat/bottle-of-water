@@ -4,6 +4,7 @@ import {
   createEnJaDictionary,
   createPairDictionary,
   withCompounds,
+  withPhraseCase,
   withWrittenHeads,
 } from "./dictionary";
 import type { PairPack } from "../packs/types";
@@ -552,6 +553,66 @@ describe("withCompounds", () => {
     expect(dictionary.outline("bahnsystem")).toEqual(defs.outline("system"));
     expect(dictionary.entry("bahn")?.head).toBe("Bahn");
     expect(dictionary.entry("bahnhof")).toBeUndefined();
+  });
+  it("reads a part by its sense as a part, without an English article", () => {
+    const parts = withCompounds(
+      createDefsDictionary({
+        defs: {
+          bahn: [
+            "route",
+            [
+              ["noun", "route, trail", "capital"],
+              ["noun", "railway/railroad or rail transport", "capital"],
+            ],
+          ],
+          "bahn-": [
+            "railway/railroad or rail transport",
+            [["noun", "railway/railroad or rail transport", "capital"]],
+          ],
+          schlüssel: ["a key", [["noun", "a key", "capital"]]],
+          netz: ["net", [["noun", "net", "capital"]]],
+        },
+        ipa: {},
+      }),
+      (key) =>
+        /^bahnnetz$/i.test(key)
+          ? { key: "bahnnetz", parts: ["bahn", "netz"], noun: true }
+          : /^schlüsselnetz$/i.test(key)
+            ? { key: "schlüsselnetz", parts: ["schlüssel", "netz"], noun: true }
+            : undefined,
+    );
+    expect(parts.entry("bahnnetz", "capital")?.lines[0]).toBe("railway + net");
+    expect(parts.entry("schlüsselnetz", "capital")?.lines[0]).toBe("key + net");
+  });
+});
+
+describe("withPhraseCase", () => {
+  const defs = createDefsDictionary({
+    defs: {
+      "auf jeden fall": ["in any case", [["phrase", "in any case"]]],
+      "zu tun haben": ["to have to do", [["verb", "to have to do"]]],
+      fall: ["case", [["noun", "case", "capital"]]],
+      haus: ["house", [["noun", "house", "capital"]]],
+      tun: [
+        "to do",
+        [
+          ["verb", "to do"],
+          ["noun", "doing", "capital"],
+        ],
+      ],
+      jeder: ["every", [["determiner", "every"]]],
+    },
+    ipa: {},
+  });
+  const LEMMAS: Record<string, readonly string[]> = {
+    jeden: ["jeder"],
+    hause: ["haus"],
+  };
+  const dictionary = withPhraseCase(defs, (word) => LEMMAS[word] ?? [word]);
+  it("writes each word of a phrase's headword as its base's card does", () => {
+    expect(dictionary.entry("auf jeden fall")?.head).toBe("auf jeden Fall");
+    expect(dictionary.entry("zu tun haben")?.head).toBe("zu tun haben");
+    expect(dictionary.entry("fall")?.head).toBe("Fall");
   });
 });
 

@@ -50,12 +50,43 @@ export const AUXILIARY_BASE = "auxiliary base";
 export const PRONOMINAL = "pronominal";
 
 /**
+ * The parts of speech of a pronominal verb whose reflexive pronoun shows its case
+ * (`WordUse.reflexiveCase`): German "ich stelle mir … vor" (dative), "ich stelle mich
+ * vor" (accusative).
+ */
+export const PRONOMINAL_DATIVE = "pronominal dative";
+export const PRONOMINAL_ACCUSATIVE = "pronominal accusative";
+
+/**
  * The label a learning pack gives a pronominal verb's senses its source tags
  * reflexive (French passer: "to take place, to happen"): what the verb means where
  * the grammar reads it as pronominal, and no verb's sense where it reads a plain verb
  * ("il passe": to pass).
  */
 const REFLEXIVE = "reflexive";
+
+/**
+ * The label a learning pack gives a pronominal verb's senses whose reflexive pronoun
+ * is a dative beside a direct object (German "sich etwas vorstellen": to imagine).
+ */
+const DATIVE_REFLEXIVE = "dative reflexive";
+
+/**
+ * The parts of speech of a personal pronoun whose number the grammar reads from its
+ * verb (`WordUse.number`: German "sie sind", they): the senses of the other number
+ * (`Sense.number`) come after.
+ */
+const PRONOUN_NUMBER: Readonly<Record<string, "singular" | "plural">> = {
+  "pronoun singular": "singular",
+  "pronoun plural": "plural",
+};
+
+/** The senses each pronominal part of speech shows first: those its pronoun's case takes. */
+const REFLEXIVE_SENSES: Readonly<Record<string, readonly string[]>> = {
+  [PRONOMINAL]: [REFLEXIVE, DATIVE_REFLEXIVE],
+  [PRONOMINAL_DATIVE]: [DATIVE_REFLEXIVE],
+  [PRONOMINAL_ACCUSATIVE]: [REFLEXIVE],
+};
 
 /** A word used as an auxiliary, with or without an entry of its own. */
 export const isAuxiliary = (pos: string | undefined) =>
@@ -136,18 +167,40 @@ export const lacksSenseOf = (senses: readonly Sense[], pos: string) =>
  * first core translation among them leading when the source marks one (EJDict's 『』).
  * For an auxiliary (AUXILIARY), the senses its source calls auxiliary come first;
  * with none, a lead of another open class gives way to the verb's senses. For a
- * pronominal verb (PRONOMINAL), its REFLEXIVE senses, else the verb's.
+ * pronominal verb (PRONOMINAL), its REFLEXIVE and DATIVE_REFLEXIVE senses, only those
+ * of its pronoun's case where that shows (PRONOMINAL_DATIVE, PRONOMINAL_ACCUSATIVE),
+ * else the verb's.
  */
 export function senseOrder(
   senses: readonly Sense[],
   pos: string,
   usable: (index: number) => boolean = () => true,
 ): number[] | undefined {
-  if (pos === PRONOMINAL) {
+  if (Object.hasOwn(PRONOUN_NUMBER, pos)) {
+    const number = PRONOUN_NUMBER[pos]!;
     const lead = senses.findIndex((_, i) => usable(i));
     const front = senses
       .map((_, k) => k)
-      .filter((k) => usable(k) && senses[k]!.pos === REFLEXIVE);
+      .filter(
+        (k) =>
+          usable(k) &&
+          accepts("pronoun", senses[k]!.pos) &&
+          (senses[k]!.number ?? number) === number,
+      );
+    if (front.length === 0 || front[0] === lead) return undefined;
+    return [
+      ...front,
+      ...senses.map((_, k) => k).filter((k) => !front.includes(k)),
+    ];
+  }
+  if (Object.hasOwn(REFLEXIVE_SENSES, pos)) {
+    const lead = senses.findIndex((_, i) => usable(i));
+    const front = senses
+      .map((_, k) => k)
+      .filter(
+        (k) =>
+          usable(k) && REFLEXIVE_SENSES[pos]!.includes(senses[k]!.pos ?? ""),
+      );
     if (front.length === 0) return senseOrder(senses, "verb", usable);
     if (front[0] === lead) return undefined;
     return [

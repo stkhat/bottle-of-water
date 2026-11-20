@@ -1,0 +1,9 @@
+{"word":"Hans","lang_code":"de","pos":"name"}
+{"word":"Hans","lang_code":"de","pos":"noun","translations":[{"lang_code":"en","word":"Jack","sense_index":"1"}]}
+{"word":"Rucola","lang_code":"de","pos":"noun","translations":[{"lang_code":"en","word":"arugula","sense_index":"1"},{"lang_code":"en","word":"rocket","sense_index":"1"}],"forms":[{"form":"rucolas","tags":["inflection"]}]}
+{"word":"Daddy","lang_code":"de","pos":"noun","translations":[{"lang_code":"en","word":"daddy","sense_index":"1"}]}
+{"word":"KI","lang_code":"de","pos":"noun","translations":[{"lang_code":"en","word":"AI","sense_index":"1"}]}
+{"word":"aufholen","lang_code":"de","pos":"verb","translations":[{"lang_code":"en","word":"catch up","sense_index":"1"}],"forms":[{"form":"holt","tags":["inflection"]}]}
+{"word":"aufzuholen","lang_code":"de","pos":"verb","senses":[{"form_of":[{"word":"aufholen"}],"tags":["form-of"]}]}
+{"word":"reiste","lang_code":"de","pos":"verb","senses":[{"form_of":[{"word":"reisen"}],"tags":["form-of","past"]}]}
+{"word":"essen","lang_code":"de","pos":"verb","translations":[{"lang_code":"en","word":"dine","sense_index":"1"}]}

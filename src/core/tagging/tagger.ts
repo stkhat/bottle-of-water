@@ -37,6 +37,11 @@ export interface TaggedWord {
   trusted: boolean;
   /** Punctuation comes between the word before and this one. */
   pauseBefore: boolean;
+  /**
+   * Punctuation comes after this word, before the next one or at the text's end (a
+   * line of speech recognition cut off mid-clause ends without: "keine Zeit zu").
+   */
+  pauseAfter?: boolean;
   /** Written with a capital or not; unknown in a document in capitals. */
   capital?: boolean;
 }
@@ -103,6 +108,19 @@ export interface WordUse {
    * does not start at it (`ir de`, to act like), a pronominal verb's may.
    */
   pronominal?: true;
+  /**
+   * The case of the pronominal verb's reflexive pronoun, where its form shows it
+   * (German "mir", "dir": dative; "mich", "dich": accusative; not "sich", "uns",
+   * "euch"): rule A2 shows the senses the source gives that case first ("ich stelle
+   * mir … vor": to imagine; "ich stelle mich vor": to introduce oneself).
+   */
+  reflexiveCase?: "dative" | "accusative";
+  /**
+   * A third-person subject pronoun's number, where its finite verb's form shows it
+   * (German "sie sind": plural, they; "sie ist": singular, she): rule A2 shows the
+   * pronoun's senses of that number first (`Sense.number`).
+   */
+  number?: "singular" | "plural";
 }
 
 /**

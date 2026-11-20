@@ -29,6 +29,10 @@ const FORMS: Record<string, readonly string[]> = {
   blau: ["blau"],
   euren: ["euer"],
   opa: ["opa"],
+  polizei: ["polizei"],
+  kommissar: ["kommissar"],
+  kommi: ["kommi"],
+  sarin: ["sarin"],
 };
 const POS: Record<string, readonly string[]> = {
   bahn: ["noun"],
@@ -56,6 +60,10 @@ const POS: Record<string, readonly string[]> = {
   blau: ["adjective"],
   euer: ["determiner"],
   opa: ["noun"],
+  polizei: ["noun"],
+  kommissar: ["noun"],
+  kommi: ["noun"],
+  sarin: ["noun"],
 };
 const words: CompoundWords = {
   lemmas: (word) => FORMS[word] ?? [],
@@ -153,6 +161,20 @@ describe("splitCompound (German)", () => {
   it("takes no function word for a modifier, nor a verb's stem for a head", () => {
     expect(split("europa")).toBeUndefined();
     expect(split("eilles")).toBeUndefined();
+  });
+  it("reads a known noun with the feminine suffix as its feminine, before any split", () => {
+    expect(split("kommissarin")).toEqual({
+      key: "kommissarin",
+      parts: ["kommissar"],
+      noun: true,
+    });
+    expect(split("polizeikommissarinnen")).toEqual({
+      key: "polizeikommissarin",
+      parts: ["polizei", "kommissar"],
+      noun: true,
+    });
+    // Written in lower case, no noun: no feminine.
+    expect(split("kommissarin", false)?.parts).not.toEqual(["kommissar"]);
   });
   it("leaves short and unknown words alone", () => {
     expect(split("bahn")).toBeUndefined();

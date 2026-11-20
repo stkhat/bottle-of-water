@@ -231,7 +231,16 @@ function separable(
     }
   for (let k = end - 1; k > i; k--) {
     const particle = words[k]!;
-    const last = k === clauseEnd - 1;
+    // The clause's last word as a preposition or an adverb; but the infinitive's "zu"
+    // where a line ends without punctuation is the infinitive's, cut off before it
+    // (speech recognition's "wir haben keine Zeit zu", "hör auf … zu": no zuhaben,
+    // zuhören). A preposition cut off so ("greifen seine Basis an") is a particle
+    // as often as not: kept.
+    const cutInfinitive =
+      particle.form === INFINITIVE &&
+      k === words.length - 1 &&
+      particle.pauseAfter === false;
+    const last = k === clauseEnd - 1 && !cutInfinitive;
     const tagged =
       particle.tag.tag === "PART.Vz" ||
       (last && /^(ADP|ADV)$/.test(particle.tag.tag));
@@ -360,6 +369,9 @@ function capitalNoun(words: readonly TaggedWord[], i: number) {
   );
 }
 
+/** The infinitive's "zu" (`GERMAN_RULES`). */
+const INFINITIVE = GERMAN_RULES.verbLast!.infinitive;
+
 /** The reflexive pronouns, each with the subjects it agrees with (`GERMAN_RULES`). */
 const REFLEXIVES = GERMAN_RULES.verbLast!.pronouns;
 
@@ -379,8 +391,8 @@ const SECOND_PERSON: ReadonlySet<string> = new Set(["du", "ihr"]);
 function pronominalVerbs(
   words: readonly TaggedWord[],
   partners: readonly (number | undefined)[],
-): ReadonlySet<number> {
-  const found = new Set<number>();
+): ReadonlyMap<number, WordUse["reflexiveCase"]> {
+  const found = new Map<number, WordUse["reflexiveCase"]>();
   words.forEach((word, r) => {
     const subjects = REFLEXIVES.get(word.form);
     if (!subjects) return;
@@ -411,9 +423,86 @@ function pronominalVerbs(
       )
         verb = lexical;
     }
-    if (verb !== undefined) found.add(verb);
+    if (verb === undefined) return;
+    const reflexiveCase = REFLEXIVE_CASES.get(word.form);
+    // Two pronouns of different cases leave the verb's case open.
+    found.set(
+      verb,
+      found.has(verb) && found.get(verb) !== reflexiveCase
+        ? undefined
+        : reflexiveCase,
+    );
   });
   return found;
+}
+
+/**
+ * The reflexive pronouns whose form shows their case (a closed class): "mir", "dir"
+ * are datives, "mich", "dich" accusatives; "sich", "uns", "euch" are either.
+ */
+const REFLEXIVE_CASES: ReadonlyMap<string, WordUse["reflexiveCase"]> = new Map([
+  ["mir", "dative"],
+  ["dir", "dative"],
+  ["mich", "accusative"],
+  ["dich", "accusative"],
+]);
+
+/** The third person's subject pronouns, whose verb shows their number ("sie ist", "sie sind"). */
+const THIRD_PERSON: ReadonlySet<string> = new Set(["er", "sie", "es"]);
+
+/** A finite verb: tagged so, trusted or not. */
+const isFinite = (word: TaggedWord | undefined) =>
+  word !== undefined && /^(VERB|AUX)\.Fin$/.test(word.tag.tag);
+
+/**
+ * A finite form's number for a third-person subject: plural where German writes the
+ * plural so (the present plural is the infinitive: "sie gehen", "sie tun", "sie
+ * wandern", but sein's "sind"; the past plural ends in -en: "sie waren", "sie
+ * konnten"), singular otherwise ("sie ist", "sie kann", "sie ging", "sie schloss",
+ * though a noun Schloss is spelt so); a past singular that ends in -ien ("sie
+ * schien") is no plural.
+ */
+const verbNumber = (verb: TaggedWord): "singular" | "plural" =>
+  verb.form === "sind" ||
+  (/n$/.test(verb.form) && verb.bases.includes(verb.form)) ||
+  (/en$/.test(verb.form) && !/ien$/.test(verb.form))
+    ? "plural"
+    : "singular";
+
+/**
+ * The number of the third-person subject pronoun at `i` from its finite verb
+ * (`WordUse.number`): the verb right after it ("Sie sind relativ dünn besiedelt"),
+ * right before it with no subject pronoun before the verb ("Jetzt drohen sie", not
+ * "wir bieten sie an", where it is the object), or the clause's last finite verb
+ * after a subordinator ("…, weil sie keine Zeit haben"). Undefined where no such
+ * verb is found.
+ */
+function pronounNumber(
+  words: readonly TaggedWord[],
+  i: number,
+): WordUse["number"] {
+  const word = words[i]!;
+  if (!THIRD_PERSON.has(word.form) || word.tag.label !== "pronoun")
+    return undefined;
+  const next = words[i + 1];
+  if (next !== undefined && !next.pauseBefore && isFinite(next))
+    return verbNumber(next);
+  const before = words[i - 1];
+  if (before !== undefined && !word.pauseBefore && isFinite(before)) {
+    const subject = words[i - 2];
+    const ownSubject =
+      subject !== undefined &&
+      !before.pauseBefore &&
+      SUBJECTS.has(subject.form) &&
+      subject.tag.label === "pronoun";
+    return ownSubject ? undefined : verbNumber(before);
+  }
+  if (before !== undefined && !word.pauseBefore && before.tag.tag === "SCONJ") {
+    const { end } = clauseOf(words, i);
+    for (let k = end - 1; k > i; k--)
+      if (isFinite(words[k])) return verbNumber(words[k]!);
+  }
+  return undefined;
 }
 
 /**
@@ -509,6 +598,7 @@ function use(
     : undefined;
   // A participle in a state reads as the adjective it is ("ist geschlossen": closed).
   const state = how === false && trustedTagOf(word)?.label === "verb";
+  const number = pronounNumber(words, i);
   return {
     auxiliary: auxiliary(words, i, partners),
     verbal: noun ? "other" : how,
@@ -527,6 +617,7 @@ function use(
     ...(participle !== undefined && { base: participle, grammarPos: "verb" }),
     ...(compound !== undefined && { separable: true as const }),
     ...(adverb && { grammarPos: "adverb" }),
+    ...(number !== undefined && { number, grammarPos: "pronoun" }),
   };
 }
 
@@ -592,17 +683,24 @@ export function germanTagger(model: PerceptronModel): Tagger {
       });
       return words.map((_, i): WordUse => {
         const particle = particles.get(i);
-        if (particle === undefined) {
-          const found = use(words, i, partners);
-          return pronominal.has(i) ? { ...found, pronominal: true } : found;
-        }
+        /** The pronominal reading of the verb at `k`, with its pronoun's case. */
+        const reflexive = (k: number): Partial<WordUse> => {
+          if (!pronominal.has(k)) return {};
+          const reflexiveCase = pronominal.get(k);
+          return {
+            pronominal: true,
+            ...(reflexiveCase !== undefined && { reflexiveCase }),
+          };
+        };
+        if (particle === undefined)
+          return { ...use(words, i, partners), ...reflexive(i) };
         return {
           auxiliary: false,
           verbal: false,
           prepositionSlot: false,
           grammarPos: "verb",
           particleOf: particle.verb,
-          ...(pronominal.has(particle.finite) && { pronominal: true }),
+          ...reflexive(particle.finite),
         };
       });
     },

@@ -12,6 +12,8 @@ import {
   AUXILIARY,
   AUXILIARY_BASE,
   PRONOMINAL,
+  PRONOMINAL_ACCUSATIVE,
+  PRONOMINAL_DATIVE,
 } from "./lexicon/sense-order";
 import type { MatchWord } from "./phrases/matcher";
 import {
@@ -104,6 +106,9 @@ export function readWords(
         tag,
         trusted: trustedTag(tag, tagger.threshold, form, bases),
         pauseBefore: pauses[i]!,
+        // Punctuation after it: before the next word, or at the block's end.
+        pauseAfter:
+          pauses[i + 1] ?? PAUSE.test(text.slice(token.end).trimEnd()),
         // In capitals, case says nothing.
         ...(!upper && { capital: /^\p{Lu}/u.test(token.text) }),
       };
@@ -313,7 +318,10 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
  * the verb it is ("ser / estar", not the edition's whole pointer first); AUXILIARY_BASE
  * when it is looked up by its base for want of an entry of its own (`ownEntry` false:
  * en-ru "has" → have), whose lexical meanings are not what it means. A verb the
- * grammar reads as pronominal (`WordUse.pronominal`) is PRONOMINAL.
+ * grammar reads as pronominal (`WordUse.pronominal`) is PRONOMINAL (PRONOMINAL_DATIVE,
+ * PRONOMINAL_ACCUSATIVE where its pronoun's case shows); a pronoun whose number the
+ * grammar reads (`WordUse.number`) is "pronoun singular" or "pronoun plural"
+ * (`PRONOUN_NUMBER`).
  */
 export function sensePos(
   form: string,
@@ -324,7 +332,15 @@ export function sensePos(
   const pos = readingPos(form, key, reading, ownEntry);
   // A verb the grammar reads as pronominal: its reflexive senses first ("il se
   // passe": to happen; PRONOMINAL).
-  return pos === "verb" && reading.use.pronominal ? PRONOMINAL : pos;
+  const { number } = reading.use;
+  if (pos === "pronoun" && number !== undefined) return `pronoun ${number}`;
+  if (pos !== "verb" || !reading.use.pronominal) return pos;
+  const reflexiveCase = reading.use.reflexiveCase;
+  return reflexiveCase === "dative"
+    ? PRONOMINAL_DATIVE
+    : reflexiveCase === "accusative"
+      ? PRONOMINAL_ACCUSATIVE
+      : PRONOMINAL;
 }
 
 /** `sensePos` but for a pronominal verb. */

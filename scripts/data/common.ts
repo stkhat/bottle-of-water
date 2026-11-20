@@ -181,6 +181,8 @@ export interface KaikkiTranslation {
   sense?: unknown;
   /** A row's free text in place of a word: a usage note or an example ("… - …"). */
   note?: unknown;
+  /** The senses a row is for, in an edition that numbers them ("1", "1, 2"). */
+  sense_index?: unknown;
 }
 type Categories = (string | { name?: unknown } | null)[];
 export interface KaikkiSense {
