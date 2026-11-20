@@ -288,6 +288,131 @@ The rule is now one per edition (`UNDOCUMENTED_IMPORTS`, architecture "Undocumen
 - PiedBot's undocumented edits to pages it did not create (1,527 in 2005–2006, besides its documented ones) are not covered, as in L3: 94 en-fr Wiktionnaire terms are on such pages (admire, arrange; their English sections now date from PiedBot's documented 2007 re-imports, "Correction d'import de flexion", and read like the January 2006 batch).
 - Scripts and outputs (not committed): `data/raw/quality/piedbot/` (`created.tsv`, PiedBot's page creations with month and summary; `edits.tsv`, its edits to existing pages; `hits2.tsv`, the en-fr terms on its pages; `measure2.mjs`, `compare2.mjs`, `defs.mjs`, `gate-words.ts`, `gate-sample.ts`; `gate-before.jsonl`, `gate-after-enfr.jsonl`).
 
+## Round 4: new sources and the gate (2026-11-21)
+
+M0a of round 4: every cell of the learner matrix with at least 5M learners that Langle does not offer, measured with two new sources and against real content. Learners: en←hi 95M, ar 60M, bn 50M, ur 37M, id 36M, mr 15M, te 15M, ta 14M, tr 13M, fa 8M, th 8M, ko 7M; fr←ar 18M; ar←id 9M (vi excluded, D4). Nothing was built.
+
+### Method
+
+- **Gate words**: D5's top 5,000 English content words (`GATE`, 4,998 of D5's list). "Base" is D5's "All, main senses": the tables, N's edition (id, ko, th, tr) and OMW main senses (id, th, ar: omw-arb), read by the recipe readers.
+- **S1, reverse glosses**: English Wiktionary's N entries (`kaikki-<n>.jsonl`). Entries that are names, romanizations, characters, symbols, affixes or punctuation are skipped, and so are senses that are forms or alternatives or tagged obsolete, archaic, misspelling, abbreviation or initialism. The headword must hold a letter of N's script. The sense's last gloss loses its bracketed parts (nested) and is split on commas and semicolons. An item counts when, with a trailing period trimmed (and a leading "to" for verbs), it is exactly an English term key (lower case allowed); no substrings. The N words of one term are ordered by: the item first in its gloss, then N's frequency rank (FrequencyWords 2018), then file order. **Main senses** (the counted variant): the N word's part-of-speech class (noun, verb, adjective-or-adverb) must be one of the English word's classes (`en/pos.json`); other classes match any. Letting any part of speech count adds at most 0.3 points.
+- **S2, reversed tables**: N's edition's own words whose translation tables have an English row naming the term (row split on commas and semicolons, `tableWord`, a leading article or "to" dropped, then exact). Ordered by how many languages that sense's table covers, then rank; main senses as S1. Only the id, ko, th and tr editions exist; the id edition has 5 such entries.
+- **Tokens**: the 2026-11 corpora (YouTube, Netflix, articles) through Langle's own lookup (`base-<n>` runs of the real-content runner). Counted: word tokens whose ja hover shows lines, names (capitalised headwords) apart: 143,211 tokens. A token is covered when its key is a contraction, or the key or one of its bases (`en/lemmas.json`) has a meaning in the pair. On the offered natives this rule lands within 0.3 points of the share the extension actually shows.
+- **th without LEXiTRON**: the th edition's pages that D5 traced to LEXiTRON (`d5/lexitron/titles.json`, license unknown) left out. Its rows below are "th".
+
+### Baseline: offered natives
+
+| Native | Top 5,000 | Tokens (this rule) | Tokens shown (YouTube / Netflix / article) |
+| ------ | --------- | ------------------ | ------------------------------------------ |
+| pl     | 99.5      | 99.7               | 99.8 / 99.8 / 99.6                         |
+| ja     | 100       | 99.0               | 99.3 / 99.5 / 99.3                         |
+| it     | 98.1      | 99.3               | 99.5 / 99.4 / 99.2                         |
+| ru     | 97.7      | 99.0               | 98.8 / 98.8 / 98.6                         |
+| fr     | 97.5      | 99.0               | 99.2 / 99.0 / 99.2                         |
+| es     | 96.9      | 99.0               | 99.2 / 99.0 / 99.0                         |
+| de     | 96.2      | 98.6               | 98.8 / 98.6 / 98.9                         |
+| pt     | 95.2      | 98.3               | 98.4 / 98.1 / 97.7                         |
+| zh     | 95.1      | 98.1               | 97.9 / 97.8 / 97.3                         |
+
+Type coverage here is by the pack's keys (es 96.9; `data:stats` counts differently). The offered floor is zh: 95.1% type, 98.1% tokens.
+
+### Coverage
+
+Top 5,000 (top 2,000 in brackets), main senses; tokens base → best:
+
+| Native | Learners | Tables | Base        | + S1        | + S2        | + both          | Tokens      | S1 decides | S2 decides |
+| ------ | -------- | ------ | ----------- | ----------- | ----------- | --------------- | ----------- | ---------- | ---------- |
+| hi     | 95M      | 68.7   | 68.7 (81.0) | 83.7 (91.4) | –           | 83.7            | 85.3 → 91.3 | 752        | –          |
+| ar     | 60M      | 79.3   | 84.2 (92.0) | 91.7 (95.8) | –           | 91.7            | 95.4 → 97.0 | 375        | –          |
+| bn     | 50M      | 39.7   | 39.7 (54.9) | 63.7 (78.8) | –           | 63.7            | 72.9 → 87.7 | 1,201      | –          |
+| ur     | 37M      | 48.2   | 48.2 (64.5) | 72.3 (85.0) | –           | 72.3            | 77.7 → 87.8 | 1,207      | –          |
+| id     | 36M      | 60.2   | 92.7 (95.7) | 94.7 (96.7) | 92.7        | 94.7 (96.7)     | 92.0 → 97.5 | 101        | 0          |
+| mr     | 15M      | 27.3   | 27.3 (39.0) | 55.3 (71.8) | –           | 55.3            | 40.1 → 77.6 | 1,398      | –          |
+| te     | 15M      | 35.3   | 35.3 (49.8) | 60.3 (75.2) | –           | 60.3            | 61.3 → 82.4 | 1,252      | –          |
+| ta     | 14M      | 31.4   | 31.4 (44.6) | 66.5 (79.0) | –           | 66.5            | 62.2 → 84.4 | 1,754      | –          |
+| tr     | 13M      | 79.4   | 86.7 (92.9) | 92.2 (95.8) | 89.2 (94.3) | **92.7** (96.1) | 95.9 → 98.0 | 271        | 121        |
+| fa     | 8M       | 47.0   | 47.0 (57.0) | 81.4 (90.9) | –           | 81.4            | 70.2 → 92.0 | 1,720      | –          |
+| th     | 8M       | 62.0   | 92.4 (96.5) | 95.2 (97.9) | 92.6 (96.7) | **95.3** (98.0) | 97.4 → 98.7 | 143        | 9          |
+| ko     | 7M       | 76.6   | 89.1 (94.7) | 92.5 (96.3) | 90.5 (95.5) | **93.0** (96.6) | 97.2 → 98.4 | 169        | 71         |
+
+- Each new source alone: S1 id 76.7, tr 81.7, th 74.9, ko 80.7; S2 tr 63.3, th 22.5, ko 60.4, id 0.1. With LEXiTRON's pages, th reaches 94.0 → 95.9 (tokens 98.8).
+- S1's size (entries / senses read): ar 230,661 / 43,036 (most entries are inflected forms), tr 41,278 / 31,675, id 38,228 / 48,751, ko 37,743 / 50,248, hi 35,846 / 32,010, te 20,799 / 19,390, th 19,293 / 23,654, fa 18,152 / 20,936, ta 12,437 / 24,571, bn 9,643 / 13,029, ur 9,362 / 14,671, mr 5,354 / 7,339.
+- The South Asian natives gain 15–35 points from S1 and still stay far under: their tables lack rows for most common words.
+
+### Quality of S1
+
+- **Read** (30 S1-decided gate words each for hi, ar, bn; 20 each for th, tr, ko, id; `sample-s1-*.json`): about 77% a good first meaning, 11% a lesser sense, 12% a misleading first line. hi 21 / 5 / 4 (access → बार, adjustment → छेड़छाड़, exhaust → चूसना), ar 24 / 2 / 4 (fond → ناعم, aware → خبير, salute → سجد), bn 22 / 5 / 3 (pet → চামচা), th 15 / 2 / 3, tr 15 / 2 / 3 (manslaughter → katil), ko 18 / 1 / 1, id 16 / 2 / 2. S1 gives dictionary words, never descriptions; its errors are a narrow or figurative sense of the N word picked as the English word's meaning.
+- **Judged blind** against the tables on 50 gate words both have (judge agent, `packets/`): S1 : tables : same hi 7 : 30 : 13, ar 6 : 25 : 19, tr 14 : 19 : 17; first meaning wrong S1 / tables hi 12 / 2, ar 13 / 0, tr 4 / 2. **S1 is the last source in any recipe**: it should only fill words nothing else has.
+
+### Uncovered gate words at the best combination
+
+D5's classes (`classes.json`; 50 random words each with their en-defs short line in `uncovered-sample-<n>.json`, for M0b):
+
+| Native | Uncovered | Tables without a row for N | No tables | Variant or form | Lesser OMW sense only | S1 under another part of speech | Names in lower case |
+| ------ | --------- | -------------------------- | --------- | --------------- | --------------------- | ------------------------------- | ------------------- |
+| hi     | 815       | 724                        | 63        | 22              | –                     | 4                               | 2                   |
+| ar     | 417       | 312                        | 48        | 14              | 35                    | 6                               | 2                   |
+| bn     | 1,814     | 1,705                      | 75        | 26              | –                     | 6                               | 2                   |
+| ur     | 1,385     | 1,281                      | 69        | 24              | –                     | 8                               | 3                   |
+| id     | 263       | 148                        | 32        | 9               | 68                    | 4                               | 2                   |
+| mr     | 2,237     | 2,124                      | 78        | 27              | –                     | 5                               | 3                   |
+| te     | 1,983     | 1,867                      | 76        | 27              | –                     | 11                              | 2                   |
+| ta     | 1,675     | 1,548                      | 75        | 24              | –                     | 26                              | 2                   |
+| tr     | 365       | 301                        | 45        | 16              | –                     | 1                               | 2                   |
+| fa     | 930       | 840                        | 62        | 20              | –                     | 6                               | 2                   |
+| th     | 233       | 136                        | 19        | 7               | 66                    | 3                               | 2                   |
+| ko     | 352       | 282                        | 48        | 15              | –                     | 5                               | 2                   |
+
+The words left are the subtitles' informal English and less common words, not core vocabulary: tr lounge, edgy, backfire, coroner, cranky; ko glimpse, predictable, comfy, keen; th reassure, gig, understatement, spontaneous; ar gonna, obsess, locate, override, pathetic; id fridge, sober, publicly, hysterical. No data source left fills them; machine translation of their English definitions (M0b) is the only one.
+
+### Provenance and licenses
+For 15 random gate words each new source decides per native, the first revision whose definition line (S1) or English row (S2) names the English word, from the wikis' revision histories (`prov.ts`, `prov-*.txt`):
+- **S1** (English Wiktionary, CC BY-SA 4.0 like the tables), 180 words over the 12 natives: every gloss written by hand, 2006–2026, by about 70 named editors (th Atitarev, GinGlaep, Alifshinobi; ko Atitarev, Wyang; tr Sae1962, Orexan; id Ateofen, Xbypass; ar Stephen G. Brown, Fenakhay, Benwing; hi AryamanA; te Rajasekhar1961 11 of 15; mr Shabdapishach 8 of 15) and 5 unregistered editors. Three pages were created by bots for something else and glossed by hand later: "bendo" (SemperBlottoBot's 2008 Italian verb forms; Indonesian "chopper" added 2025), "gelen" (MewBot's Catalan forms; Turkish added 2013), "سرور" (Tbot's 2009 Persian stub from a translation table; "server" added 2018). No bot import of glosses.
+- **S2 tr** (decides 121 words, +2.5 points without S1): 13 of the 15 English rows were added by unregistered editors (2011–2024), most from a few related address ranges (91.153–91.156.x, 83.245.x), the others by hand too. The pages themselves were created in 2006–2008 by VikiBot (5) and SaltinbasBot (5); SaltinbasBot's summaries cite "TDK Büyük Sözlük", the Turkish Language Association's dictionary (copyrighted), for the Turkish definitions. S2 reads only the English rows added later; no recipe reads those definitions.
+- **S2 ko** (decides 71): every English row by hand (2005–2025: 아흔 / A-heun, Russ, Jeebeen); 2 pages created by Gusibbot's 2010 "Automated import of articles", their English rows added by hand later.
+- **FrequencyWords** (hermitdave, 2018 OpenSubtitles lists; content CC BY-SA 4.0, code MIT) only orders senses at build time; nothing from it ships. Lists exist for every candidate but mr (file order instead); hi, ur, te and ta are small (0.12–0.74M tokens); th's list is mis-encoded (its top token is "เธ"), so th falls back to file order too.
+- **LEXiTRON**: D5's open question stands; th passes without those pages (95.3).
+
+### fr←ar and ar←id
+
+- **fr←ar** (18M), on French's gate (the fr pack's top 5,000 content words): Wiktionnaire's tables with Arabic rows 47.4 (57.2), reverse glosses of Wiktionnaire's 11,972 Arabic entries (PiedBot's undocumented pages left out) 46.7 (61.8), both **65.6** (76.8). Kaikki has no extract of the Arabic edition, so neither its French entries nor reversed tables from it can be read. The reverse glosses read poorly (taire → تَخَتَّمَ, inquiéter → رَابَطَ). Far under every rule.
+- **ar←id** (9M): the id edition has 62 Arabic entries (51 headwords) and no Arabic rows in its tables; English Wiktionary's 25,074 Arabic lemma entries are glossed in English. No source exists; only machine translation would serve it.
+
+### Which pairs each gate rule would let in
+
+Best combination (S1 last); "without S1" is base + S2. Token rule: at least the lowest offered native's 98.1%.
+
+| Pair                  | Learners | Type  | Without S1 | 95% type | 92% | 90% | 85% type | Tokens ≥ 98.1 |
+| --------------------- | -------- | ----- | ---------- | -------- | --- | --- | -------- | ------------- |
+| en←th                 | 8M       | 95.3  | 92.6       | yes      | yes | yes | yes      | yes (98.7)    |
+| en←id                 | 36M      | 94.7  | 92.7       | –        | yes | yes | yes      | – (97.5)      |
+| en←ko                 | 7M       | 93.0  | 90.5       | –        | yes | yes | yes      | yes (98.4)    |
+| en←tr                 | 13M      | 92.7  | 89.2       | –        | yes | yes | yes      | – (98.0)      |
+| en←ar                 | 60M      | 91.7  | 84.2       | –        | –   | yes | yes      | – (97.0)      |
+| en←hi                 | 95M      | 83.7  | 68.7       | –        | –   | –   | –        | – (91.3)      |
+| en←fa                 | 8M       | 81.4  | 47.0       | –        | –   | –   | –        | – (92.0)      |
+| en←ur, bn, ta, te, mr | 15–50M   | 55–72 | 27–48      | –        | –   | –   | –        | – (78–88)     |
+| fr←ar                 | 18M      | 65.6  | –          | –        | –   | –   | –        | not measured  |
+| ar←id                 | 9M       | ~0    | –          | –        | –   | –   | –        | –             |
+
+Without S1 only th (92.6) and id (92.7) pass 92%; ko joins at 90%, tr at 85%. Against zh's shown share (97.8) tr would pass the token rule too.
+
+### Recommended build order (learners × data)
+
+1. **th**: the only pair the current rule lets in, with S1 (and without LEXiTRON); tokens above zh.
+2. **id**: the most learners among the strong pairs; 94.7 with S1, 92.7 without.
+3. **tr**, then **ko**: both pass 92% only with S1 and S2, and the token rule nearly or fully.
+4. **ar**: 60M learners at 91.7 / 97.0, held up by 375 S1 words whose first meaning was wrong in 13 of 50 judged; better after M0b's fallback.
+5. **hi, fa**, then **ur, bn, ta, te, mr**: only with a machine-translated fallback for 800–2,200 gate words (M0b).
+6. fr←ar and ar←id: none without machine translation.
+
+### Open (user decisions)
+
+- Whether S1 (and S2) may be sources: they lift every pair (th past 95%) but S1's first meaning is wrong more often than the tables'.
+- The gate: keep 95% type (th only), or lower it to 92% (+ id, ko, tr) or 90% (+ ar), or add the token rule.
+- th's LEXiTRON pages: still unknown license; th passes without them.
+- Scripts and outputs (not committed): `data/raw/quality/r4/` (`sources.ts`, `report.py`, `gaps.ts`, `classes.py`, `sample.py`, `frar.ts`, `prov.ts`, `provsum.py`; `report.json`, `classes.json`, `frar.json`, `prov-*.txt`, `uncovered-sample-<n>.json`).
+
 ## Other learning languages (estimated)
 Rows other than English in the matrix are estimated from source sizes (kaikki sense counts, 2026-11-13), not measured. Rules:
 - T1~: a bilingual dictionary with a confirmed license (zh → en, ja → en).
