@@ -45,6 +45,7 @@ import { warn } from "../lookup/warn";
 import { createStore } from "../store";
 import type { TranslationPair } from "../translate/queue";
 import { builtInTranslatorAvailable } from "../translate/translator";
+import { cardRuns, splitRun } from "../../core/subtitles/runs";
 import { captionCards, type TimedTranslation } from "./captions";
 import { createCards } from "./cards";
 import { holdPlayback } from "./hold";
@@ -182,6 +183,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   function termInput(
     index: number,
     display: string,
+    /** The cards' text for a phrase across cards (`acrossCards`). */
+    sentence?: string,
   ): Omit<SaveTermInput, "status" | "key" | "kind"> | undefined {
     const { cues, translations, current, subtitleTranslation } = store.get();
     const cue = cues[index];
@@ -192,7 +195,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
       lang: lang(),
       display,
       source: source(),
-      sentence: flat(cue.text),
+      sentence: sentence ?? flat(cue.text),
       ...(translation ? { translation } : {}),
       pos: { timeMs: cue.startMs },
     };
@@ -441,12 +444,20 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     const saved = new Set<string>();
     for (let from = 0; from < indices.length; from += BATCH) {
       const batch = indices.slice(from, from + BATCH);
-      const all = store.get().cues;
-      const result = await lookup.analyze(batch.map((i) => all[i]!.text));
+      // A card whose sentence runs on is classified with the cards it runs on in.
+      const texts = store.get().cues.map((cue) => cue.text);
+      const runs = cardRuns(texts, batch);
+      const result = await lookup.analyze(
+        runs.map((run) => run.text),
+        runs.map((run) => [...run.breaks]),
+      );
       if (watch !== w) return;
       if (!result) break;
       for (const key of result.saved) saved.add(key);
-      batch.forEach((cue, i) => found.set(cue, result.spans[i] ?? []));
+      runs.forEach((run, i) => {
+        for (const [cue, list] of splitRun(run, texts, result.spans[i] ?? []))
+          found.set(cue, list);
+      });
     }
     if (found.size === 0) return;
     for (const key of saved) w.recorder.saved.add(key);
@@ -492,7 +503,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
   /** What saving the term at `ref` sends besides its status. */
   function saveInput(ref: WordRef, card: TermCard) {
     const found = cards.spanOf(ref);
-    const input = found && termInput(ref.cue, found.surface);
+    const input = found && termInput(ref.cue, found.surface, found.sentence);
     return input && { ...input, key: card.key, kind: card.kind };
   }
 

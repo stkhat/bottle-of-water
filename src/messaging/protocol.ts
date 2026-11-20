@@ -148,8 +148,16 @@ export type Request =
    * Classifies blocks of text (paragraphs, subtitle lines) of one language. `casing` is
    * the casing of the whole document the blocks belong to (a caption track, an
    * article's main content): names (rule D) and capitalised words come from it.
+   * `breaks`, by block: where the transcript cards a block joins meet (`cardRuns`,
+   * `ClassifyOptions.breaks`).
    */
-  | { type: "analyze"; lang: string; blocks: string[]; casing?: DocumentCasing }
+  | {
+      type: "analyze";
+      lang: string;
+      blocks: string[];
+      casing?: DocumentCasing;
+      breaks?: number[][];
+    }
   /**
    * The dictionary pattern a selection of words stands for (select mode: slots and
    * gaps). `start` and `end` are the selection's offsets in `text`, `end` exclusive:

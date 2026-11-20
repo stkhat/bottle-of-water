@@ -6,6 +6,7 @@ import type { SourceInput } from "../../messaging/protocol";
 import { warn } from "../lookup/warn";
 import type { Store } from "../store";
 import type { VideoState } from "./state";
+import { acrossCards } from "./words";
 
 /**
  * What one video records: the saved terms of the cards that play (once per term and
@@ -51,13 +52,17 @@ export function createRecorder(o: {
         if (!cue || !played.has(index)) continue;
         for (const span of spans[index] ?? []) {
           if (span.category === "ignored" || !saved.has(span.key)) continue;
+          // A phrase across cards is met once, in the card it starts in.
+          if (span.part?.previous) continue;
           const seen = `${span.key}\n${index}`;
           if (recorded.has(seen)) continue;
           recorded.add(seen);
           const translation = translations[index];
           items.push({
             termId: termId(o.lang(), span.key),
-            sentence: o.flat(cue.text),
+            sentence:
+              acrossCards(cues, spans, index, span, o.flat)?.sentence ??
+              o.flat(cue.text),
             ...(translation ? { translation } : {}),
             pos: { timeMs: cue.startMs },
           });
