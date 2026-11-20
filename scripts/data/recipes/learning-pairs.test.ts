@@ -159,6 +159,13 @@ describe("readReversedTables", () => {
       ["reflexive", "se trouver"],
     ]);
     expect(terms.has("deutschland")).toBe(false);
+    // An undocumented import's pages are left out, and the links to them.
+    const without = await readReversedTables(path, words, {
+      native: "fr",
+      leftOut: new Set(["cabot", "befinden"]),
+    });
+    expect(without.capital.get("hund")?.senses).toEqual([["noun", "chien"]]);
+    expect(without.terms.has("befinden")).toBe(false);
   });
 });
 

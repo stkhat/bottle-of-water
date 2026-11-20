@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"a","last":"insel"},{"file":"dict-2.json","first":"insel man","last":"vehement"},{"file":"dict-3.json","first":"vehikel","last":"üppig"}],
+"shards":[{"file":"dict-1.json","first":"a","last":"insektizid"},{"file":"dict-2.json","first":"insel","last":"veilchen"},{"file":"dict-3.json","first":"veilchenstrauss","last":"üppig"}],
 "sources":["dewiktionary-translations","frwiktionary-translations","frwiktionary-de"]
 }

@@ -102,23 +102,23 @@
       "files": [
         {
           "path": "dict-1.json",
-          "sha256": "2cf42ca246d1c0220c7a229f3592486f0bf5416a8121c1812fe74441c9a6a0c8",
-          "size": 1999924
+          "sha256": "c0cd414bc04bdb8120a841789ddc621fad22e0344873a4f8f41014b41d0abe0e",
+          "size": 1999950
         },
         {
           "path": "dict-2.json",
-          "sha256": "93850a466d0fbcfd4fbe7343a81f6fd492a8133cd15b47155f1528a07e088ce1",
-          "size": 1999923
+          "sha256": "057879c6693833f9a4ea92eb85a38c06afb2916850cf106860f442f6985f4440",
+          "size": 1999900
         },
         {
           "path": "dict-3.json",
-          "sha256": "74e5dcd699996f473200b3475d8395c10d458ba82ecd42cf80b71e4e159837ef",
-          "size": 714906
+          "sha256": "5d5cbe85200bda64991f9d6994b4789cda67d1b666d1685849adcdfc0018cc08",
+          "size": 714272
         },
         {
           "path": "index.json",
-          "sha256": "1af7a3587d44afaa538c9d73d63bab302894b7497483a8bb02005e04f9b52cf9",
-          "size": 270
+          "sha256": "19b5c5623c0b139e9265b4782699dddf291313a88b345fa2f107e090dbcad344",
+          "size": 279
         }
       ],
       "format": 1,

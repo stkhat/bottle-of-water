@@ -239,7 +239,7 @@ async function reflexiveGlosses(path: string, words: LearningWords) {
  * as the tables order their own: by how many of the offered languages the native
  * word's sense is translated into (a common word's table is wide), file order among
  * equals; at most MAX_SENSES. Native proper nouns are names, left out, as are the
- * pages `leftOut` names.
+ * pages `leftOut` names and the links to them.
  */
 export async function readReversedTables(
   path: string,
@@ -295,6 +295,13 @@ export async function readReversedTables(
       for (const part of row.word.split(/[,;]/u)) {
         const at = learningKeyOf(part.trim(), words);
         if (!at) continue;
+        // A link to a page `leftOut` names is left out too: a bot may have filled
+        // its tables from the pages it imported (PiedBot's "Mise à jour des
+        // traductions", 2006).
+        const page = at.capital
+          ? at.key.charAt(0).toUpperCase() + at.key.slice(1)
+          : at.key;
+        if (leftOut.has(page)) continue;
         const id = `${at.capital}\n${at.key}`;
         if (seen.has(id)) continue;
         seen.add(id);
