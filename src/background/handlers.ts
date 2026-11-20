@@ -1,3 +1,4 @@
+import { MAX_OCCURRENCES } from "../core/cloud/merge";
 import {
   unsavedKeys,
   type ClassifyOptions,
@@ -70,11 +71,7 @@ import {
 import { historyKeys, type HistoryStore } from "./history-store";
 import type { LanguageResources } from "./language-resources";
 import type { PackStore } from "./pack-store";
-import {
-  MAX_OCCURRENCES,
-  type ImportedOccurrence,
-  type TermStore,
-} from "./term-store";
+import type { ImportedOccurrence, TermStore } from "./term-store";
 import type { TranslationCache } from "./translation-cache";
 import type { ExplanationCache } from "./explanation-cache";
 

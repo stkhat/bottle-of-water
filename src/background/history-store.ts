@@ -1,4 +1,10 @@
 import type { Classifier, ClassifyOptions } from "../core/classify";
+import {
+  HISTORY_CAP_BYTES,
+  pageSize,
+  pagesToEvict,
+  sentenceSize,
+} from "../core/history-size";
 import type { LanguagePack } from "../core/lexicon/language-pack";
 import { termId } from "../core/term-id";
 import {
@@ -50,29 +56,10 @@ export interface HistoryStoreOptions {
   capBytes?: number;
 }
 
-const HISTORY_CAP_BYTES = 50 * 1024 * 1024;
-
 /** Base forms ranked within this many are too common to find sentences by. */
 const COMMON_RANK = 300;
 
 const PLATFORMS: readonly Platform[] = ["web", "youtube", "netflix"];
-
-const EVICT_TO = 0.9;
-/** Counted per record on top of its strings. */
-const RECORD_OVERHEAD = 64;
-
-/** UTF-16, two bytes per code unit. */
-const utf16 = (...texts: readonly string[]) =>
-  texts.reduce((sum, text) => sum + 2 * text.length, 0);
-
-const pageSize = (page: Pick<HistoryPageRecord, "url" | "title">) =>
-  utf16(page.url, page.title) + RECORD_OVERHEAD;
-
-const sentenceSize = (
-  sentence: Pick<HistorySentenceRecord, "text" | "translation" | "keys">,
-) =>
-  utf16(sentence.text, sentence.translation ?? "", ...sentence.keys) +
-  RECORD_OVERHEAD;
 
 /**
  * The term ids a kept sentence is found by: every base form of each word except the
@@ -149,14 +136,8 @@ export function createHistoryStore(
   /** While over the cap, removes the oldest pages (never `keepId`) down to 90 % of it. */
   async function evict(keepId: string, total: number) {
     if (total <= capBytes) return total;
-    const victims: HistoryPageRecord[] = [];
-    let left = total;
-    for (const page of await db.historyPages.orderBy("lastSeen").toArray()) {
-      if (left <= capBytes * EVICT_TO) break;
-      if (page.id === keepId) continue;
-      victims.push(page);
-      left -= page.bytes;
-    }
+    const oldestFirst = await db.historyPages.orderBy("lastSeen").toArray();
+    const victims = pagesToEvict(oldestFirst, total, capBytes, keepId);
     return total - (await deletePages(victims));
   }
 

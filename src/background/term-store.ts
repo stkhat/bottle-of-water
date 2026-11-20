@@ -5,6 +5,7 @@ import type {
   TermKind,
   TermStatus,
 } from "../core/classify";
+import { MAX_OCCURRENCES } from "../core/cloud/merge";
 import { meaningKey, type Meaning, type MeaningFrom } from "../core/meanings";
 import { fromMinutes, toMinutes, type SyncRecord } from "../core/sync/codec";
 import { kindOfKey, termId } from "../core/term-id";
@@ -175,12 +176,6 @@ export interface TermStoreOptions {
   /** This device's id (`deviceId`), which meaning choices carry. Default: one per store. */
   deviceId?: () => Promise<string>;
 }
-
-/**
- * Occurrences kept per term; the oldest encounters go first, saved ones and the ones
- * with a meaning chosen stay.
- */
-export const MAX_OCCURRENCES = 50;
 
 const EXPORT_FORMAT = "langle-export";
 /** Exports made before the rename to Langle (2026-11-18) still import. */
