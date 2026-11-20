@@ -55,6 +55,7 @@ describe("readAligned", () => {
           ...["PRON", "PRON", "PRON", "PRON", "VERB.Part", "ADP", "NOUN"],
           "PUNCT",
         ],
+        fixed: Array.from({ length: 15 }, () => false),
       },
     ]);
     // The second sentence's token is not in its text.
@@ -67,5 +68,21 @@ describe("readAligned", () => {
     );
     expect(sentences[0]!.words.slice(-2)).toEqual(["d'accord", "?"]);
     expect(sentences[0]!.tags.slice(-2)).toEqual(["ADP", "PUNCT"]);
+  });
+  it("marks the words of a fixed expression after its first", () => {
+    const fixed = [
+      "# text = Un peu plus.",
+      "1\tUn\tun\tDET\t_\t_\t3\tadvmod\t_\t_",
+      "2\tpeu\tpeu\tNOUN\t_\t_\t1\tfixed\t_\t_",
+      "3\tplus\tplus\tADV\t_\t_\t0\troot\t_\tSpaceAfter=No",
+      "4\t.\t.\tPUNCT\t_\t_\t3\tpunct\t_\t_",
+      "",
+    ].join("\n");
+    expect(
+      readAligned(
+        fixed,
+        split(() => false),
+      ).sentences[0]!.fixed,
+    ).toEqual([false, true, false, false]);
   });
 });

@@ -295,6 +295,8 @@ const capitalised = (text: string) =>
  * "loaves → loaf" when the form on the page is not its base form. Where the card
  * writes the headword (`head`) capitalised, both are written so: a German noun's
  * forms are its own ("Jahrhunderten → Jahrhundert", as the card's "Jahrhundert").
+ * None for an abbreviation read with the period the segmenter leaves after it
+ * ("U.S" is "u.s.": the page writes "U.S.").
  */
 export function inflectionNote(
   surface: string,
@@ -302,7 +304,7 @@ export function inflectionNote(
   head?: string,
 ): string | undefined {
   const form = normalizeWord(surface);
-  if (form === key) return undefined;
+  if (form === key || `${form}.` === key) return undefined;
   return head !== undefined && startsCapital(head)
     ? `${capitalised(form)} → ${capitalised(key)}`
     : `${form} → ${key}`;

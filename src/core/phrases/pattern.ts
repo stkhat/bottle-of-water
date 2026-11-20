@@ -55,6 +55,29 @@ export interface PhraseRules {
   readonly adjectivesAfterNouns?: boolean;
   /** The language writes a verb pattern's verb last and moves it in text (German). */
   readonly verbLast?: VerbLastRules;
+  /** A negation in two words around the verb (French "ne … pas"). */
+  readonly negation?: NegationRules;
+}
+
+/**
+ * A negation written in two words around the verb (French "ne … pas", "n'… jamais"):
+ * the first before the verb and its pronouns, the second right after the verb. The
+ * second may stand inside a verb pattern, right after one of its words that the first
+ * comes before (at most `reach` words before it, joined by spaces), and is a gap: "je ne
+ * me rends pas compte" is `se rendre compte`, "il n'a pas l'air" `avoir l'air`.
+ */
+export interface NegationRules {
+  /** The negation's first word ("ne", "n'"). */
+  readonly before: ReadonlySet<string>;
+  /** Its second words ("pas", "plus", "jamais"…). */
+  readonly after: ReadonlySet<string>;
+  /**
+   * The second words that negate without the first, as speech drops it ("j'ai pas
+   * envie"): right after the pattern's word.
+   */
+  readonly alone: ReadonlySet<string>;
+  /** How many words before the verb the first may stand: "je ne le lui dis pas". */
+  readonly reach: number;
 }
 
 /**

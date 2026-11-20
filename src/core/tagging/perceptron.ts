@@ -17,6 +17,12 @@ export interface PerceptronModel {
   readonly weights: Readonly<Record<string, readonly number[]>>;
   /** The weights are integers: the trained weights times this. */
   readonly scale: number;
+  /**
+   * Words and the tags the treebank gives them only inside fixed expressions (UD's
+   * `fixed`: "peu" a noun in "un peu", "contre" in "par contre"): such a tag is the
+   * expression's, not the word's own part of speech, so it is never trusted.
+   */
+  readonly fixed?: Readonly<Record<string, readonly string[]>>;
 }
 
 /** A word's tag and how far its score is ahead of the next best (Infinity: a known word). */
@@ -130,9 +136,13 @@ export function tagSentence(
           best = t;
         } else if (scores[t]! > second) second = scores[t]!;
       }
+      const tag = model.tags[best]!;
+      const fixed = Object.hasOwn(model.fixed ?? {}, context[k + 2]!)
+        ? model.fixed![context[k + 2]!]!.includes(tag)
+        : false;
       result = {
-        tag: model.tags[best]!,
-        margin: (scores[best]! - second) / model.scale,
+        tag,
+        margin: fixed ? 0 : (scores[best]! - second) / model.scale,
       };
     }
     previous2 = previous;

@@ -36,6 +36,44 @@ const SCALE = 10;
 export interface TaggedSentence {
   words: string[];
   tags: string[];
+  /** Whether each word is inside a fixed expression, after its first word (UD's `fixed`). */
+  fixed?: boolean[];
+}
+
+/** A tag counts as a fixed expression's when the word has it this often at least … */
+const FIXED_MIN_COUNT = 5;
+/** … and this share of those times inside a fixed expression. */
+const FIXED_MIN_SHARE = 0.9;
+
+/**
+ * The words and the tags the treebank gives them (nearly) only inside fixed
+ * expressions (`PerceptronModel.fixed`): "peu" as a noun in "un peu", "contre" in "par
+ * contre". Empty for sentences without `fixed`.
+ */
+export function fixedTags(
+  sentences: readonly TaggedSentence[],
+): Record<string, string[]> {
+  const counts = new Map<string, { all: number; fixed: number }>();
+  for (const { words, tags, fixed } of sentences) {
+    if (!fixed) continue;
+    const context = contextOf(words);
+    words.forEach((_, i) => {
+      const key = `${context[i + 2]}\u0001${tags[i]}`;
+      const count = counts.get(key) ?? { all: 0, fixed: 0 };
+      count.all++;
+      if (fixed[i]) count.fixed++;
+      counts.set(key, count);
+    });
+  }
+  const found: Record<string, string[]> = {};
+  for (const [key, { all, fixed }] of [...counts].sort((a, b) =>
+    a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+  )) {
+    if (all < FIXED_MIN_COUNT || fixed / all < FIXED_MIN_SHARE) continue;
+    const [word, tag] = key.split("\u0001") as [string, string];
+    (found[word] ??= []).push(tag);
+  }
+  return found;
 }
 
 /**
@@ -181,7 +219,14 @@ export function train(
     }
     if (pairs.length > 0) kept[feature] = pairs;
   }
-  return { tags, words: known, weights: kept, scale: SCALE };
+  const fixed = fixedTags(sentences);
+  return {
+    tags,
+    words: known,
+    weights: kept,
+    scale: SCALE,
+    ...(Object.keys(fixed).length > 0 && { fixed }),
+  };
 }
 
 /** Share of tokens `model` tags as the treebank does. */

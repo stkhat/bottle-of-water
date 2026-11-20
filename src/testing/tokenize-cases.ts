@@ -19,3 +19,34 @@ export const TRICKY_WORDS = [
   { text: "isn't", start: 71, end: 76 },
   { text: "it", start: 77, end: 79 },
 ];
+
+/**
+ * Abbreviations with full stops inside, a domain and a colon between letters, which
+ * Node's segmenter keeps whole and Chrome's splits ("U", ".", "S"), and the words the
+ * vocabulary (`DOTTED_KNOWN`) reads them as, the same in every engine.
+ */
+export const DOTTED_SENTENCE =
+  "The seventh U.S. company met at 5 p.m. on example.com, e.g. Re:Zero, 3.5 km.";
+
+/** The words `whole` knows in `DOTTED_SENTENCE`, as written (lower case). */
+export const DOTTED_KNOWN = ["u.s", "p.m"];
+
+export const DOTTED_WORDS = [
+  "The@0-3",
+  "seventh@4-11",
+  "U.S@12-15",
+  "company@17-24",
+  "met@25-28",
+  "at@29-31",
+  "5@32-33",
+  "p.m@34-37",
+  "on@39-41",
+  "example@42-49",
+  "com@50-53",
+  "e@55-56",
+  "g@57-58",
+  "Re@60-62",
+  "Zero@63-67",
+  "3.5@69-72",
+  "km@73-75",
+];

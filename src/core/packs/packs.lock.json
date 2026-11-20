@@ -688,8 +688,8 @@
         },
         {
           "path": "tagger.json",
-          "sha256": "bab921fb08e902467b52a7cf959a2491dfc3064d6bfd49c910d5ac1b66e96ba4",
-          "size": 155614
+          "sha256": "174621772b3b84fc149500283b3988ccfaf04da2a3b3a6d3f035dc77add587e6",
+          "size": 155765
         },
         {
           "path": "vocab.json",
@@ -699,7 +699,7 @@
       ],
       "format": 3,
       "package": "@langle/fr",
-      "version": "2026.1119.3"
+      "version": "2026.1120.0"
     },
     "fr-en": {
       "files": [

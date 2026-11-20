@@ -40,12 +40,16 @@ export function frenchTag(upos: string, feats: string): string {
 /** A treebank word's tag for the tagger, from its UPOS, features and language tag (XPOS). */
 export type TagOf = (upos: string, feats: string, xpos: string) => string;
 
-/** A token of the treebank's text: as written, where it is, and its tag. */
+/**
+ * A token of the treebank's text: as written, where it is, its tag, and whether it is
+ * inside a fixed expression after its first word (deprel `fixed`).
+ */
 interface Surface {
   form: string;
   start: number;
   end: number;
   tag: string;
+  fixed: boolean;
 }
 
 const textOf = (lines: readonly string[]) =>
@@ -62,7 +66,8 @@ function surfaceOf(lines: readonly string[], text: string, tagOf: TagOf) {
   let skipTo = 0;
   for (const line of lines) {
     if (line.startsWith("#")) continue;
-    const [id = "", form, , upos, xpos = "_", feats = "_"] = line.split("\t");
+    const [id = "", form, , upos, xpos = "_", feats = "_", , deprel = ""] =
+      line.split("\t");
     if (!form || !upos || id.includes(".")) continue;
     const range = /^(\d+)-(\d+)$/.exec(id);
     if (range) {
@@ -71,10 +76,11 @@ function surfaceOf(lines: readonly string[], text: string, tagOf: TagOf) {
       continue;
     }
     const tag = tagOf(upos, feats, xpos);
+    const fixed = deprel === "fixed";
     if (multiword !== undefined) {
-      tokens.push({ form: multiword, tag });
+      tokens.push({ form: multiword, tag, fixed });
       multiword = undefined;
-    } else if (Number(id) > skipTo) tokens.push({ form, tag });
+    } else if (Number(id) > skipTo) tokens.push({ form, tag, fixed });
   }
   const placed: Surface[] = [];
   let cursor = 0;
@@ -113,6 +119,7 @@ export function readAligned(
     }
     const words: string[] = [];
     const tags: string[] = [];
+    const fixed: boolean[] = [];
     let k = 0;
     let found = true;
     for (const token of split(sentence)) {
@@ -124,12 +131,13 @@ export function readAligned(
       }
       words.push(token.text.replaceAll("’", "'"));
       tags.push(at.tag);
+      fixed.push(at.fixed);
     }
     if (!found || words.length === 0) {
       skipped++;
       continue;
     }
-    sentences.push({ words, tags });
+    sentences.push({ words, tags, fixed });
   }
   return { sentences, skipped };
 }

@@ -632,6 +632,15 @@ describe("French pronominal verbs, elisions and compounds", () => {
     rend: ["rendre"],
     rendre: ["rendre"],
     compte: ["compte", "compter"],
+    ne: ["ne"],
+    "n'": ["n'"],
+    pas: ["pas"],
+    plus: ["plus"],
+    jamais: ["jamais"],
+    "c'": ["c'", "ce"],
+    ça: ["ça"],
+    fait: ["fait", "faire"],
+    "qu'": ["qu'", "que"],
     vais: ["aller"],
     allé: ["aller"],
     aller: ["aller"],
@@ -655,7 +664,9 @@ describe("French pronominal verbs, elisions and compounds", () => {
     patterns: {
       detect: [
         "avoir l'air",
+        "c'est ça",
         "mettre d'accord",
+        "ne faire que",
         "peut-être que",
         "rendre compte",
         "s'en aller",
@@ -663,6 +674,8 @@ describe("French pronominal verbs, elisions and compounds", () => {
       ],
       more: [],
       gap: [],
+      // Verb patterns, but "c'est ça" (an interjection) and "peut-être que".
+      pos: { detect: "v i v v - v v v", more: "" },
     },
     lemmas: frLemmas,
   });
@@ -734,6 +747,29 @@ describe("French pronominal verbs, elisions and compounds", () => {
 
   it("leaves a subject and its verb to the plain verb", () => {
     expect(first("Nous rendons compte de tout.")?.key).toBe("rendre compte");
+  });
+
+  it("matches a verb pattern with a negation's second word after its verb, a gap", () => {
+    expect(first("Je ne me rends pas compte.")).toEqual({
+      key: "se rendre compte",
+      words: "me rends compte",
+    });
+    expect(first("Je ne me suis jamais rendu compte.")).toEqual({
+      key: "se rendre compte",
+      words: "me rendu compte",
+    });
+    expect(first("Il n'a pas l'air content.")).toEqual({
+      key: "avoir l'air",
+      words: "a l' air",
+    });
+    // "pas" negates alone, as speech has it; "plus" needs "ne".
+    expect(first("Il a pas l'air content.")?.key).toBe("avoir l'air");
+    expect(first("Il a plus l'air content.")).toBeUndefined();
+  });
+
+  it("leaves a negation inside a pattern that is no verb's, or one that is a negation itself", () => {
+    expect(first("C'est pas ça.")).toBeUndefined();
+    expect(first("Il ne fait pas qu'aider.")).toBeUndefined();
   });
 });
 

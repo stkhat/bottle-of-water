@@ -1,6 +1,6 @@
 // The data scripts (scripts/data/) import this file under plain Node: keep its imports
 // type-only.
-import type { PhraseRules, ReflexiveRules } from "./pattern";
+import type { NegationRules, PhraseRules, ReflexiveRules } from "./pattern";
 
 /**
  * French pronominal verbs: patterns write the pronoun as a word before the infinitive
@@ -29,9 +29,23 @@ const FRENCH_REFLEXIVE: ReflexiveRules = {
 };
 
 /**
+ * The negation "ne … pas" and its kin (a closed class, as `core/tagging/fr.ts` reads
+ * it): with "ne" before the verb, the second word right after it may stand inside a
+ * verb pattern ("je ne me rends pas compte", "il n'a jamais eu l'air"). Speech often
+ * drops "ne" ("j'ai pas envie"): "pas" and "jamais", which negate alone, stand there
+ * without it; "plus" and "rien" without "ne" are "more" and an object.
+ */
+const FRENCH_NEGATION: NegationRules = {
+  before: new Set(["ne", "n'"]),
+  after: new Set(["pas", "plus", "jamais", "point", "guère", "rien"]),
+  alone: new Set(["pas", "jamais"]),
+  reach: 4,
+};
+
+/**
  * French slots, each filled only by itself ("casser les pieds à quelqu'un"), pronominal
- * verbs, the contractions of à and de with the article (au, aux, du, des), and
- * adjectives after nouns. No gaps.
+ * verbs, the contractions of à and de with the article (au, aux, du, des), adjectives
+ * after nouns, and the negation around the verb. No gaps.
  */
 export const FRENCH_RULES: PhraseRules = {
   slots: new Map([["quelqu'un", new Set<string>()]]),
@@ -44,4 +58,5 @@ export const FRENCH_RULES: PhraseRules = {
     ["des", "de"],
   ]),
   adjectivesAfterNouns: true,
+  negation: FRENCH_NEGATION,
 };
