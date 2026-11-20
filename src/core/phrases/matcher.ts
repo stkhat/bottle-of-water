@@ -333,10 +333,28 @@ export function createPhraseMatcher({
    */
   const stepsOf = (trie: Trie, word: MatchWord): readonly string[] =>
     trie.slots ? word.steps : word.literals;
-  const { reflexive, contractions, verbLast } = rules;
-  /** With `verbLast`: the verb patterns, whose verb may move (their parts of speech). */
+  const { reflexive, contractions, verbLast, negation } = rules;
+  /**
+   * Whether word `j` is a negation's second word with its first before word `j - 1`
+   * (`PhraseRules.negation`: "ne me rends pas"), all joined by spaces or elisions, or
+   * one that negates alone right after it ("j'ai pas envie").
+   */
+  const negationAt = (input: MatchInput, j: number) => {
+    if (!negation?.after.has(input.words[j]?.form ?? "")) return false;
+    if (negation.alone.has(input.words[j]!.form) && input.joined[j - 1])
+      return true;
+    for (let k = j - 2; k >= Math.max(0, j - 1 - negation.reach); k--) {
+      if (!input.joined[k]) return false;
+      if (negation.before.has(input.words[k]!.form)) return true;
+    }
+    return false;
+  };
+  /**
+   * With `verbLast` or `negation`: the verb patterns, whose verb may move or be
+   * negated (their parts of speech).
+   */
   const verbKeys = new Set<string>();
-  if (verbLast)
+  if (verbLast || negation)
     for (const [key, pos] of phrasePosIndex(patterns))
       if (pos.includes("verb")) verbKeys.add(key);
   /**
@@ -419,6 +437,21 @@ export function createPhraseMatcher({
       if (trie.nodes.has(child))
         walk(trie, input, child, j + 1, [...path, j], out);
     }
+    // A negation's second word after a verb pattern's word ("ne me rends pas compte"),
+    // in a pattern that is no negation itself ("ne faire que"): a gap. Other patterns
+    // say something else negated ("c'est pas ça" is no `c'est ça`, that's right).
+    if (
+      input.between[j] !== undefined &&
+      negationAt(input, j) &&
+      !path.some((k) => negation!.before.has(input.words[k]!.form))
+    )
+      for (const step of stepsOf(trie, input.words[j + 1]!)) {
+        const child = node + input.between[j]! + step;
+        if (!trie.nodes.has(child)) continue;
+        const found: PhraseMatch[] = [];
+        walk(trie, input, child, j + 2, [...path, j + 1], found);
+        out.push(...found.filter((match) => verbKeys.has(match.key)));
+      }
     // A contraction ends a pattern as its preposition.
     const preposition = contractions?.get(word.form);
     const ends =
@@ -605,6 +638,9 @@ export function createPhraseMatcher({
         left++;
         continue;
       }
+      // A negation's second word after the verb or its auxiliary ("je ne me suis pas
+      // rendu compte"; `PhraseRules.negation`).
+      if (negationAt(input, k)) continue;
       order.push(k);
     }
     if (order.length > 1) walkWith(order, i);

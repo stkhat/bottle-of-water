@@ -288,9 +288,41 @@ const ONLY_SUBJECTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The neuter pronouns that are a clause's subject where it starts at them ("ça
+ * marche", "mais ça marche", "il faut que ça cesse"); after a verb or an adverb they
+ * are its object ("je trouve ça plus sympa", "mettez tout ça en musique").
+ */
+const NEUTER_SUBJECTS: ReadonlySet<string> = new Set(["ça", "cela"]);
+
+/** Whether a clause starts at the word at `j`: the block's or a pause's, a conjunction's or "que"'s. */
+function clauseStart(words: readonly TaggedWord[], j: number): boolean {
+  const before = words[j - 1];
+  return (
+    before === undefined ||
+    words[j]!.pauseBefore ||
+    before.tag.tag === "CCONJ" ||
+    before.tag.tag === "SCONJ" ||
+    before.form === "que" ||
+    before.form === "qu'"
+  );
+}
+
+/**
+ * The pronouns and the negation that stand only before a verb, or before another of
+ * the verb's pronouns ("me fatigue", "se trouve", "m'en fous", "ne marche pas"): in
+ * UD French GSD the word after them is a verb or auxiliary in 99% of cases.
+ */
+const BEFORE_VERB_ONLY: ReadonlySet<string> = new Set([
+  ...["me", "m'", "te", "t'", "se", "s'", "ne", "n'"],
+]);
+
+/**
  * The word at `i` follows a subject pronoun and nothing but object pronouns or "ne"
  * ("tu as", "t'as", "tu l'as", "tu les as", "on n'est"): it is the subject's verb.
- * `strict`: only after a pronoun that is never anything else (`ONLY_SUBJECTS`).
+ * `strict`: only after a pronoun that is never anything else (`ONLY_SUBJECTS`), "ça"
+ * or "cela" where a clause starts (`NEUTER_SUBJECTS`: "mais ça marche"), or a pronoun
+ * that stands only before a verb, whatever comes before it (`BEFORE_VERB_ONLY`: "cette
+ * journée me fatigue", "ne marche pas").
  */
 function afterSubject(
   words: readonly TaggedWord[],
@@ -300,7 +332,13 @@ function afterSubject(
   const subjects = strict ? ONLY_SUBJECTS : SUBJECT_CLITICS;
   for (let j = i - 1; j >= 0 && !words[j + 1]!.pauseBefore; j--) {
     const { form } = words[j]!;
-    if (subjects.has(form)) return true;
+    if (
+      subjects.has(form) ||
+      (strict &&
+        (BEFORE_VERB_ONLY.has(form) ||
+          (NEUTER_SUBJECTS.has(form) && clauseStart(words, j))))
+    )
+      return true;
     if (!VERB_CLITICS.has(form)) return false;
   }
   return false;
@@ -339,9 +377,11 @@ function closedBase(
   const verb = verbs.find((base) => word.bases.includes(base));
   if (verb !== undefined) return verb;
   // Any other word right after a subject pronoun is its verb ("tu joues": not the
-  // cheek), if it is a form of one.
+  // cheek), if it is a form of one; so is one with a verb tag the tagger is unsure of
+  // ("ça fait", which it reads as the noun "fact" when unsure).
   if (
-    word.tag.label !== "verb" &&
+    trustedTagOf(word)?.label !== "verb" &&
+    negation(words, i) === undefined &&
     !VERB_CLITICS.has(word.form) &&
     !SUBJECT_CLITICS.has(word.form) &&
     afterSubject(words, i, true)
@@ -359,7 +399,55 @@ function closedBase(
     return word.bases.find(
       (base) => base !== word.form && INFINITIVE.test(base),
     );
+  // A verb form the tagger is unsure of after a finite form of avoir, with only
+  // adverbs and pronouns between, is that verb's participle ("ce que vous avez fait",
+  // "tu l'as mal fait", "avez-vous fait"), unless "de" or "à" follows it: a noun with
+  // its complement, as avoir's idioms have it ("avoir envie de", "avoir recours à").
+  // A causative faire before an infinitive is faire ("la fait naître").
+  const complement = ["de", "d'", "à"].includes(words[i + 1]?.form ?? "");
+  if (
+    !word.trusted &&
+    ((afterVerb(words, i, "avoir") && !complement) ||
+      (formOf(word, "faire") && /\.Inf$/.test(words[i + 1]?.tag.tag ?? "")))
+  )
+    return word.bases.find(
+      (base) => base !== word.form && INFINITIVE.test(base),
+    );
   return undefined;
+}
+
+/**
+ * Whether the word at `i` is the complement of être as a copula (not an auxiliary)
+ * right before it, with only adverbs between ("c'est nul", "c'était vraiment nul").
+ */
+function complementOfCopula(
+  words: readonly TaggedWord[],
+  i: number,
+  auxiliaries: readonly boolean[],
+): boolean {
+  for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+    if (words[j + 1]!.pauseBefore) return false;
+    if (formOf(words[j]!, "être")) return !auxiliaries[j];
+    if (words[j]!.tag.label !== "adverb") return false;
+  }
+  return false;
+}
+
+/**
+ * Whether a form of `verb` comes before the word at `i` with only adverbs and pronouns
+ * between (at most three words), no pause; not its participle ("j'avais eu entrée").
+ */
+function afterVerb(
+  words: readonly TaggedWord[],
+  i: number,
+  verb: string,
+): boolean {
+  for (let j = i - 1; j >= Math.max(0, i - 4); j--) {
+    if (words[j + 1]!.pauseBefore) return false;
+    if (formOf(words[j]!, verb)) return !/\.Part$/.test(words[j]!.tag.tag);
+    if (!BETWEEN.has(words[j]!.tag.label)) return false;
+  }
+  return false;
 }
 
 /** The subject pronouns a question puts after its verb ("est-ce", "fais-tu"). */
@@ -412,8 +500,12 @@ function use(
     noun || nounTagAfter(words, i)
       ? undefined
       : closedBase(words, i, auxiliaries);
-  // A participle in a state reads as the adjective it is ("c'est fait": done).
-  const state = how === false && trustedTagOf(word)?.label === "verb";
+  // A participle in a state reads as the adjective it is ("c'est fait": done); so
+  // does a word the tagger is unsure of after être as a copula ("c'est nul": lousy,
+  // not "no, none").
+  const state =
+    (how === false && trustedTagOf(word)?.label === "verb") ||
+    (!word.trusted && complementOfCopula(words, i, auxiliaries));
   // A verb after a reflexive pronoun, or a participle after être and one ("il se rend
   // compte", "il s'est rendu compte"), is its pronominal verb's (`WordUse.pronominal`).
   const k = how === "aux" ? nearestAuxiliaryVerb(words, i) : undefined;
