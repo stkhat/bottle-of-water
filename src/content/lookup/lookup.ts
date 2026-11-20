@@ -85,6 +85,9 @@ interface ShownTerm extends Term {
 /** A possessive or plural ending after an acronym's two capitals or more: DEA's, GPUs. */
 const ACRONYM_ENDING = /(?<=^[\p{Lu}.]*\p{Lu}[\p{Lu}.]*\p{Lu}\.?)['’]?s$/u;
 
+/** Single capitals with periods between them: U.S, U.S., D.A.'s. */
+const DOTTED_CAPITALS = /^\p{Lu}(?:\.\p{Lu})+\.?(?:['’]s)?$/u;
+
 const readsDocument = (term: ShownTerm) =>
   term.kind === "word" && term.written === "upper";
 
@@ -253,7 +256,9 @@ export function createLookup(
      */
     written(span: Span, surface: string): Written | undefined {
       if (span.kind !== "word") return undefined;
-      if (span.capital)
+      // Capitals with periods between them are the abbreviation wherever they stand:
+      // at a start, in brackets, among other capitals ("U.S. State Department").
+      if (span.capital || DOTTED_CAPITALS.test(surface))
         return !/\p{Ll}/u.test(surface.replace(ACRONYM_ENDING, ""))
           ? "upper"
           : span.run

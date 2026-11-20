@@ -129,7 +129,8 @@ function writtenOf(
   casing: DocumentCasing,
 ): Written | undefined {
   if (span.kind !== "word") return undefined;
-  if (span.capital)
+  // Capitals with periods between them are the abbreviation wherever they stand.
+  if (span.capital || /^\p{Lu}(?:\.\p{Lu})+\.?(?:['’]s)?$/u.test(surface))
     // An acronym's possessive or plural ending says nothing (DEA's, GPUs; not Ms).
     return !/\p{Ll}/u.test(surface.replace(ACRONYM_ENDING, ""))
       ? "upper"
