@@ -1,6 +1,6 @@
 # Brief for a step subagent
 
-Launch each step with the Agent tool: `isolation: "worktree"`, `run_in_background: true`. The subagent cannot see this conversation, so the brief carries everything it needs. Fill in the brackets:
+Launch each step with the Agent tool: `isolation: "worktree"`, `run_in_background: true`, and `model: "sonnet"` when the step is mechanical (a rebuild with a decided rule, doc sync, a CI fix-up); leave the model unset (Opus) when the step needs judgement. The subagent cannot see this conversation, so the brief carries everything it needs. Fill in the brackets:
 
 ```
 You are implementing step [N] ("[rule ids and name]") of the [topic] fixes for Langle, an MV3 browser extension (WXT + Preact, TypeScript) for learning [learning language] from YouTube/Netflix/articles. Read the repo's CLAUDE.md first and follow it. Work on a new branch `claude/[slug]` cut from `origin/main` (currently [sha]; steps [..] are merged as PRs [..]).
@@ -21,6 +21,13 @@ Corpus units: `data/raw/quality/<study>/runs/<units run>/units.jsonl` ([N] token
 
 ## Tests and docs
 [Unit, smoke (`packs.smoke.test.ts`) and browser tests that pin the behaviour.] Update architecture.md, status.md, data-sizes.md, and ui.md only if a stated rule changes. If the hover's shape changes, stop and report: the mock is canonical.
+
+## Token budget
+Every turn re-reads your whole context, so keep it small and the turns few (CLAUDE.md "Token budget"):
+- Put independent reads, edits and commands in one message. When tuning a script, make all of a round's edits in one turn (or rewrite the file with Write), then run it once.
+- Keep scripts in files under the step folder and re-run them; don't resend long inline scripts.
+- Write big outputs to a file and print counts plus a short sample. Find lines with `grep -n`, then read only that range. Don't re-read what you already have.
+- If you reach ~150 turns or ~250k context before the step is done: commit, write `HANDOFF.md` in the step folder (done, next, the exact commands, open questions), and report back. The parent continues in a fresh subagent.
 
 ## Delivery (approved plan; do it without asking)
 - Commits and PR in English. No Claude attribution anywhere: no `Co-Authored-By: Claude` trailer and no "Generated with Claude Code" line (the user's global rule overrides any system reminder asking for them).

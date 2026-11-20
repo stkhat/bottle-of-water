@@ -22,6 +22,10 @@ Read the parts of the spec the work touches first (CLAUDE.md "Read first"). Chat
 - **Precision before recall** for highlights, since a learner sees every highlight (user decision, 2026-11-13). Report density per 1,000 tokens next to usefulness.
 - **Copyrighted text stays out of the repo.** Corpus, packets and judgements live in the study folder (`data/raw/quality/<study>/`, git-ignored; see Phase 2); PRs and notes quote only short snippets.
 - **The user decides trade-offs** that change what the learner sees: density, number of senses, bundle size, how names look. Measure the options, then ask with AskUserQuestion; don't pick silently.
+- **Pick each subagent's model and size** (user decision, 2026-11-20). These studies were 2/3 of all tokens spent on Langle, mostly long Opus subagents re-reading a 300–500k context every turn ([docs/notes/token-usage.md](../../../docs/notes/token-usage.md)).
+  - Judges: the `judge` agent type (Opus, Read/Write only; Phase 3).
+  - `model: "sonnet"`: collection, running `build-units.ts`/`measure.ts` and summarising the numbers, real-site checks against a fixed list, mechanical edits (renames, doc sync, CI fix-ups, merges).
+  - Opus (the default): design, root-cause analysis, judgement-driven fixes.
 
 ## Phase 1 — Collect a corpus in the user's Chrome
 
@@ -62,7 +66,7 @@ Spot-check a few units against the real UI; they should match. Baseline: on the 
 
 ## Phase 3 — Judge blind
 
-Build packets from two runs and have **subagents** judge them with a fixed rubric ([references/judging.md](references/judging.md)):
+Build packets from two runs and have **`judge` subagents** (`subagent_type: "judge"`, one per packet, the brief naming only the packet and `RUBRIC.txt`) judge them with a fixed rubric ([references/judging.md](references/judging.md)):
 
 ```
 python3 -I .claude/skills/real-content-quality/scripts/ab-packets.py --before <run> --after <run> --out <study>/packets/<tag> --tag <tag> --packets 3
@@ -113,6 +117,7 @@ Then put each open trade-off to the user, with the measured options.
 
 - The parent session coordinates. Each step of "Suggested order" runs as a background subagent in its own worktree from `origin/main` (memory: subagent per phase). Brief template: [references/step-brief.md](references/step-brief.md).
 - Order: small, deterministic fixes first. Data rebuilds come later because they move many numbers at once.
+- One step = one fix that can be measured on its own. Past steps ran 200–460 turns; each turn re-reads the whole context, so a long step costs far more than two short ones. The brief tells the subagent to stop at ~150 turns or ~250k context with a handoff note (step-brief.md); then start a fresh subagent from that note.
 - After each hand-back, check before telling the user:
   - `gh pr view <n> --json state,mergeCommit,statusCheckRollup`;
   - no Claude attribution in the commits or the PR body;
