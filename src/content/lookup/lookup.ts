@@ -91,6 +91,9 @@ const DOTTED_CAPITALS = /^\p{Lu}(?:\.\p{Lu})+\.?(?:['’]s)?$/u;
 const readsDocument = (term: ShownTerm) =>
   term.kind === "word" && term.written === "upper";
 
+/** Two capitals in a row: a word in capitals (an acronym: NYPD, AGI). */
+const CAPITALS = /\p{Lu}\p{Lu}/u;
+
 /** The popup's requests about a page (see `page-protocol.ts`), as the page answers them. */
 export interface PageAnswers {
   saveAll(status: TermStatus): Promise<unknown>;
@@ -329,6 +332,14 @@ export function createLookup(
     ): Promise<AnalyzeResult | undefined> {
       if (waits) return undefined;
       const lang = page.lang();
+      // An acronym known only by what it stands for is a word only where the document
+      // spells that out (`ClassifyOptions.spelledOut`), and only in capitals that count.
+      const whole =
+        documentText &&
+        casing?.mode === "mixed" &&
+        texts.some((text) => CAPITALS.test(text))
+          ? documentText()
+          : undefined;
       let result: AnalyzeResult;
       try {
         result = await deps.send({
@@ -337,6 +348,7 @@ export function createLookup(
           blocks: texts,
           ...(casing && { casing }),
           ...(breaks?.some((list) => list.length > 0) && { breaks }),
+          ...(whole !== undefined && { document: whole }),
         });
       } catch (error) {
         if (!(error instanceof PacksUnavailableError)) throw error;

@@ -1,10 +1,13 @@
 // Entities no dictionary we use gives a meaning (companies, products, places,
 // organisations, newer coinages: Nvidia, AirPods, ChatGPT, Shinkansen), from Wikidata
 // (CC0): one item per capitalised word, its labels and short descriptions in English,
-// Japanese and the recipe pairs' languages → data/raw/wikidata/entities.json, which
-// kaikki.ts (the capital-only words), capital-words.ts (en-ja), en-defs.ts and
-// recipes/native.ts read. Rule in docs/specs/architecture.md "Vocabulary and frequency
-// (rule E)", "Entities"; measured in docs/notes/proper-nouns.md "Entities".
+// Japanese and the recipe pairs' languages → data/raw/wikidata/entities.json; and the
+// acronyms Wikidata knows only as aliases (NYPD, AGI), with the items each may stand
+// for → data/raw/wikidata/acronyms.json. kaikki.ts (the capital-only words,
+// en/acronyms.json), capital-words.ts (en-ja), en-defs.ts and recipes/native.ts read
+// them. Rules in docs/specs/architecture.md "Vocabulary and frequency (rule E)",
+// "Entities" and "Acronyms spelled out"; measured in docs/notes/proper-nouns.md
+// "Entities" and "Acronyms by their aliases".
 //
 // The data comes from SPARQL exports of the whole of Wikidata (items with at least
 // `MIN_SITELINKS` sitelinks), queried on QLever (qlever.dev, University of Freiburg),
@@ -31,6 +34,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { cleanShort } from "../../src/core/lexicon/short-lines.ts";
 import {
   KAIKKI_PATH,
+  PACKS_DIR,
   RAW_DIR,
   WIKIDATA_WORDS_PATH,
   byCodeUnit,
@@ -44,6 +48,7 @@ export const WIKIDATA_DIR = join(RAW_DIR, "wikidata");
 /** The source tag of Wikidata's meanings in a pair dictionary's index. */
 export const WIKIDATA_TAG = "wikidata";
 export const ENTITIES_PATH = join(WIKIDATA_DIR, "entities.json");
+export const ACRONYMS_PATH = join(WIKIDATA_DIR, "acronyms.json");
 const ENDPOINT = "https://qlever.dev/api/wikidata";
 const USER_AGENT = "LangleDataImport/0.1 (https://github.com/stkhat/langle)";
 
@@ -328,6 +333,57 @@ export function chooseEntity(
   };
 }
 
+/** An acronym as an alias writes it: two capitals or more, in Latin letters (NYPD, AGI). */
+export const ACRONYM = /^(?:(?=\p{Script=Latin})\p{Lu}){2,}$/u;
+
+/**
+ * CORE: the things an acronym that is only an alias in Wikidata may stand for (NYPD:
+ * the New York City Police Department), most notable first, for a text that spells
+ * one out to choose from (`spelledOutExpansion`): each item it is an alias of, but
+ * - no page of the project (a disambiguation page, a list) and no item whose code it
+ *   is (IATA, ISO 4217…: AED the UAE dirham's, PSA an airport's): a code is no
+ *   abbreviation of the name a text spells out;
+ * - only an item whose English label is what it stands for: two words or more with a
+ *   letter (not "3" for III, not "Hybe" for HYBE), and not the acronym itself in a
+ *   longer name (Gulfstream III, GMM Grammy);
+ * - one item per label: the most notable, when it has `dominance` times the sitelinks
+ *   of every other item so labelled; none when it has not (which Social Democratic
+ *   Party is PSD?).
+ */
+export function acronymItems(
+  acronym: string,
+  candidates: readonly Candidate[],
+  { dominance = DOMINANCE }: { dominance?: number } = {},
+): Candidate[] {
+  const own = acronym.toLowerCase();
+  const byLabel = new Map<string, Candidate[]>();
+  for (const row of candidates) {
+    const words = row.label.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    if (
+      row.kinds.has("internal") ||
+      row.codes?.has(acronym) === true ||
+      row.label.trim().split(/\s+/).length < 2 ||
+      !/\p{L}/u.test(row.label) ||
+      words.some((word) => word.toLowerCase() === own)
+    )
+      continue;
+    const key = plain(row.label);
+    const list = byLabel.get(key);
+    if (list) list.push(row);
+    else byLabel.set(key, [row]);
+  }
+  return [...byLabel.values()]
+    .flatMap((list) => {
+      const [best, ...others] = [...list].sort(
+        (a, b) => b.sitelinks - a.sitelinks,
+      );
+      return others.every((row) => best!.sitelinks >= dominance * row.sitelinks)
+        ? [best!]
+        : [];
+    })
+    .sort((a, b) => b.sitelinks - a.sitelinks || byCodeUnit(a.id, b.id));
+}
+
 /** How often the examples write capitalised tokens as written, and words in lower case. */
 export interface ExampleCounts {
   written: ReadonlyMap<string, number>;
@@ -378,6 +434,18 @@ export interface Entity extends ItemTexts {
 /** data/raw/wikidata/entities.json: the words, as written → their entity. */
 export type Entities = Readonly<Record<string, Entity>>;
 
+/** A thing an acronym may stand for: its item and that item's texts. */
+export interface AcronymItem extends ItemTexts {
+  id: string;
+  sitelinks: number;
+}
+
+/**
+ * data/raw/wikidata/acronyms.json: the acronyms Wikidata has as aliases, as written →
+ * the things each may stand for (`acronymItems`), most notable first.
+ */
+export type Acronyms = Readonly<Record<string, readonly AcronymItem[]>>;
+
 /** Kana or kanji: a Japanese text (not a label in Latin letters, NVIDIA). */
 const JAPANESE = /[\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Han}]/u;
 
@@ -397,7 +465,7 @@ const capitalised = (text: string) =>
  * spelling of it ("Tōkaidō: Road of premodern Japan."); its label alone when it has no
  * description. None when that says nothing the word does not.
  */
-export function entityDefinition(written: string, entity: Entity) {
+export function entityDefinition(written: string, entity: ItemTexts) {
   const label = entity.label.en ?? written;
   const description = entity.description.en;
   const other = plain(label) !== plain(written) || label !== written;
@@ -430,16 +498,7 @@ export function entityJapanese(
   written: string,
   entity: Entity,
 ): [string, string[], string] | undefined {
-  const { ja: label } = entity.label;
-  const { ja: description } = entity.description;
-  const lines = [
-    ...(label !== undefined && JAPANESE.test(label) ? [label] : []),
-    ...(description !== undefined &&
-    JAPANESE.test(description) &&
-    cleanShort(description) === description.trim()
-      ? [description]
-      : []),
-  ];
+  const lines = japaneseLines(entity);
   if (lines.length === 0) return undefined;
   const first = lines[0]!;
   return [
@@ -447,6 +506,66 @@ export function entityJapanese(
     [`《${entityHint(written, entity)}》${first}`, ...lines.slice(1)],
     lines.map(() => "n").join(" "),
   ];
+}
+
+/** An item's Japanese label and short description, each when it is in kana or kanji and whole. */
+function japaneseLines(texts: ItemTexts): string[] {
+  const { ja: label } = texts.label;
+  const { ja: description } = texts.description;
+  return [
+    ...(label !== undefined && JAPANESE.test(label) ? [label] : []),
+    ...(description !== undefined &&
+    JAPANESE.test(description) &&
+    cleanShort(description) === description.trim()
+      ? [description]
+      : []),
+  ];
+}
+
+/**
+ * An acronym's Japanese meanings (en-ja, EJDict's format): of each thing it may stand
+ * for, the Japanese label and description as `entityJapanese` takes them, each hinted
+ * by the thing's English label, which is what a text spells out and what the card
+ * chooses its lines by (`namesExpansion`: "《New York City Police Department》ニューヨーク
+ * 市警察"). None when no thing has them; a thing without them is defined in English
+ * (en-defs).
+ */
+export function acronymJapanese(
+  items: readonly AcronymItem[],
+): [string, string[], string] | undefined {
+  const senses = items.flatMap((item) =>
+    japaneseLines(item).map((line) => `《${item.label.en}》${line}`),
+  );
+  if (senses.length === 0) return undefined;
+  return [cleanShort(senses[0]!), senses, senses.map(() => "n").join(" ")];
+}
+
+/**
+ * An acronym's senses in a recipe pair's language (`lang`), as [text, hint]: of each
+ * thing it may stand for, its label there (when that is not the acronym: Departamento
+ * de Policía de Nueva York) and its description, hinted by its English label
+ * (`namesExpansion`).
+ */
+export function acronymNative(
+  written: string,
+  items: readonly AcronymItem[],
+  lang: string,
+): [string, string][] {
+  const pick = (texts: Record<string, string>) =>
+    lang === "zh" ? (texts["zh-hans"] ?? texts.zh) : texts[lang];
+  return items.flatMap((item) => {
+    const hint = item.label.en!;
+    const label = pick(item.label);
+    const description = pick(item.description);
+    return [
+      ...(label !== undefined && plain(label) !== plain(written)
+        ? [[label, hint] as [string, string]]
+        : []),
+      ...(description !== undefined
+        ? [[description, hint] as [string, string]]
+        : []),
+    ];
+  });
 }
 
 /**
@@ -521,6 +640,51 @@ export function entityWords(
     .sort(byCodeUnit);
 }
 
+/** The acronyms, or none before `wikidata.ts` has run. */
+export const readAcronyms = (path = ACRONYMS_PATH): Acronyms =>
+  existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as Acronyms) : {};
+
+/**
+ * LEARNING (with the pack): the acronyms known only by what they stand for, as
+ * written, each with the English labels of the things it may stand for
+ * (en/acronyms.json, `LanguagePack.acronymExpansions`): not one the language has
+ * already (`known`: a vocabulary word, a form, a capital-only word, Wikidata's
+ * entities among them), which has a meaning of its own.
+ */
+export function acronymWords(
+  acronyms: Acronyms,
+  known: (key: string) => boolean,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.keys(acronyms)
+      .filter((written) => !known(written.toLowerCase()))
+      .sort(byCodeUnit)
+      .map((written) => [
+        written,
+        acronyms[written]!.map((item) => item.label.en!),
+      ]),
+  );
+}
+
+/**
+ * The acronyms that joined the pack (en/acronyms.json, as `kaikki.ts` writes it), with
+ * the things each may stand for; none before both have run.
+ */
+export function joinedAcronyms(): Acronyms {
+  const path = join(PACKS_DIR, "en", "acronyms.json");
+  if (!existsSync(path)) return {};
+  const acronyms = readAcronyms();
+  const joined = JSON.parse(readFileSync(path, "utf8")) as Record<
+    string,
+    readonly string[]
+  >;
+  return Object.fromEntries(
+    Object.keys(joined).flatMap((written) =>
+      acronyms[written] ? [[written, acronyms[written]]] : [],
+    ),
+  );
+}
+
 /** The items' texts in `LANGS`, fetched in batches, cached in `path` (one JSON line each). */
 async function itemTexts(ids: readonly string[], path: string) {
   const texts = new Map<string, ItemTexts>();
@@ -589,6 +753,8 @@ async function main() {
     { id: string; sitelinks: number; via: Candidate["via"] }[]
   >();
   const labels = new Map<string, string>();
+  // The acronyms that are aliases: the items each may stand for.
+  const aliases = new Map<string, { id: string; sitelinks: number }[]>();
   for (const [file, via] of [
     ["labels.tsv", "label"],
     ["aliases.tsv", "alias"],
@@ -598,6 +764,11 @@ async function main() {
       const { text } = tsvValue(value!);
       if (!id || text === undefined) continue;
       if (via === "label") labels.set(id, text);
+      else if (ACRONYM.test(text)) {
+        let list = aliases.get(text);
+        if (!list) aliases.set(text, (list = []));
+        list.push({ id, sitelinks: Number(n) });
+      }
       const word = text.replaceAll("’", "'");
       if (!isWord(word) || writtenCount(word, examples) < MIN_EXAMPLES)
         continue;
@@ -619,7 +790,9 @@ async function main() {
     if (!set) kindOfClass.set(id, (set = new Set()));
     set.add(kind);
   }
-  const wanted = new Set([...words.values()].flat().map(({ id }) => id));
+  const wanted = new Set(
+    [...words.values(), ...aliases.values()].flat().map(({ id }) => id),
+  );
   const kinds = new Map<string, Set<Kind>>();
   const persons = new Set<string>();
   for await (const [item, cls] of rowsOf(join(WIKIDATA_DIR, "classes.tsv"))) {
@@ -684,8 +857,29 @@ async function main() {
       reasons[choice.none] = (reasons[choice.none] ?? 0) + 1;
     else chosen.set(word, choice);
   }
+  const acronymChoices = new Map<string, Candidate[]>();
+  for (const [acronym, list] of aliases) {
+    const items = acronymItems(
+      acronym,
+      list.map(({ id, sitelinks }) => ({
+        id,
+        sitelinks,
+        via: "alias",
+        kinds: kinds.get(id) ?? new Set(),
+        label: labels.get(id) ?? "",
+        codes: codes.get(id) ?? new Set(),
+      })),
+    );
+    if (items.length > 0) acronymChoices.set(acronym, items);
+  }
   const texts = await itemTexts(
-    [...new Set([...chosen.values()].map(({ id }) => id))].sort(byCodeUnit),
+    [
+      ...new Set(
+        [...chosen.values(), ...[...acronymChoices.values()].flat()].map(
+          ({ id }) => id,
+        ),
+      ),
+    ].sort(byCodeUnit),
     join(WIKIDATA_DIR, "texts.jsonl"),
   );
   const entities: Record<string, Entity> = {};
@@ -701,9 +895,23 @@ async function main() {
     };
   }
   await writeFile(ENTITIES_PATH, `${JSON.stringify(entities, null, 0)}\n`);
+  // Each thing an acronym may stand for has its English label (what a text spells out).
+  const acronyms: Record<string, AcronymItem[]> = {};
+  for (const acronym of [...acronymChoices.keys()].sort(byCodeUnit)) {
+    const items = acronymChoices.get(acronym)!.flatMap(({ id, sitelinks }) => {
+      const text = texts.get(id);
+      return text?.label.en === labels.get(id)
+        ? [{ id, sitelinks, ...text! }]
+        : [];
+    });
+    if (items.length > 0) acronyms[acronym] = items;
+  }
+  await writeFile(ACRONYMS_PATH, `${JSON.stringify(acronyms, null, 0)}\n`);
   console.log(
     `wikidata: ${words.size} capitalised words the examples write ${MIN_EXAMPLES} times or more; ` +
-      `${Object.keys(entities).length} entities; none: ${JSON.stringify(reasons)}`,
+      `${Object.keys(entities).length} entities; none: ${JSON.stringify(reasons)}; ` +
+      `${aliases.size} acronyms that are aliases, ${Object.keys(acronyms).length} with ` +
+      `${Object.values(acronyms).flat().length} things they may stand for`,
   );
 }
 

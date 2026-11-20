@@ -64,6 +64,7 @@ const TEST_PACKS: PackFiles = {
     tagger: TEST_TAGGER,
     contractions: {},
     capitals: [],
+    acronyms: {},
   },
   "en-ja": {
     dict: {

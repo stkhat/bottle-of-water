@@ -187,6 +187,37 @@ describe("hover card", () => {
     );
   });
 
+  it("gives an acronym known only by what it stands for the meaning the article spells out", async () => {
+    const { root } = await setup(
+      `<div style="height: 200px"></div>
+       <p>The New York City Police Department (NYPD) said it would knead the case.</p>
+       <p>NYPD officers came.</p>`,
+      { settings: { highlight: { new: true, learning: true, known: false } } },
+    );
+    await expect.poll(() => highlighted("langle-new")).toContain("NYPD");
+    await pointAt(root, "NYPD");
+    await expect.element(hoverCard()).toBeVisible();
+    await expect
+      .element(page.getByText("ニューヨーク市警察", { exact: true }))
+      .toBeVisible();
+    const text = cardRoot().textContent;
+    expect(text).toContain("NYPD");
+    expect(text).not.toContain("Nippon Yusen");
+  });
+
+  it("leaves an acronym known only by what it stands for unknown where the article does not spell it out", async () => {
+    const { root } = await setup(
+      `<div style="height: 200px"></div>
+       <p>The NYPD said it would knead the case.</p>`,
+      { settings: { highlight: { new: true, learning: true, known: false } } },
+    );
+    await expect.poll(() => highlighted("langle-new")).toContain("knead");
+    expect(highlighted("langle-new")).not.toContain("NYPD");
+    await pointAt(root, "NYPD");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(hoverCard().query()).toBeNull();
+  });
+
   it("classifies a name's blocks again when the page later writes it in lower case", async () => {
     const { root } = await setup(
       "<p>Yesterday Mark baked a loaf. The dough was tedious.</p>",

@@ -39,15 +39,19 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
+  withoutStressMarks,
   type PairSense,
   type SourceTerm,
   type TermKey,
 } from "./recipe.ts";
 import { RECIPES, TABLES_TAG, type Recipe } from "./recipes.ts";
 import {
+  acronymNative,
   entityNative,
+  joinedAcronyms,
   joinedEntities,
   WIKIDATA_TAG,
+  type Acronyms,
   type Entities,
 } from "../wikidata.ts";
 import { undocumentedPages } from "./undocumented.ts";
@@ -73,6 +77,7 @@ export async function buildPairDictionary(
     contractions = {},
     pos = {},
     entities = {},
+    acronyms = {},
   }: {
     termKey: TermKey;
     rawDir?: string;
@@ -87,6 +92,8 @@ export async function buildPairDictionary(
     pos?: PosPack;
     /** The words that joined from Wikidata, with their entities (`joinedEntities`). */
     entities?: Entities;
+    /** The acronyms known only by what they stand for (`joinedAcronyms`). */
+    acronyms?: Acronyms;
   },
 ) {
   if (!recipe) throw new Error(`No recipe for en-${native}`);
@@ -225,6 +232,26 @@ export async function buildPairDictionary(
     capital[key] = [senses[0]![1], senses, entitySource, meaning];
     fromEntities++;
   }
+  // An acronym known only by what it stands for (NYPD): each thing's label and
+  // description there, hinted by its English name, which the card chooses by; with none
+  // in the language, its English definition (en-defs) shows instead.
+  let fromAcronyms = 0;
+  for (const [written, items] of Object.entries(acronyms)) {
+    if (Object.hasOwn(capital, written)) continue;
+    // Without the stress marks a few Russian labels carry, as the recipes write it.
+    const senses = acronymNative(written, items, native).map(
+      ([text, hint]): PairSense => [
+        "proper noun",
+        toSimplified
+          ? toSimplified(withoutStressMarks(text))
+          : withoutStressMarks(text),
+        hint,
+      ],
+    );
+    if (senses.length === 0) continue;
+    capital[written] = [senses[0]![1], senses, entitySource, "word"];
+    fromAcronyms++;
+  }
   const capitalCased =
     editionTerms && editionSource >= 0
       ? inCapitalCase(capital, editionSource, editionTerms.capitalCase) +
@@ -233,12 +260,16 @@ export async function buildPairDictionary(
   return {
     ...merged,
     sources:
-      fromEntities > 0 ? [...merged.sources, WIKIDATA_TAG] : merged.sources,
+      fromEntities + fromAcronyms > 0
+        ? [...merged.sources, WIKIDATA_TAG]
+        : merged.sources,
     dict,
     capital,
     stats: {
       /** Capital-only words given Wikidata's meanings. */
       fromEntities,
+      /** Acronyms known only by what they stand for, with meanings in the language. */
+      fromAcronyms,
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
       terms: Object.keys(dict).length,
@@ -360,10 +391,11 @@ async function main() {
   const lemmas = readPack<LemmaPack>("en/lemmas.json");
   const pos = readPack<PosPack>("en/pos.json");
   const entities = joinedEntities();
+  const acronyms = joinedAcronyms();
   for (const native of natives) {
     const { dict, capital, sources, counts, stats } = await buildPairDictionary(
       native,
-      { termKey, names, lemmas, pos, contractions, entities },
+      { termKey, names, lemmas, pos, contractions, entities, acronyms },
     );
     // Each short stored only where the dictionary would not make it (format 4).
     const index = writeShards(
@@ -392,7 +424,7 @@ async function main() {
           .map(([tag, n]) => `${n} ${tag}`)
           .join(", ") +
         `) in ${index.shards.length} shards; ${stats.pointers} pointer senses read in ${stats.templates} templates; ` +
-        `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out), ${stats.fromEntities} more from Wikidata; ${stats.unparsable} unparsable lines`,
+        `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out), ${stats.fromEntities} more from Wikidata, ${stats.fromAcronyms} acronyms known by what they stand for; ${stats.unparsable} unparsable lines`,
     );
     console.log(
       `  ${stats.cased} edition glosses put in the edition's case (glosses open with capitals: ${stats.sentenceCase}); ${stats.foreign} glosses and table words left out with no letter of the native script; ` +

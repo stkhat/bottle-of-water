@@ -375,7 +375,7 @@ export function createHandlers({
       return null;
     },
 
-    async analyze({ lang, blocks, casing, breaks }) {
+    async analyze({ lang, blocks, casing, breaks, document }) {
       const [pack, classifier, terms, current] = await allOf([
         resources.pack(lang),
         resources.classifier(lang),
@@ -389,9 +389,16 @@ export function createHandlers({
         { terms, knownLevel: current.knownLevel },
         true,
       );
+      // The document's words are read on the first phrase asked: only where a block
+      // has an acronym known by what it stands for.
+      const spelledOut =
+        typeof document === "string"
+          ? spelledOutIn(document, pack.lemmas)
+          : undefined;
       const spans: Span[][] = blocks.map((block, i) =>
         classifier.classify(pack.tokenize(block), {
           ...options,
+          ...(spelledOut && { spelledOut }),
           ...(breaks?.[i]?.length && { breaks: breaks[i] }),
         }),
       );
