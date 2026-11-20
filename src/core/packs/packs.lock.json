@@ -102,28 +102,28 @@
       "files": [
         {
           "path": "dict-1.json",
-          "sha256": "c0cd414bc04bdb8120a841789ddc621fad22e0344873a4f8f41014b41d0abe0e",
-          "size": 1999950
+          "sha256": "0257bbf7b4196bd01446332efa0f90d89e35e2adcbdaaef2efa7dadd1ccfe0ee",
+          "size": 1999955
         },
         {
           "path": "dict-2.json",
-          "sha256": "057879c6693833f9a4ea92eb85a38c06afb2916850cf106860f442f6985f4440",
-          "size": 1999900
+          "sha256": "1c43f9282942d422106d8aedf22a379cd20e511e2308c698cebe397252a1b0d9",
+          "size": 1999993
         },
         {
           "path": "dict-3.json",
-          "sha256": "5d5cbe85200bda64991f9d6994b4789cda67d1b666d1685849adcdfc0018cc08",
-          "size": 714272
+          "sha256": "5e1911cb118ea00b19c58b9666741c58938bb9a11fe6d5b676d6043077c14be0",
+          "size": 712345
         },
         {
           "path": "index.json",
-          "sha256": "19b5c5623c0b139e9265b4782699dddf291313a88b345fa2f107e090dbcad344",
-          "size": 279
+          "sha256": "c67f993fc94069633c556aaf5188dbda1313db684a69e40590c311a315515393",
+          "size": 280
         }
       ],
       "format": 1,
       "package": "@langle/de-fr",
-      "version": "2026.1120.0"
+      "version": "2026.1120.1"
     },
     "en": {
       "files": [
