@@ -1112,6 +1112,9 @@ function definitionOf(head: string, defs: DefsPack): Entry | undefined {
       ...(use === "auxiliary" && { auxiliary: true as const }),
       ...(use === "capital" && { capital: true as const }),
       ...((use === "singular" || use === "plural") && { number: use }),
+      ...(use?.startsWith("+") === true && {
+        construction: use.slice(1).split("|"),
+      }),
     })),
   };
 }

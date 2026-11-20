@@ -3,6 +3,7 @@ import type { Sense } from "./lookup";
 import {
   accepts,
   AUXILIARY,
+  constructionPos,
   inOrder,
   lacksSenseOf,
   PRONOMINAL,
@@ -187,6 +188,72 @@ describe("senseOrder for a pronominal verb", () => {
         "pronoun plural",
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("senseOrder for a verb before an infinitive", () => {
+  /** Senses from "text:pos:construction" items (construction words joined by "|"). */
+  const said = (...items: string[]): Sense[] =>
+    items.map((item) => {
+      const [text, pos, words] = item.split(":");
+      return {
+        text: text!,
+        pos: pos!,
+        ...(words !== undefined && { construction: words.split("|") }),
+      };
+    });
+  const tener = said(
+    "to have:verb",
+    "to hold:verb",
+    "to have to:verb:que",
+    "to be necessary:verb:que",
+  );
+  it("puts the senses said with the word that introduces it first", () => {
+    expect(shown(tener, constructionPos("verb", "que"))).toEqual([
+      "to have to",
+      "to be necessary",
+      "to have",
+      "to hold",
+    ]);
+    // Another word, or none: the verb's order.
+    expect(shown(tener, constructionPos("verb", "de"))).toEqual(
+      tener.map((sense) => sense.text),
+    );
+    const ir = said(
+      "to go:verb",
+      "to go on (doing something):auxiliary",
+      "to be going to:auxiliary:a",
+    );
+    expect(shown(ir, constructionPos("verb", "a"))[0]).toBe("to be going to");
+  });
+  it("keeps a lead that already gives each of its items", () => {
+    const empezar = said(
+      "to start, begin, to get started:verb",
+      "to start:verb:a",
+    );
+    expect(shown(empezar, constructionPos("verb", "a"))[0]).toBe(
+      "to start, begin, to get started",
+    );
+  });
+  it("keeps an auxiliary's lead before a bare infinitive, where the tag reads a verb", () => {
+    const soler = said(
+      "to be accustomed to doing something:auxiliary",
+      "used to:verb",
+    );
+    expect(shown(soler, "verb")[0]).toBe("used to");
+    expect(shown(soler, constructionPos("verb", ""))[0]).toBe(
+      "to be accustomed to doing something",
+    );
+    const dejar = said(
+      "to leave:verb",
+      "to leave (to cause, result in):auxiliary",
+    );
+    expect(shown(dejar, constructionPos("verb", ""))[0]).toBe("to leave");
+  });
+  it("takes a pronominal verb's sense only where the verb reads as pronominal", () => {
+    const mettre = said("to put:verb", "to start:reflexive:à");
+    expect(shown(mettre, constructionPos("verb", "à"))[0]).toBe("to put");
+    expect(shown(mettre, constructionPos(PRONOMINAL, "à"))[0]).toBe("to start");
   });
 });
 
