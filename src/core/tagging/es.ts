@@ -16,6 +16,9 @@ import { formOf, NONFINITE, trustedTagOf, udTokenTag } from "./ud";
  */
 const THRESHOLD = 5;
 
+/** A verb's base, its infinitive ("ir"; not the letter "e" of "es"). */
+const INFINITIVE = /(ar|er|ir|ír)$/;
+
 /** A form of ser or estar, the verbs of states. */
 const isBe = (word: TaggedWord) => formOf(word, "ser") || formOf(word, "estar");
 
@@ -23,21 +26,47 @@ const isBe = (word: TaggedWord) => formOf(word, "ser") || formOf(word, "estar");
 const BETWEEN: ReadonlySet<string> = new Set(["adverb", "pronoun"]);
 
 /**
- * Whether the word at `i` is an auxiliary: tagged AUX, with its verb (a participle,
- * gerund or infinitive) within four words and only adverbs or clitic pronouns between
- * ("ha comido", "está lloviendo", "puede venir", "no lo he visto"). A copula is AUX
- * in the treebanks too, but takes no verb ("es importante"). Tags count here whether
- * trusted or not: a closed class.
+ * The verb form an AUX-tagged word at `i` takes as an auxiliary: a participle, gerund
+ * or infinitive within four words with only adverbs or clitic pronouns between ("ha
+ * comido", "está lloviendo", "puede venir", "no lo he visto"); none for a copula,
+ * which is AUX in the treebanks too but takes no verb ("es importante"). Tags count
+ * here whether trusted or not: a closed class.
  */
-function auxiliary(words: readonly TaggedWord[], i: number): boolean {
-  if (!words[i]!.tag.tag.startsWith("AUX")) return false;
+function auxiliaryVerb(
+  words: readonly TaggedWord[],
+  i: number,
+): string | undefined {
+  if (!words[i]!.tag.tag.startsWith("AUX")) return undefined;
   for (let j = i + 1; j < Math.min(words.length, i + 5); j++) {
     const { tag, pauseBefore } = words[j]!;
-    if (pauseBefore) return false;
-    if (NONFINITE.test(tag.tag)) return true;
-    if (!BETWEEN.has(tag.label)) return false;
+    if (pauseBefore) return undefined;
+    if (NONFINITE.test(tag.tag)) return tag.tag;
+    if (!BETWEEN.has(tag.label)) return undefined;
   }
-  return false;
+  return undefined;
+}
+
+/**
+ * The verb of a form that ser shares with another (fui, fue, fuera: ser and ir), as
+ * `notCopula` reads it.
+ */
+const otherThanSer = (word: TaggedWord) =>
+  word.bases.find(
+    (base) => base !== "ser" && base !== word.form && INFINITIVE.test(base),
+  );
+
+/**
+ * Whether the word at `i` is an auxiliary (`auxiliaryVerb`). Ser is one only before a
+ * participle, the passive ("fue elegido"): before an infinitive it is the copula of a
+ * clause ("lo que quiero es sacar", "el reto era ser escuchado"), and a form it
+ * shares with ir is ir before a gerund ("fue creciendo": went on growing; `notCopula`).
+ */
+function auxiliary(words: readonly TaggedWord[], i: number): boolean {
+  const verb = auxiliaryVerb(words, i);
+  if (verb === undefined) return false;
+  const word = words[i]!;
+  if (!formOf(word, "ser") || verb.endsWith(".Part")) return true;
+  return verb.endsWith(".Ger") && otherThanSer(word) !== undefined;
 }
 
 function verbal(words: readonly TaggedWord[], i: number): WordUse["verbal"] {
@@ -96,9 +125,6 @@ function articleNotClitic(words: readonly TaggedWord[], i: number): boolean {
   );
 }
 
-/** A verb's base, its infinitive ("ir"; not the letter "e" of "es"). */
-const INFINITIVE = /(ar|er|ir|ír)$/;
-
 /** The reflexive pronouns among the clitics. */
 const REFLEXIVES: ReadonlySet<string> = new Set([
   "me",
@@ -112,8 +138,8 @@ const REFLEXIVES: ReadonlySet<string> = new Set([
  * A form the copula ser shares with another verb (fui, fue, fuera: ser and ir) is the
  * other verb where the copula cannot stand: right after an object clitic ("se fue",
  * "me fue bien"; not the attribute "lo": "lo fue") or before "a" ("fui a Madrid",
- * "fue a ver"), as ser takes neither. After a reflexive pronoun it is that verb's
- * pronominal use ("se fueron de campamento": irse).
+ * "fue a ver"), as ser takes neither, nor a gerund ("fue creciendo"). After a
+ * reflexive pronoun it is that verb's pronominal use ("se fueron de campamento": irse).
  */
 function notCopula(
   words: readonly TaggedWord[],
@@ -121,9 +147,7 @@ function notCopula(
 ): Pick<WordUse, "base" | "pronominal"> {
   const word = words[i]!;
   if (!word.bases.includes("ser")) return {};
-  const other = word.bases.find(
-    (base) => base !== "ser" && base !== word.form && INFINITIVE.test(base),
-  );
+  const other = otherThanSer(word);
   if (other === undefined) return {};
   const before = words[i - 1];
   const next = words[i + 1];
@@ -136,7 +160,8 @@ function notCopula(
     next !== undefined &&
     !next.pauseBefore &&
     (next.form === "a" || next.form === "al");
-  if (!clitic && !toA) return {};
+  const gerund = auxiliaryVerb(words, i)?.endsWith(".Ger") === true;
+  if (!clitic && !toA && !gerund) return {};
   return {
     base: other,
     ...(clitic && REFLEXIVES.has(before.form) && { pronominal: true }),

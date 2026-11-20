@@ -1303,6 +1303,7 @@ describe("Spanish words the sentence decides (utterances, the article lo, ser or
     vocab: new Set([
       ...["ser", "ir", "de", "a", "se", "lo", "que", "vale", "un", "compra"],
       ...["vamos", "dijo", "con", "madrid", "vacaciones", "me"],
+      ...["bueno", "y", "yo", "creo", "muy", "para", "mí"],
     ]),
     patterns: { detect: ["ir de"], more: [], gap: [] },
     pos: {
@@ -1311,9 +1312,10 @@ describe("Spanish words the sentence decides (utterances, the article lo, ser or
       lo: ["pronoun", "article"],
       vale: ["noun", "interjection"],
       un: ["article"],
+      bueno: ["adjective", "interjection"],
     },
     tagger: {
-      tags: ["NOUN", "VERB.Fin"],
+      tags: ["NOUN", "VERB.Fin", "ADJ"],
       words: {
         fue: "VERB.Fin",
         fui: "VERB.Fin",
@@ -1327,6 +1329,12 @@ describe("Spanish words the sentence decides (utterances, the article lo, ser or
         con: "ADP",
         un: "DET",
         vale: "NOUN",
+        bueno: "ADJ",
+        y: "CCONJ",
+        yo: "PRON",
+        creo: "VERB.Fin",
+        muy: "ADV",
+        para: "ADP",
       },
       weights: {},
       scale: 10,
@@ -1337,6 +1345,11 @@ describe("Spanish words the sentence decides (utterances, the article lo, ser or
     ir: { firstMeaning: true, meaning: true, pos: ["verb"] },
     vale: { firstMeaning: true, meaning: true, pos: ["noun", "interjection"] },
     lo: { firstMeaning: true, meaning: true, pos: ["pronoun", "article"] },
+    bueno: {
+      firstMeaning: true,
+      meaning: true,
+      pos: ["adjective", "interjection"],
+    },
   };
   const run = (text: string) =>
     createClassifier(spanish)
@@ -1354,6 +1367,24 @@ describe("Spanish words the sentence decides (utterances, the article lo, ser or
     // A caption's sound label, and a word followed by more of its sentence.
     expect(run("[vale].")[0]).toBe("vale:vale:noun");
     expect(run("Vale de compra.")[0]).toBe("Vale:vale:noun");
+  });
+  it("reads an adjective with nothing to qualify as said alone where nothing is punctuated", () => {
+    const unpunctuated = (text: string) =>
+      createClassifier(spanish)
+        .classify(spanish.tokenize(text), {
+          terms: terms(),
+          knownLevel: 10,
+          outline: (key) => outlines[key],
+          casing: { mode: "mixed", words: {}, unpunctuated: true },
+        })
+        .map((s) => `${text.slice(s.start, s.end)}:${s.key}:${s.pos ?? "-"}`);
+    expect(unpunctuated("y bueno yo creo")[1]).toBe("bueno:bueno:interjection");
+    expect(unpunctuated("bueno yo creo")[0]).toBe("bueno:bueno:interjection");
+    // Something to qualify before it, or a complement after it.
+    expect(unpunctuated("muy bueno")[1]).toBe("bueno:bueno:adjective");
+    expect(unpunctuated("bueno para mí")[0]).toBe("bueno:bueno:adjective");
+    // In a punctuated document, only standing alone between punctuation.
+    expect(run("y bueno yo creo")[1]).toBe("bueno:bueno:adjective");
   });
   it("reads lo with no verb after it as the article", () => {
     expect(run("lo que dijo")[0]).toBe("lo:lo:determiner");

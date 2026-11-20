@@ -682,6 +682,17 @@ export function translationFirst(gloss: string): string {
   ].join("; ");
 }
 
+/** A fixed expression counts once the treebanks have it this often as one … */
+const FIXED_MIN_COUNT = 5;
+/** … at least as often as not where its words stand in a row (annotations differ between treebanks). */
+const FIXED_MIN_SHARE = 0.5;
+
+/** The treebanks write these words as one fixed expression often enough (`PhraseBuildLanguage.fixed`). */
+const fixedExpression = (count?: { fixed: number; all: number }) =>
+  count !== undefined &&
+  count.fixed >= FIXED_MIN_COUNT &&
+  count.fixed / count.all >= FIXED_MIN_SHARE;
+
 /** Most words a translation's first item has; a gloss of more describes (as `describes` in short-lines.ts). */
 const TRANSLATION_WORDS = 3;
 
@@ -1014,6 +1025,7 @@ export async function buildLearningPacks(
   {
     freqTop = FREQ_TOP,
     treebank = NO_LEMMAS,
+    fixed,
     headRank = HEAD_RANK,
     casePaths = [],
     ipaPaths = [],
@@ -1026,6 +1038,11 @@ export async function buildLearningPacks(
     freqTop?: number;
     /** The treebanks' lemma counts (`treebankLemmas`), which order a form's bases. */
     treebank?: LemmaCounts;
+    /**
+     * The treebanks' fixed expressions with how often they are written as one of how
+     * often their words stand in a row (`fixedExpressions`), for the phrase score.
+     */
+    fixed?: ReadonlyMap<string, { fixed: number; all: number }>;
     /** How many of `forms` are in current use (`withoutHeadLabels`). */
     headRank?: number;
     /**
@@ -1642,7 +1659,10 @@ export async function buildLearningPacks(
     lemmas,
     dict: {},
     language: ENGLISH_PHRASES,
-    build: language.phraseBuild(pos, lemmas),
+    build: {
+      ...language.phraseBuild(pos, lemmas),
+      ...(fixed && { fixed: (key: string) => fixedExpression(fixed.get(key)) }),
+    },
     examples: ownEditionExamples ? [path, ...casePaths] : [path],
     ...(!ownEditionExamples && { attestation: [path, ...casePaths] }),
     ...phraseScoring,

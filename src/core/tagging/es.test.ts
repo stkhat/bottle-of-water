@@ -123,6 +123,22 @@ describe("spanishTagger: uses", () => {
     // A pause ends the search.
     expect(aux("ha/AUX.Fin/haber ,comido/VERB.Part/comer")[0]).toBe(false);
   });
+  it("takes ser for an auxiliary only before a participle, the passive", () => {
+    const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);
+    expect(aux("fue/AUX.Fin/ser cancelado/VERB.Part/cancelar")[0]).toBe(true);
+    // The copula of a clause: "lo que quiero es sacar", "era ser escuchado".
+    expect(aux("es/AUX.Fin/ser sacar/VERB.Inf")[0]).toBe(false);
+    expect(aux("era/AUX.Fin/ser ser/AUX.Inf/ser escuchado/VERB.Part")).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    // A form ser shares with ir is ir before a gerund: "fue creciendo".
+    expect(
+      usesOf("fue/AUX.Fin/ser/ir creciendo/VERB.Ger/crecer")[0],
+    ).toMatchObject({ auxiliary: true, base: "ir" });
+    expect(aux("es/AUX.Fin/ser creciendo/VERB.Ger/crecer")[0]).toBe(false);
+  });
   it("tells how an inflected verb is used", () => {
     const verbal = (text: string) => usesOf(text).map((u) => u.verbal);
     expect(verbal("creo/VERB.Fin/creer")[0]).toBe("finite");

@@ -47,6 +47,15 @@ const NAMES_BY_CASE: ReadonlySet<string> = new Set(["en", "es", "fr", "de"]);
 const CAPITALS_FOR_NAMES: ReadonlySet<string> = new Set(["es", "fr"]);
 
 /**
+ * Languages whose words with interjection senses are read as utterances by where they
+ * stand in a document without punctuation (`LanguagePack.unpunctuatedUtterances`):
+ * Spanish, where it was judged (R3, 2026-11-20: "y bueno yo creo"). French and German
+ * would change 8 and 51 tokens ("bonjour", "und ja", "gut"), English none; they are
+ * left to those languages' next rounds.
+ */
+const UNPUNCTUATED_UTTERANCES: ReadonlySet<string> = new Set(["es"]);
+
+/**
  * Languages that capitalise every noun (German "Haus", "Essen"; the polite Sie): a
  * word capitalised in a way that counts asks for its capitalised headword's senses
  * first (`Sense.capital`) and is read by its tag as any word, since its capital marks
@@ -174,6 +183,11 @@ export interface LanguagePack {
    * (`documentNames`), and a capitalised word asks for no capitalised senses.
    */
   readonly capitalsForNames: boolean;
+  /**
+   * Speech recognition's utterances are read where they stand when a document has no
+   * punctuation (`UNPUNCTUATED_UTTERANCES`, rule A2's utterances in classify.ts).
+   */
+  readonly unpunctuatedUtterances: boolean;
   /**
    * The language capitalises every noun (`NOUNS_CAPITALISED`): a word capitalised in a
    * way that counts asks for its capitalised headword's senses and keeps its tag's
@@ -380,6 +394,7 @@ export function createLanguagePack(
     rules,
     namesByCase: NAMES_BY_CASE.has(lang) && data.names !== undefined,
     capitalsForNames: CAPITALS_FOR_NAMES.has(lang),
+    unpunctuatedUtterances: UNPUNCTUATED_UTTERANCES.has(lang),
     nounsCapitalised: NOUNS_CAPITALISED.has(lang),
     name: (word) => (data.names ? own(data.names, word) : undefined),
     accented,

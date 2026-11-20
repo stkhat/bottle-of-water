@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { lemmaCounts, readSurface, spanishTag } from "./es-tagger.ts";
+import {
+  fixedExpressions,
+  lemmaCounts,
+  readSurface,
+  spanishTag,
+} from "./es-tagger.ts";
 
 const CONLLU = [
   "# sent_id = 1",
@@ -57,5 +62,33 @@ describe("lemmaCounts", () => {
     expect(byTag.get("del ADP")).toBeUndefined();
     expect(byTag.get("de ADP")).toBe(2);
     expect(byTag.get("creído VERB")).toBe(2);
+  });
+});
+
+describe("fixedExpressions", () => {
+  const FIXED = [
+    "1-2\tAl\t_\t_\t_\t_\t_\t_\t_\t_",
+    "1\tA\ta\tADP\t_\t_\t4\tadvmod\t_\t_",
+    "2\tel\tel\tDET\t_\t_\t1\tfixed\t_\t_",
+    "3\tmenos\tmenos\tADV\t_\t_\t1\tfixed\t_\t_",
+    "4\tvino\tvenir\tVERB\t_\t_\t0\troot\t_\t_",
+    "5\ta\ta\tADP\t_\t_\t9\tcase\t_\t_",
+    "6\tpesar\tpesar\tVERB\t_\t_\t5\tfixed\t_\t_",
+    "7-8\tdel\t_\t_\t_\t_\t_\t_\t_\t_",
+    "7\tde\tde\tADP\t_\t_\t5\tfixed\t_\t_",
+    "8\tel\tel\tDET\t_\t_\t9\tdet\t_\t_",
+    "9\tfrío\tfrío\tNOUN\t_\t_\t4\tobl\t_\t_",
+    "",
+    "1\ta\ta\tADP\t_\t_\t3\tcase\t_\t_",
+    "2\tel\tel\tDET\t_\t_\t3\tdet\t_\t_",
+    "3\tmenos\tmenos\tPRON\t_\t_\t0\troot\t_\t_",
+    "",
+  ].join("\n");
+  it("writes each as text does, with how often its words are one", () => {
+    const found = fixedExpressions([FIXED]);
+    // "Al menos": the contraction held whole; "a pesar del": the expression's "de".
+    expect(found.get("al menos")).toEqual({ fixed: 1, all: 2 });
+    expect(found.get("a pesar de")).toEqual({ fixed: 1, all: 1 });
+    expect(found.size).toBe(2);
   });
 });

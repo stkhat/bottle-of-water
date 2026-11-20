@@ -130,6 +130,26 @@ describe("thresholdFor (B2)", () => {
     expect(thresholdFor(999, 10)).toBeCloseTo(0.64);
     expect(thresholdFor(0, 1.5)).toBeCloseTo(0.75);
   });
+  it("does not rise with the count for a fixed expression", () => {
+    expect(thresholdFor(999, 10, true)).toBeCloseTo(0.55);
+    expect(thresholdFor(999, 1.5, true)).toBeCloseTo(0.75);
+  });
+});
+
+describe("idiomaticity of a fixed expression (B2)", () => {
+  it("has no literal reading competing", () => {
+    const half = evidence(
+      [sense("Despite.")],
+      { "Despite.": 0.4 },
+      {
+        count: 999,
+      },
+    );
+    expect(idiomaticity(half, ENGLISH_PHRASES)).toBeLessThan(0.6);
+    expect(idiomaticity({ ...half, fixed: true }, ENGLISH_PHRASES)).toBeCloseTo(
+      0.6,
+    );
+  });
 });
 
 describe("transparent (B2b)", () => {
