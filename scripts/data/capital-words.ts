@@ -23,6 +23,7 @@ import {
   type KaikkiEntry,
 } from "./common.ts";
 import { parseEjdict, readEjdictText } from "./ejdict.ts";
+import { entityJapanese, joinedEntities } from "./wikidata.ts";
 import { japaneseSenses } from "./phrases.ts";
 import {
   entrySenses,
@@ -196,6 +197,19 @@ async function main() {
   const capitalWords = Object.fromEntries(
     Object.entries(meanings).filter(([key]) => capitalKeys.has(key)),
   );
+  // The words that joined from Wikidata (Nvidia, Shinkansen) mean their items: their
+  // Japanese, not the tables' of an entry so written (BTS: 舞台裏, behind the scenes,
+  // for the band); with none, their English definition (en-defs) shows instead.
+  let fromEntities = 0;
+  for (const [written, entity] of Object.entries(joinedEntities())) {
+    const key = capitalEntryKey(written);
+    if (Object.hasOwn(capital, key)) continue;
+    const entry = entityJapanese(written, entity);
+    if (entry) {
+      capitalWords[key] = entry;
+      fromEntities++;
+    } else Reflect.deleteProperty(capitalWords, key);
+  }
   for (const key of Object.keys(capitalWords))
     if (Object.hasOwn(capital, key))
       throw new Error(`en-ja/capital.json has ${key} from EJDict`);
@@ -212,7 +226,7 @@ async function main() {
   writePack("en-ja/phrases.json", { ...phrases, ...words });
   console.log(
     `en-ja/capital.json: ${Object.keys(capital).length} EJDict capitalised headwords, ` +
-      `${Object.keys(capitalWords).length} of ${capitals.length} capital-only words with Japanese meanings; ` +
+      `${Object.keys(capitalWords).length} of ${capitals.length} capital-only words with Japanese meanings (${fromEntities} from Wikidata); ` +
       `en-ja/phrases.json: ${Object.keys(words).length} of ${added.length} rule E words with Japanese meanings`,
   );
 }

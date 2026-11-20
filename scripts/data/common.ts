@@ -23,6 +23,12 @@ export const KAIKKI_PATH = join(RAW_DIR, "kaikki-en.jsonl");
  * `frequency.ts` ranks those its list lacks, the quality gate leaves them out).
  */
 export const WIKTIONARY_WORDS_PATH = join(GATE_DIR, "en-wiktionary-words.json");
+/**
+ * The capital-only words that joined from Wikidata (`kaikki.ts` writes it from
+ * `wikidata.ts`'s entities): their meanings are their items' (`capital-words.ts`,
+ * `en-defs.ts`, `recipes/native.ts`).
+ */
+export const WIKIDATA_WORDS_PATH = join(GATE_DIR, "en-wikidata-words.json");
 /** How often the example corpus writes each English vocabulary word (`kaikki.ts`); not shipped. */
 export const EXAMPLE_COUNTS_PATH = join(RAW_DIR, "en-example-counts.json");
 /** Largest dictionary shard file. AMO's linter refuses text files over 5 MB. */

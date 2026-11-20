@@ -40,11 +40,15 @@ interface SourceLicense {
 
 /**
  * The licenses the packs' sources may have (user, 2026-11-11 and 2026-11-18): public
- * domain, MIT, CC BY-SA, and the attribution-only CC BY, ODC-BY and WordNet-style
+ * domain (CC0 too), MIT, CC BY-SA, and the attribution-only CC BY, ODC-BY and WordNet-style
  * licenses (permission with a copyright notice and disclaimer on every copy).
  */
 const LICENSES = {
   publicDomain: { name: "public domain" },
+  cc0: {
+    name: "CC0 1.0",
+    url: "https://creativecommons.org/publicdomain/zero/1.0/",
+  },
   ccBySa4: {
     name: "CC BY-SA 4.0",
     url: "https://creativecommons.org/licenses/by-sa/4.0/",
@@ -127,6 +131,13 @@ const OMW =
 
 /** As THIRD_PARTY_NOTICES.md lists them. */
 const SOURCES = {
+  wikidata: {
+    title: "Wikidata",
+    url: "https://www.wikidata.org/",
+    via: "queried through QLever (https://qlever.dev/, University of Freiburg)",
+    by: "the contributors to Wikidata",
+    license: LICENSES.cc0,
+  },
   ejdict: {
     title: "EJDict-hand",
     url: "https://github.com/kujirahand/EJDict",
@@ -401,6 +412,10 @@ export function recipePack(
       ...SOURCES.wordnetEn,
       used: "the English synsets that link the terms to the other wordnets, their definitions as sense hints",
     });
+  sources.push({
+    ...SOURCES.wikidata,
+    used: `${name} labels and descriptions of the capital-only words that name one notable thing (Nvidia, Shinkansen)`,
+  });
   if (recipe.simplified)
     sources.push({
       ...SOURCES.opencc,
@@ -499,6 +514,10 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       },
       { ...SOURCES.freqEn, used: "frequency ranks" },
       {
+        ...SOURCES.wikidata,
+        used: "capital-only words that name one notable thing (Nvidia, AirPods, Shinkansen)",
+      },
+      {
         ...SOURCES.udEwt,
         used: "the part-of-speech tagger's model (trained on it)",
       },
@@ -513,12 +532,22 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
         ...SOURCES.wiktionaryEn,
         used: "Japanese translations of phrases, of capital-only words (AI, Tokyo) and of words EJDict lacks (hitman), the parts of speech its senses are labelled with",
       },
+      {
+        ...SOURCES.wikidata,
+        used: "Japanese labels and descriptions of the capital-only words that name one notable thing (Nvidia, Shinkansen)",
+      },
     ],
   }),
   "en-defs": pack("en-defs", {
     title: "English definitions",
     description: "English definitions of English words and phrases",
-    sources: [{ ...SOURCES.wiktionaryEn, used: "the definitions" }],
+    sources: [
+      { ...SOURCES.wiktionaryEn, used: "the definitions" },
+      {
+        ...SOURCES.wikidata,
+        used: "descriptions of the capital-only words that name one notable thing (Nvidia, AirPods)",
+      },
+    ],
   }),
   es: pack("es", {
     title: "Spanish word data",

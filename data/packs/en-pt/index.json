@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"'s","last":"labor market"},{"file":"dict-2.json","first":"laboratory","last":"élan"}],
-"sources":["ptwiktionary","enwiktionary-translations"]
+"shards":[{"file":"capital.json","first":"A","last":"Ürümqi"},{"file":"dict-1.json","first":"'s","last":"kulak"},{"file":"dict-2.json","first":"kumquat","last":"élan"}],
+"sources":["ptwiktionary","enwiktionary-translations","wikidata"]
 }

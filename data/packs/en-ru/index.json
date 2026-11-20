@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"a","last":"drum roll"},{"file":"dict-2.json","first":"drumbeat","last":"markdown"},{"file":"dict-3.json","first":"marked","last":"sooth"},{"file":"dict-4.json","first":"soothe","last":"éclair"}],
-"sources":["enwiktionary-translations","ruwiktionary"]
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"a","last":"drug dealer"},{"file":"dict-2.json","first":"drug trafficker","last":"marine"},{"file":"dict-3.json","first":"marine biology","last":"sommelier"},{"file":"dict-4.json","first":"somnambulism","last":"éclair"}],
+"sources":["enwiktionary-translations","ruwiktionary","wikidata"]
 }

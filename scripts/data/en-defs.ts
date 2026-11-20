@@ -34,6 +34,7 @@ import {
 } from "./common.ts";
 import { PACKS } from "./formats.ts";
 import { isNonConstituent, patternKey } from "./phrases.ts";
+import { entityDefinition, joinedEntities, type Entities } from "./wikidata.ts";
 import {
   entrySenses,
   isPointer,
@@ -85,6 +86,7 @@ export async function buildEnDefs(
     lemmas,
     phrases,
     capitals = [],
+    entities = {},
     everyPair = () => false,
   }: {
     vocab: string[];
@@ -96,6 +98,11 @@ export async function buildEnDefs(
      * the sloth's).
      */
     capitals?: readonly string[];
+    /**
+     * The words that joined from Wikidata (`joinedEntities`): defined by their items'
+     * descriptions first (Nvidia: "American multinational technology company.").
+     */
+    entities?: Entities;
     everyPair?: (key: string) => boolean;
   },
 ) {
@@ -253,6 +260,21 @@ export async function buildEnDefs(
     }
     if (out.length > 0) defs[key] = [shortOfDefinition(out[0]![1]), out];
   }
+  // A word that joined from Wikidata means its item first; an entry so written follows
+  // (BTS: the band, then "behind the scenes").
+  let fromEntities = 0;
+  for (const [written, entity] of Object.entries(entities)) {
+    const key = written.toLowerCase();
+    if (!capitalOnly.has(written) || everyPair(key)) continue;
+    const text = entityDefinition(written, entity);
+    if (text === undefined) continue;
+    const own = (defs[key]?.[1] ?? []).filter(([, other]) => other !== text);
+    defs[key] = [
+      shortOfDefinition(text),
+      [["proper noun", text], ...own.slice(0, MAX_SENSES - 1)],
+    ];
+    fromEntities++;
+  }
   const phraseCount = Object.keys(defs).filter((key) =>
     key.includes(" "),
   ).length;
@@ -264,6 +286,8 @@ export async function buildEnDefs(
       words: Object.keys(defs).length - phraseCount,
       phrases: phraseCount,
       resolved,
+      /** Capital-only words defined by Wikidata. */
+      fromEntities,
       /** Terms every pair dictionary has. */
       left,
     },
@@ -301,6 +325,7 @@ async function main() {
     lemmas: readPack("en/lemmas.json"),
     phrases: readPack("en/phrases.json"),
     capitals: readPack("en/capitals.json"),
+    entities: joinedEntities(),
     everyPair: (key) => pairs.every((terms) => terms.has(key)),
   });
   const index = writeShards("en-defs", defs, PACKS_DIR);
@@ -308,6 +333,7 @@ async function main() {
     `en-defs: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `${stats.words} words and ${stats.phrases} phrases in ${index.shards.length} shards; ` +
       `${stats.resolved} pointer senses take their target's definition; ` +
+      `${stats.fromEntities} capital-only words defined by Wikidata; ` +
       `${stats.left} terms every pair dictionary has left out`,
   );
   if (stats.unparsable > 0) process.exitCode = 1;

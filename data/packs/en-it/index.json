@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"@","last":"frustrate"},{"file":"dict-2.json","first":"frustration","last":"rain cats and dogs"},{"file":"dict-3.json","first":"rain check","last":"éclair"}],
-"sources":["enwiktionary-translations","itwiktionary","omw-it","omw-iwn"]
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"@","last":"fruiterer"},{"file":"dict-2.json","first":"fruitful","last":"railroad car"},{"file":"dict-3.json","first":"railroad line","last":"éclair"}],
+"sources":["enwiktionary-translations","itwiktionary","omw-it","omw-iwn","wikidata"]
 }
