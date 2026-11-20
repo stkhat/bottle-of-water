@@ -86,6 +86,20 @@ describe("frenchTagger: uses", () => {
     expect(aux("est/AUX.Fin/est/être grand/ADJ")[0]).toBe(false);
     expect(aux("a/AUX.Fin/a/avoir ,mangé/VERB.Part/manger")[0]).toBe(false);
   });
+  it("takes no word for a participle that French morphology says cannot be one", () => {
+    const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);
+    // A first-group (-er) verb's participle ends in -é, -ée, -és or -ées: "envie" is
+    // envier's present (and the noun), so "j'ai pas envie" has no compound tense.
+    expect(
+      aux("j'/PRON ai/AUX.Fin?/avoir pas/ADV envie/VERB.Part?/envier")[1],
+    ).toBe(false);
+    expect(aux("a/AUX.Fin/avoir envié/VERB.Part/envier")[0]).toBe(true);
+    expect(aux("ai/AUX.Fin/avoir aimées/VERB.Part?/aimer")[0]).toBe(true);
+    // Other verbs' participles are irregular; a word with no verb base is left to its tag.
+    expect(aux("ai/AUX.Fin/avoir finie/VERB.Part/finir")[0]).toBe(true);
+    expect(aux("a/AUX.Fin/avoir pris/VERB.Part/prendre")[0]).toBe(true);
+    expect(aux("a/AUX.Fin/avoir xyz/VERB.Part")[0]).toBe(true);
+  });
   it("takes aller before an infinitive for an auxiliary: the near future", () => {
     const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);
     expect(aux("vais/VERB.Fin/aller le/PRON faire/VERB.Inf/faire")[0]).toBe(
@@ -248,6 +262,13 @@ describe("frenchTagger: uses", () => {
     ).toBe("faire");
     expect(
       base("as/VERB.Fin/avoir pas/ADV envie/NOUN?/envie/envier de/ADP", 2),
+    ).toBeUndefined();
+    // Nor a form that cannot be a participle ("envie": envier's is "envié").
+    expect(
+      base("ai/AUX.Fin/avoir pas/ADV envie/NOUN?/envie/envier", 2),
+    ).toBeUndefined();
+    expect(
+      base("ai/AUX.Fin/avoir pas/ADV envie/VERB.Part?/envie/envier", 2),
     ).toBeUndefined();
     expect(
       base(
