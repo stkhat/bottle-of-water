@@ -277,6 +277,10 @@ describe("inflectionNote", () => {
     expect(inflectionNote("Tedious", "tedious")).toBeUndefined();
     expect(inflectionNote("don’t", "don't")).toBeUndefined();
   });
+  it("is empty for an abbreviation read with its last period", () => {
+    expect(inflectionNote("U.S", "u.s.")).toBeUndefined();
+    expect(inflectionNote("p.m", "p.m.")).toBeUndefined();
+  });
 });
 
 describe("describeTerm", () => {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { splitElisions, tokenize } from "./tokenize";
-import { TRICKY_SENTENCE, TRICKY_WORDS } from "../../testing/tokenize-cases";
+import {
+  DOTTED_KNOWN,
+  DOTTED_SENTENCE,
+  DOTTED_WORDS,
+  TRICKY_SENTENCE,
+  TRICKY_WORDS,
+} from "../../testing/tokenize-cases";
 
 describe("tokenize", () => {
   it("splits text into word and non-word tokens with offsets", () => {
@@ -27,6 +33,44 @@ describe("tokenize", () => {
 
   it("gives nothing for empty text", () => {
     expect(tokenize("", "en")).toEqual([]);
+  });
+});
+
+describe("tokenize with full stops and colons between letters", () => {
+  const words = (text: string, known: readonly string[]) =>
+    tokenize(text, "en", (word) => known.includes(word.toLowerCase()))
+      .filter((token) => token.isWord)
+      .map(({ text, start, end }) => `${text}@${start}-${end}`);
+
+  it("joins an abbreviation `whole` knows and splits the others, as Chrome does", () => {
+    expect(words(DOTTED_SENTENCE, DOTTED_KNOWN)).toEqual(DOTTED_WORDS);
+  });
+
+  it("gives the full stops tokens of their own, with offsets", () => {
+    expect(
+      tokenize("e.g.", "en").map(({ text, isWord }) => `${text}:${isWord}`),
+    ).toEqual(["e:true", ".:false", "g:true", ".:false"]);
+    for (const token of tokenize(DOTTED_SENTENCE, "en"))
+      expect(DOTTED_SENTENCE.slice(token.start, token.end)).toBe(token.text);
+  });
+
+  it("joins only a whole run of letters and stops", () => {
+    expect(words("the U.S.A. team", ["u.s", "u.s.a"])).toEqual([
+      "the@0-3",
+      "U.S.A@4-9",
+      "team@11-15",
+    ]);
+    // "S.A" and "P.D" are words, but not the parts of a longer abbreviation.
+    expect(words("S.A.C. and A.P.D.", ["s.a", "p.d"])).toEqual([
+      "S@0-1",
+      "A@2-3",
+      "C@4-5",
+      "and@7-10",
+      "A@11-12",
+      "P@13-14",
+      "D@15-16",
+    ]);
+    expect(words("U.S.-based", ["u.s"])).toEqual(["U.S@0-3", "based@5-10"]);
   });
 });
 
