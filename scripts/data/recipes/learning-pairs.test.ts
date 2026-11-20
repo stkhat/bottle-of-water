@@ -2,13 +2,12 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { joinCapitals, type LearningWords } from "./learning-pairs.ts";
 import {
-  joinCapitals,
   learningKeyOf,
   readReversedTables,
   tableWord,
-  type LearningWords,
-} from "./learning-pairs.ts";
+} from "./reversed-tables.ts";
 import { termKeyOf, withOpeningLabel } from "./recipe.ts";
 import { learningSlimEntry } from "./learning-slim.ts";
 import type { KaikkiEntry } from "../common.ts";
@@ -24,6 +23,7 @@ const words: LearningWords = {
   lemmas: {},
   pos: {},
   articles: new Set(["der", "die", "das"]),
+  reflexive: ["sich"],
   english: {
     essen: [
       ["verb", "to eat"],

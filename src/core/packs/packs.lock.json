@@ -102,8 +102,8 @@
         },
         {
           "path": "dict-2.json",
-          "sha256": "9314184381d4b3f19169bd85514ddcc1aba9807f270765025ec3a0de153d82e0",
-          "size": 1999960
+          "sha256": "ac363063ecacd709e1f9b2c28c52cfe71938c5bd9c51189611e5bd579d069432",
+          "size": 1999913
         },
         {
           "path": "dict-3.json",
@@ -118,7 +118,7 @@
       ],
       "format": 2,
       "package": "@langle/de-fr",
-      "version": "2026.1120.2"
+      "version": "2026.1120.3"
     },
     "en": {
       "files": [
@@ -213,53 +213,58 @@
       "files": [
         {
           "path": "dict-1.json",
-          "sha256": "fa4eeb9ea44ce81f08db853f5b9ca9f280a6e4267d57706a201760f890d9b278",
-          "size": 1999903
+          "sha256": "afb5993327ecf39d8f57cdab020012cd3547bc23f69dae05250bc5b3cd024c2e",
+          "size": 1999984
         },
         {
           "path": "dict-2.json",
-          "sha256": "eacc009da7e6175ba2a467ae06dd41a822df7172c31eb4b7aaaaf8d2985adba4",
-          "size": 1999803
+          "sha256": "7e041edb4b162cca9357cd57d3af73106576fda75a7396d9adbe68a09cabda9c",
+          "size": 1999929
         },
         {
           "path": "dict-3.json",
-          "sha256": "328ae3de395fe528dc33c6ab367cbaf6192ba9528669aae6c67fae8f85fa52d7",
-          "size": 1999824
+          "sha256": "9303a66bba0ecdc48a327f5c6f23155edb307cf1cf900d837b7ae73da758a0c6",
+          "size": 1999909
         },
         {
           "path": "dict-4.json",
-          "sha256": "c61dc7dabc22f499dccfd80863d7e311647807498dc73043d7d84ed5c1e47c30",
-          "size": 1999865
+          "sha256": "a36a0b34e960f78c70bf332e5bb94f65fe0abe5c33f1f181a8d159d86d6ad287",
+          "size": 1999795
         },
         {
           "path": "dict-5.json",
-          "sha256": "64b44475fabf40bf01037931a6f240ba14914bf36bdfb928e3b512f88eb86409",
-          "size": 1999811
+          "sha256": "2c38a99e5bb8154f7945be5d35c0ddb290e0036231d464632b75578a30447935",
+          "size": 1999977
         },
         {
           "path": "dict-6.json",
-          "sha256": "ef0994b813a0050364468ac2a3b563725182596a76969a0f8f863683c683afe1",
-          "size": 1999932
+          "sha256": "8765d3a7edaec8684eb47f4720882fb5ee9f4198670b02e17181a3bc9507ea2d",
+          "size": 1999960
         },
         {
           "path": "dict-7.json",
-          "sha256": "4a4e3168b30ea2619138de1b5363ce9be3cdcb2139ab240d79f3ea7c738471c8",
-          "size": 1999945
+          "sha256": "ae22075fdd1c567f1288e90a202658216bf9409a85b86bf13d529a5f45a40893",
+          "size": 1999883
         },
         {
           "path": "dict-8.json",
-          "sha256": "bf0507924da5c11079c8b3740931c26ee23a90f367dcfb02cf7b9d155ef8bb06",
-          "size": 1944114
+          "sha256": "c8bbc6e7cd2acb03bc1111c97fe7d86ab2b784aa93c75e25ed1efb253f67daac",
+          "size": 1999881
+        },
+        {
+          "path": "dict-9.json",
+          "sha256": "df46a39e2fd26de7de90a90774808e3595459c337d47260b78c04ecf77e35dc8",
+          "size": 610804
         },
         {
           "path": "index.json",
-          "sha256": "0b108974f1047058ce63c9864b7085ab936a3a25cf51039efa160b81a872b814",
-          "size": 516
+          "sha256": "365dc41e031516377548bf7676f79733c2cda4feae1490ce0cd32fdd9fbbedf5",
+          "size": 631
         }
       ],
       "format": 2,
       "package": "@langle/en-defs",
-      "version": "2026.1120.6"
+      "version": "2026.1120.7"
     },
     "en-es": {
       "files": [
@@ -297,8 +302,8 @@
       "files": [
         {
           "path": "capital.json",
-          "sha256": "b1abf25b3485effb61802e51759ac5100351917e5873376187650fe4b77e26ec",
-          "size": 910291
+          "sha256": "a7f6198ef22cf6b9abb3cdf1272119c9f7f5067d2636645d9ab34488f449a8ad",
+          "size": 910398
         },
         {
           "path": "dict-1.json",
@@ -323,7 +328,7 @@
       ],
       "format": 4,
       "package": "@langle/en-fr",
-      "version": "2026.1120.4"
+      "version": "2026.1120.5"
     },
     "en-it": {
       "files": [
@@ -482,8 +487,8 @@
         },
         {
           "path": "dict-3.json",
-          "sha256": "99310b05bcb74fb23e66d7a22726e0e5c05bf3190ae39e53ed3497816ec16d92",
-          "size": 1999973
+          "sha256": "cdd4421cc4298b68b9fe60e845138c03678810ff937dbb945c68a0839f379c2d",
+          "size": 1999949
         },
         {
           "path": "dict-4.json",
@@ -498,39 +503,76 @@
       ],
       "format": 4,
       "package": "@langle/en-ru",
-      "version": "2026.1120.3"
+      "version": "2026.1120.4"
+    },
+    "en-th": {
+      "files": [
+        {
+          "path": "capital.json",
+          "sha256": "f8ab0ae5376b42dde132034a8417ebfd6ff6d14893892d69dbef15a4610f5fd1",
+          "size": 369808
+        },
+        {
+          "path": "dict-1.json",
+          "sha256": "f3615a056c66722a72138bca0ed282de71b4eb27ed33e8e5de55b723f805f5d2",
+          "size": 1999811
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "dfec63e6781393ae4779d97b39c3cacb4fd816c995b72d3591b07cc6341dc4b5",
+          "size": 1999847
+        },
+        {
+          "path": "dict-3.json",
+          "sha256": "b1efb7adbcc1a06625e85c648219606b10deba4339f3fb8a9c6480a27553eb07",
+          "size": 1999960
+        },
+        {
+          "path": "dict-4.json",
+          "sha256": "61f8cd9c295fee85389027a5dccc7f322284af08e2d98692ed4bb2ac313e0516",
+          "size": 548003
+        },
+        {
+          "path": "index.json",
+          "sha256": "38120a47b912cbd92e36f7330ae1d63ec7dd4e85cefd8bbfe8b1474b0b52a126",
+          "size": 433
+        }
+      ],
+      "format": 4,
+      "package": "@langle/en-th",
+      "version": "2026.1120.0"
     },
     "en-zh": {
       "files": [
         {
           "path": "capital.json",
-          "sha256": "bea0b338e82d1821e717a022234c80fc815a5a1cbe8d5f574f911b871ef9a386",
-          "size": 838332
+          "sha256": "18109fe4d28f0d0d016eb570a1c7db3bbc0a9a2950696460ffe40e1e1d1b2a41",
+          "size": 840025
         },
         {
           "path": "dict-1.json",
-          "sha256": "117876f1fe46b37013377fefce005209e3d066dc997f4f9b49486a8b20259e36",
-          "size": 1999871
+          "sha256": "d04ed9d81e623a8a9bf8ee2fb63c3f5fc0f677bdc10249325399a6c9b695deba",
+          "size": 1999994
         },
         {
           "path": "dict-2.json",
-          "sha256": "d839ccd02c7632e4497dc7daf9b17685275370f6d150b6c20577b01b8bdf2c8e",
-          "size": 1999942
+          "sha256": "3902aee5de006286e92dee12fc807dfac1e66fa775816a59715b751c96b84ef8",
+          "size": 1999977
         },
         {
           "path": "dict-3.json",
-          "sha256": "bcd6f7f2a41b0af23974f4c0a7ea6e2cb4274e553cae21623e77233b18130ad2",
-          "size": 1094909
+          "sha256": "4513151d39d88ee2fa90e74d3a1a374a7c957006f6b7226443bf6e635fd79d8c",
+          "size": 1094581
         },
         {
           "path": "index.json",
-          "sha256": "41c38ccba387c57703bdbc9b256f74b9947f74322fd91a7191bed82fe6c59694",
+          "sha256": "4967290a480c534418f8bc86afe6e2ac5646db4f464d1393e8858a83771e054b",
           "size": 315
         }
       ],
       "format": 4,
       "package": "@langle/en-zh",
-      "version": "2026.1120.3"
+      "version": "2026.1120.4"
     },
     "es": {
       "files": [
@@ -735,7 +777,8 @@
       "de",
       "zh",
       "it",
-      "pl"
+      "pl",
+      "th"
     ],
     "es": [
       "en"

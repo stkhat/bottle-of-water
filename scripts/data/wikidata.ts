@@ -521,18 +521,28 @@ export function entityWords(
     .sort(byCodeUnit);
 }
 
-/** The items' texts in `LANGS`, fetched in batches, cached in `path` (one JSON line each). */
+/**
+ * The items' texts in `LANGS`, fetched in batches, cached in `path` (one JSON line each,
+ * with the languages it was fetched in). An item is fetched again when `LANGS` has
+ * grown since (a new native language: th), its later line replacing the earlier.
+ */
 async function itemTexts(ids: readonly string[], path: string) {
   const texts = new Map<string, ItemTexts>();
+  const fetched = new Set<string>();
   if (existsSync(path))
     for await (const line of createInterface({
       input: createReadStream(path, "utf8"),
     }))
       if (line) {
-        const { id, ...rest } = JSON.parse(line) as ItemTexts & { id: string };
+        const { id, langs, ...rest } = JSON.parse(line) as ItemTexts & {
+          id: string;
+          langs?: string[];
+        };
         texts.set(id, rest);
+        if (LANGS.every((lang) => langs?.includes(lang))) fetched.add(id);
+        else fetched.delete(id);
       }
-  const missing = ids.filter((id) => !texts.has(id));
+  const missing = ids.filter((id) => !fetched.has(id));
   const batch = 1000;
   const langs = LANGS.map((lang) => `"${lang}"`).join(",");
   for (let i = 0; i < missing.length; i += batch) {
@@ -559,7 +569,9 @@ async function itemTexts(ids: readonly string[], path: string) {
     rmSync(file);
     await appendFile(
       path,
-      [...got].map(([id, t]) => JSON.stringify({ id, ...t })).join("\n") + "\n",
+      [...got]
+        .map(([id, t]) => JSON.stringify({ id, langs: LANGS, ...t }))
+        .join("\n") + "\n",
     );
     for (const [id, t] of got) texts.set(id, t);
     console.log(

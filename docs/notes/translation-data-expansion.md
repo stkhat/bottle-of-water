@@ -413,6 +413,15 @@ Without S1 only th (92.6) and id (92.7) pass 92%; ko joins at 90%, tr at 85%. Ag
 - th's LEXiTRON pages: still unknown license; th passes without them.
 - Scripts and outputs (not committed): `data/raw/quality/r4/` (`sources.ts`, `report.py`, `gaps.ts`, `classes.py`, `sample.py`, `frar.ts`, `prov.ts`, `provsum.py`; `report.json`, `classes.json`, `frar.json`, `prov-*.txt`, `uncovered-sample-<n>.json`).
 
+### th-1: English → Thai as built (2026-11-21)
+
+User decisions (2026-11-21): S1 allowed as the last source only, S2 allowed, the LEXiTRON pages left out (ZilentBot's pages created with the summary "นำเข้าคำจาก Lexitron", 1,542, by the same rule as PiedBot's), the gate stays 95%.
+
+- Gate as built (`data:stats`, the gate's own list): top 5,000 95.2% (4,762: tables 3,102, the th edition 447, Thai WordNet 1,065, S2 5, S1 143; without S1 92.4%), top 2,000 98.0%, phrases 19.1%. M0a predicted 95.3% on its list; the order of the first three sources changes no coverage.
+- Order judged blind (judge subagents, 50 random top-5,000 words both sources have, no context, and 60 corpus tokens of the 2026-11 English corpus whose hover the order changes; edition against wordnet only where the tables lack the term): tables over the edition 17 : 13 words, 21 : 17 tokens (20 and 22 alike); tables over Thai WordNet 19 : 16, 29 : 14; the edition over the wordnet 24 : 14 words, 20 : 21 tokens. Built: tables, edition (`afterTables`), wordnet, S2, S1.
+- Found on the way, fixed for every pair: unexpanded template links in edition glosses (":แม่แบบ:สกรรม สละ, ละทิ้ง"; th 165 English entries, zh 270, ru 12, fr 9, es 8, de 2, pt, it, pl 1), now a bracketed label; the Thai edition files month names as proper nouns, which made January a name that a given-name reading would hide, now decided by the tables' cased languages for scripts without case (`writtenAsWord`).
+- `en-th` 2026.1120.0: 43,622 terms (tables 10,367, edition 2,668, wordnet 28,801, S2 67, S1 1,800), 6.92 MB raw in 4 shards and `capital.json`.
+
 ## Other learning languages (estimated)
 Rows other than English in the matrix are estimated from source sizes (kaikki sense counts, 2026-11-13), not measured. Rules:
 - T1~: a bilingual dictionary with a confirmed license (zh → en, ja → en).

@@ -201,12 +201,26 @@ export function withoutStressMarks(text: string): string {
 const PAGE_MARKUP = /={2,}|\n\s*[*#]|\n\s*\n/;
 
 /**
+ * A link to a template the extraction left unexpanded (":แม่แบบ:สกรรม", ":Template:可數"):
+ * a colon, the namespace, a colon and the template's name, at the start of the gloss or
+ * after a space or an opening bracket.
+ */
+const TEMPLATE_LINK = /(^|[\s(（]):[^\s:()（）]+:([^\s()（）]+)/gu;
+
+/**
  * A gloss without the page structure the extraction let into it: cut where a heading,
- * a list item or another paragraph starts ("消色差透镜\n* 正体: …" → "消色差透镜").
+ * a list item or another paragraph starts ("消色差透镜\n* 正体: …" → "消色差透镜"); an
+ * unexpanded template link is its name in brackets, a label the line leaves out
+ * (":แม่แบบ:สกรรม สละ, ละทิ้ง" → "(สกรรม) สละ, ละทิ้ง"; "ตาย :แม่แบบ:rfquote-sense" →
+ * "ตาย (rfquote-sense)").
  */
 export function withoutPageMarkup(gloss: string) {
   const at = gloss.search(PAGE_MARKUP);
-  return (at < 0 ? gloss : gloss.slice(0, at)).trim();
+  return (at < 0 ? gloss : gloss.slice(0, at))
+    .replace(TEMPLATE_LINK, (_, before: string, name: string) =>
+      /[(（]/u.test(before) ? `${before}${name}` : `${before}(${name})`,
+    )
+    .trim();
 }
 
 /** A pointer template needs this many distinct targets to count as the edition's syntax. */
@@ -1362,6 +1376,8 @@ export async function readTranslationTables(
   const coverage = new Map<string, number>();
   /** term key → the tags of its English form-of senses ("past", "participle", "plural") */
   const formTags = new Map<string, Set<string>>();
+  /** capitalised headword → its table words in every language, by case (`writtenAsWord`) */
+  const rowCase = new Map<string, RowCase>();
   const stats = await eachEntry(path, (entry) => {
     // English text writes Translingual symbols too ("kg").
     if (entry.lang_code === learning || entry.lang_code === "mul") {
@@ -1415,6 +1431,14 @@ export async function readTranslationTables(
           );
         if (typeof translation.lang_code === "string")
           group.langs.add(translation.lang_code);
+        if (capitalKey !== undefined && typeof translation.word === "string") {
+          let counts = rowCase.get(capitalKey);
+          if (!counts)
+            rowCase.set(capitalKey, (counts = { lower: 0, upper: 0 }));
+          const first = translation.word.trim();
+          if (/^\p{Ll}/u.test(first)) counts.lower++;
+          else if (/^\p{Lu}/u.test(first)) counts.upper++;
+        }
         if (!codes.has(translation.lang_code as string)) continue;
         if (names && !names.has(translation.lang)) continue;
         if (isExampleNote(translation.note, entry.word)) group.example = true;
@@ -1521,6 +1545,7 @@ export async function readTranslationTables(
     lowercase,
     coverage,
     formTags,
+    rowCase,
     stats: { ...stats, foreign: lower.foreign + capital.foreign, wordless },
   };
 }
@@ -1628,6 +1653,28 @@ export function withSharedFirst(senses: readonly PairSense[]): PairSense[] {
 
 /** What a capitalised headword's meaning is (`DictionaryProvider.capitalMeaning`). */
 export type CapitalMeaning = "word" | "name";
+
+/** How many of a capitalised headword's table words, in every language, open in lower and in upper case. */
+export interface RowCase {
+  lower: number;
+  upper: number;
+}
+
+/** Table words a headword needs in languages with case for them to say what it is. */
+const ROW_CASE_MIN = 3;
+
+/**
+ * Whether the languages with case write a capitalised headword as a common word in its
+ * translation tables: most of its table words open in lower case (January: enero,
+ * janvier, январь; not Germany: Alemania, Allemagne), of ROW_CASE_MIN or more.
+ */
+export function writtenAsWord(counts: RowCase | undefined): boolean {
+  return (
+    counts !== undefined &&
+    counts.lower + counts.upper >= ROW_CASE_MIN &&
+    counts.lower > counts.upper
+  );
+}
 
 /** A capitalised headword's entry: a merged term and what it means, when it means something. */
 type CapitalEntry =
@@ -1741,8 +1788,11 @@ function inPosTurns(senses: readonly PairSense[]): PairSense[] {
  * - the first sense that is no pointer gives the meaning: none when its main item is
  *   the headword itself (Texas → Texas, German Japan → Japan); else "name" or "word"
  *   by the native edition's entry for it (`nativeKind`), else by its shape
- *   (`shapeKind`), else, in a script without case, by its part of speech
- *   (`commonKind`);
+ *   (`shapeKind`); in a script without case, where a capital says nothing, a word
+ *   where the languages with case write the headword as one (`rowsSayWord`: the Thai
+ *   edition files month names as proper nouns, มกราคม, as Thai grammar does, but
+ *   enero, janvier say a common word), else by the edition, else by its part of
+ *   speech (`commonKind`);
  * - a "word" meaning of a person's name first (`personFirst`: the names lexicon's main
  *   kind a given name or a surname) is a use of the name, not what it means (Einstein
  *   → genio, Frank → franco): none. Wiktionary's glosses do not mark a sense about one
@@ -1755,10 +1805,13 @@ export function capitalDictionary(
   dict: Readonly<Record<string, [string, PairSense[], number]>>,
   {
     nativeKind,
+    rowsSayWord = () => false,
     personFirst,
     defined = () => false,
   }: {
     nativeKind: (item: string) => CapitalMeaning | undefined;
+    /** The languages with case write the headword as a common word (`writtenAsWord`). */
+    rowsSayWord?: (key: string) => boolean;
     personFirst: (term: string) => boolean;
     defined?: (term: string) => boolean;
   },
@@ -1796,7 +1849,11 @@ export function capitalDictionary(
     const item = meaningSense && mainItem(meaningSense);
     let meaning: CapitalMeaning | undefined =
       item && bare(item) !== bare(key)
-        ? (nativeKind(item) ?? shapeKind(item) ?? commonKind(meaningSense!))
+        ? /[\p{Lu}\p{Ll}]/u.test(item)
+          ? (nativeKind(item) ?? shapeKind(item) ?? commonKind(meaningSense!))
+          : rowsSayWord(key)
+            ? "word"
+            : (nativeKind(item) ?? commonKind(meaningSense!))
         : undefined;
     if (meaning === "word" && personFirst(key.toLowerCase()))
       meaning = undefined;
