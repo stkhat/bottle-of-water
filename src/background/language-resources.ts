@@ -151,7 +151,8 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
 /**
  * An English dictionary with English contractions shown by what they are short for
  * (`withContractions`), from the English pack's table and vocabulary, and capital-only
- * words' heads as they are written (`withWrittenHeads`: AI, not "ai").
+ * words' and names' heads as they are written (`withWrittenHeads`: AI, New Zealand;
+ * not "ai", "new zealand").
  */
 function withEnglishContractions(
   dictionary: DictionaryProvider,
@@ -163,7 +164,7 @@ function withEnglishContractions(
   let heads: ReadonlyMap<string, string> | undefined;
   const headOf = (key: string) =>
     (heads ??= new Map(
-      [...en.capitals]
+      [...en.capitals, ...(en.phrases.names ?? [])]
         .reverse()
         .map((written) => [written.toLowerCase(), written] as const)
         .filter(([lower]) => !english(lower)),

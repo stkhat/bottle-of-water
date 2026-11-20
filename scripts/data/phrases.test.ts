@@ -4,6 +4,7 @@ import { decodeSenseLabels } from "../../src/core/lexicon/sense-labels.ts";
 import { phrasePosIndex } from "../../src/core/phrases/pattern.ts";
 import { importPhrases, patternKey, type PhrasesResult } from "./phrases.ts";
 import { LITERAL_NOTE } from "./senses.ts";
+import { ENGLISH_PERSON } from "./vocabulary.ts";
 
 const fixture = join(import.meta.dirname, "fixtures", "kaikki-phrases.jsonl");
 const vocab = [
@@ -223,5 +224,33 @@ describe("LITERAL_NOTE", () => {
     ])
       expect(LITERAL_NOTE.test(note), note).toBe(true);
     expect(LITERAL_NOTE.test("to die (idiomatic)")).toBe(false);
+  });
+});
+
+describe("importPhrases: names that are units", () => {
+  const names = join(import.meta.dirname, "fixtures", "kaikki-names.jsonl");
+  it("lists named patterns a translation table translates, with capital-only words, as written", async () => {
+    const { phrases } = await importPhrases(names, {
+      vocab: ["new", "york", "long", "cheese"],
+      lemmas: {},
+      dict: {},
+      capitals: ["Harvey", "Zealand"],
+      person: ENGLISH_PERSON,
+    });
+    // New York has no table; Long Harvey is a person's name.
+    expect(phrases.names).toEqual(["New Zealand"]);
+    expect(phrases.more).toContain("new zealand");
+    // A capital-only word is a word of a name only.
+    expect([...phrases.detect, ...phrases.more]).not.toContain(
+      "zealand cheese",
+    );
+  });
+  it("lists none for a language whose capitals mark no names", async () => {
+    const { phrases } = await importPhrases(names, {
+      vocab: ["new", "york"],
+      lemmas: {},
+      dict: {},
+    });
+    expect(phrases.names).toBeUndefined();
   });
 });

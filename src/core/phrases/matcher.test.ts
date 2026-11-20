@@ -324,6 +324,33 @@ describe("detect mode", () => {
     expect(find("Be all ears.", "detect")).toBeUndefined();
     expect(find("Be all ears.", "select")?.key).toBe("be all ears");
   });
+
+  it("matches a name that is a unit where the text writes it with capitals", () => {
+    const matcher = createPhraseMatcher({
+      lang: "en",
+      rules: ENGLISH_RULES,
+      patterns: {
+        detect: [],
+        more: ["council of europe", "new zealand"],
+        gap: [],
+        names: ["Council of Europe", "New Zealand"],
+      },
+      lemmas,
+    });
+    const at = (text: string, upper = false) =>
+      matcher.longestAt(
+        matcher.prepare(tokenize(text, "en"), upper),
+        1,
+        "detect",
+      )?.key;
+    expect(at("in New Zealand.")).toBe("new zealand");
+    // Not new land in lower case, nor in a text in capitals, whose case says nothing.
+    expect(at("in new zealand.")).toBeUndefined();
+    expect(at("in New zealand.")).toBeUndefined();
+    expect(at("IN NEW ZEALAND.", true)).toBeUndefined();
+    // The name's small words in lower case, as it writes them.
+    expect(at("the Council of Europe")).toBe("council of europe");
+  });
 });
 
 describe("saved mode", () => {

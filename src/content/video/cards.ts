@@ -23,7 +23,11 @@ export function createCards(o: {
   lookup: Lookup;
   flat(text: string): string;
   onPanelOpen?(): void;
-  /** The window opened on `ref`'s term (not looked up again in an open window). */
+  /**
+   * The window shows `ref`'s term: it opened on it, or the term at its place is another
+   * once looked up again (a removed phrase's place shows a word of it). Not called when
+   * an open window shows the same term again.
+   */
   opened?(ref: WordRef, card: TermCard): void;
   /** The window closed. */
   closed?(): void;
@@ -190,8 +194,11 @@ export function createCards(o: {
     if (panel && sameTerm(panel.card, term)) {
       const isCurrent = panelTicket.current();
       const card = await describe(panel.ref, "window");
-      if (card && isCurrent() && store.get().panel)
+      if (card && isCurrent() && store.get().panel) {
         showPanel(panel.ref, card, panel.opened);
+        // What the window explains follows the term it shows.
+        if (!sameTerm(card, panel.card)) o.opened?.(panel.ref, card);
+      }
     }
   }
 

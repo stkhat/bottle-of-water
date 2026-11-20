@@ -83,7 +83,7 @@ describe("generated vocabulary", () => {
     expect(rank("selfie")).toBeLessThan(20000);
     expect(rank("chemo")).toBeLessThan(20000);
   });
-  it("gives Wiktionary's words their English definitions, to translate", () => {
+  it("gives Wiktionary's words the tables' Japanese, else their English definitions, to translate", () => {
     const dictionary = createEnJaDictionary({
       dict,
       phrases: jaPhrases,
@@ -93,12 +93,14 @@ describe("generated vocabulary", () => {
       pos,
       ipa,
     });
-    for (const word of ["um", "wanna", "app", "website", "chemo", "anymore"])
+    for (const word of ["um", "wanna", "chemo", "anymore"])
       expect(dictionary.entry(word), word).toMatchObject({
         glossLang: "en",
         short: expect.any(String),
       });
-    expect(dictionary.entry("app")?.short).toMatch(/program|application/i);
+    for (const word of ["app", "website", "hitman"])
+      expect(dictionary.entry(word)?.glossLang, word).toBeUndefined();
+    expect(dictionary.entry("app")?.short).toBe("アプリ");
   });
 });
 

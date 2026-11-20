@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"$","last":"fun house"},{"file":"dict-2.json","first":"function","last":"raster"},{"file":"dict-3.json","first":"raster graphics","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"$","last":"foretell"},{"file":"dict-2.json","first":"forethought","last":"prince of darkness"},{"file":"dict-3.json","first":"prince of peace","last":"ö"}],
 "sources":["frwiktionary","enwiktionary-translations"]
 }

@@ -511,7 +511,7 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
       { ...SOURCES.ejdict, used: "the dictionary" },
       {
         ...SOURCES.wiktionaryEn,
-        used: "Japanese translations of phrases and of capital-only words (AI, Tokyo), the parts of speech its senses are labelled with",
+        used: "Japanese translations of phrases, of capital-only words (AI, Tokyo) and of words EJDict lacks (hitman), the parts of speech its senses are labelled with",
       },
     ],
   }),

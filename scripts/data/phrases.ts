@@ -30,6 +30,7 @@ import {
 } from "./common.ts";
 import { readEjdictText, titleCasePhrases } from "./ejdict.ts";
 import { countExamples, phraseVariants } from "./examples.ts";
+import { ENGLISH_PERSON } from "./vocabulary.ts";
 import { PACKS } from "./formats.ts";
 import {
   ENGLISH_PHRASES,
@@ -396,6 +397,15 @@ export interface PhraseInputs {
   dict: DictPack;
   /** EJDict's multi-word headwords written only in Title Case (lowercase keys). */
   titleCase?: ReadonlySet<string>;
+  /**
+   * LEARNING, for a language whose capitals mark names (English): the capital-only
+   * words as written (en/capitals.json), which a name's words may be (New Zealand,
+   * Europa League). With them, the names that are units (`PhrasePatterns.names`) are
+   * listed; without, none.
+   */
+  capitals?: readonly string[];
+  /** A proper noun's sense that names a person, in its gloss and categories, lower case. */
+  person?: RegExp;
   /** How the pair's native glosses compare (Japanese for EJDict and the translation tables). */
   native?: NativeGlosses;
   language?: PhraseLanguage;
@@ -530,6 +540,8 @@ export async function importPhrases(
     lemmas,
     dict,
     titleCase: ejdictTitleCase = new Set(),
+    capitals,
+    person,
     native = JAPANESE_GLOSSES,
     language = ENGLISH_PHRASES,
     build = ENGLISH_BUILD,
@@ -545,8 +557,14 @@ export async function importPhrases(
     build.auxiliaries.has(key.slice(0, key.indexOf(" "))) ||
     build.closedClass?.(key) === true;
   const words = new Set(vocab);
+  /** The capital-only words' keys ("zealand"): words of names only. */
+  const capitalKeys = new Set(
+    (capitals ?? [])
+      .map((written) => written.toLowerCase())
+      .filter((key) => !words.has(key)),
+  );
   const known = (word: string) =>
-    words.has(word) || Object.hasOwn(lemmas, word);
+    words.has(word) || Object.hasOwn(lemmas, word) || capitalKeys.has(word);
   const isWord = (word: string) =>
     known(word) ||
     (word.endsWith(POSSESSIVE) && known(word.slice(0, -POSSESSIVE.length)));
@@ -636,12 +654,27 @@ export async function importPhrases(
     );
 
   const verdicts: PatternVerdict[] = [];
+  /** `PhrasePatterns.names`, as written. */
+  const names: string[] = [];
   const ja: PhrasesResult["ja"] = {};
   let unattested = 0;
   for (const key of allKeys) {
     const item = patterns.get(key);
     const ejdict = inEjdict(key);
     if (!ejdict && (!item || item.nonConstituent || item.senses.length === 0))
+      continue;
+    // B4: every entry a proper noun, or every entry written in Title Case.
+    const named = item?.written.size
+      ? item.allName || [...item.written].every(titleCase)
+      : ejdictTitleCase.has(key);
+    // A capital-only word's key is a word of a name only ("ai art" would match the
+    // sloth); its forms are words as before ("big as the beatles").
+    if (
+      !named &&
+      key
+        .split(" ")
+        .some((word) => capitalKeys.has(word) && !Object.hasOwn(lemmas, word))
+    )
       continue;
     const pos = item ? posOrder(item) : [];
     const count = corpus.phrases.get(key) ?? 0;
@@ -727,10 +760,6 @@ export async function importPhrases(
       ...(parts !== undefined && { parts }),
       ...(build.fixed?.(key) === true && { fixed: true }),
     };
-    // B4: every entry a proper noun, or every entry written in Title Case.
-    const named = item?.written.size
-      ? item.allName || [...item.written].every(titleCase)
-      : ejdictTitleCase.has(key);
     const score = idiomaticity(evidence, language);
     const threshold = thresholdFor(count, evidence.assoc, evidence.fixed);
     const isTransparent = transparent(evidence, language);
@@ -748,6 +777,28 @@ export async function importPhrases(
         !isTransparent &&
         (score >= threshold || item?.gap === true),
     });
+    // A name that is a unit: one a translation table translates (what is notable:
+    // New Zealand, Europa League, Saudi Arabia), not a person's name, as its entries
+    // write it with capitals ("Council of Europe": its small words in lower case),
+    // two words at least: one capital says nothing ("I have never", a game; "Ming
+    // dynasty", "Russian roulette", whose capital any text writes).
+    const asName =
+      capitals && named && item && tables > 0 && !undetectable(key)
+        ? [...item.written].find(
+            (written) =>
+              written.split(" ").filter((word) => /^\p{Lu}/u.test(word))
+                .length >= 2,
+          )
+        : undefined;
+    if (
+      asName !== undefined &&
+      !item!.senses.some((sense) =>
+        person?.test(
+          [sense.gloss, ...sense.categories].join(" | ").toLowerCase(),
+        ),
+      )
+    )
+      names.push(asName);
   }
 
   const detect = verdicts.filter((v) => v.detect).map((v) => v.key);
@@ -769,6 +820,7 @@ export async function importPhrases(
       const item = patterns.get(key);
       return item?.intransitive === true && !item.transitive;
     }),
+    ...(capitals && { names: names.sort(byCodeUnit) }),
   };
   const plain = verdicts.filter(
     (v) => !v.detect && !v.named && !v.transparent && !undetectable(v.key),
@@ -807,6 +859,8 @@ async function main() {
     lemmas: readPack<LemmaPack>("en/lemmas.json"),
     dict: readDictPacks<DictPack[string]>(PACKS["en-ja"].dir),
     titleCase: titleCasePhrases(readEjdictText()),
+    capitals: readPack<string[]>("en/capitals.json"),
+    person: ENGLISH_PERSON,
   });
   writePack("en/phrases.json", phrases, undefined, { lists: true });
   writePack("en-ja/phrases.json", ja);
@@ -818,7 +872,7 @@ async function main() {
       `${stats.withPos} with parts of speech (${phrases.intransitive?.length} intransitive), ` +
       `${stats.gap} with a gap ` +
       `(${stats.fromEjdict} from EJDict, ${stats.fromKaikki} from kaikki); ` +
-      `${stats.ja} with Japanese translations`,
+      `${stats.ja} with Japanese translations; ${phrases.names?.length ?? 0} names that are units`,
   );
   if (stats.unparsable > 0) process.exitCode = 1;
 }

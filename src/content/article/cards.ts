@@ -51,7 +51,10 @@ export function createCards(o: {
   /** The selection card is up: it is the card for the words under the pointer. */
   selecting(): boolean;
   onPanelOpen?(): void;
-  /** The panel opened on `ref`'s term (not looked up again in an open panel). */
+  /**
+   * The panel shows `ref`'s term: it opened on it, or the term at its place is another
+   * once looked up again. Not called when an open panel shows the same term again.
+   */
   opened?(ref: SpanRef, card: TermCard): void;
   /** The panel closed. */
   closed?(): void;
@@ -167,7 +170,11 @@ export function createCards(o: {
       const ref = panelRef;
       const isCurrent = panelTicket.current();
       const card = await describe(ref, "window");
-      if (isCurrent()) showPanel(ref, card);
+      if (!isCurrent()) return;
+      const before = store.get().panel?.card;
+      showPanel(ref, card);
+      // What the panel explains follows the term it shows.
+      if (before && !sameTerm(card, before)) o.opened?.(ref, card);
     }
   }
 
