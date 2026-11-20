@@ -295,7 +295,7 @@ describe("SettingsPage", () => {
       .toBeVisible();
   });
 
-  it("offers German → English, with German words in the level", async () => {
+  it("offers German → English and German → French, with German words in the level", async () => {
     const { screen } = await open({
       settings: { learningLang: "de", nativeLang: "en" },
     });
@@ -303,7 +303,10 @@ describe("SettingsPage", () => {
       .element(screen.getByRole("combobox", { name: /Learning language/ }))
       .toHaveDisplayValue("German (Deutsch)");
     const native = screen.getByRole("combobox", { name: /Your language/ });
-    expect(optionLabels(native.element())).toEqual(["English"]);
+    expect(optionLabels(native.element())).toEqual([
+      "English",
+      "French (Français)",
+    ]);
     await expect
       .element(
         screen.getByRole("slider", {

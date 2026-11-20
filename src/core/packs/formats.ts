@@ -13,6 +13,22 @@ const RECIPE_PAIRS = recipeNatives().map(
 );
 
 /**
+ * The pairs from a learning language other than English into another native language
+ * (L3), each built by a recipe (scripts/data/recipes/learning-pairs.ts) and read as a
+ * `LearningPairPack`, with its pack format; the learning language's English pair is
+ * its fallback (English definitions, translated at display time).
+ */
+export const LEARNING_PAIRS = {
+  "de-fr": { format: 1 },
+} as const;
+
+export type LearningPairName = keyof typeof LEARNING_PAIRS;
+
+/** The learning language of a learning pair ("de-fr" → "de"). */
+export const learningOf = (pair: LearningPairName) =>
+  pair.slice(0, pair.indexOf("-")) as "de" | "fr";
+
+/**
  * The data format of each pack that this code reads. A stored pack version in another
  * format is not used (it counts as missing until the lock's version is downloaded).
  * Bump a pack's number with any change to how its files are read (a recipe pair's in
@@ -35,6 +51,9 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
   "fr-en": 1,
   de: 1,
   "de-en": 1,
+  ...(Object.fromEntries(
+    Object.entries(LEARNING_PAIRS).map(([pair, { format }]) => [pair, format]),
+  ) as Record<LearningPairName, number>),
   ...(Object.fromEntries(
     RECIPE_PAIRS.map(([pack, native]) => [
       pack,
@@ -85,7 +104,17 @@ type RecipeDictionaries = {
  * The packs each dictionary ("<learning>-<native>") is built from, each learning
  * language's default native language first. The data scripts gate these pairs.
  */
-export const DICTIONARY_PACKS: typeof BUILT_OTHERWISE & RecipeDictionaries = {
+type LearningDictionaries = {
+  readonly [P in LearningPairName]: readonly [
+    ReturnType<typeof learningOf>,
+    P,
+    `${ReturnType<typeof learningOf>}-en`,
+  ];
+};
+
+export const DICTIONARY_PACKS: typeof BUILT_OTHERWISE &
+  RecipeDictionaries &
+  LearningDictionaries = {
   "en-ja": BUILT_OTHERWISE["en-ja"],
   // A recipe pair: its meanings, then the English definitions.
   ...(Object.fromEntries(
@@ -94,4 +123,11 @@ export const DICTIONARY_PACKS: typeof BUILT_OTHERWISE & RecipeDictionaries = {
   "es-en": BUILT_OTHERWISE["es-en"],
   "fr-en": BUILT_OTHERWISE["fr-en"],
   "de-en": BUILT_OTHERWISE["de-en"],
+  // A learning pair: its meanings, then the learning language's English definitions.
+  ...(Object.fromEntries(
+    (Object.keys(LEARNING_PAIRS) as LearningPairName[]).map((pair) => [
+      pair,
+      [learningOf(pair), pair, `${learningOf(pair)}-en`],
+    ]),
+  ) as unknown as LearningDictionaries),
 };

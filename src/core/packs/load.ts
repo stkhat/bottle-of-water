@@ -6,6 +6,7 @@ import type {
   FreqPack,
   IpaPack,
   LemmaPack,
+  LearningPairPack,
   LemmaShards,
   NamesPack,
   PairPack,
@@ -17,6 +18,7 @@ import type {
 } from "./types";
 import type { PhrasePatterns } from "../phrases/pattern";
 import { recipeNatives, type RecipePairPack } from "../natives";
+import { LEARNING_PAIRS, type LearningPairName } from "./formats";
 import { promiseCache } from "../util";
 
 /**
@@ -25,6 +27,8 @@ import { promiseCache } from "../util";
  */
 export type PackFiles = BuiltOtherwise & {
   readonly [P in RecipePairPack]: { dict: PairPack };
+} & {
+  readonly [P in LearningPairName]: { dict: LearningPairPack };
 };
 
 interface BuiltOtherwise {
@@ -174,6 +178,16 @@ const LOADERS: {
     ]),
   ) as {
     [P in RecipePairPack]: (fetchJson: FetchJson) => Promise<PackFiles[P]>;
+  }),
+  ...(Object.fromEntries(
+    Object.keys(LEARNING_PAIRS).map((pair) => [
+      pair,
+      async (fetchJson: FetchJson) => ({
+        dict: await loadShards(`/packs/${pair}`, fetchJson),
+      }),
+    ]),
+  ) as {
+    [P in LearningPairName]: (fetchJson: FetchJson) => Promise<PackFiles[P]>;
   }),
 };
 
