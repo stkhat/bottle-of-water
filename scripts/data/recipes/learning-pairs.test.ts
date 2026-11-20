@@ -44,6 +44,17 @@ describe("tableWord", () => {
     expect(tableWord("Drang)")).toBeUndefined();
     expect(tableWord("se réjouir")).toBe("se réjouir");
   });
+  it("writes the words of a row between commas as a list, without the items a note empties", () => {
+    expect(
+      tableWord("relayer (quelqu'un), prendre la relève (de quelqu'un)"),
+    ).toBe("relayer, prendre la relève");
+    expect(tableWord("écraser , s’ abattre")).toBe("écraser, s’ abattre");
+    expect(tableWord("casse-pattes , ( casse-patte ), tord-boyaux")).toBe(
+      "casse-pattes, tord-boyaux",
+    );
+    expect(tableWord("cliqueter , ( cliquer ),")).toBe("cliqueter");
+    expect(tableWord("1,5 Liter")).toBe("1,5 Liter");
+  });
 });
 
 describe("learningKeyOf", () => {

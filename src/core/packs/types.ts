@@ -87,46 +87,50 @@ type DefinitionSenses = readonly (readonly [
   use?: "auxiliary" | "capital" | "singular" | "plural" | `+${string}`,
 ])[];
 /**
- * en-<native>/dict-<n>.json, merged (en-es): term → [short meaning, senses, source],
- * built by a recipe from human-made sources in order, the first one with the term
- * supplying all of it. A sense from a translation table or a wordnet carries its English
- * sense as a hint ("source of illumination"). A pointer sense (format 2), an edition's
- * form of another word ("Pasado simple del verbo (to) tell" on told), has a null hint
- * and names its target term. `source` indexes the index's `sources`. Capitalised
- * headwords (format 3) are kept apart in capital.json, the first shard, under their
- * `capitalKey` (Japan, Thursday; an acronym in capitals: TV), each with what its
- * meaning is as a fourth item ("name" or "word", none when it has none:
- * `capitalDictionary` in the data build).
+ * A pair pack's entry (`PairPack`, `LearningPairPack`): its senses, the index of its
+ * source, a third item of the pack's own (`extra`), and its short meaning only where it
+ * is not its senses' (`shortOfPairSenses`; format 4, 2026-11-21: a Wikidata description,
+ * whole), the third item null when the entry has none. Formats 1–3 (de-fr: 1) stored
+ * the short first for every term, [short, senses, source, extra?]; it is made at lookup
+ * for 98.5–100% of a pack's terms.
  */
-export type PairPack = Readonly<
-  Record<
-    string,
-    readonly [
-      short: string,
-      senses: readonly (readonly [
-        pos: string,
-        text: string,
-        hint?: string | null,
-        target?: string,
-      ])[],
-      source: number,
-    ]
-  >
->;
+export type PairEntry<Extra> = readonly [
+  senses: PairSenses,
+  source: number,
+  extra?: Extra | null,
+  short?: string,
+];
+/**
+ * A pair entry's senses: each one's part of speech and text; a sense from a translation
+ * table or a wordnet carries its English sense as a hint ("source of illumination"). A
+ * pointer sense (format 2), an edition's form of another word ("Pasado simple del verbo
+ * (to) tell" on told), has a null hint and names its target term.
+ */
+type PairSenses = readonly (readonly [
+  pos: string,
+  text: string,
+  hint?: string | null,
+  target?: string,
+])[];
+/**
+ * en-<native>/dict-<n>.json, merged (en-es): term → its entry (`PairEntry`), built by a
+ * recipe from human-made sources in order, the first one with the term supplying all of
+ * it. `source` indexes the index's `sources`. Capitalised headwords (format 3) are kept
+ * apart in capital.json, the first shard, under their `capitalKey` (Japan, Thursday; an
+ * acronym in capitals: TV), each with what its meaning is as the third item ("name" or
+ * "word", none when it has none: `capitalDictionary` in the data build).
+ */
+export type PairPack = Readonly<Record<string, PairEntry<"name" | "word">>>;
 /**
  * A learning pair's pack (<learning>-<native>, L3: de-fr), merged: as a recipe pair's
  * (`PairPack`), keyed as the learning language's English pair (de-en: lower case), and,
- * in a learning language that capitalises its nouns, a fourth item with the indices of
+ * in a learning language that capitalises its nouns, a third item with the indices of
  * the senses of the term's capitalised headword where the English pair marks them
  * (German "Sie": the polite you; "Essen": a meal), which the hover shows first where
  * the page writes the word capitalised.
  */
 export type LearningPairPack = Readonly<
-  Record<
-    string,
-    | PairPack[string]
-    | readonly [...PairPack[string], capitals: readonly number[]]
-  >
+  Record<string, PairEntry<readonly number[]>>
 >;
 /**
  * en-ja/pos.json: the parts of speech of EJDict's senses for words with several, one
