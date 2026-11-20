@@ -122,8 +122,9 @@ export async function buildEnDefs(
   /** The senses of a dotted abbreviation's spelling without periods (HR's for "h.r."). */
   const bareSenses = new WeakSet<SourceSense>();
   const patterns = new Set([...phrases.detect, ...phrases.more]);
+  // A pattern's words may be capital-only words' keys: a name's (New Zealand).
   const known = (word: string) =>
-    words.has(word) || Object.hasOwn(lemmas, word);
+    words.has(word) || Object.hasOwn(lemmas, word) || capitalKeys.has(word);
   const isWord = (word: string) =>
     known(word) || (word.endsWith("'s") && known(word.slice(0, -2)));
   const termKey = (headword: string) => {

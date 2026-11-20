@@ -38,15 +38,20 @@ export interface WordLanguage {
  * headword never meets a token. Capital-only words: Latin letters (with accents:
  * Gruyère) and inner apostrophes, one of them a capital.
  */
+/**
+ * An English proper noun's sense that names a person, read in its gloss and categories
+ * in lower case: glosses write "the male given names Timothy and Timon", categories
+ * "English surnames".
+ */
+export const ENGLISH_PERSON = new RegExp(
+  `${GIVEN_NAME.source}|${SURNAME.source}|\\bgiven names\\b|\\bsurnames\\b`,
+);
+
 const ENGLISH_WORDS: WordLanguage = {
   word: /^(?:(?=\p{Ll})\p{Script=Latin})(?:(?=\p{Ll})\p{Script=Latin}|')*$/u,
   capitalWord: /^(?=.*\p{Lu})\p{Script=Latin}+(?:'\p{Script=Latin}+)*$/u,
   name: "name",
-  // Glosses write "the male given names Timothy and Timon"; categories "English
-  // surnames".
-  person: new RegExp(
-    `${GIVEN_NAME.source}|${SURNAME.source}|\\bgiven names\\b|\\bsurnames\\b`,
-  ),
+  person: ENGLISH_PERSON,
   possessive: "'s",
 };
 

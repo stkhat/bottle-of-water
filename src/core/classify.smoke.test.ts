@@ -92,15 +92,22 @@ describe("dictionary phrases over the generated packs", () => {
     ]);
   });
 
-  it("leaves transparent compounds, named entities and literal pairs to selections", () => {
-    const text = "A digital signature from New York. In the world of art.";
+  it("leaves transparent compounds and literal pairs to selections, and reads names as units", () => {
+    const text =
+      "A digital signature from New York. In the world of art. Back to new york.";
     const spans = classifier.classify(pack.tokenize(text), {
       terms: new Map(),
       knownLevel: 3000,
     });
-    expect(spans.filter((s) => s.kind === "phrase")).toEqual([]);
+    // A name that is a unit, where the text writes it with capitals.
+    expect(
+      spans
+        .filter((s) => s.kind === "phrase")
+        .map((s) => text.slice(s.start, s.end)),
+    ).toEqual(["New York"]);
     for (const key of ["digital signature", "new york", "in the world"])
       expect(pack.patterns.more).toContain(key);
+    expect(pack.patterns.names).toContain("New Zealand");
   });
 
   it("still matches such a pair once it is saved", () => {
@@ -408,7 +415,8 @@ describe("names over the generated packs (rule D)", () => {
     ).toEqual(["ignored", "ignored"]);
     expect(named("President")).toEqual([false]);
     expect(named("Center")).toEqual([false]);
-    expect(named("Gulf")).toEqual([false]);
+    // A name that is a unit: one phrase, not a name.
+    expect(spans.find((s) => s.text === "Persian Gulf")?.kind).toBe("phrase");
   });
 });
 
