@@ -324,11 +324,13 @@ export function createEnJaDictionary(
         (entry, other) => (other ? joined(entry, other) : entry),
         lower,
       );
-    const capital =
-      written === "capital" || !upper
-        ? meaningOf(title) && title
-        : meaningOf(upper, true) && upper;
-    return capital ? joined(capital, lower) : lower;
+    // A word read as its capitalised headword is that word alone, written as the
+    // headword is: "U.S." is no "u.s." (ubi supra), "Turkey" no turkey.
+    if (written === "capital" || !upper)
+      return meaningOf(title) ? { ...title!, head: capitalKey(head) } : lower;
+    return meaningOf(upper, true)
+      ? { ...upper, head: capitalKey(head, true) }
+      : lower;
   };
   return dictionaryOver(
     data.ipa,
@@ -851,21 +853,28 @@ export function createPairDictionary({
    * a capitalised "And" or "It's" is not ET or IT. Where the page does not say (a
    * sentence start, a caseless document), the lowercase entry alone: "Who" is not the
    * WHO. A word with no lowercase entry takes its capitalised one however it is
-   * written: no lowercase copies are kept (Thursday, I'm).
+   * written: no lowercase copies are kept (Thursday, I'm). A word read as its
+   * capitalised headword is that word alone, and the card writes it so (`head`).
    */
-  const asWritten = (head: string, written: Written | undefined) => {
+  const asWritten = (
+    head: string,
+    written: Written | undefined,
+  ): { found?: PairPack[string] | CapitalEntry; head?: string } => {
     const lower = entryOf(head);
     const title = capitalOf(head);
-    const capital =
-      written === "upper" ? (capitalOf(head, true) ?? title) : title;
-    if (!lower) return capital ?? title ?? capitalOf(head, true);
-    if (!capital || written === "lower" || written === undefined) return lower;
-    return capital[3] !== undefined ? joinedPair(capital, lower) : lower;
+    const acronym = written === "upper" && capitalOf(head, true) !== undefined;
+    const capital = acronym ? capitalOf(head, true) : title;
+    if (!lower) return { found: capital ?? title ?? capitalOf(head, true) };
+    if (!capital || written === "lower" || written === undefined)
+      return { found: lower };
+    return capital[3] !== undefined
+      ? { found: capital, head: capitalKey(head, acronym) }
+      : { found: lower };
   };
   return dictionaryOver(
     ipa,
     (head, written, pos) => {
-      const found = asWritten(head, written);
+      const { found, head: capitalHead } = asWritten(head, written);
       if (!found) return definitionInEnglish(head, defs, pos);
       const [short, raw] = found;
       const senses = sensesOf(raw);
@@ -957,6 +966,7 @@ export function createPairDictionary({
           ...(!isAuxiliary(pos) && { quiet, second }),
         }),
         senses,
+        ...(capitalHead !== undefined && { head: capitalHead }),
       };
     },
     (head) => {
@@ -986,19 +996,6 @@ export function createPairDictionary({
  * a gloss that is the headword itself, a class of names, or a use of a person's name).
  */
 type CapitalEntry = readonly [...PairPack[string], meaning?: CapitalMeaning];
-
-/** One pair entry's senses, then the other's that it does not have; the first one's short. */
-const joinedPair = (
-  first: CapitalEntry,
-  then: CapitalEntry,
-): PairPack[string] => {
-  const texts = new Set(first[1].map((sense) => sense[1]));
-  return [
-    first[0],
-    [...first[1], ...then[1].filter((sense) => !texts.has(sense[1]))],
-    first[2],
-  ];
-};
 
 /**
  * Rule A2 over a pair's senses, whose parts of speech the source states: for a word

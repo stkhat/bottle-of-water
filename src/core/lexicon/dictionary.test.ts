@@ -264,16 +264,24 @@ describe("createEnJaDictionary", () => {
     expect(dictionary.outline("zzyzx")).toBeUndefined();
   });
 
-  it("gives a capitalised word its capitalised headword's senses first", () => {
-    expect(dictionary.entry("japan", "capital")?.lines).toEqual([
-      "日本",
+  it("gives a capitalised word its capitalised headword alone, written so", () => {
+    expect(dictionary.entry("japan", "capital")).toMatchObject({
+      head: "Japan",
+      short: "日本",
+      lines: ["日本"],
+    });
+    expect(dictionary.entry("us", "upper")).toMatchObject({
+      head: "US",
+      lines: ["United States 合衆国"],
+    });
+    // Where the page does not say, the word's own senses, then the capitalised ones.
+    expect(dictionary.entry("japan")).toMatchObject({
+      head: "japan",
+      lines: ["黒い漆", "…に黒漆を塗る", "日本"],
+    });
+    expect(dictionary.entry("japan", "lower")?.lines).toEqual([
       "黒い漆",
       "…に黒漆を塗る",
-    ]);
-    expect(dictionary.entry("japan", "capital")?.short).toBe("日本");
-    expect(dictionary.entry("us", "upper")?.lines).toEqual([
-      "United States 合衆国",
-      "我々を",
     ]);
   });
 
@@ -926,11 +934,12 @@ describe("createPairDictionary", () => {
     } as unknown as PairPack;
     const capitals = createPairDictionary({ dict, defs: {}, ipa: {} });
 
-    it("shows a capitalised word's meaning first when it has one", () => {
-      expect(capitals.entry("Japan", "capital")?.lines).toEqual([
-        "Japón",
-        "laca japonesa",
-      ]);
+    it("shows a capitalised word's meaning alone when it has one, written so", () => {
+      expect(capitals.entry("Japan", "capital")).toMatchObject({
+        head: "Japan",
+        lines: ["Japón"],
+      });
+      expect(capitals.entry("japan")?.lines).toEqual(["laca japonesa"]);
       expect(capitals.entry("japan", "upper")?.lines[0]).toBe("Japón");
       // The gloss is the headword itself: the lowercase entry alone.
       expect(capitals.entry("China", "capital")?.lines).toEqual(["porcelana"]);
@@ -948,9 +957,12 @@ describe("createPairDictionary", () => {
       });
       // A capitalised "And" is no acronym.
       expect(acronyms.entry("And", "capital")?.lines).toEqual(["y"]);
-      expect(acronyms.entry("AND", "upper")?.lines).toEqual(["Y lógico", "y"]);
+      expect(acronyms.entry("AND", "upper")?.lines).toEqual(["Y lógico"]);
       // An abbreviation keeps its period.
-      expect(acronyms.entry("US", "upper")?.lines).toEqual(["EE. UU.", "nos"]);
+      expect(acronyms.entry("US", "upper")).toMatchObject({
+        head: "US",
+        lines: ["EE. UU."],
+      });
       expect(acronyms.capitalMeaning("us")).toBeUndefined();
     });
     it("shows lines equal apart from case once, as the page writes the word", () => {
@@ -987,10 +999,7 @@ describe("createPairDictionary", () => {
       } as unknown as PairPack;
       const es = createPairDictionary({ dict: variants, defs: {}, ipa: {} });
       // es Congress: the capitalised headword's line, not its lowercase twin.
-      expect(es.entry("Congress", "capital")?.lines).toEqual([
-        "Congreso",
-        "reunirse",
-      ]);
+      expect(es.entry("Congress", "capital")?.lines).toEqual(["Congreso"]);
       // it assumption in lower case: the lowercase variant where the first one stood.
       expect(es.entry("assumption", "lower")?.lines).toEqual([
         "supposizione",

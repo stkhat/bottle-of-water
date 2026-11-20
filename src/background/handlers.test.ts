@@ -1459,7 +1459,7 @@ describe("handlers: lookup", () => {
     });
   });
 
-  it("gives a capitalised word its capitalised senses first, a lowercase one none", async () => {
+  it("gives a capitalised word its capitalised senses alone, a lowercase one none", async () => {
     const lines = async (written?: "capital" | "lower") =>
       (
         await value({
@@ -1469,7 +1469,7 @@ describe("handlers: lookup", () => {
           ...(written && { written }),
         })
       ).entry?.lines;
-    expect(await lines("capital")).toEqual(["イースト国", "酵母"]);
+    expect(await lines("capital")).toEqual(["イースト国"]);
     expect(await lines("lower")).toEqual(["酵母"]);
     expect(await lines()).toEqual(["酵母", "イースト国"]);
   });
