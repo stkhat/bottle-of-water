@@ -75,14 +75,16 @@ const byKey = (a: SyncRecord, b: SyncRecord) => compareKeys(a.key, b.key);
 
 const isMinutes = (n: number) => Number.isSafeInteger(n) && n >= 0;
 
-async function gzip(text: string): Promise<Uint8Array> {
+/** Gzips text (CompressionStream). */
+export async function gzip(text: string): Promise<Uint8Array> {
   const stream = new Blob([text])
     .stream()
     .pipeThrough(new CompressionStream("gzip"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-async function gunzip(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+/** Text from gzipped bytes; rejects bytes that are not gzip. */
+export async function gunzip(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const stream = new Blob([bytes])
     .stream()
     .pipeThrough(new DecompressionStream("gzip"));
