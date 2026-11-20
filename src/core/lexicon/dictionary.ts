@@ -156,7 +156,7 @@ export interface DictionaryProvider {
 export type CapitalMeaning = "word" | "name";
 
 /** Whether the document a word is in writes a phrase (`DictionaryProvider.entry`). */
-export type SpelledOut = (phrase: string) => boolean;
+type SpelledOut = (phrase: string) => boolean;
 
 export interface EnJaDictionaryData {
   /** en-ja/dict-<n>.json: EJDict */
