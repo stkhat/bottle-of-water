@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'s","last":"feet of clay"},{"file":"dict-2.json","first":"feet on the ground","last":"persiflage"},{"file":"dict-3.json","first":"persimmon","last":"whiff"},{"file":"dict-4.json","first":"while","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'s","last":"gemology"},{"file":"dict-2.json","first":"gemstone","last":"retrace"},{"file":"dict-3.json","first":"retractable","last":"élan"}],
 "sources":["enwiktionary-translations","dewiktionary","wikidata"]
 }

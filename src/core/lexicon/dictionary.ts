@@ -4,6 +4,7 @@ import type {
   IpaPack,
   LearningPairPack,
   LemmaPack,
+  PairEntry,
   PairPack,
   PosPack,
   SensePosPack,
@@ -38,6 +39,7 @@ import {
   pointerLine,
   shortLines,
   shortOfDefinition,
+  shortOfPairSenses,
   shortOfSenses,
   type Pointer,
 } from "./short-lines";
@@ -819,7 +821,13 @@ export function createDefsDictionary({
   );
 }
 
-type PairSenses = PairPack[string][1];
+type PairSenses = PairPack[string][0];
+
+/**
+ * A recipe pair's or a learning pair's entry: its third item is what a capitalised
+ * headword means (`CapitalMeaning`) or the indices of a term's capitalised senses.
+ */
+type AnyPairEntry = PairEntry<CapitalMeaning | readonly number[]>;
 
 /**
  * A dictionary built by a recipe (English → Spanish): the pair pack, whose senses from
@@ -880,33 +888,29 @@ export function createPairDictionary({
   const dense = native !== undefined && nativeLanguage(native)?.dense === true;
   /** Whether the pair writes most of its nouns capitalised (`nounsCapitalised`), read once. */
   let nounCased: boolean | undefined;
-  const nounCase = () => (nounCased ??= nounsCapitalised(dict as PairPack));
+  const nounCase = () => (nounCased ??= nounsCapitalised(dict));
   /** Unmarked degrees read as pointers: their line stays a gloss's, cut to the cap. */
   const degrees = new WeakSet<PairSenses[number]>();
   /** A learning pair's capitalised senses (`LearningPairPack`). */
   const capitalSenses = new WeakSet<PairSenses[number]>();
   /** A term's entry, with its unmarked degrees read as pointers (`degreeOf`). */
-  const entryOf = (head: string): PairPack[string] | undefined => {
-    const found = own(dict, head) as LearningPairPack[string] | undefined;
+  const entryOf = (head: string): AnyPairEntry | undefined => {
+    const found = own<AnyPairEntry>(dict, head);
     if (!found) return undefined;
-    const capitals = found[3];
-    const entry = withDegrees(head, found as PairPack[string]);
+    const capitals = found[2];
+    const entry = withDegrees(head, found);
     if (Array.isArray(capitals))
       for (const i of capitals as readonly number[]) {
-        const sense = entry[1][i];
+        const sense = entry[0][i];
         if (sense) capitalSenses.add(sense);
       }
     return entry;
   };
-  const withDegrees = (
-    head: string,
-    found: PairPack[string],
-  ): PairPack[string] => {
+  const withDegrees = (head: string, found: AnyPairEntry): AnyPairEntry => {
     const bases = [own(lemmas, head) ?? []].flat();
     if (bases.length === 0) return found;
-    const [short, senses, source] = found;
+    const [senses, ...rest] = found;
     return [
-      short,
       senses.map((sense) => {
         const target = degreeOf(sense, head, bases, learningPos);
         if (target === undefined) return sense;
@@ -914,7 +918,7 @@ export function createPairDictionary({
         degrees.add(degree);
         return degree;
       }),
-      source,
+      ...rest,
     ];
   };
   const sensesOf = (senses: PairSenses): Sense[] =>
@@ -932,17 +936,18 @@ export function createPairDictionary({
    * senses first, the short meaning theirs (German "Sie": you, polite).
    */
   const capitalFirst = (
-    found: CapitalEntry,
+    found: AnyPairEntry,
     written: Written | undefined,
   ): readonly [string, PairSenses] => {
-    const [short, raw] = found;
-    if (written === undefined || written === "lower") return [short, raw];
-    const marked = raw.filter((sense) => capitalSenses.has(sense));
+    const [raw, , , stored] = found;
+    const marked =
+      written === undefined || written === "lower"
+        ? []
+        : raw.filter((sense) => capitalSenses.has(sense));
     if (marked.length === 0 || marked.length === raw.length)
-      return [short, raw];
-    const [, text, hint] = marked[0]!;
+      return [stored ?? shortOfPairSenses(raw), raw];
     return [
-      hint != null ? text.split(", ")[0]! : shortOfDefinition(text),
+      shortOfPairSenses(marked),
       [...marked, ...raw.filter((sense) => !capitalSenses.has(sense))],
     ];
   };
@@ -959,7 +964,7 @@ export function createPairDictionary({
   const meaningsOf = (head: string, pos: string | undefined) => {
     const found = entryOf(head);
     if (!found) return undefined;
-    const meanings = found[1].filter(
+    const meanings = found[0].filter(
       (sense) => sense[3] === undefined || degrees.has(sense),
     );
     const lines = meanings.map(lineOf);
@@ -977,7 +982,7 @@ export function createPairDictionary({
    * (Japan, January), or as an acronym (TV, WHO), as en-ja keeps EJDict's.
    */
   const capitalOf = (head: string, acronym = false) =>
-    own(dict, capitalKey(head, acronym)) as CapitalEntry | undefined;
+    own<AnyPairEntry>(dict, capitalKey(head, acronym));
   /**
    * The entry as the word was written (`DictionaryProvider.entry`), as en-ja's: for a
    * capitalised word its capitalised headword first when that means something, for
@@ -991,7 +996,7 @@ export function createPairDictionary({
   const asWritten = (
     head: string,
     written: Written | undefined,
-  ): { found?: PairPack[string] | CapitalEntry; head?: string } => {
+  ): { found?: AnyPairEntry; head?: string } => {
     const lower = entryOf(head);
     const title = capitalOf(head);
     const acronym = written === "upper" && capitalOf(head, true) !== undefined;
@@ -999,7 +1004,7 @@ export function createPairDictionary({
     if (!lower) return { found: capital ?? title ?? capitalOf(head, true) };
     if (!capital || written === "lower" || written === undefined)
       return { found: lower };
-    if (capital[3] === undefined) return { found: lower };
+    if (capital[2] == null) return { found: lower };
     // One in a run of capitals may be a name's word: its lowercase senses follow.
     return written === "run"
       ? { found: joinedPair(capital, lower) }
@@ -1113,7 +1118,7 @@ export function createPairDictionary({
     (head) => {
       const found = entryOf(head) ?? capitalOf(head) ?? capitalOf(head, true);
       if (!found) return definitionOutline(head, defs);
-      const raw = found[1];
+      const raw = found[0];
       return outlineOf(sensesOf(raw), (text, i) => {
         const target = raw[i]?.[3];
         // An unmarked degree after the first sense is a meaning, as in the lines.
@@ -1126,28 +1131,24 @@ export function createPairDictionary({
       glossLang === undefined
         ? pairLine(sense)
         : definitionLine(sense.text, definitionPointerOf),
-    (head) => capitalOf(head)?.[3],
+    (head) => {
+      const meaning = capitalOf(head)?.[2];
+      return typeof meaning === "string" ? meaning : undefined;
+    },
   );
 }
 
 /**
- * A recipe pair's capitalised headword (pack format 3): a term, and what its meaning
- * is when it means something (the data build's `capitalDictionary`: "name" when its
- * gloss is the name in the native language, "word" when it says what it is; none for
- * a gloss that is the headword itself, a class of names, or a use of a person's name).
+ * One pair entry's senses, then the other's that it does not have; the first one's
+ * short (stored, or made from its first sense, which stays first).
  */
-type CapitalEntry = readonly [...PairPack[string], meaning?: CapitalMeaning];
-
-/** One pair entry's senses, then the other's that it does not have; the first one's short. */
-const joinedPair = (
-  first: CapitalEntry,
-  then: CapitalEntry,
-): PairPack[string] => {
-  const texts = new Set(first[1].map((sense) => sense[1]));
+const joinedPair = (first: AnyPairEntry, then: AnyPairEntry): AnyPairEntry => {
+  const texts = new Set(first[0].map((sense) => sense[1]));
   return [
-    first[0],
-    [...first[1], ...then[1].filter((sense) => !texts.has(sense[1]))],
+    [...first[0], ...then[0].filter((sense) => !texts.has(sense[1]))],
+    first[1],
     first[2],
+    first[3],
   ];
 };
 
@@ -1175,10 +1176,12 @@ function onTag<T extends { line: string; pos: string }>(
  * (`capitalNouns`): there case tells a noun from another word, and English's case says
  * nothing of it (`caseOnce`).
  */
-function nounsCapitalised(dict: PairPack): boolean {
+function nounsCapitalised(
+  dict: Readonly<Record<string, AnyPairEntry>>,
+): boolean {
   let upper = 0;
   let lower = 0;
-  for (const [key, [, senses]] of Object.entries(dict)) {
+  for (const [key, [senses]] of Object.entries(dict)) {
     if (key !== key.toLowerCase()) continue;
     for (const [pos, text, , target] of senses) {
       if (pos !== "noun" || target !== undefined) continue;

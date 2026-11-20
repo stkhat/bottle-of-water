@@ -8,8 +8,9 @@ import {
   firstSentence,
   keyOf,
   shortOfDefinition,
+  shortOfPairSenses,
 } from "../../../src/core/lexicon/short-lines.ts";
-import type { LemmaPack } from "../../../src/core/packs/types.ts";
+import type { LemmaPack, PairEntry } from "../../../src/core/packs/types.ts";
 import {
   eachEntry,
   GIVEN_NAME,
@@ -144,6 +145,25 @@ export function finish(
     else item.short = shortOfFirst(item.senses[0]![1]);
   }
   return terms;
+}
+
+/**
+ * A merged term as a pair pack stores it (`PairEntry`, format 4): its senses, its
+ * source, `extra` (what a capitalised headword means, a learning pair's capitalised
+ * senses), and its short meaning only where it is not the one the dictionary makes
+ * from its senses (`shortOfPairSenses`): a Wikidata description is whole, the table's
+ * first word would cut it ("ciudad y sede del condado de Summit, estado de Ohio,
+ * Estados Unidos").
+ */
+export function packedEntry<Extra>(
+  short: string,
+  senses: PairSense[],
+  source: number,
+  extra?: Extra,
+): PairEntry<Extra> {
+  if (short !== shortOfPairSenses(senses))
+    return [senses, source, extra ?? null, short];
+  return extra === undefined ? [senses, source] : [senses, source, extra];
 }
 
 const posOf = (pos: unknown) => (typeof pos === "string" ? posLabel(pos) : "");
@@ -1771,12 +1791,7 @@ export function capitalDictionary(
     const kept = inPosTurns(chosen).slice(0, MAX_SENSES);
     if (kept.length === 0) continue;
     const first = kept[0]!;
-    const shortOf =
-      first === senses[0]
-        ? short
-        : first[2] != null
-          ? first[1].split(", ")[0]!
-          : shortOfDefinition(first[1]);
+    const shortOf = first === senses[0] ? short : shortOfPairSenses(kept);
     const meaningSense = kept.find((sense) => !isPointerSense(sense));
     const item = meaningSense && mainItem(meaningSense);
     let meaning: CapitalMeaning | undefined =

@@ -21,7 +21,6 @@ import { GERMAN_RULES } from "../../../src/core/phrases/de.ts";
 import { FRENCH_RULES } from "../../../src/core/phrases/fr.ts";
 import type {
   DefsPack,
-  LearningPairPack,
   LemmaPack,
   PosPack,
 } from "../../../src/core/packs/types.ts";
@@ -40,7 +39,10 @@ import { germanPhraseBuild, GERMAN_BUILD } from "../de-kaikki.ts";
 import { frenchPhraseBuild, FRENCH_BUILD } from "../fr-kaikki.ts";
 import { GATE, pairCoverage } from "../gate.ts";
 import { contentWords } from "../content-words.ts";
-import { degreeOf } from "../../../src/core/lexicon/short-lines.ts";
+import {
+  degreeOf,
+  shortOfDefinition,
+} from "../../../src/core/lexicon/short-lines.ts";
 import { learningSlimPath, LEARNING_PAIR_LANGS } from "./learning-slim.ts";
 import { undocumentedPages } from "./undocumented.ts";
 import {
@@ -52,6 +54,7 @@ import {
   learningText,
   mergeSources,
   nativeLetterOf,
+  packedEntry,
   readEdition,
   readTranslationTables,
   termKeyOf,
@@ -156,7 +159,12 @@ function learningWords(
 /**
  * A word a translation table writes, as a word: notes in brackets dropped ("plier (
  * tente )" → plier, "(ganz) sicher" → sicher), none when a bracket is left open
- * ("démonter ( camp", "Drang)"), spaces closed up.
+ * ("démonter ( camp", "Drang)"), spaces closed up. A row may list several words
+ * between commas; they are written "a, b", without the space a dropped note or the
+ * source leaves before a comma and the items a dropped note empties ("relayer
+ * (quelqu'un), prendre le relais" → "relayer, prendre le relais"; "casse-pattes , (
+ * casse-patte ), tord-boyaux" → "casse-pattes, tord-boyaux"; "cliqueter , ( cliquer ),"
+ * → "cliqueter"): a short cut at the comma ended in a space.
  */
 export function tableWord(written: string): string | undefined {
   let text = written;
@@ -164,7 +172,12 @@ export function tableWord(written: string): string | undefined {
     before = text;
     text = text.replace(/\s*\([^()]*\)\s*/gu, " ");
   }
-  text = text.replace(/\s+/gu, " ").trim();
+  text = text
+    .replace(/\s+/gu, " ")
+    .split(/\s*,(?=\s|,|$)\s*/u)
+    .filter((item) => item.trim() !== "")
+    .join(", ")
+    .trim();
   if (!text || /[()]/u.test(text)) return undefined;
   return text;
 }
@@ -418,11 +431,12 @@ async function readSource(
       ...(toSimplified && { nativeForm: toSimplified }),
       ...(letter && { letter }),
     });
-    // A capitalised headword that is a name (a proper noun) is the names lexicon's.
-    for (const [key, item] of read.capital) {
+    // A capitalised headword that is a name (a proper noun) is the names lexicon's;
+    // its short is then its first other sense's (Katz: "variante de Katze", not the
+    // surname's "nom de famille"), and one with none is left out.
+    for (const item of read.capital.values())
       item.senses = item.senses.filter(([pos]) => pos !== "proper noun");
-      if (item.senses.length === 0) read.capital.delete(key);
-    }
+    finish(read.capital, shortOfDefinition);
     const lowered = (map: Map<string, SourceTerm>) =>
       new Map([...map].map(([key, item]) => [key.toLowerCase(), item]));
     return {
@@ -509,7 +523,10 @@ async function buildLearningPair(
     },
   );
   // The capitalised senses of each term, from the source it came from.
-  const dict: Record<string, LearningPairPack[string]> = {};
+  const dict: Record<
+    string,
+    [short: string, senses: PairSense[], source: number, capitals?: number[]]
+  > = {};
   for (const [key, [short, senses, source]] of Object.entries(merged.dict)) {
     const capitals = joined[source]!.capitals.get(key);
     dict[key] = capitals
@@ -637,7 +654,18 @@ async function main() {
     const [lang] = pair.split("-") as [LearningLang];
     const words = learningWords(lang);
     const { dict, sources, counts } = await buildLearningPair(pair, { words });
-    const index = writeShards(pair, dict, PACKS_DIR, { sources });
+    // Each short stored only where the dictionary would not make it (format 2).
+    const index = writeShards(
+      pair,
+      Object.fromEntries(
+        Object.entries(dict).map(([key, [short, senses, source, capitals]]) => [
+          key,
+          packedEntry(short, senses, source, capitals),
+        ]),
+      ),
+      PACKS_DIR,
+      { sources },
+    );
     console.log(
       `${pair}: ${Object.keys(dict).length} terms (` +
         Object.entries(counts)
