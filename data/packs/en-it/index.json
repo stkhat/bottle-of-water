@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"@","last":"geothermal"},{"file":"dict-2.json","first":"geothermal energy","last":"rest stop"},{"file":"dict-3.json","first":"restart","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"@","last":"fuck up"},{"file":"dict-2.json","first":"fuck you","last":"rancorous"},{"file":"dict-3.json","first":"rancour","last":"éclair"}],
 "sources":["enwiktionary-translations","itwiktionary","omw-it","omw-iwn"]
 }

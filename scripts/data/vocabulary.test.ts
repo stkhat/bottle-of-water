@@ -25,7 +25,17 @@ describe("rule E: the vocabulary from the example corpus", () => {
   });
 
   it("adds headwords written in lower case at least five times in other entries' examples", () => {
-    expect(result.added).toEqual(["app", "joey", "omg", "um", "website"]);
+    expect(result.added).toEqual([
+      "app",
+      "fiancé",
+      "joey",
+      "omg",
+      "um",
+      "website",
+    ]);
+  });
+  it("takes words with accents as the tokenizer keeps them", () => {
+    expect(result.added).toContain("fiancé");
   });
   it("counts a word with its inflected forms, but not its own examples", () => {
     // app 5 times and apps once; "I love this app." is app's own example.
@@ -77,6 +87,20 @@ describe("rule E: the vocabulary from the example corpus", () => {
   });
   it("takes its threshold as an option", async () => {
     expect((await withRule({ minExamples: 6 })).added).toEqual(["app"]);
+  });
+  it("takes rarer words that are not written as names more often", async () => {
+    const { added } = await withRule({
+      rarer: { minExamples: 3, minTables: 0 },
+    });
+    // hitman and blogroll 3 times; jim 3 times, but "Jim" 4 times.
+    expect(added).toContain("hitman");
+    expect(added).toContain("blogroll");
+    expect(added).not.toContain("jim");
+  });
+  it("asks the rarer words for a translation table by default", async () => {
+    const { added } = await withRule({ rarer: { minExamples: 3 } });
+    expect(added).toContain("hitman");
+    expect(added).not.toContain("blogroll");
   });
 });
 
