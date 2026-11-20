@@ -33,6 +33,15 @@ export interface WordCase {
   /** Inside brackets ([sighs], (Laughter)): not speech, no evidence. */
   label: boolean;
   /**
+   * A word in capitals (an acronym's plural too: VPNs) inside brackets that open right
+   * after a word of the same sentence, only spaces between them: a parenthesis of
+   * running text, where prose introduces an abbreviation ("The Drug Enforcement
+   * Administration (DEA) is"). A caption's sound or speaker label opens a line or
+   * follows a sentence's end ("(LAUGHTER) Thank you", "[JOHN] Hi"). Still a label for
+   * the document's evidence (`blockCasing`); `capitalHere` reads it as an acronym.
+   */
+  aside?: true;
+  /**
    * In a speaker label: brackets that open the block and hold only capitalised words,
    * with speech after them ("[Paulina] ¿Cómo?"; not "[música]", "[Jan sighs]").
    */
@@ -143,6 +152,9 @@ const MOSTLY = 5;
  */
 const START_BREAK = /[.!?…:;)\]]|["“”]$|\s[-–—]|[-–—]\s/;
 
+/** Written as an acronym: two capitals or more, then nothing or a plural or possessive ending. */
+const ACRONYM = /^\p{Lu}{2,}(?:['’]?s)?$/u;
+
 function writtenOf(text: string): Written | undefined {
   if (/\p{N}/u.test(text) || [...text.replace(/['’]/g, "")].length < 2)
     return undefined;
@@ -197,17 +209,27 @@ function casesOf(
   const written = words.map((token) => writtenOf(token.text));
   const upper = (i: number) => written[i] === "upper";
   let depth = 0;
+  /** The outermost brackets open right after a word, only spaces between them. */
+  let inline = false;
   const cases = words.map((token, i): WordCase => {
     const between = text.slice(i === 0 ? 0 : words[i - 1]!.end, token.start);
-    for (const ch of between)
-      if (ch === "(" || ch === "[") depth++;
-      else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    for (let c = 0; c < between.length; c++) {
+      const ch = between[c];
+      if (ch === "(" || ch === "[") {
+        if (depth === 0)
+          inline = i > 0 && /^[^\S\n]*$/.test(between.slice(0, c));
+        depth++;
+      } else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    }
     const how = written[i];
     return {
       key: (forms?.[i] ?? normalizeWord(token.text)).replace(/'s$/, ""),
       ...(how !== undefined && { written: how }),
       atStart: title || firsts.has(i) || START_BREAK.test(between),
       label: depth > 0,
+      ...(depth > 0 &&
+        inline &&
+        ACRONYM.test(token.text) && { aside: true as const }),
       capsRun: upper(i) && (upper(i - 1) || upper(i + 1)),
     };
   });
@@ -431,10 +453,13 @@ function mostlyCapitalised(casing: DocumentCasing, key: string) {
  * The word on the page is capitalised in a way that counts, so its capitalised
  * headword's senses come first (Japan → 日本, US → 合衆国): a mixed-case document,
  * not inside a label, and an acronym (ALL CAPS among words that are not), or a
- * capital inside a sentence or one the document writes that way.
+ * capital inside a sentence or one the document writes that way. An acronym in a
+ * parenthesis of running text counts too (`WordCase.aside`: "Administration (DEA)
+ * is"), where prose introduces an abbreviation.
  */
 export function capitalHere(casing: DocumentCasing, word: WordCase) {
-  if (casing.mode !== "mixed" || word.label) return false;
+  if (casing.mode !== "mixed" || (word.label && word.aside !== true))
+    return false;
   if (word.written === "upper") return !word.capsRun;
   return (
     word.written === "capital" &&
