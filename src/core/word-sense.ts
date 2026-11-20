@@ -65,6 +65,8 @@ export function readWords(
   if (!tagger || words.length === 0) return [];
   const { text, sentences } = block ?? blockText(tokens, pack.lang);
   const tagAt = new Map<number, TokenTag>();
+  /** Words tagged as proper nouns for their capital, tagged again in lower case. */
+  const lowerTagAt = new Map<number, TokenTag>();
   /** In capitals, words the matcher read with an accent capitals left out ("están"). */
   const spelt = new Map(
     upper ? words.map(({ token, form }) => [token.start, form] as const) : [],
@@ -82,12 +84,24 @@ export function readWords(
       sentenceOf.push(sentence);
     sentence++;
     if (parts.length === 0) continue;
-    const tags = tagger.tag(
-      parts.map((part) =>
-        upper ? (spelt.get(part.start) ?? part.text.toLowerCase()) : part.text,
-      ),
+    const written = parts.map((part) =>
+      upper ? (spelt.get(part.start) ?? part.text.toLowerCase()) : part.text,
     );
+    const tags = tagger.tag(written);
     parts.forEach((part, i) => tagAt.set(part.start, tags[i]!));
+    // The sentence's first word, capitalised for its place, that the tagger read as a
+    // name: the sentence again with it in lower case (`TaggedWord.lowerTag`).
+    const first = written.findIndex((form) => /\p{L}/u.test(form));
+    if (
+      !upper &&
+      first >= 0 &&
+      tags[first]!.proper &&
+      /^\p{Lu}/u.test(written[first]!)
+    ) {
+      const lower = written.slice();
+      lower[first] = lower[first]!.toLowerCase();
+      lowerTagAt.set(parts[first]!.start, tagger.tag(lower)[first]!);
+    }
   }
 
   const pauses = words.map(({ token }, i) => {
@@ -112,6 +126,9 @@ export function readWords(
           pauses[i + 1] ?? PAUSE.test(text.slice(token.end).trimEnd()),
         // In capitals, case says nothing.
         ...(!upper && { capital: /^\p{Lu}/u.test(token.text) }),
+        ...(lowerTagAt.has(token.start) && {
+          lowerTag: lowerTagAt.get(token.start)!,
+        }),
       };
     },
   );

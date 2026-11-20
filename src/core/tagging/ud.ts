@@ -3,7 +3,7 @@
  * the universal ones with the verb form of verbs and auxiliaries (VERB.Fin, AUX.Part,
  * VERB.Inf, VERB.Ger), read here as the dictionaries' parts of speech.
  */
-import type { TaggedWord, TokenTag } from "./tagger";
+import type { TaggedWord, TokenTag, WordUse } from "./tagger";
 
 /** Universal tag → the dictionaries' part of speech. */
 const LABELS: Readonly<Record<string, string>> = {
@@ -85,6 +85,16 @@ export function infinitiveConstruction(
   spelt: (form: string) => string = (form) => form,
 ): string | undefined {
   if (words[i]!.tag.label !== "verb") return undefined;
+  return constructionAfter(words, i, between, spelt);
+}
+
+/** `infinitiveConstruction` whatever the word at `i` is tagged. */
+function constructionAfter(
+  words: readonly TaggedWord[],
+  i: number,
+  between: (word: TaggedWord) => boolean,
+  spelt: (form: string) => string,
+): string | undefined {
   let j = i + 1;
   const next = words[j];
   if (next === undefined || next.pauseBefore) return undefined;
@@ -96,4 +106,33 @@ export function infinitiveConstruction(
   if (verb === undefined || verb.pauseBefore || !/\.Inf$/.test(verb.tag.tag))
     return undefined;
   return introducer;
+}
+
+/**
+ * A verb the tagger took for a name before an infinitive: a sentence's first word gets
+ * a proper noun's tag for its capital ("Tengo que irme", "Suelo venir", "Vamos a ver",
+ * "Essaie de dormir"), which counts for nothing, so its construction went unread and
+ * the hover showed the word's own entry ("suelo": ground) or its base's first senses.
+ * Where its sentence written in lower case tags it as a verb (`TaggedWord.lowerTag`;
+ * not "Para hacer", "Disculpas por", "Encantado de"), it is a form of a verb
+ * (`verbBase`: one of its bases as the language writes an infinitive, not the word
+ * itself) and an infinitive follows as `infinitiveConstruction` reads it, it is that
+ * verb with that construction (`WordUse.base`, `grammarPos` "verb"), so rule A1 looks
+ * it up by the verb and rule A2 shows the senses said with that word first.
+ */
+export function namedVerbConstruction(
+  words: readonly TaggedWord[],
+  i: number,
+  verbBase: (word: TaggedWord) => string | undefined,
+  between: (word: TaggedWord) => boolean = () => false,
+  spelt: (form: string) => string = (form) => form,
+): Pick<WordUse, "construction" | "base" | "grammarPos"> | undefined {
+  const word = words[i]!;
+  if (!word.tag.proper || word.lowerTag?.label !== "verb") return undefined;
+  const base = verbBase(word);
+  if (base === undefined) return undefined;
+  const construction = constructionAfter(words, i, between, spelt);
+  return construction === undefined
+    ? undefined
+    : { construction, base, grammarPos: "verb" };
 }

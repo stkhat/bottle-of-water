@@ -140,6 +140,28 @@ describe("hover card", () => {
     expect(text).not.toContain("黒い漆");
   });
 
+  it("leads an abbreviation the article introduces in brackets with the sense it spells out", async () => {
+    const { root } = await setup(
+      `<div style="height: 200px"></div>
+       <p>The Drug Enforcement Administration (DEA) is a federal agency.</p>`,
+    );
+    await pointAt(root, "DEA");
+    await expect.element(hoverCard()).toBeVisible();
+    const text = cardRoot().textContent;
+    expect(text).toContain("Initialism of Drug Enforcement Administration");
+    expect(text).not.toContain("diethanolamine");
+    // The dictionary window leads with it too; its senses keep the dictionary's order.
+    await clickOn(root, "DEA");
+    const panel = dictionary();
+    await expect
+      .element(panel.getByText("diethanolamine", { exact: false }))
+      .toBeVisible();
+    const shown = panel.element().textContent;
+    expect(
+      shown.indexOf("Initialism of Drug Enforcement Administration"),
+    ).toBeLessThan(shown.indexOf("diethanolamine"));
+  });
+
   it("classifies a name's blocks again when the page later writes it in lower case", async () => {
     const { root } = await setup(
       "<p>Yesterday Mark baked a loaf. The dough was tedious.</p>",

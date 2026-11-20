@@ -44,6 +44,12 @@ export interface TaggedWord {
   pauseAfter?: boolean;
   /** Written with a capital or not; unknown in a document in capitals. */
   capital?: boolean;
+  /**
+   * A sentence's first word that the tagger read as a proper noun for its capital
+   * ("Tengo que irme", "Para hacer"): its tag in the sentence with it written in lower
+   * case, which says what it is as a word (`namedVerbConstruction`).
+   */
+  lowerTag?: TokenTag;
 }
 
 /** How a word is used in its sentence. */
