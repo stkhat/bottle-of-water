@@ -48,25 +48,28 @@ export function spanishTag(upos: string, feats: string): string {
 }
 
 /**
- * The sentences of a CoNLL-U file as the tokens written in the text and their tags. A
+ * The sentences of a CoNLL-U file as the tokens written in the text, their tags and
+ * whether each is inside a fixed expression after its first word (deprel `fixed`). A
  * multiword token ("del" = de + el, "dímelo" = di + me + lo) is one token with its
  * first word's tag, as Langle's tokenizer gives it one token.
  */
 export function readSurface(text: string): TaggedSentence[] {
   const sentences: TaggedSentence[] = [];
-  let current: TaggedSentence = { words: [], tags: [] };
+  const empty = (): TaggedSentence => ({ words: [], tags: [], fixed: [] });
+  let current = empty();
   /** The multiword token whose first word is next, and its last word's id. */
   let multiword: string | undefined;
   let skipTo = 0;
   for (const line of text.split(/\r?\n/)) {
     if (line === "") {
       if (current.words.length > 0) sentences.push(current);
-      current = { words: [], tags: [] };
+      current = empty();
       skipTo = 0;
       continue;
     }
     if (line.startsWith("#")) continue;
-    const [id = "", form, , upos, , feats = "_"] = line.split("\t");
+    const [id = "", form, , upos, , feats = "_", , deprel = ""] =
+      line.split("\t");
     if (!form || !upos || id.includes(".")) continue;
     const range = /^(\d+)-(\d+)$/.exec(id);
     if (range) {
@@ -75,13 +78,16 @@ export function readSurface(text: string): TaggedSentence[] {
       continue;
     }
     const tag = spanishTag(upos, feats);
+    const fixed = deprel === "fixed";
     if (multiword !== undefined) {
       current.words.push(multiword);
       current.tags.push(tag);
+      current.fixed!.push(fixed);
       multiword = undefined;
     } else if (Number(id) > skipTo) {
       current.words.push(form);
       current.tags.push(tag);
+      current.fixed!.push(fixed);
     }
   }
   if (current.words.length > 0) sentences.push(current);

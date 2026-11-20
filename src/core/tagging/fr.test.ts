@@ -217,8 +217,47 @@ describe("frenchTagger: uses", () => {
     expect(base("je/PRON me/PRON sens/NOUN/sens/sentir", 2)).toBe("sentir");
     expect(base("je/PRON lui/PRON/lui/luire", 1)).toBeUndefined();
     expect(base("ce/DET livre/NOUN/livre/livrer", 1)).toBeUndefined();
+    // After a pronoun that stands only before a verb, whatever its subject ("cette
+    // journée me fatigue", "ne marche pas"), or ça where a clause starts; a verb tag
+    // the tagger is unsure of too.
+    expect(base("journée/NOUN me/PRON fatigue/NOUN/fatigue/fatiguer", 2)).toBe(
+      "fatiguer",
+    );
+    expect(base("ne/ADV marche/NOUN/marche/marcher", 1)).toBe("marcher");
+    expect(base("mais/CCONJ ça/PRON marche/NOUN/marche/marcher", 2)).toBe(
+      "marcher",
+    );
+    expect(base("ça/PRON fait/VERB.Fin?/fait/faire", 1)).toBe("faire");
+    // Not ça after a verb or adverb (its object), nor the negation's word.
+    expect(
+      base("trouve/VERB.Fin toujours/ADV ça/PRON plus/ADV/plus/plaire", 3),
+    ).toBeUndefined();
+    expect(
+      base("ne/ADV plus/ADV/plus/plaire se/PRON demander/VERB.Inf", 1),
+    ).toBeUndefined();
     // aller before an infinitive.
     expect(base("va/VERB.Fin?/va/aller pleuvoir/VERB.Inf", 0)).toBe("aller");
+    // A verb form the tagger is unsure of after avoir, adverbs and pronouns between,
+    // is its participle; not before de or à (avoir's idioms), nor after avoir's own
+    // participle. A causative faire before an infinitive.
+    expect(
+      base("vous/PRON avez/AUX.Fin/avoir fait/NOUN?/fait/faire ,ce/PRON", 2),
+    ).toBe("faire");
+    expect(
+      base("l'/PRON as/AUX.Fin/avoir mal/ADV fait/NOUN?/fait/faire", 3),
+    ).toBe("faire");
+    expect(
+      base("as/VERB.Fin/avoir pas/ADV envie/NOUN?/envie/envier de/ADP", 2),
+    ).toBeUndefined();
+    expect(
+      base(
+        "avais/AUX.Fin/avoir eu/VERB.Part/eu/avoir entrée/NOUN?/entrée/entrer",
+        2,
+      ),
+    ).toBeUndefined();
+    expect(base("la/PRON fait/NOUN?/fait/faire naître/VERB.Inf", 1)).toBe(
+      "faire",
+    );
     // Not after a determiner or preposition: "l'été", "en été".
     expect(base("l'/DET été/AUX.Part/été/être", 1)).toBeUndefined();
     expect(base("en/ADP été/VERB.Part?/été/être", 1)).toBeUndefined();
@@ -226,6 +265,19 @@ describe("frenchTagger: uses", () => {
     // pronoun, whose object pronoun the tagger read as the determiner ("tu l'as").
     expect(base("vers/ADP l'/DET est/NOUN?/est/être", 2)).toBeUndefined();
     expect(base("tu/PRON l'/DET as/NOUN?/as/avoir", 2)).toBe("avoir");
+  });
+  it("reads a word the tagger is unsure of after être as a copula as an adjective", () => {
+    const pos = (text: string, i: number) => usesOf(text)[i]?.grammarPos;
+    expect(pos("c'/PRON est/AUX.Fin/être nul/NOUN?", 2)).toBe("adjective");
+    expect(pos("c'/PRON était/AUX.Fin/être vraiment/ADV nul/NOUN?", 3)).toBe(
+      "adjective",
+    );
+    // A trusted tag, an auxiliary, a pause.
+    expect(pos("c'/PRON est/AUX.Fin/être moi/PRON", 2)).toBeUndefined();
+    expect(pos("est/AUX.Fin/être venu/VERB.Part?/venu/venir", 1)).not.toBe(
+      "adjective",
+    );
+    expect(pos("est/AUX.Fin/être ,nul/NOUN?", 1)).toBeUndefined();
   });
   it("finds a participle standing for a preposition at a clause's start or after a noun", () => {
     const slot = (text: string, i: number) => usesOf(text)[i]?.prepositionSlot;

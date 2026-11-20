@@ -44,6 +44,7 @@ describe("readAligned over German", () => {
       {
         words: ["Er", "fängt", "im", "Haus", "an", "."],
         tags: ["PRON", "VERB.Fin", "ADP", "NOUN", "PART.Vz", "PUNCT"],
+        fixed: [false, false, false, false, false, false],
       },
     ]);
   });

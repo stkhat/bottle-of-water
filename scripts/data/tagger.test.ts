@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tagSentence } from "../../src/core/tagging/perceptron.ts";
-import { accuracy, readConllu, train } from "./tagger.ts";
+import { accuracy, fixedTags, readConllu, train } from "./tagger.ts";
 
 const CONLLU = [
   "# sent_id = 1",
@@ -72,5 +72,34 @@ describe("train", () => {
     expect(JSON.stringify(train(SENTENCES, { minWeight: 0.5 }))).toBe(
       JSON.stringify(model),
     );
+  });
+});
+
+describe("fixedTags", () => {
+  /** "un peu" five times, "peu" a noun inside it; "peu" an adverb once outside it. */
+  const sentences = [
+    ...Array.from({ length: 5 }, () => ({
+      words: ["un", "peu", "trop"],
+      tags: ["DET", "NOUN", "ADV"],
+      fixed: [false, true, false],
+    })),
+    { words: ["très", "peu"], tags: ["ADV", "ADV"], fixed: [false, false] },
+    { words: ["Peu", "importe"], tags: ["ADV", "VERB"] },
+  ];
+  it("finds the tags a word has only inside fixed expressions", () => {
+    expect(fixedTags(sentences)).toEqual({ peu: ["NOUN"] });
+  });
+  it("needs a tag seen often enough, and the words' fixed marks", () => {
+    expect(fixedTags(sentences.slice(1))).toEqual({});
+    expect(
+      fixedTags(sentences.map(({ words, tags }) => ({ words, tags }))),
+    ).toEqual({});
+  });
+  it("puts them in the trained model, untrusted when tagged", () => {
+    const model = train(sentences, { minWeight: 0.5 });
+    expect(model.fixed).toEqual({ peu: ["NOUN"] });
+    const [, peu] = tagSentence(model, ["un", "peu", "trop"]);
+    expect(peu).toEqual({ tag: "NOUN", margin: 0 });
+    expect(train(SENTENCES).fixed).toBeUndefined();
   });
 });

@@ -36,8 +36,13 @@ describe("readSurface", () => {
       {
         words: ["Dímelo", "del", "todo", "."],
         tags: ["VERB.Fin", "ADP", "PRON", "PUNCT"],
+        fixed: [false, false, false, false],
       },
-      { words: ["Ha", "creído"], tags: ["AUX.Fin", "VERB.Part"] },
+      {
+        words: ["Ha", "creído"],
+        tags: ["AUX.Fin", "VERB.Part"],
+        fixed: [false, false],
+      },
     ]);
   });
 });
