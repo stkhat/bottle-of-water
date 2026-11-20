@@ -84,6 +84,19 @@ const runsModule = (await import(`${REPO}/src/core/subtitles/runs.ts`).catch(
   () => undefined,
 )) as Runs | undefined;
 const RUNS = runsModule !== undefined && setting("runs", "on") === "on";
+// A checkout whose lookup matches an abbreviation's expansion written inflected
+// (`spelledOutIn`: "graphics processing units" for GPU's "graphics processing unit")
+// is measured so; older ones fall back to the exact match below.
+const expansionsModule = (await import(
+  `${REPO}/src/core/lexicon/expansions.ts`
+).catch(() => undefined)) as
+  | {
+      spelledOutIn?: (
+        text: string,
+        bases?: (word: string) => readonly string[],
+      ) => (phrase: string) => boolean;
+    }
+  | undefined;
 /** Cards per analysis request (content/video/session.ts, BATCH). */
 const BATCH = 50;
 
@@ -255,11 +268,13 @@ for (const [doc, list] of byDoc) {
     list.map((u) => blockCasing(pack.tokenize(u.text), LEARNING)),
   );
   // An acronym's lookup reads the document's text for the expansion it spells out
-  // (content/lookup/lookup.ts, `readsDocument`; `writesPhrase`, inlined so that
-  // checkouts without it run too).
+  // (content/lookup/lookup.ts, `readsDocument`; background/handlers.ts passes
+  // `spelledOutIn(document, pack.lemmas)`). Checkouts without `spelledOutIn` use the
+  // exact match (`writesPhrase`, inlined so that checkouts without it run too).
   const text = list.map((u) => u.text).join("\n");
   const spelled = new Map<string, boolean>();
-  const spelledOut = (phrase: string) => {
+  const inflected = expansionsModule?.spelledOutIn?.(text, pack.lemmas);
+  const exact = (phrase: string) => {
     let found = spelled.get(phrase);
     if (found === undefined) {
       const words = phrase
@@ -273,6 +288,7 @@ for (const [doc, list] of byDoc) {
     }
     return found;
   };
+  const spelledOut = inflected ?? exact;
   const options = {
     terms: new Map(),
     knownLevel: LEVEL,
