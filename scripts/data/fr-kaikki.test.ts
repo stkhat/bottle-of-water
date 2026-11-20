@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { shortOfSenses } from "../../src/core/lexicon/short-lines.ts";
-import { frenchForms, parseFrequencyWords } from "./fr-frequency.ts";
+import { frenchForms } from "./fr-frequency.ts";
+import { parseFrequencyWords } from "./frequency-words.ts";
 import { FRENCH_BUILD, frenchOwnWord, slimEntry } from "./fr-kaikki.ts";
 import {
   auxiliaryUse,

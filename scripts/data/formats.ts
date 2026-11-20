@@ -305,9 +305,9 @@ const SOURCES = {
     license: LICENSES.ccBySa3,
   },
   freqEs: {
-    title: "Wiktionary:Frequency lists/Spanish/Mixed 730K",
-    url: "https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists/Spanish/Mixed_730K",
-    by: `${WIKTIONARY_AUTHORS}; built from the Leipzig Corpora Collection (2021 Wikipedia and 2022 news corpora)`,
+    title: "FrequencyWords, Spanish 2018 list (es_full)",
+    url: "https://github.com/hermitdave/FrequencyWords",
+    by: "Hermit Dave, from the OpenSubtitles 2018 corpus (OPUS)",
     license: LICENSES.ccBySa4,
   },
   wordnetEn: {
