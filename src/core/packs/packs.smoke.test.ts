@@ -211,12 +211,14 @@ describe("generated phrases", () => {
       expect(dictionary.entry(phrase)?.short, phrase).toBeTruthy();
   });
 
+  // Every pattern's lookup: about 2 s alone, past the default 5 s while the whole
+  // suite runs on a busy machine.
   it("have a meaning for every pattern", () => {
     const missing = [...phrases.detect, ...phrases.more].filter(
       (phrase) => !dictionary.entry(phrase)?.short,
     );
     expect(missing).toEqual([]);
-  });
+  }, 30_000);
 
   const lines = (term: string) => dictionary.entry(term)?.lines ?? [];
 

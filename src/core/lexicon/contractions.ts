@@ -113,8 +113,8 @@ export function withContractions(
 ): DictionaryProvider {
   return {
     ...dictionary,
-    entry(term, written, pos, clitic) {
-      const found = dictionary.entry(term, written, pos, clitic);
+    entry(term, written, pos, clitic, spelledOut) {
+      const found = dictionary.entry(term, written, pos, clitic, spelledOut);
       const head = keyOf(term);
       const all = expansions(head);
       // Named: the expansions its clitic stands for here; lines that only write it out

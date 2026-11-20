@@ -77,12 +77,14 @@ export type DefsPack = Readonly<
        * the key shares with a lowercase one (`Sense.capital`; `de-en` from L2-2: Sie's
        * "you (polite)" under "sie", Essen's "food" under "essen"). "singular" or
        * "plural" for a personal pronoun's sense of that number (`Sense.number`; `de-en`
-       * from R3: sie's "she; her", "they; them").
+       * from R3: sie's "she; her", "they; them"). "+" and the words that introduce
+       * the infinitive a verb's sense is said with, joined by "|" (`Sense.construction`;
+       * `es-en` from R4: tener's "to have to", "+que"; "+" for a bare infinitive).
        */
       senses: readonly (readonly [
         pos: string,
         text: string,
-        use?: "auxiliary" | "capital" | "singular" | "plural",
+        use?: "auxiliary" | "capital" | "singular" | "plural" | `+${string}`,
       ])[],
     ]
   >

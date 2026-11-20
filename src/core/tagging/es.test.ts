@@ -71,6 +71,7 @@ const LABELS: Record<string, string> = {
   NOUN: "noun",
   DET: "determiner",
   ADP: "preposition",
+  SCONJ: "conjunction",
   NUM: "numeral",
 };
 
@@ -138,6 +139,30 @@ describe("spanishTagger: uses", () => {
       usesOf("fue/AUX.Fin/ser/ir creciendo/VERB.Ger/crecer")[0],
     ).toMatchObject({ auxiliary: true, base: "ir" });
     expect(aux("es/AUX.Fin/ser creciendo/VERB.Ger/crecer")[0]).toBe(false);
+  });
+  it("reads a verb before an infinitive with the word that introduces it", () => {
+    const construction = (text: string) =>
+      usesOf(text).map((u) => u.construction);
+    expect(
+      construction("tengo/VERB.Fin/tener que/SCONJ irme/VERB.Inf/ir"),
+    ).toEqual(["que", undefined, undefined]);
+    expect(construction("vamos/AUX.Fin/ir a/ADP ver/VERB.Inf")[0]).toBe("a");
+    expect(construction("suele/VERB.Fin/soler venir/VERB.Inf")[0]).toBe("");
+    // No infinitive, or a pause before it.
+    expect(construction("voy/VERB.Fin/ir a/ADP casa/NOUN")[0]).toBeUndefined();
+    expect(construction("tengo/VERB.Fin/tener que/SCONJ ,ir/VERB.Inf")[0]).toBe(
+      undefined,
+    );
+  });
+  it("reads a pronoun que as the relative, shown by the conjunction", () => {
+    expect(
+      usesOf("cosa/NOUN que/PRON quiero/VERB.Fin/querer")[1],
+    ).toMatchObject({
+      grammarPos: "conjunction",
+    });
+    expect(usesOf("que/SCONJ venga/VERB.Fin/venir")[0]?.grammarPos).toBe(
+      undefined,
+    );
   });
   it("tells how an inflected verb is used", () => {
     const verbal = (text: string) => usesOf(text).map((u) => u.verbal);

@@ -1,4 +1,5 @@
 {
+"tosco":["crude",[["adjective","crude"],["adjective","uncouth"],["adjective","coarse, rough, rough around the edges"]]],
 "toser":["to cough",[["verb","to cough"],["verb","to hold a candle (to someone); to compete (with someone); to touch (be as good as)"]]],
 "tosida":["a coughing",[["noun","a coughing; a cough"]]],
 "tosido":["a coughing",[["noun","a coughing; a cough"]]],
@@ -333,7 +334,7 @@
 "tratador":["treatment",[["adjective","treatment"]]],
 "tratamiento":["treatment (the process or manner of treating someone or something)",[["noun","treatment (the process or manner of treating someone or something)"],["noun","treatment (medical care for an illness or injury)"],["noun","term of address"]]],
 "tratante":["animal trader",[["noun","animal trader"]]],
-"tratar":["to treat (to handle, behave toward in a specific way)",[["verb","to treat (to handle, behave toward in a specific way)"],["verb","to treat (to apply medical care)"],["verb","to treat (to submit to a chemical action)"],["verb","to address, to refer to as"],["verb","to deal with"],["verb","to be about"]]],
+"tratar":["to treat (to handle, behave toward in a specific way)",[["verb","to treat (to handle, behave toward in a specific way)"],["verb","to treat (to apply medical care)"],["verb","to treat (to submit to a chemical action)"],["verb","to address, to refer to as"],["verb","to deal with"],["verb","to be about"],["verb","to try, to seek, to attempt, to strive, to endeavor","+de"]]],
 "tratar a patadas":["to treat like dirt",[["verb","to treat like dirt"]]],
 "tratar con":["to deal with",[["verb","to deal with"]]],
 "tratativa":["initial step (of a transaction)",[["noun","initial step (of a transaction)"]]],

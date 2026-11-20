@@ -101,8 +101,8 @@ function awaitingFallbacks(
 ): DictionaryProvider {
   if (pending.length === 0) return dictionary;
   return {
-    entry(term, written, pos) {
-      const found = dictionary.entry(term, written, pos);
+    entry(term, written, pos, clitic, spelledOut) {
+      const found = dictionary.entry(term, written, pos, clitic, spelledOut);
       if (found === undefined) throw new PacksUnavailableError(pending);
       return found;
     },

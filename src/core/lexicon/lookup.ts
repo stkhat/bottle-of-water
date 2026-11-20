@@ -38,6 +38,14 @@ export interface Sense {
    * after (`senseOrder`).
    */
   number?: "singular" | "plural";
+  /**
+   * The words that introduce the infinitive a verb's sense is said with (a definitions
+   * pack's "+que", "+a|de"; "" for a bare infinitive): Spanish tener's "to have to" is
+   * said with "que" ("tengo que irme"), acabar's "to have just" with "de". Shown first
+   * where the grammar reads the verb before that word and an infinitive
+   * (`senseOrder`, `WordUse.construction`).
+   */
+  construction?: readonly string[];
 }
 export interface Entry {
   short: string;
