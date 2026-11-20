@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"female ejaculation"},{"file":"dict-2.json","first":"female genital mutilation","last":"peter principle"},{"file":"dict-3.json","first":"peter the great","last":"whittle"},{"file":"dict-4.json","first":"whiz","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"'s","last":"feldspar"},{"file":"dict-2.json","first":"felicity","last":"personal injury"},{"file":"dict-3.json","first":"personal lubricant","last":"whippy"},{"file":"dict-4.json","first":"whirl","last":"élan"}],
 "sources":["enwiktionary-translations","dewiktionary"]
 }
