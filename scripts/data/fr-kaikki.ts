@@ -33,6 +33,7 @@ import {
   type LearningBuild,
 } from "./learning-kaikki.ts";
 import type { PhraseBuildLanguage } from "./phrases.ts";
+import { undocumentedPages } from "./recipes/undocumented.ts";
 
 export { slimEntry } from "./learning-kaikki.ts";
 
@@ -141,6 +142,8 @@ async function main() {
       treebank: await frenchTreebankLemmas(),
       casePaths: [KAIKKI_FR_EDITION_SLIM_PATH],
       ipaPaths: [KAIKKI_FR_EDITION_SLIM_PATH],
+      // Entries on pages of an undocumented bot import are left out.
+      leftOut: await undocumentedPages("fr"),
       // The phrase score reads English Wiktionary's French examples alone: with
       // Wiktionnaire's too, its count terms leave most common expressions undetected
       // ("par contre", "bien sûr", "se rendre compte"); judged blind (L1-4).

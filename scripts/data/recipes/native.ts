@@ -43,6 +43,7 @@ import {
   type TermKey,
 } from "./recipe.ts";
 import { RECIPES, TABLES_TAG, type Recipe } from "./recipes.ts";
+import { undocumentedPages } from "./undocumented.ts";
 
 /** The English wordnet, which links the pack's terms to the other wordnets' synsets. */
 const ENGLISH_WORDNET = "omw-en";
@@ -88,6 +89,8 @@ export async function buildPairDictionary(
       ? readEdition(join(rawDir, edition.file), termKey, {
           trimPeriod: true,
           native,
+          // Entries on pages of an undocumented bot import are left out.
+          leftOut: await undocumentedPages(native, rawDir),
           ...(toSimplified && { nativeForm: toSimplified }),
           ...(letter && { letter }),
         })
