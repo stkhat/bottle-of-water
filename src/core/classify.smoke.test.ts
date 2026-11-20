@@ -2,7 +2,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packSourcePath } from "../../scripts/data/formats.ts";
-import { createClassifier, unsavedKeys, type TermIndex } from "./classify";
+import {
+  createClassifier,
+  unsavedKeys,
+  type Span,
+  type TermIndex,
+} from "./classify";
 import {
   createDefsDictionary,
   createEnJaDictionary,
@@ -12,6 +17,7 @@ import {
 } from "./lexicon/dictionary";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { createPackLoader } from "./packs/load";
+import { cardRuns, splitRun } from "./subtitles/runs";
 import { blockCasing, documentCasing } from "./text/casing";
 
 const loadPack = createPackLoader(async (path) =>
@@ -1285,5 +1291,106 @@ describe("phrase precision over the generated packs", () => {
     expect(
       dictionary.entry("come along", undefined, span!.pos)?.lines[0],
     ).toMatch(/encouragement/i);
+  });
+});
+
+describe("transcript cards classified as the text they run on in (cardRuns)", () => {
+  const packOf = (lang: "es" | "de", data: typeof es) =>
+    createLanguagePack(lang, {
+      lemmas: data.lemmas,
+      freq: data.freq,
+      ipa: data.ipa,
+      vocab: new Set(data.vocab),
+      patterns: data.phrases,
+      pos: data.pos,
+      tagger: data.tagger,
+    });
+  const esTagged = packOf("es", es);
+  const deTagged = packOf("de", de);
+  const esDictionary = createDefsDictionary({ defs: esEn.defs, ipa: es.ipa });
+  const deDictionary = createDefsDictionary({ defs: deEn.defs, ipa: de.ipa });
+
+  /** Each card's spans as text, classified as one run or each alone. */
+  function cards(
+    lang: "es" | "de",
+    texts: string[],
+    alone = false,
+  ): string[][] {
+    const [tagged, dictionary] =
+      lang === "es" ? [esTagged, esDictionary] : [deTagged, deDictionary];
+    const classifier = createClassifier(tagged);
+    const casing = documentCasing(
+      texts.map((t) => blockCasing(tagged.tokenize(t), lang)),
+    );
+    const options = {
+      terms: new Map(),
+      knownLevel: 3000,
+      casing,
+      outline: (key: string) => dictionary.outline(key),
+    };
+    const show = (text: string, spans: readonly Span[]) =>
+      spans.map(
+        (s) =>
+          `${s.kind}:${text.slice(s.start, s.end)}=${s.key}${s.pos ? `/${s.pos}` : ""}`,
+      );
+    if (alone)
+      return texts.map((text) =>
+        show(text, classifier.classify(tagged.tokenize(text), options)),
+      );
+    const out: string[][] = [];
+    for (const run of cardRuns(
+      texts,
+      texts.map((_, i) => i),
+    )) {
+      const spans = classifier.classify(tagged.tokenize(run.text), {
+        ...options,
+        breaks: run.breaks,
+      });
+      for (const [card, list] of splitRun(run, texts, spans))
+        out[card] = show(texts[card]!, list);
+    }
+    return out;
+  }
+
+  it("highlights a phrase that speech recognition's line break splits, in both cards", () => {
+    const texts = [
+      "su influencia en el norte de chile habría acabado sin",
+      "embargo la cultura más influyente",
+    ];
+    const [first, second] = cards("es", texts);
+    expect(first!.at(-1)).toBe("phrase:sin=sin embargo");
+    expect(second![0]).toBe("phrase:embargo=sin embargo");
+    expect(cards("es", texts, true)[1]![0]).toMatch(/^word:embargo=embargo/);
+  });
+
+  it("reads every other word of a card as the card alone does", () => {
+    for (const [lang, texts] of [
+      [
+        "de",
+        [
+          "Tuna heißt in Deutschland Thunfisch also lassen wir das a weg",
+          "dann gab es mal",
+          "und vier Jahre später hast du auf einmal sowas hier zu",
+          "Hause so ein Kind was mir sagt",
+        ],
+      ],
+      ["es", ["no sé qué decir y", "bueno", "yo creo que sí"]],
+    ] as const) {
+      const run = cards(lang, [...texts]);
+      const alone = cards(lang, [...texts], true);
+      // A word span ("text=key/pos") of the run is the card's alone: the run only adds
+      // phrases across cards ("zu Hause"), which take their words.
+      run.forEach((list, card) =>
+        expect(alone[card]).toEqual(
+          expect.arrayContaining(list.filter((s) => s.startsWith("word:"))),
+        ),
+      );
+    }
+    expect(cards("de", ["hast du sowas hier zu", "Hause so ein Kind"])).toEqual(
+      [
+        expect.arrayContaining(["phrase:zu=zu hause", "word:hast=haben/verb"]),
+        expect.arrayContaining(["phrase:Hause=zu hause"]),
+      ],
+    );
   });
 });

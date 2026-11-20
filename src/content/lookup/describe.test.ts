@@ -358,6 +358,32 @@ describe("describeTerm", () => {
     expect(card.sub).toBe("loaves → loaf");
   });
 
+  it("sends an abbreviation's document with its lookup", async () => {
+    const { send, requests } = fakeSend();
+    await describeTerm(
+      {
+        key: "dea",
+        kind: "word",
+        surface: "DEA",
+        written: "upper",
+        document: "The DEA? That's the Drug Enforcement Administration.",
+      },
+      {
+        send,
+        lang: "en",
+        nativeLang: "ja",
+        sourceUrl: "https://example.com/a",
+        translator,
+      },
+    );
+    expect(requests[0]).toMatchObject({
+      type: "lookup",
+      key: "dea",
+      written: "upper",
+      document: "The DEA? That's the Drug Enforcement Administration.",
+    });
+  });
+
   it("notes what a contraction is short for when its lines are meanings of its own", async () => {
     const { send, requests } = fakeSend();
     const deps = {

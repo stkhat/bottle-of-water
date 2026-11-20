@@ -753,6 +753,64 @@ describe("mountVideoUi", () => {
     expect(text("langle-transcript")).toContain("The yeast smells tangy.");
   });
 
+  it("highlights a phrase across two cards in each, the subtitle line and the transcript", async () => {
+    // Speech recognition's pause cut "give up" in two cards (`splitRun`).
+    const cues: Cue[] = [
+      { startMs: 0, endMs: 1000, text: "they had to give" },
+      { startMs: 1000, endMs: 2000, text: "up the tangy loaf" },
+    ];
+    const phrase = (start: number, end: number, index: number): Span => ({
+      start,
+      end,
+      key: "give up",
+      kind: "phrase",
+      category: "new",
+      part: {
+        index,
+        count: 2,
+        start,
+        end,
+        ...(index === 0
+          ? { next: true as const }
+          : { previous: true as const }),
+      },
+    });
+    const { spy } = mount(
+      readyState({
+        cues,
+        lines: cues.map((cue, card) => ({
+          startMs: cue.startMs,
+          endMs: cue.endMs,
+          card,
+          start: 0,
+          end: cue.text.length,
+        })),
+        spans: [[phrase(12, 16, 0)], [phrase(0, 2, 1)]],
+        line: 1,
+        current: 1,
+        card: 1,
+        panel: null,
+      }),
+    );
+    const subtitle = () =>
+      inside("langle-video-player")?.querySelector("[role=region] p");
+    await expect.poll(() => subtitle()?.textContent).toBe("up the tangy loaf");
+    const up = subtitle()!.querySelector<HTMLElement>("[data-span]")!;
+    expect(up.textContent).toBe("up");
+    expect(getComputedStyle(up).backgroundColor).not.toBe(
+      getComputedStyle(subtitle()!).backgroundColor,
+    );
+    await userEvent.click(up);
+    expect(spy("clickWord")).toHaveBeenCalledWith({ cue: 1, span: 0 });
+    // Both parts in the transcript, each in its card.
+    const marked = [
+      ...(inside("langle-transcript")?.querySelectorAll<HTMLElement>(
+        "[data-span]",
+      ) ?? []),
+    ].map((el) => el.textContent);
+    expect(marked).toEqual(["give", "up"]);
+  });
+
   it("keeps the player buttons in the bar when the site rebuilds its controls", async () => {
     mount();
     await expect

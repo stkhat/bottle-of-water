@@ -10,7 +10,7 @@ import type { TextBlock } from "./page-text";
 /** The page's casing (rule D), taken from what each block says about it. */
 export function createPageCasing(o: {
   lang: string;
-  lookup: Pick<Lookup, "casing" | "setCasing">;
+  lookup: Pick<Lookup, "casing" | "setCasing" | "setDocument">;
 }) {
   /** What each block says about the page's casing. */
   const blockCasings = new WeakMap<TextBlock, BlockCasing>();
@@ -35,6 +35,8 @@ export function createPageCasing(o: {
       const before = o.lookup.casing;
       const after = documentCasing(blocks.map(casingOf));
       o.lookup.setCasing(after);
+      // The same blocks are the text an abbreviation's card reads its expansion from.
+      o.lookup.setDocument(() => blocks.map((block) => block.text).join("\n"));
       if (!before) return undefined;
       const changed = casingChanges(before, after);
       if (changed !== "all" && changed.size === 0) return undefined;

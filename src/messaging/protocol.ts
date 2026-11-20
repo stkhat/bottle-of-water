@@ -148,8 +148,16 @@ export type Request =
    * Classifies blocks of text (paragraphs, subtitle lines) of one language. `casing` is
    * the casing of the whole document the blocks belong to (a caption track, an
    * article's main content): names (rule D) and capitalised words come from it.
+   * `breaks`, by block: where the transcript cards a block joins meet (`cardRuns`,
+   * `ClassifyOptions.breaks`).
    */
-  | { type: "analyze"; lang: string; blocks: string[]; casing?: DocumentCasing }
+  | {
+      type: "analyze";
+      lang: string;
+      blocks: string[];
+      casing?: DocumentCasing;
+      breaks?: number[][];
+    }
   /**
    * The dictionary pattern a selection of words stands for (select mode: slots and
    * gaps). `start` and `end` are the selection's offsets in `text`, `end` exclusive:
@@ -204,6 +212,12 @@ export type Request =
       clitic?: string;
       /** The word as written on the page, when it is not the key ("it's" keyed "it"). */
       surface?: string;
+      /**
+       * The text of the document an abbreviation written in capitals is in (a video's
+       * captions, the article): its card leads with the expansion the text spells out
+       * (`DictionaryProvider.entry`'s `spelledOut`).
+       */
+      document?: string;
     }
   | ({ type: "saveTerm" } & SaveTermInput)
   | ({ type: "chooseMeaning" } & ChooseMeaningInput)

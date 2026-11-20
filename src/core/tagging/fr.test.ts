@@ -69,6 +69,20 @@ function sentence(text: string): TaggedWord[] {
 const usesOf = (text: string) => tagger.uses(sentence(text));
 
 describe("frenchTagger: uses", () => {
+  it("reads a verb before an infinitive with the word that introduces it", () => {
+    const construction = (text: string) => usesOf(text)[0]?.construction;
+    expect(
+      construction("essaie/VERB.Fin/essayer de/ADP comprendre/VERB.Inf"),
+    ).toBe("de");
+    // An elided introducer is the word it shortens; object pronouns may stand before
+    // the infinitive.
+    expect(
+      construction("essaie/VERB.Fin/essayer d'/ADP le/PRON expliquer/VERB.Inf"),
+    ).toBe("de");
+    expect(
+      construction("essaie/VERB.Fin/essayer de/ADP la/DET voiture/NOUN"),
+    ).toBe(undefined);
+  });
   it("takes avoir or être before a participle or infinitive for an auxiliary", () => {
     const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);
     expect(aux("a/AUX.Fin/a/avoir mangé/VERB.Part/manger")).toEqual([
