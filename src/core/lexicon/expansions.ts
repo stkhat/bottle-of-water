@@ -10,6 +10,7 @@
  * (the senses' words it also writes) chose wrongly as often as rightly; its spelled-out
  * expansion did not.
  */
+import { normalizeWord } from "../text/tokenize";
 
 /** A run of words written in Latin letters (with inner hyphens and apostrophes). */
 const LATIN_RUN =
@@ -67,20 +68,108 @@ export function expansionsOf(term: string, sense: string): string[] {
 export const expansionOf = (term: string, sense: string): string | undefined =>
   expansionsOf(term, sense)[0];
 
+/** A word's base forms, as the learning language's pack gives them (`LanguagePack.lemmas`). */
+export type BaseForms = (word: string) => readonly string[];
+
+/** A text's words: runs of letters, marks and digits, and where each starts and ends. */
+const WORD = /[\p{L}\p{M}\p{N}]+/gu;
+
 /**
- * Whether `text` writes `phrase`, in any case, as whole words, with any spaces or
- * hyphens between them ("drug enforcement administration" in "the Drug Enforcement
- * Administration's agents").
+ * What may stand between two of a phrase's words written with a space or a hyphen
+ * (`\s` takes in the no-break space).
  */
-export function writesPhrase(text: string, phrase: string): boolean {
-  const words = phrase
-    .split(/\s+/)
-    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(
-    `(?<![\\p{L}\\p{N}])${words.join("[\\s\\u00a0-]+")}(?![\\p{L}\\p{N}])`,
-    "iu",
-  ).test(text);
+const SPACING = /^[\s-]+$/;
+
+interface Word {
+  /** In lower case, ’ as '. */
+  readonly form: string;
+  /** As written. */
+  readonly written: string;
+  readonly start: number;
+  readonly end: number;
 }
+
+const wordsOf = (text: string): Word[] =>
+  Array.from(text.matchAll(WORD), (match) => ({
+    form: normalizeWord(match[0]),
+    written: match[0],
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
+
+/**
+ * Whether `text` writes a phrase, asked of each: its words in any case, with any
+ * spaces or hyphens between them where the phrase has a space or a hyphen
+ * ("drug-enforcement administration" for "Drug Enforcement Administration"), the
+ * phrase's other marks as it writes them ("women's"), and nothing more of a word
+ * on either side ("email order" is not "mail order"; the 's of "the Drug Enforcement
+ * Administration's" is not a word's). With `bases`, a word of the text may be a form
+ * of the phrase's word, one with a base form in common: the text writes the
+ * phrase inflected, as a plural or a case ("Graphics processing units (GPUs)" for
+ * "graphics processing unit", "non-governmental organizations' work",
+ * "organizaciones no gubernamentales"). The language's pack decides what a form
+ * is (`LanguagePack.lemmas`), so a word it does not know matches as written only.
+ * Reads the text's words once, when first asked, and each phrase once.
+ */
+export function spelledOutIn(
+  text: string,
+  bases?: BaseForms,
+): (phrase: string) => boolean {
+  let words: Word[] | undefined;
+  const baseCache = new Map<string, readonly string[]>();
+  const basesOf = (written: string): readonly string[] => {
+    let found = baseCache.get(written);
+    if (found === undefined) {
+      found = bases?.(written).map(normalizeWord) ?? [];
+      baseCache.set(written, found);
+    }
+    return found;
+  };
+  /** A word of the text is `wanted` or, with `bases`, a form of it. */
+  const isForm = (word: Word, wanted: Word) => {
+    if (word.form === wanted.form) return true;
+    // A form starts as its base does (units, mice, Organisationen), so a word with
+    // another first letter is none, and needs no base forms.
+    if (!bases || word.form.charAt(0) !== wanted.form.charAt(0)) return false;
+    const own = basesOf(word.written);
+    if (own.length === 0) return false;
+    const theirs = [wanted.form, ...basesOf(wanted.written)];
+    return own.some((base) => theirs.includes(base));
+  };
+  const answers = new Map<string, boolean>();
+  return (phrase) => {
+    let found = answers.get(phrase);
+    if (found !== undefined) return found;
+    words ??= wordsOf(text);
+    const wanted = wordsOf(phrase);
+    /** What the text must write between the phrase's words `i - 1` and `i`. */
+    const gaps = wanted.map((word, i) => {
+      const gap = i === 0 ? "" : phrase.slice(wanted[i - 1]!.end, word.start);
+      return SPACING.test(gap) ? SPACING : normalizeWord(gap);
+    });
+    const at = (from: number) =>
+      wanted.every((word, i) => {
+        const written = words![from + i];
+        if (written === undefined || !isForm(written, word)) return false;
+        if (i === 0) return true;
+        const gap = text.slice(words![from + i - 1]!.end, written.start);
+        const between = gaps[i]!;
+        return typeof between === "string"
+          ? normalizeWord(gap) === between
+          : between.test(gap);
+      });
+    found = wanted.length > 0 && words.some((_, from) => at(from));
+    answers.set(phrase, found);
+    return found;
+  };
+}
+
+/** Whether `text` writes `phrase` (`spelledOutIn`). */
+export const writesPhrase = (
+  text: string,
+  phrase: string,
+  bases?: BaseForms,
+): boolean => spelledOutIn(text, bases)(phrase);
 
 /**
  * The place of the sense to show first for an abbreviation whose document spells one

@@ -10,7 +10,7 @@ import {
   shortDefinitionText,
 } from "../core/lexicon/definitions";
 import { expansionLine, expansionsHere } from "../core/lexicon/contractions";
-import { writesPhrase } from "../core/lexicon/expansions";
+import { spelledOutIn } from "../core/lexicon/expansions";
 import { withoutFinalStop } from "../core/lexicon/short-lines";
 import type {
   DictionaryEntry,
@@ -484,8 +484,10 @@ export function createHandlers({
         WRITTEN.has(written) ? written : undefined,
         typeof pos === "string" ? pos : undefined,
         typeof clitic === "string" ? clitic : undefined,
+        // The document may write the expansion inflected ("Graphics processing
+        // units (GPUs)"): the pack's base forms say which words are its forms.
         typeof document === "string"
-          ? (phrase) => writesPhrase(document, phrase)
+          ? spelledOutIn(document, pack.lemmas)
           : undefined,
       );
       const ipa = pack.ipa(key);
