@@ -154,6 +154,39 @@ describe("spanishTagger: uses", () => {
       undefined,
     );
   });
+  it("reads a sentence's first word tagged as a name for its capital as its verb before an infinitive", () => {
+    const named = (
+      form: string,
+      bases: string[],
+      lower: string,
+    ): TaggedWord => ({
+      form,
+      bases,
+      tag: { ...tagOf("NOUN"), tag: "PROPN", proper: true, confidence: 5 },
+      trusted: false,
+      pauseBefore: false,
+      lowerTag: tagOf(lower),
+    });
+    const venir = sentence("venir/VERB.Inf");
+    expect(
+      tagger.uses([
+        named("suelo", ["suelo", "soler"], "VERB.Fin"),
+        ...venir,
+      ])[0],
+    ).toMatchObject({ construction: "", base: "soler", grammarPos: "verb" });
+    // In lower case no verb: "Para hacer", "Disculpas por venir".
+    const hacer = sentence("hacer/VERB.Inf");
+    expect(
+      tagger.uses([named("para", ["para", "parar"], "ADP"), ...hacer])[0]
+        ?.construction,
+    ).toBeUndefined();
+    // No infinitive after it.
+    const casa = sentence("a/ADP casa/NOUN");
+    expect(
+      tagger.uses([named("tengo", ["tener"], "VERB.Fin"), ...casa])[0]
+        ?.construction,
+    ).toBeUndefined();
+  });
   it("reads a pronoun que as the relative, shown by the conjunction", () => {
     expect(
       usesOf("cosa/NOUN que/PRON quiero/VERB.Fin/querer")[1],

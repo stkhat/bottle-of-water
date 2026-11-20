@@ -83,6 +83,23 @@ describe("frenchTagger: uses", () => {
       construction("essaie/VERB.Fin/essayer de/ADP la/DET voiture/NOUN"),
     ).toBe(undefined);
   });
+  it("reads a sentence's first word tagged as a name for its capital as its verb before an infinitive", () => {
+    const essaie = (lower: string) => ({
+      ...sentence("essaie/NOUN/essayer")[0]!,
+      tag: { ...sentence("essaie/NOUN")[0]!.tag, tag: "PROPN", proper: true },
+      trusted: false,
+      lowerTag: sentence(`essaie/${lower}`)[0]!.tag,
+    });
+    const rest = sentence("de/ADP dormir/VERB.Inf");
+    expect(tagger.uses([essaie("VERB.Fin"), ...rest])[0]).toMatchObject({
+      construction: "de",
+      base: "essayer",
+      grammarPos: "verb",
+    });
+    expect(
+      tagger.uses([essaie("NOUN"), ...rest])[0]?.construction,
+    ).toBeUndefined();
+  });
   it("takes avoir or être before a participle or infinitive for an auxiliary", () => {
     const aux = (text: string) => usesOf(text).map((u) => u.auxiliary);
     expect(aux("a/AUX.Fin/a/avoir mangé/VERB.Part/manger")).toEqual([
