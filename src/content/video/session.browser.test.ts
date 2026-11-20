@@ -2646,6 +2646,55 @@ describe("meaning in context", () => {
     expect(state().explain).toBeNull();
   });
 
+  it("follows the term the window shows once a removed phrase's place shows another", async () => {
+    const sentence = "She made up her mind.";
+    const { provider, log } = fakeExplanationProvider({
+      answers: [answerJson({ meaning: "決心する" })],
+    });
+    const { state, app } = await start(
+      {
+        vid1: captionsOf([
+          { startMs: 0, endMs: 1000, text: sentence },
+          ...CUES.slice(1),
+        ]),
+      },
+      {
+        explainProvider: provider,
+        before: (bg) =>
+          bg.send({
+            type: "saveTerm",
+            lang: "en",
+            key: "make up one's mind",
+            display: "made up her mind",
+            kind: "phrase",
+            status: "learning",
+            source: {
+              platform: "web",
+              url: "https://example.com/",
+              title: "",
+              lang: "en",
+            },
+            sentence,
+            pos: { textQuote: sentence },
+          }),
+      },
+    );
+    await ready(state);
+    await classified(state);
+    app.clickWord(refOf(state, 0, "make up one's mind"));
+    await expect.poll(() => state().explain?.state).toBe("idle");
+    app.explainHere();
+    await expect.poll(() => state().explain?.state).toBe("answer");
+
+    app.setPanelStatus("new");
+    await expect
+      .poll(() => state().panel?.card.key)
+      .not.toBe("make up one's mind");
+    // The removed phrase's answer is gone with it.
+    await expect.poll(() => state().explain?.state).not.toBe("answer");
+    expect(log.prompts).toHaveLength(1);
+  });
+
   it("has no section without a provider", async () => {
     const { state, app } = await start();
     await ready(state);
