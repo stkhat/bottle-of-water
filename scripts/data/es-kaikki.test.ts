@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { shortOfSenses } from "../../src/core/lexicon/short-lines.ts";
 import {
   altMeaning,
   buildEsPacks,
@@ -138,24 +139,18 @@ describe("buildEsPacks", () => {
   });
   it("defines vocabulary words with up to 6 usable senses across their entries", () => {
     expect(packs.defs.comer).toEqual([
-      "to eat",
-      [
-        ["verb", "to eat; to dine"],
-        ["verb", "to have lunch"],
-        ["verb", "to eat away, corrode"],
-        ["verb", "to capture a piece"],
-        ["noun", "food"],
-        ["noun", "meal"],
-      ],
+      ["verb", "to eat; to dine"],
+      ["verb", "to have lunch"],
+      ["verb", "to eat away, corrode"],
+      ["verb", "to capture a piece"],
+      ["noun", "food"],
+      ["noun", "meal"],
     ]);
   });
   it("uses a sense's last gloss and readable parts of speech", () => {
-    expect(packs.defs.tomar).toEqual([
-      "to drink (a beverage)",
-      [["verb", "to drink (a beverage)"]],
-    ]);
-    expect(packs.defs.rosa).toEqual(["rose", [["noun", "rose"]]]);
-    expect(packs.defs.casa?.[1]).toEqual([
+    expect(packs.defs.tomar).toEqual([["verb", "to drink (a beverage)"]]);
+    expect(packs.defs.rosa).toEqual([["noun", "rose"]]);
+    expect(packs.defs.casa).toEqual([
       ["noun", "house"],
       ["noun", "home"],
     ]);
@@ -180,10 +175,9 @@ describe("buildEsPacks", () => {
       "tomar el pelo a alguien",
     ]);
     expect(packs.defs["tomar el pelo"]).toEqual([
-      "to pull someone's leg",
-      [["verb", "to pull someone's leg; to tease"]],
+      ["verb", "to pull someone's leg; to tease"],
     ]);
-    expect(packs.defs["de pelos"]?.[0]).toBe("great, awesome");
+    expect(shortOfSenses(packs.defs["de pelos"]!)).toBe("great, awesome");
   });
   it("leaves out non-constituents and entries with a word outside the vocabulary", () => {
     expect(packs.defs).not.toHaveProperty("comer la casa");
@@ -194,7 +188,7 @@ describe("buildEsPacks", () => {
     expect(packs.phrases.gap).toEqual([]);
   });
   it("merges phrase entries that differ only in case", () => {
-    expect(packs.defs["de la casa"]?.[1]).toEqual([
+    expect(packs.defs["de la casa"]).toEqual([
       ["phrase", "on the house (free of charge)"],
       ["phrase", "of the House (parliament)"],
     ]);
@@ -220,12 +214,9 @@ describe("buildEsPacks", () => {
     expect(lemmas.les).toBe("ustedes");
     // The obsolete sense gives none; the multi-word target is no base.
     expect(defs.les).toEqual([
-      "to them, for them",
-      [
-        ["pronoun", "to them, for them; dative of ellos and ellas"],
-        ["pronoun", "to you all; dative of ustedes"],
-        ["article", "the (plural)"],
-      ],
+      ["pronoun", "to them, for them; dative of ellos and ellas"],
+      ["pronoun", "to you all; dative of ustedes"],
+      ["article", "the (plural)"],
     ]);
     expect(pos.les).toEqual(["pronoun", "article"]);
   });
@@ -264,11 +255,11 @@ describe("buildEsPacks: alt-of senses, head-line labels, every form", () => {
       headRank: listed.length - 1,
     });
   });
-  const senses = (word: string) => packs.defs[word]?.[1];
+  const senses = (word: string) => packs.defs[word];
 
   it("gives an alt-of sense the meaning after its pointer, and its target as a base", () => {
     expect(senses("muy")).toEqual([["adverb", "very; apocopic form of mucho"]]);
-    expect(packs.defs.muy?.[0]).toBe("very");
+    expect(shortOfSenses(packs.defs.muy!)).toBe("very");
     expect(packs.lemmas.muy).toBe("mucho");
   });
   it("reads a meaning after a comma that follows a one-word target", () => {
@@ -526,25 +517,21 @@ describe("buildEsPacks: closed-class meanings", () => {
   });
   it("leads with the translation a closed-class gloss gives after its description", () => {
     expect(packs.defs.el).toEqual([
-      "the",
-      [["article", "the; masculine singular definite article"]],
+      ["article", "the; masculine singular definite article"],
     ]);
-    expect(packs.defs.lo?.[1][1]).toEqual([
+    expect(packs.defs.lo?.[1]).toEqual([
       "article",
       "the, that which is; neuter definite article used only before nominalized adjectives",
     ]);
   });
   it("gives a closed-class form its target's quoted gloss, and both classes", () => {
     expect(packs.defs.los).toEqual([
-      "the",
-      [
-        ["article", "the; masculine plural of el"],
-        ["pronoun", "them; accusative of ellos"],
-      ],
+      ["article", "the; masculine plural of el"],
+      ["pronoun", "them; accusative of ellos"],
     ]);
     expect(packs.pos.los).toEqual(["article", "pronoun"]);
     // "una" is only a form of un as an article: the treebanks' class, no meaning.
-    expect(packs.defs.una).toEqual(["one", [["pronoun", "one"]]]);
+    expect(packs.defs.una).toEqual([["pronoun", "one"]]);
     expect(packs.pos.una).toEqual(["article", "pronoun"]);
   });
 });
@@ -598,8 +585,7 @@ describe("buildEsPacks: phrases with the Spanish settings (B1, B2, B2b, B4)", ()
       "ya que",
     ]);
     expect(packs.defs["a través de"]).toEqual([
-      "through, across",
-      [["prepositional phrase", "through, across"]],
+      ["prepositional phrase", "through, across"],
     ]);
     expect(packs.phrases.pos?.detect).toBe("P r c");
   });

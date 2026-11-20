@@ -13,6 +13,7 @@ import {
   pointerLine,
   shortLines,
   shortOfDefinition,
+  shortOfSenses,
   translatedLine,
 } from "./short-lines";
 
@@ -101,6 +102,23 @@ describe("capLine", () => {
     expect(capLine("ちんぷんかんぷんの言葉", 10)).toBe("ちんぷん…");
     expect(capLine("A person who studies languages", 20)).toBe("A person who…");
     expect(capLine("ab日本語の言葉です", 9)).toBe("ab日本語…");
+  });
+});
+
+describe("shortOfSenses", () => {
+  it("is the first sense's short definition (the definitions packs store none)", () => {
+    expect(
+      shortOfSenses([
+        ["noun", "[Rare] A plan; a scheme."],
+        ["verb", "To plan."],
+      ]),
+    ).toBe("A plan");
+    expect(
+      shortOfSenses([["verb", "to have; forms the perfect", "auxiliary"]]),
+    ).toBe("to have");
+  });
+  it("is empty for an entry with no senses", () => {
+    expect(shortOfSenses([])).toBe("");
   });
 });
 

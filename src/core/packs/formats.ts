@@ -40,17 +40,19 @@ export const PACK_FORMATS: Readonly<Record<PackName, number>> = {
   en: 6,
   // 5: capital-only words in capital.json, with no lower-case entry (2026-11-19).
   "en-ja": 5,
-  "en-defs": 1,
+  // 2: no stored short definition, the first sense's made at lookup (2026-11-21; the
+  // same change in es-en, fr-en, de-en).
+  "en-defs": 2,
   // 2: pos.json and tagger.json (2026-11-18). 3: lemmas in shards, lemmas/ (2026-11-19).
   // 4: names.json (2026-11-19).
   es: 4,
-  "es-en": 1,
+  "es-en": 2,
   // 2: tagger.json (2026-11-19). 3: detected phrases, read with elisions split, pronominal
   // verbs and hyphenated compounds (2026-11-20).
   fr: 3,
-  "fr-en": 1,
+  "fr-en": 2,
   de: 1,
-  "de-en": 1,
+  "de-en": 2,
   ...(Object.fromEntries(
     Object.entries(LEARNING_PAIRS).map(([pair, { format }]) => [pair, format]),
   ) as Record<LearningPairName, number>),

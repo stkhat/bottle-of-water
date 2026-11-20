@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { shortOfSenses } from "../../src/core/lexicon/short-lines.ts";
 import { writeShards } from "./common.ts";
 import { buildEnDefs } from "./en-defs.ts";
 
@@ -46,14 +47,13 @@ describe("buildEnDefs", () => {
       "send out",
     ]);
     expect(result.defs["give"]).toEqual([
-      "To transfer the possession of a thing",
-      [["verb", "To transfer the possession of a thing."]],
+      ["verb", "To transfer the possession of a thing."],
     ]);
   });
   it("leaves out inflections, archaic senses and single-word proper nouns", () => {
     expect(result.defs).not.toHaveProperty("gave");
     expect(result.defs).not.toHaveProperty("light");
-    expect(result.defs["cool"]![1].map(([, text]) => text)).not.toContain(
+    expect(result.defs["cool"]!.map(([, text]) => text)).not.toContain(
       "Slightly cold.",
     );
   });
@@ -61,39 +61,33 @@ describe("buildEnDefs", () => {
   describe("C2: senses ranked by the source's labels", () => {
     it("moves a register-labelled sense down, for words too", () => {
       expect(result.defs["cool"]).toEqual([
-        "Having a low temperature",
-        [
-          ["adjective", "Having a low temperature."],
-          ["adjective", "Fashionable; excellent."],
-        ],
+        ["adjective", "Having a low temperature."],
+        ["adjective", "Fashionable; excellent."],
       ]);
     });
     it("moves a phrase's domain senses and usage notes down", () => {
-      expect(result.defs["knock on"]![1][0]).toEqual([
+      expect(result.defs["knock on"]![0]).toEqual([
         "verb",
         "To have an effect on something else.",
       ]);
-      expect(result.defs["all right"]![1][0]).toEqual([
+      expect(result.defs["all right"]![0]).toEqual([
         "adjective",
         "In acceptable condition.",
       ]);
     });
     it("puts first the part of speech the source translates most", () => {
-      expect(result.defs["send out"]![1].map(([pos]) => pos)).toEqual([
+      expect(result.defs["send out"]!.map(([pos]) => pos)).toEqual([
         "verb",
         "noun",
       ]);
     });
     it("gives a pointer sense the best definition of the term it names", () => {
-      expect(result.defs["kinda"]).toEqual([
-        "Slightly",
-        [["adverb", "Slightly; somewhat."]],
-      ]);
-      expect(result.defs["colour"]![1]).toEqual([
+      expect(result.defs["kinda"]).toEqual([["adverb", "Slightly; somewhat."]]);
+      expect(result.defs["colour"]!).toEqual([
         ["noun", "The spectral composition of visible light."],
       ]);
       // A letter-case form names another entry ("aka" → "AKA").
-      expect(result.defs["aka"]![1]).toEqual([
+      expect(result.defs["aka"]!).toEqual([
         ["noun", "The New Zealand vine Metrosideros fulgens."],
         [
           "preposition",
@@ -103,11 +97,11 @@ describe("buildEnDefs", () => {
       expect(result.stats.resolved).toBe(3);
     });
     it("moves a definition that describes the expression down", () => {
-      expect(result.defs["not to mention"]![0]).toBe("And also");
+      expect(shortOfSenses(result.defs["not to mention"]!)).toBe("And also");
     });
     it("moves a phrase's definitions that only name its function down, as usage notes", () => {
       // The intensifier and the indication have the bigger translation tables.
-      expect(result.defs["i mean"]![1].map(([, text]) => text)).toEqual([
+      expect(result.defs["i mean"]!.map(([, text]) => text)).toEqual([
         "Used to correct an error or slip of the tongue.",
         "A mild intensifier.",
         "An indication of approximation or uncertainty.",
@@ -163,14 +157,13 @@ describe("buildEnDefs on contractions (U1-5)", () => {
   it("keeps a contraction's own gloss where its pointer names only its host (we've)", () => {
     // Not "we"'s definition, "Excluding the person(s) being addressed".
     expect(defs["we've"]).toEqual([
-      "Contraction of we + have",
-      [["contraction", "Contraction of we + have."]],
+      ["contraction", "Contraction of we + have."],
     ]);
   });
   it("ranks a contraction's own senses first (that's)", () => {
     // The dialectal determiner comes first in the source.
-    expect(defs["that's"]![0]).toBe("That is");
-    expect(defs["that's"]![1].map(([pos]) => pos)).toEqual([
+    expect(shortOfSenses(defs["that's"]!)).toBe("That is");
+    expect(defs["that's"]!.map(([pos]) => pos)).toEqual([
       "contraction",
       "contraction",
       "contraction",
@@ -178,10 +171,7 @@ describe("buildEnDefs on contractions (U1-5)", () => {
     ]);
   });
   it("keeps the senses of a word with a contraction sense among others in their order (am)", () => {
-    expect(defs["am"]![1].map(([pos]) => pos)).toEqual([
-      "adverb",
-      "contraction",
-    ]);
+    expect(defs["am"]!.map(([pos]) => pos)).toEqual(["adverb", "contraction"]);
   });
 });
 
@@ -198,13 +188,9 @@ describe("buildEnDefs: capital-only words", () => {
     );
     // AI's initialism, not the sloth "ai".
     expect(defs.ai).toEqual([
-      "Initialism of artificial intelligence",
-      [["noun", "Initialism of artificial intelligence."]],
+      ["noun", "Initialism of artificial intelligence."],
     ]);
-    expect(defs.tokyo).toEqual([
-      "The capital city of Japan",
-      [["proper noun", "The capital city of Japan."]],
-    ]);
+    expect(defs.tokyo).toEqual([["proper noun", "The capital city of Japan."]]);
     expect(defs).not.toHaveProperty("vito");
   });
   it("defines a word that joined from Wikidata by its item first, then the entries written so", async () => {
@@ -232,15 +218,11 @@ describe("buildEnDefs: capital-only words", () => {
       },
     );
     expect(defs.nvidia).toEqual([
-      "American technology company",
-      [["proper noun", "American technology company."]],
+      ["proper noun", "American technology company."],
     ]);
     expect(defs.tokyo).toEqual([
-      "Capital of Japan",
-      [
-        ["proper noun", "Capital of Japan."],
-        ["proper noun", "The capital city of Japan."],
-      ],
+      ["proper noun", "Capital of Japan."],
+      ["proper noun", "The capital city of Japan."],
     ]);
   });
 });
@@ -261,13 +243,13 @@ describe("buildEnDefs: abbreviations", () => {
   });
 
   it("keeps what an abbreviation stands for in the definition it takes", () => {
-    expect(defs.gpu![1]).toContainEqual([
+    expect(defs.gpu!).toContainEqual([
       "noun",
       "graphics processing unit: A specialized electronic circuit designed to accelerate the creation of images.",
     ]);
   });
   it("keeps every abbreviation sense of a capital-only word", () => {
-    expect(defs.anc![1].map(([, text]) => text)).toEqual([
+    expect(defs.anc!.map(([, text]) => text)).toEqual([
       "Initialism of absolute neutrophil count.",
       "Initialism of African National Congress.",
       "Initialism of antenatal care.",
@@ -276,7 +258,7 @@ describe("buildEnDefs: abbreviations", () => {
     ]);
   });
   it("gives a dotted abbreviation its spelling without periods' senses after its own", () => {
-    expect(defs["h.r."]![1].map(([, text]) => text)).toEqual([
+    expect(defs["h.r."]!.map(([, text]) => text)).toEqual([
       "House of Representatives: The lower house of the United States Congress.",
       // HR's nested sense, with what its parent gloss abbreviates.
       "human resources: The human capital of an organization.",

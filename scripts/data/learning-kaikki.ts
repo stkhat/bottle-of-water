@@ -9,7 +9,6 @@ import { createWriteStream, existsSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { singleIpa } from "../../src/core/lexicon/ipa.ts";
 import { splitElisions } from "../../src/core/text/tokenize.ts";
-import { shortOfDefinition } from "../../src/core/lexicon/short-lines.ts";
 import {
   splitCompound,
   type CompoundRules,
@@ -1067,11 +1066,10 @@ export function byTreebank(
  */
 function definition(senses: Sense[]): DefsPack[string] {
   const once = onceEach(senses);
-  const kept = [
+  return [
     ...once.slice(0, MAX_SENSES),
     ...once.slice(MAX_SENSES).filter(verbUse),
   ];
-  return [shortOfDefinition(kept[0]![1]), kept];
 }
 
 export type LearningPacks = Awaited<ReturnType<typeof buildLearningPacks>>;
@@ -1653,7 +1651,7 @@ export async function buildLearningPacks(
   let partSenses = 0;
   if (language.compounds)
     for (const word of vocab) {
-      const [, senses] = defs[word]!;
+      const senses = defs[word]!;
       const chosen = compoundSense(senses, (capital) =>
         partGlosses.of(word, capital),
       );

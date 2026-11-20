@@ -137,15 +137,11 @@ const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
  */
 const DEFS: PackFiles["en-defs"]["defs"] = {
   dea: [
-    "diethanolamine",
-    [
-      ["noun", "diethanolamine: A hydroxy secondary amine."],
-      ["noun", "Initialism of Drug Enforcement Administration."],
-    ],
+    ["noun", "diethanolamine: A hydroxy secondary amine."],
+    ["noun", "Initialism of Drug Enforcement Administration."],
   ],
   "figure out": [
-    "To come to understand",
-    [["verb", "To come to understand; to discover or find a solution."]],
+    ["verb", "To come to understand; to discover or find a solution."],
   ],
 };
 

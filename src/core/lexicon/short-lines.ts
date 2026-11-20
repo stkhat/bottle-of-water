@@ -1,7 +1,9 @@
 /**
- * Short lines: a sense as the hover card shows it, one sense per line. The data build
- * makes each entry's `short` from its first sense this way, and the dictionaries make
- * the hover card's lines from its first senses the same way (`shortLines`).
+ * Short lines: a sense as the hover card shows it, one sense per line. An entry's
+ * `short` comes from its first sense this way (stored by the data build in en-ja and
+ * the recipe pairs, made at lookup for the definitions packs: `shortOfSenses`), and the
+ * dictionaries make the hover card's lines from its first senses the same way
+ * (`shortLines`).
  *
  * The rules come in layers, so another language pair brings only its own parts:
  * - language-independent: the cut at the first sense separator outside brackets, the
@@ -785,6 +787,14 @@ export function shortOfDefinition(text: string): string {
   );
   return /[.。]$/.test(cut) ? cut.slice(0, -1).trimEnd() : cut;
 }
+
+/**
+ * A definitions entry's short meaning (`DefsPack`: en-defs, es-en, fr-en, de-en): its
+ * first sense's (`shortOfDefinition`). The packs do not store it (format 2).
+ */
+export const shortOfSenses = (
+  senses: readonly (readonly [pos: string, text: string, ...rest: unknown[]])[],
+): string => shortOfDefinition(senses[0]?.[1] ?? "");
 
 /** Whether position `at` of `text` is inside parentheses or square brackets. */
 function insideBrackets(text: string, at: number): boolean {
