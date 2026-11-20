@@ -58,7 +58,11 @@ function auxiliary(words: readonly TaggedWord[], i: number): boolean {
   for (let j = i + 1; j < Math.min(words.length, i + 5); j++) {
     const { tag, pauseBefore } = words[j]!;
     if (pauseBefore) return false;
-    if (aux ? NONFINITE.test(tag.tag) : /^(VERB|AUX)\.Inf$/.test(tag.tag))
+    if (
+      aux
+        ? NONFINITE.test(tag.tag) && participleIfTagged(words[j]!)
+        : /^(VERB|AUX)\.Inf$/.test(tag.tag)
+    )
       return true;
     if (!BETWEEN.has(tag.label)) return false;
   }
@@ -144,6 +148,29 @@ function agrees(words: readonly TaggedWord[], j: number): boolean {
   }
   return false;
 }
+
+/**
+ * Whether the word can be a past participle, by French morphology: a form of a verb
+ * (a base other than itself, ending as infinitives do) can be one unless all its verbs
+ * are of the first group (-er), whose participles all end in -é, -ée, -és or -ées.
+ * "envie" (envier's present, and the noun) is no participle, so "j'ai pas envie" has
+ * no compound tense; "envié", "fait", "pris", "finie" can be. A word with no verb
+ * base is left to its tag.
+ */
+function canBeParticiple(word: TaggedWord): boolean {
+  const verbs = word.bases.filter(
+    (base) => base !== word.form && INFINITIVE.test(base),
+  );
+  return (
+    verbs.length === 0 ||
+    verbs.some((base) => !base.endsWith("er")) ||
+    /ée?s?$/.test(word.form)
+  );
+}
+
+/** A word not tagged as a participle, or one that can be one (`canBeParticiple`). */
+const participleIfTagged = (word: TaggedWord) =>
+  !word.tag.tag.endsWith(".Part") || canBeParticiple(word);
 
 /** The nearest form of avoir or être within three words before `i`. */
 function nearestAuxiliaryVerb(words: readonly TaggedWord[], i: number) {
@@ -395,7 +422,7 @@ function closedBase(
     auxiliaryAt--;
   const afterAvoir =
     auxiliaryAt >= Math.max(0, i - 4) && formOf(words[auxiliaryAt]!, "avoir");
-  if (/\.Part$/.test(word.tag.tag) && afterAvoir)
+  if (/\.Part$/.test(word.tag.tag) && afterAvoir && canBeParticiple(word))
     return word.bases.find(
       (base) => base !== word.form && INFINITIVE.test(base),
     );
@@ -407,7 +434,7 @@ function closedBase(
   const complement = ["de", "d'", "à"].includes(words[i + 1]?.form ?? "");
   if (
     !word.trusted &&
-    ((afterVerb(words, i, "avoir") && !complement) ||
+    ((afterVerb(words, i, "avoir") && !complement && canBeParticiple(word)) ||
       (formOf(word, "faire") && /\.Inf$/.test(words[i + 1]?.tag.tag ?? "")))
   )
     return word.bases.find(
