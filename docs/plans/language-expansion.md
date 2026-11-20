@@ -17,6 +17,7 @@ More native languages for English learners, and Spanish learning brought to Engl
 - **L2 German learning** (user, 2026-11-19): the same steps for `de` and de→en, with separable verbs, capitalised nouns and verb-final clauses: L2-1 the pack, the pair, the tagger and grammar at once; L2-2 names and vocabulary (compounds); L2-3 phrases (separable verbs as phrases, "sich")
 - **L3 French and German → other natives** that pass the gate: the recipes generalised from en→N to L→N
 - **Q1 Native leftovers** (U1-9) and **Q2 Spanish leftovers** (U2-7): the "Still open" points of the U1 and U2 steps ([status](../status.md))
+- **M0 Measure** (round 4, 2026-11-21; [notes](../notes/translation-data-expansion.md) "Round 4"): every matrix cell with at least 5M learners measured with two new sources, reverse glosses (S1) and reversed tables (S2), and token coverage on the 2026-11 corpora. Best type / tokens: th 95.3 / 98.7, id 94.7 / 97.5, ko 93.0 / 98.4, tr 92.7 / 98.0, ar 91.7 / 97.0, hi 83.7 / 91.3, fa 81.4 / 92.0, ur, bn, ta, te, mr 55–72; fr←ar 65.6, ar←id no source. Only th passes 95% (with S1); S1 comes last in any recipe (judged worse than the tables). Waits on the user: S1 as a source, the gate rule, LEXiTRON; M0b measures a machine-translated fallback for the rest
 
 ## Checklist
 - [x] D0 unbundle: packs moved to `data/packs/`, lock without `bundled`, first pair from the UI language, install-time download, E2E through routed mirrors, per-pair size guard, docs. Before merging: `@langle/en`, `@langle/en-ja`, `@langle/en-defs` published to npm by hand

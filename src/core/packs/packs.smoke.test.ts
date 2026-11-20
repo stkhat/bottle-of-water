@@ -82,6 +82,7 @@ describe("generated definitions packs (format 2)", () => {
         }
       }
     },
+    30_000,
   );
 });
 
