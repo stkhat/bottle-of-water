@@ -1,30 +1,18 @@
-// Wiktionary "Frequency lists/Spanish/Mixed 730K" (Leipzig corpora, CC BY-SA): the
-// Spanish word forms in rank order, used by es-kaikki.ts.
-// Usage: node scripts/data/es-frequency.ts   (caches the wikitext in data/raw/freq-es/)
-import { join } from "node:path";
-import { RAW_DIR, wikitext } from "./common.ts";
+// hermitdave/FrequencyWords 2018 Spanish list (`frequency-words.ts`, OpenSubtitles
+// counts, as French's): the Spanish word forms in rank order, used by es-kaikki.ts.
+// Usage: node scripts/data/es-frequency.ts   (caches the list in data/raw/freq-es/)
+import { readFrequencyWords } from "./frequency-words.ts";
 
-const MAIN_PAGE = "Wiktionary:Frequency_lists/Spanish/Mixed_730K";
-const MAIN_PAGE_RANKS = 10000;
-const SUBPAGE_RANKS = 10000;
-const CACHE_DIR = join(RAW_DIR, "freq-es");
-/** How many frequency-list entries (ranks) the Spanish pack is built from. */
-export const ES_FORMS = 150000;
-const LINK_LINE = /^\s*\[\[([^\]]+)\]\]\s*$/;
+/**
+ * How many frequency-list entries (ranks) the Spanish pack is built from: the forms
+ * said at least 4 times in the list's 423 million words. A list of subtitles holds
+ * fewer of written Spanish's words than a list of written text does: its first 150,000
+ * entries (French reads as many, said 13 times or more in 318 million words) reached
+ * 31,854 vocabulary words where Wiktionary's "Mixed 730K" reached 36,663, and an
+ * article's words went unknown (abiótico, acentuación). 400,000 reach 45,398 (2026-11-21).
+ */
+export const ES_FORMS = 400000;
 const WORD = /^\p{L}+$/u;
-
-/** The list entries in rank order, as written ("El", "El lugar"): one `[[target|label]]` per line. */
-export function parseEsFrequencyWikitext(text: string) {
-  const entries: string[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    const link = LINK_LINE.exec(line);
-    if (!link) continue;
-    const [target = "", label] = link[1]!.split("|");
-    const entry = (label ?? target.split("#")[0]!).trim();
-    if (entry) entries.push(entry);
-  }
-  return entries;
-}
 
 /** Single-word entries, lowercased, in rank order; a form keeps its best rank. */
 export function frequencyForms(entries: readonly string[]) {
@@ -36,26 +24,9 @@ export function frequencyForms(entries: readonly string[]) {
   return [...forms];
 }
 
-/** The pages holding the first `ranks` entries: the main page (1–10,000), then subpages of 10,000. */
-export function frequencyPageTitles(ranks: number) {
-  const titles = [MAIN_PAGE];
-  for (let first = MAIN_PAGE_RANKS + 1; first <= ranks; first += SUBPAGE_RANKS)
-    titles.push(`${MAIN_PAGE}/${first}-${first + SUBPAGE_RANKS - 1}`);
-  return titles;
-}
-
-/** The first `ranks` entries of the list, fetching the pages not cached yet. */
-export async function readEsFrequency(ranks = ES_FORMS) {
-  const entries: string[] = [];
-  for (const title of frequencyPageTitles(ranks)) {
-    const name = title.includes("/", MAIN_PAGE.length)
-      ? title.slice(MAIN_PAGE.length + 1)
-      : `1-${MAIN_PAGE_RANKS}`;
-    const text = await wikitext(title, join(CACHE_DIR, `${name}.wikitext`));
-    entries.push(...parseEsFrequencyWikitext(text));
-  }
-  return entries.slice(0, ranks);
-}
+/** The first `ranks` entries of the list, downloading it once. */
+export const readEsFrequency = (ranks = ES_FORMS) =>
+  readFrequencyWords("es", ranks);
 
 async function main() {
   const entries = await readEsFrequency();
