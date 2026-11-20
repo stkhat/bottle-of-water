@@ -62,3 +62,38 @@ export const NONFINITE = /^(VERB|AUX)\.(Part|Ger|Inf)$/;
 /** The word's tag when it is trusted. */
 export const trustedTagOf = (word: TaggedWord | undefined) =>
   word?.trusted ? word.tag : undefined;
+
+/** The parts of speech of a word that introduces an infinitive ("tener que", "essayer de"). */
+const INTRODUCERS: ReadonlySet<string> = new Set([
+  "preposition",
+  "conjunction",
+]);
+
+/**
+ * The construction of a verb at `i` with an infinitive after it (`WordUse.construction`):
+ * the preposition or conjunction that introduces the infinitive ("tengo que irme": que;
+ * "acabo de llegar": de), "" for an infinitive right after the verb ("suele venir"),
+ * with only words that `between` accepts before the infinitive (French object pronouns:
+ * "essayer de le faire") and no punctuation. `spelt`: the introducer as the dictionary
+ * writes it (French "d'" → "de"). Undefined when no infinitive follows, or for a word
+ * not tagged as a verb. Tags count whether trusted or not, as for an auxiliary's.
+ */
+export function infinitiveConstruction(
+  words: readonly TaggedWord[],
+  i: number,
+  between: (word: TaggedWord) => boolean = () => false,
+  spelt: (form: string) => string = (form) => form,
+): string | undefined {
+  if (words[i]!.tag.label !== "verb") return undefined;
+  let j = i + 1;
+  const next = words[j];
+  if (next === undefined || next.pauseBefore) return undefined;
+  const introducer = INTRODUCERS.has(next.tag.label) ? spelt(next.form) : "";
+  if (introducer !== "") j++;
+  while (words[j] !== undefined && !words[j]!.pauseBefore && between(words[j]!))
+    j++;
+  const verb = words[j];
+  if (verb === undefined || verb.pauseBefore || !/\.Inf$/.test(verb.tag.tag))
+    return undefined;
+  return introducer;
+}

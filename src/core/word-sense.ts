@@ -11,6 +11,7 @@ import {
   accepts,
   AUXILIARY,
   AUXILIARY_BASE,
+  constructionPos,
   PRONOMINAL,
   PRONOMINAL_ACCUSATIVE,
   PRONOMINAL_DATIVE,
@@ -321,7 +322,8 @@ const mainlyVerb = (word: string, pack: Pick<LanguagePack, "partsOfSpeech">) =>
  * grammar reads as pronominal (`WordUse.pronominal`) is PRONOMINAL (PRONOMINAL_DATIVE,
  * PRONOMINAL_ACCUSATIVE where its pronoun's case shows); a pronoun whose number the
  * grammar reads (`WordUse.number`) is "pronoun singular" or "pronoun plural"
- * (`PRONOUN_NUMBER`).
+ * (`PRONOUN_NUMBER`). A verb before an infinitive (`WordUse.construction`) is that
+ * part of speech with the word that introduces it (`constructionPos`: "verb +que").
  */
 export function sensePos(
   form: string,
@@ -332,15 +334,22 @@ export function sensePos(
   const pos = readingPos(form, key, reading, ownEntry);
   // A verb the grammar reads as pronominal: its reflexive senses first ("il se
   // passe": to happen; PRONOMINAL).
-  const { number } = reading.use;
+  const { number, construction } = reading.use;
   if (pos === "pronoun" && number !== undefined) return `pronoun ${number}`;
-  if (pos !== "verb" || !reading.use.pronominal) return pos;
+  if (pos !== "verb") return pos;
   const reflexiveCase = reading.use.reflexiveCase;
-  return reflexiveCase === "dative"
-    ? PRONOMINAL_DATIVE
-    : reflexiveCase === "accusative"
-      ? PRONOMINAL_ACCUSATIVE
-      : PRONOMINAL;
+  const verb = !reading.use.pronominal
+    ? pos
+    : reflexiveCase === "dative"
+      ? PRONOMINAL_DATIVE
+      : reflexiveCase === "accusative"
+        ? PRONOMINAL_ACCUSATIVE
+        : PRONOMINAL;
+  // Before an infinitive, the senses said with the word that introduces it ("tengo
+  // que irme": to have to).
+  return construction === undefined
+    ? verb
+    : constructionPos(verb, construction);
 }
 
 /** `sensePos` but for a pronominal verb. */

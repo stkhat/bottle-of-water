@@ -8,7 +8,13 @@
  */
 import { tagSentence, type PerceptronModel } from "./perceptron";
 import type { Tagger, TaggedWord, WordRole, WordUse } from "./tagger";
-import { formOf, NONFINITE, trustedTagOf, udTokenTag } from "./ud";
+import {
+  formOf,
+  infinitiveConstruction,
+  NONFINITE,
+  trustedTagOf,
+  udTokenTag,
+} from "./ud";
 
 /**
  * A tag's score margin from which it is trusted. On the treebanks' dev sets, 5 keeps
@@ -168,6 +174,30 @@ function notCopula(
   };
 }
 
+/**
+ * The relative pronoun "que": Spanish writes the interrogative "qué" with its accent,
+ * so a "que" tagged as a pronoun is the relative ("un clásico que no puede faltar",
+ * "lo que hago", "la mujer con la que hablé"). English says "that" of persons and
+ * things alike and "who" of persons only; the dictionary lists "who; that" as the
+ * pronoun and "that" with the conjunction, so the relative is read by the conjunction
+ * (as French reads its relative "que").
+ */
+const relativeQue = (word: TaggedWord) =>
+  word.form === "que" && word.tag.label === "pronoun";
+
+/**
+ * A verb before an infinitive (`WordUse.construction`): "tengo que irme", "vamos a
+ * ver", "acaba de llegar", "suele venir". Spanish attaches its object pronouns to the
+ * infinitive ("tengo que hacerlo"), so none stands between.
+ */
+function construction(
+  words: readonly TaggedWord[],
+  i: number,
+): Pick<WordUse, "construction"> {
+  const found = infinitiveConstruction(words, i);
+  return found === undefined ? {} : { construction: found };
+}
+
 function use(words: readonly TaggedWord[], i: number): WordUse {
   return {
     auxiliary: auxiliary(words, i),
@@ -175,7 +205,9 @@ function use(words: readonly TaggedWord[], i: number): WordUse {
     // A participle does not stand for a preposition in Spanish.
     prepositionSlot: false,
     ...(articleNotClitic(words, i) && { label: "determiner" }),
+    ...(relativeQue(words[i]!) && { grammarPos: "conjunction" }),
     ...notCopula(words, i),
+    ...construction(words, i),
   };
 }
 
