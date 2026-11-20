@@ -116,6 +116,30 @@ export const recipeTags = (recipe: Recipe) => [
   ...(recipe.wordnets ?? []),
 ];
 
+/**
+ * Each Wiktionary edition's undocumented bot imports, by edition code: the pages a bot
+ * created without saying where their text came from. Every build that reads the
+ * edition leaves their entries out (provenance; `undocumentedPages`): the English
+ * pair's edition source (en-fr), a learning pair's edition and reversed tables
+ * (de-fr), and the learning pack's own-edition examples and pronunciations (fr).
+ * Wiktionnaire: PiedBot's 2005–2006 batches, 76,335 pages (L3: of its German entries,
+ * about half of the French glosses are not in de.wiktionary's rows of the time; its
+ * English batches of January and May 2006 gave a quarter of en-fr's Wiktionnaire
+ * terms). Read from Wikimedia's MediaWiki history dump of the edition
+ * (data/raw/mediawiki-history/, a file per year: `files`).
+ */
+export const UNDOCUMENTED_IMPORTS: Readonly<
+  Partial<Record<string, { files: readonly string[]; user: string }>>
+> = {
+  fr: {
+    files: [
+      "2026-10.frwiktionary.2005.tsv.bz2",
+      "2026-10.frwiktionary.2006.tsv.bz2",
+    ],
+    user: "PiedBot",
+  },
+};
+
 /** The sources a learning-language pair recipe reads (L3). */
 export type LearningSourceKind = "edition" | "tables" | "reversed";
 
@@ -138,15 +162,6 @@ export interface LearningRecipe {
   tables?: { langCodes: string[] };
   /** Chinese in simplified characters (`Recipe.simplified`). */
   simplified?: boolean;
-  /**
-   * Pages of the native edition a bot created without saying where their text came
-   * from: their entries are left out of `edition` and `reversed` (provenance, L3:
-   * PiedBot's 2005–2006 batches on Wiktionnaire; of its German entries, about half of
-   * the French glosses are not in de.wiktionary's rows of the time). Read from
-   * Wikimedia's MediaWiki history dump of the edition (data/raw/mediawiki-history/, a
-   * file per year: `files`).
-   */
-  undocumented?: { files: readonly string[]; user: string };
 }
 
 /** The learning-language pairs a recipe builds and Settings may offer. */
@@ -159,13 +174,6 @@ export const LEARNING_RECIPES: Readonly<
   // over the edition 44 : 32, words and corpus tokens together).
   "de-fr": {
     order: ["tables", "reversed", "edition"],
-    undocumented: {
-      files: [
-        "2026-10.frwiktionary.2005.tsv.bz2",
-        "2026-10.frwiktionary.2006.tsv.bz2",
-      ],
-      user: "PiedBot",
-    },
   },
 };
 

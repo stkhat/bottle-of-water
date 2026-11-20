@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"$","last":"forepaw"},{"file":"dict-2.json","first":"foreplay","last":"priapism"},{"file":"dict-3.json","first":"price","last":"ö"}],
+"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"$","last":"fluke"},{"file":"dict-2.json","first":"flume","last":"poodle"},{"file":"dict-3.json","first":"poof","last":"ö"}],
 "sources":["frwiktionary","enwiktionary-translations"]
 }

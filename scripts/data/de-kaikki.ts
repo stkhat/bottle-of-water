@@ -36,6 +36,7 @@ import {
   type LearningBuild,
 } from "./learning-kaikki.ts";
 import type { PhraseBuildLanguage } from "./phrases.ts";
+import { undocumentedPages } from "./recipes/undocumented.ts";
 
 const KAIKKI_DE_PATH = join(RAW_DIR, "kaikki-de.jsonl");
 const KAIKKI_DE_EDITION_PATH = join(RAW_DIR, "kaikki-de-edition.jsonl");
@@ -140,6 +141,8 @@ async function main() {
       treebank: await germanTreebankLemmas(),
       casePaths: [KAIKKI_DE_EDITION_SLIM_PATH],
       ipaPaths: [KAIKKI_DE_EDITION_SLIM_PATH],
+      // Entries on pages of an undocumented bot import are left out.
+      leftOut: await undocumentedPages("de"),
       written,
       // The phrase score reads English Wiktionary's German examples alone, as
       // French's (L1-4): with de.wiktionary's too, its count terms leave most common

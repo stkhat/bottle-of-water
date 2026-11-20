@@ -42,6 +42,7 @@ import { GATE, pairCoverage } from "../gate.ts";
 import { contentWords } from "../content-words.ts";
 import { degreeOf } from "../../../src/core/lexicon/short-lines.ts";
 import { learningSlimPath, LEARNING_PAIR_LANGS } from "./learning-slim.ts";
+import { undocumentedPages } from "./undocumented.ts";
 import {
   addSense,
   capitalTermOf,
@@ -253,7 +254,7 @@ export async function readReversedTables(
     native: string;
     nativeForm?: (word: string) => string;
     letter?: RegExp;
-    /** Native pages left out (`LearningRecipe.undocumented`). */
+    /** Native pages left out (`undocumentedPages`). */
     leftOut?: ReadonlySet<string>;
   },
 ) {
@@ -329,62 +330,6 @@ export async function readReversedTables(
     return finish(terms, (text) => text);
   };
   return { terms: termsOf(found), capital: termsOf(capitalFound), stats };
-}
-
-/** Columns of Wikimedia's MediaWiki history dump (its TSV schema). */
-const HISTORY = {
-  entity: 2,
-  comment: 5,
-  user: 9,
-  title: 29,
-  namespace: 31,
-  parent: 61,
-} as const;
-
-/**
- * The pages `user` created in the main namespace with no edit summary, by a year of
- * an edition's MediaWiki history dump (bzip2: read through `bzcat`).
- */
-async function undocumentedPages(
-  path: string,
-  user: string,
-): Promise<Set<string>> {
-  const { spawn } = await import("node:child_process");
-  const { createInterface } = await import("node:readline");
-  const child = spawn("bzcat", [path], {
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  const pages = new Set<string>();
-  for await (const line of createInterface({ input: child.stdout })) {
-    const cells = line.split("\t");
-    if (
-      cells[HISTORY.user] === user &&
-      cells[HISTORY.entity] === "revision" &&
-      cells[HISTORY.namespace] === "0" &&
-      cells[HISTORY.parent] === "0" &&
-      cells[HISTORY.comment] === ""
-    )
-      pages.add(cells[HISTORY.title]!.replaceAll("_", " "));
-  }
-  return pages;
-}
-
-/** Each recipe's undocumented pages, read once (the edition and reversed tables share them). */
-const undocumentedRead = new Map<LearningRecipe, Promise<Set<string>>>();
-
-/** The pages of a recipe's undocumented bot imports (`LearningRecipe.undocumented`). */
-function undocumentedOf(recipe: LearningRecipe, rawDir: string) {
-  let found = undocumentedRead.get(recipe);
-  if (!found) {
-    const { files = [], user = "" } = recipe.undocumented ?? {};
-    found = Promise.all(
-      files.map((file) =>
-        undocumentedPages(join(rawDir, "mediawiki-history", file), user),
-      ),
-    ).then((sets) => new Set(sets.flatMap((set) => [...set])));
-    undocumentedRead.set(recipe, found);
-  }
-  return found;
 }
 
 /** A source's terms: lower-case headwords, and capitalised ones (lower-case keys). */
@@ -465,6 +410,8 @@ async function readSource(
       native,
       learning: LEARNING[words.lang].text,
       capitalWords: LEARNING[words.lang].nounsCapitalised,
+      // Entries on pages of an undocumented bot import are left out.
+      leftOut: await undocumentedPages(native, rawDir),
       // A sense its source calls reflexive or pronominal is the verb's reflexive one.
       sensePos: (sense, pos) =>
         pos === "verb" && reflexiveSense(sense.tags) ? REFLEXIVE_POS : pos,
@@ -475,14 +422,6 @@ async function readSource(
     for (const [key, item] of read.capital) {
       item.senses = item.senses.filter(([pos]) => pos !== "proper noun");
       if (item.senses.length === 0) read.capital.delete(key);
-    }
-    // Entries on pages of an undocumented bot import are left out.
-    if (recipe.undocumented) {
-      const pages = await undocumentedOf(recipe, rawDir);
-      for (const key of [...read.terms.keys()])
-        if (pages.has(key)) read.terms.delete(key);
-      for (const key of [...read.capital.keys()])
-        if (pages.has(key)) read.capital.delete(key);
     }
     const lowered = (map: Map<string, SourceTerm>) =>
       new Map([...map].map(([key, item]) => [key.toLowerCase(), item]));
@@ -526,9 +465,7 @@ async function readSource(
   }
   return readReversedTables(nativeSlim, words, {
     native,
-    ...(recipe.undocumented && {
-      leftOut: await undocumentedOf(recipe, rawDir),
-    }),
+    leftOut: await undocumentedPages(native, rawDir),
     ...(toSimplified && { nativeForm: toSimplified }),
     ...(letter && { letter }),
   });

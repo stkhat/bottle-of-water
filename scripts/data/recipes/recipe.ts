@@ -758,7 +758,13 @@ export async function readEdition(
     learning = ENGLISH_TEXT,
     sensePos = (_sense, pos) => pos,
     capitalWords = false,
+    leftOut = new Set(),
   }: {
+    /**
+     * Pages whose entries are not read (`undocumentedPages`: an undocumented bot
+     * import's).
+     */
+    leftOut?: ReadonlySet<string>;
     /**
      * A capitalised headword is a word, not a name (L3: German nouns): its glosses are
      * read as a lower-case term's (placeholders, case, MAX_SENSES), though still kept
@@ -832,7 +838,8 @@ export async function readEdition(
           )
             nativeForms.add(form);
     }
-    if (entry.lang_code !== learning.code) return;
+    if (entry.lang_code !== learning.code || leftOut.has(entry.word.trim()))
+      return;
     const head = entry.word.trim().toLowerCase();
     for (const sense of entry.senses ?? []) {
       const clean = cleanGloss(sense);
