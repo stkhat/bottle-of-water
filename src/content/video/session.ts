@@ -241,6 +241,7 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     watch?.controller.abort();
     watch = undefined;
     lookup.setCasing(undefined);
+    lookup.setDocument(undefined);
     cards.dismissHover();
     selection.clear();
     explain.close();
@@ -334,6 +335,8 @@ export async function startVideo(deps: VideoDeps): Promise<VideoSession> {
     lookup.setCasing(
       documentCasing(state.cues.map((cue) => textCasing(cue.text, lang()))),
     );
+    // So is the text an abbreviation's card reads its expansion from.
+    lookup.setDocument(() => state.cues.map((cue) => cue.text).join("\n"));
     store.set({ status: "ready", ...state });
     if (state.translationSource === "builtIn")
       subtitlePair = { from: lang(), to: settings.nativeLang };

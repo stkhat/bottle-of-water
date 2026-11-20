@@ -76,6 +76,18 @@ interface ShownTerm extends Term {
   sentence?: string;
 }
 
+/**
+ * A term whose lookup reads its document: a word written in capitals, the way an
+ * abbreviation is (DEA, D.A.), whose card leads with the expansion the document
+ * spells out. Not one in lower case: "p.m." in a text about the Prime Minister is
+ * still the afternoon.
+ */
+/** A possessive or plural ending after an acronym's two capitals or more: DEA's, GPUs. */
+const ACRONYM_ENDING = /(?<=^[\p{Lu}.]*\p{Lu}[\p{Lu}.]*\p{Lu}\.?)['’]?s$/u;
+
+const readsDocument = (term: ShownTerm) =>
+  term.kind === "word" && term.written === "upper";
+
 /** The popup's requests about a page (see `page-protocol.ts`), as the page answers them. */
 export interface PageAnswers {
   saveAll(status: TermStatus): Promise<unknown>;
@@ -164,6 +176,8 @@ export function createLookup(
   let warmed = false;
   /** The document's casing (rule D), which every analysis sends. */
   let casing: DocumentCasing | undefined;
+  /** The document's text, read when an abbreviation's card asks for it. */
+  let documentText: (() => string) | undefined;
   /** An analysis found language data missing: none is asked for until it is there. */
   let waits = false;
   /**
@@ -213,7 +227,12 @@ export function createLookup(
       return queue.then(answers.summary);
     },
     describe: (term: ShownTerm, shownIn: "hover" | "window" = "hover") =>
-      describeTerm(term, { ...translation(), sourceUrl: page.url(), shownIn }),
+      describeTerm(
+        documentText && readsDocument(term)
+          ? { ...term, document: documentText() }
+          : term,
+        { ...translation(), sourceUrl: page.url(), shownIn },
+      ),
     /** The casing of the document the page analyzes now (a video's captions, the article). */
     get casing() {
       return casing;
@@ -221,15 +240,25 @@ export function createLookup(
     setCasing(next: DocumentCasing | undefined) {
       casing = next;
     },
+    /** The text of the document the page analyzes now, read when a card needs it. */
+    setDocument(text: (() => string) | undefined) {
+      documentText = text;
+    },
     /**
      * How a word span was written, as its lookup says it (`Written`): capitalised in a
-     * way that counts (`Span.capital`), as an acronym when that is in capitals only,
-     * or in lower case in a mixed-case document; else not said (a caseless document, a
-     * capital at a sentence start, a phrase).
+     * way that counts (`Span.capital`), as an acronym when that is in capitals only
+     * (with a possessive or plural ending: DEA's, GPUs; not Ms), or in lower case in a
+     * mixed-case document; else not said (a caseless document, a capital at a
+     * sentence start, a phrase).
      */
     written(span: Span, surface: string): Written | undefined {
       if (span.kind !== "word") return undefined;
-      if (span.capital) return /\p{Ll}/u.test(surface) ? "capital" : "upper";
+      if (span.capital)
+        return !/\p{Ll}/u.test(surface.replace(ACRONYM_ENDING, ""))
+          ? "upper"
+          : span.run
+            ? "run"
+            : "capital";
       return casing?.mode === "mixed" && /^\p{Ll}/u.test(surface)
         ? "lower"
         : undefined;

@@ -8,6 +8,7 @@ import {
   withWrittenHeads,
 } from "./dictionary";
 import type { PairPack } from "../packs/types";
+import { writesPhrase } from "./expansions";
 
 const dictionary = createEnJaDictionary({
   dict: {
@@ -105,6 +106,14 @@ const dictionary = createEnJaDictionary({
   // English definitions of phrases neither has.
   defs: {
     nov: ["A novice", [["noun", "A novice."]]],
+    // An initialism of several things, the most translated first.
+    dea: [
+      "A hydroxy secondary amine",
+      [
+        ["noun", "A hydroxy secondary amine."],
+        ["proper noun", "Initialism of Drug Enforcement Administration."],
+      ],
+    ],
     "give up": ["(unused)", [["verb", "(unused)"]]],
     "search for": ["Synonym of look for", [["verb", "Synonym of look for"]]],
     "look for": [
@@ -274,6 +283,11 @@ describe("createEnJaDictionary", () => {
       head: "US",
       lines: ["United States 合衆国"],
     });
+    // In a run of capitals, perhaps a name's word: its lowercase senses follow.
+    expect(dictionary.entry("japan", "run")).toMatchObject({
+      head: "japan",
+      lines: ["日本", "黒い漆", "…に黒漆を塗る"],
+    });
     // Where the page does not say, the word's own senses, then the capitalised ones.
     expect(dictionary.entry("japan")).toMatchObject({
       head: "japan",
@@ -324,6 +338,34 @@ describe("createEnJaDictionary", () => {
       "ante meridiem 午前",
       "午前",
     ]);
+  });
+
+  it("leads an abbreviation with the expansion its document spells out", () => {
+    const spelledOut = (text: string) => (phrase: string) =>
+      writesPhrase(text, phrase);
+    const news = spelledOut("The Prime Minister spoke at 5 P.M. today.");
+    const pm = dictionary.entry("p.m.", "upper", undefined, undefined, news);
+    expect(pm).toMatchObject({
+      short: "Prime Minister",
+      lines: ["Prime Minister", "午後(ラテン語post meridiemの略)", "paymaster"],
+    });
+    // Senses stay in the dictionary's order (its core translation first).
+    expect(pm?.senses[0]?.text).toBe("午後(ラテン語post meridiemの略)");
+    // An English definition (DEA, from en-defs).
+    const show = spelledOut(
+      "The DEA? That's the Drug Enforcement Administration.",
+    );
+    expect(
+      dictionary.entry("dea", "upper", undefined, undefined, show)?.short,
+    ).toBe("Initialism of Drug Enforcement Administration");
+    expect(dictionary.entry("dea", "upper")?.short).toBe(
+      "A hydroxy secondary amine",
+    );
+    // A document that spells none out leaves the dictionary's order.
+    expect(
+      dictionary.entry("dea", "upper", undefined, undefined, spelledOut("DEA"))
+        ?.short,
+    ).toBe("A hydroxy secondary amine");
   });
 
   it("gives a word in lower case its lowercase senses only", () => {

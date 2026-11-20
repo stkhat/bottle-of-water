@@ -204,6 +204,12 @@ export type Request =
       clitic?: string;
       /** The word as written on the page, when it is not the key ("it's" keyed "it"). */
       surface?: string;
+      /**
+       * The text of the document an abbreviation written in capitals is in (a video's
+       * captions, the article): its card leads with the expansion the text spells out
+       * (`DictionaryProvider.entry`'s `spelledOut`).
+       */
+      document?: string;
     }
   | ({ type: "saveTerm" } & SaveTermInput)
   | ({ type: "chooseMeaning" } & ChooseMeaningInput)

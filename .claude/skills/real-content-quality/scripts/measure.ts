@@ -119,6 +119,9 @@ function meaningFrom(key: string): string | undefined {
   return undefined;
 }
 
+/** A possessive or plural ending after an acronym's two capitals or more. */
+const ACRONYM_ENDING = /(?<=^[\p{Lu}.]*\p{Lu}[\p{Lu}.]*\p{Lu}\.?)['’]?s$/u;
+
 /** How the page says a word was written (content/lookup/lookup.ts, `written`). */
 function writtenOf(
   span: Span,
@@ -126,7 +129,13 @@ function writtenOf(
   casing: DocumentCasing,
 ): Written | undefined {
   if (span.kind !== "word") return undefined;
-  if (span.capital) return /\p{Ll}/u.test(surface) ? "capital" : "upper";
+  if (span.capital)
+    // An acronym's possessive or plural ending says nothing (DEA's, GPUs; not Ms).
+    return !/\p{Ll}/u.test(surface.replace(ACRONYM_ENDING, ""))
+      ? "upper"
+      : (span as { run?: true }).run
+        ? ("run" as Written)
+        : "capital";
   return casing.mode === "mixed" && /^\p{Ll}/u.test(surface)
     ? "lower"
     : undefined;
@@ -145,13 +154,14 @@ function hoverOf(
   pos?: string,
   surface?: string,
   clitic?: string,
+  spelledOut?: (phrase: string) => boolean,
 ): {
   hover: string[];
   hoverKind: HoverKind;
   fallback?: string[];
   note?: string;
 } {
-  const entry = dictionary.entry(key, written, pos, clitic);
+  const entry = dictionary.entry(key, written, pos, clitic, spelledOut);
   // A contraction's note (content/lookup/describe.ts, `contractionNote`): its entry's,
   // or, keyed by another word ("it's" by "it"), what the pack says it is short for.
   const form = surface?.toLowerCase().replaceAll("’", "'");
@@ -231,6 +241,25 @@ for (const [doc, list] of byDoc) {
   const casing = documentCasing(
     list.map((u) => blockCasing(pack.tokenize(u.text), LEARNING)),
   );
+  // An acronym's lookup reads the document's text for the expansion it spells out
+  // (content/lookup/lookup.ts, `readsDocument`; `writesPhrase`, inlined so that
+  // checkouts without it run too).
+  const text = list.map((u) => u.text).join("\n");
+  const spelled = new Map<string, boolean>();
+  const spelledOut = (phrase: string) => {
+    let found = spelled.get(phrase);
+    if (found === undefined) {
+      const words = phrase
+        .split(/\s+/)
+        .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      found = new RegExp(
+        `(?<![\\p{L}\\p{N}])${words.join("[\\s\\u00a0-]+")}(?![\\p{L}\\p{N}])`,
+        "iu",
+      ).test(text);
+      spelled.set(phrase, found);
+    }
+    return found;
+  };
   const options = {
     terms: new Map(),
     knownLevel: LEVEL,
@@ -327,6 +356,7 @@ for (const [doc, list] of byDoc) {
               s.pos,
               surface,
               (s as { clitic?: string }).clitic,
+              written === "upper" ? spelledOut : undefined,
             ),
           )
         : { hover: [], hoverKind: "none" as const };

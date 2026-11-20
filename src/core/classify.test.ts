@@ -935,6 +935,18 @@ describe("names by document casing (rule D)", () => {
     expect(spans.find((s) => s.text === "US")).toMatchObject({ capital: true });
   });
 
+  it("marks a capitalised word next to another one as in a run (a name's word)", () => {
+    const spans = run(["We went to Japan and the Japan Park in the park."]);
+    const japan = spans.filter((s) => s.text === "Japan");
+    expect(japan[0]).toMatchObject({ capital: true });
+    expect(japan[0]).not.toHaveProperty("run");
+    expect(japan[1]).toMatchObject({ capital: true, run: true });
+    // An acronym is read as written next to a capitalised word too.
+    expect(
+      run(["We met US Park staff in the park."]).find((s) => s.text === "US"),
+    ).not.toHaveProperty("run");
+  });
+
   it("ignores a name the document always capitalises inside sentences", () => {
     expect(
       verdicts(
