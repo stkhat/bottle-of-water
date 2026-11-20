@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"dict-1.json","first":"a","last":"insgesamt"},{"file":"dict-2.json","first":"insider","last":"venushügel"},{"file":"dict-3.json","first":"venusmuschel","last":"üppig"}],
+"shards":[{"file":"dict-1.json","first":"a","last":"kratzbürstig"},{"file":"dict-2.json","first":"kratze","last":"zeitungsartikel"},{"file":"dict-3.json","first":"zeitungsausschnitt","last":"üppig"}],
 "sources":["dewiktionary-translations","frwiktionary-translations","frwiktionary-de"]
 }

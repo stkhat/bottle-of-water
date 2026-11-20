@@ -175,44 +175,39 @@ const TEST_PACKS: PackFiles = {
   // English sense as the hint); anything else falls back to en-defs.
   "en-es": {
     dict: {
-      crust: [
-        "corteza",
-        [["noun", "corteza, costra", "outer layer of bread"]],
-        1,
-      ],
-      loaf: ["hogaza", [["noun", "Pieza de pan."]], 0],
+      crust: [[["noun", "corteza, costra", "outer layer of bread"]], 1],
+      loaf: [[["noun", "Pieza de pan."]], 0],
     },
   },
   "en-pt": {
-    dict: { loaf: ["pão", [["noun", "pão"]], 0] },
+    dict: { loaf: [[["noun", "pão"]], 0] },
   },
   // Translation tables first, then the edition (`afterTables`).
   "en-ru": {
     dict: {
-      loaf: ["буханка", [["noun", "буханка, батон", "block of bread"]], 0],
+      loaf: [[["noun", "буханка, батон", "block of bread"]], 0],
     },
   },
   "en-fr": {
-    dict: { loaf: ["pain", [["noun", "pain"]], 0] },
+    dict: { loaf: [[["noun", "pain"]], 0] },
   },
   "en-de": {
-    dict: { loaf: ["Laib", [["noun", "Laib, Brotlaib", "block of bread"]], 0] },
+    dict: { loaf: [[["noun", "Laib, Brotlaib", "block of bread"]], 0] },
   },
   "en-zh": {
-    dict: { loaf: ["一条", [["noun", "一条, 一块", "block of bread"]], 0] },
+    dict: { loaf: [[["noun", "一条, 一块", "block of bread"]], 0] },
   },
   "en-it": {
-    dict: { loaf: ["pagnotta", [["noun", "pagnotta", "block of bread"]], 0] },
+    dict: { loaf: [[["noun", "pagnotta", "block of bread"]], 0] },
   },
   // Its own Wiktionary first.
   "en-pl": {
-    dict: { loaf: ["bochenek", [["noun", "bochenek"]], 0] },
+    dict: { loaf: [[["noun", "bochenek"]], 0] },
   },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
       essen: [
-        "manger",
         [
           ["verb", "manger", "Nahrung zu sich nehmen"],
           ["noun", "repas", "Mahlzeit"],
@@ -220,7 +215,7 @@ const TEST_PACKS: PackFiles = {
         0,
         [1],
       ],
-      haus: ["maison", [["noun", "maison", "Gebäude"]], 0, [0]],
+      haus: [[["noun", "maison", "Gebäude"]], 0, [0]],
     },
   },
 };

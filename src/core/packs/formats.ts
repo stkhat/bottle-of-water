@@ -19,7 +19,9 @@ const RECIPE_PAIRS = recipeNatives().map(
  * its fallback (English definitions, translated at display time).
  */
 export const LEARNING_PAIRS = {
-  "de-fr": { format: 1 },
+  // 2: the short meaning stored only where it is not its senses' (2026-11-21), as the
+  // recipe pairs' format 4.
+  "de-fr": { format: 2 },
 } as const;
 
 export type LearningPairName = keyof typeof LEARNING_PAIRS;

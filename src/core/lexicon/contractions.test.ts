@@ -39,7 +39,6 @@ const DEFS: DefsPack = {
 /** As en-pl and en-ru have them (2026-11). */
 const PAIR: PairPack = {
   "that's": [
-    "that is",
     [
       ["contraction", "that is", null, "is"],
       ["contraction", "that has", null, "has"],
@@ -47,18 +46,17 @@ const PAIR: PairPack = {
     0,
   ],
   "there's": [
-    "there has",
     [
       ["contraction", "there has", null, "has"],
       ["contraction", "there are", null, "are"],
     ],
     0,
   ],
-  are: ["ar, 100 m²", [["noun", "ar, 100 m²", "unit of area"]], 1],
-  is: ["jest", [["verb", "jest", "be"]], 1],
-  has: ["ma", [["verb", "ma", "have"]], 1],
-  "don't": ["nie", [["verb", "nie", "do not"]], 1],
-  loaf: ["bochenek", [["noun", "bochenek", "bread"]], 1],
+  are: [[["noun", "ar, 100 m²", "unit of area"]], 1],
+  is: [[["verb", "jest", "be"]], 1],
+  has: [[["verb", "ma", "have"]], 1],
+  "don't": [[["verb", "nie", "do not"]], 1],
+  loaf: [[["noun", "bochenek", "bread"]], 1],
 };
 
 const pair = withContractions(
@@ -123,7 +121,6 @@ describe("withContractions", () => {
       createPairDictionary({
         dict: {
           "she's": [
-            "contracción de she is, ella es o ella esta",
             [
               ["contraction", "contracción de she is, ella es o ella esta"],
               ["contraction", "contracción de she has, ella tiene"],

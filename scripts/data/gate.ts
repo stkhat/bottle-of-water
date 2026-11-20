@@ -87,7 +87,7 @@ export function pairCoverage({
 /** The learning language's content words and phrase patterns, from its built packs. */
 function learningTerms(
   lang: (typeof LANGUAGE_PACKS)[number],
-  dictionary: Readonly<Record<string, readonly [string, ...unknown[]]>>,
+  dictionary: Readonly<Record<string, readonly unknown[]>>,
 ) {
   const { dir } = PACKS[lang];
   const phrases = readPack<PhrasePatterns>("phrases.json", dir);
@@ -141,7 +141,8 @@ function pairSources(
   dictionary: keyof typeof DICTIONARY_PACKS,
 ) {
   const { dir } = PACKS[dictionary];
-  const dict = readDictPacks<readonly [string, unknown, number?]>(dir);
+  // A pair pack's entry: its senses, then its source (`PairEntry`).
+  const dict = readDictPacks<readonly [unknown, number?]>(dir);
   if (dictionary === "en-ja") {
     const ja = readPack<DictPack>("phrases.json", dir);
     return {
@@ -161,7 +162,7 @@ function pairSources(
       !Object.hasOwn(dict, term)
         ? undefined
         : sources
-          ? sources[dict[term]![2]!]
+          ? sources[dict[term]![1]!]
           : `${native}wiktionary-${learning}`,
   };
 }
