@@ -21,6 +21,7 @@ import {
   type LearningPacks,
 } from "./learning-kaikki.ts";
 import type { PhraseBuildLanguage } from "./phrases.ts";
+import { undocumentedPages } from "./recipes/undocumented.ts";
 
 export {
   altMeaning,
@@ -107,6 +108,8 @@ async function main() {
     treebank: await treebankLemmas(),
     fixed: await treebankFixed(),
     casePaths: [KAIKKI_ES_EDITION_PATH],
+    // Entries on pages of an undocumented bot import are left out.
+    leftOut: await undocumentedPages("es"),
   });
   console.log(buildSummary("es", packs, writeEsPacks(packs)));
   if (packs.stats.unparsable > 0) process.exitCode = 1;

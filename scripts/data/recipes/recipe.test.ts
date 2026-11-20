@@ -207,6 +207,16 @@ describe("readEdition", () => {
       ["verb", "Fazer algo. Depois outra coisa."],
     ]);
   });
+
+  it("reads no entry on a page `leftOut` names (an undocumented bot import's)", async () => {
+    const { terms, capital } = await readEdition(
+      join(FIXTURES, "edition-pt.jsonl"),
+      termKey,
+      { leftOut: new Set(["light", "Light"]) },
+    );
+    expect([...terms.keys()]).toEqual(["give up", "upset"]);
+    expect(capital.size).toBe(0);
+  });
 });
 
 describe("readEdition: native case and script", () => {

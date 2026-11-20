@@ -210,7 +210,7 @@ Over the corpus (en-ja): unknown tokens 3,524 → 3,386 (YouTube 957 → 905, Ne
 
 Meanings: en-ja gives 3,532 of the words Japanese from Wikidata (新幹線 / 日本の高速鉄道, OpenAIが開発したチャットボット); en-defs defines 4,440; the recipe pairs 2,094 (pt) to 4,177 (fr).
 
-Sizes (raw), main → now: `en` 6.94 → 7.00 MB, `en-ja` 8.01 → 8.44, `en-defs` 22.69 → 23.67; the recipe pairs +0.31 (pt) to +0.75 MB (ru). Downloads per pair: en→ja 37.63 → 39.11 MB (+3.9%), en→es 34.71 → 36.36 (+4.7%), en→pt 33.71 → 35.07 (+4.0%), en→ru 37.26 → 39.06 (+4.8%), en→fr 35.89 → 37.63 (+4.8%), en→de 36.02 → 37.77 (+4.9%), en→zh 35.75 → 37.42 (+4.7%), en→it 35.42 → 36.97 (+4.4%), en→pl 36.62 → 38.05 (+3.9%); all under the 40 MB guard, en→ja and en→ru with under 1 MB left.
+Sizes (raw), main → now: `en` 6.94 → 7.00 MB, `en-ja` 8.01 → 8.44, `en-defs` 22.72 → 23.71; the recipe pairs +0.31 (pt) to +0.75 MB (ru). Downloads per pair: en→ja 37.66 → 39.15 MB (+3.9%), en→es 34.75 → 36.39 (+4.7%), en→pt 33.75 → 35.10 (+4.0%), en→ru 37.29 → 39.09 (+4.8%), en→fr 36.02 → 37.76 (+4.8%), en→de 36.06 → 37.81 (+4.9%), en→zh 35.78 → 37.45 (+4.7%), en→it 35.45 → 37.00 (+4.4%), en→pl 36.66 → 38.08 (+3.9%); all under the 40 MB guard, en→ja and en→ru with under 1 MB left.
 
 ## Acronyms in brackets (2026-11-20)
 

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"$","last":"foreman"},{"file":"dict-2.json","first":"foremast","last":"pretentious"},{"file":"dict-3.json","first":"pretentiously","last":"ö"}],
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"$","last":"fluff"},{"file":"dict-2.json","first":"fluff up","last":"polytope"},{"file":"dict-3.json","first":"polyurethane","last":"ö"}],
 "sources":["frwiktionary","enwiktionary-translations","wikidata"]
 }

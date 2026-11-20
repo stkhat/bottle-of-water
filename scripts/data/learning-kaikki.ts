@@ -1105,6 +1105,7 @@ export async function buildLearningPacks(
     written,
     tablesPath,
     nativeWord = () => false,
+    leftOut = new Set(),
   }: {
     freqTop?: number;
     /** The treebanks' lemma counts (`treebankLemmas`), which order a form's bases. */
@@ -1156,6 +1157,12 @@ export async function buildLearningPacks(
      * "Gossip") neither.
      */
     nativeWord?: (key: string) => boolean;
+    /**
+     * The language's own edition's pages whose entries are not read
+     * (`undocumentedPages`: an undocumented bot import's), in `casePaths`, `ipaPaths`
+     * and `tablesPath`.
+     */
+    leftOut?: ReadonlySet<string>;
   } = {},
 ) {
   /** The frequency list's forms in current use (`withoutHeadLabels`). */
@@ -1330,7 +1337,11 @@ export async function buildLearningPacks(
     await eachEntry(
       tables,
       (entry) => {
-        if (entry.lang_code === lang && entry.pos === "name")
+        if (
+          entry.lang_code === lang &&
+          entry.pos === "name" &&
+          !leftOut.has(entry.word.trim())
+        )
           proper.add(entry.word.trim().toLowerCase());
       },
       (line) => !line.includes('"pos":"name"'),
@@ -1354,7 +1365,12 @@ export async function buildLearningPacks(
       bucket.formPos.add(label);
     };
     await eachEntry(tables, (entry) => {
-      if (entry.lang_code !== lang || !EDITION_POS.has(entry.pos ?? "")) return;
+      if (
+        entry.lang_code !== lang ||
+        !EDITION_POS.has(entry.pos ?? "") ||
+        leftOut.has(entry.word.trim())
+      )
+        return;
       const word = entry.word.trim().replaceAll("’", "'");
       const key = word.toLowerCase();
       // A headword written as a word: in lower case, or capitalised where the
@@ -1600,6 +1616,7 @@ export async function buildLearningPacks(
     await eachEntry(
       more,
       (entry) => {
+        if (leftOut.has(entry.word.trim())) return;
         if (examples) cases.add(entry);
         if (!sounds || entry.lang_code !== lang) return;
         const written = entry.word.trim().replaceAll("’", "'");
