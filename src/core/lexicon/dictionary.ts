@@ -12,6 +12,7 @@ import { kindOfKey } from "../term-id";
 import { own } from "../util";
 import type { Compound } from "./compounds";
 import { cleanDefinition, definitionPointer } from "./definitions";
+import { expansionOf, moveFirst, spelledOutSense } from "./expansions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
 import {
@@ -70,10 +71,12 @@ export interface DictionaryEntry {
 
 /**
  * How a word was written where it is looked up, when the page says: in lower case,
- * capitalised in a way that counts (Japan), or as an acronym (US). Left out for a
- * caseless document, a capital at a sentence start, the word list.
+ * capitalised in a way that counts (Japan), as an acronym (US), or capitalised next to
+ * another capitalised word ("run": a name's or a title's word, Oak Ridge National Lab,
+ * American Buffalo, whose capital may be the name's). Left out for a caseless document,
+ * a capital at a sentence start, the word list.
  */
-export type Written = "lower" | "capital" | "upper";
+export type Written = "lower" | "capital" | "upper" | "run";
 
 /**
  * What rule A1 needs to know of a headword to choose between a word's base forms
@@ -96,8 +99,11 @@ export interface EntryOutline {
 export interface DictionaryProvider {
   /**
    * A dictionary with capitalised headwords apart (en-ja, the recipe pairs) gives, for
-   * a capitalised word or an acronym, that headword's senses first when they have a
-   * meaning (`capitalMeaning`), and leaves the capitalised senses out otherwise; for a
+   * a capitalised word or an acronym, that headword's senses alone, headed as it is
+   * written (U.S., US, Japan), when they have a meaning (`capitalMeaning`): "U.S." is
+   * not also ubi supra, "Turkey" not also the bird; for one in a run of capitals
+   * ("run": Oak Ridge National Lab) those senses first, then the lowercase ones. It
+   * leaves the capitalised senses out when they mean nothing; for a
    * word in lower case, the lowercase headword's senses alone; and when the page does
    * not say, the lowercase senses, then the capitalised ones (en-ja), or the lowercase
    * ones alone (a recipe pair). In a recipe pair, a word with only capitalised
@@ -112,12 +118,19 @@ export interface DictionaryProvider {
    * `clitic`: what a contraction's clitic stands for on the page, when its sentence
    * decides (`Span.clitic`: "has" in "he's been"); a contraction then names that
    * expansion alone (`withContractions`). Other dictionaries ignore it.
+   *
+   * `spelledOut`: whether the document the word is in writes a phrase, for an
+   * abbreviation the page writes in capitals or with periods: its card leads with the
+   * sense whose expansion the document spells out (`spelledOutSense`: DEA → "Drug
+   * Enforcement Administration" where the text writes that, not diethanolamine).
+   * `senses` stay in the dictionary's order.
    */
   entry(
     term: string,
     written?: Written,
     pos?: string,
     clitic?: string,
+    spelledOut?: SpelledOut,
   ): DictionaryEntry | undefined;
   /** What rule A1 reads of a headword; undefined when the dictionary does not have it. */
   outline(term: string): EntryOutline | undefined;
@@ -141,6 +154,9 @@ export interface DictionaryProvider {
 }
 
 export type CapitalMeaning = "word" | "name";
+
+/** Whether the document a word is in writes a phrase (`DictionaryProvider.entry`). */
+type SpelledOut = (phrase: string) => boolean;
 
 export interface EnJaDictionaryData {
   /** en-ja/dict-<n>.json: EJDict */
@@ -212,7 +228,12 @@ function outlineOf(
 
 function dictionaryOver(
   ipa: IpaPack,
-  find: (head: string, written?: Written, pos?: string) => Found | undefined,
+  find: (
+    head: string,
+    written?: Written,
+    pos?: string,
+    spelledOut?: SpelledOut,
+  ) => Found | undefined,
   outline: (head: string) => EntryOutline | undefined,
   senseLine: DictionaryProvider["senseLine"],
   capitalMeaning: (head: string) => CapitalMeaning | undefined = () =>
@@ -228,9 +249,9 @@ function dictionaryOver(
       if (!outlines.has(head)) outlines.set(head, outline(head));
       return outlines.get(head);
     },
-    entry: (term, written, pos) => {
+    entry: (term, written, pos, _clitic, spelledOut) => {
       const head = keyOf(term);
-      const found = find(head, written, pos);
+      const found = find(head, written, pos, spelledOut);
       if (!found) return undefined;
       const headIpa = ipaFor(head, ipa);
       // An auxiliary read as its base shows no meaning unless the base has auxiliary
@@ -324,25 +345,36 @@ export function createEnJaDictionary(
         (entry, other) => (other ? joined(entry, other) : entry),
         lower,
       );
-    const capital =
-      written === "capital" || !upper
-        ? meaningOf(title) && title
-        : meaningOf(upper, true) && upper;
-    return capital ? joined(capital, lower) : lower;
+    // A word read as its capitalised headword is that word alone, written as the
+    // headword is: "U.S." is no "u.s." (ubi supra), "Turkey" no turkey. One in a
+    // run of capitals may be a name's word: its lowercase senses follow (Oak Ridge
+    // National Lab: Labour Party, then 実験室).
+    if (written === "run")
+      return meaningOf(title) ? joined(title!, lower) : lower;
+    if (written === "capital" || !upper)
+      return meaningOf(title) ? { ...title!, head: capitalKey(head) } : lower;
+    return meaningOf(upper, true)
+      ? { ...upper, head: capitalKey(head, true) }
+      : lower;
   };
   return dictionaryOver(
     data.ipa,
-    (head, written, pos) => {
+    (head, written, pos, spelledOut) => {
       const found = asWritten(head, written);
-      if (!found) return definitionInEnglish(head, data.defs, pos);
+      if (!found) return definitionInEnglish(head, data.defs, pos, spelledOut);
       const lines = linesOf(found);
+      const spelled = spelledOutOrder(head, found.senses, spelledOut);
       const order =
-        pos === undefined
+        spelled ??
+        (pos === undefined
           ? undefined
-          : senseOrder(found.senses, pos, (i) => lines[i] !== "");
+          : senseOrder(found.senses, pos, (i) => lines[i] !== ""));
+      const short =
+        spelled === undefined ? found.short : lines[spelled[0]!] || found.short;
       return {
         ...found,
-        lines: shortLines(inOrder(lines, order), found.short, {
+        short,
+        lines: shortLines(inOrder(lines, order), short, {
           head,
           pointer: japanesePointer,
           follow: (target) => {
@@ -384,8 +416,8 @@ export function withWrittenHeads(
 ): DictionaryProvider {
   return {
     ...dictionary,
-    entry(term, written, pos, clitic) {
-      const found = dictionary.entry(term, written, pos, clitic);
+    entry(term, written, pos, clitic, spelledOut) {
+      const found = dictionary.entry(term, written, pos, clitic, spelledOut);
       const head = found && headOf(found.head);
       return head === undefined ? found : { ...found!, head };
     },
@@ -461,8 +493,8 @@ export function withCompounds(
       )?.parts.at(-1);
       return head === undefined ? undefined : dictionary.outline(head);
     },
-    entry(term, written, pos, clitic) {
-      const found = dictionary.entry(term, written, pos, clitic);
+    entry(term, written, pos, clitic, spelledOut) {
+      const found = dictionary.entry(term, written, pos, clitic, spelledOut);
       if (found) return found;
       // Read as the page writes it: in lower case an adjective, else a noun.
       const compound = compoundOf(
@@ -515,8 +547,8 @@ export function withPhraseCase(
   };
   return {
     ...dictionary,
-    entry(term, written, pos, clitic) {
-      const found = dictionary.entry(term, written, pos, clitic);
+    entry(term, written, pos, clitic, spelledOut) {
+      const found = dictionary.entry(term, written, pos, clitic, spelledOut);
       if (!found || !/\s/.test(found.head)) return found;
       const head = found.head
         .split(" ")
@@ -657,12 +689,14 @@ function definitionInEnglish(
   head: string,
   defs: DefsPack,
   pos?: string,
+  spelledOut?: SpelledOut,
 ): Found | undefined {
   const found = definitionOf(head, defs);
   if (!found) return undefined;
   let lines: readonly string[] | undefined;
   const linesOf = () => (lines ??= definitionLinesOf(found.senses));
-  const order = definitionOrder(found.senses, pos, linesOf);
+  const spelled = spelledOutOrder(head, found.senses, spelledOut);
+  const order = spelled ?? definitionOrder(found.senses, pos, linesOf);
   const short =
     order === undefined
       ? found.short
@@ -672,10 +706,47 @@ function definitionInEnglish(
     short,
     glossLang: "en",
     lines:
-      definitionPointer(short) !== undefined
-        ? definitionLines(head, found, linesOf(), defs, order)
-        : [definitionLine(short, definitionPointerOf)],
+      definitionPointer(short) === undefined
+        ? [definitionLine(short, definitionPointerOf)]
+        : // The expansion the document spells out, followed where defs has it; not
+          // the other senses' meanings, which pointers give way to.
+          definitionLines(
+            head,
+            found,
+            spelled ? [linesOf()[spelled[0]!]!] : linesOf(),
+            defs,
+            spelled ? undefined : order,
+          ),
   };
+}
+
+/**
+ * The order of an abbreviation's senses that leads with the one its document spells
+ * out (`spelledOutSense`), the others after it in their order; undefined when that is
+ * the first already, or the document spells none out.
+ */
+function spelledOutOrder(
+  head: string,
+  senses: readonly Pick<Sense, "text" | "hint">[],
+  spelledOut: SpelledOut | undefined,
+): number[] | undefined {
+  if (!spelledOut) return undefined;
+  // A recipe pair's sense is a translation: what it spells out is its English hint.
+  const first = spelledOutSense(
+    head,
+    senses.map((sense) =>
+      sense.hint === undefined || expansionOf(head, sense.text) !== undefined
+        ? sense.text
+        : sense.hint,
+    ),
+    spelledOut,
+  );
+  return first === undefined
+    ? undefined
+    : moveFirst(
+        senses.map((_, i) => i),
+        first,
+      );
 }
 
 /** A key written with a capital: "vater" → "Vater". */
@@ -713,12 +784,15 @@ export function createDefsDictionary({
 }): DictionaryProvider {
   return dictionaryOver(
     ipa,
-    (head, written, pos) => {
+    (head, written, pos, spelledOut) => {
       const own = definitionOf(head, defs);
       if (!own) return undefined;
-      const found = written === "capital" ? capitalFirst(own) : own;
+      const found =
+        written === "capital" || written === "run" ? capitalFirst(own) : own;
       const lines = definitionLinesOf(found.senses);
-      const order = definitionOrder(found.senses, pos, () => lines);
+      const order =
+        spelledOutOrder(head, found.senses, spelledOut) ??
+        definitionOrder(found.senses, pos, () => lines);
       const capital = found.senses[order?.[0] ?? 0]?.capital === true;
       return {
         ...found,
@@ -851,23 +925,32 @@ export function createPairDictionary({
    * a capitalised "And" or "It's" is not ET or IT. Where the page does not say (a
    * sentence start, a caseless document), the lowercase entry alone: "Who" is not the
    * WHO. A word with no lowercase entry takes its capitalised one however it is
-   * written: no lowercase copies are kept (Thursday, I'm).
+   * written: no lowercase copies are kept (Thursday, I'm). A word read as its
+   * capitalised headword is that word alone, and the card writes it so (`head`).
    */
-  const asWritten = (head: string, written: Written | undefined) => {
+  const asWritten = (
+    head: string,
+    written: Written | undefined,
+  ): { found?: PairPack[string] | CapitalEntry; head?: string } => {
     const lower = entryOf(head);
     const title = capitalOf(head);
-    const capital =
-      written === "upper" ? (capitalOf(head, true) ?? title) : title;
-    if (!lower) return capital ?? title ?? capitalOf(head, true);
-    if (!capital || written === "lower" || written === undefined) return lower;
-    return capital[3] !== undefined ? joinedPair(capital, lower) : lower;
+    const acronym = written === "upper" && capitalOf(head, true) !== undefined;
+    const capital = acronym ? capitalOf(head, true) : title;
+    if (!lower) return { found: capital ?? title ?? capitalOf(head, true) };
+    if (!capital || written === "lower" || written === undefined)
+      return { found: lower };
+    if (capital[3] === undefined) return { found: lower };
+    // One in a run of capitals may be a name's word: its lowercase senses follow.
+    return written === "run"
+      ? { found: joinedPair(capital, lower) }
+      : { found: capital, head: capitalKey(head, acronym) };
   };
   return dictionaryOver(
     ipa,
-    (head, written, pos) => {
-      const found = asWritten(head, written);
-      if (!found) return definitionInEnglish(head, defs, pos);
-      const [short, raw] = found;
+    (head, written, pos, spelledOut) => {
+      const { found, head: capitalHead } = asWritten(head, written);
+      if (!found) return definitionInEnglish(head, defs, pos, spelledOut);
+      const [stored, raw] = found;
       const senses = sensesOf(raw);
       // A translation table's sense is a list of words: its line is the first one. With
       // a tag, a sense of an open class the tag cannot mean shows no line while one it
@@ -889,8 +972,12 @@ export function createPairDictionary({
         nounCase,
       ).map(({ line }) => line);
       const usable = (i: number) => lines[i] !== "";
+      const spelled = spelledOutOrder(head, senses, spelledOut);
       const order =
-        pos === undefined ? undefined : senseOrder(senses, pos, usable);
+        spelled ??
+        (pos === undefined ? undefined : senseOrder(senses, pos, usable));
+      const short =
+        spelled === undefined ? stored : lines[spelled[0]!] || stored;
       const first = inOrder(raw, order).find((_, i) => usable(order?.[i] ?? i));
       // An unmarked degree is read as a pointer only where it leads; elsewhere it
       // stays the meaning it was ("better" untagged: "mejorar", then "comparativo
@@ -957,6 +1044,7 @@ export function createPairDictionary({
           ...(!isAuxiliary(pos) && { quiet, second }),
         }),
         senses,
+        ...(capitalHead !== undefined && { head: capitalHead }),
       };
     },
     (head) => {
@@ -1061,7 +1149,7 @@ function caseOnce<T extends { line: string; pos: string; meaning?: boolean }>(
   written: Written | undefined,
   nounCase: () => boolean,
 ): T[] {
-  const capital = written === "capital" || written === "upper";
+  const capital = written !== undefined && written !== "lower";
   const groups = new Map<string, number[]>();
   items.forEach((item, i) => {
     if (item.line === "" || item.meaning === false) return;

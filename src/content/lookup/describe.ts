@@ -432,6 +432,8 @@ export async function describeTerm(
     wordPos?: Readonly<Record<string, string>>;
     /** The sentence it is in there ("this sentence"), as saving it records it. */
     sentence?: string;
+    /** The text of its document, for an abbreviation (`Lookup.describe`). */
+    document?: string;
   },
   {
     send,
@@ -451,6 +453,7 @@ export async function describeTerm(
       clitic?: string;
       sentence?: string;
       surface?: string;
+      document?: string;
     } = {},
   ) =>
     send({
@@ -463,6 +466,7 @@ export async function describeTerm(
       ...(place.pos !== undefined && { pos: place.pos }),
       ...(place.clitic !== undefined && { clitic: place.clitic }),
       ...(place.surface !== undefined && { surface: place.surface }),
+      ...(place.document !== undefined && { document: place.document }),
     });
   // A word written otherwise than its key: a contraction keyed by another word ("it's"
   // by "it") is named in the note by what it is short for.
