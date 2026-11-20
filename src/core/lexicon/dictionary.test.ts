@@ -356,8 +356,12 @@ describe("createEnJaDictionary", () => {
       "The DEA? That's the Drug Enforcement Administration.",
     );
     expect(
-      dictionary.entry("dea", "upper", undefined, undefined, show)?.short,
-    ).toBe("Initialism of Drug Enforcement Administration");
+      dictionary.entry("dea", "upper", undefined, undefined, show),
+    ).toMatchObject({
+      short: "Initialism of Drug Enforcement Administration",
+      // The pointer itself: the other senses' meanings do not take its place.
+      lines: ["Initialism of Drug Enforcement Administration"],
+    });
     expect(dictionary.entry("dea", "upper")?.short).toBe(
       "A hydroxy secondary amine",
     );

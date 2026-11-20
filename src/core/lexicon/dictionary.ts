@@ -695,9 +695,8 @@ function definitionInEnglish(
   if (!found) return undefined;
   let lines: readonly string[] | undefined;
   const linesOf = () => (lines ??= definitionLinesOf(found.senses));
-  const order =
-    spelledOutOrder(head, found.senses, spelledOut) ??
-    definitionOrder(found.senses, pos, linesOf);
+  const spelled = spelledOutOrder(head, found.senses, spelledOut);
+  const order = spelled ?? definitionOrder(found.senses, pos, linesOf);
   const short =
     order === undefined
       ? found.short
@@ -707,9 +706,17 @@ function definitionInEnglish(
     short,
     glossLang: "en",
     lines:
-      definitionPointer(short) !== undefined
-        ? definitionLines(head, found, linesOf(), defs, order)
-        : [definitionLine(short, definitionPointerOf)],
+      definitionPointer(short) === undefined
+        ? [definitionLine(short, definitionPointerOf)]
+        : // The expansion the document spells out, followed where defs has it; not
+          // the other senses' meanings, which pointers give way to.
+          definitionLines(
+            head,
+            found,
+            spelled ? [linesOf()[spelled[0]!]!] : linesOf(),
+            defs,
+            spelled ? undefined : order,
+          ),
   };
 }
 
