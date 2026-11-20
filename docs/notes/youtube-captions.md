@@ -122,6 +122,9 @@ With YouTube's auto-translation, an auto-generated card now always ends at a spe
 - Read by hand, 30 changed places (before vs after): 14 better, 7 the same, 9 worse. Worse: a translated clause put on the wrong side of a `>>` (Japanese word order, or a label "[笑い]" opening the clause said at the change), and one-word boundary shifts in tracks without punctuation.
 - Manual tracks and auto-generated tracks without the translation are unchanged.
 
+## Phrases across transcript cards (R4-asr, 2026-11-20)
+In an auto-generated track a card ends at a pause (no punctuation) or where YouTube's translation ends a sentence, so a phrase is often cut by a card's end ("sin | embargo", "du | coup", "zu | Hause"; C4). Cards whose sentence runs on are now classified together, the phrase highlighted in each card's part ([architecture](../specs/architecture.md) "Transcript cards classified together"). Over the 2026-11 corpora's auto-generated tracks: 1.3 (es), 0.7 (fr), 0.4 (de, en) phrases more per 1,000 tokens, judged better 17 : 4, 23 : 1, 7 : 2, 25 : 8. A human track's lines inside a card (YouTube's English tracks cut by length) read as spaces, no longer sentence ends for the tagger: judged 17 : 7 on English hovers.
+
 ## Risks
 - PO token rules change often; if the "reuse the player's URL" trick stops working, fall back to asking the player for each track in turn (`setOption`) and capturing every response, or to the built-in translator.
 - Automated tests cannot get real captions from youtube.com; only recorded fixtures.

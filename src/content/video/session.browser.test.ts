@@ -916,6 +916,72 @@ const unsavedOf = (state: () => VideoState) =>
 
 const BOX = { left: 10, top: 20, right: 60, bottom: 40 };
 
+describe("a phrase across cards (speech recognition's line breaks)", () => {
+  /** An auto-generated track without punctuation, its pause cutting "give up" in two. */
+  const asrCue = (startMs: number, text: string): Cue => ({
+    startMs,
+    endMs: startMs + 1000,
+    text,
+    words: text.split(" ").map((word, i) => ({
+      startMs: startMs + i * 200,
+      text: i === 0 ? word : ` ${word}`,
+    })),
+  });
+  const PAUSED: Cue[] = [
+    asrCue(0, "they had to give"),
+    asrCue(2500, "up the tangy loaf"),
+  ];
+  const startPaused = () =>
+    start({
+      vid1: captionsOf(PAUSED, { source: "none", lang: "ja", cues: [] }, "asr"),
+    });
+
+  it("classifies the cards as the text they run on in, and marks the phrase in both", async () => {
+    const { state, bg } = await startPaused();
+    await ready(state);
+    expect(state().cues.map((c) => c.text)).toEqual(PAUSED.map((c) => c.text));
+    await classified(state);
+    expect(bg.sent("analyze")[0]).toMatchObject({
+      blocks: ["they had to give up the tangy loaf"],
+      breaks: [[16]],
+    });
+    expect(state().spans[0]!.at(-1)).toMatchObject({
+      start: 12,
+      end: 16,
+      key: "give up",
+      kind: "phrase",
+      part: { index: 0, count: 2, next: true },
+    });
+    expect(state().spans[1]![0]).toMatchObject({
+      start: 0,
+      end: 2,
+      key: "give up",
+      kind: "phrase",
+      part: { index: 1, count: 2, previous: true },
+    });
+    // One row in the Words tab, written as said.
+    const rows = videoWords(state().cues, state().lines, state().spans, {});
+    expect(rows.filter((r) => r.key === "give up")).toMatchObject([
+      { head: "give up", count: 1 },
+    ]);
+  });
+
+  it("shows the whole phrase from either part, and saves it with both cards", async () => {
+    const { state, app, bg } = await startPaused();
+    await ready(state);
+    await classified(state);
+    app.enterWord(refOf(state, 1, "give up"), BOX);
+    await expect.poll(() => state().hover?.card.head).toBe("give up");
+    app.setHoverStatus("learning");
+    await expect.poll(() => state().hover?.card.status).toBe("learning");
+    expect(bg.sent("saveTerm")[0]).toMatchObject({
+      key: "give up",
+      display: "give up",
+      sentence: "they had to give up the tangy loaf",
+    });
+  });
+});
+
 describe("words in the subtitles", () => {
   it("shows a word's card after the pointer rests on it, and hides it after it leaves", async () => {
     const { state, app } = await start();

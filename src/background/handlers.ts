@@ -369,7 +369,7 @@ export function createHandlers({
       return null;
     },
 
-    async analyze({ lang, blocks, casing }) {
+    async analyze({ lang, blocks, casing, breaks }) {
       const [pack, classifier, terms, current] = await allOf([
         resources.pack(lang),
         resources.classifier(lang),
@@ -383,8 +383,11 @@ export function createHandlers({
         { terms, knownLevel: current.knownLevel },
         true,
       );
-      const spans: Span[][] = blocks.map((block) =>
-        classifier.classify(pack.tokenize(block), options),
+      const spans: Span[][] = blocks.map((block, i) =>
+        classifier.classify(pack.tokenize(block), {
+          ...options,
+          ...(breaks?.[i]?.length && { breaks: breaks[i] }),
+        }),
       );
       const all = spans.flat();
       const saved = new Set(
