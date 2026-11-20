@@ -406,12 +406,53 @@ Without S1 only th (92.6) and id (92.7) pass 92%; ko joins at 90%, tr at 85%. Ag
 5. **hi, fa**, then **ur, bn, ta, te, mr**: only with a machine-translated fallback for 800–2,200 gate words (M0b).
 6. fr←ar and ar←id: none without machine translation.
 
+### Machine-translated fallback (M0b)
+
+What a learner sees for a word with no human meaning: the hover translates the word's en-defs short line on the device (Chrome's Translator API), marked "Machine translation"; a usage note gives way to the word's literal translation (`describe.ts`). Firefox has no translator: the English line shows.
+
+- **Inputs**: per native, M0a's 50 uncovered gate words. The translated text is what the hover sends (`shortDefinitionText` of the short line; 5 of 600 are usage notes, 4 have no translatable line). Control: 50 random covered gate words with their first human-made meaning (tables > edition > OMW > S2 > S1; th without LEXiTRON; a table row's first word).
+- **Translated** in the user's Chrome (Translator API, en → N): each line and, as a second variant, the word alone. **fa and ur are unavailable** (`Translator.availability`); the other 10 downloaded (one `create()` per user click).
+- **Judged blind** (judge agent, one packet per native, 147–150 items; fa, ur 50): the word alone plus one line, the three sources shuffled together. Would a reader of N understand the word's main meaning from this line: good / partly / wrong; and does it read as a word or an explanation.
+
+Per native, % good / partly / wrong; "Expl." = (b) read as an explanation. Expected = token-weighted % good at the best combination (human tokens at the human rate, uncovered tokens at the rate of what the hover shows), Chrome / Firefox; in brackets good + ½ partly:
+
+| Native | Human (a)    | MT of the definition (b) | Expl. | MT of the word (c) | Tokens | Expected Chrome | Expected Firefox |
+| ------ | ------------ | ------------------------ | ----- | ------------------ | ------ | --------------- | ---------------- |
+| th     | 80 / 18 / 2  | 48 / 38 / 15             | 67    | 40 / 32 / 28       | 98.7   | 79.6 (88.7)     | 79.0 (87.8)      |
+| id     | 88 / 10 / 2  | 60 / 38 / 2              | 81    | 48 / 24 / 28       | 97.5   | 87.2 (92.6)     | 85.8 (90.7)      |
+| ko     | 82 / 18 / 0  | 48 / 48 / 4              | 82    | 54 / 24 / 22       | 98.4   | 81.5 (90.7)     | 80.7 (89.5)      |
+| tr     | 86 / 10 / 4  | 31 / 65 / 4              | 82    | 44 / 36 / 20       | 98.0   | 84.9 (90.4)     | 84.3 (89.2)      |
+| ar     | 82 / 16 / 2  | 55 / 38 / 6              | 64    | 58 / 26 / 16       | 97.0   | 81.1 (89.4)     | 79.5 (87.3)      |
+| hi     | 80 / 16 / 4  | 52 / 40 / 8              | 84    | 34 / 32 / 34       | 91.3   | 77.6 (86.6)     | 73.0 (80.3)      |
+| fa     | 68 / 28 / 4  | no translator            | –     | –                  | 92.0   | 62.6 (75.4)     | 62.6 (75.4)      |
+| ur     | 72 / 20 / 8  | no translator            | –     | –                  | 87.8   | 63.2 (72.0)     | 63.2 (72.0)      |
+| bn     | 56 / 28 / 16 | 58 / 38 / 4              | 90    | 48 / 36 / 16       | 87.7   | 56.2 (70.9)     | 49.1 (61.4)      |
+| ta     | 54 / 12 / 34 | 58 / 38 / 4              | 76    | 54 / 20 / 26       | 84.4   | 54.6 (62.7)     | 45.6 (50.6)      |
+| te     | 64 / 14 / 22 | 52 / 48 / 0              | 82    | 66 / 12 / 22       | 82.4   | 61.9 (71.9)     | 52.7 (58.5)      |
+| mr     | 70 / 26 / 4  | 64 / 28 / 8              | 78    | 62 / 16 / 22       | 77.6   | 68.7 (81.9)     | 54.3 (64.4)      |
+
+- **Pooled** over the 10 translated natives: human 74 / 17 / 9, MT of the definition 53 / 42 / 5 (79% read as explanations), MT of the word 51 / 26 / 23 (none). The translated definition is rarely wrong but mostly "partly": a sentence to read, often clumsy, sometimes the rare sense the short line picked. The word alone reads as a dictionary word but is wrong four times as often. The hover's choice (the definition; the word only for usage notes) is the right one.
+- **Typical failures, (b)**: a short line with a rare or odd sense, faithfully translated (sheila → a hijab, ho → "halloo", scotch → a cut, mechanic → "mechanical", ladies → a poker hand); slang flattened (sneaky, kinky, wacky). **(c)**: homographs and names (morris, merle, phoebe, sheila → çoban), interjections left in Latin letters or turned into another (doh, phew, sh, whew → "wow"), slang guessed (bonnie, butch, randy, sleazy), transliterations that are not loanwords (myrtle, jock, curb).
+- **Human lines by source** (all 12 natives): tables, edition and OMW 82 / 15 / 3; S1 46 / 29 / 25. The weak natives' human rate is S1's: S1 gives 17–28 of the 50 control lines for fa, ur, bn, ta, te, mr (ta's S1 lines 9 / 3 / 16: behave, protect, spread, force). There S1's first line is wrong 27% of the time, the translated definition 0–8%.
+- **The fallback hardly moves the strong pairs**: 1.3–3.0% of their tokens are uncovered, so Chrome and Firefox differ by at most 1.6 points, and the expected quality is the human rate (80–88% good). A 50-word sample carries about ±11 points, so th (95.3 type) and id, ko, tr, ar (91.7–94.7) cannot be told apart. hi gains 4.6 points from the fallback (8.7% uncovered); bn, ta, te, mr 7–14.
+
+Expected quality per gate rule (Chrome, % good by tokens; the pairs it lets in):
+
+| Rule                          | Pairs (expected % good)                                |
+| ----------------------------- | ------------------------------------------------------ |
+| 95% type                      | th 79.6                                                |
+| 92% type                      | th, id 87.2, ko 81.5, tr 84.9                          |
+| 90% or 85% type               | the above, ar 81.1                                     |
+| Tokens ≥ 98.1                 | th, ko (tr 98.0 just under)                            |
+| Tokens ≥ 90 with a translator | the 90% set, hi 77.6 (Firefox 73.0)                    |
+| None of these                 | fa 62.6, ur 63.2 (no translator); bn, ta, te, mr 55–69 |
+
 ### Open (user decisions)
 
 - Whether S1 (and S2) may be sources: they lift every pair (th past 95%) but S1's first meaning is wrong more often than the tables'.
-- The gate: keep 95% type (th only), or lower it to 92% (+ id, ko, tr) or 90% (+ ar), or add the token rule.
+- The gate: keep 95% type (th only), or lower it to 92% (+ id, ko, tr) or 90% (+ ar), or add the token rule. M0b: at 90% every pair let in shows about what th shows (80–87% good by tokens), Firefox included.
 - th's LEXiTRON pages: still unknown license; th passes without them.
-- Scripts and outputs (not committed): `data/raw/quality/r4/` (`sources.ts`, `report.py`, `gaps.ts`, `classes.py`, `sample.py`, `frar.ts`, `prov.ts`, `provsum.py`; `report.json`, `classes.json`, `frar.json`, `prov-*.txt`, `uncovered-sample-<n>.json`).
+- Scripts and outputs (not committed): `data/raw/quality/r4/` (`sources.ts`, `report.py`, `gaps.ts`, `classes.py`, `sample.py`, `frar.ts`, `prov.ts`, `provsum.py`; `report.json`, `classes.json`, `frar.json`, `prov-*.txt`, `uncovered-sample-<n>.json`); M0b's in `r4/mt/` (`prep.ts`, `packets.py`, `analyze.py`; `inputs.json`, `mt-out.tsv`, `packets/`, `summary.json`).
 
 ## Other learning languages (estimated)
 Rows other than English in the matrix are estimated from source sizes (kaikki sense counts, 2026-11-13), not measured. Rules:
