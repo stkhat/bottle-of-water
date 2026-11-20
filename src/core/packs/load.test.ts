@@ -219,7 +219,7 @@ describe("createPackLoader", () => {
     expect(a).toBe(b);
     expect(c).toBe(a);
     await Promise.all([loadPack("en-ja"), loadPack("en-ja")]);
-    expect(fetchJson).toHaveBeenCalledTimes(10 + 6);
+    expect(fetchJson).toHaveBeenCalledTimes(11 + 6);
   });
 
   it("tries again after a failed load", async () => {
