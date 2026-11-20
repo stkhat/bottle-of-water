@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"filmy fern"},{"file":"dict-2.json","first":"filter","last":"poop deck"},{"file":"dict-3.json","first":"pooped","last":"ē"}],
+"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"'s","last":"filial piety"},{"file":"dict-2.json","first":"filibuster","last":"polycyclic"},{"file":"dict-3.json","first":"polycyclic aromatic hydrocarbon","last":"ē"}],
 "sources":["enwiktionary-translations","zhwiktionary","omw-cmn"]
 }

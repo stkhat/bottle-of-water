@@ -153,6 +153,8 @@ export async function buildPairDictionary(
     // A person's name first: the names lexicon's main kind.
     personFirst: (term) =>
       Object.hasOwn(names, term) && /^[gs]/.test(names[term]!),
+    // A capital-only word has its English definition (en-defs) to show instead.
+    defined: (term) => termKey.capitalOnly?.(term) === true,
   });
   // A word English writes only capitalised (no lowercase headword in English
   // Wiktionary: January, Monday) is its capitalised headword: an edition's lowercase
@@ -302,6 +304,7 @@ function englishTermKey() {
     vocab: new Set(readPack<string[]>("en/vocab.json")),
     lemmas: readPack<LemmaPack>("en/lemmas.json"),
     phrases: new Set([...phrases.detect, ...phrases.more]),
+    capitals: readPack<string[]>("en/capitals.json"),
   });
 }
 

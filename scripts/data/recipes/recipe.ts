@@ -48,7 +48,13 @@ export interface SourceTerm {
   short: string;
   senses: PairSense[];
 }
-export type TermKey = (headword: string) => string | undefined;
+export type TermKey = ((headword: string) => string | undefined) & {
+  /**
+   * Whether a key is a capital-only word's (rule E, en/capitals.json: "tokyo"): a term
+   * only as its capitalised headword (`capitalTermOf`: Tokyo), never in lower case.
+   */
+  readonly capitalOnly?: (key: string) => boolean;
+};
 
 /**
  * The key a headword is filed under, or undefined when it is not one Langle looks up: a
@@ -61,22 +67,34 @@ export function termKeyOf({
   lemmas,
   phrases,
   build,
+  capitals = [],
 }: {
   vocab: ReadonlySet<string>;
   lemmas: LemmaPack;
   phrases: ReadonlySet<string>;
   /** The learning language's phrase settings (`patternKey`); English's by default. */
   build?: PhraseBuildLanguage;
+  /** The capital-only words, as written (en/capitals.json). */
+  capitals?: readonly string[];
 }): TermKey {
+  const capitalKeys = new Set(
+    capitals
+      .map((written) => written.toLowerCase())
+      .filter((key) => !vocab.has(key)),
+  );
+  // A phrase's words may be capital-only words: a name's (New Zealand).
   const isWord = (word: string) =>
-    vocab.has(word) || Object.hasOwn(lemmas, word);
-  return (headword) => {
+    vocab.has(word) || Object.hasOwn(lemmas, word) || capitalKeys.has(word);
+  const termKey = (headword: string) => {
     // Some editions title English words with a typographic apostrophe (fr "I’m").
     const word = headword.trim().replaceAll("’", "'");
     if (!/\s/.test(word)) return vocab.has(word) ? word : undefined;
     const key = patternKey(word, isWord, build);
     return key && phrases.has(key) ? key : undefined;
   };
+  return Object.assign(termKey, {
+    capitalOnly: (key: string) => capitalKeys.has(key),
+  });
 }
 
 /**
@@ -94,7 +112,8 @@ export function capitalTermOf(
   const word = headword.trim().replaceAll("’", "'");
   if (/\s/.test(word) || !(proper || /^\p{Lu}/u.test(word))) return undefined;
   const lower = word.toLowerCase();
-  if (termKey(lower) !== lower) return undefined;
+  if (termKey(lower) !== lower && termKey.capitalOnly?.(lower) !== true)
+    return undefined;
   const acronym = /\p{Lu}.*\p{Lu}/u.test(word) && !/\p{Ll}/u.test(word);
   return capitalKey(lower, acronym);
 }
@@ -1700,16 +1719,21 @@ function inPosTurns(senses: readonly PairSense[]): PairSense[] {
  * - a "word" meaning of a person's name first (`personFirst`: the names lexicon's main
  *   kind a given name or a surname) is a use of the name, not what it means (Einstein
  *   → genio, Frank → franco): none. Wiktionary's glosses do not mark a sense about one
- *   bearer of a name as EJDict's do, so the names lexicon tells instead.
+ *   bearer of a name as EJDict's do, so the names lexicon tells instead;
+ * - a headword with no meaning that has an English definition to show instead
+ *   (`defined`: a capital-only word's, rule E: Instagram → "Instagram", Sony → "Sony")
+ *   is left out, so the word shows that definition, translated at display time.
  */
 export function capitalDictionary(
   dict: Readonly<Record<string, [string, PairSense[], number]>>,
   {
     nativeKind,
     personFirst,
+    defined = () => false,
   }: {
     nativeKind: (item: string) => CapitalMeaning | undefined;
     personFirst: (term: string) => boolean;
+    defined?: (term: string) => boolean;
   },
 ) {
   // A gloss that is only a note ("(английская фамилия)") is compared whole.
@@ -1755,6 +1779,7 @@ export function capitalDictionary(
     if (meaning === "word" && personFirst(key.toLowerCase()))
       meaning = undefined;
     counts[meaning ?? "none"]++;
+    if (meaning === undefined && defined(key.toLowerCase())) continue;
     capital[key] =
       meaning === undefined
         ? [shortOf, kept, source]

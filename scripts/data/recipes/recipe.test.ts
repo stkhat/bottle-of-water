@@ -1019,6 +1019,19 @@ describe("capitalTermOf", () => {
     expect(capitalTermOf("I’m", keys)).toBe("I'm");
     expect(keys("i’m")).toBe("i'm");
   });
+  it("keys a capital-only word by its capitals only, and lets a name's words be one", () => {
+    const keys = termKeyOf({
+      vocab: new Set(["new"]),
+      lemmas: {},
+      phrases: new Set(["new zealand"]),
+      capitals: ["AI", "Tokyo", "Zealand"],
+    });
+    expect(capitalTermOf("Tokyo", keys)).toBe("Tokyo");
+    expect(capitalTermOf("AI", keys)).toBe("AI");
+    // Not the sloth "ai", nor any lower-case headword.
+    expect(keys("ai")).toBeUndefined();
+    expect(keys("New Zealand")).toBe("new zealand");
+  });
 });
 
 describe("nativeLetterOf", () => {
@@ -1250,6 +1263,22 @@ describe("capitalDictionary", () => {
       name: 2,
       none: 1,
     });
+  });
+  it("leaves out a headword with no meaning that has an English definition instead", () => {
+    const { capital } = capitalDictionary(
+      {
+        Instagram: ["Instagram", [sense("Instagram")], 1],
+        Tokyo: ["Tokio", [sense("Tokio")], 0],
+        Texas: ["Texas", [sense("Texas")], 0],
+      },
+      {
+        nativeKind: () => "name",
+        personFirst: () => false,
+        // Capital-only words: their English definitions.
+        defined: (term) => ["instagram", "tokyo"].includes(term),
+      },
+    );
+    expect(Object.keys(capital)).toEqual(["Tokyo", "Texas"]);
   });
   it("leaves out a gloss shared by CLASS_HEADWORDS headwords: a class of names", () => {
     const dict: Record<string, [string, PairSense[], number]> = {};
