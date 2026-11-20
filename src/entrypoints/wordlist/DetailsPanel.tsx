@@ -1,5 +1,6 @@
 import type { WordStatus } from "../../core/classify";
 import type { DictionaryEntry } from "../../core/lexicon/dictionary";
+import type { SponsorCard } from "../../core/sponsors";
 import { t } from "../../i18n/t";
 import type {
   OccurrenceView,
@@ -13,6 +14,7 @@ import { EntryHeader } from "../../ui/lookup/EntryHeader";
 import { StatusButtons } from "../../ui/lookup/StatusButtons";
 import { BookmarkIcon } from "../../ui/icons";
 import { aiTag, color, iconButton, sectionHeading } from "../../ui/styles";
+import { SponsorSpot } from "./SponsorSpot";
 
 /** The selected word: its row, its status now, and what `lookup` gave. */
 export interface Details {
@@ -72,6 +74,10 @@ export function DetailsPanel(props: {
   now: number;
   onStatus: (status: WordStatus) => void;
   onSpeak: (head: string) => void;
+  /** The bundled sponsor or affiliate card; null: the spot is open. */
+  sponsorCard: SponsorCard | null;
+  /** The page for would-be sponsors; empty while it does not exist. */
+  sponsorPage: string;
 }) {
   const { details, now } = props;
   const { entry, term, occurrences } = details;
@@ -171,6 +177,11 @@ export function DetailsPanel(props: {
           ))}
         </div>
       </div>
+      <SponsorSpot
+        card={props.sponsorCard}
+        sponsorPage={props.sponsorPage}
+        learningLang={props.learningLang}
+      />
     </aside>
   );
 }

@@ -37,6 +37,7 @@ describe("DEFAULT_SETTINGS", () => {
       sentenceHistory: true,
       explainUnknown: true,
       theme: "system",
+      rateNudgeDone: false,
     });
   });
 });
@@ -52,6 +53,11 @@ describe("mergeSettings", () => {
   it("keeps explaining words without an entry switched off, on for anything but a boolean", () => {
     expect(mergeSettings({ explainUnknown: false }).explainUnknown).toBe(false);
     expect(mergeSettings({ explainUnknown: 0 }).explainUnknown).toBe(true);
+  });
+
+  it("keeps the rating nudge answered, and unanswered for anything but a boolean", () => {
+    expect(mergeSettings({ rateNudgeDone: true }).rateNudgeDone).toBe(true);
+    expect(mergeSettings({ rateNudgeDone: "yes" }).rateNudgeDone).toBe(false);
   });
 
   it("fills missing keys from the defaults", () => {

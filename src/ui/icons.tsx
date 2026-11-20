@@ -208,3 +208,41 @@ export function SourceIcon(props: { video: boolean; label: string }) {
     </svg>
   );
 }
+
+/** "Rate" (mock Toolbar, Settings → Support Langle). */
+export function StarIcon(props: { size: number }) {
+  return (
+    <Outline size={props.size} stroke={1.8} join>
+      <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"></path>
+    </Outline>
+  );
+}
+
+/** "Buy me a coffee". */
+export function CupIcon(props: { size: number }) {
+  return (
+    <Outline size={props.size} stroke={1.8} cap join>
+      <path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"></path>
+      <path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17"></path>
+      <path d="M8 3.5v2M12 3.5v2"></path>
+    </Outline>
+  );
+}
+
+/** "Send feedback". */
+export function MessageIcon(props: { size: number }) {
+  return (
+    <Outline size={props.size} stroke={1.8} join>
+      <path d="M4 5h16v11H9l-5 4z"></path>
+    </Outline>
+  );
+}
+
+/** The "Support Langle" heading. */
+export function HeartIcon(props: { size: number }) {
+  return (
+    <Outline size={props.size} stroke={1.8} join>
+      <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"></path>
+    </Outline>
+  );
+}

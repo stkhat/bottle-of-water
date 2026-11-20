@@ -67,6 +67,8 @@ describe("generated dictionary shards", () => {
 });
 
 describe("generated definitions packs (format 2)", () => {
+  // Each pack loads in about 2.5 s alone, past the default 5 s while the whole suite
+  // runs on a busy machine.
   it.each(["en-defs", "es-en", "fr-en", "de-en"] as const)(
     "%s stores each term's senses only, no short definition",
     async (pack) => {
@@ -82,6 +84,7 @@ describe("generated definitions packs (format 2)", () => {
         }
       }
     },
+    30_000,
   );
 });
 
@@ -107,6 +110,7 @@ describe("generated pair packs (recipe pairs format 4, de-fr format 2)", () => {
       // Wikidata's descriptions, whole: about 1.5% of en-es.
       expect(stored).toBeLessThan(entries.length / 50);
     },
+    30_000,
   );
 });
 

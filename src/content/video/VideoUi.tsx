@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useReducer } from "preact/hooks";
+import { FEEDBACK_URL } from "../../core/links";
 import { DictionaryWindow } from "../../ui/lookup/DictionaryWindow";
 import { keptOpen } from "../../ui/keep-open";
 import { usePressAway } from "../../ui/press-away";
@@ -455,6 +456,7 @@ export function TranscriptUi(props: {
   const selectedInTranscript = state.phrase?.from === "transcript";
   return (
     <VideoPanel
+      feedbackUrl={FEEDBACK_URL}
       tab={state.panelTab}
       onTab={app.setPanelTab}
       cues={cues}

@@ -1,3 +1,5 @@
+import { REVIEW_URLS } from "./links";
+
 /**
  * Browser differences in one place (architecture.md: "Browser differences"). Names
  * come from the build target; features are detected on a global object, never from
@@ -10,6 +12,8 @@ export interface BrowserEnv {
   name: string;
   /** e.g. "Chrome sync". */
   syncName: string;
+  /** The store listing's review page ("Rate"); empty until the listing exists. */
+  reviewUrl: string;
   features: {
     /** File System Access API (saving to a folder). */
     fileSystemAccess: boolean;
@@ -23,8 +27,16 @@ export function createBrowserEnv(
 ): BrowserEnv {
   return {
     ...(target === "firefox"
-      ? { name: "Firefox", syncName: "Firefox Sync" }
-      : { name: "Chrome", syncName: "Chrome sync" }),
+      ? {
+          name: "Firefox",
+          syncName: "Firefox Sync",
+          reviewUrl: REVIEW_URLS.firefoxAddOns,
+        }
+      : {
+          name: "Chrome",
+          syncName: "Chrome sync",
+          reviewUrl: REVIEW_URLS.chromeWebStore,
+        }),
     features: {
       fileSystemAccess: "showDirectoryPicker" in g,
     },

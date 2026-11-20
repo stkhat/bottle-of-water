@@ -1,6 +1,9 @@
 import { browser } from "wxt/browser";
 import { downloadModelsOnFirstActivation } from "../../content/translate/translator";
+import "@fontsource/nunito/latin-600.css";
+import "@fontsource/nunito/latin-800.css";
 import { createBrowserEnv } from "../../core/browser-env";
+import { supportLinks } from "../../core/links";
 import { send } from "../../messaging/client";
 import { watchPackState, watchSettings } from "../../messaging/storage";
 import type { PageSummary } from "../../messaging/page-protocol";
@@ -19,6 +22,7 @@ mountPage(() => {
       ),
     () => {},
   );
+  const env = createBrowserEnv();
   const deps: PopupDeps = {
     send,
     // Content scripts answer by tab; `tabs.sendMessage` needs no permission.
@@ -39,7 +43,11 @@ mountPage(() => {
     },
     watchSettings,
     watchPackState,
-    syncName: createBrowserEnv().syncName,
+    syncName: env.syncName,
+    links: supportLinks(env.reviewUrl),
+    openTab(url) {
+      void browser.tabs.create({ url }).finally(() => window.close());
+    },
     openOptions() {
       void browser.runtime.openOptionsPage().finally(() => window.close());
     },
