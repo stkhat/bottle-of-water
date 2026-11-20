@@ -23,7 +23,6 @@ import { BrandHeader } from "../../ui/BrandHeader";
 import { color, FONT, PAGE_BUTTON_CSS } from "../../ui/styles";
 import { AboutSection } from "./sections/About";
 import { AppearanceSection } from "./sections/Appearance";
-import { ArticlesSection } from "./sections/Articles";
 import { DictionariesSection } from "./sections/Dictionaries";
 import { HighlightingSection } from "./sections/Highlighting";
 import { HistorySection } from "./sections/History";
@@ -57,7 +56,6 @@ const SECTIONS = [
   { id: "sites", label: "settings.section.sites" },
   { id: "history", label: "settings.section.history" },
   { id: "sync", label: "settings.section.sync" },
-  { id: "articles", label: "settings.section.articles" },
   { id: "about", label: "settings.section.about" },
 ] as const satisfies readonly { id: string; label: MessageKey }[];
 
@@ -261,7 +259,6 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
           now={now}
           onExported={() => setNow(deps.now())}
         />
-        <ArticlesSection {...section} />
         <AboutSection version={deps.version} noticesUrl={deps.noticesUrl} />
       </main>
     </div>
