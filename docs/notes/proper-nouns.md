@@ -147,9 +147,25 @@ Over the corpus: unknown tokens 3,523 → 3,524 (Netflix), New 86.7 and phrases 
 
 Sizes, raw MB, lock → now: `en` 6.881 → 6.881, `en-ja` 7.816 → 7.997, `en-defs` 22.738 → 22.613 (words every pair now has leave it); en→ja 37.44 → 37.49 MB (guard 40). The recipe pairs are unchanged. `data:capitals` now runs after `data:phrases` (it adds the words to `en-ja/phrases.json`) and reads the extract twice (the expansions' tables), about a minute.
 
+## Multi-word names (2026-11-20)
+
+A capital-only word inside a longer name was looked up alone: Zealand → シェラン島 in "New Zealand", Latina, Europa. The name is a kaikki entry (B4, a named entity: never detected), but no pattern when one of its words is a capital-only word (B1 asks for vocabulary words). Rule in [architecture](../specs/architecture.md) "Names that are units". `df1-v3` (data fixes 1) → `df2-v4`.
+
+| Idea | Result | Decision |
+|---|---|---|
+| Named patterns with a translation table, capital-only words allowed, detected where the text writes their capitalised words so, not in a text in capitals | 2,580 names; 200 spans; judged blind (`packets/nm1`, 160 of them): 158 the name the text means, meaning fits 144 | Refined |
+| + two capitalised words at least | "I have never" (a game, matched in "But I have never missed a train") and 63 terms whose one capital any text writes (Ming dynasty, Pythagorean theorem, Russian roulette) out: 2,522 names, 198 spans | Recommended |
+| Names as written in title case word by word | "Council Of Europe" would ask "Of" for a capital | Dropped: as the entries write them |
+| A capital-only word inside a run of capitals forming a known name gets no meaning (the brief's fallback) | not needed where the name is a unit; where no entry exists (Europa League, Tokyo Station) nothing is known to form | Dropped |
+| Names lower case in the pack (smaller under gzip) | 455.7 against 460.6 KB gzipped, but the card's head and the small words' case are lost | Dropped |
+
+Results: 198 name spans over the corpus (YouTube 47, Netflix 60, articles 91; 1.2 per 1,000 tokens): phrase highlights per 1,000 tokens 26.1 → 27.2 (articles 12.3 → 15.7, YouTube 27.9 → 28.5, Netflix 29.5 → 30.4), New 86.7 → 86.1 (a name's words are no longer New words one by one), unknown and names unchanged. New Zealand (2), Saudi Arabia (3), Latin America, Wall Street, New York (17), Middle East, World Cup, Inner Mongolia now hover as the name. Wrong meanings: Your Honor ×11 (its first sense in en-defs is a representative's form of address, not a judge's), Twelfth Night (the festival, for the play), The Rock (the prison, for the wrestler), Jesus Christ as an oath. The judges call names low-value highlights (133 of 160; the rubric counts a name as low-value), so they preferred the changed units 34 : 39 (85 the same); the hover precision is the point of the rule.
+
+Costs: `en/phrases.json` 443 → 461 KB gzipped (its budget raised 450 → 470 KB); `en` 6.88 → 6.94 MB, `en-ja` 8.00 → 8.01 MB raw (the names' Japanese from the tables, 7,558 → 7,621 phrase meanings), `en-defs` 22.61 → 22.70 MB (the new patterns' definitions); building the matcher 37 → 46–51 ms in Node. Europa League and Tokyo Station have no Wiktionary entry, so Europa (エウロパ) and Tokyo are still read alone there.
+
 ## Still open
 
-- A capital-only word inside a longer name (New Zealand, Europa League): the multi-word name is a phrase the matcher does not detect (B4); handled best there.
+- A capital-only word inside a longer name with no Wiktionary entry (Europa League, Tokyo Station) is still read alone ("Multi-word names"); a name's first sense can be another use (Your Honor, Twelfth Night).
 - Words without a translation table (NYPD, ChatGPT, Grammys, AGI: about 50 tokens) and without a Wiktionary entry (Nvidia, AirPods, Binance: 598 tokens) stay without a hover.
 - Capital-only words in documents in capitals (ALL-CAPS captions) and in caseless speech recognition stay unknown: their case says nothing.
 - The recipe pairs (es, pt, ru, fr, de, zh, it, pl): their `capital.json` is not rebuilt, so they show the English definitions translated at display time, and rule D takes their places for names (no native meaning). Rebuilding them with the capital-only words gives native meanings (Tokyo → Tokio) and 8 more pack versions.
@@ -162,4 +178,4 @@ STUDY=2026-11 REPO=<checkout> UNITS=data/raw/quality/2026-11/runs/units-87d8606/
   OUT=data/raw/quality/2026-11/runs/<label> npx jiti .claude/skills/real-content-quality/scripts/measure.ts
 ```
 
-Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`. Rare words: `rw-base-314d78d` (main's packs), `rw-rebuilt-base`, the candidates `rw-acc8`, `rw-t6`, `rw-t5`, `rw-tab1m3`, `rw-m7tab3m3` (capital threshold not yet separate), `rw-g6`, `rw-g5`, `rw-g4t1`, `rw-g3t1`, `rw-g2t1`, and `rw-final`; judging in `packets/rw1` (g5) and `packets/rw2` (g4t1). Data fixes: `df-base-b18f375`, `df1-v1` (dotted spellings' senses first), `df1-v2` (lower-case words' expansions), `df1-v3`; judging in `packets/df1`, `packets/df2`; the prototypes (ranking variants, the Japanese guard) in `proto/data-fixes/`.
+Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`. Rare words: `rw-base-314d78d` (main's packs), `rw-rebuilt-base`, the candidates `rw-acc8`, `rw-t6`, `rw-t5`, `rw-tab1m3`, `rw-m7tab3m3` (capital threshold not yet separate), `rw-g6`, `rw-g5`, `rw-g4t1`, `rw-g3t1`, `rw-g2t1`, and `rw-final`; judging in `packets/rw1` (g5) and `packets/rw2` (g4t1). Data fixes: `df-base-b18f375`, `df1-v1` (dotted spellings' senses first), `df1-v2` (lower-case words' expansions), `df1-v3`; judging in `packets/df1`, `packets/df2`; multi-word names: `df2-v1` (title case word by word), `df2-v2` (one capital enough), `df2-v4`, judged in `packets/nm1`; the prototypes (ranking variants, the Japanese guard) in `proto/data-fixes/`.

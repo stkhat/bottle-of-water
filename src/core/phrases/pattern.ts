@@ -192,6 +192,13 @@ export interface PhrasePatterns {
    * sorted ("fly in"; weak data: most senses are marked neither way).
    */
   readonly intransitive?: readonly string[];
+  /**
+   * Names that are units, as written ("New Zealand", "Europa League"), sorted: patterns
+   * of `more` that detection matches where the text writes each word with a capital
+   * (not in a text in capitals), so a word of the name is read as the name, not alone
+   * ("Zealand", a Danish island). A language whose capitals mark no names has none.
+   */
+  readonly names?: readonly string[];
 }
 
 /** Each pattern's parts of speech (`PhrasePatterns.pos`), by its key; none without. */

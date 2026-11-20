@@ -54,6 +54,8 @@ export interface MatchInput {
    * none after the last.
    */
   readonly between: readonly string[];
+  /** The text is in capitals: its case says nothing (no name is a unit, `names`). */
+  readonly upper?: boolean;
 }
 
 export interface PhraseMatch {
@@ -290,8 +292,30 @@ export function createPhraseMatcher({
       between,
     };
   };
+  /** Names that are units (`PhrasePatterns.names`): key → whether each word is capitalised. */
+  const names = new Map(
+    (patterns.names ?? []).map((name) => [
+      name.toLowerCase(),
+      name.split(" ").map((word) => /^\p{Lu}/u.test(word)),
+    ]),
+  );
+  const capitalised = (word: MatchWord) => /^\p{Lu}/u.test(word.token.text);
+  /**
+   * A name is matched where the text writes each word the name writes with a capital
+   * so ("Council of Europe": not its "of"), in a text not in capitals.
+   */
+  const writtenAsName = (input: MatchInput, match: PhraseMatch) => {
+    const capitals = names.get(match.key);
+    return (
+      capitals === undefined ||
+      (input.upper !== true &&
+        match.words.every(
+          (k, n) => capitals[n] !== true || capitalised(input.words[k]!),
+        ))
+    );
+  };
   const detect = buildTrie(
-    patterns.detect,
+    [...patterns.detect, ...names.keys()],
     NO_RULES,
     () => false,
     patternWords(NO_RULES),
@@ -740,7 +764,9 @@ export function createPhraseMatcher({
     }
     afterPronoun(trie, input, i, out);
     if (verbLast) verbLastAt(trie, input, i, out);
-    return out;
+    return mode === "detect"
+      ? out.filter((match) => writtenAsName(input, match))
+      : out;
   }
 
   const longestAt = (
@@ -808,7 +834,7 @@ export function createPhraseMatcher({
       }
       if (words.length > 0) joined.push(false);
       if (verbLast) agreeReflexives(words, joined);
-      return { words, joined, between };
+      return { words, joined, between, ...(upper && { upper }) };
     },
     matchesAt,
     longestAt,

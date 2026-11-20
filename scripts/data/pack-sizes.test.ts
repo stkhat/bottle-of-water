@@ -64,13 +64,14 @@ it.each(pairs)("%s downloads at most 40 MB", (_pair, learning, native) => {
 // Every English page loads these: the tagger and the phrase patterns with the language
 // pack, the sense labels with the dictionary; every Spanish and French page its tagger
 // (docs/notes/data-sizes.md). The phrase
-// patterns are every multi-word entry of the source (rule B1): about 73,000.
+// patterns are every multi-word entry of the source (rule B1): about 73,000, and the
+// names that are units as written (about 2,500: 450 → 470 KB, 2026-11-20).
 describe.each([
   ["en/tagger.json", 150_000],
   ["en/contractions.json", 5_000],
   ["es/tagger.json", 150_000],
   ["fr/tagger.json", 150_000],
-  ["en/phrases.json", 450_000],
+  ["en/phrases.json", 470_000],
   ["en-ja/pos.json", 100_000],
 ])("%s", (file, budget) => {
   it(`stays under ${budget / 1000} KB gzipped`, () => {
