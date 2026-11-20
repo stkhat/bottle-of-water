@@ -1,3 +1,3 @@
 {
-"shards":[{"file":"dict-1.json","first":"a","last":"gestación"},{"file":"dict-2.json","first":"gestante","last":"tosco"},{"file":"dict-3.json","first":"toser","last":"útil"}]
+"shards":[{"file":"dict-1.json","first":"a","last":"gestante"},{"file":"dict-2.json","first":"gestar","last":"toscano"},{"file":"dict-3.json","first":"tosco","last":"útil"}]
 }

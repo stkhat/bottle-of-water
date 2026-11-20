@@ -333,3 +333,21 @@ describe("selectionKey", () => {
     expect(selectionKey(TEXT, snapped!.spans)).toBe("rise and fall");
   });
 });
+
+describe("snapWords over a part of a phrase across cards", () => {
+  it("keeps the part this text has: the other is in the next card", () => {
+    const text = "they had to give";
+    const spans: Span[] = [
+      ...wordSpans("they had to"),
+      {
+        start: 12,
+        end: 16,
+        key: "give up",
+        kind: "phrase",
+        category: "new",
+        part: { index: 0, count: 2, start: 12, end: 16, next: true },
+      },
+    ];
+    expect(textOf(text, select(text, spans, "to", "give"))).toBe("to give");
+  });
+});

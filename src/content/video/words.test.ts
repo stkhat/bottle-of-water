@@ -4,7 +4,13 @@ import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
 import { filterCounts, filterRows, sortRows } from "../words/words";
 import type { SubtitleLine } from "../../core/subtitles/cues";
-import { placeOf, videoWords, type VideoPlace, type VideoWord } from "./words";
+import {
+  acrossCards,
+  placeOf,
+  videoWords,
+  type VideoPlace,
+  type VideoWord,
+} from "./words";
 
 const cue = (text: string): Cue => ({ startMs: 0, endMs: 1000, text });
 const span = (
@@ -390,5 +396,46 @@ describe("places in subtitle lines", () => {
     expect(placesOf("in turn")).toEqual([298_500]);
     expect(placesOf("be")).toEqual([296_000, 298_500]);
     expect(placesOf("argentina")).toEqual([301_000]);
+  });
+});
+
+describe("acrossCards", () => {
+  const cards = [cue("they had to give"), cue("up the\nloaf"), cue("Rise.")];
+  const part = (
+    start: number,
+    end: number,
+    index: number,
+    side: "previous" | "next",
+  ): Span => ({
+    ...span(start, end, "give up", "new", "phrase"),
+    part: { index, count: 2, start, end, [side]: true },
+  });
+  const spans: Span[][] = [
+    [span(0, 4, "they", "known"), part(12, 16, 0, "next")],
+    [part(0, 2, 1, "previous"), span(10, 14, "loaf", "new")],
+    [span(0, 4, "rise", "new")],
+  ];
+  const flat = (text: string) => text.split("\n").join(" ");
+
+  it("gives a phrase across cards its words and sentence from either part", () => {
+    const whole = {
+      first: 0,
+      last: 1,
+      surface: "give up",
+      sentence: "they had to give up the loaf",
+    };
+    expect(acrossCards(cards, spans, 0, spans[0]![1]!, flat)).toEqual(whole);
+    expect(acrossCards(cards, spans, 1, spans[1]![0]!, flat)).toEqual(whole);
+  });
+
+  it("leaves a span one card holds alone", () => {
+    expect(acrossCards(cards, spans, 1, spans[1]![1]!, flat)).toBeUndefined();
+  });
+
+  it("lists the phrase once, as written in both cards", () => {
+    const rows = videoWords(cards, [], spans, {});
+    expect(rows.filter((r) => r.key === "give up")).toMatchObject([
+      { head: "give up", count: 1, first: { cue: 0, span: 1 } },
+    ]);
   });
 });

@@ -10,7 +10,13 @@
  */
 import { tagSentence, type PerceptronModel } from "./perceptron";
 import type { Tagger, TaggedWord, WordRole, WordUse } from "./tagger";
-import { formOf, NONFINITE, trustedTagOf, udTokenTag } from "./ud";
+import {
+  formOf,
+  infinitiveConstruction,
+  NONFINITE,
+  trustedTagOf,
+  udTokenTag,
+} from "./ud";
 
 /**
  * A tag's score margin from which it is trusted. On GSD's dev set, 5 keeps about 96%
@@ -513,6 +519,24 @@ function relativeQue(words: readonly TaggedWord[], i: number): boolean {
   );
 }
 
+/**
+ * A verb before an infinitive (`WordUse.construction`): "essayer de comprendre", "il
+ * finit par partir", "j'ai à faire", object pronouns before the infinitive ("essaie de
+ * le faire"). An elided introducer is the word it shortens ("d'expliquer": de).
+ */
+function construction(
+  words: readonly TaggedWord[],
+  i: number,
+): Pick<WordUse, "construction"> {
+  const found = infinitiveConstruction(
+    words,
+    i,
+    (word) => word.tag.label === "pronoun",
+    (form) => (form.endsWith("'") ? `${form.slice(0, -1)}e` : form),
+  );
+  return found === undefined ? {} : { construction: found };
+}
+
 function use(
   words: readonly TaggedWord[],
   i: number,
@@ -559,6 +583,7 @@ function use(
     ...(base !== undefined && { base }),
     ...(pronominal && { pronominal: true }),
     ...(relativeQue(words, i) && { grammarPos: "conjunction" }),
+    ...construction(words, i),
     // A base the grammar decides against the tag ("tu les as": not "the aces") is a verb.
     ...(base !== undefined &&
       word.tag.label !== "verb" && { grammarPos: "verb" }),

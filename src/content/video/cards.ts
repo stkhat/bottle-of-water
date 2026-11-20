@@ -12,7 +12,7 @@ import {
 } from "../lookup/lookup";
 import type { Store } from "../store";
 import type { HoverPlace, VideoLine, VideoState, WordRef } from "./state";
-import { placeOf } from "./words";
+import { acrossCards, placeOf } from "./words";
 
 /**
  * The hover card and the dictionary window over the words of the subtitle and the
@@ -23,7 +23,11 @@ export function createCards(o: {
   lookup: Lookup;
   flat(text: string): string;
   onPanelOpen?(): void;
-  /** The window opened on `ref`'s term (not looked up again in an open window). */
+  /**
+   * The window shows `ref`'s term: it opened on it, or the term at its place is another
+   * once looked up again (a removed phrase's place shows a word of it). Not called when
+   * an open window shows the same term again.
+   */
   opened?(ref: WordRef, card: TermCard): void;
   /** The window closed. */
   closed?(): void;
@@ -32,7 +36,9 @@ export function createCards(o: {
 
   /**
    * The span `ref` points at, with its term as written (the whole phrase for a part of
-   * a phrase with a gap). Selected words' phrase is a span of its own, not saved.
+   * a phrase with a gap, or of one across cards) and the sentence saving it records:
+   * the card's flat text, or the cards' a phrase across cards is in. Selected words'
+   * phrase is a span of its own, not saved.
    */
   function spanOf(ref: WordRef) {
     const { cues, spans } = store.get();
@@ -41,8 +47,18 @@ export function createCards(o: {
       ? { ...ref.selected, kind: "phrase", category: "new" }
       : spans[ref.cue]?.[ref.span];
     if (!cue || !span) return undefined;
+    const across = ref.selected
+      ? undefined
+      : acrossCards(cues, spans, ref.cue, span, flat);
+    if (across)
+      return { cue, span, surface: across.surface, sentence: across.sentence };
     const { start, end } = span.part ?? span;
-    return { cue, span, surface: flat(cue.text.slice(start, end)) };
+    return {
+      cue,
+      span,
+      surface: flat(cue.text.slice(start, end)),
+      sentence: flat(cue.text),
+    };
   }
 
   async function describe(
@@ -51,12 +67,10 @@ export function createCards(o: {
   ): Promise<TermCard | undefined> {
     const found = spanOf(ref);
     if (!found) return undefined;
-    // The card's flat text: the sentence saving the term from it records.
-    const sentence = flat(found.cue.text);
     return describeSpan(
       lookup,
       found.span,
-      { surface: found.surface, sentence },
+      { surface: found.surface, sentence: found.sentence },
       shownIn,
     );
   }
@@ -180,8 +194,11 @@ export function createCards(o: {
     if (panel && sameTerm(panel.card, term)) {
       const isCurrent = panelTicket.current();
       const card = await describe(panel.ref, "window");
-      if (card && isCurrent() && store.get().panel)
+      if (card && isCurrent() && store.get().panel) {
         showPanel(panel.ref, card, panel.opened);
+        // What the window explains follows the term it shows.
+        if (!sameTerm(card, panel.card)) o.opened?.(panel.ref, card);
+      }
     }
   }
 
