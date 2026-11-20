@@ -215,7 +215,6 @@ describe("SettingsPage", () => {
       "Sites",
       "Sentence history",
       "Sync and backup",
-      "Articles",
       "About",
     ]) {
       await expect.element(section(screen, name)).toBeInTheDocument();
@@ -1001,41 +1000,20 @@ describe("SettingsPage", () => {
     });
   });
 
-  describe("articles", () => {
-    it("comes last before About in the nav", async () => {
-      const { screen } = await open();
-      const links = screen
-        .getByRole("navigation", { name: "Settings sections" })
-        .getByRole("link")
-        .elements()
-        .map((a) => a.textContent);
-      expect(links.slice(-2)).toEqual(["Articles", "About"]);
-    });
-
-    it("highlights only the article by default, and switches it off and on", async () => {
-      const f = await open();
-      const articles = section(f.screen, "Articles");
-      await expect
-        .element(articles.getByText("How Langle works on web articles."))
-        .toBeVisible();
-      const toggle = articles.getByRole("switch", {
-        name: "Highlight only the article",
-      });
-      await expect.element(toggle).toBeChecked();
-      await expect
-        .element(
-          articles.getByText(
-            "Only the title and body get highlights, Mark as Known and history. Menus, sidebars and links to other articles still show meanings when you hover.",
-          ),
-        )
-        .toBeVisible();
-      await toggle.click();
-      await expect.element(toggle).not.toBeChecked();
-      await expect.poll(() => f.settings().articleMainOnly).toBe(false);
-      expect(setSettingsPatches(f.sent)).toEqual([{ articleMainOnly: false }]);
-      await toggle.click();
-      await expect.poll(() => f.settings().articleMainOnly).toBe(true);
-    });
+  it("has no Articles section: Sync and backup comes right before About", async () => {
+    const { screen } = await open();
+    const links = screen
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link")
+      .elements()
+      .map((a) => a.textContent);
+    expect(links.slice(-2)).toEqual(["Sync and backup", "About"]);
+    expect(links).not.toContain("Articles");
+    expect(
+      screen
+        .getByRole("switch", { name: "Highlight only the article" })
+        .elements(),
+    ).toHaveLength(0);
   });
 
   it("shows the version, a one-line credit and the Licenses link", async () => {
