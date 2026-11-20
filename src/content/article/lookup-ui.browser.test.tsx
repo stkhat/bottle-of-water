@@ -162,6 +162,31 @@ describe("hover card", () => {
     ).toBeLessThan(shown.indexOf("diethanolamine"));
   });
 
+  it("leads a plural abbreviation with the sense the article spells out in the plural", async () => {
+    const { root } = await setup(
+      `<div style="height: 200px"></div>
+       <p>Graphics processing units (GPUs) are specialized circuits.</p>`,
+      { translator: { translate: async (text) => `訳: ${text}` } },
+    );
+    await pointAt(root, "GPUs");
+    await expect.element(hoverCard()).toBeVisible();
+    // The card's translated meaning is its first sense's.
+    await expect
+      .element(page.getByText("訳: graphics processing unit", { exact: false }))
+      .toBeVisible();
+    expect(cardRoot().textContent).not.toContain("State Political Directorate");
+    expect(cardRoot().textContent).toContain("GPUs → GPU");
+    await clickOn(root, "GPUs");
+    const panel = dictionary();
+    await expect
+      .element(panel.getByText("State Political Directorate", { exact: false }))
+      .toBeVisible();
+    const shown = panel.element().textContent;
+    expect(shown.indexOf("graphics processing unit")).toBeLessThan(
+      shown.indexOf("State Political Directorate"),
+    );
+  });
+
   it("classifies a name's blocks again when the page later writes it in lower case", async () => {
     const { root } = await setup(
       "<p>Yesterday Mark baked a loaf. The dough was tedious.</p>",

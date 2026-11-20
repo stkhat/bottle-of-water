@@ -3,6 +3,7 @@ import {
   expansionOf,
   expansionsOf,
   moveFirst,
+  spelledOutIn,
   spelledOutSense,
   writesPhrase,
 } from "./expansions";
@@ -65,6 +66,86 @@ describe("writesPhrase", () => {
     ).toBe(false);
     expect(writesPhrase("a mail-order bride", "mail order")).toBe(true);
     expect(writesPhrase("email order", "mail order")).toBe(false);
+    expect(writesPhrase("the Women's Army Corps", "Women's Army Corps")).toBe(
+      true,
+    );
+    expect(writesPhrase("the women s army corps", "Women's Army Corps")).toBe(
+      false,
+    );
+  });
+
+  // A pack's base forms (`LanguagePack.lemmas`), in miniature.
+  const BASES: Record<string, string[]> = {
+    units: ["unit"],
+    organizations: ["organization"],
+    points: ["point"],
+    senate: ["senate"],
+    senates: ["senate"],
+    unidades: ["unidad"],
+    mice: ["mice", "mouse"],
+  };
+  const bases = (word: string) => BASES[word.toLowerCase()] ?? [];
+
+  it("with the pack's base forms, finds a phrase the text writes inflected", () => {
+    const gpus = "Graphics processing units (GPUs) are specialized circuits.";
+    expect(writesPhrase(gpus, "graphics processing unit")).toBe(false);
+    expect(writesPhrase(gpus, "graphics processing unit", bases)).toBe(true);
+    // A plural's possessive, a hyphenated word, a phrase's first word.
+    expect(
+      writesPhrase(
+        "Non-governmental organizations' work",
+        "non-governmental organization",
+        bases,
+      ),
+    ).toBe(true);
+    expect(writesPhrase("many points of view", "point of view", bases)).toBe(
+      true,
+    );
+    expect(
+      writesPhrase("las unidades de medida", "unidad de medida", bases),
+    ).toBe(true);
+    // The phrase inflected, the text not: a base form in common.
+    expect(
+      writesPhrase("the United States Senate", "United States Senates", bases),
+    ).toBe(true);
+  });
+
+  it("with the pack's base forms, still wants each word's form", () => {
+    // Another word, or a form the pack does not know.
+    expect(
+      writesPhrase(
+        "graphics processing unity",
+        "graphics processing unit",
+        bases,
+      ),
+    ).toBe(false);
+    expect(
+      writesPhrase(
+        "graphics processing unitz",
+        "graphics processing unit",
+        bases,
+      ),
+    ).toBe(false);
+    // A form starts as its base does: a word that does not is not looked up.
+    const asked: string[] = [];
+    writesPhrase("some mice and rats", "the mouse", (word) => {
+      asked.push(word);
+      return bases(word);
+    });
+    expect(asked).not.toContain("some");
+    expect(writesPhrase("lab mice", "lab mouse", bases)).toBe(true);
+  });
+});
+
+describe("spelledOutIn", () => {
+  it("answers each phrase of one text", () => {
+    const writes = spelledOutIn(
+      "Central processing units (CPUs) and graphics processing units",
+      (word) => (word.toLowerCase() === "units" ? ["unit"] : []),
+    );
+    expect(writes("central processing unit")).toBe(true);
+    expect(writes("graphics processing unit")).toBe(true);
+    expect(writes("tensor processing unit")).toBe(false);
   });
 });
 
