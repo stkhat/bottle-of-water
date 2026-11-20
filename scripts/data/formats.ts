@@ -310,6 +310,12 @@ const SOURCES = {
     by: "Hermit Dave, from the OpenSubtitles 2018 corpus (OPUS)",
     license: LICENSES.ccBySa4,
   },
+  freqEsText: {
+    title: "Wiktionary:Frequency lists/Spanish/Mixed 730K",
+    url: "https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists/Spanish/Mixed_730K",
+    by: `${WIKTIONARY_AUTHORS}; built from the Leipzig Corpora Collection (2021 Wikipedia and 2022 news corpora)`,
+    license: LICENSES.ccBySa4,
+  },
   wordnetEn: {
     title: "Princeton WordNet 3.0",
     via: OMW,
@@ -562,7 +568,14 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
         ...SOURCES.wiktionaryEsEditionSpanish,
         used: "how usage examples write names (capitalised or in lower case)",
       },
-      { ...SOURCES.freqEs, used: "frequency ranks" },
+      {
+        ...SOURCES.freqEs,
+        used: "frequency ranks (what people say) and vocabulary",
+      },
+      {
+        ...SOURCES.freqEsText,
+        used: "frequency ranks (what people write) and vocabulary",
+      },
       {
         ...SOURCES.udAncora,
         used: "the part-of-speech tagger's model (trained on it), the order of a form's base forms and of a word's parts of speech",

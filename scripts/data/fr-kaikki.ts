@@ -32,6 +32,7 @@ import {
   writeLearningPacks,
   type LearningBuild,
 } from "./learning-kaikki.ts";
+import { learningForms } from "./frequency-lists.ts";
 import type { PhraseBuildLanguage } from "./phrases.ts";
 import { undocumentedPages } from "./recipes/undocumented.ts";
 
@@ -129,7 +130,10 @@ export const FRENCH_BUILD: LearningBuild = {
 
 async function main() {
   await slimEdition("fr", KAIKKI_FR_EDITION_PATH, KAIKKI_FR_EDITION_SLIM_PATH);
-  const forms = frenchForms(await readFrFrequency(FR_FORMS));
+  // One list, the subtitles' (a written-text list would go in `text`: `learningForms`).
+  const forms = learningForms({
+    spoken: frenchForms(await readFrFrequency(FR_FORMS)),
+  });
   const packs = await buildLearningPacks(
     {
       ...FRENCH_BUILD,

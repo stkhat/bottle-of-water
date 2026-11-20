@@ -35,6 +35,7 @@ import {
   writeLearningPacks,
   type LearningBuild,
 } from "./learning-kaikki.ts";
+import { learningForms } from "./frequency-lists.ts";
 import type { PhraseBuildLanguage } from "./phrases.ts";
 import { undocumentedPages } from "./recipes/undocumented.ts";
 
@@ -132,7 +133,11 @@ async function main() {
     KAIKKI_DE_EDITION_TABLES_PATH,
     GERMAN_WORD,
   );
-  const written = germanWritten(await readDeFrequency(DE_FORMS));
+  // One list, the subtitles' (a written-text list would go in `text`, its spellings
+  // as written, case kept: `learningForms`).
+  const written = learningForms({
+    spoken: germanWritten(await readDeFrequency(DE_FORMS)),
+  });
   const packs = await buildLearningPacks(
     GERMAN_BUILD,
     process.argv[2] ?? KAIKKI_DE_PATH,

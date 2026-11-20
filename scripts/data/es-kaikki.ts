@@ -1,16 +1,17 @@
-// kaikki.org Spanish Wiktionary extract (CC BY-SA), the Spanish frequency list and the
+// kaikki.org Spanish Wiktionary extract (CC BY-SA), the Spanish frequency lists and the
 // UD Spanish treebanks' lemmas → data/packs/es/{freq,vocab,ipa,pos,phrases,names}.json,
 // data/packs/es/lemmas/{index,dict-<n>}.json and data/packs/es-en/{index,dict-<n>}.json
 // (then run npm run data:publish)
 // The Spanish Wiktionary extract (kaikki-es-edition.jsonl) gives only its examples, which
 // say how Spanish writes each name (`MOSTLY_CAPITALISED`) and, with kaikki-es's own,
 // make the phrase build's example corpus (`importPhrases`, rule B2).
-// Usage: node scripts/data/es-kaikki.ts [path]   (default data/raw/kaikki-es.jsonl; run es-frequency.ts first)
+// Usage: node scripts/data/es-kaikki.ts [path]   (default data/raw/kaikki-es.jsonl; downloads the frequency lists if missing)
 import { join } from "node:path";
 import { SPANISH_RULES } from "../../src/core/phrases/es.ts";
 import { RAW_DIR } from "./common.ts";
-import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.ts";
+import { esFrequencyLists } from "./es-frequency.ts";
 import { treebankFixed, treebankLemmas } from "./es-tagger.ts";
+import { learningForms } from "./frequency-lists.ts";
 import {
   buildLearningPacks,
   buildSummary,
@@ -103,7 +104,8 @@ export const writeEsPacks = (packs: EsPacks, dir?: string) =>
   writeLearningPacks("es", packs, dir);
 
 async function main() {
-  const forms = frequencyForms(await readEsFrequency(ES_FORMS));
+  // Both lists, each form at its better rank (`learningForms`).
+  const forms = learningForms(await esFrequencyLists());
   const packs = await buildEsPacks(process.argv[2] ?? KAIKKI_ES_PATH, forms, {
     treebank: await treebankLemmas(),
     fixed: await treebankFixed(),
