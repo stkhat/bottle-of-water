@@ -117,6 +117,21 @@ export type PairPack = Readonly<
   >
 >;
 /**
+ * A learning pair's pack (<learning>-<native>, L3: de-fr), merged: as a recipe pair's
+ * (`PairPack`), keyed as the learning language's English pair (de-en: lower case), and,
+ * in a learning language that capitalises its nouns, a fourth item with the indices of
+ * the senses of the term's capitalised headword where the English pair marks them
+ * (German "Sie": the polite you; "Essen": a meal), which the hover shows first where
+ * the page writes the word capitalised.
+ */
+export type LearningPairPack = Readonly<
+  Record<
+    string,
+    | PairPack[string]
+    | readonly [...PairPack[string], capitals: readonly number[]]
+  >
+>;
+/**
  * en-ja/pos.json: the parts of speech of EJDict's senses for words with several, one
  * code per sense (`sense-labels.ts`): "n~ v a* a".
  */

@@ -4,6 +4,12 @@ import type { PackName } from "../../src/core/packs/load.ts";
 import { PACK_FORMATS } from "../../src/core/packs/formats.ts";
 import { PACKS_DIR, ROOT } from "./common.ts";
 import {
+  LEARNING_PAIRS,
+  learningOf,
+  type LearningPairName,
+} from "../../src/core/packs/formats.ts";
+import {
+  LEARNING_RECIPES,
   RECIPES,
   TABLES_TAG,
   recipeTags,
@@ -426,6 +432,74 @@ export function recipePack(
   });
 }
 
+/** Each Wiktionary edition a learning pair reads: its name and site (L3). */
+const EDITIONS: Readonly<Record<string, { title: string; by: string }>> = {
+  fr: { title: "French Wiktionary (Wiktionnaire)", by: "Wiktionnaire" },
+  de: { title: "German Wiktionary", by: "the German Wiktionary" },
+  es: { title: "Spanish Wiktionary (Wikcionario)", by: "Wikcionario" },
+  pt: { title: "Portuguese Wiktionary (Wikcionário)", by: "Wikcionário" },
+  ru: { title: "Russian Wiktionary (Викисловарь)", by: "Викисловарь" },
+  zh: { title: "Chinese Wiktionary (维基词典)", by: "the Chinese Wiktionary" },
+  it: { title: "Italian Wiktionary (Wikizionario)", by: "Wikizionario" },
+  pl: { title: "Polish Wiktionary (Wikisłownik)", by: "Wikisłownik" },
+  ja: {
+    title: "Japanese Wiktionary (ウィクショナリー)",
+    by: "the Japanese Wiktionary",
+  },
+};
+
+/** A Wiktionary edition's entries of one language, or its translation tables. */
+function editionSource(edition: string, what: string): Source {
+  const found = EDITIONS[edition];
+  if (!found) throw new Error(`No Wiktionary edition named for ${edition}`);
+  return {
+    title: `${found.title}, ${what}`,
+    via: KAIKKI,
+    url: `https://${edition}.wiktionary.org/`,
+    by: `the contributors to ${found.by}, listed in each page's history`,
+    license: LICENSES.ccBySa4,
+  };
+}
+
+/**
+ * A learning pair's pack (`de-fr`): its recipe's sources in order, with what each
+ * gives (scripts/data/recipes/learning-pairs.ts).
+ */
+function learningPairPack(pair: LearningPairName): PackInfo {
+  const learning = learningOf(pair);
+  const native = pair.slice(learning.length + 1);
+  const learningName = ENGLISH_NAMES.of(learning) ?? learning;
+  const nativeName = ENGLISH_NAMES.of(native) ?? native;
+  const recipe = LEARNING_RECIPES[pair];
+  const sources = recipe.order.map((kind): PackSource => {
+    switch (kind) {
+      case "edition":
+        return {
+          ...editionSource(native, `${learningName} entries`),
+          used: `${nativeName} definitions of ${learningName} words`,
+        };
+      case "tables":
+        return {
+          ...editionSource(
+            learning,
+            `${learningName} entries' translation tables`,
+          ),
+          used: `${nativeName} translations (translation tables)`,
+        };
+      case "reversed":
+        return {
+          ...editionSource(native, `${nativeName} entries' translation tables`),
+          used: `${nativeName} words whose translation tables list the ${learningName} word`,
+        };
+    }
+  });
+  return pack(pair, {
+    title: `${learningName}–${nativeName} dictionary`,
+    description: `${nativeName} meanings of ${learningName} words and phrases`,
+    sources,
+  });
+}
+
 /** Each pack holds Wiktionary-derived files, so each is CC BY-SA 4.0 as a whole. */
 export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   en: pack("en", {
@@ -557,6 +631,12 @@ export const PACKS: Readonly<Record<PackName, PackInfo>> = {
   ...(Object.fromEntries(
     recipeNatives().map((native) => [`en-${native}`, recipePack(native)]),
   ) as Record<`en-${RecipeNative}`, PackInfo>),
+  ...(Object.fromEntries(
+    (Object.keys(LEARNING_PAIRS) as LearningPairName[]).map((pair) => [
+      pair,
+      learningPairPack(pair),
+    ]),
+  ) as Record<LearningPairName, PackInfo>),
 };
 
 /**

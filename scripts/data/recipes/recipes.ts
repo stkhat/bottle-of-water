@@ -3,6 +3,7 @@
 // builds them; scripts/data/formats.ts names each source's license and authors. Kept
 // free of value imports, so both can read it.
 import type { RecipeNative } from "../../../src/core/natives.ts";
+import type { LearningPairName } from "../../../src/core/packs/formats.ts";
 
 /** The tag of English Wiktionary's translation tables in a pair pack's sources. */
 export const TABLES_TAG = "enwiktionary-translations";
@@ -114,3 +115,68 @@ export const recipeTags = (recipe: Recipe) => [
   ...(recipe.edition?.afterTables ? [recipe.edition.tag] : []),
   ...(recipe.wordnets ?? []),
 ];
+
+/** The sources a learning-language pair recipe reads (L3). */
+export type LearningSourceKind = "edition" | "tables" | "reversed";
+
+/**
+ * How a pair from a learning language other than English into another native language
+ * is built (scripts/data/recipes/learning-pairs.ts): its sources in order of
+ * preference, each term coming whole from the first that has it (judged blind per
+ * pair: docs/notes/translation-data-expansion.md "L3"):
+ * - `edition`: the native language's Wiktionary edition's entries for the learning
+ *   language's words (Wiktionnaire's German entries: Hund → chien);
+ * - `tables`: the learning language's own edition's translation tables, rows into the
+ *   native language (de.wiktionary's Hund → chien), with the learning language's sense
+ *   as the hint;
+ * - `reversed`: the native edition's own words whose translation tables list the
+ *   learning-language word (Wiktionnaire's chien lists Hund).
+ */
+export interface LearningRecipe {
+  order: readonly LearningSourceKind[];
+  /** The tables' language codes for the native language (kaikki codes Mandarin cmn too). */
+  tables?: { langCodes: string[] };
+  /** Chinese in simplified characters (`Recipe.simplified`). */
+  simplified?: boolean;
+  /**
+   * Pages of the native edition a bot created without saying where their text came
+   * from: their entries are left out of `edition` and `reversed` (provenance, L3:
+   * PiedBot's 2005–2006 batches on Wiktionnaire; of its German entries, about half of
+   * the French glosses are not in de.wiktionary's rows of the time). Read from
+   * Wikimedia's MediaWiki history dump of the edition (data/raw/mediawiki-history/, a
+   * file per year: `files`).
+   */
+  undocumented?: { files: readonly string[]; user: string };
+}
+
+/** The learning-language pairs a recipe builds and Settings may offer. */
+export const LEARNING_RECIPES: Readonly<
+  Record<LearningPairName, LearningRecipe>
+> = {
+  // de.wiktionary's French rows first, then Wiktionnaire's French words whose tables
+  // list the German word, then Wiktionnaire's German entries (judged blind, L3:
+  // tables over the edition 42 : 33, over reversed tables 36 : 20; reversed tables
+  // over the edition 44 : 32, words and corpus tokens together).
+  "de-fr": {
+    order: ["tables", "reversed", "edition"],
+    undocumented: {
+      files: [
+        "2026-10.frwiktionary.2005.tsv.bz2",
+        "2026-10.frwiktionary.2006.tsv.bz2",
+      ],
+      user: "PiedBot",
+    },
+  },
+};
+
+/** The source tag of each kind of a learning pair's sources ("frwiktionary-de"). */
+export function learningRecipeTags(
+  pair: string,
+): Record<LearningSourceKind, string> {
+  const [learning = "", native = ""] = pair.split("-");
+  return {
+    edition: `${native}wiktionary-${learning}`,
+    tables: `${learning}wiktionary-translations`,
+    reversed: `${native}wiktionary-translations`,
+  };
+}

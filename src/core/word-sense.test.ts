@@ -513,6 +513,37 @@ describe("readWords", () => {
     expect(seen).toEqual([["the", "rose", "fell", "."]]);
   });
 
+  it("tags a sentence's first word again in lower case where its capital made it a name's", () => {
+    const pack = createLanguagePack("es", {
+      lemmas: { tengo: "tener", irme: "ir" },
+      freq: [],
+      ipa: {},
+      vocab: new Set(["tener", "que", "ir", "maría"]),
+      patterns: { detect: [], more: [], gap: [] },
+      // A capital scores a name's tag above "tengo"'s verb, as for a sentence's first
+      // word; in lower case "tengo" is a verb, "maría" (unscored) a noun.
+      tagger: {
+        tags: ["NOUN", "VERB.Fin", "PROPN"],
+        words: { que: "SCONJ", irme: "VERB.Inf" },
+        weights: { "sh Xxx": [2, 60], "w tengo": [1, 50] },
+        scale: 10,
+      },
+    });
+    const read = (text: string) => {
+      const tokens = pack.tokenize(text);
+      return readWords(pack, tokens, pack.matcher.prepare(tokens).words, false);
+    };
+    // "Tengo que irme": tener before an infinitive, with que.
+    expect(read("Tengo que irme.")[0]?.use).toMatchObject({
+      construction: "que",
+      base: "tener",
+      grammarPos: "verb",
+    });
+    expect(read("Tengo que irme.")[0]?.tag).toBeUndefined();
+    // A name stays one: no verb in lower case either.
+    expect(read("María que irme.")[0]?.use.construction).toBeUndefined();
+  });
+
   it("reads nothing without a tagger", () => {
     const pack = createLanguagePack("es", {
       lemmas: {},

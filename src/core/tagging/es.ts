@@ -11,6 +11,7 @@ import type { Tagger, TaggedWord, WordRole, WordUse } from "./tagger";
 import {
   formOf,
   infinitiveConstruction,
+  namedVerbConstruction,
   NONFINITE,
   trustedTagOf,
   udTokenTag,
@@ -187,16 +188,22 @@ const relativeQue = (word: TaggedWord) =>
 
 /**
  * A verb before an infinitive (`WordUse.construction`): "tengo que irme", "vamos a
- * ver", "acaba de llegar", "suele venir". Spanish attaches its object pronouns to the
- * infinitive ("tengo que hacerlo"), so none stands between.
+ * ver", "acaba de llegar", "suele venir"; also one tagged as a name for its capital
+ * (`namedVerbConstruction`: "Suelo venir" is soler). Spanish attaches its object
+ * pronouns to the infinitive ("tengo que hacerlo"), so none stands between.
  */
 function construction(
   words: readonly TaggedWord[],
   i: number,
-): Pick<WordUse, "construction"> {
+): Pick<WordUse, "construction" | "base" | "grammarPos"> {
   const found = infinitiveConstruction(words, i);
-  return found === undefined ? {} : { construction: found };
+  if (found !== undefined) return { construction: found };
+  return namedVerbConstruction(words, i, verbBase) ?? {};
 }
+
+/** A word's base that is a verb other than the word itself ("suelo": soler). */
+const verbBase = (word: TaggedWord) =>
+  word.bases.find((base) => base !== word.form && INFINITIVE.test(base));
 
 function use(words: readonly TaggedWord[], i: number): WordUse {
   return {

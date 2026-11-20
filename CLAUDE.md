@@ -39,3 +39,11 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 
 ## Working style
 - UI requests often arrive as comments on the mock. After handling one, fix both the mock and the spec, and reply in the comment thread
+
+## Token budget
+Every turn re-reads the whole context, so cost ≈ turns × context size ([docs/notes/token-usage.md](docs/notes/token-usage.md)). Keep both small:
+- Put independent reads, edits and commands in one message. When tuning a script, make a round's edits in one turn (or rewrite it with Write), not one Edit per turn
+- Keep scripts in files and re-run them; don't resend long inline scripts
+- Write big outputs to a file and print counts plus a sample. `grep -n` first, then read only that range; don't re-read what is already in context
+- Load every deferred tool you will need in one ToolSearch call
+- Subagents: `judge` agent type for blind judging; `model: "sonnet"` for collection, measurement runs, fixed-checklist checks and mechanical edits; Opus for design and judgement. Keep each subagent to one step (~150 turns / ~250k context, else hand off)

@@ -33,6 +33,7 @@ describe("the native-language registry", () => {
       "es-en",
       "fr-en",
       "de-en",
+      "de-fr",
     ]);
     expect(DICTIONARY_PACKS["en-pt"]).toEqual(["en", "en-pt", "en-defs"]);
     expect(DICTIONARY_PACKS["en-de"]).toEqual(["en", "en-de", "en-defs"]);

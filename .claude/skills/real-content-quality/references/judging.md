@@ -1,6 +1,6 @@
 # Blind judging
 
-Judging is done by subagents, one packet each, about 100–150 items per packet. A judge reads only the rubric and its packet and writes its verdicts as JSON with a short script. Keep the packets, the key that maps X/Y back to versions, and the results in the study's `packets/` (`data/raw/quality/<study>/`, git-ignored). `scripts/ab-packets.py` builds words and units packets, the key and `RUBRIC.txt` from two `measure.ts` runs; `scripts/ab-tally.py` reads the results back (SKILL.md, Phase 3).
+Judging is done by subagents, one packet each, about 100–150 items per packet. Launch them as the `judge` agent type (`.claude/agents/judge.md`: Opus, Read and Write only), so each starts with a small context; the brief names only the packet, `RUBRIC.txt` and the result path. A judge reads only the rubric and its packet and writes its verdicts as JSON in one Write call. Keep the packets, the key that maps X/Y back to versions, and the results in the study's `packets/` (`data/raw/quality/<study>/`, git-ignored). `scripts/ab-packets.py` builds words and units packets, the key and `RUBRIC.txt` from two `measure.ts` runs; `scripts/ab-tally.py` reads the results back (SKILL.md, Phase 3).
 
 ## Packets
 

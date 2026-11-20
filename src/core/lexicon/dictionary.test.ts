@@ -638,6 +638,31 @@ describe("withCompounds", () => {
     expect(parts.entry("bahnnetz", "capital")?.lines[0]).toBe("railway + net");
     expect(parts.entry("schlüsselnetz", "capital")?.lines[0]).toBe("key + net");
   });
+  it("reads a part whose entry opens with a pointer by its target's meaning", () => {
+    const parts = withCompounds(
+      createDefsDictionary({
+        defs: {
+          karten: ["plural of Karte", [["noun", "plural of Karte", "capital"]]],
+          karte: ["map", [["noun", "map", "capital"]]],
+          dienst: ["service", [["noun", "service", "capital"]]],
+          dienste: [
+            "plural of Dienst",
+            [["noun", "plural of Dienst", "capital"]],
+          ],
+        },
+        ipa: {},
+      }),
+      (key) =>
+        /^kartendienste$/i.test(key)
+          ? { key: "kartendienste", parts: ["karten", "dienste"], noun: true }
+          : undefined,
+    );
+    expect(parts.entry("kartendienste", "capital")).toMatchObject({
+      lines: ["map + service"],
+      short: "service",
+      expansion: "Karten + Dienste",
+    });
+  });
 });
 
 describe("withPhraseCase", () => {
@@ -789,6 +814,54 @@ describe("createDefsDictionary", () => {
       pos: ["noun"],
     });
     expect(dictionary.outline("comer")).toMatchObject({ firstMeaning: true });
+  });
+});
+
+describe("createPairDictionary over a learning pair (German → French)", () => {
+  const dictionary = createPairDictionary({
+    dict: {
+      essen: [
+        "manger",
+        [
+          ["verb", "manger"],
+          ["noun", "repas, nourriture"],
+        ],
+        0,
+        [1],
+      ],
+      vater: ["père", [["noun", "père"]], 0, [0]],
+      gehen: ["aller", [["verb", "aller"]], 1],
+    },
+    defs: { laufen: ["to run", [["verb", "to run"]]] },
+    ipa: {},
+    native: "fr",
+  });
+
+  it("shows a capitalised word's capitalised senses first, the headword capitalised", () => {
+    expect(dictionary.entry("essen", "capital")).toMatchObject({
+      head: "Essen",
+      short: "repas, nourriture",
+      lines: ["repas, nourriture", "manger"],
+    });
+    expect(dictionary.entry("essen", "lower")).toMatchObject({
+      head: "essen",
+      lines: ["manger", "repas, nourriture"],
+    });
+    // At a sentence start the tag decides (rule A2).
+    expect(dictionary.entry("essen", undefined, "noun")?.lines[0]).toBe(
+      "repas, nourriture",
+    );
+    expect(dictionary.entry("vater", "capital")?.head).toBe("Vater");
+    expect(dictionary.entry("vater")?.senses).toEqual([
+      { pos: "noun", text: "père", capital: true },
+    ]);
+  });
+  it("falls back to the learning language's English definitions", () => {
+    expect(dictionary.entry("gehen")?.lines).toEqual(["aller"]);
+    expect(dictionary.entry("laufen")).toMatchObject({
+      short: "to run",
+      glossLang: "en",
+    });
   });
 });
 

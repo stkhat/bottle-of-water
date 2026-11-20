@@ -2,6 +2,7 @@ import type {
   DefsPack,
   DictPack,
   IpaPack,
+  LearningPairPack,
   LemmaPack,
   PairPack,
   PosPack,
@@ -476,8 +477,10 @@ const COMPOUND_PART = "-";
  * learning pack's `LanguagePack.compound`: "Bahnsystem", "Verdauungsenzyme") by its
  * parts (`compoundLines`), with the head's senses for the dictionary window, the
  * card's headword the compound's key written as the head's is ("Verdauungsenzym"),
- * and its parts' headwords as the card's note ("Verdauung + Enzym"). Rule A1 reads its
- * head's outline.
+ * and its parts' headwords as the card's note ("Verdauung + Enzym"). A part whose
+ * entry opens with a pointer (de-fr "Lieblings": "génitif singulier de Liebling") gives
+ * its target's meaning ("Lieblingsbluse": chéri + chemisier). Rule A1 reads its head's
+ * outline.
  */
 export function withCompounds(
   dictionary: DictionaryProvider,
@@ -513,13 +516,23 @@ export function withCompounds(
       const asParts = compound.parts.map((part) =>
         dictionary.entry(`${part}${COMPOUND_PART}`),
       );
+      // A part whose entry opens with a pointer (a form: "Lieblings", genitive of
+      // Liebling; "Karten", plural of Karte) shows what its target means.
+      const meanings = compound.parts.map((part, i) => {
+        const outline = dictionary.outline(part);
+        const target =
+          outline?.formOf !== undefined && !outline.firstMeaning
+            ? dictionary.entry(outline.formOf)
+            : undefined;
+        return target ?? entries[i]!;
+      });
       const head = entries.at(-1)!;
       const capital = /^\p{Lu}/u.test(head.head);
       return {
         head: capital ? capitalised(compound.key) : compound.key,
         kind: "word",
-        short: head.short,
-        lines: compoundLines(entries, asParts),
+        short: meanings.at(-1)!.short,
+        lines: compoundLines(meanings, asParts),
         senses: head.senses,
         ...(head.glossLang !== undefined && { glossLang: head.glossLang }),
         expansion: entries.map((part) => part.head).join(" + "),
@@ -838,6 +851,13 @@ type PairSenses = PairPack[string][1];
  * Capitalised headwords (Japan → Japón, January → enero, Thursday → jueves) are kept
  * apart under `capitalKey` and read as written, as en-ja reads EJDict's (`asWritten`);
  * what each one means comes with it (`capitalMeaning`).
+ *
+ * A learning pair (L3: German → French, `LearningPairPack`) is read the same way, its
+ * fallback the learning language's English definitions. Where it marks a term's
+ * capitalised senses (German nouns, the polite "Sie"), a word the page writes
+ * capitalised shows them first and its card writes the headword capitalised when its
+ * first line is one of them, as the learning language's English pair does
+ * (`createDefsDictionary`: "Essen" a meal, "essen" to eat).
  */
 export function createPairDictionary({
   dict,
@@ -847,7 +867,7 @@ export function createPairDictionary({
   lemmas = {},
   pos: learningPos = {},
 }: {
-  dict: PairPack;
+  dict: PairPack | LearningPairPack;
   defs: DefsPack;
   ipa: IpaPack;
   /** The native language (`NATIVE_LANGUAGES`); without one, a spaced script. */
@@ -859,14 +879,30 @@ export function createPairDictionary({
   const dense = native !== undefined && nativeLanguage(native)?.dense === true;
   /** Whether the pair writes most of its nouns capitalised (`nounsCapitalised`), read once. */
   let nounCased: boolean | undefined;
-  const nounCase = () => (nounCased ??= nounsCapitalised(dict));
+  const nounCase = () => (nounCased ??= nounsCapitalised(dict as PairPack));
   /** Unmarked degrees read as pointers: their line stays a gloss's, cut to the cap. */
   const degrees = new WeakSet<PairSenses[number]>();
+  /** A learning pair's capitalised senses (`LearningPairPack`). */
+  const capitalSenses = new WeakSet<PairSenses[number]>();
   /** A term's entry, with its unmarked degrees read as pointers (`degreeOf`). */
   const entryOf = (head: string): PairPack[string] | undefined => {
-    const found = own(dict, head);
+    const found = own(dict, head) as LearningPairPack[string] | undefined;
+    if (!found) return undefined;
+    const capitals = found[3];
+    const entry = withDegrees(head, found as PairPack[string]);
+    if (Array.isArray(capitals))
+      for (const i of capitals as readonly number[]) {
+        const sense = entry[1][i];
+        if (sense) capitalSenses.add(sense);
+      }
+    return entry;
+  };
+  const withDegrees = (
+    head: string,
+    found: PairPack[string],
+  ): PairPack[string] => {
     const bases = [own(lemmas, head) ?? []].flat();
-    if (!found || bases.length === 0) return found;
+    if (bases.length === 0) return found;
     const [short, senses, source] = found;
     return [
       short,
@@ -881,11 +917,34 @@ export function createPairDictionary({
     ];
   };
   const sensesOf = (senses: PairSenses): Sense[] =>
-    senses.map(([pos, text, hint]) => ({
-      pos,
-      text,
-      ...(hint != null && { hint }),
-    }));
+    senses.map((sense) => {
+      const [pos, text, hint] = sense;
+      return {
+        pos,
+        text,
+        ...(hint != null && { hint }),
+        ...(capitalSenses.has(sense) && { capital: true as const }),
+      };
+    });
+  /**
+   * A learning pair's entry for a word the page writes capitalised: its capitalised
+   * senses first, the short meaning theirs (German "Sie": you, polite).
+   */
+  const capitalFirst = (
+    found: CapitalEntry,
+    written: Written | undefined,
+  ): readonly [string, PairSenses] => {
+    const [short, raw] = found;
+    if (written === undefined || written === "lower") return [short, raw];
+    const marked = raw.filter((sense) => capitalSenses.has(sense));
+    if (marked.length === 0 || marked.length === raw.length)
+      return [short, raw];
+    const [, text, hint] = marked[0]!;
+    return [
+      hint != null ? text.split(", ")[0]! : shortOfDefinition(text),
+      [...marked, ...raw.filter((sense) => !capitalSenses.has(sense))],
+    ];
+  };
   const lineOf = (sense: PairSenses[number]) => {
     const [, text, hint, target] = sense;
     return target !== undefined && !degrees.has(sense)
@@ -950,7 +1009,7 @@ export function createPairDictionary({
     (head, written, pos, spelledOut) => {
       const { found, head: capitalHead } = asWritten(head, written);
       if (!found) return definitionInEnglish(head, defs, pos, spelledOut);
-      const [stored, raw] = found;
+      const [stored, raw] = capitalFirst(found, written);
       const senses = sensesOf(raw);
       // A translation table's sense is a list of words: its line is the first one. With
       // a tag, a sense of an open class the tag cannot mean shows no line while one it
@@ -1044,7 +1103,10 @@ export function createPairDictionary({
           ...(!isAuxiliary(pos) && { quiet, second }),
         }),
         senses,
-        ...(capitalHead !== undefined && { head: capitalHead }),
+        ...(capitalHead !== undefined
+          ? { head: capitalHead }
+          : first !== undefined &&
+            capitalSenses.has(first) && { head: capitalised(head) }),
       };
     },
     (head) => {
