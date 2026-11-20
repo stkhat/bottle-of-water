@@ -96,6 +96,15 @@ const NAMES = { mark: "gs", japan: "p" };
 const CAPITAL: Record<string, readonly [string, readonly string[]]> = {
   mark: ["聖マルコ", ["聖マルコ(『St.~』)"]],
   japan: ["日本", ["『日本』"]],
+  // An acronym known only by what it stands for (en/acronyms.json): each thing's
+  // Japanese, hinted by its name.
+  NYPD: [
+    "ニューヨーク市警察",
+    [
+      "《New York City Police Department》ニューヨーク市警察",
+      "《New York City Police Department》ニューヨーク市の警察",
+    ],
+  ],
 };
 
 const DICT: Record<string, readonly [string, readonly string[]]> = {
@@ -145,6 +154,13 @@ const DEFS: PackFiles["en-defs"]["defs"] = {
     ["noun", "Initialism of State Political Directorate."],
     ["noun", "graphics processing unit: A specialized electronic circuit."],
   ],
+  nypd: [
+    [
+      "proper noun",
+      "New York City Police Department: Police force of New York City.",
+    ],
+    ["proper noun", "Nippon Yusen Police Department: A shipping police."],
+  ],
   "figure out": [
     ["verb", "To come to understand; to discover or find a solution."],
   ],
@@ -178,6 +194,13 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
     tagger: { tags: ["NN", "VB"], words: {}, weights: {}, scale: 10 },
     contractions: {},
     capitals: ["DEA", "GPU"],
+    // Known only by what it stands for: a word where the document spells one out.
+    acronyms: {
+      NYPD: [
+        "New York City Police Department",
+        "Nippon Yusen Police Department",
+      ],
+    },
   },
   "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL, sensePos: {} },
   "en-defs": { defs: DEFS },
@@ -198,7 +221,7 @@ const FILES: Readonly<Record<string, unknown>> = {
   "/packs/en-ja/capital.json": CAPITAL,
   "/packs/en-ja/pos.json": {},
   "/packs/en-defs/index.json": {
-    shards: [{ file: "dict-1.json", first: "dea", last: "gpu" }],
+    shards: [{ file: "dict-1.json", first: "dea", last: "nypd" }],
   },
   "/packs/en-defs/dict-1.json": DEFS,
 };

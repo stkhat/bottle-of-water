@@ -14,7 +14,13 @@ import { kindOfKey } from "../term-id";
 import { own } from "../util";
 import type { Compound } from "./compounds";
 import { cleanDefinition, definitionPointer } from "./definitions";
-import { expansionOf, moveFirst, spelledOutSense } from "./expansions";
+import {
+  expansionOf,
+  moveFirst,
+  namesExpansion,
+  spelledOutExpansion,
+  spelledOutSense,
+} from "./expansions";
 import { ipaFor } from "./ipa";
 import { lookup, type Entry, type Sense } from "./lookup";
 import {
@@ -424,6 +430,79 @@ export function withWrittenHeads(
       const found = dictionary.entry(term, written, pos, clitic, spelledOut);
       const head = found && headOf(found.head);
       return head === undefined ? found : { ...found!, head };
+    },
+  };
+}
+
+/**
+ * `dictionary` with each acronym known only by what it stands for
+ * (`LanguagePack.acronymExpansions`, `expansionsOf` by key: NYPD) meaning the one thing
+ * its document spells out (`spelledOutExpansion`: "the New York City Police Department
+ * (NYPD)"), and nothing where it is not written in capitals (`written` "upper") or its
+ * document spells none out (`spelledOut`; the word list sends none): the acronym alone
+ * says nothing of which thing it is. Its senses name the things they are about
+ * (`namesExpansion`); the card shows that thing's alone, from `dictionary`, else from
+ * `english` (the English definitions, in `glossLang`, translated at display time)
+ * where the pair has no text of it.
+ */
+export function withSpelledOutAcronyms(
+  dictionary: DictionaryProvider,
+  expansionsOf: (key: string) => readonly string[],
+  english?: { dictionary: DictionaryProvider; glossLang: string },
+): DictionaryProvider {
+  const about = (
+    source: DictionaryProvider,
+    sourceLang: string | undefined,
+    expansion: string,
+    ...[term, written, pos, clitic]: Parameters<DictionaryProvider["entry"]>
+  ): DictionaryEntry | undefined => {
+    const found = source.entry(term, written, pos, clitic);
+    const senses = found?.senses.filter((sense) =>
+      namesExpansion(sense, expansion),
+    );
+    if (!found || !senses?.length) return undefined;
+    const glossLang = found.glossLang ?? sourceLang;
+    // An English definition shows as its short line, which is translated.
+    const short =
+      glossLang === undefined
+        ? source.senseLine(senses[0]!)
+        : shortOfDefinition(senses[0]!.text);
+    const lines =
+      glossLang === undefined
+        ? senses.map((sense) => source.senseLine(sense))
+        : [source.senseLine({ text: short }, glossLang)];
+    return {
+      ...found,
+      short,
+      lines: [...new Set(lines.filter((line) => line !== ""))],
+      senses,
+      ...(glossLang !== undefined && { glossLang }),
+    };
+  };
+  return {
+    ...dictionary,
+    entry(term, written, pos, clitic, spelledOut) {
+      const expansions = expansionsOf(keyOf(term));
+      if (expansions.length === 0)
+        return dictionary.entry(term, written, pos, clitic, spelledOut);
+      const expansion =
+        written === "upper" && spelledOut
+          ? spelledOutExpansion(expansions, spelledOut)
+          : undefined;
+      if (expansion === undefined) return undefined;
+      return (
+        about(dictionary, undefined, expansion, term, written, pos, clitic) ??
+        (english &&
+          about(
+            english.dictionary,
+            english.glossLang,
+            expansion,
+            term,
+            written,
+            pos,
+            clitic,
+          ))
+      );
     },
   };
 }

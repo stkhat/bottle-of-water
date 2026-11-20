@@ -5,6 +5,7 @@ import {
   createPairDictionary,
   withCompounds,
   withPhraseCase,
+  withSpelledOutAcronyms,
   withWrittenHeads,
   type DictionaryProvider,
 } from "../core/lexicon/dictionary";
@@ -140,6 +141,7 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
           patterns: phrases,
           ...("contractions" in pack && { contractions: pack.contractions }),
           ...("capitals" in pack && { capitals: pack.capitals }),
+          ...("acronyms" in pack && { acronyms: pack.acronyms }),
           ...("pos" in pack && { pos: pack.pos }),
           ...("names" in pack && { names: pack.names }),
           ...("tagger" in pack && { tagger: pack.tagger }),
@@ -150,13 +152,16 @@ const LANGUAGE_RECIPES: Readonly<Record<string, Recipe<LanguagePack>>> =
 
 /**
  * An English dictionary with English contractions shown by what they are short for
- * (`withContractions`), from the English pack's table and vocabulary, and capital-only
- * words' and names' heads as they are written (`withWrittenHeads`: AI, New Zealand;
- * not "ai", "new zealand").
+ * (`withContractions`), from the English pack's table and vocabulary, acronyms known
+ * only by what they stand for meaning the thing their document spells out
+ * (`withSpelledOutAcronyms`, else the English definitions `defs`), and capital-only
+ * words', acronyms' and names' heads as they are written (`withWrittenHeads`: AI, NYPD,
+ * New Zealand; not "ai", "new zealand").
  */
 function withEnglishContractions(
   dictionary: DictionaryProvider,
   en: PackFiles["en"],
+  defs: DefsPack,
 ): DictionaryProvider {
   // The vocabulary as a set, made on the first contraction or head looked up.
   let vocab: ReadonlySet<string> | undefined;
@@ -164,16 +169,30 @@ function withEnglishContractions(
   let heads: ReadonlyMap<string, string> | undefined;
   const headOf = (key: string) =>
     (heads ??= new Map(
-      [...en.capitals, ...(en.phrases.names ?? [])]
+      [...en.capitals, ...Object.keys(en.acronyms), ...(en.phrases.names ?? [])]
         .reverse()
         .map((written) => [written.toLowerCase(), written] as const)
         .filter(([lower]) => !english(lower)),
     )).get(key);
+  let acronyms: ReadonlyMap<string, readonly string[]> | undefined;
+  const acronymExpansions = (key: string) =>
+    (acronyms ??= new Map(
+      Object.entries(en.acronyms).map(([written, expansions]) => [
+        written.toLowerCase(),
+        expansions,
+      ]),
+    )).get(key) ?? [];
   return withWrittenHeads(
-    withContractions(dictionary, {
-      expansions: (key) => own(en.contractions, key) ?? [],
-      english,
-    }),
+    withContractions(
+      withSpelledOutAcronyms(dictionary, acronymExpansions, {
+        dictionary: createDefsDictionary({ defs, ipa: en.ipa }),
+        glossLang: "en",
+      }),
+      {
+        expansions: (key) => own(en.contractions, key) ?? [],
+        english,
+      },
+    ),
     headOf,
   );
 }
@@ -194,6 +213,7 @@ const pairRecipe = (pair: RecipePairPack) =>
           pos: files.en.pos,
         }),
         files.en,
+        files["en-defs"].defs,
       ),
   );
 
@@ -228,6 +248,7 @@ const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
           ipa: files.en.ipa,
         }),
         files.en,
+        files["en-defs"].defs,
       ),
     ),
     "es-en": dictionaryRecipe("es-en", DICTIONARY_PACKS["es-en"], (files) =>

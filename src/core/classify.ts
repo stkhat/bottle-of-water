@@ -1,5 +1,6 @@
 import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
 import type { LanguagePack } from "./lexicon/language-pack";
+import { spelledOutExpansion } from "./lexicon/expansions";
 import { accepts } from "./lexicon/sense-order";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
@@ -183,6 +184,13 @@ export interface ClassifyOptions {
    * as a block's start).
    */
   breaks?: readonly number[];
+  /**
+   * Whether the document the block is in writes a phrase (`spelledOutIn` over the
+   * article's main content or the video's caption track), when the page sends it: an
+   * acronym known only by what it stands for (`LanguagePack.acronymExpansions`) is a
+   * word only where the document spells one of those out.
+   */
+  spelledOut?(phrase: string): boolean;
 }
 
 export interface Classifier {
@@ -291,6 +299,9 @@ const COMPLEMENT_POS: readonly string[] = ["noun", "adj", "prep_phrase"];
  *   capitalised meaning; that one and a word capitalised in a way that counts
  *   (`capitalHere`) get `capital`, unless the language capitalises common words only
  *   in names and titles (`LanguagePack.capitalsForNames`).
+ * - An acronym known only by what it stands for (`LanguagePack.acronymExpansions`:
+ *   NYPD) is a word only where it is capitalised in a way that counts and its document
+ *   spells out one of the things it stands for (`spelledOut`); elsewhere it is ignored.
  * - A phrase, saved or not, matches no word the document reads as a name ("recuerdo
  *   al Chile" is no `al chile`). A pronominal verb's reflexive pronoun before it is
  *   part of its match (`PhraseMatch.lead`: "me di cuenta"); the words between them
@@ -326,7 +337,15 @@ export function createClassifier(pack: LanguagePack): Classifier {
   return {
     classify(
       tokens,
-      { terms, knownLevel, casing, capitalMeaning, outline, breaks },
+      {
+        terms,
+        knownLevel,
+        casing,
+        capitalMeaning,
+        outline,
+        breaks,
+        spelledOut,
+      },
     ) {
       const input = matcher.prepare(tokens, casing?.mode === "upper");
       const { words, joined } = input;
@@ -869,6 +888,27 @@ export function createClassifier(pack: LanguagePack): Classifier {
         return found?.noun === true && found.key === bases[0];
       };
 
+      /**
+       * Whether `base`, a base of word i, is a word there: any but an acronym known only
+       * by what it stands for (NYPD), which is one where the page writes it in capitals
+       * in a way that counts (`capitalHere`: its lookup then reads the document) and
+       * its document spells out one of the things it stands for
+       * (`spelledOutExpansion`: "the New York City Police Department (NYPD)").
+       * Elsewhere it says nothing a learner could look up, and stays unknown.
+       */
+      const wordHere = (i: number, base: string) => {
+        const expansions = pack.acronymExpansions(base);
+        if (expansions.length === 0) return true;
+        const written = cases?.[i];
+        return (
+          casing !== undefined &&
+          written !== undefined &&
+          spelledOut !== undefined &&
+          capitalHere(casing, written) &&
+          spelledOutExpansion(expansions, spelledOut) !== undefined
+        );
+      };
+
       const pushWord = (i: number) => {
         const { token, form } = words[i]!;
         // A separable verb's particle reads as its verb ("sieht … aus": aussehen), and
@@ -883,7 +923,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             ? [verb]
             : lowerNoun(token, words[i]!.bases)
               ? []
-              : words[i]!.bases;
+              : words[i]!.bases.filter((base) => wordHere(i, base));
         const word = classifyWord(
           token.text,
           form,

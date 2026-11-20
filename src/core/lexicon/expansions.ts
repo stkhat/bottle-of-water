@@ -188,6 +188,55 @@ export function spelledOutSense(
   return found > 0 ? found : undefined;
 }
 
+/** Whether `outer`'s words include `inner`'s, in a row ("Civil Aviation Authority", "aviation authority"). */
+function holdsPhrase(outer: string, inner: string): boolean {
+  const words = (text: string) => wordsOf(text).map((word) => word.form);
+  const big = words(outer);
+  const small = words(inner);
+  return (
+    small.length < big.length &&
+    big.some((_, from) => small.every((word, i) => big[from + i] === word))
+  );
+}
+
+/**
+ * The expansion of an acronym known only by what it stands for
+ * (`LanguagePack.acronymExpansions`: NYPD, New York City Police Department) that its
+ * document spells out (`spelledOut`), which says which of the things the acronym
+ * names the text means: the first of `expansions` (most notable first) the document
+ * writes, a longer one before one it holds ("Civil Aviation Authority" before
+ * "aviation authority"). Undefined when the document writes none: the acronym says
+ * nothing on its own.
+ */
+export function spelledOutExpansion(
+  expansions: readonly string[],
+  spelledOut: (phrase: string) => boolean,
+): string | undefined {
+  const written = expansions.filter(spelledOut);
+  return written.find(
+    (one) => !written.some((other) => other !== one && holdsPhrase(other, one)),
+  );
+}
+
+/**
+ * Whether a sense of such an acronym is about `expansion`: its hint is it (a pair's
+ * translation of the thing's name or description), or its text opens with it, as a
+ * hint ("《New York City Police Department》ニューヨーク市警察") or as a definition's head
+ * ("New York City Police Department: Police force of New York City.").
+ */
+export function namesExpansion(
+  sense: { readonly text: string; readonly hint?: string },
+  expansion: string,
+): boolean {
+  const { text } = sense;
+  return (
+    sense.hint === expansion ||
+    text.startsWith(`《${expansion}》`) ||
+    text.startsWith(`${expansion}: `) ||
+    text === `${expansion}.`
+  );
+}
+
 /** `items` with the one at `index` first, the others in their order. */
 export const moveFirst = <T>(items: readonly T[], index: number): T[] => [
   items[index]!,

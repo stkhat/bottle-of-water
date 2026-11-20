@@ -3,6 +3,8 @@ import {
   expansionOf,
   expansionsOf,
   moveFirst,
+  namesExpansion,
+  spelledOutExpansion,
   spelledOutIn,
   spelledOutSense,
   writesPhrase,
@@ -178,6 +180,73 @@ describe("spelledOutSense", () => {
     expect(
       spelledOutSense("pm", ["Prime Minister", "paymaster"], () => true),
     ).toBeUndefined();
+  });
+});
+
+describe("spelledOutExpansion", () => {
+  const writes = (text: string) => spelledOutIn(text, () => []);
+  it("takes the expansion the document writes, the most notable first", () => {
+    const ecthr = [
+      "European Court of Human Rights",
+      "European Convention on Human Rights",
+    ];
+    expect(
+      spelledOutExpansion(
+        ecthr,
+        writes("the European Convention on Human Rights (ECHR)"),
+      ),
+    ).toBe("European Convention on Human Rights");
+    expect(
+      spelledOutExpansion(
+        ecthr,
+        writes(
+          "The European Convention on Human Rights … the European Court of Human Rights",
+        ),
+      ),
+    ).toBe("European Court of Human Rights");
+  });
+  it("takes a longer expansion before one it holds", () => {
+    expect(
+      spelledOutExpansion(
+        ["aviation authority", "Civil Aviation Authority"],
+        writes("the Civil Aviation Authority (CAA) said"),
+      ),
+    ).toBe("Civil Aviation Authority");
+  });
+  it("finds none where the document spells none out", () => {
+    expect(
+      spelledOutExpansion(
+        ["New York City Police Department"],
+        writes("The NYPD said on Monday"),
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("namesExpansion", () => {
+  const nypd = "New York City Police Department";
+  it("reads a hint, a hinted translation and a definition's head", () => {
+    expect(
+      namesExpansion({ text: "Departamento de Policía", hint: nypd }, nypd),
+    ).toBe(true);
+    expect(
+      namesExpansion({ text: `《${nypd}》ニューヨーク市警察` }, nypd),
+    ).toBe(true);
+    expect(
+      namesExpansion({ text: `${nypd}: Police force of New York City.` }, nypd),
+    ).toBe(true);
+    expect(namesExpansion({ text: `${nypd}.` }, nypd)).toBe(true);
+  });
+  it("is not about another expansion", () => {
+    expect(
+      namesExpansion(
+        { text: "New York City Police Department Band: A band." },
+        nypd,
+      ),
+    ).toBe(false);
+    expect(
+      namesExpansion({ text: "ニューヨーク市警察", hint: "NYPD" }, nypd),
+    ).toBe(false);
   });
 });
 

@@ -33,7 +33,12 @@ import {
 import { dottedCapitals, readEjdictText, vocabularyOf } from "./ejdict.ts";
 import { PACKS } from "./formats.ts";
 import { createVocabularyRule, type VocabularyRule } from "./vocabulary.ts";
-import { entityWords, readEntities } from "./wikidata.ts";
+import {
+  acronymWords,
+  entityWords,
+  readAcronyms,
+  readEntities,
+} from "./wikidata.ts";
 
 const INFLECTION_TAGS = new Set([
   "plural",
@@ -411,6 +416,19 @@ async function main() {
   });
   for (const written of entityList)
     examples[written.toLowerCase()] = entities[written]!.examples;
+  // Acronyms known only by what they stand for (NYPD): not a word the pack has already.
+  const entityKeys = new Set(
+    entityList.map((written) => written.toLowerCase()),
+  );
+  const acronyms = acronymWords(
+    readAcronyms(),
+    (key) =>
+      known.has(key) ||
+      Object.hasOwn(lemmas, key) ||
+      capitalKeys.has(key) ||
+      entityKeys.has(key),
+  );
+  writePack("en/acronyms.json", acronyms);
   writePack(
     "en/capitals.json",
     [
@@ -432,6 +450,7 @@ async function main() {
     `kaikki: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `en/vocab.json: ${vocab.length} words (${added.length} from Wiktionary, rule E); ` +
       `${capitals.length} capital-only words and ${entityList.length} entities; ` +
+      `${Object.keys(acronyms).length} acronyms known by what they stand for; ` +
       `${Object.keys(lemmas).length} lemma forms, ${Object.keys(ipa).length} IPA, ` +
       `${Object.keys(pos).length} words with parts of speech, ` +
       `${Object.keys(names).length} names`,

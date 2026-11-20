@@ -48,6 +48,13 @@ export type ContractionPack = Readonly<Record<string, readonly string[]>>;
  */
 export type CapitalsPack = readonly string[];
 /**
+ * en/acronyms.json: acronyms known only by what they stand for (Wikidata's aliases), as
+ * written (NYPD) → the names of the things each stands for, most notable first ("New
+ * York City Police Department"): words only where the text writes them so and its
+ * document spells one of those out (`LanguagePack.acronymExpansions`).
+ */
+export type AcronymsPack = Readonly<Record<string, readonly string[]>>;
+/**
  * en-ja/dict-<n>.json, merged: headword → [short gloss, senses]. en-ja/phrases.json has
  * the same shape: Japanese translations of phrases EJDict lacks, from Wiktionary's
  * translation tables, each sense "《English sense》word,word", with its senses' parts

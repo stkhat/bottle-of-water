@@ -33,7 +33,13 @@ import {
 } from "./common.ts";
 import { PACKS } from "./formats.ts";
 import { isNonConstituent, patternKey } from "./phrases.ts";
-import { entityDefinition, joinedEntities, type Entities } from "./wikidata.ts";
+import {
+  entityDefinition,
+  joinedAcronyms,
+  joinedEntities,
+  type Acronyms,
+  type Entities,
+} from "./wikidata.ts";
 import {
   entrySenses,
   isPointer,
@@ -86,6 +92,7 @@ export async function buildEnDefs(
     phrases,
     capitals = [],
     entities = {},
+    acronyms = {},
     everyPair = () => false,
   }: {
     vocab: string[];
@@ -102,6 +109,8 @@ export async function buildEnDefs(
      * descriptions first (Nvidia: "American multinational technology company.").
      */
     entities?: Entities;
+    /** The acronyms known only by what they stand for (`joinedAcronyms`). */
+    acronyms?: Acronyms;
     everyPair?: (key: string) => boolean;
   },
 ) {
@@ -271,6 +280,20 @@ export async function buildEnDefs(
     defs[key] = [["proper noun", text], ...own.slice(0, MAX_SENSES - 1)];
     fromEntities++;
   }
+  // An acronym known only by what it stands for (NYPD): each thing it may stand for,
+  // headed by its name, which the card chooses by (`namesExpansion`).
+  let fromAcronyms = 0;
+  for (const [written, items] of Object.entries(acronyms)) {
+    const key = written.toLowerCase();
+    if (Object.hasOwn(defs, key)) continue;
+    const senses = items.flatMap((item) => {
+      const text = entityDefinition(written, item);
+      return text === undefined ? [] : [["proper noun", text] as const];
+    });
+    if (senses.length === 0) continue;
+    defs[key] = senses;
+    fromAcronyms++;
+  }
   const phraseCount = Object.keys(defs).filter((key) =>
     key.includes(" "),
   ).length;
@@ -284,6 +307,8 @@ export async function buildEnDefs(
       resolved,
       /** Capital-only words defined by Wikidata. */
       fromEntities,
+      /** Acronyms known only by what they stand for. */
+      fromAcronyms,
       /** Terms every pair dictionary has. */
       left,
     },
@@ -322,6 +347,7 @@ async function main() {
     phrases: readPack("en/phrases.json"),
     capitals: readPack("en/capitals.json"),
     entities: joinedEntities(),
+    acronyms: joinedAcronyms(),
     everyPair: (key) => pairs.every((terms) => terms.has(key)),
   });
   const index = writeShards("en-defs", defs, PACKS_DIR);
@@ -329,7 +355,8 @@ async function main() {
     `en-defs: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `${stats.words} words and ${stats.phrases} phrases in ${index.shards.length} shards; ` +
       `${stats.resolved} pointer senses take their target's definition; ` +
-      `${stats.fromEntities} capital-only words defined by Wikidata; ` +
+      `${stats.fromEntities} capital-only words defined by Wikidata, ` +
+      `${stats.fromAcronyms} acronyms known by what they stand for; ` +
       `${stats.left} terms every pair dictionary has left out`,
   );
   if (stats.unparsable > 0) process.exitCode = 1;

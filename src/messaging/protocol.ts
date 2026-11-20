@@ -149,7 +149,9 @@ export type Request =
    * the casing of the whole document the blocks belong to (a caption track, an
    * article's main content): names (rule D) and capitalised words come from it.
    * `breaks`, by block: where the transcript cards a block joins meet (`cardRuns`,
-   * `ClassifyOptions.breaks`).
+   * `ClassifyOptions.breaks`). `document`: that document's text, sent when a block
+   * writes a word in capitals: an acronym known only by what it stands for is a word
+   * only where the document spells that out (`ClassifyOptions.spelledOut`).
    */
   | {
       type: "analyze";
@@ -157,6 +159,7 @@ export type Request =
       blocks: string[];
       casing?: DocumentCasing;
       breaks?: number[][];
+      document?: string;
     }
   /**
    * The dictionary pattern a selection of words stands for (select mode: slots and
