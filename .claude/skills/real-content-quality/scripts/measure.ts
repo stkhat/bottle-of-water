@@ -6,6 +6,8 @@
 //     [--learning=en] [--native=ja] [--cap=50]
 //
 // (or REPO, UNITS, OUT, LEVEL, LEARNING, NATIVE, CAP, STUDY in the environment).
+// A transcript's cards are classified as the extension does: the cards whose sentence
+// runs on together (`cardRuns`, in batches of 50); --runs=off classifies each alone.
 // Defaults: REPO = this checkout; OUT = <study>/runs/<REPO's short sha>-L<level>;
 // UNITS = <OUT>/units.jsonl. For before → after, run it once per checkout on the same
 // units (built once, by either) and compare the summaries; ab-packets.py diffs the rows.
@@ -43,6 +45,7 @@ type DataFormats = typeof import("../../../../scripts/data/formats.ts");
 type Casing = typeof import("../../../../src/core/text/casing.ts");
 type ShortLines = typeof import("../../../../src/core/lexicon/short-lines.ts");
 type Span = import("../../../../src/core/classify.ts").Span;
+type Runs = typeof import("../../../../src/core/subtitles/runs.ts");
 type Written = import("../../../../src/core/lexicon/dictionary.ts").Written;
 type DocumentCasing =
   import("../../../../src/core/text/casing.ts").DocumentCasing;
@@ -74,6 +77,15 @@ const { blockCasing, documentCasing } = (await import(
 const { displayWidth } = (await import(
   `${REPO}/src/core/lexicon/short-lines.ts`
 )) as ShortLines;
+
+// A checkout that classifies a transcript's cards as the text they run on in
+// (`cardRuns`, R4-asr) is measured so; RUNS=off measures each card alone.
+const runsModule = (await import(`${REPO}/src/core/subtitles/runs.ts`).catch(
+  () => undefined,
+)) as Runs | undefined;
+const RUNS = runsModule !== undefined && setting("runs", "on") === "on";
+/** Cards per analysis request (content/video/session.ts, BATCH). */
+const BATCH = 50;
 
 const { readFile } = await import("node:fs/promises");
 const loadPack = createPackLoader(async (path) =>
@@ -268,7 +280,69 @@ for (const [doc, list] of byDoc) {
     capitalMeaning: (key: string) => dictionary.capitalMeaning(key),
     outline: (key: string) => dictionary.outline(key),
   };
-  for (const u of list) {
+  /** Phrases as one match each: the parts of a phrase with a gap together. */
+  const matchesOf = (spans: readonly Span[]) => {
+    const open = new Map<string, { parts: Span[] }>();
+    const matches: { parts: Span[] }[] = [];
+    for (const s of spans) {
+      if (s.kind !== "phrase") continue;
+      if (!s.part || s.part.index === 0) {
+        const match = { parts: [s] };
+        matches.push(match);
+        if (s.part) open.set(s.key, match);
+      } else open.get(s.key)?.parts.push(s);
+    }
+    return matches;
+  };
+  /** With runs: each card's spans, and the phrases that start in it (offsets in the card). */
+  const cardSpans = new Map<number, Span[]>();
+  const cardPhrases = new Map<
+    number,
+    { parts: Span[]; surface: string; sentence?: string }[]
+  >();
+  if (RUNS && runsModule && list[0]!.site !== "article") {
+    const texts = list.map((u) => u.text);
+    for (let from = 0; from < list.length; from += BATCH) {
+      const batch = texts.slice(from, from + BATCH).map((_, k) => from + k);
+      for (const run of runsModule.cardRuns(texts, batch)) {
+        const runTokens = pack.tokenize(run.text);
+        const t1 = performance.now();
+        const spans = classifier.classify(runTokens, {
+          ...options,
+          breaks: run.breaks,
+        });
+        classifyMs += performance.now() - t1;
+        for (const [card, found] of runsModule.splitRun(run, texts, spans))
+          cardSpans.set(card, found);
+        for (const { parts } of matchesOf(spans)) {
+          const first = parts[0]!;
+          const last = parts.at(-1)!;
+          const at = run.cards.findLast((c) => c.at <= first.start)!;
+          if (!run.asked.has(at.card)) continue;
+          const shift = (s: Span) => ({
+            ...s,
+            start: s.start - at.at,
+            end: s.end - at.at,
+          });
+          const across = run.cards.filter(
+            (c) => c.at < last.end && c.at + texts[c.card]!.length > first.start,
+          );
+          const found = cardPhrases.get(at.card) ?? [];
+          found.push({
+            parts: parts.map(shift),
+            surface: parts
+              .map((p) => run.text.slice(p.start, p.end))
+              .join(" … "),
+            ...(across.length > 1 && {
+              sentence: across.map((c) => texts[c.card]).join(" | "),
+            }),
+          });
+          cardPhrases.set(at.card, found);
+        }
+      }
+    }
+  }
+  for (const [index, u] of list.entries()) {
     const site = (sites[u.site] ??= emptyCounts());
     site.units++;
     if (u.site !== "article") {
@@ -277,9 +351,12 @@ for (const [doc, list] of byDoc) {
     }
     const tokens = pack.tokenize(u.text);
     site.tokens += tokens.filter((t) => t.isWord).length;
+    const joined = cardSpans.size > 0;
     const t1 = performance.now();
-    const spans = classifier.classify(tokens, options);
-    classifyMs += performance.now() - t1;
+    const spans = joined
+      ? (cardSpans.get(index) ?? [])
+      : classifier.classify(tokens, options);
+    if (!joined) classifyMs += performance.now() - t1;
     const bounds = [...sentences.segment(u.text)].map((s) => ({
       start: s.index,
       end: s.index + s.segment.length,
@@ -294,7 +371,9 @@ for (const [doc, list] of byDoc) {
           site: u.site,
           unit: u.i,
           ...row,
-          sentence: sentenceAt(row.start as number),
+          sentence:
+            (row.across as string | undefined) ??
+            sentenceAt(row.start as number),
         }),
       );
     const withHover = (h: { hover: string[]; hoverKind: HoverKind }) => {
@@ -304,25 +383,24 @@ for (const [doc, list] of byDoc) {
       return h;
     };
 
-    // Phrases: one row per match, the parts of a phrase with a gap joined by " … ".
-    const open = new Map<string, { parts: Span[] }>();
-    const phrases: { parts: Span[] }[] = [];
-    for (const s of spans) {
-      if (s.kind !== "phrase") continue;
-      if (!s.part || s.part.index === 0) {
-        const match = { parts: [s] };
-        phrases.push(match);
-        if (s.part) open.set(s.key, match);
-      } else open.get(s.key)?.parts.push(s);
-    }
-    for (const { parts } of phrases) {
+    // Phrases: one row per match, the parts of a phrase with a gap joined by " … ";
+    // with runs, a phrase across cards in the card it starts in, its sentence the
+    // cards it is in (" | " between them).
+    const phrases = joined
+      ? (cardPhrases.get(index) ?? [])
+      : matchesOf(spans).map(({ parts }) => ({
+          parts,
+          surface: parts.map((p) => u.text.slice(p.start, p.end)).join(" … "),
+          sentence: undefined as string | undefined,
+        }));
+    for (const { parts, surface, sentence } of phrases) {
       const first = parts[0]!;
       const last = parts.at(-1)!;
       site.phrases++;
       emit({
         start: first.start,
         end: last.end,
-        surface: parts.map((p) => u.text.slice(p.start, p.end)).join(" … "),
+        surface,
         key: first.key,
         kind: "phrase",
         category: first.category,
@@ -330,6 +408,7 @@ for (const [doc, list] of byDoc) {
         ...(first.pos && { pos: first.pos }),
         ...withHover(hoverOf(first.key, "phrase", undefined, first.pos)),
         from: meaningFrom(first.key) ?? null,
+        ...(sentence !== undefined && { across: sentence }),
       });
     }
 

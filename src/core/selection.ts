@@ -116,7 +116,8 @@ export function snapWords(
     const span = taken[i]!;
     if (!span.part) continue;
     const parts = taken.filter((s) => samePhrase(s, span)).length;
-    if (parts === span.part.count) continue;
+    // The parts this text has (a phrase across transcript cards has some in others).
+    if (parts === spans.filter((s) => samePhrase(s, span)).length) continue;
     const first = taken.findIndex((s) => samePhrase(s, span));
     for (const dropped of taken.splice(first))
       words -= wordCount(dropped, text);

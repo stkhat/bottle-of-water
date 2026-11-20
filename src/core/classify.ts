@@ -4,14 +4,23 @@ import { accepts } from "./lexicon/sense-order";
 import { documentNames } from "./names";
 import { chooseKey, readWords, sensePos } from "./word-sense";
 import { fitContext, markerPos, phraseMisfit } from "./phrases/fit";
-import { longestMatch, matchStart, type PhraseMatch } from "./phrases/matcher";
+import {
+  longestMatch,
+  matchStart,
+  type MatchWord,
+  type PhraseMatch,
+} from "./phrases/matcher";
 import {
   capitalHere,
   wordCases,
   type DocumentCasing,
   type WordCase,
 } from "./text/casing";
-import { blockText } from "./text/sentences";
+import {
+  blockText,
+  type BlockText,
+  type SentenceSegment,
+} from "./text/sentences";
 import type { Token } from "./text/tokenize";
 
 export type TermStatus = "learning" | "known";
@@ -44,9 +53,16 @@ interface SpanPart {
   index: number;
   /** How many parts the phrase has. */
   count: number;
-  /** The whole phrase: its first word's start to its last word's end, gap included. */
+  /**
+   * The whole phrase: its first word's start to its last word's end, gap included. For a
+   * phrase across transcript cards (`splitRun`), only what this card holds of it.
+   */
   start: number;
   end: number;
+  /** The phrase goes on in the card before (a card whose sentence runs on). */
+  previous?: true;
+  /** The phrase goes on in the card after. */
+  next?: true;
 }
 
 export interface Span {
@@ -160,6 +176,13 @@ export interface ClassifyOptions {
    * (rule A1, `chooseKey`) and their spans' `pos` (rule A2).
    */
   outline?(key: string): EntryOutline | undefined;
+  /**
+   * Where transcript cards classified together meet (`cardRuns`): the offsets of the
+   * space between each two. Phrases are matched across them; every other rule reads each
+   * card as it would alone (its sentences for the tagger and the casing rules, its start
+   * as a block's start).
+   */
+  breaks?: readonly number[];
 }
 
 export interface Classifier {
@@ -301,7 +324,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
     return reach;
   };
   return {
-    classify(tokens, { terms, knownLevel, casing, capitalMeaning, outline }) {
+    classify(
+      tokens,
+      { terms, knownLevel, casing, capitalMeaning, outline, breaks },
+    ) {
       const input = matcher.prepare(tokens, casing?.mode === "upper");
       const { words, joined } = input;
       const spans: Span[] = [];
@@ -310,8 +336,10 @@ export function createClassifier(pack: LanguagePack): Classifier {
       /** The block's text and sentences, read once for the tagger and the casing rules. */
       const block =
         (pack.tagger && words.length > 0) || withCases
-          ? blockText(tokens, pack.lang)
+          ? splitAt(blockText(tokens, pack.lang), breaks)
           : undefined;
+      /** Word i starts the block or a card of it (`breaks`): no word comes before it. */
+      const opens = cardStarts(words, breaks);
       /** With a tagger, each word's tag and use: the phrase rules, A1 and A2 read them. */
       const readings = readWords(
         pack,
@@ -355,7 +383,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
             )
           )
             j--;
-        return j >= 0 && joined[j] ? words[j]!.form : undefined;
+        return j >= 0 && joined[j] && !opens[i] ? words[j]!.form : undefined;
       };
 
       /** Rule D reads word i as a name here. */
@@ -748,7 +776,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const { start, end } = words[i]!.token;
         const opening = i > 0 ? words[i - 1]!.token.end : 0;
         const between = block.text.slice(opening, start);
-        if (i > 0 && !readings[i]!.pauseBefore) return false;
+        if (!opens[i] && !readings[i]!.pauseBefore) return false;
         if (/[[(]/.test(between)) return false;
         const closing =
           i + 1 < words.length ? words[i + 1]!.token.start : block.text.length;
@@ -778,7 +806,7 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const own = readings[i]?.tag?.label;
         if (own !== undefined && own !== "adjective") return false;
         if (
-          i > 0 &&
+          !opens[i] &&
           !["conjunction", "interjection"].includes(label(i - 1) ?? "")
         )
           return false;
@@ -951,6 +979,39 @@ export function createClassifier(pack: LanguagePack): Classifier {
 }
 
 /** `form`: `text` normalized (`normalizeWord`); `label`: its trusted tag's part of speech. */
+/**
+ * `block` with a sentence ending at each break too (`ClassifyOptions.breaks`): a card's
+ * words are tagged, and their case read, as the card's own.
+ */
+function splitAt(block: BlockText, breaks: readonly number[] = []): BlockText {
+  if (breaks.length === 0) return block;
+  const sentences: SentenceSegment[] = [];
+  for (const sentence of block.sentences) {
+    let start = sentence.start;
+    for (const at of breaks)
+      if (at > start && at + 1 < sentence.end) {
+        sentences.push({ start, end: at + 1 });
+        start = at + 1;
+      }
+    sentences.push({ start, end: sentence.end });
+  }
+  return { text: block.text, sentences };
+}
+
+/** Which words start the block or one of its cards (`ClassifyOptions.breaks`). */
+function cardStarts(
+  words: readonly MatchWord[],
+  breaks: readonly number[] = [],
+): boolean[] {
+  return words.map(
+    (word, i) =>
+      i === 0 ||
+      breaks.some(
+        (at) => at >= words[i - 1]!.token.end && at < word.token.start,
+      ),
+  );
+}
+
 function classifyWord(
   text: string,
   form: string,

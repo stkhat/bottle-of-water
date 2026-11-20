@@ -319,10 +319,14 @@ export function createLookup(
       if (head) speak(head, page.lang());
     },
     /**
-     * Classifies `texts` (one request); undefined while language data is missing, and
-     * once the request finds it missing.
+     * Classifies `texts` (one request; `breaks`: where the cards each joins meet, as
+     * `cardRuns` gives them); undefined while language data is missing, and once the
+     * request finds it missing.
      */
-    async analyze(texts: string[]): Promise<AnalyzeResult | undefined> {
+    async analyze(
+      texts: string[],
+      breaks?: number[][],
+    ): Promise<AnalyzeResult | undefined> {
       if (waits) return undefined;
       const lang = page.lang();
       let result: AnalyzeResult;
@@ -332,6 +336,7 @@ export function createLookup(
           lang,
           blocks: texts,
           ...(casing && { casing }),
+          ...(breaks?.some((list) => list.length > 0) && { breaks }),
         });
       } catch (error) {
         if (!(error instanceof PacksUnavailableError)) throw error;

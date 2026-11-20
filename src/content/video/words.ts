@@ -3,6 +3,7 @@ import { lowerBound, type SubtitleLine } from "../../core/subtitles/cues";
 import { joinerFor } from "../../core/subtitles/translation";
 import type { Cue } from "../../core/subtitles/types";
 import type { TermBrief } from "../../messaging/protocol";
+import { collapseSpaces } from "../../core/text/sentences";
 import { listWords } from "../words/words";
 
 /**
@@ -38,6 +39,67 @@ export interface VideoWord {
  */
 export const flatCue = (text: string, lang: string) =>
   text.split("\n").join(joinerFor(lang));
+
+/** A part of the phrase `key` that goes on in the card on that side (`SpanPart`). */
+function pieceIn(
+  list: readonly Span[] | null | undefined,
+  key: string,
+  side: "previous" | "next",
+): Span | undefined {
+  const found = (list ?? []).filter(
+    (span) => span.key === key && span.kind === "phrase" && span.part?.[side],
+  );
+  // The part nearest the card the phrase goes on from.
+  return side === "next" ? found.at(-1) : found[0];
+}
+
+/**
+ * A phrase across transcript cards (`splitRun`: its parts marked `previous`, `next`),
+ * from the span of one of its parts: the cards it is in, its words as written (the
+ * gap's too) and the cards' text, each joined as the language joins lines. Undefined
+ * for a span that one card holds whole.
+ */
+export function acrossCards(
+  cues: readonly Cue[],
+  spans: readonly (readonly Span[] | null)[],
+  cue: number,
+  span: Span,
+  flat: (text: string) => string,
+):
+  | { first: number; last: number; surface: string; sentence: string }
+  | undefined {
+  if (!span.part?.previous && !span.part?.next) return undefined;
+  const pieces = new Map<number, Span>([[cue, span]]);
+  let first = cue;
+  for (let s: Span | undefined = span; s?.part?.previous; first--) {
+    s = pieceIn(spans[first - 1], span.key, "next");
+    if (!s) break;
+    pieces.set(first - 1, s);
+  }
+  let last = cue;
+  for (let s: Span | undefined = span; s?.part?.next; last++) {
+    s = pieceIn(spans[last + 1], span.key, "previous");
+    if (!s) break;
+    pieces.set(last + 1, s);
+  }
+  first = Math.min(...pieces.keys());
+  last = Math.max(...pieces.keys());
+  const lines: string[] = [];
+  const texts: string[] = [];
+  for (let c = first; c <= last; c++) {
+    const text = cues[c]?.text ?? "";
+    const piece = pieces.get(c)!;
+    const { start, end } = piece.part ?? piece;
+    lines.push(text.slice(start, end));
+    texts.push(text);
+  }
+  return {
+    first,
+    last,
+    surface: flat(lines.join("\n")),
+    sentence: flat(texts.join("\n")),
+  };
+}
 
 /**
  * The place of the text at `offset` in card `card`: the last of the card's lines that
@@ -81,6 +143,14 @@ export function videoWords(
   }));
   return listWords(units, summaries).map(
     ({ key, kind, head, category, places }) => {
+      // A phrase across cards as its words in all of them.
+      const { unit: firstCue, span: firstSpan } = places[0]!;
+      const firstOne = spans[firstCue]?.[firstSpan];
+      const across =
+        firstOne &&
+        acrossCards(cues, spans, firstCue, firstOne, (text) =>
+          collapseSpaces(text),
+        );
       const at: VideoPlace[] = [];
       for (const { unit, start } of places) {
         const place = placeOf(cues, lines, unit, start);
@@ -93,7 +163,7 @@ export function videoWords(
       return {
         key,
         kind,
-        head,
+        head: across?.surface ?? head,
         category,
         count: places.length,
         places: at,
