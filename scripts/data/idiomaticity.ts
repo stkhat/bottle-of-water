@@ -117,6 +117,11 @@ export interface PatternEvidence {
   loanword?: boolean;
   /** Share of its content words its first definition names. */
   parts?: number;
+  /**
+   * The language's treebank writes its words in a row as one fixed expression (UD
+   * `fixed`) at least as often as not: no literal reading competes.
+   */
+  fixed?: boolean;
 }
 
 /**
@@ -126,7 +131,8 @@ export interface PatternEvidence {
  * weighted by its translation table (√(1 + languages)), its rank (decay^rank) and its
  * labels (register, domain, regional: exp(−marginal × penalty), usage notes aside). A
  * literal reading competes with weight literalPrior × log10(1 + count) (the more often
- * the words occur together, the more of those uses are literal), plus `literalNote`.
+ * the words occur together, the more of those uses are literal), plus `literalNote`;
+ * none for a fixed expression (`PatternEvidence.fixed`).
  * For a content pattern with a native gloss, the native opacity weighs `nativeWeight`.
  */
 export function idiomaticity(
@@ -149,9 +155,10 @@ export function idiomaticity(
     weighted += weight * opacity;
     total += weight;
   });
-  total +=
-    SCORE.literalPrior * Math.log10(1 + evidence.count) +
-    (evidence.literalNote ? SCORE.literalNote : 0);
+  if (evidence.fixed !== true)
+    total +=
+      SCORE.literalPrior * Math.log10(1 + evidence.count) +
+      (evidence.literalNote ? SCORE.literalNote : 0);
   let score = total > 0 ? weighted / total : 0.5;
   const content =
     evidence.pos.length === 0 ||
@@ -166,12 +173,14 @@ export function idiomaticity(
 /**
  * B2's threshold for a pattern seen `count` times in the example corpus with
  * association `assoc`: it rises with the count (a pattern that would fire often must be
- * clearly idiomatic) and when its words co-occur little more than chance ("and that",
- * "in it").
+ * clearly idiomatic, since more of its uses are literal) and when its words co-occur
+ * little more than chance ("and that", "in it"). A fixed expression's uses are never
+ * literal (`PatternEvidence.fixed`): its threshold does not rise with the count
+ * ("sin embargo", "a pesar de").
  */
-export const thresholdFor = (count: number, assoc: number) =>
+export const thresholdFor = (count: number, assoc: number, fixed = false) =>
   SCORE.threshold +
-  SCORE.perDecade * Math.log10(1 + count) +
+  (fixed ? 0 : SCORE.perDecade * Math.log10(1 + count)) +
   SCORE.perAssoc * Math.max(0, SCORE.minAssoc - assoc);
 
 /**

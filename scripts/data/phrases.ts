@@ -105,6 +105,12 @@ export interface PhraseBuildLanguage {
    * (Spanish "lo que"): selected and saved, never detected.
    */
   closedClass?: (key: string) => boolean;
+  /**
+   * A pattern the language's treebank writes as one fixed expression (UD `fixed`) at
+   * least as often as not ("sin embargo", "a pesar de"): its uses are not literal, so
+   * B2 reads it without the literal reading and the count's rise of the threshold.
+   */
+  fixed?: (key: string) => boolean;
 }
 
 export const ENGLISH_BUILD: PhraseBuildLanguage = {
@@ -719,13 +725,14 @@ export async function importPhrases(
       ...(overlapNative !== undefined && { overlapNative }),
       loanword: nativeGlosses.length > 0 && native.loanword(nativeGlosses[0]!),
       ...(parts !== undefined && { parts }),
+      ...(build.fixed?.(key) === true && { fixed: true }),
     };
     // B4: every entry a proper noun, or every entry written in Title Case.
     const named = item?.written.size
       ? item.allName || [...item.written].every(titleCase)
       : ejdictTitleCase.has(key);
     const score = idiomaticity(evidence, language);
-    const threshold = thresholdFor(count, evidence.assoc);
+    const threshold = thresholdFor(count, evidence.assoc, evidence.fixed);
     const isTransparent = transparent(evidence, language);
     verdicts.push({
       key,

@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { SPANISH_RULES } from "../../src/core/phrases/es.ts";
 import { RAW_DIR } from "./common.ts";
 import { ES_FORMS, frequencyForms, readEsFrequency } from "./es-frequency.ts";
-import { treebankLemmas } from "./es-tagger.ts";
+import { treebankFixed, treebankLemmas } from "./es-tagger.ts";
 import {
   buildLearningPacks,
   buildSummary,
@@ -105,6 +105,7 @@ async function main() {
   const forms = frequencyForms(await readEsFrequency(ES_FORMS));
   const packs = await buildEsPacks(process.argv[2] ?? KAIKKI_ES_PATH, forms, {
     treebank: await treebankLemmas(),
+    fixed: await treebankFixed(),
     casePaths: [KAIKKI_ES_EDITION_PATH],
   });
   console.log(buildSummary("es", packs, writeEsPacks(packs)));

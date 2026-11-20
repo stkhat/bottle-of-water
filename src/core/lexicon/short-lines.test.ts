@@ -319,6 +319,21 @@ describe("shortLines", () => {
     expect(shortLines(["…を研究する", "(…を)研究する"], "x")).toHaveLength(2);
   });
 
+  it("leaves out a shown line whose items earlier lines give, notes aside", () => {
+    expect(
+      shortLines(["must, to have to, should", "must", "should", "duty"], "x"),
+    ).toEqual(["must, to have to, should"]);
+    expect(
+      shortLines(["for (intended for)", "for", "for, because of"], "x"),
+    ).toEqual(["for (intended for)", "for, because of"]);
+    expect(
+      shortLines(["それは(を),そのことは(を)", "それは", "(遊戯の)鬼"], "x"),
+    ).toEqual(["それは(を),そのことは(を)", "(遊戯の)鬼"]);
+    // An item of its own keeps the line; case counts.
+    expect(shortLines(["now", "now, then"], "x")).toEqual(["now", "now, then"]);
+    expect(shortLines(["Morgen", "morgen"], "x")).toHaveLength(2);
+  });
+
   it("follows a form to the word it names", () => {
     expect(shortLines(["goの過去"], "goの過去", options("went"))).toEqual([
       "goの過去",

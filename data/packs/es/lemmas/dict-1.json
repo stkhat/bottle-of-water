@@ -31032,7 +31032,7 @@
 "animásemos":"animar",
 "animé":"animar",
 "animéis":"animar",
-"animés":"animar",
+"animés":["animar","animé"],
 "animó":"animar",
 "aniones":"anión",
 "aniquila":"aniquilar",
@@ -55516,7 +55516,7 @@
 "balases":"balar",
 "balaste":"balar",
 "balasteis":"balar",
-"balastes":"balar",
+"balastes":"balaste",
 "balastos":"balasto",
 "balastre":"balasto",
 "balastres":"balastre",
@@ -55863,7 +55863,7 @@
 "balásemos":"balar",
 "balé":"balar",
 "baléis":"balar",
-"balés":"balar",
+"balés":["balé","balar"],
 "balística":"balístico",
 "balísticas":"balístico",
 "balísticos":"balístico",
@@ -64283,7 +64283,7 @@
 "cachen":"cachar",
 "cacheo":"cachear",
 "cacheos":"cacheo",
-"caches":"cachar",
+"caches":["cachar","cache"],
 "cachetadas":"cachetada",
 "cachetazos":"cachetazo",
 "cacheá":"cachear",
@@ -79725,6 +79725,5 @@
 "clarificándolo":"clarificar",
 "clarificándolos":"clarificar",
 "clarificándome":"clarificar",
-"clarificándonos":"clarificar",
-"clarificándoos":"clarificar"
+"clarificándonos":"clarificar"
 }

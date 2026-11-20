@@ -158,6 +158,102 @@ const readText = (treebank: Treebank, split: Split) =>
 
 const TREEBANK_NAMES = Object.keys(TREEBANKS) as Treebank[];
 
+/**
+ * The fixed expressions of CoNLL-U texts (UD's `fixed`: "sin embargo", "a pesar de",
+ * "al menos"), as text writes them (a contraction the expression holds whole is
+ * written as one: "al"; one it holds the first word of is that word: "a pesar de" in
+ * "a pesar del"), with how often the treebank writes their words as the expression
+ * (`fixed`) of how often it has them in a row (`all`), its syntactic words in lower
+ * case.
+ */
+export function fixedExpressions(
+  texts: readonly string[],
+): Map<string, { fixed: number; all: number }> {
+  interface Word {
+    id: number;
+    form: string;
+    head: number;
+    deprel: string;
+  }
+  const sentences: { words: Word[]; tokens: Map<number, [number, string]> }[] =
+    [];
+  for (const text of texts) {
+    let words: Word[] = [];
+    let tokens = new Map<number, [number, string]>();
+    for (const line of [...text.split(/\r?\n/), ""]) {
+      if (line === "") {
+        if (words.length > 0) sentences.push({ words, tokens });
+        words = [];
+        tokens = new Map();
+        continue;
+      }
+      if (line.startsWith("#")) continue;
+      const [id = "", form = "", , , , , head = "", deprel = ""] =
+        line.split("\t");
+      const range = /^(\d+)-(\d+)$/.exec(id);
+      if (range) tokens.set(Number(range[1]), [Number(range[2]), form]);
+      else if (/^\d+$/.test(id))
+        words.push({ id: Number(id), form, head: Number(head), deprel });
+    }
+  }
+  const lower = (form: string) => form.toLowerCase();
+  const fixedKeys = new Map<string, string>();
+  const counts = new Map<string, { fixed: number; all: number }>();
+  for (const { words, tokens } of sentences) {
+    const byId = new Map(words.map((word) => [word.id, word]));
+    for (const word of words) {
+      const parts = words.filter(
+        (dep) => dep.head === word.id && dep.deprel === "fixed",
+      );
+      if (parts.length === 0) continue;
+      const last = Math.max(...parts.map((part) => part.id));
+      if (last - word.id !== parts.length) continue;
+      const span = words.filter((w) => w.id >= word.id && w.id <= last);
+      const written: string[] = [];
+      for (let id = word.id; id <= last; id++) {
+        const token = tokens.get(id);
+        if (token && token[0] <= last) {
+          written.push(lower(token[1]));
+          id = token[0];
+        } else written.push(lower(byId.get(id)!.form));
+      }
+      const syntactic = span.map((w) => lower(w.form)).join(" ");
+      fixedKeys.set(syntactic, written.join(" "));
+      const count = counts.get(syntactic) ?? { fixed: 0, all: 0 };
+      count.fixed++;
+      counts.set(syntactic, count);
+    }
+  }
+  for (const { words } of sentences) {
+    const forms = words.map((w) => lower(w.form));
+    for (const [syntactic, count] of counts) {
+      const seq = syntactic.split(" ");
+      for (let i = 0; i + seq.length <= forms.length; i++)
+        if (seq.every((form, k) => forms[i + k] === form)) count.all++;
+    }
+  }
+  const found = new Map<string, { fixed: number; all: number }>();
+  for (const [syntactic, count] of counts) {
+    const key = fixedKeys.get(syntactic)!;
+    const had = found.get(key);
+    found.set(
+      key,
+      had
+        ? { fixed: had.fixed + count.fixed, all: had.all + count.all }
+        : { ...count },
+    );
+  }
+  return found;
+}
+
+/** The treebanks' fixed expressions (`fixedExpressions`), for the phrase build. */
+export async function treebankFixed() {
+  await download();
+  return fixedExpressions(
+    TREEBANK_NAMES.flatMap((t) => SPLITS.map((split) => readText(t, split))),
+  );
+}
+
 /** The training sentences' lemma counts (es-kaikki.ts orders a form's bases by them). */
 export async function treebankLemmas() {
   await download();

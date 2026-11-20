@@ -1,4 +1,5 @@
 {
+"ectópicas":"ectópico",
 "ectópicos":"ectópico",
 "ecua":"ecuo",
 "ecuaciones":"ecuación",
@@ -60307,7 +60308,7 @@
 "griparíamos":"gripar",
 "griparían":"gripar",
 "griparías":"gripar",
-"gripas":"gripar",
+"gripas":["gripa","gripar"],
 "gripase":"gripar",
 "gripaseis":"gripar",
 "gripasen":"gripar",
@@ -62042,7 +62043,7 @@
 "habitaríamos":"habitar",
 "habitarían":"habitar",
 "habitarías":"habitar",
-"habitas":"habitar",
+"habitas":["habitar","habita"],
 "habitase":"habitar",
 "habitaseis":"habitar",
 "habitasen":"habitar",
@@ -76916,6 +76917,5 @@
 "inefectivos":"inefectivo",
 "ineficaces":"ineficaz",
 "ineficacias":"ineficacia",
-"ineficiencias":"ineficiencia",
-"ineficientes":"ineficiente"
+"ineficiencias":"ineficiencia"
 }

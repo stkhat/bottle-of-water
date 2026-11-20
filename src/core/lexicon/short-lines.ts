@@ -219,9 +219,33 @@ function onceEach(lines: readonly string[]): string[] {
 }
 
 /**
+ * The shown lines that say more than the lines before them: a line each of whose comma
+ * items, notes in brackets left out, an earlier line already gives is left out
+ * (fr devoir "must, to have to, should / must / should" → the first line; de für "for
+ * (intended for) / for / for, because of" → the first and the last). No later sense
+ * takes its place: the card is shorter (R3, judged blind against keeping the line and
+ * against counting notes, in es, fr, de and en with Japanese and Spanish lines).
+ */
+function sayingMore(lines: readonly string[]): string[] {
+  const given = new Set<string>();
+  return lines.filter((line) => {
+    const items: string[] = [];
+    let from = 0;
+    for (const at of [...indicesOutside(line, isComma), line.length]) {
+      const item = sayingOf(withoutParentheses(line.slice(from, at)));
+      if (item !== "") items.push(item);
+      from = at + 1;
+    }
+    const repeats = items.length > 0 && items.every((item) => given.has(item));
+    for (const item of items) given.add(item);
+    return !repeats;
+  });
+}
+
+/**
  * The hover card's lines, at most MAX_SHORT_LINES, each once (`onceEach`: a line that
  * says what one before it says, with other punctuation, is left out), empty ones left
- * out:
+ * out, and so is a shown line whose items earlier lines give (`sayingMore`):
  * - a form pointer that is the first sense stays first, followed by its target's first
  *   meaning: the word on the page is most likely that form ("went" → "goの過去", then
  *   go's meanings; "found" → "findの過去・過去分詞", find's first meaning, then
@@ -288,7 +312,9 @@ export function shortLines(
         ];
   const all = onceEach([...leading, ...meanings]);
   const heard = all.filter((line) => !quiet(line));
-  const shown = (heard.some(isMeaning) ? heard : all).slice(0, MAX_SHORT_LINES);
+  const shown = sayingMore(
+    (heard.some(isMeaning) ? heard : all).slice(0, MAX_SHORT_LINES),
+  );
   return shown.some(isMeaning) ? shown : kept.slice(0, MAX_SHORT_LINES);
 }
 

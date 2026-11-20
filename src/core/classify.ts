@@ -714,7 +714,8 @@ export function createClassifier(pack: LanguagePack): Classifier {
        * ("[sighs]"), nor a word that is mainly a pronoun or a determiner.
        */
       const standsAlone = (i: number, key: string) => {
-        if (!punctuated || !block || !outline) return false;
+        if (!block || !outline) return false;
+        if (!punctuated) return opensUnpunctuated(i, key);
         const { start, end } = words[i]!.token;
         const opening = i > 0 ? words[i - 1]!.token.end : 0;
         const between = block.text.slice(opening, start);
@@ -728,6 +729,34 @@ export function createClassifier(pack: LanguagePack): Classifier {
         const main = pack.partsOfSpeech(key)[0];
         if (main === "pronoun" || main === "determiner") return false;
         return outline(key)?.pos.includes("interjection") === true;
+      };
+
+      /**
+       * Without punctuation (speech recognition), an utterance is read by where it
+       * stands: an adjective (its main part of speech) whose entry has interjection
+       * senses, read as an adjective or not read, with nothing to qualify before it
+       * (the block's start, a conjunction or an interjection) and no complement after
+       * it (a preposition): "y bueno yo creo" (well), "pues bueno", "bueno hoy
+       * estamos"; not "está bueno", "muy bueno", "nada bueno", "bueno para mí". Words
+       * mainly of other parts of speech stay as read ("si fuera yo", "sino salud
+       * mental"). Only in a language that asks for it
+       * (`LanguagePack.unpunctuatedUtterances`).
+       */
+      const opensUnpunctuated = (i: number, key: string) => {
+        if (!pack.unpunctuatedUtterances) return false;
+        const label = (j: number) =>
+          readings[j]?.tag?.label ?? pack.partsOfSpeech(words[j]!.form)[0];
+        const own = readings[i]?.tag?.label;
+        if (own !== undefined && own !== "adjective") return false;
+        if (
+          i > 0 &&
+          !["conjunction", "interjection"].includes(label(i - 1) ?? "")
+        )
+          return false;
+        if (i + 1 < words.length && label(i + 1) === "preposition")
+          return false;
+        if (pack.partsOfSpeech(key)[0] !== "adjective") return false;
+        return outline!(key)?.pos.includes("interjection") === true;
       };
 
       /**
