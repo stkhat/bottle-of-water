@@ -241,7 +241,8 @@ describe("generated phrases", () => {
 
   it("follow a form or a cross-reference to the word it names for the hover card", () => {
     const go = lines("go");
-    expect(lines("went")).toEqual(["goの過去", go[0], go[1]]);
+    // go's second meaning, "(ある事をしに)行く", says no more than its first.
+    expect(lines("went")).toEqual(["goの過去", go[0]]);
     expect(lines("found")).toEqual([
       "findの過去・過去分詞",
       lines("find")[0],
