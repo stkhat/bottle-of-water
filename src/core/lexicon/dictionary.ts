@@ -477,8 +477,10 @@ const COMPOUND_PART = "-";
  * learning pack's `LanguagePack.compound`: "Bahnsystem", "Verdauungsenzyme") by its
  * parts (`compoundLines`), with the head's senses for the dictionary window, the
  * card's headword the compound's key written as the head's is ("Verdauungsenzym"),
- * and its parts' headwords as the card's note ("Verdauung + Enzym"). Rule A1 reads its
- * head's outline.
+ * and its parts' headwords as the card's note ("Verdauung + Enzym"). A part whose
+ * entry opens with a pointer (de-fr "Lieblings": "génitif singulier de Liebling") gives
+ * its target's meaning ("Lieblingsbluse": chéri + chemisier). Rule A1 reads its head's
+ * outline.
  */
 export function withCompounds(
   dictionary: DictionaryProvider,
@@ -514,13 +516,23 @@ export function withCompounds(
       const asParts = compound.parts.map((part) =>
         dictionary.entry(`${part}${COMPOUND_PART}`),
       );
+      // A part whose entry opens with a pointer (a form: "Lieblings", genitive of
+      // Liebling; "Karten", plural of Karte) shows what its target means.
+      const meanings = compound.parts.map((part, i) => {
+        const outline = dictionary.outline(part);
+        const target =
+          outline?.formOf !== undefined && !outline.firstMeaning
+            ? dictionary.entry(outline.formOf)
+            : undefined;
+        return target ?? entries[i]!;
+      });
       const head = entries.at(-1)!;
       const capital = /^\p{Lu}/u.test(head.head);
       return {
         head: capital ? capitalised(compound.key) : compound.key,
         kind: "word",
-        short: head.short,
-        lines: compoundLines(entries, asParts),
+        short: meanings.at(-1)!.short,
+        lines: compoundLines(meanings, asParts),
         senses: head.senses,
         ...(head.glossLang !== undefined && { glossLang: head.glossLang }),
         expansion: entries.map((part) => part.head).join(" + "),

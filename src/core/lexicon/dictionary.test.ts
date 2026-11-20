@@ -638,6 +638,31 @@ describe("withCompounds", () => {
     expect(parts.entry("bahnnetz", "capital")?.lines[0]).toBe("railway + net");
     expect(parts.entry("schlüsselnetz", "capital")?.lines[0]).toBe("key + net");
   });
+  it("reads a part whose entry opens with a pointer by its target's meaning", () => {
+    const parts = withCompounds(
+      createDefsDictionary({
+        defs: {
+          karten: ["plural of Karte", [["noun", "plural of Karte", "capital"]]],
+          karte: ["map", [["noun", "map", "capital"]]],
+          dienst: ["service", [["noun", "service", "capital"]]],
+          dienste: [
+            "plural of Dienst",
+            [["noun", "plural of Dienst", "capital"]],
+          ],
+        },
+        ipa: {},
+      }),
+      (key) =>
+        /^kartendienste$/i.test(key)
+          ? { key: "kartendienste", parts: ["karten", "dienste"], noun: true }
+          : undefined,
+    );
+    expect(parts.entry("kartendienste", "capital")).toMatchObject({
+      lines: ["map + service"],
+      short: "service",
+      expansion: "Karten + Dienste",
+    });
+  });
 });
 
 describe("withPhraseCase", () => {

@@ -13,6 +13,7 @@ import type { Tagger, TaggedWord, WordRole, WordUse } from "./tagger";
 import {
   formOf,
   infinitiveConstruction,
+  namedVerbConstruction,
   NONFINITE,
   trustedTagOf,
   udTokenTag,
@@ -527,14 +528,16 @@ function relativeQue(words: readonly TaggedWord[], i: number): boolean {
 function construction(
   words: readonly TaggedWord[],
   i: number,
-): Pick<WordUse, "construction"> {
-  const found = infinitiveConstruction(
-    words,
-    i,
-    (word) => word.tag.label === "pronoun",
-    (form) => (form.endsWith("'") ? `${form.slice(0, -1)}e` : form),
-  );
-  return found === undefined ? {} : { construction: found };
+): Pick<WordUse, "construction" | "base" | "grammarPos"> {
+  const between = (word: TaggedWord) => word.tag.label === "pronoun";
+  const spelt = (form: string) =>
+    form.endsWith("'") ? `${form.slice(0, -1)}e` : form;
+  const found = infinitiveConstruction(words, i, between, spelt);
+  if (found !== undefined) return { construction: found };
+  // One tagged as a name for its capital ("Essaie de dormir": essayer).
+  const verbBase = (word: TaggedWord) =>
+    word.bases.find((base) => base !== word.form && INFINITIVE.test(base));
+  return namedVerbConstruction(words, i, verbBase, between, spelt) ?? {};
 }
 
 function use(
