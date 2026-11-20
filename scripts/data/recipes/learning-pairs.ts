@@ -361,7 +361,7 @@ export function joinCapitals(
   for (const [key, capital] of read.capital) {
     const lower = read.terms.get(key);
     const english = Object.hasOwn(words.english, key)
-      ? words.english[key]![1]
+      ? words.english[key]!
       : undefined;
     const marked = english
       ? english.some((sense) => sense[2] === "capital") ||

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { shortOfSenses } from "../../src/core/lexicon/short-lines.ts";
 import {
   germanForms,
   germanWritten,
@@ -88,10 +89,10 @@ describe("buildLearningPacks with German's settings", () => {
   it("reads capitalised headwords as words, their forms too", () => {
     expect(packs.vocab).toContain("haus");
     expect(packs.lemmas["häuser"]).toBe("haus");
-    expect(packs.defs["haus"]?.[0]).toBe("house");
+    expect(shortOfSenses(packs.defs["haus"]!)).toBe("house");
   });
   it("gives a key both spellings' senses, the lowercase headword's first, and no name's", () => {
-    expect(packs.defs["essen"]?.[1]).toEqual([
+    expect(packs.defs["essen"]).toEqual([
       ["verb", "to eat"],
       ["noun", "meal"],
       ["noun", "food"],
@@ -101,13 +102,13 @@ describe("buildLearningPacks with German's settings", () => {
     // Marked "capital": the hover shows it first where the page writes it so, and
     // the card writes the headword capitalised. The essen and sie of these examples
     // are not written capitalised often enough to mark theirs.
-    expect(packs.defs["mensch"]?.[1]).toEqual([
+    expect(packs.defs["mensch"]).toEqual([
       ["noun", "human being", "capital"],
       ["pronoun", "one, they"],
     ]);
   });
   it("keeps room for a capitalised headword the lowercase one would crowd out", () => {
-    const senses = packs.defs["sie"]![1];
+    const senses = packs.defs["sie"]!;
     expect(senses).toHaveLength(6);
     expect(senses.at(-1)).toEqual([
       "pronoun",
@@ -134,40 +135,40 @@ describe("buildLearningPacks with German's settings", () => {
     );
   });
   it("labels a verb's reflexive senses, unless its first sense is one", () => {
-    expect(packs.defs["freuen"]?.[1]).toEqual([
+    expect(packs.defs["freuen"]).toEqual([
       ["verb", "to gladden"],
       ["reflexive", "to be glad"],
     ]);
-    expect(packs.defs["treffen"]?.[1]).toEqual([
+    expect(packs.defs["treffen"]).toEqual([
       ["verb", "to meet"],
       ["verb", "to hit"],
     ]);
   });
   it("keeps an inflected form's alt-of sense when its target is the likelier word, an operator's sense last", () => {
     // "mal" is malen's imperative, but einmal (3) is more frequent than malen (1).
-    expect(packs.defs["mal"]?.[1]).toEqual([
+    expect(packs.defs["mal"]).toEqual([
       ["adverb", "sometime, ever, once; alternative form of einmal"],
       ["adverb", "times (indicating multiplication of two numbers)"],
     ]);
     expect(packs.lemmas["mal"]).toBe("malen");
   });
   it("labels a verb's auxiliary senses so, its parts of speech still a verb", () => {
-    expect(packs.defs["haben"]?.[1]).toEqual([
+    expect(packs.defs["haben"]).toEqual([
       ["auxiliary", "forms the perfect aspect (have)"],
       ["verb", "to have; to own"],
     ]);
     expect(packs.pos["haben"]).toEqual(["verb"]);
   });
   it("gives contractions their meaning", () => {
-    expect(packs.defs["im"]?.[0]).toBe("in the");
-    expect(packs.defs["ans"]?.[0]).toBe("on(to) the");
+    expect(shortOfSenses(packs.defs["im"]!)).toBe("in the");
+    expect(shortOfSenses(packs.defs["ans"]!)).toBe("on(to) the");
   });
   it("writes the edition's IPA in slashes for words English Wiktionary has none for", () => {
     expect(packs.ipa["haus"]).toBe("/haʊ̯s/");
     expect(packs.ipa["essen"]).toBe("/ˈɛsn̩/");
   });
   it("puts the article's translation first", () => {
-    expect(packs.defs["der"]?.[0]).toBe("the");
+    expect(shortOfSenses(packs.defs["der"]!)).toBe("the");
   });
 });
 
@@ -192,16 +193,16 @@ describe("buildLearningPacks with the German edition as a second source", () => 
   });
 
   it("adds a word English Wiktionary lacks, with its translations and forms", () => {
-    expect(packs.defs["rucola"]?.[1]).toEqual([
+    expect(packs.defs["rucola"]).toEqual([
       ["noun", "arugula, rocket", "capital"],
     ]);
     expect(packs.lemmas["rucolas"]).toBe("rucola");
-    expect(packs.defs["aufholen"]?.[1]).toEqual([["verb", "to catch up"]]);
+    expect(packs.defs["aufholen"]).toEqual([["verb", "to catch up"]]);
     expect(packs.lemmas["aufzuholen"]).toBe("aufholen");
   });
   it("adds the forms English Wiktionary lacks of its own words, and changes none of them", () => {
     expect(packs.lemmas["reiste"]).toBe("reisen");
-    expect(packs.defs["essen"]?.[1][0]).toEqual(["verb", "to eat"]);
+    expect(packs.defs["essen"]?.[0]).toEqual(["verb", "to eat"]);
   });
   it("leaves out names, English words and initialisms", () => {
     expect(packs.vocab).not.toContain("hans");

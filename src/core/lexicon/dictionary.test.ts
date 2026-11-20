@@ -105,30 +105,21 @@ const dictionary = createEnJaDictionary({
   },
   // English definitions of phrases neither has.
   defs: {
-    nov: ["A novice", [["noun", "A novice."]]],
+    nov: [["noun", "A novice."]],
     // An initialism of several things, the most translated first.
     dea: [
-      "A hydroxy secondary amine",
-      [
-        ["noun", "A hydroxy secondary amine."],
-        ["proper noun", "Initialism of Drug Enforcement Administration."],
-      ],
+      ["noun", "A hydroxy secondary amine."],
+      ["proper noun", "Initialism of Drug Enforcement Administration."],
     ],
-    "give up": ["(unused)", [["verb", "(unused)"]]],
-    "search for": ["Synonym of look for", [["verb", "Synonym of look for"]]],
+    "give up": [["verb", "(unused)"]],
+    "search for": [["verb", "Synonym of look for"]],
     "look for": [
-      "To seek",
-      [
-        ["verb", "To seek; to try to find."],
-        ["verb", "To expect."],
-      ],
+      ["verb", "To seek; to try to find."],
+      ["verb", "To expect."],
     ],
     "from scratch": [
-      "From the beginning",
-      [
-        ["prepositional phrase", "From the beginning, from zero."],
-        ["adverb", "Without using anything already made."],
-      ],
+      ["prepositional phrase", "From the beginning; from zero."],
+      ["adverb", "Without using anything already made."],
     ],
   },
   pos: { dough: ["noun"], tangy: ["adjective"], give: ["verb"] },
@@ -469,7 +460,7 @@ describe("createEnJaDictionary", () => {
       lines: ["From the beginning"],
       glossLang: "en",
       senses: [
-        { pos: "prepositional phrase", text: "From the beginning, from zero." },
+        { pos: "prepositional phrase", text: "From the beginning; from zero." },
         { pos: "adverb", text: "Without using anything already made." },
       ],
     });
@@ -485,12 +476,9 @@ describe("createEnJaDictionary", () => {
       ipa: {},
       defs: {
         "hold out": [
-          "To keep resisting an attack or a demand for a long time without giving in",
           [
-            [
-              "verb",
-              "To keep resisting an attack or a demand for a long time without giving in.",
-            ],
+            "verb",
+            "To keep resisting an attack or a demand for a long time without giving in.",
           ],
         ],
       },
@@ -542,21 +530,15 @@ describe("createDefsDictionary: capitalised headwords (German)", () => {
   const dictionary = createDefsDictionary({
     defs: {
       sie: [
-        "she",
-        [
-          ["pronoun", "she; her"],
-          ["pronoun", "they; them"],
-          ["pronoun", "you (polite, singular and plural)", "capital"],
-        ],
+        ["pronoun", "she; her"],
+        ["pronoun", "they; them"],
+        ["pronoun", "you (polite, singular and plural)", "capital"],
       ],
       essen: [
-        "to eat",
-        [
-          ["verb", "to eat"],
-          ["noun", "food", "capital"],
-        ],
+        ["verb", "to eat"],
+        ["noun", "food", "capital"],
       ],
-      vater: ["father", [["noun", "father", "capital"]]],
+      vater: [["noun", "father", "capital"]],
     },
     ipa: {},
   });
@@ -581,13 +563,10 @@ describe("createDefsDictionary: capitalised headwords (German)", () => {
 describe("withCompounds", () => {
   const defs = createDefsDictionary({
     defs: {
-      bahn: ["railway", [["noun", "railway", "capital"]]],
+      bahn: [["noun", "railway", "capital"]],
       system: [
-        "system",
-        [
-          ["noun", "system", "capital"],
-          ["noun", "period", "capital"],
-        ],
+        ["noun", "system", "capital"],
+        ["noun", "period", "capital"],
       ],
     },
     ipa: {},
@@ -613,18 +592,12 @@ describe("withCompounds", () => {
       createDefsDictionary({
         defs: {
           bahn: [
-            "route",
-            [
-              ["noun", "route, trail", "capital"],
-              ["noun", "railway/railroad or rail transport", "capital"],
-            ],
+            ["noun", "route, trail", "capital"],
+            ["noun", "railway/railroad or rail transport", "capital"],
           ],
-          "bahn-": [
-            "railway/railroad or rail transport",
-            [["noun", "railway/railroad or rail transport", "capital"]],
-          ],
-          schlüssel: ["a key", [["noun", "a key", "capital"]]],
-          netz: ["net", [["noun", "net", "capital"]]],
+          "bahn-": [["noun", "railway/railroad or rail transport", "capital"]],
+          schlüssel: [["noun", "a key", "capital"]],
+          netz: [["noun", "net", "capital"]],
         },
         ipa: {},
       }),
@@ -642,13 +615,10 @@ describe("withCompounds", () => {
     const parts = withCompounds(
       createDefsDictionary({
         defs: {
-          karten: ["plural of Karte", [["noun", "plural of Karte", "capital"]]],
-          karte: ["map", [["noun", "map", "capital"]]],
-          dienst: ["service", [["noun", "service", "capital"]]],
-          dienste: [
-            "plural of Dienst",
-            [["noun", "plural of Dienst", "capital"]],
-          ],
+          karten: [["noun", "plural of Karte", "capital"]],
+          karte: [["noun", "map", "capital"]],
+          dienst: [["noun", "service", "capital"]],
+          dienste: [["noun", "plural of Dienst", "capital"]],
         },
         ipa: {},
       }),
@@ -668,18 +638,15 @@ describe("withCompounds", () => {
 describe("withPhraseCase", () => {
   const defs = createDefsDictionary({
     defs: {
-      "auf jeden fall": ["in any case", [["phrase", "in any case"]]],
-      "zu tun haben": ["to have to do", [["verb", "to have to do"]]],
-      fall: ["case", [["noun", "case", "capital"]]],
-      haus: ["house", [["noun", "house", "capital"]]],
+      "auf jeden fall": [["phrase", "in any case"]],
+      "zu tun haben": [["verb", "to have to do"]],
+      fall: [["noun", "case", "capital"]],
+      haus: [["noun", "house", "capital"]],
       tun: [
-        "to do",
-        [
-          ["verb", "to do"],
-          ["noun", "doing", "capital"],
-        ],
+        ["verb", "to do"],
+        ["noun", "doing", "capital"],
       ],
-      jeder: ["every", [["determiner", "every"]]],
+      jeder: [["determiner", "every"]],
     },
     ipa: {},
   });
@@ -699,41 +666,34 @@ describe("createDefsDictionary", () => {
   const dictionary = createDefsDictionary({
     defs: {
       comer: [
-        "to eat",
-        [
-          ["verb", "to eat"],
-          ["verb", "to have lunch"],
-        ],
+        ["verb", "to eat"],
+        ["verb", "to have lunch"],
       ],
-      casa: ["house", [["noun", "house"]]],
-      "a escondidas": ["secretly", [["adverb", "secretly, covertly"]]],
+      casa: [["noun", "house"]],
+      "a escondidas": [["adverb", "secretly, covertly"]],
       fue: [
-        "third-person singular preterite indicative of ir",
-        [
-          ["verb", "third-person singular preterite indicative of ir"],
-          ["verb", "third-person singular preterite indicative of ser"],
-        ],
+        ["verb", "third-person singular preterite indicative of ir"],
+        ["verb", "third-person singular preterite indicative of ser"],
       ],
-      casas: ["Plural of casa", [["noun", "Plural of casa"]]],
+      casas: [["noun", "Plural of casa"]],
       haber: [
-        "to exist",
-        [
-          ["verb", "to exist"],
-          ["verb", "to have; forms the perfect aspect", "auxiliary"],
-        ],
+        ["verb", "to exist"],
+        ["verb", "to have; forms the perfect aspect", "auxiliary"],
       ],
       vela: [
-        "candle",
-        [
-          ["noun", "candle; taper."],
-          ["noun", "Alternative form of velo"],
-          ["noun", "sail"],
-          ["noun", "vigil"],
-          ["noun", "wake"],
-        ],
+        ["noun", "candle; taper."],
+        ["noun", "Alternative form of velo"],
+        ["noun", "sail"],
+        ["noun", "vigil"],
+        ["noun", "wake"],
       ],
     },
     ipa: { comer: "/koˈmeɾ/", a: "/a/", escondidas: "/eskonˈdidas/" },
+  });
+
+  it("makes an entry's short definition from its first sense, which the pack does not store", () => {
+    expect(dictionary.entry("vela")?.short).toBe("candle");
+    expect(dictionary.entry("haber")?.short).toBe("to exist");
   });
 
   it("shows the senses the pack marks as an auxiliary's first where the word is one", () => {
@@ -790,7 +750,8 @@ describe("createDefsDictionary", () => {
       head: "a escondidas",
       kind: "phrase",
       ipa: "/a eskonˈdidas/",
-      short: "secretly",
+      // The first sense's (the pack does not store it).
+      short: "secretly, covertly",
       lines: ["secretly, covertly"],
       senses: [{ pos: "adverb", text: "secretly, covertly" }],
     });
@@ -832,7 +793,7 @@ describe("createPairDictionary over a learning pair (German → French)", () => 
       vater: ["père", [["noun", "père"]], 0, [0]],
       gehen: ["aller", [["verb", "aller"]], 1],
     },
-    defs: { laufen: ["to run", [["verb", "to run"]]] },
+    defs: { laufen: [["verb", "to run"]] },
     ipa: {},
     native: "fr",
   });
@@ -878,8 +839,8 @@ describe("createPairDictionary", () => {
       ],
     },
     defs: {
-      light: ["Visible radiation", [["noun", "Visible radiation."]]],
-      "give up": ["To surrender", [["verb", "To surrender."]]],
+      light: [["noun", "Visible radiation."]],
+      "give up": [["verb", "To surrender."]],
     },
     ipa: { light: "/laɪt/" },
   });

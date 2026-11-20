@@ -29,12 +29,9 @@ const options = {
 /** English Wiktionary's definitions: a contraction's are its host's. */
 const DEFS: DefsPack = {
   "we've": [
-    "Excluding the person(s) being addressed. (This is the exclusive we.)",
     [
-      [
-        "contraction",
-        "Excluding the person(s) being addressed. (This is the exclusive we.)",
-      ],
+      "contraction",
+      "Excluding the person(s) being addressed. (This is the exclusive we.)",
     ],
   ],
 };

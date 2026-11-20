@@ -40,26 +40,36 @@ describe("pack files in data/packs", () => {
   );
 });
 
-// What one offered pair downloads (its packs, `packsFor`) stays at most 40 MB raw:
-// English → Japanese, the largest, is about 35 MB raw and 9 MB gzipped on the wire.
-const PAIR_LIMIT_BYTES = 40_000_000;
+// What one offered pair downloads (its packs, `packsFor`), in each test's name so that
+// every run shows its growth. It fails only past a sanity ceiling of 80 MB raw, which
+// catches accidents (a pack built twice, a dictionary left unsharded), not normal
+// growth: translation quality comes before pack size for now (user, 2026-11-21; the
+// ceiling replaced D0's limit of 40 MB per pair). English → Japanese, the largest, is
+// about 31 MB raw and 8 MB gzipped on the wire.
+const PAIR_CEILING_BYTES = 80_000_000;
 const pairs = learningLanguages().flatMap((learning) =>
-  nativeLanguages(learning).map((native) => [
-    `${learning}→${native}`,
-    learning,
-    native,
-  ]),
+  nativeLanguages(learning).map((native) => {
+    const packs = packsFor(learning, native);
+    const bytes = packs.reduce(
+      (sum, pack) => sum + bytesUnder(PACKS[pack].dir),
+      0,
+    );
+    return [
+      `${learning}→${native}`,
+      `${(bytes / 1e6).toFixed(2)} MB raw`,
+      packs.length,
+      bytes,
+    ] as const;
+  }),
 );
 
-it.each(pairs)("%s downloads at most 40 MB", (_pair, learning, native) => {
-  const packs = packsFor(learning!, native!);
-  expect(packs.length).toBeGreaterThan(0);
-  const total = packs.reduce(
-    (sum, pack) => sum + bytesUnder(PACKS[pack].dir),
-    0,
-  );
-  expect(total).toBeLessThanOrEqual(PAIR_LIMIT_BYTES);
-});
+it.each(pairs)(
+  "%s downloads %s, within the 80 MB sanity ceiling",
+  (_pair, _size, packs, bytes) => {
+    expect(packs).toBeGreaterThan(0);
+    expect(bytes).toBeLessThanOrEqual(PAIR_CEILING_BYTES);
+  },
+);
 
 // Every English page loads these: the tagger and the phrase patterns with the language
 // pack, the sense labels with the dictionary; every Spanish and French page its tagger

@@ -62,6 +62,25 @@ describe("generated dictionary shards", () => {
   });
 });
 
+describe("generated definitions packs (format 2)", () => {
+  it.each(["en-defs", "es-en", "fr-en", "de-en"] as const)(
+    "%s stores each term's senses only, no short definition",
+    async (pack) => {
+      const { defs: terms } = await loadPack(pack);
+      const entries = Object.values(terms);
+      expect(entries.length).toBeGreaterThan(1000);
+      for (const senses of entries) {
+        expect(senses.length).toBeGreaterThan(0);
+        for (const sense of senses) {
+          expect(Array.isArray(sense)).toBe(true);
+          expect(typeof sense[0]).toBe("string");
+          expect(typeof sense[1]).toBe("string");
+        }
+      }
+    },
+  );
+});
+
 describe("generated vocabulary", () => {
   it("has the dictionary's single-word headwords and Wiktionary's words in use, sorted", () => {
     const singleWords = Object.keys(dict).filter((key) => !key.includes(" "));

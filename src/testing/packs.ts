@@ -93,21 +93,15 @@ const TEST_PACKS: PackFiles = {
   "en-defs": {
     defs: {
       "figure out": [
-        "To come to understand",
-        [
-          ["verb", "To come to understand; to discover."],
-          ["verb", "(transitive, informal) To solve (a problem)."],
-          ["verb", "Synonym of work out."],
-          ["verb", "Synonym of puzzle out: to find a solution by thinking."],
-          ["verb", "To calculate an amount."],
-        ],
+        ["verb", "To come to understand; to discover."],
+        ["verb", "(transitive, informal) To solve (a problem)."],
+        ["verb", "Synonym of work out."],
+        ["verb", "Synonym of puzzle out: to find a solution by thinking."],
+        ["verb", "To calculate an amount."],
       ],
       "i mean": [
-        "A mild intensifier",
-        [
-          ["particle", "A mild intensifier."],
-          ["particle", "A delaying filler."],
-        ],
+        ["particle", "A mild intensifier."],
+        ["particle", "A delaying filler."],
       ],
     },
   },
@@ -132,10 +126,10 @@ const TEST_PACKS: PackFiles = {
   },
   "es-en": {
     defs: {
-      "a escondidas": ["secretly", [["adverb", "secretly"]]],
-      casa: ["house", [["noun", "house"]]],
-      casar: ["to marry", [["verb", "to marry"]]],
-      comer: ["to eat", [["verb", "to eat"]]],
+      "a escondidas": [["adverb", "secretly"]],
+      casa: [["noun", "house"]],
+      casar: [["verb", "to marry"]],
+      comer: [["verb", "to eat"]],
     },
   },
   fr: {
@@ -151,9 +145,9 @@ const TEST_PACKS: PackFiles = {
   },
   "fr-en": {
     defs: {
-      "d'accord": ["in agreement", [["adverb", "in agreement"]]],
-      homme: ["man", [["noun", "man"]]],
-      maison: ["house", [["noun", "house"]]],
+      "d'accord": [["adverb", "in agreement"]],
+      homme: [["noun", "man"]],
+      maison: [["noun", "house"]],
     },
   },
   de: {
@@ -170,14 +164,11 @@ const TEST_PACKS: PackFiles = {
   "de-en": {
     defs: {
       essen: [
-        "to eat",
-        [
-          ["verb", "to eat"],
-          ["noun", "food"],
-        ],
+        ["verb", "to eat"],
+        ["noun", "food"],
       ],
-      haus: ["house", [["noun", "house"]]],
-      im: ["in the", [["contraction", "in the; contraction of in + dem"]]],
+      haus: [["noun", "house"]],
+      im: [["contraction", "in the; contraction of in + dem"]],
     },
   },
   // "loaf" from the Spanish Wiktionary, "crust" from a translation table (with its

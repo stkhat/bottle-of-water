@@ -15,7 +15,6 @@
 // Usage: node scripts/data/en-defs.ts [path]   (default data/raw/kaikki-en.jsonl; run
 // ejdict.ts, kaikki.ts, phrases.ts and the pair recipes, recipes/native.ts, first)
 import { definitionPointer } from "../../src/core/lexicon/definitions.ts";
-import { shortOfDefinition } from "../../src/core/lexicon/short-lines.ts";
 import { CONTRACTION, VERB_TO } from "../../src/core/tagging/en-clitics.ts";
 import type { DefsPack, LemmaPack } from "../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
@@ -258,7 +257,7 @@ export async function buildEnDefs(
         continue;
       out.push([posLabel(sense.pos), sense.gloss]);
     }
-    if (out.length > 0) defs[key] = [shortOfDefinition(out[0]![1]), out];
+    if (out.length > 0) defs[key] = out;
   }
   // A word that joined from Wikidata means its item first; an entry so written follows
   // (BTS: the band, then "behind the scenes").
@@ -268,11 +267,8 @@ export async function buildEnDefs(
     if (!capitalOnly.has(written) || everyPair(key)) continue;
     const text = entityDefinition(written, entity);
     if (text === undefined) continue;
-    const own = (defs[key]?.[1] ?? []).filter(([, other]) => other !== text);
-    defs[key] = [
-      shortOfDefinition(text),
-      [["proper noun", text], ...own.slice(0, MAX_SENSES - 1)],
-    ];
+    const own = (defs[key] ?? []).filter(([, other]) => other !== text);
+    defs[key] = [["proper noun", text], ...own.slice(0, MAX_SENSES - 1)];
     fromEntities++;
   }
   const phraseCount = Object.keys(defs).filter((key) =>

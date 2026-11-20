@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { shortOfSenses } from "../../src/core/lexicon/short-lines.ts";
 import { frenchForms, parseFrequencyWords } from "./fr-frequency.ts";
 import { FRENCH_BUILD, frenchOwnWord, slimEntry } from "./fr-kaikki.ts";
 import {
@@ -88,7 +89,7 @@ describe("buildLearningPacks with French's settings", () => {
   });
 
   it("gives a contraction the meaning its gloss quotes", () => {
-    expect(packs.defs.au?.[0]).toBe("to the, for the, at the");
+    expect(shortOfSenses(packs.defs.au!)).toBe("to the, for the, at the");
   });
 
   it("follows a form of a form to its base", () => {
@@ -102,30 +103,30 @@ describe("buildLearningPacks with French's settings", () => {
 
   it("puts a nested sense's parent meaning before it", () => {
     // "sound of the action" is a kind of blow; the parent's meaning leads, once.
-    expect(packs.defs.coup?.[1].map(([, text]) => text)).toEqual([
+    expect(packs.defs.coup?.map(([, text]) => text)).toEqual([
       "blow, hit, strike",
       "sound of the action",
       "physical consequences of the action (marks)",
       "a time, a try, an instance",
     ]);
     // A subsense that translates keeps its place; the word itself is no meaning.
-    expect(packs.defs.retenir?.[1].map(([, text]) => text)).toEqual([
+    expect(packs.defs.retenir?.map(([, text]) => text)).toEqual([
       "to hold back, rein in",
       "to remember",
     ]);
-    expect(packs.defs.public?.[1].map(([, text]) => text)).toEqual([
+    expect(packs.defs.public?.map(([, text]) => text)).toEqual([
       "public (people in general)",
       "audience",
     ]);
     // A context that introduces a translation is no meaning of its own.
-    expect(packs.defs.plus?.[1].map(([, text]) => text)).toEqual([
+    expect(packs.defs.plus?.map(([, text]) => text)).toEqual([
       "more, -er (comparative)",
       "not ... any more, no more, no longer",
     ]);
   });
 
   it("labels no verb an auxiliary whose infinitive a preposition introduces, but marks the construction", () => {
-    expect(packs.defs["réussir"]?.[1][0]).toEqual([
+    expect(packs.defs["réussir"]?.[0]).toEqual([
       "verb",
       "to manage to do something",
       "+à",
@@ -133,24 +134,24 @@ describe("buildLearningPacks with French's settings", () => {
   });
 
   it("labels a pronominal verb's reflexive senses so, kept past the cap", () => {
-    expect(packs.defs.appeler?.[1]).toEqual([
+    expect(packs.defs.appeler).toEqual([
       ["verb", "to call"],
       ["reflexive", "to be called"],
     ]);
     expect(packs.pos.appeler).toEqual(["verb"]);
     // A verb whose pronoun is its object ("se dire") keeps them as its own.
-    expect(packs.defs.dire?.[1]).toEqual([
+    expect(packs.defs.dire).toEqual([
       ["verb", "to say"],
       ["verb", "to say (to signify)"],
     ]);
   });
 
   it("reads a contraction of one word as that word cut short", () => {
-    expect(packs.defs.info?.[0]).toBe("information");
+    expect(shortOfSenses(packs.defs.info!)).toBe("information");
   });
 
   it("puts a closed class's translation before a usage note", () => {
-    expect(packs.defs.en?.[1][0]).toEqual([
+    expect(packs.defs.en?.[0]).toEqual([
       "pronoun",
       "of it, of them. Replaces the partitive article (du, de la, etc.); Used as the object of a verb to indicate an indefinite quantity",
     ]);

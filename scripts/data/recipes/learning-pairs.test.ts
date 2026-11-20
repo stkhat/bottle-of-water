@@ -26,18 +26,12 @@ const words: LearningWords = {
   articles: new Set(["der", "die", "das"]),
   english: {
     essen: [
-      "to eat",
-      [
-        ["verb", "to eat"],
-        ["noun", "meal", "capital"],
-      ],
+      ["verb", "to eat"],
+      ["noun", "meal", "capital"],
     ],
     sie: [
-      "she",
-      [
-        ["pronoun", "she"],
-        ["pronoun", "you (polite)", "capital"],
-      ],
+      ["pronoun", "she"],
+      ["pronoun", "you (polite)", "capital"],
     ],
   },
 };

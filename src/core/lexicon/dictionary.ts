@@ -38,6 +38,7 @@ import {
   pointerLine,
   shortLines,
   shortOfDefinition,
+  shortOfSenses,
   type Pointer,
 } from "./short-lines";
 
@@ -1251,11 +1252,10 @@ function definitionOutline(
 }
 
 function definitionOf(head: string, defs: DefsPack): Entry | undefined {
-  const found = own(defs, head);
-  if (!found) return undefined;
-  const [short, senses] = found;
+  const senses = own(defs, head);
+  if (!senses?.length) return undefined;
   return {
-    short,
+    short: shortOfSenses(senses),
     senses: senses.map(([pos, text, use]) => ({
       pos,
       text,

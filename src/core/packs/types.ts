@@ -60,35 +60,32 @@ export type DictPack = Readonly<
   >
 >;
 /**
- * en-defs/dict-<n>.json, merged: word or phrase → [short definition, [part of speech,
- * text][]]: English Wiktionary's definitions, the fallback of every English dictionary.
- * es-en/dict-<n>.json has the same shape: English meanings of Spanish words and phrases.
+ * en-defs/dict-<n>.json, merged: word or phrase → its senses, [part of speech, text][]:
+ * English Wiktionary's definitions, the fallback of every English dictionary.
+ * es-en, fr-en and de-en have the same shape: English meanings of the learning
+ * language's words and phrases. The short definition is not stored: it is always the
+ * first sense's (`shortOfDefinition`), made when the entry is looked up (format 2,
+ * 2026-11-21; format 1 stored it first, [short, senses], about a third of en-defs).
  */
-export type DefsPack = Readonly<
-  Record<
-    string,
-    readonly [
-      short: string,
-      /**
-       * Each sense's part of speech and text, and "auxiliary" for a sense the source
-       * marks as the verb's use as an auxiliary (`Sense.auxiliary`): learning packs
-       * built in L1-3 and L1-4 (`fr-en`, `es-en`); the data build now labels such a
-       * sense "auxiliary" instead. "capital" for a sense of a capitalised headword
-       * the key shares with a lowercase one (`Sense.capital`; `de-en` from L2-2: Sie's
-       * "you (polite)" under "sie", Essen's "food" under "essen"). "singular" or
-       * "plural" for a personal pronoun's sense of that number (`Sense.number`; `de-en`
-       * from R3: sie's "she; her", "they; them"). "+" and the words that introduce
-       * the infinitive a verb's sense is said with, joined by "|" (`Sense.construction`;
-       * `es-en` from R4: tener's "to have to", "+que"; "+" for a bare infinitive).
-       */
-      senses: readonly (readonly [
-        pos: string,
-        text: string,
-        use?: "auxiliary" | "capital" | "singular" | "plural" | `+${string}`,
-      ])[],
-    ]
-  >
->;
+export type DefsPack = Readonly<Record<string, DefinitionSenses>>;
+
+/**
+ * A definitions entry's senses: each one's part of speech and text, and "auxiliary"
+ * for a sense the source marks as the verb's use as an auxiliary (`Sense.auxiliary`):
+ * learning packs built in L1-3 and L1-4 (`fr-en`, `es-en`); the data build now labels
+ * such a sense "auxiliary" instead. "capital" for a sense of a capitalised headword the
+ * key shares with a lowercase one (`Sense.capital`; `de-en` from L2-2: Sie's "you
+ * (polite)" under "sie", Essen's "food" under "essen"). "singular" or "plural" for a
+ * personal pronoun's sense of that number (`Sense.number`; `de-en` from R3: sie's "she;
+ * her", "they; them"). "+" and the words that introduce the infinitive a verb's sense
+ * is said with, joined by "|" (`Sense.construction`; `es-en` from R4: tener's "to have
+ * to", "+que"; "+" for a bare infinitive).
+ */
+type DefinitionSenses = readonly (readonly [
+  pos: string,
+  text: string,
+  use?: "auxiliary" | "capital" | "singular" | "plural" | `+${string}`,
+])[];
 /**
  * en-<native>/dict-<n>.json, merged (en-es): term → [short meaning, senses, source],
  * built by a recipe from human-made sources in order, the first one with the term
