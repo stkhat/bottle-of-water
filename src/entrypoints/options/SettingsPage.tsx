@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { BrowserEnv } from "../../core/browser-env";
 import type { ExplanationProvider } from "../../core/explain/provider";
+import type { SupportLinks } from "../../core/links";
 import {
   mergeSettings,
   type Settings,
@@ -30,6 +31,7 @@ import { HistorySection } from "./sections/History";
 import { LanguagesSection } from "./sections/Languages";
 import { LevelSection } from "./sections/Level";
 import { SitesSection } from "./sections/Sites";
+import { SupportBox } from "./sections/Support";
 import { SyncSection } from "./sections/Sync";
 import { VideoSection } from "./sections/Video";
 
@@ -43,6 +45,8 @@ export interface SettingsDeps extends BackupDeps, PackStatusDeps {
   version: string;
   /** The data sources and licenses page, which About links to. */
   noticesUrl: string;
+  /** Where the Support Langle box's links lead; an empty one is left out. */
+  links: SupportLinks;
   /** How often the sync and history status and the relative times are refreshed. */
   refreshMs: number;
 }
@@ -176,40 +180,52 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
       }}
     >
       <style>{CSS}</style>
-      <nav
-        aria-label={t("settings.navLabel")}
+      <div
         style={{
           width: "220px",
           flex: "none",
           alignSelf: "flex-start",
           position: "sticky",
           top: "40px",
+          // A window too short for the nav and the Support box scrolls the column.
+          maxHeight: "calc(100vh - 80px)",
+          overflowY: "auto",
           display: "flex",
           flexDirection: "column",
-          gap: "2px",
+          gap: "24px",
         }}
       >
-        <div
+        <nav
+          aria-label={t("settings.navLabel")}
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            padding: "0 12px 20px",
+            flexDirection: "column",
+            gap: "2px",
           }}
         >
-          <BrandHeader size="settings" title={t("settings.title")} />
-        </div>
-        {SECTIONS.map((section) => (
-          <a
-            key={section.id}
-            class="nav"
-            href={`#${section.id}`}
-            aria-current={active === section.id ? "true" : undefined}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "0 12px 20px",
+            }}
           >
-            {t(section.label)}
-          </a>
-        ))}
-      </nav>
+            <BrandHeader size="settings" title={t("settings.title")} />
+          </div>
+          {SECTIONS.map((section) => (
+            <a
+              key={section.id}
+              class="nav"
+              href={`#${section.id}`}
+              aria-current={active === section.id ? "true" : undefined}
+            >
+              {t(section.label)}
+            </a>
+          ))}
+        </nav>
+        <SupportBox links={deps.links} />
+      </div>
 
       <main
         style={{

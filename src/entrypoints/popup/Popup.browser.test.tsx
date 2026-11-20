@@ -7,6 +7,7 @@ import type {
   SyncStatus,
 } from "../../messaging/protocol";
 import type { PackState, PackStates } from "../../core/packs/state";
+import type { SupportLinks } from "../../core/links";
 import { mergeSettings, type Settings } from "../../core/settings";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import { Popup, type PopupDeps } from "./Popup";
@@ -42,6 +43,8 @@ interface FakeOptions {
   refreshMs?: number;
   /** What `packStatus` answers for the settings (default: `JAPANESE`). */
   packStatus?: (settings: Settings) => PackStatus;
+  /** The footer's links (default: none set). */
+  links?: Partial<SupportLinks>;
 }
 
 const readyPack = (pack: string, size: number) =>
@@ -123,6 +126,14 @@ function fake(options: FakeOptions = {}) {
     watchSettings: settingsWatchers.watch,
     watchPackState: packWatchers.watch,
     syncName: "Chrome sync",
+    links: {
+      coffee: "",
+      feedback: "",
+      sponsor: "",
+      review: "",
+      ...options.links,
+    },
+    openTab: vi.fn(),
     openOptions: vi.fn(),
     openWordList: vi.fn(),
     close: vi.fn(),
@@ -591,5 +602,109 @@ describe("Popup", () => {
     expect(f.deps.openWordList).toHaveBeenCalledOnce();
     await gear.click();
     expect(f.deps.openOptions).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Support Langle", () => {
+  const LINKS = {
+    review: "https://store.example/langle/reviews",
+    coffee: "https://ko-fi.example/langle",
+  };
+  const nudge = (screen: Awaited<ReturnType<typeof render>>) =>
+    screen.getByRole("status").filter({ hasText: "Nice work!" });
+  const footer = (screen: Awaited<ReturnType<typeof render>>) =>
+    screen.getByRole("navigation", { name: "Support Langle" });
+
+  it("asks once for a rating when Learning reaches 100 words, pointing at Rate", async () => {
+    const f = fake({
+      links: LINKS,
+      counts: { learning: 100, known: 2341, phrases: 37 },
+    });
+    const screen = await render(<Popup deps={f.deps} />);
+    await expect
+      .element(nudge(screen))
+      .toHaveTextContent(
+        "Nice work! You've hit 100 words in Learning.Enjoying Langle? A quick rating below helps other learners find it.",
+      );
+    const rate = footer(screen).getByRole("link", { name: "Rate" });
+    expect(getComputedStyle(rate.element()).color).toBe("rgb(26, 79, 181)");
+    expect(getComputedStyle(rate.element()).backgroundColor).toBe(
+      "rgb(234, 240, 253)",
+    );
+    // The bubble sits right above the footer.
+    expect(
+      nudge(screen).element().getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(footer(screen).element().getBoundingClientRect().top);
+  });
+
+  it("does not ask at 99 Learning words, and Rate is not highlighted", async () => {
+    const f = fake({
+      links: LINKS,
+      counts: { learning: 99, known: 2341, phrases: 37 },
+    });
+    const screen = await render(<Popup deps={f.deps} />);
+    const rate = footer(screen).getByRole("link", { name: "Rate" });
+    await expect.element(rate).toBeVisible();
+    expect(nudge(screen).query()).toBeNull();
+    expect(getComputedStyle(rate.element()).color).toBe("rgb(90, 96, 117)");
+  });
+
+  it("Rate opens the store's review page and the nudge never comes back", async () => {
+    const f = fake({ links: LINKS });
+    const screen = await render(<Popup deps={f.deps} />);
+    await expect.element(nudge(screen)).toBeVisible();
+    await footer(screen).getByRole("link", { name: "Rate" }).click();
+    await expect.poll(() => f.deps.openTab).toHaveBeenCalledWith(LINKS.review);
+    expect(f.settings().rateNudgeDone).toBe(true);
+    expect(nudge(screen).query()).toBeNull();
+
+    await screen.unmount();
+    const again = await render(<Popup deps={f.deps} />);
+    await expect.element(footer(again)).toBeVisible();
+    expect(nudge(again).query()).toBeNull();
+  });
+
+  it("× dismisses the nudge for good without opening anything", async () => {
+    const f = fake({ links: LINKS });
+    const screen = await render(<Popup deps={f.deps} />);
+    await nudge(screen).getByRole("button", { name: "Dismiss" }).click();
+    await expect.element(nudge(screen)).not.toBeInTheDocument();
+    expect(f.settings().rateNudgeDone).toBe(true);
+    expect(f.deps.openTab).not.toHaveBeenCalled();
+  });
+
+  it("the nudge stays away once answered on another device", async () => {
+    const f = fake({ links: LINKS });
+    const screen = await render(<Popup deps={f.deps} />);
+    await expect.element(nudge(screen)).toBeVisible();
+    f.changeSettings({ rateNudgeDone: true });
+    await expect.element(nudge(screen)).not.toBeInTheDocument();
+  });
+
+  it("Buy me a coffee opens the Ko-fi page, also while Langle is off", async () => {
+    const f = fake({ links: LINKS, settings: { enabled: false } });
+    const screen = await render(<Popup deps={f.deps} />);
+    const coffee = footer(screen).getByRole("link", {
+      name: "Buy me a coffee if you enjoy Langle",
+    });
+    await coffee.click();
+    expect(f.deps.openTab).toHaveBeenCalledWith(LINKS.coffee);
+    expect(f.settings().rateNudgeDone).toBe(false);
+  });
+
+  it("leaves out a link whose page does not exist yet, and the footer without any", async () => {
+    const f = fake({ links: { coffee: LINKS.coffee } });
+    const screen = await render(<Popup deps={f.deps} />);
+    await expect
+      .element(footer(screen).getByRole("link", { name: /Buy me a coffee/ }))
+      .toBeVisible();
+    expect(screen.getByRole("link", { name: "Rate" }).query()).toBeNull();
+    // No Rate to point at: no nudge either.
+    expect(nudge(screen).query()).toBeNull();
+    await screen.unmount();
+
+    const none = await render(<Popup deps={fake().deps} />);
+    await expect.element(none.getByText("2,341")).toBeVisible();
+    expect(none.getByRole("navigation").query()).toBeNull();
   });
 });

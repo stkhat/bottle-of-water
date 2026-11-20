@@ -15,6 +15,7 @@ import {
   type BackupNote,
 } from "../../ui/backup/BackupButtons";
 import { BrandHeader } from "../../ui/BrandHeader";
+import type { SponsorCard } from "../../core/sponsors";
 import { SearchIcon } from "../../ui/icons";
 import { Segmented } from "../../ui/Segmented";
 import { color, FONT, PAGE_BUTTON_CSS } from "../../ui/styles";
@@ -29,6 +30,10 @@ export interface WordListDeps extends BackupDeps {
   watchPackState(listener: (states: PackStates) => void): () => void;
   /** The page's translator for a pair (the browser's built-in one). */
   createTranslator(from: string, to: string): TranslationProvider;
+  /** The card under the details (`SPONSOR_CARD`); null: the spot is open. */
+  sponsorCard: SponsorCard | null;
+  /** The page for would-be sponsors (`SupportLinks.sponsor`); empty while it does not exist. */
+  sponsorPage: string;
 }
 
 /** "learned": known words that went there from learning (`learnedAt`). */
@@ -374,6 +379,8 @@ export function WordList({ deps }: { deps: WordListDeps }) {
             now={now}
             onStatus={(to) => void changeStatus(to)}
             onSpeak={(head) => deps.speak(head, langs.learning)}
+            sponsorCard={deps.sponsorCard}
+            sponsorPage={deps.sponsorPage}
           />
         )}
       </div>

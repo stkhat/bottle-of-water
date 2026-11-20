@@ -13,6 +13,7 @@ import type {
 } from "../../messaging/protocol";
 import type { TranslationProvider } from "../../content/translate/translator";
 import { noTranslation } from "../../testing/stubs";
+import type { SponsorCard } from "../../core/sponsors";
 import { WordList, type WordListDeps } from "./WordList";
 
 const NOW = new Date(2026, 10, 10, 12, 0, 0).getTime();
@@ -172,6 +173,10 @@ interface FakeOptions {
   missing?: string[];
   /** The page's translator (default: none). */
   translator?: TranslationProvider;
+  /** The bundled card (default: none). */
+  sponsorCard?: SponsorCard | null;
+  /** The page for would-be sponsors (default: none yet). */
+  sponsorPage?: string;
 }
 
 /** A background behind the word list: terms, lookups, status changes, backups. */
@@ -267,6 +272,8 @@ function fake(options: FakeOptions = {}) {
     download: (name, text) => downloads.push({ name, text }),
     speak: (text) => spoken.push(text),
     createTranslator: () => options.translator ?? noTranslation,
+    sponsorCard: options.sponsorCard ?? null,
+    sponsorPage: options.sponsorPage ?? "",
     watchPackState(listener) {
       packListeners.add(listener);
       listener({});
@@ -826,5 +833,107 @@ describe("WordList", () => {
     await expect.poll(heads).toContain("word1000");
     expect(heads()).not.toContain("word0000");
     expect(heads().length).toBeLessThan(60);
+  });
+});
+
+describe("the sponsor spot", () => {
+  const PAGE = "https://langle.example/sponsor";
+  const spot = (details: { element(): Element }) =>
+    details.element().querySelector<HTMLElement>("[data-sponsor-spot]");
+
+  /** The spot is pinned under the details' scroll area, at the panel's bottom. */
+  function expectPinned(details: { element(): Element }) {
+    const box = spot(details)!.getBoundingClientRect();
+    const panel = details.element().getBoundingClientRect();
+    expect(panel.bottom - box.bottom).toBeLessThanOrEqual(1);
+    // Outside the scroll area.
+    expect(spot(details)!.parentElement).toBe(details.element());
+  }
+
+  it("with nothing bundled, invites sponsors to the spot in the learning language", async () => {
+    const { details } = await open({
+      sponsorPage: PAGE,
+      settings: { learningLang: "en" },
+    });
+    await expect
+      .element(details.getByText(/^Your product here/))
+      .toHaveTextContent(
+        "Your product here, in front of people learning English. Sponsor this spot",
+      );
+    const link = details.getByRole("link", { name: "Sponsor this spot" });
+    await expect.element(link).toHaveAttribute("href", PAGE);
+    await expect.element(link).toHaveAttribute("target", "_blank");
+    expectPinned(details);
+  });
+
+  it("is left out while nothing is bundled and the sponsor page does not exist", async () => {
+    const { details } = await open();
+    await expect
+      .element(details.getByRole("heading", { level: 2 }))
+      .toBeVisible();
+    expect(spot(details)).toBeNull();
+  });
+
+  it("shows a sponsor as Sponsored, its link tagged utm_source=langle", async () => {
+    const { details } = await open({
+      sponsorPage: PAGE,
+      sponsorCard: {
+        type: "sponsor",
+        name: "Acme Lessons",
+        line: "Speak with a tutor today",
+        url: "https://acme.example/learn",
+        logo: "icon/48.png",
+      },
+    });
+    const card = details.getByRole("link", { name: /Acme Lessons/ });
+    await expect
+      .element(card)
+      .toHaveAttribute("href", "https://acme.example/learn?utm_source=langle");
+    await expect
+      .element(card)
+      .toHaveAttribute("rel", "sponsored noopener noreferrer");
+    await expect.element(card).toHaveAttribute("target", "_blank");
+    expect(spot(details)!.textContent).toBe(
+      "SponsoredAcme LessonsSpeak with a tutor today",
+    );
+    expect(card.element().querySelector("img")!.getAttribute("src")).toBe(
+      "/icon/48.png",
+    );
+    expectPinned(details);
+  });
+
+  it("labels an affiliate link Ad with the commission line, leaving its URL as is", async () => {
+    const url = "https://tutors.example/?aff=langle";
+    const affiliate: SponsorCard = {
+      type: "affiliate",
+      name: "Tutors",
+      line: "Lessons with a tutor",
+      url,
+    };
+    const { details } = await open({
+      sponsorPage: PAGE,
+      sponsorCard: affiliate,
+    });
+    const card = details.getByRole("link", { name: /Tutors/ });
+    await expect.element(card).toHaveAttribute("href", url);
+    await expect
+      .element(card)
+      .toHaveAttribute("rel", "sponsored noopener noreferrer");
+    expect(spot(details)!.textContent).toBe(
+      "AdBecome a sponsorTutorsLessons with a tutorLangle may earn a commission if you sign up.",
+    );
+    await expect
+      .element(details.getByRole("link", { name: "Become a sponsor" }))
+      .toHaveAttribute("href", PAGE);
+    cleanup();
+
+    // No sponsor page yet: the card without "Become a sponsor".
+    const again = await open({ sponsorCard: affiliate });
+    await expect
+      .element(again.details.getByRole("link", { name: /Tutors/ }))
+      .toBeVisible();
+    expect(
+      again.details.getByRole("link", { name: "Become a sponsor" }).query(),
+    ).toBeNull();
   });
 });

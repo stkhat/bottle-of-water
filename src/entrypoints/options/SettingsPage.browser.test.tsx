@@ -9,6 +9,7 @@ import type {
   SyncStatus,
 } from "../../messaging/protocol";
 import type { PackState, PackStates } from "../../core/packs/state";
+import type { SupportLinks } from "../../core/links";
 import { mergeSettings, type Settings } from "../../core/settings";
 import type { ExplanationProvider } from "../../core/explain/provider";
 import type { LanguagePair } from "../../core/packs/pairs";
@@ -39,6 +40,8 @@ interface FakeOptions {
   history?: HistoryStatus;
   /** What `packStatus` answers for the settings (default: `japanese()`). */
   packStatus?: (settings: Settings) => PackStatus;
+  /** The Support Langle links (default: none set). */
+  links?: Partial<SupportLinks>;
 }
 
 const MB = 1024 * 1024;
@@ -112,6 +115,13 @@ function fake(options: FakeOptions = {}) {
     }),
     version: "0.1.0",
     noticesUrl: "chrome-extension://langle/notices.html",
+    links: {
+      coffee: "",
+      feedback: "",
+      sponsor: "",
+      review: "",
+      ...options.links,
+    },
     now: () => NOW,
     download: (name, text) => downloads.push({ name, text }),
     refreshMs: 60_000,
@@ -1054,5 +1064,83 @@ describe("SettingsPage", () => {
     } finally {
       await page.viewport(1200, 800);
     }
+  });
+
+  describe("Support Langle", () => {
+    const LINKS: SupportLinks = {
+      coffee: "https://ko-fi.example/langle",
+      review: "https://store.example/langle/reviews",
+      feedback: "https://forms.example/langle",
+      sponsor: "https://langle.example/sponsor",
+    };
+
+    it("sits under the section nav with Ko-fi, Rate, feedback and the sponsor page, each in a new tab", async () => {
+      const { screen } = await open({ links: LINKS });
+      const box = section(screen, "Support Langle");
+      await expect
+        .element(box)
+        .toHaveTextContent(
+          "Support LangleLangle is free. Your support keeps me going and lets Langle keep growing.Buy me a coffeeRate LangleSend feedbackBecome a sponsor",
+        );
+      const links = box.getByRole("link").elements();
+      expect(links.map((a) => a.getAttribute("href"))).toEqual([
+        LINKS.coffee,
+        LINKS.review,
+        LINKS.feedback,
+        LINKS.sponsor,
+      ]);
+      for (const a of links) expect(a.getAttribute("target")).toBe("_blank");
+      // The left column, right under the nav; no nav entry of its own.
+      const nav = screen
+        .getByRole("navigation", { name: "Settings sections" })
+        .element();
+      expect(nav.nextElementSibling).toBe(box.element());
+      expect(nav.querySelector("a[href='#support']")).toBeNull();
+      const [coffee, rate] = links.map((a) => getComputedStyle(a));
+      expect(coffee!.backgroundColor).toBe("rgb(11, 127, 101)");
+      expect(coffee!.height).toBe("40px");
+      expect(rate!.borderColor).toBe("rgb(143, 211, 188)");
+      expect(rate!.color).toBe("rgb(7, 92, 73)");
+      expect(getComputedStyle(box.element()).backgroundColor).toBe(
+        "rgb(230, 246, 240)",
+      );
+    });
+
+    it("leaves out a link whose page does not exist yet, and the box without any", async () => {
+      const { screen } = await open({ links: { feedback: LINKS.feedback } });
+      const box = section(screen, "Support Langle");
+      expect(
+        box
+          .getByRole("link")
+          .elements()
+          .map((a) => a.textContent),
+      ).toEqual(["Send feedback"]);
+      cleanup();
+
+      const none = await open();
+      expect(
+        none.screen.getByRole("region", { name: "Support Langle" }).query(),
+      ).toBeNull();
+    });
+
+    it("keeps the whole left column in reach in a short window", async () => {
+      await page.viewport(1200, 500);
+      try {
+        const { screen } = await open({ links: LINKS });
+        const sponsor = section(screen, "Support Langle").getByRole("link", {
+          name: "Become a sponsor",
+        });
+        const column = sponsor.element().closest("section")!.parentElement!;
+        expect(column.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+          innerHeight,
+        );
+        sponsor.element().scrollIntoView();
+        const box = sponsor.element().getBoundingClientRect();
+        expect(box.top).toBeGreaterThanOrEqual(0);
+        expect(box.bottom).toBeLessThanOrEqual(innerHeight);
+      } finally {
+        await page.viewport(1200, 800);
+      }
+    });
   });
 });

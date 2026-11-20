@@ -63,6 +63,11 @@ export interface Settings {
   explainUnknown: boolean;
   /** Light or dark UI; `system` follows the browser's appearance. */
   theme: "system" | "light" | "dark";
+  /**
+   * The popup's one-time rating nudge was answered (Rate or ×): it never shows again,
+   * on any device.
+   */
+  rateNudgeDone: boolean;
 }
 
 /** A partial update: top-level keys, and nested groups key by key. */
@@ -120,6 +125,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   sentenceHistory: true,
   explainUnknown: true,
   theme: "system",
+  rateNudgeDone: false,
 });
 
 type Dict = Record<string, unknown>;
@@ -226,6 +232,7 @@ export function mergeSettings(
     sentenceHistory: bool(v.sentenceHistory, base.sentenceHistory),
     explainUnknown: bool(v.explainUnknown, base.explainUnknown),
     theme: oneOf(v.theme, base.theme, ["system", "light", "dark"]),
+    rateNudgeDone: bool(v.rateNudgeDone, base.rateNudgeDone),
   };
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { Counts, SyncStatus } from "../../messaging/protocol";
 import { onHost } from "../../core/url";
 import type { DataNote } from "../../core/packs/state";
+import type { SupportLinks } from "../../core/links";
 import type { Settings, SettingsPatch } from "../../core/settings";
 import { languageName, languagePair } from "../../i18n/languages";
 import { t } from "../../i18n/t";
@@ -21,6 +22,7 @@ import { LanguageDataNote } from "../../ui/packs/LanguageDataNote";
 import { color, FONT } from "../../ui/styles";
 import { Switch } from "../../ui/Switch";
 import { SaveAll } from "./SaveAll";
+import { RATE_NUDGE_AT, RateNudge, SupportNav } from "./Support";
 
 /** What the popup works with; `main.tsx` passes the browser's, tests pass fakes. */
 export interface PopupDeps extends PackStatusDeps {
@@ -28,6 +30,10 @@ export interface PopupDeps extends PackStatusDeps {
   askPage(request: PageRequest): Promise<PageSummary | undefined>;
   /** `BrowserEnv.syncName`, e.g. "Chrome sync". */
   syncName: string;
+  /** Where the footer's links lead; an empty one is left out. */
+  links: SupportLinks;
+  /** Opens a link in a new tab (and so closes the popup). */
+  openTab(url: string): void;
   openOptions(): void;
   openWordList(): void;
   /** Closes the popup. */
@@ -117,7 +123,8 @@ const headerButton = {
 /**
  * The toolbar popup (mock Toolbar): the header's switch for Langle as a whole, the
  * language data while it is missing (mock LanguageData), this site, this page,
- * highlights, counts, sync. While Langle is switched off, only the header and sync.
+ * highlights, counts, sync, the rating nudge and the Support Langle footer. While Langle
+ * is switched off, only the header, sync and the footer.
  */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
@@ -197,6 +204,21 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       ? [...settings.disabledSites, hostname]
       : settings.disabledSites.filter((e) => !onHost(hostname, e));
     update({ disabledSites }, { disabledSites });
+  }
+
+  /** The nudge shows once Learning reaches 100 words, until Rate or × answers it. */
+  const nudging =
+    !!deps.links.review &&
+    settings?.rateNudgeDone === false &&
+    (counts?.learning ?? 0) >= RATE_NUDGE_AT;
+
+  /** Stores that the nudge was answered, everywhere (the setting syncs). */
+  function nudgeDone(): Promise<unknown> {
+    if (!settings || settings.rateNudgeDone) return Promise.resolve();
+    setSettings({ ...settings, rateNudgeDone: true });
+    return deps
+      .send({ type: "setSettings", patch: { rateNudgeDone: true } })
+      .catch(warn);
   }
 
   function pageAction(request: PageRequest) {
@@ -382,7 +404,20 @@ export function Popup({ deps }: { deps: PopupDeps }) {
             <SyncLine status={sync} syncName={deps.syncName} now={now} />
           </div>
         )}
+
+        {nudging && <RateNudge onDismiss={() => void nudgeDone()} />}
       </div>
+
+      <SupportNav
+        reviewUrl={deps.links.review}
+        coffeeUrl={deps.links.coffee}
+        nudging={nudging}
+        onRate={() =>
+          // Stored first: opening a tab closes the popup.
+          void nudgeDone().finally(() => deps.openTab(deps.links.review))
+        }
+        onOpen={deps.openTab}
+      />
     </div>
   );
 }

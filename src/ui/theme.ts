@@ -34,6 +34,10 @@ export const palettes = {
     hlLearningLine: "#0F9F7E",
     hlNew: "#EAF0FD",
     hlNewLine: "#2F6FE4",
+    blueTint: "#EAF0FD",
+    blueText: "#1A4FB5",
+    greenFill: "#0B7F65",
+    greenEdge: "#B8E6D4",
   },
   dark: {
     surface: "#12151F",
@@ -64,6 +68,10 @@ export const palettes = {
     hlLearningLine: "#3CC9A3",
     hlNew: "rgba(47,111,228,0.32)",
     hlNewLine: "#7FA6F5",
+    blueTint: "#213866",
+    blueText: "#A9C4FF",
+    greenFill: "#0B7F65",
+    greenEdge: "#245246",
   },
 } as const;
 

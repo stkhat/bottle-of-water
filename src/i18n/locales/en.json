@@ -301,5 +301,21 @@
   "data.downloading": "Downloading {language} data · {percent}%",
   "data.failed": "Couldn't download {language} data",
   "time.justNow": "just now",
-  "time.today": "Today"
+  "time.today": "Today",
+  "support.title": "Support Langle",
+  "support.lead": "Langle is free. Your support keeps me going and lets Langle keep growing.",
+  "support.coffee": "Buy me a coffee",
+  "support.coffeeIfYouEnjoy": "{coffee} if you enjoy Langle",
+  "support.rate": "Rate",
+  "support.rateLangle": "Rate Langle",
+  "support.feedback": "Send feedback",
+  "support.becomeSponsor": "Become a sponsor",
+  "support.nudge.title": "Nice work! You've hit {count} words in Learning.",
+  "support.nudge.line": "Enjoying Langle? A quick rating below helps other learners find it.",
+  "support.nudge.dismiss": "Dismiss",
+  "sponsor.sponsored": "Sponsored",
+  "sponsor.ad": "Ad",
+  "sponsor.commission": "Langle may earn a commission if you sign up.",
+  "sponsor.open": "Your product here, in front of people learning {language}.",
+  "sponsor.openLink": "Sponsor this spot"
 }

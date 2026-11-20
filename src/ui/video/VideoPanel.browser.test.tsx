@@ -843,3 +843,42 @@ describe("the tabs", () => {
     expect(onJumpWord).toHaveBeenCalledWith(fold, 1);
   });
 });
+
+describe("the feedback footer", () => {
+  const FORM = "https://forms.example/langle-feedback";
+
+  test("Send feedback sits at the right under either tab's list, opening the form in a new tab", async () => {
+    const screen = await mountInShadowRoot(
+      <VideoPanel {...base} feedbackUrl={FORM} />,
+    );
+    const link = screen.getByRole("link", { name: "Send feedback" });
+    await expect.element(link).toHaveAttribute("href", FORM);
+    await expect.element(link).toHaveAttribute("target", "_blank");
+    const aside = screen.container.querySelector("aside")!;
+    const panel = screen.getByRole("tabpanel", { name: "Transcript" });
+    const box = link.element().getBoundingClientRect();
+    expect(box.height).toBe(32);
+    expect(box.top).toBeGreaterThanOrEqual(
+      panel.element().getBoundingClientRect().bottom,
+    );
+    expect(aside.getBoundingClientRect().right - box.right).toBeCloseTo(13, 0);
+    expect(aside.getBoundingClientRect().bottom - box.bottom).toBeCloseTo(9, 0);
+
+    await screen.rerender(
+      <VideoPanel {...base} tab="words" feedbackUrl={FORM} />,
+    );
+    await expect
+      .element(screen.getByRole("link", { name: "Send feedback" }))
+      .toBeVisible();
+  });
+
+  test("no footer while the form's URL is not set", async () => {
+    const screen = await mountInShadowRoot(<VideoPanel {...base} />);
+    await expect
+      .element(screen.getByRole("tablist", { name: "Langle panel" }))
+      .toBeVisible();
+    expect(screen.container.querySelector("a")).toBeNull();
+    await screen.rerender(<VideoPanel {...base} feedbackUrl="" />);
+    expect(screen.container.querySelector("a")).toBeNull();
+  });
+});

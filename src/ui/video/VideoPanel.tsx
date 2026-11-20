@@ -4,7 +4,7 @@ import { languageName } from "../../i18n/languages";
 import { t, type MessageKey } from "../../i18n/t";
 import { LanguageDataNote } from "../packs/LanguageDataNote";
 import { segment, segmentGroup } from "../Segmented";
-import { CloseIcon } from "../icons";
+import { CloseIcon, MessageIcon } from "../icons";
 import { color, iconButton, root } from "../styles";
 import { LangleMark } from "../LangleMark";
 import {
@@ -56,6 +56,8 @@ export interface VideoPanelProps<R extends WordRow>
   onRetryData?: () => void;
   /** The × at the right of the tabs: closes the whole column. None without it. */
   onClose?: () => void;
+  /** "Send feedback" in a footer under the tabs' lists; none (or empty): no footer. */
+  feedbackUrl?: string;
 }
 
 const TABS: readonly { id: PanelTab; label: MessageKey }[] = [
@@ -138,7 +140,47 @@ export function VideoPanel<R extends WordRow>(props: VideoPanelProps<R>) {
           {props.tab === id && <TabBody {...props} />}
         </div>
       ))}
+      {props.feedbackUrl && <FeedbackFooter url={props.feedbackUrl} />}
     </aside>
+  );
+}
+
+/** The column's footer (mock Main): "Send feedback" at the right, opened in a new tab. */
+function FeedbackFooter(props: { url: string }) {
+  return (
+    <div
+      style={{
+        flex: "none",
+        display: "flex",
+        justifyContent: "flex-end",
+        padding: "8px 12px",
+        borderTop: `1px solid ${color.line}`,
+      }}
+    >
+      <a
+        href={props.url}
+        target="_blank"
+        rel="noopener"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          height: "32px",
+          padding: "0 12px",
+          boxSizing: "border-box",
+          borderRadius: "8px",
+          border: `1px solid ${color.line}`,
+          background: color.card,
+          color: color.ink3,
+          fontSize: "13px",
+          fontWeight: 600,
+          textDecoration: "none",
+        }}
+      >
+        <MessageIcon size={14} />
+        {t("support.feedback")}
+      </a>
+    </div>
   );
 }
 
