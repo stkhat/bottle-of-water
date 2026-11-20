@@ -71,16 +71,23 @@ describe("generated definitions packs (format 2)", () => {
     "%s stores each term's senses only, no short definition",
     async (pack) => {
       const { defs: terms } = await loadPack(pack);
-      const entries = Object.values(terms);
+      const entries = Object.entries(terms);
       expect(entries.length).toBeGreaterThan(1000);
-      for (const senses of entries) {
-        expect(senses.length).toBeGreaterThan(0);
-        for (const sense of senses) {
-          expect(Array.isArray(sense)).toBe(true);
-          expect(typeof sense[0]).toBe("string");
-          expect(typeof sense[1]).toBe("string");
-        }
-      }
+      // One check per term (en-defs has ~100,000), not one `expect` per sense: those
+      // took over the 5 s test timeout on a loaded machine.
+      const isSense = (sense: unknown) =>
+        Array.isArray(sense) &&
+        typeof sense[0] === "string" &&
+        typeof sense[1] === "string";
+      const malformed = entries
+        .filter(
+          ([, senses]) =>
+            !Array.isArray(senses) ||
+            senses.length === 0 ||
+            !senses.every(isSense),
+        )
+        .map(([key]) => key);
+      expect(malformed).toEqual([]);
     },
   );
 });
