@@ -50,6 +50,33 @@ describe("wordCases", () => {
     expect(speakers("[Paulina]")).toEqual([]);
     expect(speakers("Hi [Paulina] there.")).toEqual([]);
   });
+  it("marks a word in capitals in brackets right after a word of the sentence as an aside", () => {
+    const asides = (text: string) =>
+      wordCases(tokenize(text, "en"), "en")
+        .filter((w) => w.aside)
+        .map((w) => w.key);
+    expect(
+      asides("The Drug Enforcement Administration (DEA) is an agency."),
+    ).toEqual(["dea"]);
+    // A plural acronym, an acronym among other words of the parenthesis.
+    expect(asides("private networks (VPNs) and (the NATO allies)")).toEqual([
+      "vpns",
+      "nato",
+    ]);
+    // Labels: brackets at a start, after a sentence's end, a comma or a line break,
+    // and words not in capitals.
+    expect(asides("(LAUGHTER) Thank you.")).toEqual([]);
+    expect(asides("[MUSIC]")).toEqual([]);
+    expect(asides("[JOHN] Hi.")).toEqual([]);
+    expect(asides("That was it. (LAUGHTER) Thanks.")).toEqual([]);
+    expect(asides("Well, [SIGHS] fine.")).toEqual([]);
+    expect(asides("That was it\n(LAUGHTER)")).toEqual([]);
+    expect(asides("That was it (Laughter) and [sighs] so.")).toEqual([]);
+    // Still a label: it says nothing of how the document writes words.
+    expect(
+      wordCases(tokenize("Administration (DEA) is", "en"), "en")[1],
+    ).toMatchObject({ key: "dea", label: true, aside: true });
+  });
   it("takes a word after a dialogue dash, a colon or a quote as a start", () => {
     expect(cases("- Aww. -Yes. Well - Oh no: Fine")).toEqual([
       "^aww",
@@ -145,6 +172,13 @@ describe("the verdicts", () => {
     expect(capitalHere(casing, word("the US team", "us"))).toBe(true);
     expect(capitalHere(casing, word("GIVE US MORE", "us"))).toBe(false);
     expect(capitalHere(casing, word("we [Mark] left", "mark"))).toBe(false);
+  });
+  it("count an acronym in a parenthesis of running text, not in a label", () => {
+    expect(
+      capitalHere(casing, word("The Administration (DEA) is here.", "dea")),
+    ).toBe(true);
+    expect(capitalHere(casing, word("[MUSIC] Hi.", "music"))).toBe(false);
+    expect(capitalHere(casing, word("Hi. (LAUGHTER)", "laughter"))).toBe(false);
   });
   it("say nothing in a caseless document", () => {
     const upper: DocumentCasing = { mode: "upper", words: {} };

@@ -131,7 +131,18 @@ const JA_PHRASES: Record<string, readonly [string, readonly string[]]> = {
   "give up": ["諦める", ["諦める", "やめる"]],
   "make up one's mind": ["決心する、決める", ["決心する", "決める"]],
 };
+/**
+ * English definitions: "figure out", and "DEA", a capital-only word (en/capitals.json)
+ * whose first sense is not the one an article that spells it out means.
+ */
 const DEFS: PackFiles["en-defs"]["defs"] = {
+  dea: [
+    "diethanolamine",
+    [
+      ["noun", "diethanolamine: A hydroxy secondary amine."],
+      ["noun", "Initialism of Drug Enforcement Administration."],
+    ],
+  ],
   "figure out": [
     "To come to understand",
     [["verb", "To come to understand; to discover or find a solution."]],
@@ -162,7 +173,7 @@ const PACKS: Pick<PackFiles, "en" | "en-ja" | "en-defs"> = {
     // Sure of no word: no tag counts (rules A1 and A2 change nothing here).
     tagger: { tags: ["NN", "VB"], words: {}, weights: {}, scale: 10 },
     contractions: {},
-    capitals: [],
+    capitals: ["DEA"],
   },
   "en-ja": { dict: DICT, phrases: JA_PHRASES, capital: CAPITAL, sensePos: {} },
   "en-defs": { defs: DEFS },
@@ -183,7 +194,7 @@ const FILES: Readonly<Record<string, unknown>> = {
   "/packs/en-ja/capital.json": CAPITAL,
   "/packs/en-ja/pos.json": {},
   "/packs/en-defs/index.json": {
-    shards: [{ file: "dict-1.json", first: "figure out", last: "figure out" }],
+    shards: [{ file: "dict-1.json", first: "dea", last: "figure out" }],
   },
   "/packs/en-defs/dict-1.json": DEFS,
 };

@@ -1492,11 +1492,11 @@ describe("capital-only words", () => {
     lemmas: {},
     freq: ["the", "we", "in", "saw"],
     ipa: {},
-    vocab: new Set(["the", "we", "in", "saw", "said", "it", "was"]),
+    vocab: new Set(["the", "we", "in", "saw", "said", "it", "was", "laughter"]),
     patterns: { detect: [], more: [], gap: [] },
     pos: { the: ["article"], we: ["pronoun"] },
     names: { tokyo: "p", pam: "g", ai: "g" },
-    capitals: ["AI", "PAM", "Tokyo"],
+    capitals: ["AI", "DEA", "PAM", "Tokyo"],
   });
   const run = (blocks: string[], mode?: "upper") => {
     const casing =
@@ -1541,5 +1541,32 @@ describe("capital-only words", () => {
       "IN:known",
       "TOKYO:ignored",
     ]);
+  });
+
+  it("are acronyms in a parenthesis of running text, where prose introduces them; a caption's label is none", () => {
+    const capital = (block: string, surface: string) => {
+      const casing = documentCasing([
+        blockCasing(capitals.tokenize(block), "en"),
+      ]);
+      const span = createClassifier(capitals)
+        .classify(capitals.tokenize(block), {
+          terms: terms(),
+          knownLevel: 4,
+          casing,
+        })
+        .find((s) => block.slice(s.start, s.end) === surface);
+      return span?.capital === true;
+    };
+    // A capital-only word, a vocabulary word (information technology).
+    expect(capital("We saw the Tokyo Agency (DEA) in Tokyo.", "DEA")).toBe(
+      true,
+    );
+    expect(capital("We saw information technology (IT) in Tokyo.", "IT")).toBe(
+      true,
+    );
+    // Labels: at a start, after a sentence's end.
+    expect(capital("(DEA) We saw it in Tokyo.", "DEA")).toBe(false);
+    expect(capital("We saw it in Tokyo. (DEA) We saw it.", "DEA")).toBe(false);
+    expect(capital("(LAUGHTER) We saw it in Tokyo.", "LAUGHTER")).toBe(false);
   });
 });
