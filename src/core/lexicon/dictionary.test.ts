@@ -738,6 +738,54 @@ describe("createDefsDictionary", () => {
   });
 });
 
+describe("createPairDictionary over a learning pair (German → French)", () => {
+  const dictionary = createPairDictionary({
+    dict: {
+      essen: [
+        "manger",
+        [
+          ["verb", "manger"],
+          ["noun", "repas, nourriture"],
+        ],
+        0,
+        [1],
+      ],
+      vater: ["père", [["noun", "père"]], 0, [0]],
+      gehen: ["aller", [["verb", "aller"]], 1],
+    },
+    defs: { laufen: ["to run", [["verb", "to run"]]] },
+    ipa: {},
+    native: "fr",
+  });
+
+  it("shows a capitalised word's capitalised senses first, the headword capitalised", () => {
+    expect(dictionary.entry("essen", "capital")).toMatchObject({
+      head: "Essen",
+      short: "repas, nourriture",
+      lines: ["repas, nourriture", "manger"],
+    });
+    expect(dictionary.entry("essen", "lower")).toMatchObject({
+      head: "essen",
+      lines: ["manger", "repas, nourriture"],
+    });
+    // At a sentence start the tag decides (rule A2).
+    expect(dictionary.entry("essen", undefined, "noun")?.lines[0]).toBe(
+      "repas, nourriture",
+    );
+    expect(dictionary.entry("vater", "capital")?.head).toBe("Vater");
+    expect(dictionary.entry("vater")?.senses).toEqual([
+      { pos: "noun", text: "père", capital: true },
+    ]);
+  });
+  it("falls back to the learning language's English definitions", () => {
+    expect(dictionary.entry("gehen")?.lines).toEqual(["aller"]);
+    expect(dictionary.entry("laufen")).toMatchObject({
+      short: "to run",
+      glossLang: "en",
+    });
+  });
+});
+
 describe("createPairDictionary", () => {
   const dictionary = createPairDictionary({
     dict: {

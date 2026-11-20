@@ -18,7 +18,12 @@ import {
   type KaikkiSense,
   type KaikkiTranslation,
 } from "../common.ts";
-import { isNonConstituent, isUsable, patternKey } from "../phrases.ts";
+import {
+  isNonConstituent,
+  isUsable,
+  patternKey,
+  type PhraseBuildLanguage,
+} from "../phrases.ts";
 
 const MAX_SENSES = 4;
 /** Translated words kept per translation-table sense. */
@@ -55,10 +60,13 @@ export function termKeyOf({
   vocab,
   lemmas,
   phrases,
+  build,
 }: {
   vocab: ReadonlySet<string>;
   lemmas: LemmaPack;
   phrases: ReadonlySet<string>;
+  /** The learning language's phrase settings (`patternKey`); English's by default. */
+  build?: PhraseBuildLanguage;
 }): TermKey {
   const isWord = (word: string) =>
     vocab.has(word) || Object.hasOwn(lemmas, word);
@@ -66,7 +74,7 @@ export function termKeyOf({
     // Some editions title English words with a typographic apostrophe (fr "I’m").
     const word = headword.trim().replaceAll("’", "'");
     if (!/\s/.test(word)) return vocab.has(word) ? word : undefined;
-    const key = patternKey(word, isWord);
+    const key = patternKey(word, isWord, build);
     return key && phrases.has(key) ? key : undefined;
   };
 }
@@ -216,6 +224,56 @@ const asTemplate = (text: string) =>
 const WHOLE_ENGLISH_WORD =
   /(?<![\p{L}\p{M}'’-])[A-Za-z][A-Za-z'-]*(?![\p{L}\p{M}'’-])/gu;
 
+/**
+ * LEARNING: the language a reader files terms of, as glosses in other languages write
+ * its words: its kaikki code; a word (`word`, for the terms a gloss names; English's is
+ * not whole, as before L3), a whole word (`whole`), a gloss's last word (`last`), one
+ * word alone (`bare`), and a phrase in lower case (`phrase`, a form-of target kaikki
+ * names that is no term: "absolute zero").
+ */
+export interface LearningText {
+  code: string;
+  word: RegExp;
+  whole: RegExp;
+  last: RegExp;
+  bare: RegExp;
+  phrase: RegExp;
+}
+
+/** English, the learning language of the English → native recipes. */
+const ENGLISH_TEXT: LearningText = {
+  code: "en",
+  word: ENGLISH_WORD,
+  whole: WHOLE_ENGLISH_WORD,
+  last: /[A-Za-z][A-Za-z'’-]*$/,
+  bare: /^[A-Za-z][A-Za-z'-]*$/,
+  phrase: /^[a-z][a-z' -]*$/,
+};
+
+/**
+ * A learning language written in Latin letters other than English (`upper`, `lower`:
+ * its letters as regular-expression ranges), whose words a gloss writes whole.
+ */
+export function learningText(
+  code: string,
+  upper: string,
+  lower: string,
+): LearningText {
+  const letter = `${upper}${lower}`;
+  const whole = new RegExp(
+    `(?<![\\p{L}\\p{M}'’-])[${letter}][${letter}'-]*(?![\\p{L}\\p{M}'’-])`,
+    "gu",
+  );
+  return {
+    code,
+    word: whole,
+    whole,
+    last: new RegExp(`(?<![\\p{L}\\p{M}])[${letter}][${letter}'’-]*$`, "u"),
+    bare: new RegExp(`^[${letter}][${letter}'-]*$`, "u"),
+    phrase: new RegExp(`^[${lower}][${lower}' -]*$`, "u"),
+  };
+}
+
 /** A template's words besides its slot, in lower case. */
 const frameWords = (template: string) =>
   (template.replace(SLOT, " ").match(/[\p{L}\p{M}'’-]+/gu) ?? []).map((word) =>
@@ -285,6 +343,7 @@ export function grammarFrame(
 export function beforeReference(
   gloss: string,
   isFrame: (template: string) => boolean,
+  bare: RegExp = ENGLISH_TEXT.bare,
 ): string {
   const arrow = gloss.lastIndexOf("→");
   if (arrow <= 0) return gloss;
@@ -298,7 +357,7 @@ export function beforeReference(
     .replace(/[\s.;:。]+$/u, "")
     .split(/\s+/);
   for (let at = words.length - 1; at > 0; at--) {
-    if (!/^[A-Za-z][A-Za-z'-]*$/.test(words[at]!)) break;
+    if (!bare.test(words[at]!)) break;
     if (isFrame(asTemplate([...words.slice(0, at), SLOT].join(" "))))
       return before;
   }
@@ -322,6 +381,7 @@ export function meaningFirst(
   gloss: string,
   english: (text: string) => boolean,
   marked = false,
+  lastWord: RegExp = ENGLISH_TEXT.last,
 ): string {
   const text = gloss.trim();
   const first = firstSentence(text);
@@ -333,7 +393,7 @@ export function meaningFirst(
     .trim();
   // A sentence about the English word names it last ("… de soon"; "I don't know"),
   // not in passing ("… équivalent à 8 fluid ounces, … ml").
-  const last = /[A-Za-z][A-Za-z'’-]*$/.exec(
+  const last = lastWord.exec(
     first.replace(NOTES, " ").replace(/[\s.,;:!?"“”«»]+$/u, ""),
   )?.[0];
   if (rest === "" || !last || !(marked || english(last)) || english(rest))
@@ -495,8 +555,9 @@ const termsWritten = (
   gloss: string,
   head: string,
   isTerm: (word: string) => boolean,
+  word: RegExp = ENGLISH_WORD,
 ) =>
-  (gloss.match(ENGLISH_WORD) ?? [])
+  (gloss.match(word) ?? [])
     .map((word) => word.toLowerCase())
     .filter((word) => word !== head && isTerm(word));
 
@@ -511,6 +572,7 @@ function markedTarget(
   sense: KaikkiSense,
   gloss: string,
   written: readonly string[],
+  phrase: RegExp = ENGLISH_TEXT.phrase,
 ): string | undefined {
   const named = [sense.form_of, sense.alt_of].flatMap((list: unknown) =>
     Array.isArray(list)
@@ -531,9 +593,7 @@ function markedTarget(
       written.includes(word) && pointerTemplates(gloss, word).length > 0,
   );
   if (found) return found;
-  return named.some((word) => /^[a-z][a-z' -]*$/.test(word))
-    ? undefined
-    : written.at(-1);
+  return named.some((word) => phrase.test(word)) ? undefined : written.at(-1);
 }
 
 /**
@@ -676,9 +736,25 @@ export async function readEdition(
     native,
     nativeForm = (word) => word,
     letter,
+    learning = ENGLISH_TEXT,
+    sensePos = (_sense, pos) => pos,
+    capitalWords = false,
   }: {
+    /**
+     * A capitalised headword is a word, not a name (L3: German nouns): its glosses are
+     * read as a lower-case term's (placeholders, case, MAX_SENSES), though still kept
+     * apart in `capital`.
+     */
+    capitalWords?: boolean;
     trimPeriod?: boolean;
+    /**
+     * A sense's part of speech, from its entry's (L3: a German verb's sense tagged
+     * pronominal is its reflexive one).
+     */
+    sensePos?: (sense: KaikkiSense, pos: string) => string;
     native?: string;
+    /** The language of the terms read (L3: French, German); English by default. */
+    learning?: LearningText;
     /**
      * The edition's own headwords as the pack writes its text (simplified Chinese:
      * the zh edition files 倫敦 and 倫敦's simplified form alike), for `nativeKind`.
@@ -737,7 +813,7 @@ export async function readEdition(
           )
             nativeForms.add(form);
     }
-    if (entry.lang_code !== "en") return;
+    if (entry.lang_code !== learning.code) return;
     const head = entry.word.trim().toLowerCase();
     for (const sense of entry.senses ?? []) {
       const clean = cleanGloss(sense);
@@ -751,7 +827,8 @@ export async function readEdition(
       const target = markedTarget(
         sense,
         found.gloss,
-        termsWritten(found.gloss, head, isTerm),
+        termsWritten(found.gloss, head, isTerm, learning.word),
+        learning.phrase,
       );
       if (!target) continue;
       for (const template of pointerTemplates(found.gloss, target)) {
@@ -786,7 +863,7 @@ export async function readEdition(
   const isNativeWord = (word: string) => nativeWords.has(word.toLowerCase());
   /** English terms a text writes whole that are no words of the edition's language. */
   const englishOf = (text: string) =>
-    (text.replace(NOTES, " ").match(WHOLE_ENGLISH_WORD) ?? [])
+    (text.replace(NOTES, " ").match(learning.whole) ?? [])
       .map((word) => word.toLowerCase())
       .filter((word) => isTerm(word) && !isNative(word));
   // What the unmarked glosses show, once the edition's own words are known: the pointer
@@ -938,9 +1015,9 @@ export async function readEdition(
     sense: KaikkiSense,
     pos: string,
   ) => {
-    const written = termsWritten(gloss, head, isTerm);
+    const written = termsWritten(gloss, head, isTerm, learning.word);
     const marked = isMarkedForm(sense)
-      ? markedTarget(sense, gloss, written)
+      ? markedTarget(sense, gloss, written, learning.phrase)
       : undefined;
     // A word of the edition's own language as the target ("plural", Spanish too; fr
     // "may", a rare noun) only where the whole gloss is the pointer.
@@ -988,7 +1065,8 @@ export async function readEdition(
   // Capitalised headwords' glosses keep the edition's case here: what each one means is
   // read from them as written (`capitalDictionary`), and `capitalCase` puts them in the
   // edition's case after that.
-  const termsOf = (entries: readonly Read[], capital: boolean) => {
+  const termsOf = (entries: readonly Read[], capitalised: boolean) => {
+    const capital = capitalised && !capitalWords;
     const terms = new Map<string, SourceTerm>();
     for (const { key, head, pos, senses } of entries)
       for (const sense of senses) {
@@ -996,6 +1074,14 @@ export async function readEdition(
           continue;
         const found = cleanGloss(sense);
         if (!found) continue;
+        // LEARNING other than English (L3): a gloss that only introduces the senses
+        // under it ("verbe de mouvement :") is none, and a label the extraction left
+        // unbracketed before a sentence-case gloss ("transitif Ouvrir") is put in
+        // brackets ("(transitif) Ouvrir"), as the line leaves labels out.
+        if (learning !== ENGLISH_TEXT) {
+          if (/:\s*$/u.test(found.gloss)) continue;
+          if (cases) found.gloss = withOpeningLabel(found.gloss);
+        }
         const { written } = found;
         // Page markup with only the headword before it ("adoring\n====翻译====…") is no
         // gloss; a gloss that is the headword itself is (a loanword: "pizza"). Nor is
@@ -1017,6 +1103,7 @@ export async function readEdition(
               isAbbreviation,
             ),
             isFrame,
+            learning.bare,
           ),
           isAbbreviation,
         );
@@ -1032,6 +1119,7 @@ export async function readEdition(
           shaped,
           (text) => englishOf(text).length > 0,
           isMarkedForm(sense),
+          learning.last,
         );
         if (gloss !== found.gloss) reshaped++;
         const trimmed =
@@ -1056,7 +1144,7 @@ export async function readEdition(
           addSense(termOf(terms, key), [pos, text, null, target], max);
         } else if (isUsable(sense) || gloss !== shaped)
           // So is a marked form's: fr I’m → je suis (`meaningFirst`).
-          addSense(termOf(terms, key), [pos, text], max);
+          addSense(termOf(terms, key), [sensePos(sense, pos), text], max);
       }
     foreign += keepNativeScript(terms, letter);
     return finish(terms, shortOfDefinition);
@@ -1099,6 +1187,14 @@ export async function readEdition(
       ),
   };
 }
+
+/**
+ * NATIVE (L3): a lower-case word opening a gloss right before a capitalised one, in an
+ * edition that writes its glosses as sentences, is a label (Wiktionnaire's "transitif
+ * Ouvrir", "réfléchi Attendre"): put in brackets.
+ */
+export const withOpeningLabel = (gloss: string) =>
+  gloss.replace(/^(\p{Ll}+) (?=\p{Lu}\p{Ll})/u, "($1) ");
 
 /** What the native edition has a word as: a proper noun, a common word, or both. */
 type NativeEntries = (word: string) => { name: boolean; common: boolean };
@@ -1188,7 +1284,10 @@ export async function readTranslationTables(
     termKey,
     word: rewrite = (w) => w,
     letter,
+    learning = ENGLISH_TEXT.code,
   }: {
+    /** The language whose entries' tables are read (L3: French, German); English by default. */
+    learning?: string;
     langCodes: string[];
     langs?: string[];
     termKey: TermKey;
@@ -1219,11 +1318,11 @@ export async function readTranslationTables(
   const formTags = new Map<string, Set<string>>();
   const stats = await eachEntry(path, (entry) => {
     // English text writes Translingual symbols too ("kg").
-    if (entry.lang_code === "en" || entry.lang_code === "mul") {
+    if (entry.lang_code === learning || entry.lang_code === "mul") {
       const headword = entry.word.trim();
       if (headword === headword.toLowerCase()) lowercase.add(headword);
     }
-    if (entry.lang_code !== "en") return;
+    if (entry.lang_code !== learning) return;
     // A capitalised headword ("Japan", "Thursday") is kept apart (`capitalTermOf`).
     const capitalKey = capitalTermOf(entry.word, termKey);
     const key = capitalKey ?? termKey(entry.word);
@@ -1288,7 +1387,21 @@ export async function readTranslationTables(
           words.push(written);
       }
     };
-    add(entry.translations, undefined);
+    // A learning language's own edition may leave a table untitled (Wiktionnaire's
+    // rencontrer → encontrar): its rows are the entry's first sense's. English
+    // Wiktionary titles every table.
+    const firstGloss: unknown =
+      learning === ENGLISH_TEXT.code
+        ? undefined
+        : entry.senses
+            ?.find((sense) => Array.isArray(sense.glosses))
+            ?.glosses?.at(-1);
+    add(
+      entry.translations,
+      typeof firstGloss === "string"
+        ? shortOfDefinition(firstGloss.trim())
+        : undefined,
+    );
     for (const sense of entry.senses ?? []) {
       const gloss: unknown = Array.isArray(sense.glosses)
         ? sense.glosses.at(-1)

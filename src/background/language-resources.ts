@@ -16,7 +16,13 @@ import {
 } from "../core/lexicon/language-pack";
 import type { LoadPack, PackFiles, PackName } from "../core/packs/load";
 import { withContractions } from "../core/lexicon/contractions";
-import { DICTIONARY_PACKS, LANGUAGE_PACKS } from "../core/packs/formats";
+import {
+  DICTIONARY_PACKS,
+  LANGUAGE_PACKS,
+  LEARNING_PAIRS,
+  learningOf,
+  type LearningPairName,
+} from "../core/packs/formats";
 import { recipeNatives, type RecipePairPack } from "../core/natives";
 import { fallbacksOf } from "../core/packs/pairs";
 import type { DefsPack } from "../core/packs/types";
@@ -190,6 +196,26 @@ const pairRecipe = (pair: RecipePairPack) =>
       ),
   );
 
+/**
+ * A learning pair (de-fr): its recipe's meanings, then the learning language's English
+ * definitions, translated at display time.
+ */
+function learningPairRecipe(pair: LearningPairName) {
+  const learning = learningOf(pair);
+  const english = `${learning}-en` as const;
+  return dictionaryRecipe<typeof learning | LearningPairName | typeof english>(
+    pair,
+    DICTIONARY_PACKS[pair],
+    (files) =>
+      createPairDictionary({
+        dict: files[pair].dict,
+        defs: files[english].defs,
+        ipa: files[learning].ipa,
+        native: pair.slice(learning.length + 1),
+      }),
+  );
+}
+
 const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
   {
     "en-ja": dictionaryRecipe("en-ja", DICTIONARY_PACKS["en-ja"], (files) =>
@@ -216,6 +242,12 @@ const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
       recipeNatives().map((native) => [
         `en-${native}`,
         pairRecipe(`en-${native}`),
+      ]),
+    ),
+    ...Object.fromEntries(
+      (Object.keys(LEARNING_PAIRS) as LearningPairName[]).map((pair) => [
+        pair,
+        learningPairRecipe(pair),
       ]),
     ),
   };

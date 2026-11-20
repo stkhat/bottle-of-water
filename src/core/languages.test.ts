@@ -20,7 +20,7 @@ describe("nativeLanguages", () => {
     ]);
     expect(nativeLanguages("es")).toEqual(["en"]);
     expect(nativeLanguages("fr")).toEqual(["en"]);
-    expect(nativeLanguages("de")).toEqual(["en"]);
+    expect(nativeLanguages("de")).toEqual(["en", "fr"]);
   });
 
   it("has none for a language without a pack", () => {

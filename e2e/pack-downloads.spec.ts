@@ -259,3 +259,38 @@ test("choosing German as the learning language downloads de and de-en from the m
   })) as { value?: { entry?: { short: string } } };
   expect(reply.value?.entry?.short).toMatch(/^house\b/);
 });
+
+// German → French (L3): a learning pair into a native language other than English,
+// with the learning language's English pair as its fallback.
+test("choosing German → French downloads de, de-fr and de-en from the mirror", async ({
+  context,
+  extensionId,
+}) => {
+  await pairDownloaded(context, extensionId);
+  expect(
+    await sendToBackground(context, extensionId, {
+      type: "setSettings",
+      patch: { learningLang: "de", nativeLang: "fr" },
+    }),
+  ).toMatchObject({ ok: true });
+  await expect
+    .poll(async () => {
+      const reply = (await sendToBackground(context, extensionId, {
+        type: "packStatus",
+      })) as {
+        value?: { pair: { packs: { pack: string; state: string }[] } };
+      };
+      return reply.value?.pair.packs.map(({ pack, state }) => [pack, state]);
+    }, COLD_LOAD)
+    .toEqual([
+      ["de", "ready"],
+      ["de-fr", "ready"],
+      ["de-en", "ready"],
+    ]);
+  const reply = (await sendToBackground(context, extensionId, {
+    type: "lookup",
+    lang: "de",
+    key: "haus",
+  })) as { value?: { entry?: { short: string } } };
+  expect(reply.value?.entry?.short).toMatch(/^maison\b/);
+});

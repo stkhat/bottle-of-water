@@ -217,6 +217,21 @@ const TEST_PACKS: PackFiles = {
   "en-pl": {
     dict: { loaf: ["bochenek", [["noun", "bochenek"]], 0] },
   },
+  // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
+  "de-fr": {
+    dict: {
+      essen: [
+        "manger",
+        [
+          ["verb", "manger", "Nahrung zu sich nehmen"],
+          ["noun", "repas", "Mahlzeit"],
+        ],
+        0,
+        [1],
+      ],
+      haus: ["maison", [["noun", "maison", "Gebäude"]], 0, [0]],
+    },
+  },
 };
 
 const { crust, ferment, loaf, rise, rose, the, yeast } =
@@ -336,6 +351,15 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     sources: ["plwiktionary", "enwiktionary-translations", "omw-pl"],
   },
   "/packs/en-pl/dict-1.json": TEST_PACKS["en-pl"].dict,
+  "/packs/de-fr/index.json": {
+    shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
+    sources: [
+      "dewiktionary-translations",
+      "frwiktionary-translations",
+      "frwiktionary-de",
+    ],
+  },
+  "/packs/de-fr/dict-1.json": TEST_PACKS["de-fr"].dict,
 };
 
 /**

@@ -98,6 +98,33 @@
       "package": "@langle/de-en",
       "version": "2026.1120.0"
     },
+    "de-fr": {
+      "files": [
+        {
+          "path": "dict-1.json",
+          "sha256": "2cf42ca246d1c0220c7a229f3592486f0bf5416a8121c1812fe74441c9a6a0c8",
+          "size": 1999924
+        },
+        {
+          "path": "dict-2.json",
+          "sha256": "93850a466d0fbcfd4fbe7343a81f6fd492a8133cd15b47155f1528a07e088ce1",
+          "size": 1999923
+        },
+        {
+          "path": "dict-3.json",
+          "sha256": "74e5dcd699996f473200b3475d8395c10d458ba82ecd42cf80b71e4e159837ef",
+          "size": 714906
+        },
+        {
+          "path": "index.json",
+          "sha256": "1af7a3587d44afaa538c9d73d63bab302894b7497483a8bb02005e04f9b52cf9",
+          "size": 270
+        }
+      ],
+      "format": 1,
+      "package": "@langle/de-fr",
+      "version": "2026.1120.1"
+    },
     "en": {
       "files": [
         {
@@ -731,7 +758,8 @@
   },
   "pairs": {
     "de": [
-      "en"
+      "en",
+      "fr"
     ],
     "en": [
       "ja",

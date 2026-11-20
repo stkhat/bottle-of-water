@@ -1287,3 +1287,54 @@ describe("phrase precision over the generated packs", () => {
     ).toMatch(/encouragement/i);
   });
 });
+
+const deFr = await loadPack("de-fr");
+
+describe("German → French over the generated packs (L3)", () => {
+  const pack = createLanguagePack("de", {
+    lemmas: de.lemmas,
+    freq: de.freq,
+    ipa: de.ipa,
+    vocab: new Set(de.vocab),
+    patterns: de.phrases,
+    pos: de.pos,
+    names: de.names,
+    tagger: de.tagger,
+  });
+  const classifier = createClassifier(pack);
+  const dictionary = createPairDictionary({
+    dict: deFr.dict,
+    defs: deEn.defs,
+    ipa: de.ipa,
+    native: "fr",
+  });
+  const hover = (text: string, word: string) => {
+    const span = classifier
+      .classify(pack.tokenize(text), {
+        terms: new Map(),
+        knownLevel: 3000,
+        outline: (key) => dictionary.outline(key),
+      })
+      .find((s) => text.slice(s.start, s.end) === word)!;
+    return dictionary.entry(
+      span.key,
+      /^\p{Lu}/u.test(word) && span.start > 0 ? "capital" : undefined,
+      span.pos,
+    );
+  };
+
+  it("gives French meanings, a capitalised noun's first with its headword capitalised", () => {
+    expect(hover("Wir essen um acht.", "essen")?.lines[0]).toMatch(/^manger\b/);
+    expect(hover("Das Essen ist kalt.", "Essen")?.head).toBe("Essen");
+    expect(hover("Mein Hund schläft.", "Hund")?.lines[0]).toMatch(/^chien\b/);
+    expect(hover("Ich habe ein Haus gekauft.", "Haus")?.lines[0]).toMatch(
+      /^maison\b/,
+    );
+  });
+  it("falls back to the English definitions for a term no French source has", () => {
+    const missing = Object.keys(deEn.defs).find(
+      (term) => !Object.hasOwn(deFr.dict, term),
+    )!;
+    expect(dictionary.entry(missing)?.glossLang).toBe("en");
+  });
+});
