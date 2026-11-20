@@ -118,6 +118,10 @@ describe("rule E: capital-only words", () => {
     expect(result.capitals).not.toContain("Kane");
     expect(result.capitals).not.toContain("Vito");
   });
+  it("leaves out a word whose only meaning is a verb made from the name", () => {
+    // "To watch … using … Netflix": text that writes Netflix means the company.
+    expect(result.capitals).not.toContain("Netflix");
+  });
   it("leaves the vocabulary as it is: the sloth stays out", () => {
     expect(result.added).not.toContain("ai");
   });

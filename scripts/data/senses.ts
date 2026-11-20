@@ -64,6 +64,13 @@ export interface SourceSense {
   partial: boolean;
   /** The sense is an inflected form of its target (plural of, past of). */
   inflection: boolean;
+  /**
+   * The term the sense abbreviates, as the source writes it: its target when it is
+   * tagged an abbreviation (GPU: "graphics processing unit"), or the term its parent
+   * gloss abbreviates, whose definition the sense is (HR: "human resources", the sense
+   * "The human capital of an organization").
+   */
+  abbreviates?: string;
   /** Languages its translation table has (its own, or the entry's table for its gloss). */
   tables: number;
   /** Japanese translations of this sense: [word, the table's English sense label]. */
@@ -79,6 +86,32 @@ export const categoryNames = (
     const name = typeof category === "string" ? category : category?.name;
     return typeof name === "string" ? [name] : [];
   });
+
+/** Tags of a sense that abbreviates the term it names (DEA, info, "Zealand"). */
+export const ABBREVIATION_TAGS: ReadonlySet<string> = new Set([
+  "abbreviation",
+  "acronym",
+  "initialism",
+]);
+
+/** A parent gloss that abbreviates a term its subsenses define ("Initialism of human resources."). */
+const ABBREVIATES =
+  /^(?:initialism|acronym|abbreviation|ellipsis|clipping)\s+of\s+([^()[\]:;]+?)\.?$/i;
+
+/** The term a sense abbreviates (`SourceSense.abbreviates`). */
+function abbreviatedTerm(
+  sense: KaikkiSense,
+  tags: readonly string[],
+  target: string | undefined,
+): string | undefined {
+  if (target !== undefined)
+    return tags.some((tag) => ABBREVIATION_TAGS.has(tag)) ? target : undefined;
+  const glosses = Array.isArray(sense.glosses) ? sense.glosses : [];
+  const parent: unknown = glosses.length > 1 ? glosses[0] : undefined;
+  return typeof parent === "string"
+    ? ABBREVIATES.exec(parent.trim())?.[1]?.trim()
+    : undefined;
+}
 
 const lastGloss = (sense: KaikkiSense) => {
   const last: unknown = Array.isArray(sense.glosses)
@@ -155,20 +188,26 @@ export function entrySenses(
     const tags = (sense.tags ?? []).filter((tag) => typeof tag === "string");
     if (tags.some((tag) => UNUSABLE_TAGS.has(tag))) continue;
     const target = targetOf(sense.alt_of) ?? targetOf(sense.form_of);
+    const contraction = pos === "contraction" || tags.includes("contraction");
+    const partial =
+      targetOf(sense.alt_of) !== undefined
+        ? partialOf(sense.alt_of)
+        : partialOf(sense.form_of);
+    // A contraction is no abbreviation of its host ("we've": we).
+    const abbreviates =
+      contraction || partial ? undefined : abbreviatedTerm(sense, tags, target);
     senses.push({
       pos,
       gloss,
       tags,
-      contraction: pos === "contraction" || tags.includes("contraction"),
-      partial:
-        targetOf(sense.alt_of) !== undefined
-          ? partialOf(sense.alt_of)
-          : partialOf(sense.form_of),
+      contraction,
+      partial,
       topics: (sense.topics ?? []).filter(
         (topic): topic is string => typeof topic === "string",
       ),
       categories: categoryNames(sense.categories),
       ...(target !== undefined && { target }),
+      ...(abbreviates !== undefined && { abbreviates }),
       inflection:
         Array.isArray(sense.form_of) && tags.some((tag) => INFLECTION.has(tag)),
       tables: languages(sense.translations),

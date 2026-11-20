@@ -40,24 +40,32 @@ function initialsMatch(words: readonly string[], letters: string): boolean {
  * The words a sense spells `term` out with: the end of the sense's leading run of
  * Latin words whose initials are the term's letters ("Initialism of Drug Enforcement
  * Administration." → "Drug Enforcement Administration"; EJDict's "District of
- * Attorney (米国の)地方検事" → "District of Attorney", "Prime Minister"). Two words at
+ * Attorney (米国の)地方検事" → "District of Attorney", "Prime Minister"; a translation's
+ * hint, "《graphics processing unit》画像処理装置"), or of each of its alternatives
+ * ("Initialism of active noise control or active noise cancellation"). Two words at
  * least, so a one-word sense ("unserviceable") or a definition ("A hydroxy secondary
- * amine…") spells nothing out. Undefined when it spells nothing out.
+ * amine…") spells nothing out. Empty when it spells nothing out.
  */
-export function expansionOf(term: string, sense: string): string | undefined {
+export function expansionsOf(term: string, sense: string): string[] {
   const letters = lettersOf(term);
-  if (letters.length < 2) return undefined;
-  const run = LATIN_RUN.exec(sense.trim())?.[0];
-  if (!run) return undefined;
-  const words = run.split(" ");
-  for (let from = 0; from + 1 < words.length; from++) {
-    // Not from inside a pointer: "Initialism of Drug …" spells out from "Drug".
-    if (from > 0 && skipped(words[from]!)) continue;
-    const rest = words.slice(from);
-    if (initialsMatch(rest, letters)) return rest.join(" ");
-  }
-  return undefined;
+  if (letters.length < 2) return [];
+  const run = LATIN_RUN.exec(sense.trim().replace(/^《/, ""))?.[0];
+  if (!run) return [];
+  return run.split(" or ").flatMap((alternative) => {
+    const words = alternative.split(" ");
+    for (let from = 0; from + 1 < words.length; from++) {
+      // Not from inside a pointer: "Initialism of Drug …" spells out from "Drug".
+      if (from > 0 && skipped(words[from]!)) continue;
+      const rest = words.slice(from);
+      if (initialsMatch(rest, letters)) return [rest.join(" ")];
+    }
+    return [];
+  });
 }
+
+/** The first of `expansionsOf`; undefined when the sense spells nothing out. */
+export const expansionOf = (term: string, sense: string): string | undefined =>
+  expansionsOf(term, sense)[0];
 
 /**
  * Whether `text` writes `phrase`, in any case, as whole words, with any spaces or
@@ -85,10 +93,9 @@ export function spelledOutSense(
   senses: readonly string[],
   spelledOut: (phrase: string) => boolean,
 ): number | undefined {
-  const found = senses.findIndex((sense) => {
-    const expansion = expansionOf(term, sense);
-    return expansion !== undefined && spelledOut(expansion);
-  });
+  const found = senses.findIndex((sense) =>
+    expansionsOf(term, sense).some(spelledOut),
+  );
   return found > 0 ? found : undefined;
 }
 

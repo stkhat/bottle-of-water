@@ -208,3 +208,44 @@ describe("buildEnDefs: capital-only words", () => {
     expect(defs).not.toHaveProperty("vito");
   });
 });
+
+describe("buildEnDefs: abbreviations", () => {
+  let defs: Awaited<ReturnType<typeof buildEnDefs>>["defs"];
+  beforeAll(async () => {
+    ({ defs } = await buildEnDefs(
+      join(import.meta.dirname, "fixtures", "kaikki-abbreviations.jsonl"),
+      {
+        // EJDict's "h.r." is a vocabulary word; GPU and ANC are capital-only.
+        vocab: ["h.r.", "hitman"],
+        lemmas: {},
+        phrases: { detect: [], more: [], gap: [] },
+        capitals: ["ANC", "GPU", "H.R."],
+      },
+    ));
+  });
+
+  it("keeps what an abbreviation stands for in the definition it takes", () => {
+    expect(defs.gpu![1]).toContainEqual([
+      "noun",
+      "graphics processing unit: A specialized electronic circuit designed to accelerate the creation of images.",
+    ]);
+  });
+  it("keeps every abbreviation sense of a capital-only word", () => {
+    expect(defs.anc![1].map(([, text]) => text)).toEqual([
+      "Initialism of absolute neutrophil count.",
+      "Initialism of African National Congress.",
+      "Initialism of antenatal care.",
+      "Initialism of active noise control or active noise cancellation.",
+      "Initialism of antenuptial contract.",
+    ]);
+  });
+  it("gives a dotted abbreviation its spelling without periods' senses after its own", () => {
+    expect(defs["h.r."]![1].map(([, text]) => text)).toEqual([
+      "House of Representatives: The lower house of the United States Congress.",
+      // HR's nested sense, with what its parent gloss abbreviates.
+      "human resources: The human capital of an organization.",
+      "House of Representatives.",
+      "Initialism of heart rate.",
+    ]);
+  });
+});

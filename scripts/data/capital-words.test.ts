@@ -1,6 +1,10 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { capitalEntryKey, capitalMeanings } from "./capital-words.ts";
+import {
+  capitalEntryKey,
+  capitalMeanings,
+  tableMeanings,
+} from "./capital-words.ts";
 import { dottedCapitals } from "./ejdict.ts";
 import { rankCapitalSenses, type SourceSense } from "./senses.ts";
 
@@ -27,6 +31,32 @@ describe("capitalMeanings", () => {
     expect(capitalEntryKey("AI")).toBe("AI");
     expect(capitalEntryKey("iPhone")).toBe("iphone");
     expect(capitalEntryKey("Tokyo")).toBe("tokyo");
+  });
+});
+
+describe("tableMeanings", () => {
+  const abbreviations = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-abbreviations.jsonl",
+  );
+  it("gives an abbreviation the Japanese of what it stands for, hinted by that", async () => {
+    const meanings = await tableMeanings(abbreviations, [
+      { key: "GPU", written: "GPU", capital: true },
+      { key: "HR", written: "HR", capital: true },
+    ]);
+    expect(meanings).toEqual({
+      GPU: ["画像処理装置", ["《graphics processing unit》画像処理装置"], "n"],
+      // A sense under a parent gloss that names what it abbreviates.
+      HR: ["人事", ["《human resources》人事"], "n"],
+    });
+  });
+  it("reads a lower-case word's own entries, not a proper noun written alike", async () => {
+    expect(
+      await tableMeanings(abbreviations, [
+        { key: "hitman", written: "hitman", capital: false },
+      ]),
+    ).toEqual({ hitman: ["殺し屋", ["《A hired killer》殺し屋"], "n"] });
   });
 });
 
