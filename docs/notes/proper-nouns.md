@@ -66,10 +66,33 @@ The fix makes `tokenize` the same in every engine: it splits words at each full 
 
 Checked after the fix in the user's Chrome: U.S. (Nvidia) Known with "United States 合衆国"; a.m. (September 11 attacks) "ante meridiem 午前"; Tokyo (Sony) New with 東京; iPhone (Apple Inc.) New, English definition machine-translated; GPU (Graphics processing unit) New, "A specialized electronic circuit"; AI and US in a YouTube transcript (人工知能; United States 合衆国); WHAT'D in the Netflix transcript (Friends) "what did / what would". The card no longer shows "u.s → u.s." for a word read with its last period. Error log empty.
 
+## Capital cards (2026-11-20)
+
+Three wrong hovers from the judging above, fixed in code (PR "capital cards"): the U.S. card, initialisms of several things, and the rest of the judged misses. Measured on the same corpus (`cc-base2` → `cc-fix5`; `measure.ts` now sends an acronym's document, as the extension does) and judged blind twice (`packets/cc1`, `packets/cc2`, one judge each).
+
+Root causes:
+1. **A capitalised word's card joined its capitalised headword with the lower-case one** (en-ja `asWritten`, the recipe pairs' `joinedPair`). EJDict files U.S. both as "U.S.,US" (United States 合衆国 / unserviceable) and as lower-case "u.s." (ubi supra: 上述の箇所に), and the vocabulary's key is "u.s.", so the card was headed "u.s." and listed ubi supra third; likewise Japan → 日本 / 黒い漆, US → 合衆国 / 我々を, Turkey, China, May, March, UN → やつ. Rule: a word capitalised in a way that counts, or in capitals, shows its capitalised headword alone, headed as that headword is written (U.S., US, Japan). The first judging found the exception: a capitalised word next to another one is often a name's or a title's word (Oak Ridge National Lab → 労働党, "Dangling Man" → マン島, "American Buffalo", The International Atomic Energy Agency), whose capital is the name's; there the lower-case senses still follow (`Span.run`, `written` "run"). "unserviceable" stays: it is EJDict's own second expansion of "U.S.,US".
+2. **The dictionary's order is not the text's**: en-defs orders an initialism's senses by how many languages translate each (DEA: diethanolamine first). Text that means one of them tends to spell it out where it first uses it ("That's the Drug Enforcement Administration"; Wikipedia's "The Drug Enforcement Administration (DEA) is"). Rule: a word in capitals sends its document's text with its lookup, and the card leads with the first sense whose expansion (words whose initials are its letters) the document writes.
+3. **An acronym's possessive read as a capitalised word** ("DEA's" has a lower-case s, so it was "capital", not "upper"): an ending 's or s after two capitals no longer counts.
+
+| Idea | Result | Decision |
+|---|---|---|
+| Capitalised headword alone, everywhere | 202 tokens changed; judged: after preferred 21 : 6; lost Lab, Man, Buffalo, International, Eve (words of a name or title), Polish ("to Polish my knob") | Refined |
+| + inside a run of capitals, capitalised senses first, then lower-case | 172 tokens changed (US 65, U.S. 20, Japan 18, Turkey 15, China 14, CAT 6, UN 5); fresh judging: after preferred 18 : 2, good 0 → 18 of 24 changed; the 2 lost: Polish (a joke), "the March on Washington" | Recommended |
+| Senses ordered by the document's words (a sense's words, rarer than rank 300 or 1,000, the document also writes; margins 1–2) | DEA (Breaking Bad), GPU (a laptop review: "display", "device"), PM right; CV → computer vision in an article on video interviews, FC → foster care, M.O. → Medical Officer, D.A. → "doesn't answer", RPG → rocket-propelled grenade in a game video, CB (of CBS) → construction battalion | Dropped |
+| Expansion spelled out in the document, any case | DEA 10 of 11 tokens (the 11th's episode never says it), PM → Prime Minister (The Crown); but "3:00 p.m." → Prime Minister in a show about a prime minister | Refined |
+| + only for a word in capitals | DEA 10, PM 1; nothing else changes | Recommended |
+
+Not fixed, and why:
+- **GPU** → "State Political Directorate" in a laptop review, which never spells it out. en-defs replaced the pointer "Initialism of graphics processing unit" with that term's definition ("A specialized electronic circuit…"), so the sense no longer names its expansion, and no document rule can match it. Data proposal (scripts/data, for the agent who owns it): keep an initialism's expansion in its followed sense ("graphics processing unit: A specialized electronic circuit…"), so the card names what the letters stand for and a page that writes "graphics processing unit" leads with it; and rank an initialism's expansions made of a common noun's words before a historical proper noun's.
+- **ANC** → absolute neutrophil count in an earbuds review: the sense meant, "active noise control or active noise cancellation", is kaikki's third of five and en-defs keeps four, dropping it. Data proposal: keep every "Initialism of" sense of a capital-only word (they are one line each).
+- **H.R.** → House of Representatives in The Office: every source of the dotted form (EJDict's "H.R.", kaikki's "H.R.") has only that; "human resources" is under HR, which joined no list (no translation table). Not this class; a data question (the undotted capital-only word's senses for its dotted spelling).
+- **Netflix** the verb ("To watch … using … Netflix") for the company in "the new Netflix movie": kaikki has Netflix only as that verb (the company has no entry), so rule E kept the verb. Rule A2 cannot help (capitalised words are read without their tag, and the tag's noun has no sense to choose). Not this class; data: a capital-only word whose every sense is a verb derived from the name (a "using … Netflix" definition) should not join, or should join as a name.
+- **M.O.** → mail order (modus operandi meant), RAM → 雄羊座 (no "RAM" acronym entry in EJDict; the title entry Ram, Aries, is used), DM → Deutsche mark (direct message), Sol in "Puerta del Sol": the text spells none of them out; data.
+- An abbreviation in capitals in a document that spells out another of its expansions ("5 PM" in a text that writes "Prime Minister") leads with that expansion. None in the corpus.
+
 ## Still open
 
-- A dotted abbreviation's card shows the vocabulary's lower-case head ("u.s.", not "U.S.") and lists the lower-case word's senses after the capital one (U.S.: unserviceable, ubi supra), as EJDict files them together.
-- Initialisms of several things: the hover shows one expansion, and the most translated is not always the one meant (DEA, GPU). A context check (the words around it, or the on-device model) would be needed.
 - A capital-only word inside a longer name (New Zealand, Europa League): the multi-word name is a phrase the matcher does not detect (B4); handled best there.
 - Words without a translation table (NYPD, ChatGPT, Grammys, AGI: about 50 tokens) and without a Wiktionary entry (Nvidia, AirPods, Binance: 598 tokens) stay without a hover.
 - Capital-only words in documents in capitals (ALL-CAPS captions) and in caseless speech recognition stay unknown: their case says nothing.
@@ -83,4 +106,4 @@ STUDY=2026-11 REPO=<checkout> UNITS=data/raw/quality/2026-11/runs/units-87d8606/
   OUT=data/raw/quality/2026-11/runs/<label> npx jiti .claude/skills/real-content-quality/scripts/measure.ts
 ```
 
-Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`.
+Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`.
