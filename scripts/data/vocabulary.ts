@@ -9,7 +9,7 @@
 // speech of its proper nouns and its possessive.
 import { byCodeUnit, GIVEN_NAME, SURNAME, type KaikkiEntry } from "./common.ts";
 import { entryExamplePieces, pieceWords } from "./examples.ts";
-import { entrySenses } from "./senses.ts";
+import { ABBREVIATION_TAGS, entrySenses } from "./senses.ts";
 
 /** What rule E needs to know of the learning language (LEARNING). */
 export interface WordLanguage {
@@ -66,13 +66,6 @@ const MIN_TABLES = 1;
 /** Quotations from before this year are not counted: they write older spellings. */
 const SINCE = 1900;
 
-/** Tags of a sense that abbreviates something: an acronym's lowercase entry may be one. */
-const ABBREVIATION: ReadonlySet<string> = new Set([
-  "abbreviation",
-  "acronym",
-  "initialism",
-]);
-
 export interface VocabularyRule {
   /** Reads one entry of the extract (an entry of the learning language). */
   add(entry: KaikkiEntry): void;
@@ -113,7 +106,8 @@ export interface VocabularyRule {
    * (`WordLanguage.capitalWord`: AI, Tokyo, iPhone) whose lower-case key is no
    * vocabulary word (`vocab`, rule E's words included), no form of one (`lemmas`) and
    * no possessive, with a meaning of its own (as `select` asks; a proper noun's sense
-   * counts) that a translation table translates (Wiktionary translates what is
+   * counts, a verb's that names the word itself does not: Netflix, "To watch … using …
+   * Netflix") that a translation table translates (Wiktionary translates what is
    * notable: Tokyo, AI, ATM; not "Vito", a barangay, or "IC", an initialism of two
    * dozen things none translated, which text means in ways the hover cannot tell),
    * no sense of any entry so written that names a person (Harvey, Kane; and
@@ -189,8 +183,16 @@ export function createVocabularyRule(
   /** A capitalised entry's meanings, persons and forms (`capitals`). */
   const addCapital = (entry: KaikkiEntry) => {
     const headword = entry.word.replaceAll("’", "'");
+    const namesItself = new RegExp(
+      `(?<!\\p{L})${headword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?!\\p{L})`,
+      "u",
+    );
     for (const sense of entrySenses(entry).senses) {
       if (sense.inflection) continue;
+      // A verb made from the name ("Netflix": "To watch … using the Internet streaming
+      // media provider Netflix") says what one does with what it names, not what that
+      // is: text that writes the name ("the new Netflix movie") means the company.
+      if (entry.pos === "verb" && namesItself.test(sense.gloss)) continue;
       if (entry.pos === language.name && sense.target !== undefined) {
         let targets = namePointers.get(headword);
         if (!targets) namePointers.set(headword, (targets = new Set()));
@@ -245,7 +247,7 @@ export function createVocabularyRule(
         if (sense.tables > (tables.get(word) ?? 0))
           tables.set(word, sense.tables);
         if (
-          sense.tags.some((tag) => ABBREVIATION.has(tag)) ||
+          sense.tags.some((tag) => ABBREVIATION_TAGS.has(tag)) ||
           (sense.target !== undefined &&
             sense.target !== word &&
             sense.target.toLowerCase() === word)

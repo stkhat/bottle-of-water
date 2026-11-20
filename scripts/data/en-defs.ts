@@ -103,9 +103,24 @@ export async function buildEnDefs(
   const capitalOnly = new Set(
     capitals.filter((written) => !words.has(written.toLowerCase())),
   );
+  /**
+   * The abbreviations with a period inside written with capitals (H.R., M.O.), whose
+   * key the vocabulary has from EJDict ("h.r."), by their spellings: with the periods,
+   * and without (HR, MO), which text mostly writes now.
+   */
+  const dotted = new Map<string, { key: string; bare: boolean }>();
+  for (const written of capitals) {
+    const key = written.toLowerCase();
+    if (!written.includes(".") || !words.has(key)) continue;
+    dotted.set(written, { key, bare: false });
+    const bare = written.replaceAll(".", "");
+    if (!capitalOnly.has(bare)) dotted.set(bare, { key, bare: true });
+  }
   const capitalKeys = new Set(
     [...capitalOnly].map((written) => written.toLowerCase()),
   );
+  /** The senses of a dotted abbreviation's spelling without periods (HR's for "h.r."). */
+  const bareSenses = new WeakSet<SourceSense>();
   const patterns = new Set([...phrases.detect, ...phrases.more]);
   const known = (word: string) =>
     words.has(word) || Object.hasOwn(lemmas, word);
@@ -118,7 +133,7 @@ export async function buildEnDefs(
         ? word
         : capitalOnly.has(word.replaceAll("’", "'"))
           ? word.toLowerCase()
-          : undefined
+          : dotted.get(word)?.key
       : patternKey(word, isWord);
     if (key === undefined || everyPair(key)) return undefined;
     return key.includes(" ") && !patterns.has(key) ? undefined : key;
@@ -127,12 +142,15 @@ export async function buildEnDefs(
    * A term's senses: a proper noun is no meaning of a word ("Light"), but a phrase or a
    * capital-only word may be one (Tokyo).
    */
-  const sensesOf = (entry: KaikkiEntry, multiWord: boolean) =>
-    entry.pos === "name" &&
-    !multiWord &&
-    !capitalOnly.has(entry.word.trim().replaceAll("’", "'"))
+  const sensesOf = (entry: KaikkiEntry, multiWord: boolean) => {
+    const written = entry.word.trim().replaceAll("’", "'");
+    return entry.pos === "name" &&
+      !multiWord &&
+      !capitalOnly.has(written) &&
+      !dotted.has(written)
       ? []
       : entrySenses(entry).senses.filter((sense) => !sense.inflection);
+  };
 
   const terms = new Map<string, SourceSense[]>();
   const targets = new Set<string>();
@@ -141,9 +159,12 @@ export async function buildEnDefs(
     const key = termKey(entry.word);
     if (!key) return;
     let list = terms.get(key);
+    const bare = dotted.get(entry.word.trim())?.bare === true;
     for (const sense of sensesOf(entry, key.includes(" "))) {
       if (!list) terms.set(key, (list = []));
-      list.push({ ...sense, order: list.length });
+      const read = { ...sense, order: list.length };
+      if (bare) bareSenses.add(read);
+      list.push(read);
       if (isPointer(sense) && !ownGloss(sense)) {
         const target = targetOf(sense);
         if (target) targets.add(target);
@@ -171,19 +192,45 @@ export async function buildEnDefs(
   let resolved = 0;
   for (const [key, list] of terms) {
     const senses = list.map((sense) => {
-      if (!isPointer(sense) || ownGloss(sense)) return sense;
+      if (!isPointer(sense) || ownGloss(sense))
+        return sense.abbreviates === undefined
+          ? sense
+          : { ...sense, gloss: `${sense.abbreviates}: ${sense.gloss}` };
       const target = targetOf(sense);
       // A letter-case form names another entry too ("aka" → "AKA").
       const best = target && target !== key ? bestOf(target) : undefined;
       if (!best) return sense;
       resolved++;
-      // The target's definition, with the pointer's own labels.
-      return { ...sense, target: undefined, gloss: best.gloss };
+      // The target's definition, with the pointer's own labels; an abbreviation keeps
+      // what it stands for ("graphics processing unit: A specialized electronic
+      // circuit…"), which its card names and a document may spell out.
+      return {
+        ...sense,
+        target: undefined,
+        gloss:
+          sense.abbreviates === undefined
+            ? best.gloss
+            : `${sense.abbreviates}: ${best.gloss}`,
+      };
     });
     const out: [string, string][] = [];
+    // A dotted abbreviation's own senses, then those of its spelling without periods
+    // (H.R.: House of Representatives, then HR's human resources). Not first: the
+    // spelling without periods is another distribution of meanings (PM: Prime
+    // Minister, post mortem; "p.m." is post meridiem).
     const ranked = capitalKeys.has(key)
       ? rankCapitalSenses(senses, SHOWN)
-      : rankSenses(senses, key.includes(" "), SHOWN);
+      : [
+          ...rankSenses(
+            senses.filter((_, i) => !bareSenses.has(list[i]!)),
+            key.includes(" "),
+            SHOWN,
+          ),
+          ...rankCapitalSenses(
+            senses.filter((_, i) => bareSenses.has(list[i]!)),
+            SHOWN,
+          ),
+        ];
     // A contraction's own senses first: that's → "That is.", not the dialectal
     // determiner "whose, of which".
     for (const sense of writtenAsContraction(key)
@@ -193,8 +240,15 @@ export async function buildEnDefs(
         ]
       : ranked) {
       if (out.some(([, text]) => text === sense.gloss)) continue;
+      // A capital-only word keeps every abbreviation sense, one line each: text means
+      // one of them, and its document may spell it out (ANC: active noise
+      // cancellation, the third of five).
+      if (
+        out.length >= MAX_SENSES &&
+        !(capitalKeys.has(key) && sense.abbreviates !== undefined)
+      )
+        continue;
       out.push([posLabel(sense.pos), sense.gloss]);
-      if (out.length >= MAX_SENSES) break;
     }
     if (out.length > 0) defs[key] = [shortOfDefinition(out[0]![1]), out];
   }

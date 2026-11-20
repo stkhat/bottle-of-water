@@ -94,7 +94,7 @@ Words shown as New per 1,000 tokens 86.1 → 86.7; names 1,071 unchanged. The 10
 
 Pack sizes (raw), lock → now: `en` 6.63 → 6.88 MB, `en-ja` 7.81 → 7.82, `en-defs` 22.29 → 22.74 (36.73 → 37.44 MB, +1.9%; +3.3% against the rebuild of main's scripts). The recipe pairs gain the tables' meanings of the new words (hitman → sicario, fiancé → novio): 0.14–0.23 MB each.
 
-"perfectionistic" (3 examples, no table) and "paracetamol" (6, no table) stay out. Still open: en-ja could give the rarer words the tables' Japanese as it does for capital-only words: many have one in the tables; the first English sense is sometimes another use (mojo, perv, unspent's verb "unspend").
+"perfectionistic" (3 examples, no table) and "paracetamol" (6, no table) stay out. en-ja gives them the tables' Japanese since "Data fixes" below; the first English sense is sometimes another use (mojo, perv, unspent's verb "unspend"), whose tables have no Japanese.
 
 ## Capital cards (2026-11-20)
 
@@ -123,6 +123,30 @@ Not fixed, and why:
 - **M.O.** → mail order (modus operandi meant), RAM → 雄羊座 (no "RAM" acronym entry in EJDict; the title entry Ram, Aries, is used), DM → Deutsche mark (direct message), Sol in "Puerta del Sol": the text spells none of them out; data.
 - An abbreviation in capitals in a document that spells out another of its expansions ("5 PM" in a text that writes "Prime Minister") leads with that expansion. None in the corpus.
 
+## Data fixes (2026-11-20)
+
+The data proposals of "Not fixed, and why" above, and the rarer words' Japanese ("Rare words": still open). Same corpus and units; `df-base-b18f375` (main's packs, which a rebuild of main's scripts reproduces) → `df1-v3`. Rules in [architecture](../specs/architecture.md) "Vocabulary and frequency (rule E)": "Meanings", "Capital-only words, the data", "Their meanings"; "Abbreviations spelled out".
+
+| Idea | Result | Decision |
+|---|---|---|
+| en-defs: an abbreviation's pointer keeps what it stands for in the definition it takes ("graphics processing unit: A specialized electronic circuit…"), also where kaikki nests the definition under "Initialism of X." (HR's "human resources: The human capital of an organization") | 97 tokens' English lines change, mostly capitals (GPU's second line, ASMR, GG); the card names the expansion, and a document that writes it leads with it | Recommended |
+| en-defs: a capital-only word keeps every abbreviation sense beyond four; the expansion rule reads each alternative joined by "or" | ANC in the earbuds review (which writes "Active Noise Cancellation") → "Initialism of active noise control or active noise cancellation" (3 tokens; was absolute neutrophil count) | Recommended |
+| A capital-only word's abbreviation sense with no Japanese takes its expansion's tables' Japanese, hinted by the expansion | 630 → 686 words with Japanese (CPU → 中央処理装置, USB, SSD, Falklands, Saudi → サウジアラビア, Zealand's second line ニュージーランド); FC → 野手選択 (fielder's choice) where its first sense, football club, has no Japanese | Recommended |
+| The same for rule E's lower-case words | mm → 月 (month) in "Mm-hmm", pre → 我慢汁, neo → ネオジム, min, com, micro, med: most of the wrong new hovers of the first judging | Dropped |
+| en-ja: rule E's words the tables' Japanese (in `en-ja/phrases.json`) | 1,862 of 9,916 words; 490 tokens change from an English definition to Japanese (router → ルータ, smartphone → スマホ, hitman → 殺し屋, eventually → 結局) | Recommended |
+| …only where the word's best-ranked sense has Japanese | would drop 420 of 2,739 entries, most of them right (areola, biomass, voicemail, lepton: the table is at entry level, or the ranking puts a rare sense first) | Dropped |
+| mojo, perv, recused | no Japanese in their tables: they keep their English definitions (the first sense still another use) | Open |
+| Netflix: a verb's sense whose gloss names the word itself is no meaning of a capital-only word | Netflix and Venmo leave (1,330 → 1,328); "the new Netflix movie" has no hover, as for a company Wiktionary has no entry for | Recommended |
+| GPU: an initialism's senses ranked by their expansions' tables | 40 of 1,328 first senses change: GPU right, but CV → coronavirus, CNN → convolutional neural network, IBM → missile, BMW, GC → grandchild | Dropped |
+| GPU: a historical proper noun's expansion after a common noun's | 2 change: GPU → gas permeance unit (graphics processing unit carries a domain topic), GDR → global depository receipt | Dropped |
+| Register-labelled senses after the others, for capital-only words | 46 change, mostly worse (Instagram → "A user's profile", FAQ, ISP, Nanjing) | Dropped |
+| H.R.: the spelling without periods' senses first, en-defs and en-ja | H.R. → 人材開発部 (human resources) right, but P.M. → 検視 (post mortem) for "3 P.M.", M.O. → ミズーリ, D.A. → ドーパミン, A.M. → アマゾナス州 | Dropped |
+| H.R.: those senses after the dotted spelling's own, en-defs only | the dictionary window of a recipe pair lists HR's human resources after House of Representatives; en-ja keeps EJDict's 下院 | Recommended |
+
+Over the corpus: unknown tokens 3,523 → 3,524 (Netflix), New 86.7 and phrases 26.1 per 1,000 tokens unchanged, names 1,071, hovers translated at display time 3,557 → 3,057, lines over the cap unchanged (328). 653 word tokens change. Judged blind on two samples (`packets/df1` for v2, with lower-case words' expansions, then `packets/df2`, a fresh sample of v3; changed hovers only, one judge per site): good 77 → 131 and 96 → 130, acceptable 63 → 24 and 50 → 27, wrong or misleading 39 → 24 and 32 → 21; preferred after : before 133 : 18 and 115 : 16. The wrong ones left are mostly old: clippings in lower case (mm → "month: …", com in audible.com, pre in "pre-…"), a name read as a word (Cooper → 桶屋, "takin'" → ターキン), DEA with no expansion in its document, FC → 野手選択, Google → ググる for the company.
+
+Sizes, raw MB, lock → now: `en` 6.881 → 6.881, `en-ja` 7.816 → 7.997, `en-defs` 22.738 → 22.613 (words every pair now has leave it); en→ja 37.44 → 37.49 MB (guard 40). The recipe pairs are unchanged. `data:capitals` now runs after `data:phrases` (it adds the words to `en-ja/phrases.json`) and reads the extract twice (the expansions' tables), about a minute.
+
 ## Still open
 
 - A capital-only word inside a longer name (New Zealand, Europa League): the multi-word name is a phrase the matcher does not detect (B4); handled best there.
@@ -138,4 +162,4 @@ STUDY=2026-11 REPO=<checkout> UNITS=data/raw/quality/2026-11/runs/units-87d8606/
   OUT=data/raw/quality/2026-11/runs/<label> npx jiti .claude/skills/real-content-quality/scripts/measure.ts
 ```
 
-Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`. Rare words: `rw-base-314d78d` (main's packs), `rw-rebuilt-base`, the candidates `rw-acc8`, `rw-t6`, `rw-t5`, `rw-tab1m3`, `rw-m7tab3m3` (capital threshold not yet separate), `rw-g6`, `rw-g5`, `rw-g4t1`, `rw-g3t1`, `rw-g2t1`, and `rw-final`; judging in `packets/rw1` (g5) and `packets/rw2` (g4t1).
+Runs: `pn-base-eff3fcd` (before), `pn-code1` (code step), `pn-data5` (data step); judging in `packets/pn1`. Capital cards: `cc-base2` (main at 314d78d), `cc-fix3` (headword alone), `cc-fix5` (with runs); judging in `packets/cc1`, `packets/cc2`; the document-words prototype in `proto/capital-cards/lesk.ts`. Rare words: `rw-base-314d78d` (main's packs), `rw-rebuilt-base`, the candidates `rw-acc8`, `rw-t6`, `rw-t5`, `rw-tab1m3`, `rw-m7tab3m3` (capital threshold not yet separate), `rw-g6`, `rw-g5`, `rw-g4t1`, `rw-g3t1`, `rw-g2t1`, and `rw-final`; judging in `packets/rw1` (g5) and `packets/rw2` (g4t1). Data fixes: `df-base-b18f375`, `df1-v1` (dotted spellings' senses first), `df1-v2` (lower-case words' expansions), `df1-v3`; judging in `packets/df1`, `packets/df2`; the prototypes (ranking variants, the Japanese guard) in `proto/data-fixes/`.

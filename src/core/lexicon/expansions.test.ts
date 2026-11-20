@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   expansionOf,
+  expansionsOf,
   moveFirst,
   spelledOutSense,
   writesPhrase,
@@ -18,6 +19,22 @@ describe("expansionOf", () => {
     );
     expect(expansionOf("un", "the United Nations")).toBe("the United Nations");
     expect(expansionOf("mo", "mail order")).toBe("mail order");
+    // A definition headed by what it stands for, and a translation's hint.
+    expect(
+      expansionOf("gpu", "graphics processing unit: A specialized circuit."),
+    ).toBe("graphics processing unit");
+    expect(expansionOf("gpu", "《graphics processing unit》画像処理装置")).toBe(
+      "graphics processing unit",
+    );
+  });
+
+  it("reads each of a sense's alternatives", () => {
+    expect(
+      expansionsOf(
+        "anc",
+        "Initialism of active noise control or active noise cancellation.",
+      ),
+    ).toEqual(["active noise control", "active noise cancellation"]);
   });
 
   it("finds none in a definition, a one-word sense or a translation", () => {
@@ -62,6 +79,17 @@ describe("spelledOutSense", () => {
       "Excuse me, the DEA? That's the Drug Enforcement Administration.";
     expect(
       spelledOutSense("dea", senses, (phrase) => writesPhrase(text, phrase)),
+    ).toBe(1);
+    // Either alternative of a sense ("an earbuds review": active noise cancellation).
+    expect(
+      spelledOutSense(
+        "anc",
+        [
+          "Initialism of absolute neutrophil count.",
+          "Initialism of active noise control or active noise cancellation.",
+        ],
+        (phrase) => writesPhrase("its active noise cancellation", phrase),
+      ),
     ).toBe(1);
   });
   it("leaves the order where the document spells none out, or the first", () => {

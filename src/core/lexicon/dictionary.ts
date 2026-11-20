@@ -165,7 +165,7 @@ export interface EnJaDictionaryData {
   sensePos: SensePosPack;
   /** en-ja/capital.json: the senses of EJDict's capitalised headwords */
   capital: DictPack;
-  /** en-ja/phrases.json: Japanese translations of phrases EJDict lacks */
+  /** en-ja/phrases.json: the translation tables' Japanese of phrases and words EJDict lacks */
   phrases: DictPack;
   /** en-defs: English definitions of phrases neither has */
   defs: DefsPack;

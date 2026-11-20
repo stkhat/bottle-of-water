@@ -340,7 +340,7 @@ describe("names over the generated packs (rule D)", () => {
     expect(keyOf("ai")).toEqual([null]);
     expect(keyOf("Harvey")).toEqual([null]);
     expect(keyOf("Kane")).toEqual([null]);
-    expect(dictionary.entry("ai", "upper")?.lines[0]).toBe("人工知能");
+    expect(dictionary.entry("ai", "upper")?.lines[0]).toMatch(/^人工知能/);
     expect(dictionary.entry("tokyo", "capital")?.lines[0]).toBe("東京");
     expect(dictionary.entry("p.m.")?.lines[0]).toMatch(/^午後/);
   });
