@@ -134,9 +134,10 @@ describe("hover card", () => {
     await pointAt(root, "Japan");
     await expect.element(hoverCard()).toBeVisible();
     await expect.element(page.getByText("日本", { exact: true })).toBeVisible();
-    // Its capitalised sense comes first, before the lowercase headword's.
+    // Its capitalised headword alone, written so: not the lowercase headword's lacquer.
     const text = cardRoot().textContent;
-    expect(text.indexOf("日本")).toBeLessThan(text.indexOf("黒い漆"));
+    expect(text).toContain("Japan");
+    expect(text).not.toContain("黒い漆");
   });
 
   it("classifies a name's blocks again when the page later writes it in lower case", async () => {

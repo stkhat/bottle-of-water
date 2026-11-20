@@ -91,6 +91,12 @@ export interface Span {
    */
   capital?: true;
   /**
+   * A word capitalised in a way that counts next to another capitalised word, with
+   * only spaces between them (Oak Ridge National Lab, "American Buffalo"): its capital
+   * may be the name's or the title's, so its lookup asks for the lowercase senses too.
+   */
+  run?: true;
+  /**
    * A word rule D takes for a name in this document (`nameVerdict`): `ignored`, so it
    * gets no highlight and no hover, and the sentence history does not index it.
    */
@@ -428,10 +434,33 @@ export function createClassifier(pack: LanguagePack): Classifier {
           pack.name(written.key)?.endsWith("!") === true
         )
           return {};
-        return name === "kept" ||
-          (!pack.capitalsForNames && capitalHere(casing, written))
-          ? { capital: true }
-          : {};
+        if (
+          name !== "kept" &&
+          (pack.capitalsForNames || !capitalHere(casing, written))
+        )
+          return {};
+        return written.written === "capital" && inRun(i)
+          ? { capital: true, run: true }
+          : { capital: true };
+      };
+
+      /**
+       * A capitalised word next to word i, only spaces between: one at a start too
+       * (`"American Buffalo"`), whose capital says nothing, as it may be the name's.
+       */
+      const inRun = (i: number) => {
+        const capitalised = (j: number) => {
+          const near = cases?.[j];
+          return (
+            near !== undefined &&
+            !near.label &&
+            (near.written === "capital" || near.written === "upper")
+          );
+        };
+        return (
+          (i > 0 && joined[i - 1] === true && capitalised(i - 1)) ||
+          (joined[i] === true && capitalised(i + 1))
+        );
       };
 
       /** Words with a base saved as learning: unsaved dictionary phrases skip them. */

@@ -6,6 +6,7 @@ import {
   auxiliaryUse,
   buildLearningPacks,
   contractionMeaning,
+  infinitiveConstruction,
   selectOnly,
   type LearningPacks,
 } from "./learning-kaikki.ts";
@@ -123,10 +124,11 @@ describe("buildLearningPacks with French's settings", () => {
     ]);
   });
 
-  it("labels no verb an auxiliary whose infinitive a preposition introduces", () => {
+  it("labels no verb an auxiliary whose infinitive a preposition introduces, but marks the construction", () => {
     expect(packs.defs["réussir"]?.[1][0]).toEqual([
       "verb",
       "to manage to do something",
+      "+à",
     ]);
   });
 
@@ -194,6 +196,49 @@ describe("auxiliaryUse", () => {
         raw_glosses: ["(transitive) to have"],
       }),
     ).toBe(false);
+  });
+});
+
+describe("infinitiveConstruction", () => {
+  const of = (...raw_glosses: string[]) =>
+    infinitiveConstruction({ glosses: ["x"], raw_glosses });
+  it("reads the words that introduce the infinitive from the construction notes", () => {
+    expect(of("to have to [with que (+ infinitive)]")).toBe("+que");
+    expect(
+      of("(catenative) to try [with de (+ infinitive) ‘to do something’]"),
+    ).toBe("+de");
+    expect(of("to continue [with à (+ infinitive) or de (+ infinitive)]")).toBe(
+      "+à|de",
+    );
+    expect(of("(with à + infinitive) to intend to do")).toBe("+à");
+    expect(
+      of(
+        "(intransitive, followed by à and infinitive) to manage to do something",
+      ),
+    ).toBe("+à");
+    expect(
+      of("(reflexive, with a when followed by an infinitive) to refuse"),
+    ).toBe("+a");
+    // A bare infinitive.
+    expect(of("to have just done [with infinitive]")).toBe("+");
+    expect(
+      of(
+        "(transitive) to hope [with direct object ‘for something’ or infinitive ‘to do something’]",
+      ),
+    ).toBe("+");
+  });
+  it("finds none without an infinitive, or in a note on how to translate", () => {
+    expect(of("to get up to, to reach (+ a or + hasta)")).toBeUndefined();
+    expect(of("must [(optionally) with de]")).toBeUndefined();
+    expect(of("(when followed by an infinitive verb) to be going (to)")).toBe(
+      undefined,
+    );
+    expect(
+      infinitiveConstruction({
+        glosses: ["translated with end up"],
+        raw_glosses: ["translated with end up [with a and infinitive]"],
+      }),
+    ).toBeUndefined();
   });
 });
 

@@ -285,10 +285,65 @@ const ACRONYM_TAGS: ReadonlySet<string> = new Set(["acronym", "initialism"]);
 type Sense = [pos: string, text: string, use?: SenseUse];
 
 /**
- * A sense's third item: CAPITAL_USE, or a personal pronoun's number ("singular",
- * "plural": `pronounNumber`).
+ * A sense's third item: CAPITAL_USE, a personal pronoun's number ("singular",
+ * "plural": `pronounNumber`), or a verb's construction with an infinitive
+ * (`infinitiveConstruction`: "+que", "+a|de", "+" for a bare infinitive).
  */
-type SenseUse = typeof CAPITAL_USE | "singular" | "plural";
+type SenseUse = typeof CAPITAL_USE | "singular" | "plural" | `+${string}`;
+
+/**
+ * The words that introduce the infinitive a verb's sense is said with, as the source's
+ * construction notes write them: "[with que (+ infinitive)]" (tener: "to have to"),
+ * "[with de (+ infinitive) ‘doing something’]" (acabar: "to have just"; dejar: "to
+ * cease, stop"), "[with a (+ infinitive) or con (+ noun)]", "(with à + infinitive)",
+ * "(followed by à and infinitive)" (réussir: "to manage to do something"), "[with
+ * infinitive]" (none: a bare infinitive). As the third item, "+" and the words joined
+ * by "|" ("+à|de"); undefined for a sense with no infinitive in its notes. Rule A2
+ * shows these senses first where the grammar reads the verb before that word and an
+ * infinitive (`WordUse.construction`).
+ */
+export function infinitiveConstruction(
+  sense: KaikkiSense,
+): `+${string}` | undefined {
+  // A note on how to translate the construction ("translated with end up": venir) is
+  // no meaning to show first.
+  if (
+    (sense.glosses ?? []).some(
+      (gloss) => typeof gloss === "string" && /^translated\b/iu.test(gloss),
+    )
+  )
+    return undefined;
+  const words = new Set<string>();
+  for (const gloss of sense.raw_glosses ?? []) {
+    if (typeof gloss !== "string") continue;
+    const notes = [
+      ...gloss.matchAll(/\[(?:\(optionally\)\s*)?(with [^\]]*)\]/gu),
+      ...gloss.matchAll(/\(([^()]*\binfinitive\b[^()]*)\)/gu),
+    ].map((match) => match[1]!.replace(/‘[^’]*’/gu, ""));
+    for (const note of notes) {
+      for (const [, word] of note.matchAll(
+        /(?:^|[\s,(])(\p{L}+) (?:\(\+ infinitive\)|\+ infinitive|and (?:an )?infinitive)/gu,
+      ))
+        words.add(word!);
+      for (const [, word] of note.matchAll(
+        /\bwith (\p{L}+) when followed by an? infinitive/gu,
+      ))
+        words.add(word!);
+      if (/\b(?:with|or) infinitive\b/u.test(note)) words.add("");
+    }
+  }
+  // "with", "along with" and "or" name the construction, not a word of it.
+  for (const note of ["with", "or"]) words.delete(note);
+  if (words.size === 0) return undefined;
+  return `+${[...words].join("|")}`;
+}
+
+/**
+ * A verb's sense that is one use of it: labelled so (`VERB_USES`), or said with an
+ * infinitive (`infinitiveConstruction`). The pack keeps it past the cap.
+ */
+const verbUse = ([pos, , use]: Sense) =>
+  VERB_USES.has(pos) || use?.startsWith("+") === true;
 
 /** The gender tags kaikki gives a third-person pronoun's sense ("sie": feminine, she). */
 const GENDERS: readonly string[] = ["feminine", "masculine", "neuter"];
@@ -774,7 +829,12 @@ function leadingParents(
 interface SenseItem {
   def: Sense;
   sense: KaikkiSense;
-  alt?: { target: string; pointerOnly: boolean };
+  /**
+   * An alt-of sense that counts (`altOfTarget`): its target, whether the text is only
+   * the pointer, and whether the source tags it so that it makes the word no form of
+   * its target (`IGNORED_FORM_TAGS`: "né", nonstandard ne).
+   */
+  alt?: { target: string; pointerOnly: boolean; ignored?: true };
   /** From a capitalised headword the key shares (`LearningBuild.nounsCapitalised`). */
   capital?: true;
 }
@@ -822,6 +882,16 @@ function usableSenses(
   ];
   return senses.flatMap((sense): SenseItem[] => {
     if (isUsable(sense)) {
+      // The infinitive's construction a verb's sense is said with ("tener que"); a
+      // reflexive sense's only where it is labelled a pronominal verb's ("s'empêcher
+      // de": to refrain; not empêcher's "empêcher de partir", to prevent).
+      const reflexive = (sense.tags ?? []).includes("reflexive");
+      const construction =
+        pos === "verb" && (!reflexive || pronominal)
+          ? infinitiveConstruction(sense)
+          : undefined;
+      const use: [] | [SenseUse] =
+        construction === undefined ? [] : [construction];
       // An auxiliary's first gloss is what it does ("used to form compound tenses");
       // the ones under it list where (être: "the passive voice", "all reflexive verbs").
       if (pos === "verb" && auxiliaryUse(sense)) {
@@ -829,7 +899,7 @@ function usableSenses(
         const gloss = (
           typeof first === "string" ? first : glossOf(sense)
         ).trim();
-        return [{ def: [AUXILIARY_LABEL, gloss], sense }];
+        return [{ def: [AUXILIARY_LABEL, gloss, ...use], sense }];
       }
       const gloss = glossOf(sense).trim();
       if (pronominal && (sense.tags ?? []).includes("reflexive"))
@@ -838,6 +908,7 @@ function usableSenses(
             def: [
               dativeReflexive(sense) ? DATIVE_REFLEXIVE_LABEL : REFLEXIVE_LABEL,
               gloss,
+              ...use,
             ],
             sense,
           },
@@ -860,7 +931,7 @@ function usableSenses(
           : [];
       if (parent !== undefined) parents.add(parent);
       if (parent !== undefined && GROUP_HEADING.test(gloss)) return before;
-      return [...before, { def: [pos, translated(gloss)], sense }];
+      return [...before, { def: [pos, translated(gloss), ...use], sense }];
     }
     const last: unknown = sense.glosses?.at(-1);
     const gloss = typeof last === "string" ? last.trim() : "";
@@ -998,7 +1069,7 @@ function definition(senses: Sense[]): DefsPack[string] {
   const once = onceEach(senses);
   const kept = [
     ...once.slice(0, MAX_SENSES),
-    ...once.slice(MAX_SENSES).filter(([pos]) => VERB_USES.has(pos)),
+    ...once.slice(MAX_SENSES).filter(verbUse),
   ];
   return [shortOfDefinition(kept[0]![1]), kept];
 }
@@ -1205,10 +1276,19 @@ export async function buildLearningPacks(
     // A capitalised word of a language that capitalises nouns is spelt as one.
     const spelt = word === lower || capital;
     const bucket = bucketOf(spelt ? exact : folded, lower);
-    for (const { def, alt } of items)
+    for (const { def, alt, sense } of items)
       bucket.items.push({
         def,
-        ...(alt && { alt }),
+        ...(alt && {
+          alt: {
+            ...alt,
+            ...((sense.tags ?? []).some((tag) =>
+              IGNORED_FORM_TAGS.has(tag),
+            ) && {
+              ignored: true as const,
+            }),
+          },
+        }),
         ...(capital && { capital: true as const }),
       });
     bucket.ipa ??= firstPhonemicIpa(entry);
@@ -1385,8 +1465,12 @@ export async function buildLearningPacks(
   // speech keeps its first sense (`keptSenses`).
   for (const [word, bucket] of [...exact, ...folded]) {
     const form = exact.get(word)?.form ?? false;
+    // Not a nonstandard spelling's ("né": nonstandard ne, a form of naître; "fous":
+    // nonstandard vous, the plural of fou), which the word stands for only in writing
+    // that is no model.
     const items = bucket.items.filter(
-      ({ alt }) => !(alt && form) || likelierAlt(word, alt.target),
+      ({ alt }) =>
+        !(alt && form) || (likelierAlt(word, alt.target) && !alt.ignored),
     );
     // A rescued alt-of sense of a part of speech the word has no other sense of comes
     // last: "los" is "rid of", "going on" before lose's "loose".
@@ -1435,7 +1519,7 @@ export async function buildLearningPacks(
     bucket.senses.push(
       ...kept,
       ...[...first, ...second].filter(
-        ([pos, text]) => VERB_USES.has(pos) && !shown.has(`${pos}\n${text}`),
+        (sense) => verbUse(sense) && !shown.has(`${sense[0]}\n${sense[1]}`),
       ),
     );
     if (!form) bucket.bases.push(...bucket.altBases);

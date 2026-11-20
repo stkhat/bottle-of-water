@@ -88,6 +88,43 @@ const REFLEXIVE_SENSES: Readonly<Record<string, readonly string[]>> = {
   [PRONOMINAL_ACCUSATIVE]: [REFLEXIVE],
 };
 
+/**
+ * What joins a verb's part of speech and the word that introduces the infinitive after
+ * it (`constructionPos`).
+ */
+const CONSTRUCTION = " +";
+
+/**
+ * The part of speech of a verb read before an infinitive that `word` introduces
+ * ("tengo que irme": que; "acabo de llegar": de; "suele venir": "", none), the verb
+ * otherwise read as `pos` (a verb, or a pronominal one): the senses its source says
+ * with that word come first (`Sense.construction`: tener "to have to", acabar "to have
+ * just"); with none, it is read as `pos`, but before a bare infinitive a verb whose
+ * source leads with an auxiliary's sense keeps it first (soler "to be accustomed to
+ * doing something", which the tag reads as a verb; not dejar's "to leave (to cause)").
+ */
+export const constructionPos = (pos: string, word: string) =>
+  `${pos}${CONSTRUCTION}${word}`;
+
+/** The labels of a pronominal verb's senses (`REFLEXIVE`, `DATIVE_REFLEXIVE`). */
+const REFLEXIVE_LABELS: ReadonlySet<string> = new Set([
+  REFLEXIVE,
+  DATIVE_REFLEXIVE,
+]);
+
+/** A sense's items: its text's parts between commas and semicolons, in lower case. */
+const itemsOf = (sense: Sense) =>
+  sense.text
+    .split(/[,;]/u)
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item !== "");
+
+/** `sense` gives every item of `other` (`itemsOf`). */
+const saysAll = (sense: Sense, other: Sense) => {
+  const items = new Set(itemsOf(sense));
+  return itemsOf(other).every((item) => items.has(item));
+};
+
 /** A word used as an auxiliary, with or without an entry of its own. */
 export const isAuxiliary = (pos: string | undefined) =>
   pos === AUXILIARY || pos === AUXILIARY_BASE;
@@ -169,13 +206,51 @@ export const lacksSenseOf = (senses: readonly Sense[], pos: string) =>
  * with none, a lead of another open class gives way to the verb's senses. For a
  * pronominal verb (PRONOMINAL), its REFLEXIVE and DATIVE_REFLEXIVE senses, only those
  * of its pronoun's case where that shows (PRONOMINAL_DATIVE, PRONOMINAL_ACCUSATIVE),
- * else the verb's.
+ * else the verb's. For a verb before an infinitive (`constructionPos`), the senses said
+ * with the word that introduces it.
  */
 export function senseOrder(
   senses: readonly Sense[],
   pos: string,
   usable: (index: number) => boolean = () => true,
 ): number[] | undefined {
+  const plus = pos.indexOf(CONSTRUCTION);
+  if (plus >= 0) {
+    const word = pos.slice(plus + CONSTRUCTION.length);
+    const verb = pos.slice(0, plus);
+    const lead = senses.findIndex((_, i) => usable(i));
+    // A pronominal verb's sense only where the verb reads as pronominal.
+    const fits = (sense: Sense) =>
+      sense.construction?.includes(word) === true &&
+      (!REFLEXIVE_LABELS.has(sense.pos ?? "") ||
+        Object.hasOwn(REFLEXIVE_SENSES, verb));
+    const front = senses
+      .map((_, k) => k)
+      .filter((k) => usable(k) && fits(senses[k]!));
+    // A lead that gives every item of the first such sense already says it
+    // (empezar: "to start, begin, to get started" before "to start").
+    if (
+      front.length > 0 &&
+      lead >= 0 &&
+      saysAll(senses[lead]!, senses[front[0]!]!)
+    )
+      return undefined;
+    // Before a bare infinitive, a verb its source leads with an auxiliary's sense is
+    // the auxiliary it is, though the tag reads a verb (soler: "suele venir").
+    if (
+      front.length === 0 &&
+      word === "" &&
+      lead >= 0 &&
+      auxiliarySense(senses[lead]!)
+    )
+      return undefined;
+    if (front.length === 0) return senseOrder(senses, verb, usable);
+    if (front[0] === lead) return undefined;
+    return [
+      ...front,
+      ...senses.map((_, k) => k).filter((k) => !front.includes(k)),
+    ];
+  }
   if (Object.hasOwn(PRONOUN_NUMBER, pos)) {
     const number = PRONOUN_NUMBER[pos]!;
     const lead = senses.findIndex((_, i) => usable(i));

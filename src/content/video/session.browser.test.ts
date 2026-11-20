@@ -1018,8 +1018,8 @@ describe("words in the subtitles", () => {
     ).not.toContain("mark");
 
     app.enterWord(refOf(state, 1, "japan"), BOX);
-    await expect.poll(() => state().hover?.card.head).toBe("japan");
-    expect(state().hover?.card.lines).toEqual(["日本", "黒い漆"]);
+    await expect.poll(() => state().hover?.card.head).toBe("Japan");
+    expect(state().hover?.card.lines).toEqual(["日本"]);
   });
 
   it("shows the card of a word known by its frequency, as known but not saved", async () => {

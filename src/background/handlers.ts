@@ -10,6 +10,7 @@ import {
   shortDefinitionText,
 } from "../core/lexicon/definitions";
 import { expansionLine, expansionsHere } from "../core/lexicon/contractions";
+import { writesPhrase } from "../core/lexicon/expansions";
 import { withoutFinalStop } from "../core/lexicon/short-lines";
 import type {
   DictionaryEntry,
@@ -117,7 +118,12 @@ type Handlers = {
   ) => Promise<ResponseOf<T>>;
 };
 
-const WRITTEN: ReadonlySet<unknown> = new Set(["lower", "capital", "upper"]);
+const WRITTEN: ReadonlySet<unknown> = new Set([
+  "lower",
+  "capital",
+  "upper",
+  "run",
+]);
 
 /** Private (incognito) windows leave nothing behind: no history, no encounters. */
 const fromIncognito = (sender: MessageSender) => sender.tab?.incognito === true;
@@ -439,6 +445,7 @@ export function createHandlers({
       pos,
       clitic,
       surface,
+      document,
     }) {
       const { nativeLang } = await settings.get();
       const id = termId(lang, key);
@@ -477,6 +484,9 @@ export function createHandlers({
         WRITTEN.has(written) ? written : undefined,
         typeof pos === "string" ? pos : undefined,
         typeof clitic === "string" ? clitic : undefined,
+        typeof document === "string"
+          ? (phrase) => writesPhrase(document, phrase)
+          : undefined,
       );
       const ipa = pack.ipa(key);
       // A contraction keyed by another word ("it's" by "it"): what it is short for.

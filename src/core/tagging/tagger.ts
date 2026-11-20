@@ -109,6 +109,13 @@ export interface WordUse {
    */
   pronominal?: true;
   /**
+   * A verb followed by an infinitive: the word that introduces it ("tengo que irme":
+   * "que"; "acabo de llegar": "de"; "essayer de comprendre": "de"), "" for none ("suele
+   * venir"). Rule A2 shows the senses its source says with that word first
+   * (`constructionPos`).
+   */
+  construction?: string;
+  /**
    * The case of the pronominal verb's reflexive pronoun, where its form shows it
    * (German "mir", "dir": dative; "mich", "dich": accusative; not "sich", "uns",
    * "euch"): rule A2 shows the senses the source gives that case first ("ich stelle
