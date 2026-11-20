@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"$","last":"forepaw"},{"file":"dict-2.json","first":"foreplay","last":"priapism"},{"file":"dict-3.json","first":"price","last":"ö"}],
-"sources":["frwiktionary","enwiktionary-translations"]
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"$","last":"foreman"},{"file":"dict-2.json","first":"foremast","last":"pretentious"},{"file":"dict-3.json","first":"pretentiously","last":"ö"}],
+"sources":["frwiktionary","enwiktionary-translations","wikidata"]
 }

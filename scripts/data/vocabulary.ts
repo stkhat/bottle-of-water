@@ -47,7 +47,7 @@ export const ENGLISH_PERSON = new RegExp(
   `${GIVEN_NAME.source}|${SURNAME.source}|\\bgiven names\\b|\\bsurnames\\b`,
 );
 
-const ENGLISH_WORDS: WordLanguage = {
+export const ENGLISH_WORDS: WordLanguage = {
   word: /^(?:(?=\p{Ll})\p{Script=Latin})(?:(?=\p{Ll})\p{Script=Latin}|')*$/u,
   capitalWord: /^(?=.*\p{Lu})\p{Script=Latin}+(?:'\p{Script=Latin}+)*$/u,
   name: "name",

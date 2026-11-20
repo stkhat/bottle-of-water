@@ -25,6 +25,7 @@ import {
   readDictPacks,
   stringifyPack,
   SURNAME,
+  WIKIDATA_WORDS_PATH,
   WIKTIONARY_WORDS_PATH,
   writePack,
   type KaikkiEntry,
@@ -32,6 +33,7 @@ import {
 import { dottedCapitals, readEjdictText, vocabularyOf } from "./ejdict.ts";
 import { PACKS } from "./formats.ts";
 import { createVocabularyRule, type VocabularyRule } from "./vocabulary.ts";
+import { entityWords, readEntities } from "./wikidata.ts";
 
 const INFLECTION_TAGS = new Set([
   "plural",
@@ -397,12 +399,23 @@ async function main() {
     await importKaikki(path, vocabularyOf(dict), dict, createVocabularyRule());
   const vocab = [...vocabularyOf(dict), ...added].sort(byCodeUnit);
   writePack("en/vocab.json", vocab);
-  // Capital-only words, and the vocabulary's abbreviations whose case matters.
+  // Capital-only words, Wikidata's entities (`wikidata.ts`, run first), and the
+  // vocabulary's abbreviations whose case matters.
   const known = new Set(vocab);
+  const capitalKeys = new Set(capitals.map((written) => written.toLowerCase()));
+  const entities = readEntities();
+  const entityList = entityWords(entities, {
+    known: (key) =>
+      known.has(key) || Object.hasOwn(lemmas, key) || capitalKeys.has(key),
+    names,
+  });
+  for (const written of entityList)
+    examples[written.toLowerCase()] = entities[written]!.examples;
   writePack(
     "en/capitals.json",
     [
       ...capitals,
+      ...entityList,
       ...dottedCapitals(readEjdictText()).filter((headword) =>
         known.has(headword.toLowerCase()),
       ),
@@ -413,11 +426,12 @@ async function main() {
   writePack("en/pos.json", pos);
   writePack("en/names.json", names);
   writePack(basename(WIKTIONARY_WORDS_PATH), added, GATE_DIR);
+  writePack(basename(WIKIDATA_WORDS_PATH), entityList, GATE_DIR);
   writeFileSync(EXAMPLE_COUNTS_PATH, stringifyPack(examples));
   console.log(
     `kaikki: ${stats.entries} entries (${stats.unparsable} unparsable); ` +
       `en/vocab.json: ${vocab.length} words (${added.length} from Wiktionary, rule E); ` +
-      `${capitals.length} capital-only words; ` +
+      `${capitals.length} capital-only words and ${entityList.length} entities; ` +
       `${Object.keys(lemmas).length} lemma forms, ${Object.keys(ipa).length} IPA, ` +
       `${Object.keys(pos).length} words with parts of speech, ` +
       `${Object.keys(names).length} names`,

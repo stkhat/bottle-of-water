@@ -207,6 +207,42 @@ describe("buildEnDefs: capital-only words", () => {
     ]);
     expect(defs).not.toHaveProperty("vito");
   });
+  it("defines a word that joined from Wikidata by its item first, then the entries written so", async () => {
+    const entity = (description: string) => ({
+      id: "Q1",
+      sitelinks: 50,
+      examples: 9,
+      label: { en: "x" },
+      description: { en: description },
+    });
+    const { defs } = await buildEnDefs(
+      join(import.meta.dirname, "fixtures", "kaikki-vocabulary.jsonl"),
+      {
+        vocab: ["story", "the"],
+        lemmas: {},
+        phrases: { detect: [], more: [], gap: [] },
+        capitals: ["Nvidia", "Tokyo"],
+        entities: {
+          Nvidia: {
+            ...entity("American technology company"),
+            label: { en: "Nvidia" },
+          },
+          Tokyo: { ...entity("capital of Japan"), label: { en: "Tokyo" } },
+        },
+      },
+    );
+    expect(defs.nvidia).toEqual([
+      "American technology company",
+      [["proper noun", "American technology company."]],
+    ]);
+    expect(defs.tokyo).toEqual([
+      "Capital of Japan",
+      [
+        ["proper noun", "Capital of Japan."],
+        ["proper noun", "The capital city of Japan."],
+      ],
+    ]);
+  });
 });
 
 describe("buildEnDefs: abbreviations", () => {

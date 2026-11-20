@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'ll","last":"ewer"},{"file":"dict-2.json","first":"ex","last":"nuptials"},{"file":"dict-3.json","first":"nurse","last":"together with"},{"file":"dict-4.json","first":"togetherness","last":"épée"}],
-"sources":["plwiktionary","enwiktionary-translations","omw-pl"]
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'ll","last":"evolution"},{"file":"dict-2.json","first":"evolutionarily","last":"numberless"},{"file":"dict-3.json","first":"numbness","last":"to the max"},{"file":"dict-4.json","first":"to the point","last":"épée"}],
+"sources":["plwiktionary","enwiktionary-translations","omw-pl","wikidata"]
 }

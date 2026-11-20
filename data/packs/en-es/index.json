@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A-bomb","last":"Zurich"},{"file":"dict-1.json","first":"'em","last":"heartbreaker"},{"file":"dict-2.json","first":"heartbreaking","last":"soldering iron"},{"file":"dict-3.json","first":"soldier","last":"éclair"}],
-"sources":["eswiktionary","enwiktionary-translations"]
+"shards":[{"file":"capital.json","first":"A-bomb","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"heart neckline"},{"file":"dict-2.json","first":"heart of gold","last":"solar calendar"},{"file":"dict-3.json","first":"solar cell","last":"éclair"}],
+"sources":["eswiktionary","enwiktionary-translations","wikidata"]
 }

@@ -43,6 +43,12 @@ import {
   type TermKey,
 } from "./recipe.ts";
 import { RECIPES, TABLES_TAG, type Recipe } from "./recipes.ts";
+import {
+  entityNative,
+  joinedEntities,
+  WIKIDATA_TAG,
+  type Entities,
+} from "../wikidata.ts";
 
 /** The English wordnet, which links the pack's terms to the other wordnets' synsets. */
 const ENGLISH_WORDNET = "omw-en";
@@ -64,6 +70,7 @@ export async function buildPairDictionary(
     lemmas = {},
     contractions = {},
     pos = {},
+    entities = {},
   }: {
     termKey: TermKey;
     rawDir?: string;
@@ -76,6 +83,8 @@ export async function buildPairDictionary(
     /** English base forms and parts of speech (en/lemmas.json, en/pos.json), to read degrees. */
     lemmas?: LemmaPack;
     pos?: PosPack;
+    /** The words that joined from Wikidata, with their entities (`joinedEntities`). */
+    entities?: Entities;
   },
 ) {
   if (!recipe) throw new Error(`No recipe for en-${native}`);
@@ -188,6 +197,30 @@ export async function buildPairDictionary(
           ),
         )
       : 0;
+  // The words that joined from Wikidata mean their items (Nvidia: empresa
+  // multinacional estadounidense de tecnología), not an entry so written (BTS), each
+  // sense hinted by what it is in English, as a table's; a source of their own, last.
+  // With none in the language, their English definition (en-defs) shows instead.
+  const entitySource = merged.sources.length;
+  let fromEntities = 0;
+  for (const [written, entity] of Object.entries(entities)) {
+    const lower = written.toLowerCase();
+    if (termKey.capitalOnly?.(lower) !== true) continue;
+    const acronym = /\p{Lu}.*\p{Lu}/u.test(written) && !/\p{Ll}/u.test(written);
+    const key = capitalKey(lower, acronym);
+    Reflect.deleteProperty(capital, key);
+    const read = entityNative(written, entity, native);
+    const senses = read.map(([text, hint]): PairSense => [
+      "proper noun",
+      toSimplified ? toSimplified(text) : text,
+      hint,
+    ]);
+    if (senses.length === 0) continue;
+    // A label is the thing's name there; a description alone says what it is.
+    const meaning = read[0]![2] === "label" ? "name" : "word";
+    capital[key] = [senses[0]![1], senses, entitySource, meaning];
+    fromEntities++;
+  }
   const capitalCased =
     editionTerms && editionSource >= 0
       ? inCapitalCase(capital, editionSource, editionTerms.capitalCase) +
@@ -195,9 +228,13 @@ export async function buildPairDictionary(
       : 0;
   return {
     ...merged,
+    sources:
+      fromEntities > 0 ? [...merged.sources, WIKIDATA_TAG] : merged.sources,
     dict,
     capital,
     stats: {
+      /** Capital-only words given Wikidata's meanings. */
+      fromEntities,
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
       terms: Object.keys(dict).length,
@@ -318,10 +355,11 @@ async function main() {
   );
   const lemmas = readPack<LemmaPack>("en/lemmas.json");
   const pos = readPack<PosPack>("en/pos.json");
+  const entities = joinedEntities();
   for (const native of natives) {
     const { dict, capital, sources, counts, stats } = await buildPairDictionary(
       native,
-      { termKey, names, lemmas, pos, contractions },
+      { termKey, names, lemmas, pos, contractions, entities },
     );
     const index = writeShards(
       `en-${native}`,
@@ -337,7 +375,7 @@ async function main() {
           .map(([tag, n]) => `${n} ${tag}`)
           .join(", ") +
         `) in ${index.shards.length} shards; ${stats.pointers} pointer senses read in ${stats.templates} templates; ` +
-        `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out); ${stats.unparsable} unparsable lines`,
+        `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out), ${stats.fromEntities} more from Wikidata; ${stats.unparsable} unparsable lines`,
     );
     console.log(
       `  ${stats.cased} edition glosses put in the edition's case (glosses open with capitals: ${stats.sentenceCase}); ${stats.foreign} glosses and table words left out with no letter of the native script; ` +

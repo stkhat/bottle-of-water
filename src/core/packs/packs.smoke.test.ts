@@ -478,10 +478,11 @@ describe("generated en-es dictionary", () => {
   });
   const index = read("packs/en-es/index.json") as ShardIndex;
 
-  it("names its sources, the Spanish Wiktionary first", () => {
+  it("names its sources, the Spanish Wiktionary first, Wikidata's entities last", () => {
     expect(index.sources).toEqual([
       "eswiktionary",
       "enwiktionary-translations",
+      "wikidata",
     ]);
   });
 
@@ -523,17 +524,17 @@ describe("generated en-es dictionary", () => {
 describe.each([
   {
     pack: "en-ru",
-    sources: ["enwiktionary-translations", "ruwiktionary"],
+    sources: ["enwiktionary-translations", "ruwiktionary", "wikidata"],
     bread: "хлеб",
   },
   {
     pack: "en-fr",
-    sources: ["frwiktionary", "enwiktionary-translations"],
+    sources: ["frwiktionary", "enwiktionary-translations", "wikidata"],
     bread: "pain",
   },
   {
     pack: "en-de",
-    sources: ["enwiktionary-translations", "dewiktionary"],
+    sources: ["enwiktionary-translations", "dewiktionary", "wikidata"],
     bread: "Brot",
   },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
@@ -554,9 +555,9 @@ describe.each([
       expect(dictionary.entry(word), word).not.toHaveProperty("glossLang");
   });
 
-  it("takes terms from both sources and keeps every hover line within the cap", async () => {
+  it("takes terms from every source and keeps every hover line within the cap", async () => {
     const { dict, dictionary } = await load;
-    const bySource = [0, 0];
+    const bySource = sources.map(() => 0);
     for (const [, , source] of Object.values(dict)) bySource[source]!++;
     expect(bySource.every((n) => n > 1000)).toBe(true);
     for (const word of ["light", "go", "time", "people", "think"])
@@ -588,17 +589,33 @@ describe.each([
 describe.each([
   {
     pack: "en-zh",
-    sources: ["enwiktionary-translations", "zhwiktionary", "omw-cmn"],
+    sources: [
+      "enwiktionary-translations",
+      "zhwiktionary",
+      "omw-cmn",
+      "wikidata",
+    ],
     bread: "面包",
   },
   {
     pack: "en-it",
-    sources: ["enwiktionary-translations", "itwiktionary", "omw-it", "omw-iwn"],
+    sources: [
+      "enwiktionary-translations",
+      "itwiktionary",
+      "omw-it",
+      "omw-iwn",
+      "wikidata",
+    ],
     bread: "pane",
   },
   {
     pack: "en-pl",
-    sources: ["plwiktionary", "enwiktionary-translations", "omw-pl"],
+    sources: [
+      "plwiktionary",
+      "enwiktionary-translations",
+      "omw-pl",
+      "wikidata",
+    ],
     bread: "chleb",
   },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {

@@ -314,6 +314,10 @@ describe("recipePack", () => {
         "Princeton WordNet 3.0",
         "the English synsets that link the terms to the other wordnets, their definitions as sense hints",
       ],
+      [
+        "Wikidata",
+        "Italian labels and descriptions of the capital-only words that name one notable thing (Nvidia, Shinkansen)",
+      ],
     ]);
   });
   it("lists an edition after the tables where the recipe puts it, saying what it fills", () => {
@@ -325,6 +329,10 @@ describe("recipePack", () => {
       [
         "German Wiktionary, English entries",
         "German definitions of the terms the translation tables lack",
+      ],
+      [
+        "Wikidata",
+        "German labels and descriptions of the capital-only words that name one notable thing (Nvidia, Shinkansen)",
       ],
     ]);
   });

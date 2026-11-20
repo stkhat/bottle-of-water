@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"'s","last":"filial piety"},{"file":"dict-2.json","first":"filibuster","last":"polycyclic"},{"file":"dict-3.json","first":"polycyclic aromatic hydrocarbon","last":"ē"}],
-"sources":["enwiktionary-translations","zhwiktionary","omw-cmn"]
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'s","last":"file association"},{"file":"dict-2.json","first":"file cabinet","last":"polity"},{"file":"dict-3.json","first":"polka","last":"ē"}],
+"sources":["enwiktionary-translations","zhwiktionary","omw-cmn","wikidata"]
 }
