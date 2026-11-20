@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Zurich"},{"file":"dict-1.json","first":"'s","last":"ladyship"},{"file":"dict-2.json","first":"lager","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"Æsir"},{"file":"dict-1.json","first":"'s","last":"labor market"},{"file":"dict-2.json","first":"laboratory","last":"élan"}],
 "sources":["ptwiktionary","enwiktionary-translations"]
 }

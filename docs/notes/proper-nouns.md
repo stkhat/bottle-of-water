@@ -163,12 +163,25 @@ Results: 198 name spans over the corpus (YouTube 47, Netflix 60, articles 91; 1.
 
 Costs: `en/phrases.json` 443 → 461 KB gzipped (its budget raised 450 → 470 KB); `en` 6.88 → 6.94 MB, `en-ja` 8.00 → 8.01 MB raw (the names' Japanese from the tables, 7,558 → 7,621 phrase meanings), `en-defs` 22.61 → 22.70 MB (the new patterns' definitions); building the matcher 37 → 46–51 ms in Node. Europa League and Tokyo Station have no Wiktionary entry, so Europa (エウロパ) and Tokyo are still read alone there.
 
+## Recipe pairs (2026-11-20)
+
+The eight recipe pairs kept a capitalised headword only when its lower-case form was a vocabulary word (`capitalTermOf`), so the capital-only words had none: they showed the English definition, translated at display time, and rule D took their places for names. Now a capital-only word's capitalised headword is kept, never a lower-case one, and a name's words may be capital-only words. `df3-base-<pair>` (data fixes 2) → `df3-v2-<pair>`.
+
+| Idea | Result | Decision |
+|---|---|---|
+| The capital-only words as capitalised headwords | Tokyo → Tokio, AI → IA, ATM → cajero automático, Kurdish → kurdo, Kyoto → Kioto (was a name), but Instagram → "Instagram", Sony, YouTube, MacBook: the gloss writes the name again | Refined |
+| + a headword that means nothing (its gloss is the word itself) is left out for a capital-only word, which has its English definition | Instagram, Sony keep "An online photo- and video-sharing…" | Recommended |
+
+en-es over the corpus: 168 tokens change; hovers translated at display time 2,749 → 2,603, names 1,372 → 1,348 (places with a native meaning), New 84.8 → 85.0; en-de 3,304 → 3,165, names 1,381 → 1,369. Judged blind (`packets/rc1`, en-es, 35 changed hovers, one judge): good 15 → 23, acceptable 18 → 10, wrong 2 → 2; preferred after : before 27 : 7. Worse: RPG → "sigla de Rocket-Propelled Grenade" (the edition's first sense), Brunswick → Brunsvigo for a bowling alley, Ebola's river first (the edition's order, not `rankCapitalSenses`).
+
+`de` and `de-en` rebuilt with the vocabulary of E1: the German edition's keys that are now English words leave (`englishWord`: 20 words, brontosaurus, mascarpone, dioxin, webmaster; de-en 58 → 38 lines changed).
+
 ## Still open
 
 - A capital-only word inside a longer name with no Wiktionary entry (Europa League, Tokyo Station) is still read alone ("Multi-word names"); a name's first sense can be another use (Your Honor, Twelfth Night).
 - Words without a translation table (NYPD, ChatGPT, Grammys, AGI: about 50 tokens) and without a Wiktionary entry (Nvidia, AirPods, Binance: 598 tokens) stay without a hover.
 - Capital-only words in documents in capitals (ALL-CAPS captions) and in caseless speech recognition stay unknown: their case says nothing.
-- The recipe pairs (es, pt, ru, fr, de, zh, it, pl): their `capital.json` is not rebuilt, so they show the English definitions translated at display time, and rule D takes their places for names (no native meaning). Rebuilding them with the capital-only words gives native meanings (Tokyo → Tokio) and 8 more pack versions.
+- The recipe pairs (es, pt, ru, fr, de, zh, it, pl): rebuilt with the capital-only words on 2026-11-20 ("Recipe pairs" below).
 - Plain words below rule E's threshold: handled by "Rare words" above (102 tokens); paracetamol, perfectionistic and other words without a translation table stay without a hover.
 
 ## Measuring
