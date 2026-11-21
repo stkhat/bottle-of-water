@@ -187,3 +187,19 @@ describe("readWordnetMeanings", () => {
     expect(terms.has("upset")).toBe(false);
   });
 });
+
+describe("readWordnetMeanings: parts of speech (id-2)", () => {
+  it("leaves out a synset whose part of speech the English word does not have", () => {
+    const terms = readWordnetMeanings({
+      english,
+      native: italian,
+      termKey,
+      fits: (_key, pos) => pos !== "verb",
+    });
+    expect(terms.get("bank")?.senses.map(([pos]) => pos)).toEqual([
+      "noun",
+      "noun",
+    ]);
+    expect(terms.has("give up")).toBe(false);
+  });
+});

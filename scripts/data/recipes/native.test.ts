@@ -7,11 +7,18 @@ import { devanagariSpelling } from "../../../src/core/natives.ts";
 import {
   alternativeSpelling,
   buildPairDictionary,
+  byFrequency,
   spellingsOf,
+  withInflections,
   withPointerPos,
 } from "./native.ts";
 import { TABLES_TAG } from "./recipes.ts";
-import { lesserLowercase, tableCoverage, termKeyOf } from "./recipe.ts";
+import {
+  lesserLowercase,
+  tableCoverage,
+  termKeyOf,
+  type PairSense,
+} from "./recipe.ts";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const termKey = termKeyOf({
@@ -320,5 +327,81 @@ describe("alternativeSpelling (ar-2)", () => {
     );
     expect(shown("إنكليزي, موسيقا")).toBe("إنجليزي, موسيقى");
     expect(shown("إنجليزي")).toBe("إنجليزي");
+  });
+});
+
+describe("byFrequency (id-2)", () => {
+  const ranks: Record<string, number> = {
+    si: 305,
+    sang: 603,
+    itu: 6,
+    sebuah: 118,
+    seorang: 84,
+  };
+  const ordered = byFrequency((word) => ranks[word] ?? Infinity);
+  it("puts a line's words in order of frequency, a step of four ranks apart", () => {
+    expect(ordered("si, sang, itu")).toBe("itu, si, sang");
+    // 118 and 84 are in the same step: the order stays.
+    expect(ordered("sebuah, seorang")).toBe("sebuah, seorang");
+    // A word the list lacks goes last.
+    expect(ordered("refleksi, itu")).toBe("itu, refleksi");
+  });
+  it("leaves a line with a phrase as it is", () => {
+    expect(ordered("tidak pernah, itu")).toBe("tidak pernah, itu");
+  });
+});
+
+describe("withInflections (id-2)", () => {
+  it("gives an inflection with no entry its base's sense of the same part of speech", () => {
+    const dict: Record<string, [string, PairSense[], number]> = {
+      this: [
+        "ini",
+        [
+          ["adverb", "begini"],
+          ["determiner", "ini"],
+        ],
+        0,
+      ],
+      that: ["itu", [["determiner", "itu"]], 0],
+      hade: ["x", [["noun", "x"]], 0],
+    };
+    const formOf = new Map([
+      ["these", { target: "this", pos: "determiner", gloss: "plural of this" }],
+      ["those", { target: "that", pos: "pronoun", gloss: "plural of that" }],
+      // Lemmatised, capitalised in English, or with no base: left alone.
+      ["went", { target: "that", pos: "verb", gloss: "past of go" }],
+      ["hades", { target: "hade", pos: "noun", gloss: "plural of hade" }],
+      ["oxen", { target: "ox", pos: "noun", gloss: "plural of ox" }],
+    ]);
+    const added = withInflections(dict, formOf, {
+      lemmatised: (key) => key === "went",
+      capitalised: (key) => key === "hades",
+    });
+    expect(added).toBe(2);
+    expect(dict.these).toEqual([
+      "ini",
+      [["determiner", "ini", "plural of this"]],
+      0,
+    ]);
+    // No sense of the same part of speech: the first.
+    expect(dict.those).toEqual([
+      "itu",
+      [["determiner", "itu", "plural of that"]],
+      0,
+    ]);
+    expect(dict.went).toBeUndefined();
+    expect(dict.hades).toBeUndefined();
+  });
+});
+
+describe("byFrequency: spellings of one word (id-2)", () => {
+  it("moves the spellings of one word as one, in the source's order", () => {
+    const ranks: Record<string, number> = { अंग्रेजी: 900, अंग्रेज़ी: 20000 };
+    const ordered = byFrequency(
+      (word) => ranks[word] ?? Infinity,
+      (word) => word.replace("़", ""),
+    );
+    expect(ordered("अंग्रेज़ी, अंग्रेजी")).toBe("अंग्रेज़ी, अंग्रेजी");
+    expect(ordered("x, अंग्रेज़ी, अंग्रेजी")).toBe("अंग्रेज़ी, अंग्रेजी, x");
   });
 });

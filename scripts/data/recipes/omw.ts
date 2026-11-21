@@ -261,16 +261,22 @@ export function readWordnetMeanings({
   english,
   native,
   termKey,
+  fits = () => true,
 }: {
   english: Wordnet;
   native: Wordnet;
   termKey: TermKey;
+  /** Whether a synset's part of speech is one the English word has (`fitsEnglishPos`). */
+  fits?: (key: string, pos: string) => boolean;
 }) {
   const lemmas = synsetLemmas(native);
   const terms = new Map<string, SourceTerm>();
   for (const [key, senses] of englishSenses(english, termKey)) {
     const item: SourceTerm = { short: "", senses: [] };
     for (const { synset, pos, rank } of senses) {
+      // A synset of a part of speech the word is not used as is another word's sense
+      // (yeah's only synset is the adverb yea, "not only so, but": id tapi).
+      if (!fits(key, pos)) continue;
       const synsetKeyOf = synsetKey(synset);
       const words = synsetKeyOf ? lemmas.get(synsetKeyOf) : undefined;
       // The main senses come first: none with lemmas leaves the term out.

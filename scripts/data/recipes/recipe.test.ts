@@ -24,6 +24,7 @@ import {
   packedEntry,
   pointerTemplates,
   readEdition,
+  inflectionOf,
   readTranslationTables,
   rowWords,
   termKeyOf,
@@ -1574,5 +1575,32 @@ describe("capitalDictionary", () => {
       ["proper noun", "anglais, langue anglaise"],
       ["adjective", "relatif à l'Angleterre"],
     ]);
+  });
+});
+
+describe("inflectionOf (id-2)", () => {
+  const form = (word: string, gloss: string) => ({
+    glosses: [gloss],
+    tags: ["form-of", "plural"],
+    form_of: [{ word }],
+  });
+  it("gives the term every sense is an inflection of", () => {
+    expect(
+      inflectionOf([form("this", "plural of this")], "determiner"),
+    ).toEqual({ target: "this", pos: "determiner", gloss: "plural of this" });
+  });
+  it("gives nothing for a sense of its own or two targets", () => {
+    expect(
+      inflectionOf(
+        [form("this", "plural of this"), { glosses: ["a thing"] }],
+        "noun",
+      ),
+    ).toBeUndefined();
+    expect(
+      inflectionOf(
+        [form("axe", "plural of axe"), form("axis", "plural of axis")],
+        "noun",
+      ),
+    ).toBeUndefined();
   });
 });

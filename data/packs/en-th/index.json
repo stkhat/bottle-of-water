@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"emotion"},{"file":"dict-2.json","first":"emotional","last":"nosebag"},{"file":"dict-3.json","first":"nosebleed","last":"trample"},{"file":"dict-4.json","first":"trampoline","last":"zzz"}],
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"empathize"},{"file":"dict-2.json","first":"empathy","last":"noted"},{"file":"dict-3.json","first":"notepad","last":"transferable"},{"file":"dict-4.json","first":"transferase","last":"zzz"}],
 "sources":["enwiktionary-translations","thwiktionary","omw-th","thwiktionary-translations","enwiktionary-th","wikidata"]
 }

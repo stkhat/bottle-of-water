@@ -494,3 +494,34 @@ describe("readReverseGlosses: alternative spellings (ar-2)", () => {
     expect([...alternatives]).toEqual([["إنكليزي", "إِنْجْلِيزِيّ"]]);
   });
 });
+
+describe("readReverseGlosses: prose items (id-2)", () => {
+  it("drops the items of a part that has a long item naming no term", async () => {
+    const path = file([
+      // "if you know, you know" is prose; the part's other items go with it.
+      {
+        word: "หมาหมา",
+        lang_code: "th",
+        pos: "noun",
+        senses: [{ glosses: ["if a dog runs, it is a dog; love"] }],
+      },
+      // Split at a colon too: the list after it stays.
+      {
+        word: "หมาป่า",
+        lang_code: "th",
+        pos: "noun",
+        senses: [
+          { glosses: ["a word for a big animal of the woods: dog, hound"] },
+        ],
+      },
+    ]);
+    const { terms } = await readReverseGlosses(path, {
+      native: "th",
+      termKey,
+      letter: THAI,
+      fits: fitsEnglishPos(pos),
+    });
+    expect(terms.get("dog")?.senses.map((s) => s[1])).toEqual(["หมาป่า"]);
+    expect(terms.get("love")?.senses.map((s) => s[1])).toEqual(["หมาหมา"]);
+  });
+});
