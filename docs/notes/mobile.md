@@ -6,7 +6,7 @@ Not part of any phase yet. A record of what was considered for bringing Langle t
 - **Build our own browser app.** YouTube and articles open as ordinary web pages, and the extension's scripts are injected into them.
   - A general-purpose browser (any site, URL bar), so articles work too and the app is not "a YouTube wrapper" in store review.
 - **Targets: YouTube (`m.youtube.com`) and web articles.** Netflix is out: DRM licenses go only to Netflix's own apps and supported browsers, and mobile browsers are sent to the app.
-- Ads are not blocked (YouTube's terms; out of scope for a learning tool).
+- **Ads are blocked, on articles and on YouTube** (the user's decision, 2026-11-22, replacing "ads are not blocked"). Articles keep the original page, with ads removed (no reader view). See "Ad blocking" below.
 
 ## Rejected
 | Option | Why not |
@@ -41,6 +41,19 @@ Setup: the Claude desktop app's built-in browser (Chromium, not automated, `navi
 - **System WebView**: no extension APIs; we write the same shim as on iOS, shared between platforms.
 - iOS has no choice: WebKit (`WKWebView`) is required outside the EU.
 
+## Ad blocking (not built; 2026-11-22)
+The app is the browser, so blocking runs in the app, outside any extension API and its limits (as Brave does; Brave on iOS also runs on WKWebView).
+- **Requests**: ad and tracker loads are stopped before they are sent, matched against filter lists in the uBlock Origin / EasyList syntax.
+  - iOS: `WKContentRuleList` (WebKit's compiled, declarative content-blocker rules; no per-request code). The lists must be converted to its JSON.
+  - Android System WebView: `shouldInterceptRequest` sees every subresource and can answer with an empty response (per-request matching).
+  - GeckoView: a bundled WebExtension's blocking `webRequest`.
+  - Candidate engine: Brave's adblock-rust (MPL-2.0): it matches requests and converts lists to WebKit's format. Unverified in our app.
+- **Elements**: what the requests miss is hidden with the lists' CSS rules (injected stylesheets, or the rules' `css-display-none` on iOS).
+- **Scriptlets**: small scripts injected at document start that defuse ad scripts (uBlock Origin's scriptlets). Needed for YouTube.
+- **YouTube**: its video ads come from the same hosts as the video, so blocking requests is not enough. The player response's ad fields (`adPlacements`, `playerAds`, `adSlots`) are removed before the player reads them. This touches the same data the caption capture reads (`getPlayerResponse`): both must keep working together.
+- **Filter lists** are data: fetched and updated at run time, credited (EasyList: GPLv3 or CC BY-SA 3.0; uBlock Origin's lists: GPLv3). Scriptlets are code: shipped in the app (App Store guideline 2.5.2 forbids downloading code), so a scriptlet fix waits for store review.
+- A per-site switch turns blocking off where it breaks a page.
+
 ## Open issues and risks
 1. **Google sign-in.** Google blocks sign-in from browsers embedded in other apps (OAuth `disallowed_useragent` since 2021-09-30; its help page says sign-in may be blocked in browsers "embedded inside another app"). Browsers built on the same engines (Brave / Firefox / DuckDuckGo on iOS, Firefox on Android) can sign in, so detection seems to rely on signals such as the user agent, not the engine. Android WebView's UA contains `; wv`. Unverified for our app and a policy gray area. Watching and captions work without sign-in; age-restricted and members-only videos need it.
 2. **PO token in the real engines** (see above).
@@ -58,6 +71,8 @@ Setup: the Claude desktop app's built-in browser (Chromium, not automated, `navi
    - Device coverage is narrow: Apple Intelligence devices with it turned on (about iPhone 15 Pro and later); on Android a set of recent high-end phones, with different Nano versions per device. The API-key fallback stays required.
    - Three different models (Nano in Chrome, Apple's, Nano on Android). The measurements in the design ("Phases") were made on Chrome only; JSON output and Japanese explanations must be checked per model.
 
+10. **YouTube ad blocking.** YouTube's terms forbid it, and YouTube fights it: warnings, playback stopped for detected blockers, and ads stitched into the video stream on the server (which pruning the player response cannot remove). Detection that stops playback would stop the learning features too. YouTube changes often, and scriptlet fixes wait for store review (above). Whether the stores accept YouTube ad blocking in our app is unverified (Brave's apps do it in both stores).
+
 ## Tooling needed for the prototype
 - **iOS: full Xcode** (Xcode.app; Command Line Tools have no iOS SDK or Simulator). Builds and Simulator can be driven from the command line (`xcodebuild`, `simctl`); the IDE itself need not be used. Roughly 10+ GB plus about 8 GB for the iOS Simulator runtime (`xcodebuild -downloadPlatform iOS`). After install: `sudo xcode-select -s /Applications/Xcode.app` and `sudo xcodebuild -license accept`.
 - **A free Apple ID is enough** for the Simulator and for one's own iPhone (apps expire after 7 days, 3 apps per device, no iCloud / push). The paid program is needed only for TestFlight and the App Store.
@@ -68,5 +83,6 @@ Setup: the Claude desktop app's built-in browser (Chromium, not automated, `navi
 2. Minimal browser app prototypes that inject a script, capture timedtext, and try to reach Google's password step (the user signs in; Claude never enters credentials):
    - iOS: `WKWebView`, default UA and a Safari-like UA.
    - Android: GeckoView and System WebView, to choose the engine.
+   - In both: one compiled filter list on an article, and the ad-field pruning on `m.youtube.com`; check that captions are still captured and that playback is not stopped.
 3. From the results, choose the Android engine and design the extension API shim.
 4. Then: phone mock, `m.youtube.com` adapter, own-cloud sync.
