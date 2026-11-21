@@ -719,7 +719,7 @@ const OPENING_WORD =
  * (Turkish: İ → i, I → ı; the default rules make "İyi" "i̇yi", with a combining dot,
  * and "Işık" "işık", another word). Undefined `lang`: the default rules.
  */
-export const lowerFirst = (word: string, lang?: string) =>
+const lowerFirst = (word: string, lang?: string) =>
   word.charAt(0).toLocaleLowerCase(lang) + word.slice(1);
 
 /**
