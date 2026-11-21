@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeShards } from "../common.ts";
 import { devanagariSpelling } from "../../../src/core/natives.ts";
-import { buildPairDictionary, spellingsOf, withPointerPos } from "./native.ts";
+import {
+  alternativeSpelling,
+  buildPairDictionary,
+  spellingsOf,
+  withPointerPos,
+} from "./native.ts";
 import { TABLES_TAG } from "./recipes.ts";
 import { lesserLowercase, tableCoverage, termKeyOf } from "./recipe.ts";
 
@@ -292,5 +297,28 @@ describe("tableCoverage", () => {
         ],
       } as Parameters<typeof tableCoverage>[0]),
     ).toBe(3);
+  });
+});
+
+describe("alternativeSpelling (ar-2)", () => {
+  const ranks: Record<string, number> = {
+    إنجليزي: 900,
+    إنكليزي: 4000,
+    موسيقى: 700,
+  };
+  const rank = (word: string) => ranks[word] ?? Infinity;
+  it("shows an alternative spelling as its main one when that one is no rarer", () => {
+    const shown = alternativeSpelling(
+      new Map([
+        ["إِنْكِلِيزِيّ", "إِنْجْلِيزِيّ"],
+        ["موسيقا", "موسيقى"],
+        // The main spelling is rarer: the alternative stays.
+        ["إنجليزي", "إنقليزي"],
+      ]),
+      rank,
+      (text) => text.replace(/[\u064B-\u0652]/gu, ""),
+    );
+    expect(shown("إنكليزي, موسيقا")).toBe("إنجليزي, موسيقى");
+    expect(shown("إنجليزي")).toBe("إنجليزي");
   });
 });

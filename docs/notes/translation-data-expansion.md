@@ -486,6 +486,7 @@ No Arabic edition on kaikki. The recipe is the tables, then S1 (English Wiktiona
 - **Gate as built** (`data:stats`): top 5,000 91.5% (tables 3,962, S1 541, wordnet 72; tables alone 79.2%), top 2,000 95.6%, tokens 97.0% (138,913 of 143,211), phrases 9.3% (tables 4,405, S1 1,452, wordnet 1,055).
 - `en-ar` 2026.1121.0: 26,500 terms (tables 16,689, S1 6,025, wordnet 3,914), 5.24 MB raw: `dict-1.json` 2.00, `dict-2.json` 0.36, `capital.json` 2.00 and `capital-2.json` 0.88 (Wikidata's Arabic labels, 3,842 capital-only words, and main's acronyms). `en-defs` 19.85 → 20.03 MB (2026.1121.6); en-de 2026.1121.1 (the variety rows).
 - Left for ar-2 (quality on real content): S1's narrow lines (fond → ناعم, aware → خبير, salute → سجد), the wordnet's old senses, English's first line إنكليزي (the Levantine spelling, beside إنجليزي) and the dictionary's vocalised forms for the ambiguous words above. ar-3: the real-site check in the user's Chrome.
+- ar-2 (done, [arabic-quality](arabic-quality.md)): table rows' two words split (CORE, every pair), alternative spellings shown as the main one (إنجليزي). The vocalised forms were not needed (4 of about 300 S1 links); S1's narrow lines and the wordnet's old senses stay open.
 
 ### G: the gate rule as built (2026-11-21)
 

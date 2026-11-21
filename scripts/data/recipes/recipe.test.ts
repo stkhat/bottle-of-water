@@ -25,6 +25,7 @@ import {
   pointerTemplates,
   readEdition,
   readTranslationTables,
+  rowWords,
   termKeyOf,
   usesOfForm,
   withAbbreviations,
@@ -104,6 +105,68 @@ describe("convertTerms", () => {
         ],
       },
     });
+  });
+});
+
+describe("convertTerms: senses of two parts of speech", () => {
+  it("keeps a sense another part of speech has as converted text", () => {
+    const terms = new Map<string, SourceTerm>([
+      [
+        "one",
+        {
+          short: "एक",
+          senses: [
+            ["numeral", "एक"],
+            ["noun", "इक"],
+          ],
+        },
+      ],
+    ]);
+    expect(
+      convertTerms(terms, (text) => text.replace("इक", "एक")).get("one")
+        ?.senses,
+    ).toEqual([
+      ["numeral", "एक"],
+      ["noun", "एक"],
+    ]);
+  });
+});
+
+describe("rowWords", () => {
+  const ARABIC = /\p{Script=Arabic}/u;
+  it('splits a row\'s two words at a label or an "or", dropping labels', () => {
+    expect(rowWords("دكتور m or دكتورة", ARABIC)).toEqual(["دكتور", "دكتورة"]);
+    expect(rowWords("موسيقى f or موسيقا", ARABIC)).toEqual([
+      "موسيقى",
+      "موسيقا",
+    ]);
+    expect(rowWords("هجوم m هجمة", ARABIC)).toEqual(["هجوم", "هجمة"]);
+    expect(rowWords("odrzucać impf odrzucić")).toEqual([
+      "odrzucać",
+      "odrzucić",
+    ]);
+    expect(rowWords("amie f copine")).toEqual(["amie", "copine"]);
+    expect(rowWords("terrorista m or f que pone bombas")).toEqual([
+      "terrorista",
+      "que pone bombas",
+    ]);
+  });
+  it("reads a label inside a word, after its noun, as no split", () => {
+    expect(rowWords("unter Eid m aussagen")).toEqual(["unter Eid aussagen"]);
+    expect(rowWords("point m de débat")).toEqual(["point de débat"]);
+    expect(rowWords("du m or de la f")).toEqual(["du", "de la"]);
+  });
+  it('keeps an "or" that may be a word of the language', () => {
+    expect(rowWords("or noir")).toEqual(["or noir"]);
+    expect(rowWords("forza or effettivi")).toEqual(["forza or effettivi"]);
+    expect(rowWords("or m")).toEqual(["or"]);
+  });
+  it("drops an English note after a label in a native script", () => {
+    expect(rowWords("圈a", /\p{Script=Han}/u)).toEqual(["圈a"]);
+    expect(rowWords("Bristol")).toEqual(["Bristol"]);
+    expect(rowWords("стражник m old use", /\p{Script=Cyrillic}/u)).toEqual([
+      "стражник",
+    ]);
   });
 });
 

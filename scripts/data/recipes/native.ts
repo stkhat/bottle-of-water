@@ -117,6 +117,30 @@ async function frequencyRank(native: string, path: string) {
     );
 }
 
+/**
+ * NATIVE: a word as the pack shows it, where the language's entries call it an
+ * alternative spelling of another word (`alternatives`, `readReverseGlosses`): that
+ * word, when the frequency list ranks it no lower (إنكليزي → إنجليزي, موسيقا →
+ * موسيقى). A text is its words between ", ".
+ */
+export function alternativeSpelling(
+  alternatives: ReadonlyMap<string, string>,
+  rank: (word: string) => number,
+  shown: (text: string) => string,
+): (text: string) => string {
+  const main = new Map<string, string>();
+  for (const [head, target] of alternatives) {
+    const from = shown(head);
+    const to = shown(target);
+    if (from !== to && rank(to) <= rank(from)) main.set(from, to);
+  }
+  return (text) =>
+    text
+      .split(", ")
+      .map((word) => main.get(word) ?? word)
+      .join(", ");
+}
+
 const pairKey = (a: string, b: string) => (a < b ? `${a}\t${b}` : `${b}\t${a}`);
 
 /**
@@ -282,7 +306,13 @@ export async function buildPairDictionary(
       ),
     );
   }
+  // The spelling of a word its entries call an alternative of another, as the pack shows
+  // it (`alternativeSpelling`).
+  let shownSpelling: ((word: string) => string) | undefined;
   if (recipe.reverseGlosses) {
+    const rank = recipe.reverseGlosses.frequency
+      ? await frequencyRank(native, join(rawDir, recipe.reverseGlosses.file))
+      : undefined;
     const reverse = await readReverseGlosses(
       join(rawDir, recipe.reverseGlosses.file),
       {
@@ -298,15 +328,16 @@ export async function buildPairDictionary(
           return classes.includes("verb") && !classes.includes("adjective");
         },
         ...(letter && { letter }),
-        ...(recipe.reverseGlosses.frequency && {
-          rank: await frequencyRank(
-            native,
-            join(rawDir, recipe.reverseGlosses.file),
-          ),
-        }),
+        ...(rank && { rank }),
       },
     );
     read.set(recipe.reverseGlosses.tag, reverse);
+    if (rank)
+      shownSpelling = alternativeSpelling(
+        reverse.alternatives,
+        rank,
+        toNative ?? ((text) => text),
+      );
     // The native language's own entries say which table words are offensive.
     offensiveLeft = withoutOffensiveWords(tableTerms.terms, reverse.offensive);
   }
@@ -319,9 +350,13 @@ export async function buildPairDictionary(
     sources.push({ tag, terms });
     capitalSources.push({ tag, terms: capital });
   }
-  if (toNative) {
+  const shown =
+    toNative && shownSpelling
+      ? (text: string) => shownSpelling(toNative(text))
+      : (shownSpelling ?? toNative);
+  if (shown) {
     for (const { terms } of [...sources, ...capitalSources])
-      convertTerms(terms, toNative);
+      convertTerms(terms, shown);
   }
   const merged = mergeSources(sources, {
     // A term's main part of speech: that of its most translated sense, when English

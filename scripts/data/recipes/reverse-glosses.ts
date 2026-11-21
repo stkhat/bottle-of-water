@@ -229,6 +229,9 @@ const LESSER: Readonly<Record<number, number>> = { 0: 1, 1: 2, 2: 4 };
  * multiplied by how far the term is from the word's main sense (`LESSER`), then by
  * file order; one sense per native word and part of speech, at most
  * MAX_SENSES.
+ *
+ * Returns too the headwords whose every sense is an alternative spelling of one other
+ * word (`alternatives`: إنكليزي, "alternative spelling of إِنْجْلِيزِيّ").
  */
 export async function readReverseGlosses(
   path: string,
@@ -269,11 +272,26 @@ export async function readReverseGlosses(
   const offensive = new Set<string>();
   // The native words whose first meaning has been read (their main sense).
   const read = new Set<string>();
+  // Alternative spellings: headword → the words its senses are alternatives of.
+  const alternativeOf = new Map<string, Set<string>>();
+  const ownSenses = new Set<string>();
   let order = 0;
   let senses = 0;
   const stats = await eachEntry(path, (entry) => {
-    if (entry.lang_code !== native || NOT_WORDS.has(entry.pos ?? "")) return;
-    const head = withoutStressMarks(entry.word.trim());
+    if (entry.lang_code !== native) return;
+    const title = withoutStressMarks(entry.word.trim());
+    for (const sense of entry.senses ?? []) {
+      const target = Array.isArray(sense.alt_of)
+        ? (sense.alt_of[0] as { word?: unknown } | undefined)?.word
+        : undefined;
+      if ((sense.tags ?? []).includes("alt-of") && typeof target === "string") {
+        let targets = alternativeOf.get(title);
+        if (!targets) alternativeOf.set(title, (targets = new Set()));
+        targets.add(target.trim());
+      } else if (!sense.form_of && sense.glosses?.length) ownSenses.add(title);
+    }
+    if (NOT_WORDS.has(entry.pos ?? "")) return;
+    const head = title;
     if (!head || (letter && !letter.test(head))) return;
     const pos = posLabel(entry.pos ?? "");
     let entryFirst = true;
@@ -352,10 +370,15 @@ export async function readReverseGlosses(
   };
   const terms = termsOf(found);
   const capital = termsOf(capitalFound);
+  const alternatives = new Map<string, string>();
+  for (const [head, targets] of alternativeOf)
+    if (targets.size === 1 && !ownSenses.has(head))
+      alternatives.set(head, [...targets][0]!);
   return {
     terms,
     capital,
     offensive,
+    alternatives,
     stats: { ...stats, senses, marked },
   };
 }

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"SML"},{"file":"capital-2.json","first":"SMM","last":"ŽSR"},{"file":"dict-1.json","first":"'s","last":"gillnet"},{"file":"dict-2.json","first":"gilly","last":"sea ice"},{"file":"dict-3.json","first":"sea level","last":"ē"}],
+"shards":[{"file":"capital.json","first":"A","last":"SML"},{"file":"capital-2.json","first":"SMM","last":"ŽSR"},{"file":"dict-1.json","first":"'s","last":"gilly"},{"file":"dict-2.json","first":"gilt","last":"sea ice"},{"file":"dict-3.json","first":"sea level","last":"ē"}],
 "sources":["enwiktionary-translations","zhwiktionary","omw-cmn","wikidata"]
 }

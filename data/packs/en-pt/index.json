@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'s","last":"night shift"},{"file":"dict-2.json","first":"night terror","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'s","last":"night terror"},{"file":"dict-2.json","first":"nightcap","last":"élan"}],
 "sources":["ptwiktionary","enwiktionary-translations","wikidata"]
 }

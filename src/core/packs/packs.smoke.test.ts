@@ -844,7 +844,7 @@ const FIRST_LINES: Readonly<
   pl: { english: "angielski", january: "styczeń", be: "być", better: "lepszy" },
   th: { english: "อังกฤษ", january: "มกราคม", be: "เป็น", better: "ดีกว่า" },
   hi: { english: "अंग्रेज़ी", january: "जनवरी", be: "होना", better: "बेहतर" },
-  ar: { english: "إنكليزي", january: "يناير", be: "كان", better: "أفضل" },
+  ar: { english: "إنجليزي", january: "يناير", be: "كان", better: "أفضل" },
 };
 
 describe.each(recipeNatives())("generated en-%s first lines", (native) => {

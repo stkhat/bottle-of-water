@@ -456,3 +456,41 @@ describe("recipeTags", () => {
     ).toEqual([TABLES_TAG, "enwiktionary-ar", "omw-arb"]);
   });
 });
+
+describe("readReverseGlosses: alternative spellings (ar-2)", () => {
+  it("gives the headwords whose every sense is an alternative spelling of one word", async () => {
+    const alt = (word: string) => ({
+      glosses: [`alternative spelling of ${word}`],
+      tags: ["alt-of"],
+      alt_of: [{ word }],
+    });
+    const path = file([
+      {
+        word: "إنكليزي",
+        lang_code: "ar",
+        pos: "adj",
+        senses: [alt("إِنْجْلِيزِيّ")],
+      },
+      // A sense of its own, or two targets: no one main spelling.
+      {
+        word: "موسيقا",
+        lang_code: "ar",
+        pos: "noun",
+        senses: [alt("مُوسِيقَى"), { glosses: ["a tune"] }],
+      },
+      {
+        word: "خادوم",
+        lang_code: "ar",
+        pos: "noun",
+        senses: [alt("خَادِم"), alt("خِدْمَة")],
+      },
+    ]);
+    const { alternatives } = await readReverseGlosses(path, {
+      native: "ar",
+      termKey,
+      letter: /\p{Script=Arabic}/u,
+      fits: fitsEnglishPos(pos),
+    });
+    expect([...alternatives]).toEqual([["إنكليزي", "إِنْجْلِيزِيّ"]]);
+  });
+});
