@@ -18,7 +18,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 - `npm run check`: typecheck, lint, format, dead code (knip), CLAUDE.md line limit (150)
 - `npm test`: unit tests; `npm run test:browser`: real-browser tests (`VITEST_BROWSERS=chromium` locally); `npm run test:browser:firefox`: the same on Firefox, in CI's Docker image (Colima)
 - `npm run build`: production build; `npm run test:e2e:build`: build + Playwright E2E
-- `npm run verify`: everything above, Firefox included, terse (~75 s). While iterating, run only the touched test files (on Firefox too when the change touches the DOM); run `verify` before every push (the pre-push hook refuses a tree it has not passed on). Run it and `test:browser:firefox` with the sandbox off from the start (it blocks Docker); one run at a time per machine, a second waits
+- `npm run verify`: everything above, Firefox included, terse (~75 s). While iterating, run only the touched test files (on Firefox too when the change touches the DOM); run `verify` before every push (the pre-push hook refuses a tree it has not passed on). Run it and `test:browser:firefox` bare, no pipe or redirect, so they run outside the sandbox (Docker); one run at a time per machine, a second waits
 
 ## Constraints
 - **The developer runs no servers** (the extension will be public). Data lives only on the device (IndexedDB) and in the user's own browser sync (`storage.sync`: a Google account in Chrome, a Mozilla account in Firefox)
