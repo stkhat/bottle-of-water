@@ -86,6 +86,23 @@ const MAX_RETRY_DELAY_MS = 10 * 60_000;
 const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60_000;
 /** The synced copy of a language may fill this share of the room left by other keys. */
 const FILL_LIMIT = 0.9;
+
+/**
+ * Key → bytes kept for the settings and their field times even before they are stored
+ * (at their default size), so writing them never runs into the quota.
+ */
+export function settingsReserves(): Map<string, number> {
+  return new Map([
+    [SETTINGS_KEY, itemBytes(SETTINGS_KEY, DEFAULT_SETTINGS)],
+    [
+      SETTINGS_TIMES_KEY,
+      itemBytes(SETTINGS_TIMES_KEY, {
+        values: DEFAULT_SETTINGS,
+        times: Object.fromEntries(SETTINGS_FIELDS.map((f) => [f, Date.now()])),
+      }),
+    ],
+  ]);
+}
 const SYNC_VERSION: SyncMeta["v"] = 1;
 
 const NEWER_VERSION =
@@ -189,17 +206,7 @@ export function createBrowserSyncBackend({
     typeof area.QUOTA_BYTES_PER_ITEM === "number"
       ? area.QUOTA_BYTES_PER_ITEM
       : DEFAULT_QUOTA_BYTES_PER_ITEM;
-  /** Settings and their field times may not be stored yet; keep room for them anyway. */
-  const reserves = new Map([
-    [SETTINGS_KEY, itemBytes(SETTINGS_KEY, DEFAULT_SETTINGS)],
-    [
-      SETTINGS_TIMES_KEY,
-      itemBytes(SETTINGS_TIMES_KEY, {
-        values: DEFAULT_SETTINGS,
-        times: Object.fromEntries(SETTINGS_FIELDS.map((f) => [f, Date.now()])),
-      }),
-    ],
-  ]);
+  const reserves = settingsReserves();
 
   const written = new Map<string, string>();
   const pushTimers = new Map<string, unknown>();
