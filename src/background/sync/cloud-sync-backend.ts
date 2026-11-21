@@ -625,7 +625,14 @@ export function createCloudSyncBackend({
       const provider = providers[id];
       if (!provider) return Promise.reject(new Error(`No provider ${id}`));
       return enqueue(async () => {
-        await provider.auth.token({ interactive: true });
+        try {
+          await provider.auth.token({ interactive: true });
+        } catch (error) {
+          // A closed or declined sign-in window is the user's answer, not a failure:
+          // nothing changes (and nothing goes to the error log).
+          if (cloudErrorKind(error) === "unauthorized") return;
+          throw error;
+        }
         await load();
         const { values } = await settings.get();
         if (state?.provider === id) {

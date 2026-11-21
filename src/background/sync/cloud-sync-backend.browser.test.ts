@@ -633,6 +633,31 @@ describe("CloudSyncBackend: sentence history", () => {
   });
 });
 
+describe("CloudSyncBackend: connect", () => {
+  it("leaves things as they were when the sign-in window is closed or declined", async () => {
+    const cloud = createFakeCloud();
+    const a = device({ id: "dev-a", cloud });
+    await startAll(a);
+    a.account.declines = true;
+    await a.backend.connect("googleDrive");
+    expect(await a.state()).toBeUndefined();
+    expect((await a.backend.status()).provider).toBeUndefined();
+    expect(cloud.log).toHaveLength(0);
+
+    // Declining a reconnect keeps the connection and its "Reconnect needed".
+    a.account.declines = false;
+    await a.backend.connect("googleDrive");
+    a.account.silent = false;
+    a.account.expire();
+    a.alarms.fire(CLOUD_CHECK_ALARM);
+    await a.after();
+    expect((await a.backend.status()).error).toBe("reconnect");
+    a.account.declines = true;
+    await a.backend.connect("googleDrive");
+    expect((await a.backend.status()).error).toBe("reconnect");
+  });
+});
+
 describe("CloudSyncBackend: account", () => {
   it("keeps the account's address on this device from connect until disconnect", async () => {
     const cloud = createFakeCloud();
