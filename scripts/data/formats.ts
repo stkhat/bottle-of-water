@@ -176,6 +176,13 @@ const SOURCES = {
     by: WIKTIONARY_AUTHORS,
     license: LICENSES.ccBySa4,
   },
+  wiktionaryHi: {
+    title: "English Wiktionary, Hindi entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/Hindi/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
   wiktionaryFr: {
     title: "English Wiktionary, French entries",
     via: KAIKKI,
@@ -399,6 +406,7 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   thwiktionary: SOURCES.wiktionaryThEdition,
   "thwiktionary-translations": SOURCES.wiktionaryThEditionTables,
   "enwiktionary-th": SOURCES.wiktionaryTh,
+  "enwiktionary-hi": SOURCES.wiktionaryHi,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,
@@ -458,6 +466,14 @@ export function recipePack(
     sources.push({
       ...SOURCES.wordnetEn,
       used: "the English synsets that link the terms to the other wordnets, their definitions as sense hints",
+    });
+  if (recipe.reverseGlosses?.frequency)
+    sources.push({
+      title: `FrequencyWords, ${name} 2018 list (${native}_full)`,
+      url: "https://github.com/hermitdave/FrequencyWords",
+      by: "Hermit Dave, from the OpenSubtitles 2018 corpus (OPUS)",
+      license: LICENSES.ccBySa4,
+      used: `the order of a term's ${name} words from English Wiktionary's ${name} entries, by how often subtitles say them (read when the pack is built; no part of the list is in the pack)`,
     });
   sources.push({
     ...SOURCES.wikidata,

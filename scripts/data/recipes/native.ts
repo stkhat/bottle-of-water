@@ -58,6 +58,21 @@ import {
   type Entities,
 } from "../wikidata.ts";
 import { undocumentedPages } from "./undocumented.ts";
+import { readFrequencyWords } from "../frequency-words.ts";
+
+/**
+ * A native word's rank in the language's FrequencyWords 2018 list (the forms as
+ * subtitles write them), for ordering a term's reverse glosses; words the list lacks
+ * come after every ranked one.
+ */
+async function frequencyRank(native: string) {
+  const ranks = new Map<string, number>();
+  for (const [i, form] of (
+    await readFrequencyWords(native, Number.POSITIVE_INFINITY)
+  ).entries())
+    if (!ranks.has(form)) ranks.set(form, i + 1);
+  return (word: string) => ranks.get(word) ?? Number.MAX_SAFE_INTEGER;
+}
 
 /**
  * How an edition's tables write English words: a noun after an article ("the dog"), a
@@ -179,6 +194,9 @@ export async function buildPairDictionary(
         termKey,
         fits,
         ...(letter && { letter }),
+        ...(recipe.reverseGlosses.frequency && {
+          rank: await frequencyRank(native),
+        }),
       }),
     );
   const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];

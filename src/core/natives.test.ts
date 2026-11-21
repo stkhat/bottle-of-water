@@ -18,6 +18,7 @@ describe("the native-language registry", () => {
       "it",
       "pl",
       "th",
+      "hi",
     ]);
     expect(PACK_FORMATS["en-es"]).toBe(4);
     expect(PACK_FORMATS["en-ru"]).toBe(4);
@@ -32,6 +33,7 @@ describe("the native-language registry", () => {
       "en-it",
       "en-pl",
       "en-th",
+      "en-hi",
       "es-en",
       "fr-en",
       "de-en",
@@ -92,6 +94,14 @@ describe("the native-language registry", () => {
     expect(meaningLength("th")).toBe(40);
     expect(instructions({ learning: "en", native: "th" })).toContain(
       "เปิดเผยความลับ",
+    );
+    // Hindi: spaces between joined lines, Devanagari as wide as Latin letters.
+    expect(languageOption("hi")).toBe("Hindi (हिन्दी)");
+    expect(languageName("hi")).toBe("Hindi");
+    expect(joinerFor("hi-IN")).toBe(" ");
+    expect(meaningLength("hi")).toBe(40);
+    expect(instructions({ learning: "en", native: "hi" })).toContain(
+      "राज़ खोल देना",
     );
     // The prompt does not ask a Chinese answer to avoid Chinese.
     expect(instructions({ learning: "en", native: "zh" })).toContain(

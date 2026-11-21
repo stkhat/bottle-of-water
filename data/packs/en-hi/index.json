@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"capital.json","first":"AAAS","last":"ŽSR"},{"file":"dict-1.json","first":"a","last":"éclair"}],
+"sources":["enwiktionary-translations","enwiktionary-hi","wikidata"]
+}

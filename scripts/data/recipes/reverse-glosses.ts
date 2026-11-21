@@ -67,10 +67,10 @@ const OFFENSIVE_TAGS: ReadonlySet<string> = new Set([
 /**
  * Labels of a sense away from everyday speech or the word's plain meaning (kaikki's
  * tags): formal, literary and dated words, figurative and idiomatic uses, euphemistic
- * ones, a form used only inside compounds. A native word with such a
- * sense and a plain one is read in its plain, main sense: สวัสดี is hello (its
+ * ones, rare and uncommon senses, a form used only inside compounds. A native word with
+ * such a sense and a plain one is read in its plain, main sense: สวัสดี is hello (its
  * "wellness" is formal), ทาย to guess (its "given" formal, in compounds), ร้อน hot
- * (its "disturbed" figurative). Not slang, colloquial or humorous speech: the videos
+ * (its "disturbed" figurative), साबित proven (its "alright" uncommon). Not slang, colloquial or humorous speech: the videos
  * learners watch speak so, and such a sense says the English word as they hear it
  * (แบบ, แอบ for the hedge "kind of"; ปัง for "awesome"). A word whose every sense is
  * marked has no other sense to be read in and keeps them all (ตราบ, a formal word: "as
@@ -88,6 +88,7 @@ const REGISTER_TAGS: ReadonlySet<string> = new Set([
   "literary",
   "dated",
   "rare",
+  "uncommon",
   "nonstandard",
   "proscribed",
   "dialectal",
