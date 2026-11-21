@@ -16,7 +16,7 @@ describe("nativeLanguages", () => {
   it("lists the languages each learning language has a dictionary into, from the lock", () => {
     expect(nativeLanguages("en")).toEqual([
       ...["ja", "es", "pt", "ru", "fr", "de"],
-      ...["zh", "it", "pl", "th", "hi", "ar"],
+      ...["zh", "it", "pl", "th", "hi", "ar", "id"],
     ]);
     expect(nativeLanguages("es")).toEqual(["en"]);
     expect(nativeLanguages("fr")).toEqual(["en"]);
@@ -61,6 +61,7 @@ describe("firstPair", () => {
     expect(firstPair("th-TH")).toEqual(pair("en", "th"));
     expect(firstPair("hi-IN")).toEqual(pair("en", "hi"));
     expect(firstPair("ar-EG")).toEqual(pair("en", "ar"));
+    expect(firstPair("id-ID")).toEqual(pair("en", "id"));
     // English is the default learning language, before French → English.
     expect(firstPair("fr-FR")).toEqual(pair("en", "fr"));
     // …and before German → English.

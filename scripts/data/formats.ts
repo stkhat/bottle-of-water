@@ -95,6 +95,11 @@ const LICENSES = {
     url: "https://github.com/omwn/omw-data",
     notice: "thai-wordnet.txt",
   },
+  wordnetBahasa: {
+    name: "MIT License",
+    url: "https://opensource.org/licenses/MIT",
+    notice: "wordnet-bahasa.txt",
+  },
 } as const satisfies Readonly<Record<string, SourceLicense>>;
 
 interface Source {
@@ -187,6 +192,13 @@ const SOURCES = {
     title: "English Wiktionary, Arabic entries",
     via: KAIKKI,
     url: "https://kaikki.org/dictionary/Arabic/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryId: {
+    title: "English Wiktionary, Indonesian entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/Indonesian/",
     by: WIKTIONARY_AUTHORS,
     license: LICENSES.ccBySa4,
   },
@@ -286,6 +298,13 @@ const SOURCES = {
     via: KAIKKI,
     url: "https://th.wiktionary.org/",
     by: "the contributors to the Thai Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryIdEdition: {
+    title: "Indonesian Wiktionary (Wikikamus), English entries",
+    via: KAIKKI,
+    url: "https://id.wiktionary.org/",
+    by: "the contributors to the Indonesian Wiktionary, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
   wiktionaryThEditionTables: {
@@ -405,6 +424,13 @@ const SOURCES = {
     by: "Musa Alkhalifa and Sabri Elkateb (UPC and the University of Manchester, 2007); extended by Lahsen Abouenour, Karim Bouzoubaa and Paolo Rosso (Mohammed V University in Rabat and Universitat Politècnica de València, 2015)",
     license: LICENSES.ccBySa3,
   },
+  wordnetId: {
+    title: "Wordnet Bahasa (Indonesian)",
+    via: OMW,
+    url: "https://github.com/omwn/omw-data",
+    by: "Francis Bond, David Moeljadi, Nurril Hirfana Mohamed Noor, Suerya Sapuan, Muhammad Zulhelmy Mohamed Rosman, Hammam Riza and Tan Enya Kong (2011–2015)",
+    license: LICENSES.wordnetBahasa,
+  },
 } as const satisfies Readonly<Record<string, Source>>;
 
 /** The source behind each recipe tag (scripts/data/recipes/native.ts) a recipe may name. */
@@ -422,6 +448,8 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   "enwiktionary-th": SOURCES.wiktionaryTh,
   "enwiktionary-hi": SOURCES.wiktionaryHi,
   "enwiktionary-ar": SOURCES.wiktionaryAr,
+  idwiktionary: SOURCES.wiktionaryIdEdition,
+  "enwiktionary-id": SOURCES.wiktionaryId,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,
@@ -429,6 +457,7 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   "omw-pl": SOURCES.wordnetPl,
   "omw-th": SOURCES.wordnetTh,
   "omw-arb": SOURCES.wordnetArb,
+  "omw-id": SOURCES.wordnetId,
 };
 
 const pack = (

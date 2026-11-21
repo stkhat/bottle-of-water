@@ -27,6 +27,7 @@ describe("the native-language registry", () => {
       "th",
       "hi",
       "ar",
+      "id",
     ]);
     expect(PACK_FORMATS["en-es"]).toBe(4);
     expect(PACK_FORMATS["en-ru"]).toBe(4);
@@ -43,6 +44,7 @@ describe("the native-language registry", () => {
       "en-th",
       "en-hi",
       "en-ar",
+      "en-id",
       "es-en",
       "fr-en",
       "de-en",
@@ -122,6 +124,15 @@ describe("the native-language registry", () => {
     );
     expect(writtenRightToLeft("ar")).toBe(true);
     expect(writtenRightToLeft("ar-SA")).toBe(true);
+    // Indonesian: Latin letters with spaces between words.
+    expect(languageOption("id")).toBe("Indonesian (Bahasa Indonesia)");
+    expect(languageName("id")).toBe("Indonesian");
+    expect(joinerFor("id-ID")).toBe(" ");
+    expect(meaningLength("id")).toBe(40);
+    expect(instructions({ learning: "en", native: "id" })).toContain(
+      "membocorkan rahasia",
+    );
+    expect(writtenRightToLeft("id")).toBe(false);
     expect(writtenRightToLeft("hi")).toBe(false);
     expect(writtenRightToLeft("en")).toBe(false);
     // The prompt does not ask a Chinese answer to avoid Chinese.

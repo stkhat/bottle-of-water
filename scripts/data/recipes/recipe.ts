@@ -1945,8 +1945,11 @@ function inPosTurns(senses: readonly PairSense[]): PairSense[] {
  *   capped at MAX_SENSES (the sources keep every sense of a capitalised headword);
  * - the first sense that is no pointer gives the meaning: none when its main item is
  *   the headword itself (Texas → Texas, German Japan → Japan); else "name" or "word"
- *   by the native edition's entry for it (`nativeKind`), else by its shape
- *   (`shapeKind`); in a script without case, where a capital says nothing, a word
+ *   by the native edition's entry for it (`nativeKind`), else a word where the
+ *   languages with case write the headword as one (`rowsSayWord`: Indonesian writes
+ *   months capitalised, Januari, as English does, and its edition has no entry to say
+ *   what they are), else by its shape (`shapeKind`); in a script without case, where
+ *   a capital says nothing, a word
  *   where the languages with case write the headword as one (`rowsSayWord`: the Thai
  *   edition files month names as proper nouns, มกราคม, as Thai grammar does, but
  *   enero, janvier say a common word), else by the edition, else by its part of
@@ -2012,6 +2015,7 @@ export function capitalDictionary(
       item && bare(item) !== bare(key)
         ? /[\p{Lu}\p{Ll}]/u.test(item)
           ? (nativeKind(item) ??
+            (rowsSayWord(key) ? "word" : undefined) ??
             shapeKind(item) ??
             commonKind(meaningSense!, lowercase(key.toLowerCase())))
           : rowsSayWord(key)

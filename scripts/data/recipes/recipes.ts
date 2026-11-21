@@ -167,6 +167,20 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
       beforeWordnets: true,
     },
   },
+  // Indonesian: the Indonesian Wiktionary's English entries, the tables, English
+  // Wiktionary's Indonesian entries read the other way (ordered by subtitle
+  // frequency), then Wordnet Bahasa (each order judged blind, id-1).
+  id: {
+    edition: { tag: "idwiktionary", file: "kaikki-id-edition.jsonl" },
+    tables: { langCodes: ["id"] },
+    wordnets: ["omw-id"],
+    reverseGlosses: {
+      tag: "enwiktionary-id",
+      file: "kaikki-id.jsonl",
+      frequency: true,
+      beforeWordnets: true,
+    },
+  },
 };
 
 /** A recipe's source tags, in order. */
