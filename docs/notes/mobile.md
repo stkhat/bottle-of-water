@@ -60,7 +60,7 @@ The app is the browser, so blocking runs in the app, outside any extension API a
 3. **Extension API shim** (WKWebView / WebView): messaging, `storage`, background work, an isolated world (`WKContentWorld` on iOS; WKUserScript can also inject into cross-origin frames).
 4. **Translation.** No Chrome Translator API. Use Apple's Translation framework (iOS) and ML Kit translation (Android), on device and free, through a native bridge.
 5. **Sync.** Chrome sync cannot be read from mobile, so sync to the user's own cloud (architecture: "Sync to the user's own cloud storage") becomes required.
-6. **Touch UI.** Hover becomes tap; subtitles, dictionary window and buttons need a phone layout and a new mock.
+6. **Touch UI.** Hover becomes tap; subtitles, dictionary window and buttons need a phone layout (mocked 2026-11-22, [ui.md](../specs/ui.md) "Mobile app").
 7. **Distribution.**
    - App Store: be a real browser (guideline 2.5.6 WebKit; avoid 4.2 minimum functionality and 5.2.2 third-party content rejections).
    - Google Play: new personal developer accounts need a closed test with 12 testers for 14 days before production.
@@ -85,4 +85,6 @@ The app is the browser, so blocking runs in the app, outside any extension API a
    - Android: GeckoView and System WebView, to choose the engine.
    - In both: one compiled filter list on an article, and the ad-field pruning on `m.youtube.com`; check that captions are still captured and that playback is not stopped.
 3. From the results, choose the Android engine and design the extension API shim.
-4. Then: phone mock, `m.youtube.com` adapter, own-cloud sync.
+4. Then: `m.youtube.com` adapter, own-cloud sync.
+
+The phone mock is drawn (2026-11-22): the mock's `Mobile app` page, specified in [ui.md](../specs/ui.md) "Mobile app". It looks like an app (home with tabs, a title bar with no URL) while staying a full browser underneath, for the store reviews above.
