@@ -3,7 +3,7 @@
 // browser tests in CI's Playwright image (scripts/test-firefox.ts), which uses the Docker
 // VM's own CPUs. Each lane's output goes to a log; the console gets one line per stage
 // and, when one fails, the part of its log that says why. The first failure stops the
-// other lane.
+// other lane. One run at a time on the machine (scripts/test-lock.ts): a second waits.
 //
 // When everything passes, the tested tree (the working tree as `git add -A` would commit
 // it) is recorded as verified, and the pre-push hook (scripts/pre-push.ts) lets a push of
@@ -22,6 +22,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { takeTestLock } from "./test-lock.ts";
 
 interface Stage {
   name: string;
@@ -232,6 +233,7 @@ function stopOthers(except: string): void {
 }
 
 async function main(): Promise<number> {
+  await takeTestLock();
   const started = Date.now();
   const logDir = resolve(git(["rev-parse", "--git-path", "langle-verify"]));
   mkdirSync(logDir, { recursive: true });

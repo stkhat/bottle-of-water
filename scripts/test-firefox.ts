@@ -13,6 +13,7 @@ import {
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { playwrightImage } from "./playwright-image.ts";
+import { takeTestLock } from "./test-lock.ts";
 
 const VOLUME_PREFIX = "langle-firefox-node-modules-";
 
@@ -30,28 +31,37 @@ function run(
   return spawnSync(command, args, { ...options, encoding: "utf8" });
 }
 
-const ok = (command: string, args: string[]) =>
-  run(command, args, { stdio: "ignore" }).status === 0;
-
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
+
+const lastLine = (text: string) => text.trim().split("\n").at(-1) ?? "";
 
 if (run("docker", ["--version"], { stdio: "ignore" }).error)
   fail(
     "Firefox runs in Docker here. Install Colima and the Docker CLI:\n  brew install colima docker",
   );
 
+// Another run (another worktree's verify) would share the VM, or stop it under this one.
+await takeTestLock();
+
 let startedColima = false;
-if (!ok("docker", ["info"])) {
+const info = run("docker", ["info"]);
+if (info.status !== 0) {
   if (run("colima", ["version"], { stdio: "ignore" }).error)
     fail(
       "Docker is not running, and Colima is not installed (brew install colima).",
     );
   console.log("Starting Colima (4 CPUs, 4 GB) for the Firefox run…");
-  if (!ok("colima", ["start", "--cpu", "4", "--memory", "4"]))
-    fail("colima start failed: run it by hand to see why.");
+  const start = run("colima", ["start", "--cpu", "4", "--memory", "4"]);
+  // A sandbox (Claude Code's, for one) blocks the Docker socket and the VM: Docker says
+  // "permission denied" and Colima cannot start. Show why instead of a bare failure.
+  if (start.status !== 0)
+    fail(
+      `colima start failed.\n  docker info: ${lastLine(info.stderr)}\n  colima: ${lastLine(start.stderr)}\n` +
+        'In a sandbox, run this outside it (docs/development.md "Firefox in Docker").',
+    );
   startedColima = true;
 }
 

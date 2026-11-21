@@ -152,8 +152,9 @@ async function pointerAway(list: HTMLElement) {
 }
 
 /**
- * Waits until the list stops scrolling: it scrolls smoothly to the playing card once
- * mounted, and a drag made meanwhile presses where the words were (slow runners).
+ * Waits until the list stops scrolling. It scrolls smoothly to the playing card once
+ * mounted, and a pointer action made meanwhile (a hover, a click, a drag) lands where
+ * the words were (slow or loaded runners): every test that points at the list waits.
  */
 async function listAtRest(screen: { container: HTMLElement }) {
   const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
@@ -284,6 +285,7 @@ describe("the Transcript tab", () => {
     const screen = await mountInShadowRoot(
       <VideoPanel {...base} onSeek={onSeek} />,
     );
+    await listAtRest(screen);
     await screen.getByRole("button", { name: /^1:09/ }).click();
     expect(onSeek).toHaveBeenCalledWith(3);
   });
@@ -315,6 +317,7 @@ describe("the Transcript tab", () => {
         onSeek={onSeek}
       />,
     );
+    await listAtRest(screen);
     const bunch = screen.getByText("bunch").element() as HTMLElement;
     await userEvent.hover(bunch);
     expect(onWordEnter).toHaveBeenCalledWith(2, 0, bunch);
