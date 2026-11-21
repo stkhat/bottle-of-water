@@ -715,6 +715,14 @@ const OPENING_WORD =
   /(^\s*(?:[(（[][^()（）[\]]*[)）\]]\s*)?|:\s+)(\p{Lu}[\p{L}\p{M}'’-]*)/gu;
 
 /**
+ * NATIVE: `word` with its first letter in lower case as the language `lang` writes it
+ * (Turkish: İ → i, I → ı; the default rules make "İyi" "i̇yi", with a combining dot,
+ * and "Işık" "işık", another word). Undefined `lang`: the default rules.
+ */
+const lowerFirst = (word: string, lang?: string) =>
+  word.charAt(0).toLocaleLowerCase(lang) + word.slice(1);
+
+/**
  * NATIVE: an edition's gloss in the case the edition writes its own words in
  * (Wikcionario and Wiktionnaire capitalise every gloss: "Ser", "Y", "Adquirir"). The
  * word that opens it, or that a colon introduces, goes to lower case when the edition
@@ -725,7 +733,7 @@ const OPENING_WORD =
  * name of several ("Reino Unido", "Gran Bretagna"). For a capitalised headword
  * (`capital`), also not a word the edition has as written as a proper noun (es
  * "Holanda", the country; "holanda" is a cloth) or that is the headword itself
- * ("China" of China).
+ * ("China" of China). Lower case is the edition's language's (`lang`, `lowerFirst`).
  */
 export function inNativeCase(
   gloss: string,
@@ -734,14 +742,20 @@ export function inNativeCase(
     head,
     capital = false,
     capitalNouns = false,
-  }: { head: string; capital?: boolean; capitalNouns?: boolean },
+    lang,
+  }: {
+    head: string;
+    capital?: boolean;
+    capitalNouns?: boolean;
+    lang?: string;
+  },
 ): string {
   return gloss.replace(
     OPENING_WORD,
     (found, before: string, word: string, at: number) => {
       const next = gloss.slice(at + found.length);
       if (/^\p{Lu}{2}/u.test(word) || /^\s+\p{Lu}/u.test(next)) return found;
-      const lower = word.charAt(0).toLowerCase() + word.slice(1);
+      const lower = lowerFirst(word, lang);
       const asWritten = entries(word);
       const keep =
         !entries(lower).common ||
@@ -752,14 +766,21 @@ export function inNativeCase(
   );
 }
 
-/** An edition's gloss as the recipes read it: without page markup and stress marks. */
+/**
+ * An edition's gloss as the recipes read it: without page markup and stress marks, and
+ * without a list's separator left dangling at its end (tr "kazımak, aşındırmak, yemek,").
+ */
 const cleanGloss = (sense: KaikkiSense) => {
   const last: unknown = Array.isArray(sense.glosses)
     ? sense.glosses.at(-1)
     : undefined;
   if (typeof last !== "string") return undefined;
   const written = last.trim();
-  return { written, gloss: withoutStressMarks(withoutPageMarkup(written)) };
+  const gloss = withoutStressMarks(withoutPageMarkup(written)).replace(
+    /\s*[,;،؛]+$/u,
+    "",
+  );
+  return { written, gloss };
 };
 
 /**
@@ -1194,7 +1215,11 @@ export async function readEdition(
         const text =
           !cases || capital
             ? trimmed
-            : inNativeCase(trimmed, entriesOf, { head, capitalNouns });
+            : inNativeCase(trimmed, entriesOf, {
+                head,
+                capitalNouns,
+                lang: native,
+              });
         if (text !== trimmed) cased++;
         // A gloss reshaped to translate first ("Je suis. Variante de I am.") is that
         // translation, not a pointer to the word it names.
@@ -1240,7 +1265,12 @@ export async function readEdition(
     capitalCase: (text: string, head: string) =>
       !cases
         ? text
-        : inNativeCase(text, entriesOf, { head, capital: true, capitalNouns }),
+        : inNativeCase(text, entriesOf, {
+            head,
+            capital: true,
+            capitalNouns,
+            lang: native,
+          }),
     nativeKind: (item: string) =>
       nativeKindOf(
         item,
@@ -1248,7 +1278,7 @@ export async function readEdition(
           name: nativeNames.has(word),
           common: nativeCommon.has(word),
         }),
-        { capitalNouns },
+        { capitalNouns, lang: native },
       ),
   };
 }
@@ -1276,12 +1306,15 @@ type NativeEntries = (word: string) => { name: boolean; common: boolean };
  *   then marks a name the edition files as a noun (Russian: Япония, Эйнштейн);
  * - else undefined.
  * A script without case has only the edition's proper nouns and common words (日本,
- * 一月).
+ * 一月). Lower case is the edition's language's (`lang`, `lowerFirst`).
  */
 export function nativeKindOf(
   item: string,
   entries: NativeEntries,
-  { capitalNouns = false }: { capitalNouns?: boolean } = {},
+  {
+    capitalNouns = false,
+    lang,
+  }: { capitalNouns?: boolean; lang?: string } = {},
 ): "name" | "word" | undefined {
   const first = item.charAt(0);
   const { name, common } = entries(item);
@@ -1289,7 +1322,7 @@ export function nativeKindOf(
     if (/[\p{Ll}\p{N}]/u.test(first)) return "word";
     return common ? "word" : name ? "name" : undefined;
   }
-  if (entries(first.toLowerCase() + item.slice(1)).common) return "word";
+  if (entries(lowerFirst(item, lang)).common) return "word";
   if (common) return capitalNouns ? "word" : "name";
   return name ? "name" : undefined;
 }
@@ -2126,12 +2159,13 @@ export function inCapitalCase(
  * "Janvier" go to lower case where the tables write "marzo", "mars", "janvier" (es
  * and fr write months and weekdays in lower case; "Mars" is the planet). A word the
  * tables also write as written stays ("Dios", "China", German "Januar"). Gives how
- * many glosses changed.
+ * many glosses changed. Lower case is the native language's (`lang`, `lowerFirst`).
  */
 export function inTablesCase(
   capital: Record<string, CapitalEntry>,
   source: number,
   tables: ReadonlyMap<string, SourceTerm>,
+  lang?: string,
 ): number {
   let cased = 0;
   for (const [key, entry] of Object.entries(capital)) {
@@ -2148,7 +2182,7 @@ export function inTablesCase(
       const text = sense[1].replace(
         /^(\s*(?:[(（[][^()（）[\]]*[)）\]]\s*)?)(\p{Lu}[\p{L}\p{M}'’-]*)/u,
         (found, before: string, word: string) => {
-          const lower = word.charAt(0).toLowerCase() + word.slice(1);
+          const lower = lowerFirst(word, lang);
           return written.has(lower) && !written.has(word)
             ? before + lower
             : found;
@@ -2217,10 +2251,13 @@ export function convertTerms(
   terms: Map<string, SourceTerm>,
   convert: (text: string) => string,
 ) {
+  // Spellings that convert alike are one word ("oto, otomobil" → "otomobil").
+  const once = (text: string) =>
+    [...new Set(convert(text).split(", "))].join(", ");
   for (const item of terms.values()) {
     const senses: PairSense[] = [];
     for (const [pos, text, hint, target] of item.senses) {
-      const converted = [...new Set(convert(text).split(", "))].join(", ");
+      const converted = once(text);
       // Spellings that convert alike may make two senses one; another part of
       // speech's stays (one: the numeral and the noun एक).
       if (senses.some(([p, other]) => p === pos && other === converted))
@@ -2239,7 +2276,7 @@ export function convertTerms(
     item.short =
       senses[0] && item.short === first
         ? senses[0][1].split(", ")[0]!
-        : convert(item.short);
+        : once(item.short);
     item.senses = senses;
   }
   return terms;

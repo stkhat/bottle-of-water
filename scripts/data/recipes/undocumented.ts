@@ -19,13 +19,13 @@ const HISTORY = {
 
 /**
  * The pages `user` created in the main namespace with the edit summary `comment` (none
- * by default), by a file of an edition's MediaWiki history dump (bzip2: read through
- * `bzcat`).
+ * by default; null: whatever the summary), by a file of an edition's MediaWiki history
+ * dump (bzip2: read through `bzcat`).
  */
 async function createdUndocumented(
   path: string,
   user: string,
-  comment = "",
+  comment: string | null = "",
 ): Promise<Set<string>> {
   const { spawn } = await import("node:child_process");
   const { createInterface } = await import("node:readline");
@@ -44,7 +44,7 @@ async function createdUndocumented(
       cells[HISTORY.entity] === "revision" &&
       cells[HISTORY.namespace] === "0" &&
       cells[HISTORY.parent] === "0" &&
-      cells[HISTORY.comment] === comment
+      (comment === null || cells[HISTORY.comment] === comment)
     )
       pages.add(cells[HISTORY.title]!.replaceAll("_", " "));
   }
@@ -69,11 +69,13 @@ export function undocumentedPages(
   let found = read.get(id);
   if (!found) {
     found = Promise.all(
-      imports.files.map((file) =>
-        createdUndocumented(
-          join(rawDir, "mediawiki-history", file),
-          imports.user,
-          imports.comment,
+      imports.flatMap(({ files, user, comment }) =>
+        files.map((file) =>
+          createdUndocumented(
+            join(rawDir, "mediawiki-history", file),
+            user,
+            comment,
+          ),
         ),
       ),
     ).then((sets) => new Set(sets.flatMap((set) => [...set])));

@@ -222,6 +222,11 @@ const TEST_PACKS: PackFiles = {
   "en-id": {
     dict: { loaf: [[["noun", "roti"]], 0] },
   },
+  // The translation tables first, the Turkish Wiktionary, English Wiktionary's Turkish
+  // entries, then the Turkish edition's tables read the other way.
+  "en-tr": {
+    dict: { loaf: [[["noun", "somun"]], 0] },
+  },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
@@ -386,6 +391,16 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     ],
   },
   "/packs/en-id/dict-1.json": TEST_PACKS["en-id"].dict,
+  "/packs/en-tr/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: [
+      "enwiktionary-translations",
+      "trwiktionary",
+      "enwiktionary-tr",
+      "trwiktionary-translations",
+    ],
+  },
+  "/packs/en-tr/dict-1.json": TEST_PACKS["en-tr"].dict,
   "/packs/de-fr/index.json": {
     shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
     sources: [

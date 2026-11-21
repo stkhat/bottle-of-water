@@ -567,7 +567,7 @@ export async function buildPairDictionary(
   const capitalCased =
     editionTerms && editionSource >= 0
       ? inCapitalCase(capital, editionSource, editionTerms.capitalCase) +
-        inTablesCase(capital, editionSource, tableTerms.capital)
+        inTablesCase(capital, editionSource, tableTerms.capital, native)
       : 0;
   return {
     ...merged,

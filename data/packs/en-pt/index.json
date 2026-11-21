@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'re","last":"next door"},{"file":"dict-2.json","first":"next of kin","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'re","last":"next of kin"},{"file":"dict-2.json","first":"next time","last":"élan"}],
 "sources":["ptwiktionary","enwiktionary-translations","wikidata"]
 }

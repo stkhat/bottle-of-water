@@ -181,6 +181,25 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
       beforeWordnets: true,
     },
   },
+  // Turkish (round 4, tr-1): the tables first, then the Turkish Wiktionary's English
+  // entries (three bots' pages left out: `UNDOCUMENTED_IMPORTS`), the
+  // reverse glosses (ordered by the Turkish FrequencyWords list), then the edition's
+  // tables read the other way; each order judged blind.
+  tr: {
+    edition: {
+      tag: "trwiktionary",
+      file: "kaikki-tr-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["tr"] },
+    reversedTables: { tag: "trwiktionary-translations" },
+    reverseGlosses: {
+      tag: "enwiktionary-tr",
+      file: "kaikki-tr.jsonl",
+      frequency: true,
+      beforeWordnets: true,
+    },
+  },
 };
 
 /** A recipe's source tags, in order. */
@@ -200,6 +219,15 @@ export function recipeTags(recipe: Recipe): string[] {
   ];
 }
 
+/** A bot's page creations left out (`UNDOCUMENTED_IMPORTS`). */
+export interface UndocumentedImport {
+  /** The edition's history dump files that list them. */
+  readonly files: readonly string[];
+  readonly user: string;
+  /** The edit summary they were created with: none by default; null: whatever it says. */
+  readonly comment?: string | null;
+}
+
 /**
  * Each Wiktionary edition's bot imports whose text Langle cannot use, by edition code:
  * the pages a bot created without saying where their text came from (no edit summary),
@@ -213,26 +241,39 @@ export function recipeTags(recipe: Recipe): string[] {
  * English batches of January and May 2006 gave a quarter of en-fr's Wiktionnaire
  * terms). The Thai edition: ZilentBot's 2018 import of NECTEC's LEXiTRON ("นำเข้าคำจาก
  * Lexitron", 1,542 pages, the {{lexitronimport}} notice), whose license terms could
- * not be found (D5). Read from Wikimedia's MediaWiki history dump of the edition
- * (data/raw/mediawiki-history/, a file per year or one for all time: `files`).
+ * not be found (D5). The Turkish edition (round 4, tr-1): every page VikiBot created
+ * (2006–2008: a 13,900-word dictionary built "from Ender's database" and its other
+ * databases, no source named), every page SaltinbasBot created (2008–2012: Turkish
+ * entries "TDK Büyük Sözlük", the Turkish Language Association's dictionary, or no
+ * source named) and every page CavlakBOT created (2025–2026, "yeni sayfa AWB ile":
+ * name lists, numbers and plurals, no source named). Read from Wikimedia's MediaWiki
+ * history dump of the edition (data/raw/mediawiki-history/, a file per year or one for
+ * all time: `files`).
  */
 export const UNDOCUMENTED_IMPORTS: Readonly<
-  Partial<
-    Record<string, { files: readonly string[]; user: string; comment?: string }>
-  >
+  Partial<Record<string, readonly UndocumentedImport[]>>
 > = {
-  fr: {
-    files: [
-      "2026-10.frwiktionary.2005.tsv.bz2",
-      "2026-10.frwiktionary.2006.tsv.bz2",
-    ],
-    user: "PiedBot",
-  },
-  th: {
-    files: ["2026-10.thwiktionary.all-time.tsv.bz2"],
-    user: "ZilentBot",
-    comment: "นำเข้าคำจาก Lexitron",
-  },
+  fr: [
+    {
+      files: [
+        "2026-10.frwiktionary.2005.tsv.bz2",
+        "2026-10.frwiktionary.2006.tsv.bz2",
+      ],
+      user: "PiedBot",
+    },
+  ],
+  th: [
+    {
+      files: ["2026-10.thwiktionary.all-time.tsv.bz2"],
+      user: "ZilentBot",
+      comment: "นำเข้าคำจาก Lexitron",
+    },
+  ],
+  tr: ["VikiBot", "SaltinbasBot", "CavlakBOT"].map((user) => ({
+    files: ["2026-10.trwiktionary.all-time.tsv.bz2"],
+    user,
+    comment: null,
+  })),
 };
 
 /** The sources a learning-language pair recipe reads (L3). */
