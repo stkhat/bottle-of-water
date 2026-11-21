@@ -315,6 +315,24 @@ export const NATIVE_LANGUAGES = {
     },
     englishPair: { format: 4 },
   },
+  // Korean writes hangul with spaces between words, so two subtitle lines join with
+  // one; a hangul syllable is a wide character, so its lines take the dense cap. Its
+  // words are written in hangul alone (hanja only in brackets beside them), so a
+  // meaning without hangul is none.
+  ko: {
+    option: "language.ko",
+    name: "languageName.ko",
+    spaces: true,
+    dense: true,
+    scripts: ["Hangul"],
+    translator: true,
+    examples: {
+      bank: "강둑, 강기슭",
+      beans: "비밀을 누설하다",
+      mind: "결심하다",
+    },
+    englishPair: { format: 4 },
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",

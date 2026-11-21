@@ -5,11 +5,12 @@
 // quality gate").
 import { join } from "node:path";
 import { RAW_DIR } from "../common.ts";
-import { UNDOCUMENTED_IMPORTS } from "./recipes.ts";
+import { UNDOCUMENTED_IMPORTS, type UndocumentedImport } from "./recipes.ts";
 
 /** Columns of Wikimedia's MediaWiki history dump (its TSV schema). */
 const HISTORY = {
   entity: 2,
+  time: 4,
   comment: 5,
   user: 9,
   title: 29,
@@ -19,13 +20,13 @@ const HISTORY = {
 
 /**
  * The pages `user` created in the main namespace with the edit summary `comment` (none
- * by default; null: whatever the summary), by a file of an edition's MediaWiki history
- * dump (bzip2: read through `bzcat`).
+ * by default; null: whatever the summary), before `before` when given (a UTC date or
+ * month, "2011-10"), by a file of an edition's MediaWiki history dump (bzip2: read
+ * through `bzcat`).
  */
 async function createdUndocumented(
   path: string,
-  user: string,
-  comment: string | null = "",
+  { user, comment = "", before }: Omit<UndocumentedImport, "files">,
 ): Promise<Set<string>> {
   const { spawn } = await import("node:child_process");
   const { createInterface } = await import("node:readline");
@@ -44,7 +45,8 @@ async function createdUndocumented(
       cells[HISTORY.entity] === "revision" &&
       cells[HISTORY.namespace] === "0" &&
       cells[HISTORY.parent] === "0" &&
-      (comment === null || cells[HISTORY.comment] === comment)
+      (comment === null || cells[HISTORY.comment] === comment) &&
+      (before === undefined || cells[HISTORY.time]! < before)
     )
       pages.add(cells[HISTORY.title]!.replaceAll("_", " "));
   }
@@ -69,13 +71,9 @@ export function undocumentedPages(
   let found = read.get(id);
   if (!found) {
     found = Promise.all(
-      imports.flatMap(({ files, user, comment }) =>
+      imports.flatMap(({ files, ...created }) =>
         files.map((file) =>
-          createdUndocumented(
-            join(rawDir, "mediawiki-history", file),
-            user,
-            comment,
-          ),
+          createdUndocumented(join(rawDir, "mediawiki-history", file), created),
         ),
       ),
     ).then((sets) => new Set(sets.flatMap((set) => [...set])));

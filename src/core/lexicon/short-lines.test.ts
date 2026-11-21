@@ -588,6 +588,10 @@ describe("firstSentence", () => {
       firstSentence("maison (famille). Note d’usage : le « h » est…"),
     ).toBe("maison (famille)");
   });
+  it("ends at a period before a letter of a script without case", () => {
+    expect(firstSentence("세다. 열거하다.")).toBe("세다");
+    expect(firstSentence("좋아서, 잘. 실제로.")).toBe("좋아서, 잘");
+  });
   it("does not end after an abbreviation or a number", () => {
     expect(firstSentence("EE. UU.")).toBe("EE. UU.");
     expect(firstSentence("a. de J. C. (antes de Jesucristo)")).toBe(
@@ -603,6 +607,36 @@ describe("firstSentence", () => {
 });
 
 describe("editionLine", () => {
+  it("drops asides in brackets written in another script than the gloss", () => {
+    expect(editionLine("발음(發音)하다")).toBe("발음하다");
+    expect(editionLine("주 (週), 주일")).toBe("주, 주일");
+    expect(editionLine("소유하다(To have; to have ownership of.)")).toBe(
+      "소유하다",
+    );
+    expect(editionLine("ความดัง [from 17th c.]")).toBe("ความดัง");
+    expect(editionLine("魣鳕属（Molva）的鱼")).toBe("魣鳕属的鱼");
+    // An aside in the gloss's own script stays, and so does a gloss of only asides.
+    expect(editionLine("(Ne) … pas")).toBe("(Ne) … pas");
+    expect(editionLine("(DNA)")).toBe("(DNA)");
+  });
+  it("keeps a caseless gloss's period-separated translations apart", () => {
+    expect(editionLine("햇빛. 일광.")).toBe("햇빛");
+    expect(editionLine("가다, 나가다.")).toBe("가다, 나가다");
+  });
+  it("takes the translations a caseless description is followed by", () => {
+    expect(
+      editionLine(
+        "장소를 막연히 말할 때 쓰는 말. 어디에, 어느 곳에, 어딘가에.",
+      ),
+    ).toBe("어디에, 어느 곳에, 어딘가에");
+    expect(
+      editionLine("주의, 관심을 끌기 위해 말하는 감탄사. 어이, 여봐."),
+    ).toBe("어이, 여봐");
+    // In a cased script, a sentence after a description is a note.
+    expect(editionLine("Unité de mesure de masse. Symbole : lb")).toBe(
+      "Unité de mesure de masse",
+    );
+  });
   it("drops sense subscripts after a word and an opening ellipsis", () => {
     expect(editionLine("Exigir, pedir₃")).toBe("Exigir, pedir");
     expect(editionLine("Ley₁₋₉")).toBe("Ley");

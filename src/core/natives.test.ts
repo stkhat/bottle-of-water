@@ -29,6 +29,7 @@ describe("the native-language registry", () => {
       "ar",
       "id",
       "tr",
+      "ko",
     ]);
     expect(PACK_FORMATS["en-es"]).toBe(4);
     expect(PACK_FORMATS["en-ru"]).toBe(4);
@@ -47,6 +48,7 @@ describe("the native-language registry", () => {
       "en-ar",
       "en-id",
       "en-tr",
+      "en-ko",
       "es-en",
       "fr-en",
       "de-en",
@@ -144,6 +146,15 @@ describe("the native-language registry", () => {
       "ağzından kaçırmak",
     );
     expect(writtenRightToLeft("tr")).toBe(false);
+    // Korean: hangul with spaces between words, capped as a dense script.
+    expect(languageOption("ko")).toBe("Korean (한국어)");
+    expect(languageName("ko")).toBe("Korean");
+    expect(joinerFor("ko-KR")).toBe(" ");
+    expect(meaningLength("ko")).toBe(25);
+    expect(instructions({ learning: "en", native: "ko" })).toContain(
+      "비밀을 누설하다",
+    );
+    expect(writtenRightToLeft("ko")).toBe(false);
     expect(writtenRightToLeft("hi")).toBe(false);
     expect(writtenRightToLeft("en")).toBe(false);
     // The prompt does not ask a Chinese answer to avoid Chinese.

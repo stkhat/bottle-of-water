@@ -60,7 +60,9 @@ export interface Recipe {
    * other source has). kaikki's extract of the language (kaikki-<native>.jsonl); tag
    * "enwiktionary-<native>". `frequency`: a term's native words are ordered by the
    * language's FrequencyWords 2018 list (subtitle counts; read at build time only,
-   * nothing from it ships), where the list is usable (Thai's is segmented badly).
+   * nothing from it ships), where the list is usable (Thai's is segmented badly;
+   * Korean's counts inflected forms, so a verb's -다 form is rare: 가다 ranks 19,326th,
+   * 갔어 1,072nd).
    * `beforeWordnets`: before the wordnets, for a wordnet whose words lost to them in a
    * blind sample of the terms both have (Arabic WordNet, ar-1: its synsets give a
    * term the words of a neighbouring sense, waste → خضع).
@@ -209,6 +211,24 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
       beforeWordnets: true,
     },
   },
+  // Korean (round 4, ko-1): the tables, the Korean Wiktionary's English entries, then
+  // English Wiktionary's Korean entries read the other way, in their own order. Blind
+  // judging (60 gate words, 2 judges each) preferred the tables first (31 and 28 to 15
+  // and 12), S1 before S2 (32 and 31 to 17 and 16) and no S2 (32 and 34 to 21 and 16;
+  // its words mislead: cow → 우유, younger → 남동생), and tied S1 ordered by FrequencyWords
+  // (20 and 19 to 20 and 20).
+  ko: {
+    edition: {
+      tag: "kowiktionary",
+      file: "kaikki-ko-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["ko"] },
+    reverseGlosses: {
+      tag: "enwiktionary-ko",
+      file: "kaikki-ko.jsonl",
+    },
+  },
 };
 
 /** A recipe's source tags, in order. */
@@ -235,6 +255,11 @@ export interface UndocumentedImport {
   readonly user: string;
   /** The edit summary they were created with: none by default; null: whatever it says. */
   readonly comment?: string | null;
+  /**
+   * Only the pages created before this UTC date or month ("2011-10"): a bot whose later
+   * creations are empty drafts that people filled by hand.
+   */
+  readonly before?: string;
 }
 
 /**
@@ -255,7 +280,12 @@ export interface UndocumentedImport {
  * databases, no source named), every page SaltinbasBot created (2008–2012: Turkish
  * entries "TDK Büyük Sözlük", the Turkish Language Association's dictionary, or no
  * source named) and every page CavlakBOT created (2025–2026, "yeni sayfa AWB ile":
- * name lists, numbers and plurals, no source named). Read from Wikimedia's MediaWiki
+ * name lists, numbers and plurals, no source named). The Korean edition (round 4,
+ * ko-1): the pages Gusibbot created from June 2010 to July 2011 with the summary
+ * "Automated import of articles" (81,987 pages; 1,545 of the edition's glossed English
+ * entries came with their Korean glosses, no source named); its later creations
+ * (October 2011 on, as "Automated import of articles", "Automated import" and "초안")
+ * are empty drafts whose glosses people added by hand, which stay. Read from Wikimedia's MediaWiki
  * history dump of the edition (data/raw/mediawiki-history/, a file per year or one for
  * all time: `files`).
  */
@@ -283,6 +313,14 @@ export const UNDOCUMENTED_IMPORTS: Readonly<
     user,
     comment: null,
   })),
+  ko: [
+    {
+      files: ["2026-10.kowiktionary.all-time.tsv.bz2"],
+      user: "Gusibbot",
+      comment: "Automated import of articles",
+      before: "2011-10",
+    },
+  ],
 };
 
 /** The sources a learning-language pair recipe reads (L3). */

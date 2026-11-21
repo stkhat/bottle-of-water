@@ -227,6 +227,11 @@ const TEST_PACKS: PackFiles = {
   "en-tr": {
     dict: { loaf: [[["noun", "somun"]], 0] },
   },
+  // The Korean Wiktionary's English entries, the tables, English Wiktionary's Korean
+  // entries, then the Korean edition's tables read the other way.
+  "en-ko": {
+    dict: { loaf: [[["noun", "빵 한 덩어리"]], 0] },
+  },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
@@ -401,6 +406,11 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     ],
   },
   "/packs/en-tr/dict-1.json": TEST_PACKS["en-tr"].dict,
+  "/packs/en-ko/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["enwiktionary-translations", "kowiktionary", "enwiktionary-ko"],
+  },
+  "/packs/en-ko/dict-1.json": TEST_PACKS["en-ko"].dict,
   "/packs/de-fr/index.json": {
     shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
     sources: [

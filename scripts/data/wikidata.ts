@@ -707,7 +707,8 @@ async function itemTexts(ids: readonly string[], path: string) {
         else fetched.delete(id);
       }
   const missing = ids.filter((id) => !fetched.has(id));
-  const batch = 1000;
+  // QLever times out a batch of 1,000 items when it is busy (ko-1, 2026-11-22).
+  const batch = 150;
   const langs = LANGS.map((lang) => `"${lang}"`).join(",");
   for (let i = 0; i < missing.length; i += batch) {
     const part = missing.slice(i, i + batch);

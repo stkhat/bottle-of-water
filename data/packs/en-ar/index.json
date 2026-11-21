@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"AAAD","last":"Paiwan"},{"file":"capital-2.json","first":"Pakistan","last":"ŽSR"},{"file":"dict-1.json","first":"a","last":"stepdaughter"},{"file":"dict-2.json","first":"stepfather","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"AAAD","last":"Pakistan"},{"file":"capital-2.json","first":"Pakistani","last":"ŽSR"},{"file":"dict-1.json","first":"a","last":"stepdaughter"},{"file":"dict-2.json","first":"stepfather","last":"éclair"}],
 "sources":["enwiktionary-translations","enwiktionary-ar","omw-arb","wikidata"]
 }
