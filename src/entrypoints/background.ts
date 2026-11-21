@@ -12,10 +12,25 @@ import {
   startPackDownloads,
 } from "../background/pack-downloads";
 import { createPackSource, createPackStore } from "../background/pack-store";
-import { getSettings, setSettings } from "../background/settings-store";
+import {
+  cloudSettings,
+  getSettings,
+  setSettings,
+} from "../background/settings-store";
 import { watchBuild } from "../background/self-reload";
 import { isCheckLogMessage, startWorkerErrorLog } from "../check/start";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
+import {
+  cloudConnected,
+  createCloudSyncBackend,
+} from "../background/sync/cloud-sync-backend";
+import { createGoogleAuth } from "../background/sync/google-auth";
+import {
+  DEVELOPMENT_GOOGLE_CLIENTS,
+  PRODUCTION_GOOGLE_CLIENTS,
+} from "../background/sync/google-clients";
+import { createDriveFiles } from "../core/cloud/google-drive";
+import type { CloudProvider, CloudProviderId } from "../core/cloud/provider";
 import { createTermStore } from "../background/term-store";
 import { followToolbarIcon } from "../background/toolbar-icon";
 import { createTranslationCache } from "../background/translation-cache";
@@ -39,10 +54,23 @@ export default defineBackground(() => {
   const checkLog =
     import.meta.env.MODE === "check" ? startWorkerErrorLog() : undefined;
 
-  const db = openLangleDb();
-  const store = createTermStore(db, { deviceId: deviceId() });
-  const history = createHistoryStore(db);
-  const sync = createBrowserSyncBackend({ store });
+  const device = deviceId();
+  const db = openLangleDb("langle", { deviceId: device });
+  const store = createTermStore(db, { deviceId: device });
+  const history = createHistoryStore(db, { deviceId: device });
+  const sync = createBrowserSyncBackend({
+    store,
+    termsInCloud: () => cloudConnected(),
+  });
+  const cloud = createCloudSyncBackend({
+    db,
+    store,
+    history,
+    settings: cloudSettings(),
+    deviceId: device,
+    providers: cloudProviders(),
+    browserSync: sync,
+  });
 
   const lock = readLock();
   const packStore = createPackStore({
@@ -74,6 +102,7 @@ export default defineBackground(() => {
     resources,
     packs: { lock, store: packStore, retry: retryPacks },
     sync,
+    cloud,
     openOptionsPage: () => browser.runtime.openOptionsPage(),
   });
 
@@ -98,9 +127,32 @@ export default defineBackground(() => {
   });
 
   sync.start().catch((error: unknown) => console.error(error));
+  // Registers its alarm listener synchronously, so the alarm that woke the worker is heard.
+  cloud.start().catch((error: unknown) => console.error(error));
 
   // `npm run build:check` only: reload when a new build is copied in. The mode is a
   // constant at build time, so other builds leave this (and self-reload.ts) out.
   if (import.meta.env.MODE === "check")
     watchBuild().catch((error: unknown) => console.error(error));
 });
+
+/**
+ * The cloud providers this build can connect to. Google Drive needs the build's Google
+ * clients: production has none until the store item's client is registered, so nothing
+ * can connect there yet. The mode is a constant at build time, so production builds
+ * leave the development clients out.
+ */
+function cloudProviders(): Partial<Record<CloudProviderId, CloudProvider>> {
+  const google =
+    import.meta.env.MODE === "production"
+      ? PRODUCTION_GOOGLE_CLIENTS
+      : DEVELOPMENT_GOOGLE_CLIENTS;
+  if (!google) return {};
+  return {
+    googleDrive: {
+      id: "googleDrive",
+      files: createDriveFiles(),
+      auth: createGoogleAuth({ webClientId: google.web }),
+    },
+  };
+}

@@ -1,7 +1,15 @@
+import { CLOUD_PROVIDERS, type CloudProviderId } from "./cloud/provider";
 import { onHost } from "./url";
 
 /** The `storage.sync` key that holds the whole settings object. */
 export const SETTINGS_KEY = "settings";
+
+/**
+ * The `storage.sync` key that holds the settings' field times (`TimedSettings` of
+ * `core/cloud/settings.ts`): the values the times describe, and when each field last
+ * changed. The settings item itself stays plain, so older versions still read it.
+ */
+export const SETTINGS_TIMES_KEY = "settingsTimes";
 
 export interface Settings {
   /** Langle runs at all: the popup header's switch turns it off everywhere for a while. */
@@ -55,7 +63,14 @@ export interface Settings {
   /** Hosts switched off with the popup's "On this site". */
   disabledSites: string[];
   syncEnabled: boolean;
+  /**
+   * The user's own cloud storage chosen for sync (architecture "Sync to the user's own
+   * cloud storage"); sign-in is per device, so a device may not be connected to it.
+   */
+  cloudProvider: "none" | CloudProviderId;
   sentenceHistory: boolean;
+  /** "Also save to <provider>": the sentence history is synced through the cloud too. */
+  cloudHistory: boolean;
   /**
    * The on-device AI explains a term the dictionary does not have as soon as the
    * dictionary window opens (where a model can run for the pair).
@@ -122,7 +137,9 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   neverRunOn: [],
   disabledSites: [],
   syncEnabled: true,
+  cloudProvider: "none",
   sentenceHistory: true,
+  cloudHistory: true,
   explainUnknown: true,
   theme: "system",
   rateNudgeDone: false,
@@ -229,7 +246,12 @@ export function mergeSettings(
     neverRunOn: strings(v.neverRunOn, base.neverRunOn),
     disabledSites: strings(v.disabledSites, base.disabledSites),
     syncEnabled: bool(v.syncEnabled, base.syncEnabled),
+    cloudProvider: oneOf(v.cloudProvider, base.cloudProvider, [
+      "none",
+      ...CLOUD_PROVIDERS,
+    ]),
     sentenceHistory: bool(v.sentenceHistory, base.sentenceHistory),
+    cloudHistory: bool(v.cloudHistory, base.cloudHistory),
     explainUnknown: bool(v.explainUnknown, base.explainUnknown),
     theme: oneOf(v.theme, base.theme, ["system", "light", "dark"]),
     rateNudgeDone: bool(v.rateNudgeDone, base.rateNudgeDone),

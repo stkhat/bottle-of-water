@@ -26,3 +26,14 @@ describe("deviceId", () => {
     expect(await deviceId()()).not.toBe(id);
   });
 });
+
+describe("deviceId.renew", () => {
+  it("makes and keeps a new id, which later calls and starts give", async () => {
+    const get = deviceId();
+    const id = await get();
+    const renewed = await get.renew();
+    expect(renewed).not.toBe(id);
+    expect(await get()).toBe(renewed);
+    expect(await deviceId()()).toBe(renewed);
+  });
+});

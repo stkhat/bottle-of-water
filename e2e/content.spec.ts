@@ -75,7 +75,7 @@ test("choosing a meaning in the dictionary saves the word as Learning, and the e
     meanings: { termId: string; text: string }[];
     meaningChoices: { termId: string; meaningKey: string | null }[];
   };
-  expect(data.version).toBe(2);
+  expect(data.version).toBe(3);
   expect(data.meanings).toEqual([
     expect.objectContaining({ termId: "en:loaf", text: meaning }),
   ]);

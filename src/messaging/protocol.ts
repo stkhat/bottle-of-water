@@ -9,6 +9,7 @@ import type {
   TermKind,
   TermStatus,
 } from "../core/classify";
+import type { CloudProviderId } from "../core/cloud/provider";
 import type { Answer } from "../core/explain/answer";
 import type { DictionaryEntry, Written } from "../core/lexicon/dictionary";
 import type { Meaning } from "../core/meanings";
@@ -35,6 +36,12 @@ export interface TermRecord {
   note?: string;
   createdAt: number;
   updatedAt: number;
+  /**
+   * The last time the term was removed; saving it again keeps it, so its occurrences
+   * and choices from before never come back. A tombstone without one (made before it
+   * existed) counts as cleared at its `updatedAt` (`clearedAtOf`).
+   */
+  clearedAt?: number;
 }
 
 export type Origin = "saved" | "encountered";
@@ -237,6 +244,9 @@ export type Request =
   | { type: "undoSaveAll"; batchId: string }
   | { type: "counts"; lang: string }
   | { type: "syncStatus" }
+  | { type: "cloudStatus" }
+  /** Reads the other devices' changed cloud files soon; answers at once. */
+  | { type: "cloudCheck" }
   | { type: "exportJson" }
   | { type: "importJson"; json: string }
   | { type: "lastExport" }
@@ -413,6 +423,8 @@ export interface ImportResult {
 export interface SyncStatus {
   /** `settings.syncEnabled`; when false nothing is pushed or pulled. */
   enabled: boolean;
+  /** The terms sync through the user's own cloud storage: nothing is pushed or pulled. */
+  termsInCloud: boolean;
   bytesUsed: number;
   quotaBytes: number;
   /** When this device last wrote (or confirmed) its terms in the synced copy. */
@@ -428,6 +440,29 @@ export interface SyncStatus {
   droppedKnownCount: number;
   /** The last failure, until an operation of the same kind succeeds. */
   error?: string;
+}
+
+/**
+ * Sync through the user's own cloud storage on this device (`CloudSyncBackend`). Without
+ * `provider` the device is not connected.
+ */
+export interface CloudStatus {
+  provider?: CloudProviderId;
+  /** When this device last wrote its files. */
+  lastSavedAt?: number;
+  /** When this device last read the other devices' files. */
+  lastCheckedAt?: number;
+  /** Every file's size, all devices together. */
+  bytes: number;
+  /** Device folders in the cloud, this one included. */
+  devices: number;
+  /**
+   * `reconnect`: the token could not be renewed without a window (changes keep
+   * collecting); `full`: the storage is full and writing stopped; `update`: another
+   * device's file of a newer Langle (or one that could not be read) was skipped;
+   * `retrying`: a network error or a rate limit, tried again with backoff.
+   */
+  error?: "reconnect" | "full" | "update" | "retrying";
 }
 
 export interface HistoryStatus {
@@ -482,6 +517,8 @@ interface ResponseMap {
   undoSaveAll: number;
   counts: Counts;
   syncStatus: SyncStatus;
+  cloudStatus: CloudStatus;
+  cloudCheck: null;
   exportJson: string;
   importJson: ImportResult;
   /** Null when the data was never exported. */

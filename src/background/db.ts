@@ -16,7 +16,17 @@ export interface SourceRecord {
   lastSeen: number;
 }
 
-export interface OccurrenceRecord {
+/**
+ * The device that first recorded a row (`deviceId`) and when it did (`addedAt`). Rows
+ * taken in from elsewhere keep theirs; cloud sync writes a device's own rows into the
+ * month of their `addedAt`.
+ */
+interface Recorded {
+  deviceId: string;
+  addedAt: number;
+}
+
+export interface OccurrenceRecord extends Recorded {
   id?: number;
   termId: string;
   sourceId: string;
@@ -70,7 +80,7 @@ export interface HistoryPageRecord {
   bytes: number;
 }
 
-export interface HistorySentenceRecord {
+export interface HistorySentenceRecord extends Recorded {
   id?: number;
   pageId: string;
   text: string;
@@ -124,8 +134,21 @@ export interface PackVersionRecord {
   files: { path: string; sha256: string }[];
 }
 
-/** `historyBytes`: the counted size of all of the sentence history. */
-export type MetaKey = "lastExportAt" | "lastSavedAt" | "historyBytes";
+/**
+ * `historyBytes`: the counted size of all of the sentence history. `historyClearedAt`:
+ * the last "Clear" of the history; nothing kept from before it comes back.
+ */
+export type MetaKey =
+  "lastExportAt" | "lastSavedAt" | "historyBytes" | "historyClearedAt";
+
+/**
+ * A host added to "Never run on", and when (lowercase): what the history kept of it
+ * (and its subdomains) before that time never comes back.
+ */
+interface ForgottenHostRecord {
+  host: string;
+  at: number;
+}
 
 interface MetaRecord {
   key: MetaKey;
@@ -139,6 +162,7 @@ export type LangleDb = Dexie & {
   meta: EntityTable<MetaRecord, "key">;
   historyPages: EntityTable<HistoryPageRecord, "id">;
   historySentences: EntityTable<HistorySentenceRecord, "id">;
+  historyForgotten: EntityTable<ForgottenHostRecord, "host">;
   mtCache: EntityTable<MtCacheRecord, "key">;
   packFiles: EntityTable<PackFileRecord, "sha256">;
   packVersions: EntityTable<PackVersionRecord, "pack">;
@@ -147,12 +171,25 @@ export type LangleDb = Dexie & {
   explanations: EntityTable<ExplanationRecord, "key">;
 };
 
+export interface LangleDbOptions {
+  /** This device's id (`device-id.ts`): version 7 gives it to the rows it finds. */
+  deviceId: () => Promise<string>;
+  now?: () => number;
+}
+
 /**
  * Tests pass a unique name per test. Versions 1–3 only added tables, so they were
  * merged into 4: Dexie upgrades an older database by comparing the schemas. Version 5
- * adds your meanings and 6 the on-device AI's answers (phase 3).
+ * adds your meanings and 6 the on-device AI's answers (phase 3). Version 7 prepares
+ * cloud sync: the occurrences and history sentences already there get this device and
+ * the upgrade time (`deviceId`, `addedAt`); terms gain `clearedAt` with nothing to fill
+ * (a tombstone without one counts as cleared at its `updatedAt`); the hosts added to
+ * "Never run on" are kept with their times.
  */
-export function openLangleDb(name = "langle"): LangleDb {
+export function openLangleDb(
+  name: string,
+  { deviceId, now = Date.now }: LangleDbOptions,
+): LangleDb {
   const db = new Dexie(name) as LangleDb;
   db.version(4).stores({
     terms: "id, lang, status, updatedAt, batchId, [lang+status]",
@@ -171,5 +208,18 @@ export function openLangleDb(name = "langle"): LangleDb {
     meaningChoices: "[termId+sourceId+sentence], termId, meaningKey",
   });
   db.version(6).stores({ explanations: "key, usedAt, pair" });
+  db.version(7)
+    .stores({ historyForgotten: "host" })
+    .upgrade(async (tx) => {
+      // The id is read from storage.local: waiting for it keeps the transaction open.
+      const device = await Dexie.waitFor(deviceId());
+      const at = now();
+      const recorded = (row: Partial<Recorded>) => {
+        row.deviceId ??= device;
+        row.addedAt ??= at;
+      };
+      await tx.table("occurrences").toCollection().modify(recorded);
+      await tx.table("historySentences").toCollection().modify(recorded);
+    });
   return db;
 }

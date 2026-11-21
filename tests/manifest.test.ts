@@ -15,6 +15,8 @@ type Manifest = {
   browser_specific_settings?: { gecko?: { id?: string } };
   background?: { service_worker?: string; scripts?: string[] };
   icons?: Record<string, string>;
+  key?: string;
+  oauth2?: { client_id: string; scopes: string[] };
 };
 
 function readManifest(dir: string): Manifest {
@@ -35,10 +37,11 @@ describe.each(["chrome-mv3", "firefox-mv3"])("%s manifest", (dir) => {
     expect(manifest().manifest_version).toBe(3);
   });
 
-  // alarms (retrying language data downloads) adds no install warning, unlike host
-  // permissions: the mirrors send CORS headers, so downloads need none.
-  test("requests only the storage and alarms permissions", () => {
-    expect(manifest().permissions).toEqual(["storage", "alarms"]);
+  // alarms (retrying language data downloads) and identity (signing in to the user's
+  // own cloud storage) add no install warning in Chrome, unlike host permissions: the
+  // mirrors and Google Drive's API send CORS headers, so neither needs any.
+  test("requests only the storage, alarms and identity permissions", () => {
+    expect(manifest().permissions).toEqual(["storage", "alarms", "identity"]);
   });
 
   test("has the colored toolbar icon in every size", () => {
@@ -122,17 +125,60 @@ describe("firefox-mv3 manifest specifics", () => {
   });
 });
 
+/** Every script of the build, joined. */
+const scriptsOf = (dir: string) =>
+  readdirSync(`.output/${dir}`, { recursive: true, withFileTypes: true })
+    .filter((file) => file.isFile() && file.name.endsWith(".js"))
+    .map((file) => readFileSync(join(file.parentPath, file.name), "utf8"))
+    .join("\n");
+
+// Google's Chrome-extension client is tied to one extension id
+// (src/background/sync/google-clients.ts).
+describe("Google sign-in", () => {
+  test("development and check builds keep the id dgabnakfehpeammboohlkafhhdegbffe", async () => {
+    for (const dir of ["chrome-mv3-check", "langle-check"]) {
+      const { key } = readManifest(dir);
+      expect(key, dir).toBeDefined();
+      // Chrome's id: the first 128 bits of the key's SHA-256, as letters a–p.
+      const digest = new Uint8Array(
+        await crypto.subtle.digest(
+          "SHA-256",
+          Uint8Array.from(atob(key!), (c) => c.charCodeAt(0)),
+        ),
+      );
+      const id = [...digest.slice(0, 16)]
+        .flatMap((byte) => [byte >> 4, byte & 15])
+        .map((n) => String.fromCharCode(97 + n))
+        .join("");
+      expect(id, dir).toBe("dgabnakfehpeammboohlkafhhdegbffe");
+    }
+  });
+
+  test("the check build names the development Chrome-extension client and drive.appdata only", () => {
+    expect(readManifest("chrome-mv3-check").oauth2).toEqual({
+      client_id:
+        "191564468385-nmn8mdj6shonud18lkkhsjm0nvrpi8jm.apps.googleusercontent.com",
+      scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+    });
+  });
+
+  // Until the store item's client is registered, production has no Google client.
+  test.each(["chrome-mv3", "firefox-mv3"])(
+    "%s (production) has no key, no oauth2 and no development client",
+    (dir) => {
+      const m = readManifest(dir);
+      expect(m.key).toBeUndefined();
+      expect(m.oauth2).toBeUndefined();
+      expect(scriptsOf(dir)).not.toContain("191564468385-");
+    },
+  );
+});
+
 // The self-reload (src/background/self-reload.ts), the error log and the settings
 // channel (src/check/) of `npm run build:check` are dev only.
 describe("check build", () => {
   const backgroundOf = (dir: string) =>
     readFileSync(`.output/${dir}/background.js`, "utf8");
-  /** Every script of the build, joined. */
-  const scriptsOf = (dir: string) =>
-    readdirSync(`.output/${dir}`, { recursive: true, withFileTypes: true })
-      .filter((file) => file.isFile() && file.name.endsWith(".js"))
-      .map((file) => readFileSync(join(file.parentPath, file.name), "utf8"))
-      .join("\n");
 
   test.each(["chrome-mv3", "firefox-mv3"])(
     "%s (production) has no self-reload and no build id",
