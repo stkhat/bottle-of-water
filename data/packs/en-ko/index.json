@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'em","last":"subordination"},{"file":"dict-2.json","first":"subpoena","last":"émigré"}],
+"sources":["enwiktionary-translations","kowiktionary","enwiktionary-ko","wikidata"]
+}

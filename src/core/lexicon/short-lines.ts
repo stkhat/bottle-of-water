@@ -643,15 +643,16 @@ export function translatedLine(text: string, lang: string): string {
 
 /**
  * The text up to its first sentence end in a spaced script: a period followed by a
- * capital or an arrow ("Más. Comparativo de much" → "Más"; "Enfant . Note d'usage : …"
- * → "Enfant"; "Coche. → voir check mark" → "Coche"). Not after an abbreviation: a
- * single letter or a word in capitals ("J. C.", "EE. UU."), a number ("3. Person"), or
- * one the data build learned from the edition, which a no-break space follows
- * ("Gegenstand bzw.\u00a0Ergänzung").
+ * capital, a letter of a script without case, or an arrow ("Más. Comparativo de much"
+ * → "Más"; "Enfant . Note d'usage : …" → "Enfant"; ko "세다. 열거하다." → "세다";
+ * "Coche. → voir check mark" → "Coche"). Not after an abbreviation: a single letter or
+ * a word in capitals ("J. C.", "EE. UU."), a number ("3. Person"), or one the data
+ * build learned from the edition, which a no-break space follows ("Gegenstand
+ * bzw.\u00a0Ergänzung").
  */
 export function firstSentence(text: string): string {
   const end = indicesOutside(text, (t, i) => {
-    if (t[i] !== "." || !/^[^\S\u00a0]+[\p{Lu}→]/u.test(t.slice(i + 1)))
+    if (t[i] !== "." || !/^[^\S\u00a0]+[\p{Lu}\p{Lo}→]/u.test(t.slice(i + 1)))
       return false;
     return /\s$/.test(t.slice(0, i)) || !endsAbbreviation(t.slice(0, i));
   }).find((i) => i > 0);
@@ -660,12 +661,17 @@ export function firstSentence(text: string): string {
 
 /**
  * Whether text ends with an abbreviation's word: a single letter, capitals, a number.
- * A closing bracket or quote does not ("maison (famille). Note d'usage : …").
+ * A closing bracket or quote does not ("maison (famille). Note d'usage : …"), nor a
+ * word of a script without case, a syllable too (ko "가다.", "잘.").
  */
 function endsAbbreviation(text: string): boolean {
   if (/[)）\]］"”»’]$/u.test(text)) return false;
   const word = /[\p{L}\p{N}]+$/u.exec(text)?.[0] ?? "";
-  return [...word].length < 2 || !/\p{Ll}/u.test(word);
+  return (
+    /^\p{N}+$/u.test(word) ||
+    (/^[\p{Lu}\p{Ll}]/u.test(word) &&
+      ([...word].length < 2 || !/\p{Ll}/u.test(word)))
+  );
 }
 
 /** Without closing marks, a period too unless it ends an abbreviation ("EE. UU."). */
@@ -792,6 +798,88 @@ function withoutOpeningLabels(text: string): string {
 }
 
 /**
+ * A gloss's first sentence (`firstSentence`), or the next one when the first describes
+ * the word and the next translates it, each of its comma items a translation
+ * (`translationItems`), in a script without case (in a cased one, a sentence after a
+ * description is a note: fr pound "Symbole : lb"): ko somewhere "장소를 막연히 말할 때 쓰는 말. 어디에, 어느 곳에"
+ * → "어디에, 어느 곳에", hey "주의, 관심을 끌기 위해 말하는 감탄사. 어이, 여봐." → "어이,
+ * 여봐".
+ */
+function translatingSentence(text: string): string {
+  const first = firstSentence(text);
+  if (translationItems(withoutParentheses(first))) return first;
+  const next = firstSentence(text.slice(first.length).replace(/^[\s.]+/u, ""));
+  const bare = withoutParentheses(withoutClosingMarks(next));
+  return /^[^\p{L}]*\p{Lo}/u.test(bare) && translationItems(bare)
+    ? next
+    : first;
+}
+
+/** The scripts an edition's line may mix: a letter's is the first that has it. */
+const SCRIPTS = [
+  "Latin",
+  "Cyrillic",
+  "Greek",
+  "Arabic",
+  "Hebrew",
+  "Devanagari",
+  "Thai",
+  "Hangul",
+  "Han",
+  "Hiragana",
+  "Katakana",
+].map((name) => new RegExp(`\\p{Script=${name}}`, "u"));
+
+/** The scripts of a text's letters (indices into SCRIPTS). */
+const scriptsOf = (text: string): Set<number> =>
+  new Set(
+    [...text.matchAll(/\p{L}/gu)]
+      .map(([letter]) => SCRIPTS.findIndex((script) => script.test(letter)))
+      .filter((at) => at >= 0),
+  );
+
+/**
+ * A gloss without its asides in brackets written in another script than the gloss
+ * around them, which give the word's spelling or source in that script, not its
+ * meaning: ko hanja ("발음(發音)하다" → "발음하다", "주 (週)" → "주"), English in a
+ * Korean, Thai or Russian gloss ("소유하다(To have; to have ownership of.)" →
+ * "소유하다"). An aside in the gloss's own script stays ("(Ne) … pas", "（现多）点燃"),
+ * and so does a gloss that has no letter outside its brackets.
+ */
+function withoutForeignAsides(text: string): string {
+  const groups: [number, number][] = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (OPENING.includes(ch) || ch === "〔") {
+      if (depth++ === 0) from = i;
+    } else if ((CLOSING.includes(ch) || ch === "〕") && depth > 0) {
+      if (--depth === 0) groups.push([from, i + 1]);
+    }
+  }
+  if (groups.length === 0) return text;
+  let outside = "";
+  let at = 0;
+  for (const [start, end] of groups) {
+    outside += text.slice(at, start);
+    at = end;
+  }
+  const own = scriptsOf(outside + text.slice(at));
+  if (own.size === 0) return text;
+  let out = "";
+  at = 0;
+  for (const [start, end] of groups) {
+    const inside = scriptsOf(text.slice(start, end));
+    const foreign = inside.size > 0 && [...inside].every((s) => !own.has(s));
+    out += text.slice(at, foreign ? start : end);
+    if (foreign) out = out.replace(/[^\S\n]+$/u, "");
+    at = end;
+  }
+  return out + text.slice(at);
+}
+
+/**
  * A recipe pair's edition gloss (in the native language, any script) as a hover line
  * (NATIVE, every language but Japanese, whose dictionary is EJDict):
  * - without the source's sense subscripts after a word ("Pedir₁", "Ley₁₋₉"; not O₂),
@@ -800,8 +888,11 @@ function withoutOpeningLabels(text: string): string {
  *   religiach monoteistycznych) Bóg" → "Bóg"); one word in brackets is part of the
  *   meaning ("(Ne) … pas") or, in a script without spaces, a note judges kept
  *   ("（现多）点燃");
+ * - without asides in brackets in another script than the gloss's (ko hanja and
+ *   English: `withoutForeignAsides`);
  * - its first sentence (`firstSentence`), which leaves out usage notes ("Tout à
- *   l'heure. Note d'usage : …");
+ *   l'heure. Note d'usage : …"), or in a script without case the translations a
+ *   description is followed by (`translatingSentence`);
  * - what a qualifier introduces (`afterQualifier`);
  * - the translations a description is followed by (`translationsAfter`), else its first
  *   sense (up to ";");
@@ -811,11 +902,13 @@ function withoutOpeningLabels(text: string): string {
  */
 export function editionLine(text: string): string {
   const clean = withoutOpeningLabels(
-    text
-      .replace(/(?<=[\p{Ll}.])[₀-₉₋]+/gu, "")
-      .replace(/^\s*(?:…|\.{3})+\s*/u, ""),
+    withoutForeignAsides(
+      text
+        .replace(/(?<=[\p{Ll}.])[₀-₉₋]+/gu, "")
+        .replace(/^\s*(?:…|\.{3})+\s*/u, ""),
+    ),
   );
-  const meaning = afterQualifier(firstSentence(clean));
+  const meaning = afterQualifier(translatingSentence(clean));
   const sense =
     translationsAfter(meaning) ??
     sensesOf(meaning).find((part) => part !== "") ??

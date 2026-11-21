@@ -36,6 +36,7 @@ const lock = {
     "en-ar": entry("en-ar"),
     "en-id": entry("en-id"),
     "en-tr": entry("en-tr"),
+    "en-ko": entry("en-ko"),
     "de-fr": entry("de-fr"),
   },
   pairs: {
@@ -54,6 +55,7 @@ const lock = {
       "ar",
       "id",
       "tr",
+      "ko",
     ],
     es: ["en"],
     fr: ["en"],

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A-bomb","last":"Palestine"},{"file":"capital-2.json","first":"Palestinian","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'em","last":"isinglass"},{"file":"dict-2.json","first":"islamic emirate of afghanistan","last":"visualization"},{"file":"dict-3.json","first":"visualize","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A-bomb","last":"Palestinian"},{"file":"capital-2.json","first":"Pallene","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'em","last":"isinglass"},{"file":"dict-2.json","first":"islamic emirate of afghanistan","last":"visualization"},{"file":"dict-3.json","first":"visualize","last":"éclair"}],
 "sources":["eswiktionary","enwiktionary-translations","wikidata"]
 }

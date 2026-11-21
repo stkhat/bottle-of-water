@@ -727,6 +727,16 @@ describe.each([
     ],
     bread: "ekmek",
   },
+  {
+    pack: "en-ko",
+    sources: [
+      "enwiktionary-translations",
+      "kowiktionary",
+      "enwiktionary-ko",
+      "wikidata",
+    ],
+    bread: "빵",
+  },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
   const index = read(`packs/${pack}/index.json`) as ShardIndex;
   const load = loadPack(pack).then(({ dict }) => ({
@@ -768,11 +778,11 @@ describe.each([
 });
 
 // Every recipe pair with an edition keeps its forms as pointers (format 2); the tables
-// and reverse glosses give none (en-hi has no edition), nor does the Indonesian
-// edition, whose English entries list no forms.
+// and reverse glosses give none (en-hi has no edition), nor do the Indonesian and
+// Korean editions, whose English entries list no forms (ko: 11 of 17,829 entries).
 describe.each(
   recipeNatives().filter(
-    (native) => RECIPES[native].edition && native !== "id",
+    (native) => RECIPES[native].edition && !["id", "ko"].includes(native),
   ),
 )("generated en-%s pointers", (native) => {
   const load = loadPack(`en-${native}`).then(({ dict }) => ({
@@ -883,6 +893,12 @@ const FIRST_LINES: Readonly<
     january: "ocak",
     be: "imek",
     better: "daha iyi",
+  },
+  ko: {
+    english: "영어",
+    january: "일월",
+    be: "이다",
+    better: "더 좋은",
   },
 };
 

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Myrtaceae"},{"file":"capital-2.json","first":"Myspace","last":"ɅTLɅS"},{"file":"dict-1.json","first":"$","last":"heterogeneous"},{"file":"dict-2.json","first":"heterogeneous catalysis","last":"spring"},{"file":"dict-3.json","first":"spring balance","last":"ö"}],
+"shards":[{"file":"capital.json","first":"A","last":"Myrmica"},{"file":"capital-2.json","first":"Myrtaceae","last":"ɅTLɅS"},{"file":"dict-1.json","first":"$","last":"heterogeneous"},{"file":"dict-2.json","first":"heterogeneous catalysis","last":"spring"},{"file":"dict-3.json","first":"spring balance","last":"ö"}],
 "sources":["frwiktionary","enwiktionary-translations","wikidata"]
 }

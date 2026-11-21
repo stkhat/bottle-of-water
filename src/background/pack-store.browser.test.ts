@@ -101,6 +101,7 @@ async function testLock(
       "en-ar": unused("en-ar"),
       "en-id": unused("en-id"),
       "en-tr": unused("en-tr"),
+      "en-ko": unused("en-ko"),
       "de-fr": unused("de-fr"),
     },
     pairs: {
@@ -119,6 +120,7 @@ async function testLock(
         "ar",
         "id",
         "tr",
+        "ko",
       ],
       es: ["en"],
       fr: ["en"],
