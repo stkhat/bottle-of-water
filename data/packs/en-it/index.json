@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"SLAPP"},{"file":"capital-2.json","first":"SLB","last":"ɅTLɅS"},{"file":"dict-1.json","first":"@","last":"have sex"},{"file":"dict-2.json","first":"have someone's back","last":"snotty"},{"file":"dict-3.json","first":"snout","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"SLAPP"},{"file":"capital-2.json","first":"SLB","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'re","last":"have one foot in the grave"},{"file":"dict-2.json","first":"have one's cake and eat it too","last":"snooper"},{"file":"dict-3.json","first":"snoopy","last":"éclair"}],
 "sources":["enwiktionary-translations","itwiktionary","omw-it","omw-iwn","wikidata"]
 }

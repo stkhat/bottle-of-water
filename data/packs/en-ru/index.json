@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"NOSIII"},{"file":"capital-2.json","first":"NOSPR","last":"ɅTLɅS"},{"file":"dict-1.json","first":"a","last":"feed pump"},{"file":"dict-2.json","first":"feed up","last":"phylum"},{"file":"dict-3.json","first":"physic","last":"yamen"},{"file":"dict-4.json","first":"yammer","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"NOSIII"},{"file":"capital-2.json","first":"NOSPR","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'re","last":"federal constitutional court"},{"file":"dict-2.json","first":"federal district","last":"photogenic"},{"file":"dict-3.json","first":"photograph","last":"writing system"},{"file":"dict-4.json","first":"written","last":"éclair"}],
 "sources":["enwiktionary-translations","ruwiktionary","wikidata"]
 }

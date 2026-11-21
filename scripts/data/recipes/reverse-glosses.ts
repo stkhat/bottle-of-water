@@ -187,6 +187,34 @@ function passiveItems(items: readonly string[]): boolean[] {
   });
 }
 
+/** Words from which a gloss's item is prose rather than a word (`proseItems`). */
+const PROSE_WORDS = 4;
+
+/**
+ * A gloss's items that are prose: those of a part (between semicolons or after a colon) with an item of
+ * PROSE_WORDS words or more, besides a verb's leading "to", that names no term. Such a
+ * part defines the word rather than listing its meanings, so a short item in it is a
+ * piece of the sentence (kewajiban "obligation; reason for being obliged to, that is,
+ * grateful for, something" is no "something"; hubristik "hubristic; off, or relating to
+ * hubris", no "off"; refleksi "something, such as an image, that is reflected").
+ */
+function proseItems(
+  items: readonly string[],
+  parts: readonly number[],
+  names: (item: string) => boolean,
+): boolean[] {
+  const prose = new Set<number>();
+  items.forEach((item, i) => {
+    const words = item
+      .trim()
+      .replace(/^to\s+/u, "")
+      .split(/\s+/u)
+      .filter(Boolean);
+    if (words.length >= PROSE_WORDS && !names(item)) prose.add(parts[i]!);
+  });
+  return parts.map((part) => prose.has(part));
+}
+
 /** A sense's gloss to read, or none for a sense that is a form or no meaning to show. */
 function meaningGloss(sense: KaikkiSense): string | undefined {
   if (sense.form_of || sense.alt_of) return undefined;
@@ -217,7 +245,7 @@ const LESSER: Readonly<Record<number, number>> = { 0: 1, 1: 2, 2: 4 };
  * has a sense glossed with the term (`path`: kaikki's extract of the language's entries,
  * kaikki-<native>.jsonl). Read: the sense's last gloss without its bracketed parts,
  * split at commas and semicolons; an item counts when it is a term exactly
- * (`namedTerm`). Left out: entries that are no words (`NOT_WORDS`), headwords with no
+ * (`namedTerm`), outside a part that is prose (`proseItems`). Left out: entries that are no words (`NOT_WORDS`), headwords with no
  * letter of the native script (`letter`), senses that are forms or no meaning to show
  * (`NO_MEANING_TAGS`), senses in a register or an extended use of a native word that
  * has a plain sense (`REGISTER_TAGS`: it reads as its main sense), offensive senses
@@ -313,8 +341,20 @@ export async function readReverseGlosses(
       const marked = (sense.tags ?? []).some((tag) => REGISTER_TAGS.has(tag));
       if (!marked) plain.add(head);
       const seen = new Set<string>();
-      const items = unbracketed(gloss).split(/[,;]/u);
+      // A colon opens a list as a semicolon does ("third person plural pronoun: they,
+      // them, their").
+      const split = unbracketed(gloss)
+        .split(/[;:]/u)
+        .flatMap((part, p) =>
+          part.split(",").map((item) => [item, p] as const),
+        );
+      const items = split.map(([item]) => item);
       const passive = passiveItems(items);
+      const prose = proseItems(
+        items,
+        split.map(([, p]) => p),
+        (item) => namedTerm(item, termKey, pos === "verb") !== undefined,
+      );
       items.forEach((item, i) => {
         const lower = namedTerm(item, termKey, pos === "verb", capitalised);
         // A capitalised word of its own (May) is its capitalised headword's meaning.
@@ -327,6 +367,7 @@ export async function readReverseGlosses(
         if (key === undefined || seen.has(key)) return;
         if (lower !== undefined && !fits(key, pos)) return;
         if (passive[i] && verbOnly(key.split(" ")[0]!)) return;
+        if (prose[i]) return;
         seen.add(key);
         const into = upper === undefined ? found : capitalFound;
         let links = into.get(key);

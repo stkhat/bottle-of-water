@@ -1429,6 +1429,38 @@ export function isExampleNote(note: unknown, headword: string): boolean {
   );
 }
 
+/** The term an English word is an inflection of (`inflectionOf`). */
+export interface FormOf {
+  target: string;
+  pos: string;
+  /** The form-of gloss ("plural of this"). */
+  gloss: string;
+}
+
+/**
+ * The term an entry's senses are all inflections of ("plural of this": these, those),
+ * or undefined when a sense is its own or they name different terms.
+ */
+export function inflectionOf(
+  senses: readonly KaikkiSense[],
+  pos: string,
+): FormOf | undefined {
+  let form: FormOf | undefined;
+  for (const sense of senses) {
+    const target = sense.form_of?.[0]?.word;
+    const gloss = sense.glosses?.at(-1);
+    if (
+      !(sense.tags ?? []).includes("form-of") ||
+      typeof target !== "string" ||
+      typeof gloss !== "string" ||
+      (form !== undefined && form.target !== target.trim())
+    )
+      return undefined;
+    form ??= { target: target.trim(), pos, gloss };
+  }
+  return form;
+}
+
 /**
  * English Wiktionary's translation tables (kaikki's English extract) into the native
  * language (`langCodes`, such as ["pt"] or ["cmn"]): per English sense, its words in
@@ -1502,6 +1534,12 @@ export async function readTranslationTables(
   const formTags = new Map<string, Set<string>>();
   /** capitalised headword → its table words in every language, by case (`writtenAsWord`) */
   const rowCase = new Map<string, RowCase>();
+  /**
+   * lowercase term → the term its English entries are only inflections of, with the
+   * part of speech and gloss (these: "plural of this"); undefined once an entry of it
+   * has a sense of its own (`formOf`).
+   */
+  const formOnly = new Map<string, FormOf | undefined>();
   const stats = await eachEntry(path, (entry) => {
     // English text writes Translingual symbols too ("kg").
     if (entry.lang_code === learning || entry.lang_code === "mul") {
@@ -1516,6 +1554,16 @@ export async function readTranslationTables(
     if (!key) return;
     const into = capitalKey !== undefined ? capitalFound : found;
     const pos = posOf(entry.pos);
+    if (capitalKey === undefined && entry.senses?.length) {
+      const form = inflectionOf(entry.senses, pos);
+      formOnly.set(
+        key,
+        form &&
+          (!formOnly.has(key) || formOnly.get(key)?.target === form.target)
+          ? (formOnly.get(key) ?? form)
+          : undefined,
+      );
+    }
     for (const sense of entry.senses ?? [])
       if ((sense.tags ?? []).includes("form-of")) {
         let tags = formTags.get(key);
@@ -1691,6 +1739,9 @@ export async function readTranslationTables(
     capitalised,
     coverage,
     formTags,
+    formOf: new Map(
+      [...formOnly].filter((pair): pair is [string, FormOf] => !!pair[1]),
+    ),
     rowCase,
     stats: { ...stats, foreign: lower.foreign + capital.foreign, wordless },
   };
@@ -2182,8 +2233,14 @@ export function convertTerms(
             : [pos, converted, hint],
       );
     }
+    // A short that is the first sense's first word stays so (`byFrequency` may
+    // reorder the words).
+    const first = item.senses[0]?.[1].split(", ")[0];
+    item.short =
+      senses[0] && item.short === first
+        ? senses[0][1].split(", ")[0]!
+        : convert(item.short);
     item.senses = senses;
-    item.short = convert(item.short);
   }
   return terms;
 }

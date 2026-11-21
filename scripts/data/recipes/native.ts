@@ -43,6 +43,7 @@ import {
   readTranslationTables,
   termKeyOf,
   withoutStressMarks,
+  type FormOf,
   type PairSense,
   type SourceTerm,
   type TermKey,
@@ -139,6 +140,94 @@ export function alternativeSpelling(
       .split(", ")
       .map((word) => main.get(word) ?? word)
       .join(", ");
+}
+
+/**
+ * NATIVE: a sense's words (a text, its words between ", ") in the order the frequency
+ * list ranks them, by steps of RANK_STEP (the source's order within a step, and for
+ * words it does not rank): a table row or a synset lists its words in no order of use
+ * (the: si, sang, itu → itu first; can: boleh, bisa → bisa; people: rakyat, masyarakat,
+ * orang → orang). Words of a like rank keep their order (an: sebuah, seorang), and so
+ * does a sense with a phrase among its words, whose rank says nothing of the phrase's
+ * own use (never: tidak pernah, not tidak akan, by akan, "will"). Spellings of one word
+ * (`spelling` folds them together) move as one, in the source's order: अंग्रेज़ी stays
+ * before अंग्रेजी, which subtitles use more.
+ */
+export function byFrequency(
+  rank: (word: string) => number,
+  spelling: (word: string) => string = (word) => word,
+): (text: string) => string {
+  const step = (word: string) => {
+    const r = rank(word);
+    return r >= Number.MAX_SAFE_INTEGER
+      ? Number.MAX_SAFE_INTEGER
+      : Math.floor(Math.log(r) / Math.log(RANK_STEP));
+  };
+  return (text) => {
+    const words = text.split(", ");
+    if (words.length < 2 || words.some((word) => /\s/u.test(word))) return text;
+    const groups = new Map<string, { step: number; first: number }>();
+    const items = words.map((word, i) => {
+      const folded = spelling(word);
+      const group = groups.get(folded);
+      if (group) group.step = Math.min(group.step, step(word));
+      else groups.set(folded, { step: step(word), first: i });
+      return { word, i, folded };
+    });
+    const of = (folded: string) => groups.get(folded)!;
+    return items
+      .sort(
+        (a, b) =>
+          of(a.folded).step - of(b.folded).step ||
+          of(a.folded).first - of(b.folded).first ||
+          a.i - b.i,
+      )
+      .map(({ word }) => word)
+      .join(", ");
+  };
+}
+
+/** How many times more used a word must be to come before another (`byFrequency`). */
+const RANK_STEP = 4;
+
+/**
+ * CORE: an English word whose entries are only inflections of another term (these,
+ * those: "plural of this", "plural of that"; firearms, doth) and that no source gives a
+ * meaning of takes its base's, hinted by the inflection: nothing else would show for it,
+ * since the English lemmas, which take a form to its base at lookup, keep it as a word of
+ * its own, and en-defs leaves inflections out (Indonesian has no plural demonstrative:
+ * these → ini). Not a word the lemmas take to its base, which shows its base already,
+ * nor one English also writes capitalised (Hades, Alps: the name, not "hade"'s plural).
+ * Gives how many terms were added.
+ */
+export function withInflections(
+  dict: Record<string, [string, PairSense[], number]>,
+  formOf: ReadonlyMap<string, FormOf>,
+  {
+    lemmatised,
+    capitalised,
+  }: {
+    lemmatised: (key: string) => boolean;
+    capitalised: (key: string) => boolean;
+  },
+): number {
+  let added = 0;
+  for (const [key, { target, pos, gloss }] of formOf) {
+    if (Object.hasOwn(dict, key) || lemmatised(key) || capitalised(key))
+      continue;
+    const base = dict[target];
+    if (!base) continue;
+    const senses = base[1].filter((sense) => sense[3] === undefined);
+    const sense = senses.find(([p]) => p === pos) ?? senses[0];
+    if (!sense) continue;
+    dict[key] = [
+      sense[1].split(", ")[0]!,
+      [[sense[0], sense[1], gloss]],
+      base[2],
+    ];
+    added++;
+  }
+  return added;
 }
 
 const pairKey = (a: string, b: string) => (a < b ? `${a}\t${b}` : `${b}\t${a}`);
@@ -273,6 +362,9 @@ export async function buildPairDictionary(
     { terms: Map<string, SourceTerm>; capital?: Map<string, SourceTerm> }
   >([[TABLES_TAG, tableTerms]]);
   if (edition && editionTerms) read.set(edition.tag, editionTerms);
+  // A native word of another part of speech than the English word's is no meaning of
+  // it, in the sources read backwards (round 4's main senses) and in the wordnets.
+  const fits = fitsEnglishPos(pos);
   if (wordnets.length > 0) {
     const english = readWordnet(wordnetPath(rawDir, ENGLISH_WORDNET));
     for (const id of wordnets)
@@ -281,12 +373,10 @@ export async function buildPairDictionary(
           english,
           native: readWordnet(wordnetPath(rawDir, id)),
           termKey,
+          fits,
         }),
       });
   }
-  // A native word of another part of speech than the English word's is no meaning of
-  // it, in the sources read backwards (round 4's main senses).
-  const fits = fitsEnglishPos(pos);
   let offensiveLeft = 0;
   if (recipe.reversedTables) {
     if (!edition)
@@ -332,12 +422,15 @@ export async function buildPairDictionary(
       },
     );
     read.set(recipe.reverseGlosses.tag, reverse);
-    if (rank)
-      shownSpelling = alternativeSpelling(
+    if (rank) {
+      const spelled = alternativeSpelling(
         reverse.alternatives,
         rank,
         toNative ?? ((text) => text),
       );
+      const ordered = byFrequency(rank, nativeLanguage(native)?.spelling);
+      shownSpelling = (text) => ordered(spelled(text));
+    }
     // The native language's own entries say which table words are offensive.
     offensiveLeft = withoutOffensiveWords(tableTerms.terms, reverse.offensive);
   }
@@ -406,6 +499,11 @@ export async function buildPairDictionary(
   const dict = Object.fromEntries(
     Object.entries(merged.dict).filter(([key]) => !left.has(key)),
   );
+  const inflections = withInflections(dict, tableTerms.formOf, {
+    lemmatised: (key) => Object.hasOwn(lemmas, key),
+    capitalised: (key) =>
+      tableTerms.capitalised.has(key[0]!.toUpperCase() + key.slice(1)),
+  });
   const posed = withPointerPos(dict, pos);
   // The edition's capitalised glosses in its case, once their meanings are read.
   const editionSource = capitalSources.findIndex(
@@ -487,6 +585,8 @@ export async function buildPairDictionary(
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
       terms: Object.keys(dict).length,
+      /** Inflections given their base's meaning (`withInflections`). */
+      inflections,
       /** Table words left out as offensive in a marked sense (`withoutOffensiveWords`). */
       offensiveLeft,
       pointers: editionTerms?.stats.pointers ?? 0,
@@ -614,7 +714,7 @@ async function main() {
         `${word + name + none} capitalised headwords (${word} word, ${name} name, ${none} no meaning; ${classSenses} class senses left out), ${stats.fromEntities} more from Wikidata, ${stats.fromAcronyms} acronyms known by what they stand for; ${stats.unparsable} unparsable lines`,
     );
     console.log(
-      `  ${stats.cased} edition glosses put in the edition's case (glosses open with capitals: ${stats.sentenceCase}); ${stats.foreign} glosses and table words left out with no letter of the native script; ` +
+      `  ${stats.cased} edition glosses put in the edition's case (glosses open with capitals: ${stats.sentenceCase}); ${stats.foreign} glosses and table words left out with no letter of the native script; ${stats.inflections} inflections given their base's meaning; ` +
         `${stats.described.length} described closed-class terms taken from a later source: ${stats.described.slice(0, 20).join(", ")}`,
     );
     console.log(

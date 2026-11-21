@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"AAAI","last":"ŽS"},{"file":"dict-1.json","first":"'tween","last":"pasteurization"},{"file":"dict-2.json","first":"pasteurize","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"ŽS"},{"file":"dict-1.json","first":"'re","last":"passer"},{"file":"dict-2.json","first":"passerine","last":"éclair"}],
 "sources":["idwiktionary","enwiktionary-translations","enwiktionary-id","omw-id","wikidata"]
 }
