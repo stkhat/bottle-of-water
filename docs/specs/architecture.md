@@ -478,14 +478,15 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
   - **Files**: `list()`, `read(path)`, `write(path, bytes)`, `remove(path)` over `fetch`, shared by the extension and the mobile app
   - **Auth**: only returns an access token. Desktop: `identity.launchWebAuthFlow`; for Google, `identity.getAuthToken` where it exists (Chromium; detected, not by browser name: Chrome renews the token itself, but only for the Google account signed in to the browser). Mobile: the system sign-in (`ASWebAuthenticationSession` / Custom Tabs) through the app's bridge
 - Tokens live in `storage.local`, never synced
-- Permissions: `identity` shows no install warning in Chrome; whether Firefox accepts it as an optional permission, and whether the providers' APIs need host permissions at all (all three allow cross-origin requests), are checks before building
+- Permissions: `identity` shows no install warning in Chrome. Google Drive needs no host permissions (checked 2026-11-21: its API answers extension pages' cross-origin requests); whether Firefox accepts `identity` as an optional permission is checked before the Firefox version
+- Extension ids (Google's Chrome-extension client is tied to one): development and check builds carry a fixed manifest `key` (id `dgabnakfehpeammboohlkafhhdegbffe`); production builds carry none, and the store item's id gets a client of its own in the same Cloud project before publishing, so both see the same `appDataFolder` ([notes](../notes/cloud-sync.md) "Extension ids")
 - One app registration per provider, reused by the mobile app (adding its redirect URIs / client types): the app-only space belongs to the registration (Drive: to the Cloud project, which also holds the Chrome-extension client for `getAuthToken`)
 
 ### Providers (researched 2026-11-15, to confirm by the checks below)
 | | Dropbox | Google Drive | OneDrive |
 |---|---|---|---|
 | Space | app folder | `drive.appdata` (listed as non-sensitive) | app folder, `Files.ReadWrite.AppFolder`: **personal accounts only** (the registration's audience is consumer accounts; work or school accounts cannot connect, and Settings says so) |
-| Desktop sign-in | PKCE, no secret, offline refresh token | Chromium: `getAuthToken`. Elsewhere: no refresh token without a secret, so 1-hour tokens renewed by a non-interactive `launchWebAuthFlow`, which needs the user signed in to Google in that browser (expect "Reconnect needed" in Firefox) | an extension redirect counts as a single-page app: refresh tokens last 24 h, then a non-interactive `launchWebAuthFlow`. Token requests from an extension origin may be refused (AADSTS9002326 / 9002327) |
+| Desktop sign-in | PKCE, no secret, offline refresh token | Chromium: `getAuthToken` (checked in Chrome 2026-11-21: interactive and silent both work). Elsewhere: no refresh token without a secret, so 1-hour tokens renewed by a non-interactive `launchWebAuthFlow`, which needs the user signed in to Google in that browser (expect "Reconnect needed" in Firefox) | an extension redirect counts as a single-page app: refresh tokens last 24 h, then a non-interactive `launchWebAuthFlow`. Token requests from an extension origin may be refused (AADSTS9002326 / 9002327) |
 | Review | production approval within 2 weeks of the 51st linked user | possibly none for non-sensitive scopes | Entra app registration; unverified publisher may show a warning |
 
 ### Timing
@@ -511,14 +512,14 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 - Last: in the user's Chrome and Firefox with real accounts, per provider: connect, sync two devices, disconnect. The user signs in
 
 ### Checks before building
-A throwaway build that only signs in and reads/writes one file, in Chrome and Firefox:
-1. Google: `getAuthToken` with `drive.appdata` in Chrome; which `launchWebAuthFlow` flow keeps working without a window in Firefox; that both clients in one Cloud project see the same `appDataFolder`; whether `drive.appdata` shows as non-sensitive in the Cloud Console and whether publishing needs review
+A throwaway build that only signs in and reads/writes one file, in Chrome and Firefox. Google in Chrome done 2026-11-21 ([notes](../notes/cloud-sync.md)):
+1. Google: `getAuthToken` with `drive.appdata` in Chrome (works); that both clients in one Cloud project see the same `appDataFolder` (yes); left: which `launchWebAuthFlow` flow keeps working without a window in Firefox (in Chrome `prompt=none` gave `interaction_required`), whether `drive.appdata` shows as non-sensitive in the Cloud Console and whether publishing needs review
 2. OneDrive: whether token requests from the extension are accepted (AADSTS9002326 / 9002327), whether silent renewal keeps working after 24 h, how the unverified-publisher warning looks
 3. Dropbox: registering the Firefox redirect (`*.extensions.allizom.org`); the production approval steps
-4. Permissions: whether host permissions are needed (CORS) and whether Firefox takes `identity` as optional
+4. Permissions: whether host permissions are needed (CORS; Google: not needed) and whether Firefox takes `identity` as optional
 5. All: adding mobile redirects / client types to the same registration shows the same app-only space
-6. Measure `main` and month-file sizes on the user's real data
-7. The user registers the apps (Google Cloud, Dropbox, Microsoft Entra) with their own accounts
+6. Measure `main` and month-file sizes on the user's real data (`main`: about 18 bytes per term gzipped; month files at C7)
+7. The user registers the apps (Google Cloud: done 2026-11-21; Dropbox, Microsoft Entra) with their own accounts
 
 - Later, not designed: a local folder via the File System Access API (Chromium only), WebDAV, and a "Forget this device" action for folders of devices no longer used
 
