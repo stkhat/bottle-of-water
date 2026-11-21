@@ -81,3 +81,14 @@ python3 $Q/capdiff.py $Q/packs-base ar hi                   # capitalised headwo
 python3 -I .claude/skills/real-content-quality/scripts/ab-packets.py --before $Q/runs/base-ar --after $Q/runs/<label>-ar --out $Q/packets/<tag> --tag <tag> --packets 3
 python3 -I .claude/skills/real-content-quality/scripts/ab-tally.py --key $Q/packets/<tag>/key-<tag>.json $Q/packets/<tag>/result-*.json
 ```
+
+## Real-site check (2026-11-21)
+
+Check build of main (en-ar 2026.1121.1 and en-defs 2026.1121.6, both on npm and jsDelivr before the build; the files jsDelivr had cached as 404 or 502 were purged and fetched again) in the user's Chrome, learning en / native ar through the settings channel, Wikipedia "Podcast" (with a test block of single-word lines added to the page), YouTube (Ken Robinson, TED) and Netflix (Friends watch/70274124, profile KEISUKE), videos muted.
+
+- **Hover items from ar-2**: music → موسيقى; english → إنجليزي, إنجليز; doctor → دكتور (no stray "m or"); for → ل, لأن, من أجل; attack → هجوم, هاجم; option → خيار; podcast → بودكاست; France → فرنسا; fond → ناعم, حنون, ولع; aware → خبير, عريف, واع; salute → سجد; edge → حد, حافة, طرف; figure out → حدث; mushroom → فطر عيش الغراب; children → طفل; figure (dictionary window) → شخص, شخصية, قد, رقم.
+- **Right to left**: every Arabic meaning line is isolated inside the left-to-right UI: the hover card on an article, on a YouTube subtitle and on a Netflix transcript word, the selection card (the mixed line "twice — مرتين" keeps the English word first), the dictionary window (the English definition above stays left to right), and the dual subtitle and transcript lines (the full stop of "عما سيحدث في المستقبل." sits at the line's left end). No clipping or overlap; the layout matches the mock apart from direction. RTL lines start at the card's left edge, as the spec says, so a wrapped transcript line is ragged on the right.
+- **Machine translation**: extrapolate (no Arabic entry) shows the Chrome translation of its two en-defs definitions marked "Machine translation", the English definition under each. A selected phrase ("bark twice") shows its machine translation with the badge.
+- **Netflix**: no Arabic line, because the title offers only English and Japanese text tracks (`getTimedTextTrackList`: en, ja), and Netflix has no machine translation. Hover cards on transcript words show Arabic meanings (ankle → كاحل, "ankles → ankle").
+- **Error log**: 58 `info` records (every pack file served by jsDelivr), no `error` or `warning`. Cleared afterwards; the user's settings (learning en, native ja) were restored and read back equal.
+- **Found, not fixed**: the open items stay as measured in ar-2 (fond, aware, salute, figure out, mushroom "فطر عيش الغراب", children → طفل). A sentence's translation can start with the tail of the previous sentence ("ومجالاتها. الثانية أنها…"), which is the machine translation's own cut, not an RTL problem.
