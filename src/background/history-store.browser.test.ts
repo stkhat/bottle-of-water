@@ -372,3 +372,49 @@ describe("forgetHost", () => {
     ]);
   });
 });
+describe("the times cloud files merge by", () => {
+  let own: HistoryStore;
+  beforeEach(() => {
+    own = createHistoryStore(db, {
+      now: clock.now,
+      deviceId: () => Promise.resolve("this-device"),
+    });
+  });
+  const added = async (text: string) =>
+    (await db.historySentences.toArray())
+      .filter((s) => s.text === text)
+      .map((s) => `${s.deviceId}|${s.addedAt}`);
+
+  it("marks each sentence with this device and the time it was added", async () => {
+    await own.record(ARTICLE, [knead]);
+    clock.tick();
+    await own.record(VIDEO, [rest]);
+    expect(await added(knead.text)).toEqual(["this-device|1000000"]);
+    expect(await added(rest.text)).toEqual(["this-device|1001000"]);
+  });
+
+  it("records a clear after the newest visit, and adds nothing earlier after it", async () => {
+    await own.record(ARTICLE, [knead]);
+    clock.time -= 5000;
+    await own.clear();
+    expect((await db.meta.get("historyClearedAt"))?.value).toBe(1_000_001);
+    await own.record(VIDEO, [rest]);
+    expect(await added(rest.text)).toEqual(["this-device|1000001"]);
+  });
+
+  it("records a forgotten host after its pages, and adds nothing earlier on it after", async () => {
+    await own.record(ARTICLE, [knead]);
+    clock.time -= 5000;
+    await own.forgetHost(" Example.com ");
+    expect(await db.historyForgotten.toArray()).toEqual([
+      { host: "example.com", at: 1_000_001 },
+    ]);
+    await own.record({ ...ARTICLE, url: "https://blog.example.com/rye" }, [
+      rest,
+    ]);
+    expect(await added(rest.text)).toEqual(["this-device|1000001"]);
+    // Other hosts keep their own time.
+    await own.record(OTHER_ARTICLE, [knead]);
+    expect(await added(knead.text)).toEqual(["this-device|995000"]);
+  });
+});

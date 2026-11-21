@@ -166,8 +166,9 @@ describe("saving a term brings its kept sentences in", () => {
     await saveYeast();
     clock.tick();
     await saveYeast();
+    // The sentence saved first stays as it was (the earlier copy of a saved row wins).
     expect(await brief()).toEqual([
-      "saved:Fresh yeast.@Cake:1002000",
+      "saved:Fresh yeast.@Cake:1001000",
       "encountered:Add the yeast.@Bread:1000000",
     ]);
 

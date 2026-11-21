@@ -254,7 +254,9 @@ export function testBackground(
   let packStates: PackStates = {};
   const packListeners = new Set<(states: PackStates) => void>();
   let retries = 0;
-  const db = openLangleDb(`langle-content-test-${Date.now()}-${dbCount++}`);
+  const db = openLangleDb(`langle-content-test-${Date.now()}-${dbCount++}`, {
+    deviceId: () => Promise.resolve("content-test-device"),
+  });
   const store = createTermStore(db);
   let optionsOpened = 0;
   const loadPack = createPackLoader(async (path) => {

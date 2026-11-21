@@ -16,6 +16,7 @@ import type { TermStatus } from "../../core/classify";
 import { createTermStore, type TermStore } from "../term-store";
 import {
   createBrowserSyncBackend,
+  settingsReserves,
   type BrowserSyncBackend,
 } from "./browser-sync-backend";
 import { createFakeSyncArea, type FakeSyncArea } from "../../testing/sync-area";
@@ -429,12 +430,23 @@ describe("two devices", () => {
 });
 
 describe("when the synced copy gets full", () => {
-  /** What the area may hold for terms: the quota minus the settings key the backend reserves. */
+  const reserves = settingsReserves();
+  /** The settings' field times, which the backend reserves room for too. */
+  const timesBytes = reserves.get("settingsTimes")!;
+  /** What the area may hold for terms: the quota minus the settings keys the backend reserves. */
   const room = (quota: number) =>
-    quota - itemBytes("settings", DEFAULT_SETTINGS);
+    quota - [...reserves.values()].reduce((sum, bytes) => sum + bytes, 0);
+
+  it("reserves room for the settings and their field times", () => {
+    expect([...reserves.keys()]).toEqual(["settings", "settingsTimes"]);
+    expect(reserves.get("settings")).toBe(
+      itemBytes("settings", DEFAULT_SETTINGS),
+    );
+    expect(timesBytes).toBeGreaterThan(reserves.get("settings")!);
+  });
 
   it("keeps the oldest save-all terms on this device only", async () => {
-    const quota = 2000;
+    const quota = 2000 + timesBytes;
     const area = createFakeSyncArea({ quotaBytes: quota });
     const a = device(area);
     const mine = words(5, 10_000);
@@ -463,7 +475,7 @@ describe("when the synced copy gets full", () => {
   });
 
   it("then leaves out the oldest known terms and reports how many", async () => {
-    const quota = 1500;
+    const quota = 1500 + timesBytes;
     const area = createFakeSyncArea({ quotaBytes: quota });
     const a = device(area);
     const learning = words(20, 5000);
@@ -488,7 +500,7 @@ describe("when the synced copy gets full", () => {
   });
 
   it("measures the room left by other keys such as the settings", async () => {
-    const quota = 3500;
+    const quota = 3500 + timesBytes;
     const area = createFakeSyncArea({ quotaBytes: quota });
     const settings = {
       ...DEFAULT_SETTINGS,
@@ -501,7 +513,7 @@ describe("when the synced copy gets full", () => {
     const used = [...area.data].reduce((s, [k, v]) => s + itemBytes(k, v), 0);
     const settingsBytes = itemBytes("settings", settings);
     expect(used - settingsBytes).toBeLessThanOrEqual(
-      0.9 * (quota - settingsBytes),
+      0.9 * (quota - settingsBytes - timesBytes),
     );
     expect(used - settingsBytes).toBeGreaterThan(0);
   });

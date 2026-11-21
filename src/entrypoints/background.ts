@@ -39,9 +39,10 @@ export default defineBackground(() => {
   const checkLog =
     import.meta.env.MODE === "check" ? startWorkerErrorLog() : undefined;
 
-  const db = openLangleDb();
-  const store = createTermStore(db, { deviceId: deviceId() });
-  const history = createHistoryStore(db);
+  const device = deviceId();
+  const db = openLangleDb("langle", { deviceId: device });
+  const store = createTermStore(db, { deviceId: device });
+  const history = createHistoryStore(db, { deviceId: device });
   const sync = createBrowserSyncBackend({ store });
 
   const lock = readLock();

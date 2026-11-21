@@ -3,6 +3,13 @@ import { onHost } from "./url";
 /** The `storage.sync` key that holds the whole settings object. */
 export const SETTINGS_KEY = "settings";
 
+/**
+ * The `storage.sync` key that holds the settings' field times (`TimedSettings` of
+ * `core/cloud/settings.ts`): the values the times describe, and when each field last
+ * changed. The settings item itself stays plain, so older versions still read it.
+ */
+export const SETTINGS_TIMES_KEY = "settingsTimes";
+
 export interface Settings {
   /** Langle runs at all: the popup header's switch turns it off everywhere for a while. */
   enabled: boolean;
