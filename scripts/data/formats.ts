@@ -181,6 +181,13 @@ const SOURCES = {
     by: WIKTIONARY_AUTHORS,
     license: LICENSES.ccBySa4,
   },
+  wiktionaryTr: {
+    title: "English Wiktionary, Turkish entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/Turkish/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
   wiktionaryHi: {
     title: "English Wiktionary, Hindi entries",
     via: KAIKKI,
@@ -305,6 +312,21 @@ const SOURCES = {
     via: KAIKKI,
     url: "https://id.wiktionary.org/",
     by: "the contributors to the Indonesian Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryTrEdition: {
+    title: "Turkish Wiktionary (Vikisözlük), English entries",
+    via: KAIKKI,
+    url: "https://tr.wiktionary.org/",
+    by: "the contributors to the Turkish Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryTrEditionTables: {
+    title:
+      "Turkish Wiktionary (Vikisözlük), Turkish entries' translation tables",
+    via: KAIKKI,
+    url: "https://tr.wiktionary.org/",
+    by: "the contributors to the Turkish Wiktionary, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
   wiktionaryThEditionTables: {
@@ -450,6 +472,9 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   "enwiktionary-ar": SOURCES.wiktionaryAr,
   idwiktionary: SOURCES.wiktionaryIdEdition,
   "enwiktionary-id": SOURCES.wiktionaryId,
+  trwiktionary: SOURCES.wiktionaryTrEdition,
+  "trwiktionary-translations": SOURCES.wiktionaryTrEditionTables,
+  "enwiktionary-tr": SOURCES.wiktionaryTr,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,

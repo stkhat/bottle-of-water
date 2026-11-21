@@ -3433,7 +3433,7 @@
 "DSN":[[["proper noun","شبكة ناسا لمراقبة الفضاء العميق","Deep Space Network"],["proper noun","مقراب راديوي في أستراليا","Deep Space Network"]],3,"word"],
 "DSO":[[["proper noun","أجرام السماء العميقة","deep-sky object"],["proper noun","نيشان الخدمة المتميزة","Distinguished Service Order"],["proper noun","وسام عسكري بريطاني","Distinguished Service Order"],["proper noun","واحة دبي للسيليكون","Dubai Silicon Oasis"],["proper noun","منطقة تجارية حرة في دبي","Dubai Silicon Oasis"]],3,"word"],
 "DSOTM":[[["proper noun","ذا دارك سايد أوف ذا مون","The Dark Side of the Moon"],["proper noun","ألبوم من أداء بينك فلويد","The Dark Side of the Moon"]],3,"word"],
-"DSP":[[["proper noun","معالجة إشارات رقمية","digital signal processing"],["proper noun","دراسة الإشارات في تمثيلها الرقمي وطرق معالجتها","digital signal processing"],["proper noun","معالج إشارة رقمية","digital signal processor"],["proper noun","معالج دقيق بمعمارية محسنة ينجز الكثير من الخوارزميات المعقدة بسرعة","digital signal processor"],["proper noun","محمية السماء المظلمة","dark-sky preserve"],["proper noun","حزب اليسار الديقراطي","Democratic Left Party"],["proper noun","حزب سياسي في تركيا","Democratic Left Party"],["proper noun","برنامج دعم الدفاع","Defense Support Program"]],3,"word"],
+"DSP":[[["proper noun","معالجة إشارات رقمية","digital signal processing"],["proper noun","دراسة الإشارات في تمثيلها الرقمي وطرق معالجتها","digital signal processing"],["proper noun","معالج إشارة رقمية","digital signal processor"],["proper noun","معالج دقيق بمعمارية محسنة ينجز الكثير من الخوارزميات المعقدة بسرعة","digital signal processor"],["proper noun","محمية السماء المظلمة","dark-sky preserve"],["proper noun","منطقة تحد من التلوث الضوئي الاصطناعي","dark-sky preserve"],["proper noun","حزب اليسار الديقراطي","Democratic Left Party"],["proper noun","حزب سياسي في تركيا","Democratic Left Party"],["proper noun","برنامج دعم الدفاع","Defense Support Program"]],3,"word"],
 "DSPACE":[[["proper noun","تعقيد مكاني","space complexity"]],3,"word"],
 "DSPD":[[["proper noun","اضطراب طور النوم المتأخر","delayed sleep phase disorder"],["proper noun","اضطراب","delayed sleep phase disorder"]],3,"word"],
 "DSPS":[[["proper noun","اضطراب طور النوم المتأخر","delayed sleep phase disorder"],["proper noun","اضطراب","delayed sleep phase disorder"]],3,"word"],
@@ -4317,7 +4317,7 @@
 "Excellency":[[["noun","سعادة","Form of address for certain high officials or dignitaries"]],0,"word"],
 "Exeter":[[["proper noun","إكستر","city"]],0,"name"],
 "Exidia":[[["proper noun","جنس من الفطريات","genus of fungi"]],3,"word"],
-"Exmoor":[[["proper noun","إكسمور","area of hilly open moorland in west Somerset and north Devon in South West England"]],3,"name"],
+"Exmoor":[[["proper noun","إكسمور","area of hilly open moorland in west Somerset and north Devon in South West England"],["proper noun","منطقة من الأراضي البور المفتوحة والتلال في غرب سومرست وشمال ديفون في جنوب غرب إنجلترا","area of hilly open moorland in west Somerset and north Devon in South West England"]],3,"name"],
 "Exmouth":[[["proper noun","أبرشية مدنية في المملكة المتحدة","town in East Devon, England"]],3,"word"],
 "Exodus":[[["proper noun","سفر الخروج","book of Torah and Old Testament"]],0,"name"],
 "Exor":[[["proper noun","ايكسور","Italian investment company incorporated in the Netherlands"]],3,"name"],
@@ -10867,7 +10867,5 @@
 "Paecilomyces":[[["proper noun","جنس من الفطريات","genus of fungi"]],3,"word"],
 "Paeonia":[[["proper noun","عود الصليب","genus of flowering plants"],["proper noun","جنس من النباتات","genus of flowering plants"]],3,"name"],
 "Pagerank":[[["proper noun","ترتيب الصفحة","Algorithm used by Google Search to rank web pages"]],3,"name"],
-"Paiwan":[[["proper noun","بايوان","Austronesian language spoken in Taiwan"],["proper noun","لغة","Austronesian language spoken in Taiwan"]],3,"name"],
-"Pakistan":[[["proper noun","باكستان","country in South Asia"]],0,"name"],
-"Pakistani":[[["adjective","باكستاني","of, from, or pertaining to Pakistan, or its people"],["noun","باكستاني, باكستانية","a person from Pakistan or of Pakistani descent"]],0,"word"]
+"Paiwan":[[["proper noun","بايوان","Austronesian language spoken in Taiwan"],["proper noun","لغة","Austronesian language spoken in Taiwan"]],3,"name"]
 }

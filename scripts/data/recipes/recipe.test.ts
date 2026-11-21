@@ -109,6 +109,22 @@ describe("convertTerms", () => {
   });
 });
 
+describe("convertTerms: a short of two spellings", () => {
+  it("keeps a word once where two spellings convert alike", () => {
+    const terms = new Map<string, SourceTerm>([
+      [
+        "car",
+        { short: "oto, otomobil", senses: [["noun", "araba, oto, otomobil"]] },
+      ],
+    ]);
+    const convert = (text: string) => text.replace(/\boto\b/u, "otomobil");
+    expect(convertTerms(terms, convert).get("car")).toEqual({
+      short: "otomobil",
+      senses: [["noun", "araba, otomobil"]],
+    });
+  });
+});
+
 describe("convertTerms: senses of two parts of speech", () => {
   it("keeps a sense another part of speech has as converted text", () => {
     const terms = new Map<string, SourceTerm>([
@@ -312,6 +328,24 @@ describe("readEdition: native case and script", () => {
       ["adjective", "(de una bebida) clara"],
     ]);
     expect(stats).toMatchObject({ cased: 3, sentenceCase: true });
+  });
+  it("lowers a capital as the native language does, without a list's dangling comma", async () => {
+    // Turkish: I → ı, İ → i (the default rules give "işık", another word, and "i̇ncitmek").
+    const { terms, stats } = await readEdition(
+      join(FIXTURES, "edition-tr.jsonl"),
+      termKey,
+      { native: "tr" },
+    );
+    expect(terms.get("light")?.senses).toEqual([
+      ["noun", "ışık"],
+      ["adjective", "hafif, aydınlık"],
+    ]);
+    expect(terms.get("upset")?.senses).toEqual([["verb", "incitmek"]]);
+    expect(terms.get("give")?.senses).toEqual([
+      ["verb", "vermek"],
+      ["verb", "izin vermek"],
+    ]);
+    expect(stats).toMatchObject({ sentenceCase: true, cased: 5 });
   });
   it("keeps the case of an edition whose glosses do not open with capitals", async () => {
     // Wikisłownik opens its glosses in lower case: a capital is the word's own

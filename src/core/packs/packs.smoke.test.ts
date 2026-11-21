@@ -716,6 +716,17 @@ describe.each([
     ],
     bread: "roti",
   },
+  {
+    pack: "en-tr",
+    sources: [
+      "enwiktionary-translations",
+      "trwiktionary",
+      "enwiktionary-tr",
+      "trwiktionary-translations",
+      "wikidata",
+    ],
+    bread: "ekmek",
+  },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
   const index = read(`packs/${pack}/index.json`) as ShardIndex;
   const load = loadPack(pack).then(({ dict }) => ({
@@ -865,6 +876,13 @@ const FIRST_LINES: Readonly<
     january: "januari",
     be: "berada",
     better: "lebih baik",
+  },
+  // "İngilizce" in the default lower case the test compares in (a dotted i).
+  tr: {
+    english: "İngilizce".toLowerCase(),
+    january: "ocak",
+    be: "imek",
+    better: "daha iyi",
   },
 };
 

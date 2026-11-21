@@ -28,6 +28,7 @@ describe("the native-language registry", () => {
       "hi",
       "ar",
       "id",
+      "tr",
     ]);
     expect(PACK_FORMATS["en-es"]).toBe(4);
     expect(PACK_FORMATS["en-ru"]).toBe(4);
@@ -45,6 +46,7 @@ describe("the native-language registry", () => {
       "en-hi",
       "en-ar",
       "en-id",
+      "en-tr",
       "es-en",
       "fr-en",
       "de-en",
@@ -133,6 +135,15 @@ describe("the native-language registry", () => {
       "membocorkan rahasia",
     );
     expect(writtenRightToLeft("id")).toBe(false);
+    // Turkish: Latin letters with spaces between words.
+    expect(languageOption("tr")).toBe("Turkish (Türkçe)");
+    expect(languageName("tr")).toBe("Turkish");
+    expect(joinerFor("tr-TR")).toBe(" ");
+    expect(meaningLength("tr")).toBe(40);
+    expect(instructions({ learning: "en", native: "tr" })).toContain(
+      "ağzından kaçırmak",
+    );
+    expect(writtenRightToLeft("tr")).toBe(false);
     expect(writtenRightToLeft("hi")).toBe(false);
     expect(writtenRightToLeft("en")).toBe(false);
     // The prompt does not ask a Chinese answer to avoid Chinese.

@@ -297,6 +297,24 @@ export const NATIVE_LANGUAGES = {
     },
     englishPair: { format: 4 },
   },
+  // Turkish writes Latin letters with spaces between words, so two subtitle lines join
+  // with one. Its dotted and dotless i (İ i, I ı) lower case as Turkish does
+  // (`lowerFirst` in the data scripts). Chrome's Prompt API decides by itself whether it answers in
+  // Turkish (`availability`); the examples are there for when it does.
+  tr: {
+    option: "language.tr",
+    name: "languageName.tr",
+    spaces: true,
+    dense: false,
+    scripts: ["Latin"],
+    translator: true,
+    examples: {
+      bank: "kıyı (nehir)",
+      beans: "ağzından kaçırmak",
+      mind: "karar vermek",
+    },
+    englishPair: { format: 4 },
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",
