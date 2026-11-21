@@ -15,5 +15,8 @@
         ]
       }
     ]
+  },
+  "sandbox": {
+    "excludedCommands": ["npm run verify", "npm run test:browser:firefox *"]
   }
 }

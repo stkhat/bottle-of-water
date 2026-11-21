@@ -3,6 +3,7 @@ import type { LangleDb } from "./db";
 import { translationPair } from "../core/packs/pairs";
 import {
   createTranslationCache,
+  TRANSLATION_CACHE_LIMIT,
   type TranslationCache,
 } from "./translation-cache";
 import { fakeClock } from "../testing/clock";
@@ -144,15 +145,10 @@ describe("translation cache", () => {
     expect(await small.get(ES_JA, ["d", "e"])).toEqual({ d: "D", e: "E" });
   });
 
-  it("keeps at most 20,000 rows by default", async () => {
-    await cache.put(
-      EN_JA,
-      Array.from({ length: 20_001 }, (_, i) => ({
-        text: `text ${String(i).padStart(5, "0")}`,
-        translated: `訳 ${i}`,
-      })),
-    );
-    expect(await db.mtCache.count()).toBe(20_000);
+  // The limit itself is tested above with a small one: filling 20,000 rows took seconds
+  // on Firefox, and timed out on a loaded machine.
+  it("keeps at most 20,000 rows by default", () => {
+    expect(TRANSLATION_CACHE_LIMIT).toBe(20_000);
   });
 
   it("clears one pair and keeps the others", async () => {

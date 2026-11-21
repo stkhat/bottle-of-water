@@ -26,7 +26,8 @@ export interface ExplanationCacheOptions {
   now?: () => number;
 }
 
-const EXPLANATION_CACHE_LIMIT = 5_000;
+/** The default `limit`. */
+export const EXPLANATION_CACHE_LIMIT = 5_000;
 
 /** The row key: every field of `ExplanationKey`, the source URL normalized by the caller. */
 const keyOf = (k: ExplanationKey) =>

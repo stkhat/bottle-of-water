@@ -152,20 +152,34 @@ async function pointerAway(list: HTMLElement) {
 }
 
 /**
- * Waits until the list stops scrolling. It scrolls smoothly to the playing card once
- * mounted, and a pointer action made meanwhile (a hover, a click, a drag) lands where
- * the words were (slow or loaded runners): every test that points at the list waits.
+ * Nothing playing: the list never scrolls itself. A test of the pointer on words and
+ * cards uses it. With a playing card, the list scrolls smoothly to it once mounted and
+ * again as the pointer leaves it (after Playwright scrolled a word into view to point at
+ * it), and a click made meanwhile lands where the word was (loaded runners).
+ */
+const still = { ...base, current: -1 };
+
+/**
+ * Waits until the list stops scrolling to the playing card, for a test that needs it
+ * scrolled: its position unchanged for a while, not just for a frame (the smooth scroll
+ * may not have begun, and a loaded Firefox skips frames).
  */
 async function listAtRest(screen: { container: HTMLElement }) {
   const list = screen.container.querySelector<HTMLElement>("[data-list]")!;
-  let last = Number.NaN;
+  let last = list.scrollTop;
+  let since = performance.now();
   await expect
-    .poll(async () => {
-      await new Promise(requestAnimationFrame);
-      const same = list.scrollTop === last;
-      last = list.scrollTop;
-      return same;
-    })
+    .poll(
+      async () => {
+        await new Promise(requestAnimationFrame);
+        if (list.scrollTop !== last) {
+          last = list.scrollTop;
+          since = performance.now();
+        }
+        return performance.now() - since >= 250;
+      },
+      { timeout: 5000 },
+    )
     .toBe(true);
 }
 
@@ -283,9 +297,8 @@ describe("the Transcript tab", () => {
   test("clicking a card seeks to it", async () => {
     const onSeek = vi.fn();
     const screen = await mountInShadowRoot(
-      <VideoPanel {...base} onSeek={onSeek} />,
+      <VideoPanel {...still} onSeek={onSeek} />,
     );
-    await listAtRest(screen);
     await screen.getByRole("button", { name: /^1:09/ }).click();
     expect(onSeek).toHaveBeenCalledWith(3);
   });
@@ -310,14 +323,13 @@ describe("the Transcript tab", () => {
     const onSeek = vi.fn();
     const screen = await mountInShadowRoot(
       <VideoPanel
-        {...base}
+        {...still}
         onWordEnter={onWordEnter}
         onWordLeave={onWordLeave}
         onWordClick={onWordClick}
         onSeek={onSeek}
       />,
     );
-    await listAtRest(screen);
     const bunch = screen.getByText("bunch").element() as HTMLElement;
     await userEvent.hover(bunch);
     expect(onWordEnter).toHaveBeenCalledWith(2, 0, bunch);
