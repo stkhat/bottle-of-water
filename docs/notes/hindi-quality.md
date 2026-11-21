@@ -78,7 +78,15 @@ Other natives over the same corpus (main → hi-2, hover tokens changed): th 26 
 - **S1 phrases** fit poorly (3 of 15 in the baseline); hi-2 did not change them.
 - **Tagger slips** still pick a marginal part of speech's sense where the source labels nothing (deadly, um, install, leveraged).
 - One A/B sample only, with Netflix in it rather than held out; a fresh sample would confirm the S1 order.
-- **Real-site check (hi-3)**: hover do / did (no चोदना), news, moon (one line), may, the, smash / boost as verbs, and a translated line in Chrome.
+- **may (lowercase) has no en-hi entry**: see "Real-site check (2026-11-21)".
+
+## Real-site check (2026-11-21)
+
+Check build of main (en-hi 2026.1121.1, en-defs 2026.1121.4, both on npm and jsDelivr before the build) in the user's Chrome, learning en / native hi through the settings channel, Wikipedia "Moon", YouTube (Ken Robinson, TED) and Netflix (Friends watch/70274124, profile KEISUKE), videos muted.
+
+- **Passed**: Devanagari renders correctly in the hover card, the phrase card and the dictionary window (conjuncts in चन्द्रमा / अलावा / उपग्रह, matras, nukta in ख़बर / दौड़ना, no clipping). moon shows one line per sense (चन्द्रमा, चांद, मास) and news one line (ख़बर). do shows करना / क्या (no चोदना); did shows "did → do" and no meaning, as for any auxiliary form. the shows no Hindi entry, so its en-defs definition is machine-translated and marked "Machine translation". smash and boost show verb senses (the sentence decides). Dual subtitles show the Hindi line on YouTube and Netflix; the transcript lines are translated too. The error log had no `error` or `warning` entries, only 33 `info` mirror records (all served by jsDelivr).
+- **Found, not fixed**: lowercase "may" has no entry in en-hi (dict-1 has "can" with सकना, but no "may"), and en-defs has none either. A word with no lowercase entry takes its capitalised one (`dictionary.ts`), so the hover card for "which may be related" shows मई (the month). The unit test (`reverse-glosses.test.ts`) produces may → सकना from the Hindi source, so the real build drops it somewhere (cause not found); the fix is a data rebuild and a new en-hi version.
+- A sentence without an en-hi or en-defs line for a word falls to the machine translation of its first en-defs definition; the card clamps it to two lines.
 
 ## Measuring
 
