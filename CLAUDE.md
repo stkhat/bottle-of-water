@@ -9,7 +9,7 @@ Core features: highlights by category (New / Learning / Known), meaning on hover
 3. **Testing policy**: [docs/testing.md](docs/testing.md)
 4. **Tooling, CI/CD, release**: [docs/development.md](docs/development.md)
 5. **UI mock (Claude Design)**: https://claude.ai/artifact/SMxhVni5DdE6cK8UazvqGS
-   - Private (owner only). Read it with the Artifact tool's `read`: `project/canvas.json` and each screen — `project/Main.dc.html` (YouTube), `project/Article.dc.html` (article), `project/Toolbar.dc.html` (toolbar popup), `project/Settings.dc.html` (settings page)
+   - Private (owner only). Read it with the Artifact tool's `read`: `project/canvas.json` and each screen — `project/Main.dc.html` (YouTube), `project/Article.dc.html` (article), `project/Toolbar.dc.html` (toolbar popup), `project/Settings.dc.html` (settings page); the `Mobile app` page (phone app) is `project/Mobile*.dc.html`
    - **When the spec and the mock disagree, the mock wins.** When the mock changes, update [docs/specs/ui.md](docs/specs/ui.md) to match
 - Background notes (site internals, measurements, research): `docs/notes/`, read only when relevant
 
