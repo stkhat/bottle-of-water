@@ -349,6 +349,34 @@ describe("byFrequency (id-2)", () => {
   it("leaves a line with a phrase as it is", () => {
     expect(ordered("tidak pernah, itu")).toBe("tidak pernah, itu");
   });
+  it("orders a phrase by its rarest word, two steps rarer per word, where the language says many words so (tr-2)", () => {
+    const tr: Record<string, number> = {
+      bir: 1,
+      zamanlar: 838,
+      o: 8,
+      zaman: 37,
+      öğretmek: 12387,
+      ders: 1285,
+      vermek: 641,
+      ocak: 6361,
+      büyük: 79,
+      ay: 359,
+    };
+    const rank = (text: string) =>
+      Math.max(...text.split(" ").map((word) => tr[word] ?? Infinity));
+    const phrases = byFrequency(rank, undefined, { phrases: true });
+    expect(phrases("bir zamanlar, o zaman")).toBe("o zaman, bir zamanlar");
+    // Two steps more for the phrase's second word: ders (1285) is a step from öğretmek.
+    expect(phrases("öğretmek, ders vermek")).toBe("öğretmek, ders vermek");
+    // January's "great month" (ay, 359) does not pass the month's name (6361).
+    expect(phrases("ocak, büyük ay")).toBe("ocak, büyük ay");
+    // A space before a comma is the source's, not the word's.
+    expect(phrases("bir zamanlar , o zaman")).toBe("o zaman, bir zamanlar");
+    // An item of three words describes: it goes after the words.
+    expect(phrases("bir zamanlar o zaman, zaman")).toBe(
+      "zaman, bir zamanlar o zaman",
+    );
+  });
 });
 
 describe("withInflections (id-2)", () => {

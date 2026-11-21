@@ -69,6 +69,14 @@ export interface Recipe {
     tag: string;
     file: string;
     frequency?: boolean;
+    /**
+     * A sense with a phrase among its words is ordered by the frequency list too, the
+     * phrase by its rarest word: for a language whose dictionary gives many words as a
+     * phrase (Turkish verbs of a noun and "olmak", "etmek", "duymak": ihtiyaç duymak,
+     * lazım olmak; "o zaman", then), where keeping the source's order shows its rare
+     * single words first (gereksinmek, "to need", a purist coinage).
+     */
+    phrasesByRank?: boolean;
     beforeWordnets?: boolean;
   };
 }
@@ -197,6 +205,7 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
       tag: "enwiktionary-tr",
       file: "kaikki-tr.jsonl",
       frequency: true,
+      phrasesByRank: true,
       beforeWordnets: true,
     },
   },

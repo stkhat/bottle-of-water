@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"SML"},{"file":"capital-2.json","first":"SMM","last":"ŽSR"},{"file":"dict-1.json","first":"'re","last":"gimbals"},{"file":"dict-2.json","first":"gimcrack","last":"sea snail"},{"file":"dict-3.json","first":"sea snake","last":"ē"}],
+"shards":[{"file":"capital.json","first":"A","last":"SML"},{"file":"capital-2.json","first":"SMM","last":"ŽSR"},{"file":"dict-1.json","first":"'re","last":"gib"},{"file":"dict-2.json","first":"gibberish","last":"scumbag"},{"file":"dict-3.json","first":"scummy","last":"ē"}],
 "sources":["enwiktionary-translations","zhwiktionary","omw-cmn","wikidata"]
 }

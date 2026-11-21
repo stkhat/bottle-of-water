@@ -3107,7 +3107,7 @@
 "hundred thousand":[[["numeral","sto tysięcy","100,000 — see also lakh"]],1],
 "hundredfold":[[["adjective","stukrotny"],["adverb","stukrotnie, po stokroć"]],0],
 "hundredth":[[["adjective","setny"]],0],
-"hundredweight":[[["noun","jednostka cetnar ( 112 lb = 50,8 kg"],["noun","100 lb = 45,3 kg)"]],0],
+"hundredweight":[[["noun","jednostka cetnar ( 112 lb = 50,8 kg"]],0],
 "hung":[[["verb","forma czasu przeszłego prostego (past simple) czasownika to hang",null,"hang"],["verb","imiesłów czasu przeszłego (past participle) czasownika to hang",null,"hang"],["adjective","zafiksowany na czymś, nie mogący się od czegoś uwolnić"],["adjective","obdarzony, mający dużego penisa"]],0],
 "hung like a donkey":[[["adjective","mający dużego penisa","Translations"]],1],
 "hung like a horse":[[["adjective","o ogromnym chuju","having a large penis"]],1],
@@ -6379,7 +6379,7 @@
 "july monarchy":[[["proper noun","Monarchia lipcowa","period of liberal constitutional monarchy in France"]],1],
 "jumble":[[["noun","mieszanina, kocioł, groch z kapustą"],["noun","kupa, sterta"],["noun","starocie, tandeta"]],0],
 "jumble sale":[[["noun","wyprzedaż rzeczy używanych","sale of used goods by individuals operating tables or stalls"]],1],
-"jumbo":[[["adjective","ogromny, olbrzymi, wielkości słonia"],["noun","olbrzym; ogromne zwierzę, człowiek lub rzecz"],["noun","jumbo jet"],["noun","dureń"]],0],
+"jumbo":[[["adjective","ogromny, olbrzymi, wielkości słonia"],["noun","olbrzym; ogromne zwierzę, człowiek lub rzecz"],["noun","dureń"],["noun","tyłek"]],0],
 "jumbo jet":[[["noun","jumbo jet, dżambo dżet","a very large jet plane"]],2],
 "jump":[[["noun","skok"],["verb","skakać, wyskakiwać, przeskakiwać"],["verb","mieć z kimś stosunek seksualny"]],0],
 "jump at":[[["verb","ochoczo skorzystać z, rzucić się na"]],0],
@@ -21652,7 +21652,7 @@
 "rebus":[[["noun","rebus"]],0],
 "rebut":[[["verb","odrzucać (zarzuty), odpierać, obalać (argumenty)"]],0],
 "rebuttal":[[["noun","odrzucenie, oddalenie, obalenie, odparcie (zarzutów)"]],0],
-"rec":[[["noun","recreation ground"],["adjective","rekreacyjny"]],0],
+"rec":[[["adjective","rekreacyjny"]],0],
 "recalcitrance":[[["noun","upór, opór, krnąbność, niesubordynacja, nieposłuszeństwo"]],0],
 "recalcitrant":[[["adjective","oporny, krnąbrny, nieposłuszny"]],0],
 "recalibrate":[[["verb","przekalibrowywać, przekalibrować","calibrate again"]],1],
@@ -24353,5 +24353,6 @@
 "satrap":[[["noun","satrapa"]],0],
 "satrapy":[[["noun","satrapia"]],0],
 "satsuma":[[["noun","odmiana japońskiej mandarynki"]],0],
-"saturate":[[["verb","nasiąkać"],["verb","nasycać"],["verb","przepajać"],["verb","przemaczać"]],0]
+"saturate":[[["verb","nasiąkać"],["verb","nasycać"],["verb","przepajać"],["verb","przemaczać"]],0],
+"saturated":[[["adjective","nasycony"],["adjective","w teorii grafów: nasycony"],["verb","forma czasu przeszłego prostego (past simple) czasownika to saturate",null,"saturate"],["verb","imiesłów czasu przeszłego (past participle) czasownika to saturate",null,"saturate"]],0]
 }

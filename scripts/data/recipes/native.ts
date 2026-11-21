@@ -149,23 +149,39 @@ export function alternativeSpelling(
  * (the: si, sang, itu → itu first; can: boleh, bisa → bisa; people: rakyat, masyarakat,
  * orang → orang). Words of a like rank keep their order (an: sebuah, seorang), and so
  * does a sense with a phrase among its words, whose rank says nothing of the phrase's
- * own use (never: tidak pernah, not tidak akan, by akan, "will"). Spellings of one word
+ * own use (never: tidak pernah, not tidak akan, by akan, "will"), unless the language
+ * says many of its words so (`phrasesByRank`: Turkish then: "o zaman" before "bir
+ * zamanlar"; need: "lazım olmak" before the rare "gereksinmek"), when a phrase has its
+ * rarest word's rank and two steps (16×) more for each word after the first, as it is said
+ * less than that word (teach: öğretmek stays before "ders vermek"; January: ocak before
+ * "büyük ay"), and one of three words or
+ * more after the words, as a description (own: kendi first). Spellings of one word
  * (`spelling` folds them together) move as one, in the source's order: अंग्रेज़ी stays
  * before अंग्रेजी, which subtitles use more.
  */
 export function byFrequency(
   rank: (word: string) => number,
   spelling: (word: string) => string = (word) => word,
+  { phrases = false }: { phrases?: boolean } = {},
 ): (text: string) => string {
   const step = (word: string) => {
     const r = rank(word);
-    return r >= Number.MAX_SAFE_INTEGER
-      ? Number.MAX_SAFE_INTEGER
-      : Math.floor(Math.log(r) / Math.log(RANK_STEP));
+    if (r >= Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
+    // A phrase is said less than its rarest word: two steps more per word after the first.
+    // One of three words or more describes more than it names (own: "bir şeyin bahsi
+    // geçen kişiye ait olduğunu belirtir, kendi"), so it goes after the words.
+    const more = phrases ? word.split(/\s+/u).length - 1 : 0;
+    if (more > 1) return Number.MAX_SAFE_INTEGER;
+    return Math.floor(Math.log(r) / Math.log(RANK_STEP)) + 2 * more;
   };
   return (text) => {
-    const words = text.split(", ");
-    if (words.length < 2 || words.some((word) => /\s/u.test(word))) return text;
+    // A space the source left before a comma ("özet , kısaltma") is no part of a word.
+    const words = text.split(/\s*, /u);
+    if (
+      words.length < 2 ||
+      (!phrases && words.some((word) => /\s/u.test(word)))
+    )
+      return text;
     const groups = new Map<string, { step: number; first: number }>();
     const items = words.map((word, i) => {
       const folded = spelling(word);
@@ -428,7 +444,9 @@ export async function buildPairDictionary(
         rank,
         toNative ?? ((text) => text),
       );
-      const ordered = byFrequency(rank, nativeLanguage(native)?.spelling);
+      const ordered = byFrequency(rank, nativeLanguage(native)?.spelling, {
+        phrases: recipe.reverseGlosses.phrasesByRank === true,
+      });
       shownSpelling = (text) => ordered(spelled(text));
     }
     // The native language's own entries say which table words are offensive.
@@ -455,9 +473,15 @@ export async function buildPairDictionary(
     // A term's main part of speech: that of its most translated sense, when English
     // Wiktionary lists it first too (en/pos.json). Not for "dug", whose only table is
     // the noun's ("teat"), as forms have none; nor "bound" (the noun "boundary").
-    mainPos: (key) => {
+    // Else, for a term taken from the tables when the language's rows translate only
+    // a lesser sense, the part of speech of the sense the tables translate into the
+    // most languages (down: the adverb, 78 languages, where Turkish rows give only the
+    // feathers).
+    mainPos: (key, from) => {
       const main = tableTerms.terms.get(key)?.senses[0]?.[0];
-      return main !== undefined && pos[key]?.[0] === main ? main : undefined;
+      if (main === undefined) return undefined;
+      if (pos[key]?.[0] === main) return main;
+      return from === TABLES_TAG ? tableTerms.mainPos.get(key) : undefined;
     },
     degree: (key, sense) =>
       degreeOf(sense, key, [lemmas[key] ?? []].flat(), pos) !== undefined,
@@ -595,6 +619,7 @@ export async function buildPairDictionary(
       unmarkedTemplates: editionTerms?.stats.unmarkedTemplates ?? 0,
       /** Lowercase terms' edition glosses left out as placeholders, and which. */
       placeheld: editionTerms?.stats.placeheld ?? 0,
+      englishGlosses: editionTerms?.stats.english ?? 0,
       placeholders: editionTerms?.stats.placeholders ?? [],
       /** Edition glosses reshaped: labels in brackets, a closing reference cut, the translation first. */
       reshaped: editionTerms?.stats.reshaped ?? 0,
@@ -723,7 +748,7 @@ async function main() {
         `${stats.uncased.length} lowercase terms of words English writes capitalised left out: ${stats.uncased.slice(0, 20).join(", ")}; ${stats.capitals.personSenses} person senses left out; ${stats.offensiveLeft} offensive table words left out`,
     );
     console.log(
-      `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
+      `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ${stats.englishGlosses} glosses in English left out; ` +
         `${stats.reshaped} glosses reshaped; ${stats.pointerPos} pointer senses given a part of speech; labels: ${stats.labels.slice(0, 30).join(" ")}; ` +
         `abbreviations: ${stats.abbreviations.slice(0, 30).join(" ")}`,
     );

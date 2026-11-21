@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'ll","last":"grand"},{"file":"dict-2.json","first":"grand canyon","last":"saturate"},{"file":"dict-3.json","first":"saturated","last":"épée"}],
+"shards":[{"file":"capital.json","first":"A","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'ll","last":"grand"},{"file":"dict-2.json","first":"grand canyon","last":"saturated"},{"file":"dict-3.json","first":"saturated fatty acid","last":"épée"}],
 "sources":["plwiktionary","enwiktionary-translations","omw-pl","wikidata"]
 }
