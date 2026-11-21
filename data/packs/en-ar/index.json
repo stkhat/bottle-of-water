@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"AAAD","last":"Palau"},{"file":"capital-2.json","first":"Paleogene","last":"ŽSR"},{"file":"dict-1.json","first":"a","last":"stark"},{"file":"dict-2.json","first":"starling","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"AAAD","last":"Pakistani"},{"file":"capital-2.json","first":"Palau","last":"ŽSR"},{"file":"dict-1.json","first":"a","last":"stark"},{"file":"dict-2.json","first":"starling","last":"éclair"}],
 "sources":["enwiktionary-translations","enwiktionary-ar","omw-arb","wikidata"]
 }

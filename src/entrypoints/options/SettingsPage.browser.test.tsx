@@ -305,6 +305,7 @@ describe("SettingsPage", () => {
       "Thai (ภาษาไทย)",
       "Hindi (हिन्दी)",
       "Arabic (العربية)",
+      "Indonesian (Bahasa Indonesia)",
     ]);
     const ui = screen.getByRole("combobox", { name: /Interface language/ });
     await expect.element(ui).toHaveDisplayValue("English");

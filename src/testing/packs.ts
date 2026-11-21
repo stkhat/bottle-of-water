@@ -217,6 +217,11 @@ const TEST_PACKS: PackFiles = {
   "en-ar": {
     dict: { loaf: [[["noun", "رغيف"]], 0] },
   },
+  // The Indonesian Wiktionary first, the translation tables, English Wiktionary's
+  // Indonesian entries, then Wordnet Bahasa.
+  "en-id": {
+    dict: { loaf: [[["noun", "roti"]], 0] },
+  },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
@@ -371,6 +376,16 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     sources: ["enwiktionary-translations", "enwiktionary-ar", "omw-arb"],
   },
   "/packs/en-ar/dict-1.json": TEST_PACKS["en-ar"].dict,
+  "/packs/en-id/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: [
+      "idwiktionary",
+      "enwiktionary-translations",
+      "enwiktionary-id",
+      "omw-id",
+    ],
+  },
+  "/packs/en-id/dict-1.json": TEST_PACKS["en-id"].dict,
   "/packs/de-fr/index.json": {
     shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
     sources: [

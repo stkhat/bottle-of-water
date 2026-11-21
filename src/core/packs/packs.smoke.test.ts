@@ -705,6 +705,17 @@ describe.each([
     ],
     bread: "خبز",
   },
+  {
+    pack: "en-id",
+    sources: [
+      "idwiktionary",
+      "enwiktionary-translations",
+      "enwiktionary-id",
+      "omw-id",
+      "wikidata",
+    ],
+    bread: "roti",
+  },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
   const index = read(`packs/${pack}/index.json`) as ShardIndex;
   const load = loadPack(pack).then(({ dict }) => ({
@@ -718,12 +729,12 @@ describe.each([
     const bySource = sources.map(() => 0);
     for (const [, source] of Object.values(dict)) bySource[source]!++;
     // The Thai edition's tables read the other way fill few terms (the sources before
-    // them have most).
-    expect(
-      bySource.every(
-        (n, i) => n > (sources[i] === "thwiktionary-translations" ? 50 : 500),
-      ),
-    ).toBe(true);
+    // them have most), and the Indonesian edition has few English entries.
+    const few: Readonly<Record<string, number>> = {
+      "thwiktionary-translations": 50,
+      idwiktionary: 300,
+    };
+    expect(bySource.every((n, i) => n > (few[sources[i]!] ?? 500))).toBe(true);
   });
 
   it("has native meanings within the cap for common words", async () => {
@@ -746,36 +757,38 @@ describe.each([
 });
 
 // Every recipe pair with an edition keeps its forms as pointers (format 2); the tables
-// and reverse glosses give none (en-hi has no edition).
-describe.each(recipeNatives().filter((native) => RECIPES[native].edition))(
-  "generated en-%s pointers",
-  (native) => {
-    const load = loadPack(`en-${native}`).then(({ dict }) => ({
-      dict,
-      dictionary: createPairDictionary({ dict, defs, ipa }),
-    }));
+// and reverse glosses give none (en-hi has no edition), nor does the Indonesian
+// edition, whose English entries list no forms.
+describe.each(
+  recipeNatives().filter(
+    (native) => RECIPES[native].edition && native !== "id",
+  ),
+)("generated en-%s pointers", (native) => {
+  const load = loadPack(`en-${native}`).then(({ dict }) => ({
+    dict,
+    dictionary: createPairDictionary({ dict, defs, ipa }),
+  }));
 
-    it("name a term as their target and are no meaning of their own", async () => {
-      const { dict, dictionary } = await load;
-      const pointers = Object.entries(dict).flatMap(([term, [senses]]) =>
-        senses.flatMap(([, , hint, target]) =>
-          target === undefined ? [] : [{ term, hint, target }],
-        ),
-      );
-      expect(pointers.length).toBeGreaterThan(40);
-      for (const { term, hint, target } of pointers) {
-        expect(hint, term).toBeNull();
-        expect(target, term).toMatch(/^[a-z][a-z'-]*$/);
-        expect(target, term).not.toBe(term);
-      }
-      const { term, target } = pointers.find(({ target }) =>
-        Object.hasOwn(dict, target),
-      )!;
-      expect(dictionary.outline(term)?.pos).toBeDefined();
-      expect(Object.hasOwn(dict, target)).toBe(true);
-    });
-  },
-);
+  it("name a term as their target and are no meaning of their own", async () => {
+    const { dict, dictionary } = await load;
+    const pointers = Object.entries(dict).flatMap(([term, [senses]]) =>
+      senses.flatMap(([, , hint, target]) =>
+        target === undefined ? [] : [{ term, hint, target }],
+      ),
+    );
+    expect(pointers.length).toBeGreaterThan(40);
+    for (const { term, hint, target } of pointers) {
+      expect(hint, term).toBeNull();
+      expect(target, term).toMatch(/^[a-z][a-z'-]*$/);
+      expect(target, term).not.toBe(term);
+    }
+    const { term, target } = pointers.find(({ target }) =>
+      Object.hasOwn(dict, target),
+    )!;
+    expect(dictionary.outline(term)?.pos).toBeDefined();
+    expect(Object.hasOwn(dict, target)).toBe(true);
+  });
+});
 
 // Every recipe pair keeps its capitalised headwords apart, with what they mean (format 3).
 describe.each(recipeNatives())(
@@ -845,6 +858,14 @@ const FIRST_LINES: Readonly<
   th: { english: "อังกฤษ", january: "มกราคม", be: "เป็น", better: "ดีกว่า" },
   hi: { english: "अंग्रेज़ी", january: "जनवरी", be: "होना", better: "बेहतर" },
   ar: { english: "إنجليزي", january: "يناير", be: "كان", better: "أفضل" },
+  // Indonesian needs no copula: the tables' rows for be are "to occupy a place" and
+  // "to exist" (berada, ada).
+  id: {
+    english: "inggris",
+    january: "januari",
+    be: "berada",
+    better: "lebih baik",
+  },
 };
 
 describe.each(recipeNatives())("generated en-%s first lines", (native) => {

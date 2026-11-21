@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"capital.json","first":"AAAI","last":"ŽS"},{"file":"dict-1.json","first":"'tween","last":"pasteurization"},{"file":"dict-2.json","first":"pasteurize","last":"éclair"}],
+"sources":["idwiktionary","enwiktionary-translations","enwiktionary-id","omw-id","wikidata"]
+}

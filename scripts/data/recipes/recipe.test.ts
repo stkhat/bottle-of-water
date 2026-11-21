@@ -1355,6 +1355,25 @@ describe("capitalDictionary in a script without case", () => {
   });
 });
 
+describe("capitalDictionary in a script with case", () => {
+  it("makes a headword the languages with case write in lower case a word when the edition says nothing", () => {
+    const { capital } = capitalDictionary(
+      {
+        // Indonesian capitalises months as English does; its edition has no entry.
+        January: ["Januari", [["noun", "Januari"]], 0],
+        Germany: ["Jerman", [["proper noun", "Jerman"]], 0],
+      },
+      {
+        nativeKind: () => undefined,
+        rowsSayWord: (key) => key === "January",
+        personFirst: () => false,
+      },
+    );
+    expect(capital["January"]?.[3]).toBe("word");
+    expect(capital["Germany"]?.[3]).toBe("name");
+  });
+});
+
 describe("writtenAsWord", () => {
   it("is where most languages with case write the headword in lower case", () => {
     expect(writtenAsWord({ lower: 9, upper: 2 })).toBe(true);

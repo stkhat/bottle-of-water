@@ -280,6 +280,23 @@ export const NATIVE_LANGUAGES = {
     written: arabicWritten,
     rtl: true,
   },
+  // Indonesian writes Latin letters with spaces between words, so two subtitle lines
+  // join with one. Chrome's Prompt API decides by itself whether it answers in
+  // Indonesian (`availability`); the examples are there for when it does.
+  id: {
+    option: "language.id",
+    name: "languageName.id",
+    spaces: true,
+    dense: false,
+    scripts: ["Latin"],
+    translator: true,
+    examples: {
+      bank: "tepi (sungai)",
+      beans: "membocorkan rahasia",
+      mind: "memutuskan",
+    },
+    englishPair: { format: 4 },
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",
