@@ -5,8 +5,8 @@
  * It knows no provider: a `CloudProvider` gives the files and the token.
  *
  * What it keeps in `storage.local` (`cloudSync`) is the connection: the provider, the
- * files read (by modified time) and written (by content), the writes still to do, and
- * the status. Tokens are the auth half's, never here.
+ * files read (by modified time) and written (by content), the writes still to do, the
+ * account's address, and the status. Tokens are the auth half's, never here.
  */
 import { browser } from "wxt/browser";
 import {
@@ -78,6 +78,11 @@ export interface CloudSyncState {
   lastCheckedAt?: number;
   /** Every file's size, as the last list and this device's writes since had them. */
   sizes: Record<string, number>;
+  /**
+   * The address of the account this device connected with (`CloudFiles.account`), for
+   * Settings; looked up again at each check while it is not known.
+   */
+  account?: string;
   /** `reconnect` stops reading and writing until `connect`; `full` stops writing. */
   error?: "reconnect" | "full" | "retrying";
 }
@@ -163,6 +168,17 @@ export async function cloudConnected(
   local: LocalArea = browser.storage.local,
 ): Promise<boolean> {
   return isState((await local.get(CLOUD_SYNC_KEY))[CLOUD_SYNC_KEY]);
+}
+
+/**
+ * The address of the account this device connected with, once known; for the auth half
+ * too (a sign-in hint), so it reads `storage.local` without the backend.
+ */
+export async function cloudAccount(
+  local: LocalArea = browser.storage.local,
+): Promise<string | undefined> {
+  const value = (await local.get(CLOUD_SYNC_KEY))[CLOUD_SYNC_KEY];
+  return isState(value) ? value.account : undefined;
 }
 
 const pathOf = (file: CloudFile) =>
@@ -334,6 +350,24 @@ export function createCloudSyncBackend({
     retryTimer = undefined;
   }
 
+  /**
+   * Looks up the account's address while it is not known. A failure never fails the
+   * sync: the address stays unknown and the next check asks again.
+   */
+  async function learnAccount(
+    s: CloudSyncState,
+    provider: CloudProvider,
+    token: string,
+  ) {
+    if (s.account !== undefined) return;
+    try {
+      const address = await provider.files.account(token);
+      if (address !== undefined) s.account = address;
+    } catch (error) {
+      if (cloudErrorKind(error) !== "retry") console.error(errorText(error));
+    }
+  }
+
   /** Takes in the files read: every `main`, then the month files. */
   async function merge(
     device: string,
@@ -376,6 +410,7 @@ export function createCloudSyncBackend({
     try {
       await withToken(provider, async (token) => {
         const listed = await provider.files.list(token);
+        await learnAccount(s, provider, token);
         let device = await deviceId();
         s.sizes = Object.fromEntries(listed.map((f) => [f.path, f.size]));
 
@@ -593,8 +628,11 @@ export function createCloudSyncBackend({
         await provider.auth.token({ interactive: true });
         await load();
         const { values } = await settings.get();
-        if (state?.provider === id) delete state.error;
-        else {
+        if (state?.provider === id) {
+          delete state.error;
+          // The window may have signed in with another account: the check asks again.
+          delete state.account;
+        } else {
           // From browser sync: its terms come into IndexedDB first. Switching from
           // another provider: the whole copy goes to the new one.
           if (!state) await browserSync.pullAll();
@@ -643,6 +681,7 @@ export function createCloudSyncBackend({
       };
       if (s.lastSavedAt !== undefined) status.lastSavedAt = s.lastSavedAt;
       if (s.lastCheckedAt !== undefined) status.lastCheckedAt = s.lastCheckedAt;
+      if (s.account !== undefined) status.account = s.account;
       // The most pressing first: a newer file waits for an update, a retry does not.
       const update = Object.keys(s.unreadable).length > 0;
       const error =

@@ -31,6 +31,7 @@ import { readCopy } from "./cloud-copy";
 import {
   CLOUD_CHECK_ALARM,
   CLOUD_SYNC_KEY,
+  cloudAccount,
   cloudConnected,
   createCloudSyncBackend,
   WRITE_DELAY_MS,
@@ -629,6 +630,80 @@ describe("CloudSyncBackend: sentence history", () => {
     a.settings.change({ cloudHistory: true });
     await a.after(WRITE_DELAY_MS);
     expect(cloud.paths()).toContain("devices/dev-a/history-2026-11.json.gz");
+  });
+});
+
+describe("CloudSyncBackend: account", () => {
+  it("keeps the account's address on this device from connect until disconnect", async () => {
+    const cloud = createFakeCloud();
+    const a = device({ id: "dev-a", cloud });
+    await startAll(a);
+    await a.backend.connect("googleDrive");
+    expect((await a.backend.status()).account).toBe("alex.kim@gmail.com");
+    expect((await a.state())?.account).toBe("alex.kim@gmail.com");
+    expect(await cloudAccount(a.local)).toBe("alex.kim@gmail.com");
+    expect(a.settings.values()).not.toHaveProperty("account");
+
+    // Asked once: later checks keep it.
+    a.alarms.fire(CLOUD_CHECK_ALARM);
+    await a.after();
+    expect(cloud.log.filter((e) => e.op === "account")).toHaveLength(1);
+
+    await a.backend.disconnect();
+    expect(await a.state()).toBeUndefined();
+    expect((await a.backend.status()).account).toBeUndefined();
+    expect(await cloudAccount(a.local)).toBeUndefined();
+  });
+
+  it("asks again when reconnecting, since the window may sign in with another account", async () => {
+    const cloud = createFakeCloud();
+    const a = device({ id: "dev-a", cloud });
+    await startAll(a);
+    await a.backend.connect("googleDrive");
+    a.account.address = "sam.lee@gmail.com";
+    await a.backend.connect("googleDrive");
+    expect((await a.backend.status()).account).toBe("sam.lee@gmail.com");
+  });
+
+  it("syncs when the lookup fails, and looks it up again at the next check", async () => {
+    const cloud = createFakeCloud();
+    const a = device({ id: "dev-a", cloud });
+    const b = device({ id: "dev-b", cloud });
+    await startAll(a, b);
+    cloud.failNext("unauthorized", { ops: ["account"] });
+    await a.backend.connect("googleDrive");
+    const status = await a.backend.status();
+    expect(status.account).toBeUndefined();
+    expect(status.error).toBeUndefined();
+    expect(status.lastSavedAt).toBe(time);
+    // No retry is scheduled for it.
+    await a.after(WRITE_DELAY_MS);
+    expect(a.timers.next()).toBeUndefined();
+
+    cloud.failNext("retry", { ops: ["account"] });
+    a.alarms.fire(CLOUD_CHECK_ALARM);
+    await a.after();
+    expect((await a.backend.status()).account).toBeUndefined();
+    expect((await a.backend.status()).error).toBeUndefined();
+
+    // A device connected before addresses were kept has none either: asked the same way.
+    await save(a, "loaf");
+    await a.after(WRITE_DELAY_MS);
+    a.alarms.fire(CLOUD_CHECK_ALARM);
+    await a.after();
+    expect((await a.backend.status()).account).toBe("alex.kim@gmail.com");
+    await b.backend.connect("googleDrive");
+    expect(await keysOf(b)).toEqual(["loaf:learning"]);
+  });
+
+  it("stays unknown when the provider gives no address", async () => {
+    const cloud = createFakeCloud();
+    const a = device({ id: "dev-a", cloud });
+    a.account.address = undefined;
+    await startAll(a);
+    await a.backend.connect("googleDrive");
+    expect((await a.backend.status()).account).toBeUndefined();
+    expect((await a.state())?.lastSavedAt).toBe(time);
   });
 });
 
