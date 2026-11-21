@@ -62,6 +62,11 @@ export interface CloudFiles {
   write(token: string, path: string, bytes: Uint8Array): Promise<CloudFileInfo>;
   /** Removing a file that is not there is not an error. */
   remove(token: string, path: string): Promise<void>;
+  /**
+   * The address of the account the token is for, so Settings can say which account
+   * this device is connected to; undefined when the provider gives none.
+   */
+  account(token: string): Promise<string | undefined>;
 }
 
 export interface CloudAuth {

@@ -45,6 +45,23 @@ export function cloudView(
   return first ? { kind: "offer", ...named(first) } : { kind: "unavailable" };
 }
 
+/**
+ * What Settings says under "Your own cloud storage" while connected: the provider and
+ * the account ("Google Drive (alex.kim@gmail.com). Everything is saved there, …"), the
+ * provider alone until the account is known.
+ */
+export function cloudConnectedDesc(
+  status: Pick<CloudStatus, "account">,
+  name: string,
+): string {
+  return status.account === undefined
+    ? t("settings.cloud.connected", { provider: name })
+    : t("settings.cloud.connectedAccount", {
+        provider: name,
+        account: status.account,
+      });
+}
+
 /** "1.4 MB · 3 devices"; nothing before the first list or write. */
 export function cloudSizeLine(
   status: Pick<CloudStatus, "bytes" | "devices">,

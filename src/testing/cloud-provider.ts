@@ -12,8 +12,9 @@ import {
   type CloudProvider,
 } from "../core/cloud/provider";
 
-type Op = "list" | "read" | "write" | "remove";
-const ALL_OPS: readonly Op[] = ["list", "read", "write", "remove"];
+type Op = "list" | "read" | "write" | "remove" | "account";
+/** What `failNext` fails by default: the file calls (the account lookup only when named). */
+const FILE_OPS: readonly Op[] = ["list", "read", "write", "remove"];
 
 interface Failure {
   kind: CloudErrorKind;
@@ -26,6 +27,8 @@ export interface FakeAccount extends CloudAuth {
   silent: boolean;
   /** Makes every token this account was given invalid (an expiry): the next call is a 401. */
   expire(): void;
+  /** What `files.account` gives for this account's tokens. */
+  address: string | undefined;
 }
 
 export interface FakeCloud {
@@ -40,7 +43,7 @@ export interface FakeCloud {
     options?: { ops?: readonly Op[]; retryAfterMs?: number },
   ): void;
   /** A device's sign-in: signed out until a token is asked for with a window. */
-  account(): FakeAccount;
+  account(address?: string): FakeAccount;
   /** The provider a device sees: the shared files and its own account. */
   provider(account: FakeAccount): CloudProvider;
   /** The paths, sorted. */
@@ -53,6 +56,7 @@ export function createFakeCloud({
   const stored: FakeCloud["stored"] = new Map();
   const log: FakeCloud["log"] = [];
   const valid = new Set<string>();
+  const owners = new Map<string, FakeAccount>();
   const failures: Failure[] = [];
   let stamp = 1_000;
   let tokens = 0;
@@ -100,25 +104,30 @@ export function createFakeCloud({
       enter(token, "remove", path);
       stored.delete(path);
     },
+    async account(token) {
+      enter(token, "account");
+      return owners.get(token)?.address;
+    },
   };
 
   return {
     files,
     stored,
     log,
-    failNext(kind, { ops = ALL_OPS, retryAfterMs } = {}) {
+    failNext(kind, { ops = FILE_OPS, retryAfterMs } = {}) {
       failures.push({
         kind,
         ops,
         ...(retryAfterMs !== undefined && { retryAfterMs }),
       });
     },
-    account() {
+    account(address = "alex.kim@gmail.com") {
       let signedIn = false;
       const mine = new Set<string>();
       let current: string | undefined;
       const account: FakeAccount = {
         silent: true,
+        address,
         async token({ interactive, refused }) {
           if (refused !== undefined && refused === current) current = undefined;
           if (!interactive && (!signedIn || !account.silent))
@@ -128,6 +137,7 @@ export function createFakeCloud({
             current = `token-${++tokens}`;
             valid.add(current);
             mine.add(current);
+            owners.set(current, account);
           }
           return current;
         },

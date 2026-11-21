@@ -195,6 +195,7 @@
   "settings.cloud.offer": "Save everything, including sources and sentences, to your {provider}, for when {syncName} space runs out.",
   "settings.cloud.connectButton": "Connect {provider}",
   "settings.cloud.connected": "{provider}. Everything is saved there, in a folder only Langle can open.",
+  "settings.cloud.connectedAccount": "{provider} ({account}). Everything is saved there, in a folder only Langle can open.",
   "settings.cloud.lastChecked": "Last checked other devices: {when}",
   "settings.cloud.lastSaved": "Last saved {when}.",
   "settings.cloud.reconnectDesc": "New changes wait on this device until you reconnect.",

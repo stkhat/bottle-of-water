@@ -400,3 +400,38 @@ describe("errors", () => {
     expect((await failure(drive.files.remove("tok", MAIN))).kind).toBe("retry");
   });
 });
+
+describe("account", () => {
+  it("asks about for the user's address", async () => {
+    const drive = fakeDrive();
+    drive.answer(json({ user: { emailAddress: "alex.kim@gmail.com" } }));
+    expect(await drive.files.account("tok")).toBe("alex.kim@gmail.com");
+    const [call] = drive.calls;
+    expect(call!.method).toBe("GET");
+    expect(call!.url.origin + call!.url.pathname).toBe(
+      "https://www.googleapis.com/drive/v3/about",
+    );
+    expect(Object.fromEntries(call!.url.searchParams)).toEqual({
+      fields: "user(emailAddress)",
+    });
+    expect(call!.headers.get("Authorization")).toBe("Bearer tok");
+  });
+
+  it("gives nothing when Drive leaves the address out", async () => {
+    const drive = fakeDrive();
+    drive.answer(json({ user: {} }), json({}));
+    expect(await drive.files.account("tok")).toBeUndefined();
+    expect(await drive.files.account("tok")).toBeUndefined();
+  });
+
+  it("fails as the other calls do", async () => {
+    const drive = fakeDrive();
+    drive.answer(
+      json(driveError(401, "authError"), 401),
+      json(driveError(403, "insufficientPermissions"), 403),
+      new TypeError("Failed to fetch"),
+    );
+    for (const kind of ["unauthorized", "unauthorized", "retry"])
+      expect((await failure(drive.files.account("tok"))).kind).toBe(kind);
+  });
+});

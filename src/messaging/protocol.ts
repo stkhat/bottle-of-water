@@ -457,6 +457,8 @@ export interface CloudStatus {
   /** The providers this build can connect to (none in production for now). */
   available: CloudProviderId[];
   provider?: CloudProviderId;
+  /** The address of the account this device is connected with, once it is known. */
+  account?: string;
   /** When this device last wrote its files. */
   lastSavedAt?: number;
   /** When this device last read the other devices' files. */

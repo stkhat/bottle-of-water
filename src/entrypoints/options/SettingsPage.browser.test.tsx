@@ -1114,6 +1114,21 @@ describe("SettingsPage", () => {
       expect(f.screen.getByText(/Synced/).query()).toBeNull();
     });
 
+    it("names the account this device is connected with", async () => {
+      const f = await open({
+        cloud: { ...CONNECTED, account: "alex.kim@gmail.com" },
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      await expect
+        .element(
+          sync.getByText(
+            "Google Drive (alex.kim@gmail.com). Everything is saved there, in a folder only Langle can open.",
+          ),
+        )
+        .toBeVisible();
+    });
+
     it("disconnects, and browser sync's switch comes back", async () => {
       const f = await open({
         cloud: CONNECTED,

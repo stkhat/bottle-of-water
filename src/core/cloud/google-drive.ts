@@ -7,11 +7,15 @@
  * `appProperties.path`, and a path → id map comes from the last list. Two files with
  * the same path (two creates that raced): the newest is the file; the others go when
  * the path is next written or removed, which only the device that owns it does.
+ *
+ * The account's address comes from `about` (`user.emailAddress`), which the
+ * `drive.appdata` scope may read.
  */
 import { CloudError, type CloudFileInfo, type CloudFiles } from "./provider";
 
 const API = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+const ABOUT = "https://www.googleapis.com/drive/v3/about";
 const FILE_FIELDS = "id,modifiedTime,size,appProperties";
 const CONTENT_TYPE = "application/gzip";
 
@@ -287,6 +291,18 @@ export function createDriveFiles({
       if (!file) return;
       for (const id of [file.id, ...file.extra]) await drop(token, id);
       map.delete(path);
+    },
+
+    async account(token) {
+      const url = new URL(ABOUT);
+      url.searchParams.set("fields", "user(emailAddress)");
+      const about = (await (await call("about", token, url.href)).json()) as {
+        user?: { emailAddress?: unknown };
+      };
+      const address = about.user?.emailAddress;
+      return typeof address === "string" && address !== ""
+        ? address
+        : undefined;
     },
   };
 }

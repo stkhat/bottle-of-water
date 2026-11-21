@@ -10,6 +10,7 @@ import {
   type BackupNote,
 } from "../../../ui/backup/BackupButtons";
 import {
+  cloudConnectedDesc,
   cloudErrorLine,
   cloudSizeLine,
   type CloudView,
@@ -124,7 +125,7 @@ function ConnectedRows(props: {
       <div class="row" style={{ borderTop: 0, paddingTop: 0 }}>
         <RowLabel
           title={t("settings.cloud.title")}
-          desc={t("settings.cloud.connected", { provider: view.name })}
+          desc={cloudConnectedDesc(status, view.name)}
         />
         {status.error === "reconnect" && (
           <button
