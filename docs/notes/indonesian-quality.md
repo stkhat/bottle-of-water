@@ -75,6 +75,39 @@ Other natives over the same corpus (main → id-2, hover tokens changed): ja 0, 
 - **since → dari, say → bicara / bilang**: the frequency order puts the commoner but less fitting word first where a row mixes senses.
 - From id-1, not addressed: berulang2 (the edition's "2" for reduplication), engage → bertunangan, case duplicates in synsets (cheerio), therefore → jadi, incoming → baru, helpless → kronis, vegetarian → nabati, interrupt → sarung (a homograph's rank), know's third line → setubuh, you → dasar.
 
+## Real-site check (2026-11-21)
+
+Check build at main aeb4807 (en-id 2026.1121.2, en-defs 2026.1121.8, both served by jsDelivr), learning en, native id, in the user's Chrome; settings saved and restored through `langle:check-settings`; every video muted. Sites: the English Wikipedia article "Jakarta", YouTube (Ken Robinson, TED), Netflix (Friends, watch/70274124).
+
+Layout: the hover card, the phrase card, the dictionary window and the Indonesian line under the English subtitle (YouTube, machine translation `tlang=id`) and in the transcript cards all fit; no clipping or overlap (the one overlap, Wikipedia's own link preview over the card, is the site's). Netflix has no Indonesian track for this title (tracks: en, ja), and Netflix has no site machine translation, so there is no second line there by design.
+
+Hover results (card text):
+
+| Word | Card |
+| --- | --- |
+| the, these | these → ini |
+| can, people, do / did | bisa; orang; do → melakukan (the main verb "she did"; the auxiliary in "What do you do?" shows no card) |
+| your, something | kamu / kalian; sesuatu |
+| yeah | YA, marked "Machine translation" (Chrome's translation of the definition "Yes"; the upper case is its output) |
+| off | af (see below) |
+| since | dari / karena |
+| say / said | bicara / bilang |
+| you know | "yang tau tau aja" (known) |
+| his / him / her | beliau |
+| be | berada / ada |
+| of (Wikipedia) | rumah Andi / dari (known) |
+| extend, border, registered, VOC, according to | memperpanjang / menyampaikan / jemba; perbatasan; terdaftar; the two-line gloss of the Dutch company; menurut / mengikuti |
+| Jakarta, Shakespeare (names) | IPA only (Shakespeare) or the name itself (Jakarta) |
+| unpredictability (no Indonesian meaning) | the English definition at first; once Chrome's en → id model was downloaded (the first click on the page starts it) "kualitas yang tidak dapat diprediksi", marked "Machine translation", in the card and in the dictionary window |
+
+New findings, not fixed here (each is a pack rebuild):
+- **off → af**: the only row left is a noun "af" (tagged noun, for the adverb in "off the beat"); expected: mati / lepas / jauh.
+- **myrrh → kemenyan**: kemenyan is frankincense; myrrh is mur (the transcript line, machine translated, says "minyak mur").
+- **squander → menguras** (drain): menyia-nyiakan is the sense.
+- **Hover of a known word after a pointer move inside the transcript** needs a real mouse move into the word; a scripted pointer event does not open it (a check-tooling note, not a bug).
+
+Error log: 16 `info` records (the language data's mirrors: every file of en-defs and en-id from jsDelivr, 330 to 553 ms each), no `warning` or `error`. Cleared and read back empty. Settings read back equal to the saved object.
+
 ## Measuring
 
 ```
