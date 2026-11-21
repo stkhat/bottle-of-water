@@ -1,3 +1,4 @@
+import { devanagariSpelling } from "../natives";
 import { describe, expect, it } from "vitest";
 import {
   capLine,
@@ -386,6 +387,16 @@ describe("shortLines", () => {
     // Case and brackets say something.
     expect(shortLines(["Morgen", "morgen"], "x")).toEqual(["Morgen", "morgen"]);
     expect(shortLines(["…を研究する", "(…を)研究する"], "x")).toHaveLength(2);
+  });
+
+  it("leaves out a line in another spelling of the native language's (Hindi's nukta)", () => {
+    const spelling = devanagariSpelling;
+    expect(shortLines(["ख़बर", "खबर"], "x", { spelling })).toEqual(["ख़बर"]);
+    expect(shortLines(["चाँद", "चांद", "मास"], "x", { spelling })).toEqual([
+      "चाँद",
+      "मास",
+    ]);
+    expect(shortLines(["ख़बर", "खबर"], "x")).toHaveLength(2);
   });
 
   it("leaves out a shown line whose items earlier lines give, notes aside", () => {

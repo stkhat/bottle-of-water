@@ -267,3 +267,34 @@ describe("buildEnDefs: abbreviations", () => {
     ]);
   });
 });
+
+describe("buildEnDefs: every part of speech (hi-2)", () => {
+  let defs: Awaited<ReturnType<typeof buildEnDefs>>["defs"];
+  beforeAll(async () => {
+    ({ defs } = await buildEnDefs(
+      join(import.meta.dirname, "fixtures", "kaikki-parts.jsonl"),
+      {
+        vocab: ["smash", "chewy", "handy", "the"],
+        lemmas: {},
+        phrases: { detect: [], more: [], gap: [] },
+      },
+    ));
+  });
+
+  it("keeps each translated part of speech's best sense, after more senses of another", () => {
+    expect(defs.smash!.map(([pos]) => pos)).toContain("verb");
+    expect(defs.smash).toHaveLength(4);
+  });
+
+  it("keeps no part of speech whose best sense is labelled or untranslated", () => {
+    expect(defs.chewy!.map(([pos]) => pos)).not.toContain("noun");
+    expect(defs.handy!.map(([pos]) => pos)).not.toContain("noun");
+  });
+
+  it("reads a gloss that goes on from its parent's dots as one", () => {
+    expect(defs.the).toContainEqual([
+      "article",
+      "The definite article that shows the noun is identifiable because it has already been mentioned.",
+    ]);
+  });
+});

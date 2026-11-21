@@ -472,6 +472,7 @@ No Hindi edition on kaikki and no Hindi wordnet in OMW 1.4, so the recipe is the
 - **Display**: translated lines end at the danda (।) as at "。" ("…वाला। (दूसरे शब्दों में…" → its first sentence; the translator writes "e.g." as "उदा।", so such a line ends before the example), and a hard cut falls between grapheme clusters (Node and Chrome segment conjuncts whole: "क्ष", "स्त्री"). Rendered in Chromium (hover card and dictionary window with conjuncts, vowel signs above and below, nukta): nothing clipped at the line height of 1.45.
 - **Gate as built** (`data:stats`): tokens 91.2% (130,598 of 143,211), rule (b); top 5,000 83.4% (tables 3,433, S1 736; tables alone 68.7%), top 2,000 91.2%, phrases 4.8% (tables 2,683, S1 910).
 - `en-hi` 2026.1121.0: 17,924 terms (tables 12,288, S1 5,757), 3.40 MB raw: `dict-1.json` 1.86 MB and `capital.json` 1.54 MB (Wikidata's Hindi labels, 2,269 capital-only words, and main's acronyms). `en-defs` keeps the many terms en-hi lacks: 18.37 → 19.80 MB (2026.1121.3), so every pair downloads 1.4 MB more.
+- **hi-2** (quality on real content, 2026-11-21): [hindi-quality.md](hindi-quality.md).
 
 ### G: the gate rule as built (2026-11-21)
 

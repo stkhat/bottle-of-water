@@ -1,6 +1,4 @@
 {
-"emote":[[["verb","แสดงอารมณ์","give expression or emotion to, in a stage or movie role"]],2],
-"emotion":[[["noun","อารมณ์","person's internal state of being"]],0],
 "emotional":[[["adjective","เกี่ยวกับอารมณ์"],["adjective","ทางอารมณ์"],["adjective","ซึ่งอารมณ์อ่อนไหว"]],1],
 "emotional intelligence":[[["noun","ความฉลาดทางอารมณ์","ability"]],0],
 "emotionalism":[[["noun","ลักษณะทางอารมณ์","emotional nature or quality"]],2],
@@ -2803,7 +2801,6 @@
 "fringe benefit":[[["noun","เงินรางวัล","an incidental benefit awarded for certain types of employment (especially if it is regarded as a right)"]],2],
 "fringe tree":[[["noun","ต้นฟรินจ์ทรี","any of various small decorative flowering trees or shrubs of the genus Chionanthus"]],2],
 "frippery":[[["noun","ของประดับไร้ค่า, สิ่งไร้สาระ","something of little value or significance"]],2],
-"frisbee":[[["noun","จานบิน"]],4],
 "frisian islands":[[["noun","หมู่เกาะฟริเซียน","a chain of islands in the North Sea off the coast of northwestern Europe extending from the IJsselmeer to Jutland"]],2],
 "frisk":[[["noun","การค้นตัว","the act of searching someone for concealed weapons or illegal drugs"],["verb","กระโดดโลดเต้น","play boisterously"],["verb","ค้นตัว","search as for concealed weapons by running the hands rapidly over the clothing and through the pockets"]],2],
 "friskily":[[["adverb","อย่างมีชีวิตชีวา","in a playfully frisky manner"]],2],
@@ -2895,7 +2892,7 @@
 "fuck up":[[["verb","ทำให้เสียหาย, ทำงานชุ่ย, ทำงานมักง่าย","make a mess of, destroy or ruin"]],2],
 "fuck your mother":[[["interjection","เย็ดแม่ง","fuck your mother - translation entry"]],0],
 "fucker":[[["noun","ผู้มีเพศสัมพันธ์","someone who engages in sexual intercourse"],["noun","ไอ้งั่ง","a stupid despised man"]],2],
-"fucking":[[["verb","โคตร, แม่โคตร","as an intensifier"],["verb","โคตร","offensive or worthless"]],0],
+"fucking":[[["verb","โคตร, แม่โคตร","as an intensifier"]],0],
 "fuckwit":[[["noun","ไอ้โง่","a very stupid person"]],0],
 "fuddle":[[["noun","ความยุ่งเหยิง","a confused multitude of things"],["verb","ทำให้มึน","make stupid with alcohol"],["verb","กิน, ดื่ม, กินเหล้า","consume alcohol"],["verb","ทำให้สับสน, ทำให้รู้สึกสับสน","be confusing or perplexing to"]],2],
 "fuddy-duddy":[[["noun","ไดโนเสาร์เต่าล้านปี","a conservative who is old-fashioned or dull in attitude or appearance"]],2],
@@ -4757,7 +4754,6 @@
 "hacksaw":[[["noun","เลื่อยตัดเหล็ก","saw used with one hand for cutting metal"]],2],
 "had":[[["verb","อดีตกาล สามัญ และ อดีตกาล รูปกริยาขยายของ have",null,"have"]],1],
 "had best":[[["verb","ทำให้ดีที่สุด","act in one's own or everybody's best interest"]],2],
-"had better":[[["verb","น่าจะ"]],4],
 "haddock":[[["noun","ปลาแฮดด็อค, เนื้อปลาแฮดด็อค","lean white flesh of fish similar to but smaller than cod"],["noun","ปลาแฮดด็อค","important food fish on both sides of the Atlantic"]],2],
 "hadith":[[["noun","หะดีษ","collected sayings and actions of Muhammad"]],0],
 "hadji":[[["noun","หะยี, หัญจี","an Arabic term of respect for someone who has made the pilgrimage to Mecca"]],2],
@@ -10052,7 +10048,7 @@
 "loincloth":[[["noun","ผ้าเตี่ยว","garment"]],0],
 "loiter":[[["verb","ยืนเอ้อระเหย, ยืนเตร็ดเตร่","to stand about without any aim or purpose"]],0],
 "loiterer":[[["noun","คนเร่ร่อน","someone who lingers aimlessly in or about a place"]],2],
-"lol":[[["interjection","๕๕๕"],["interjection","ถถถ"]],4],
+"lol":[[["interjection","๕๕๕"]],4],
 "loll":[[["verb","ห้อย, ลู่","hang loosely or laxly"],["verb","เกียจคร้าน","be lazy or idle"]],2],
 "loll around":[[["verb","เกียจคร้าน","be lazy or idle"]],2],
 "lollipop":[[["noun","อมยิ้ม","confectionery on a stick"]],0],
@@ -13497,5 +13493,8 @@
 "nos.":[[["noun","พหูพจน์ของ no",null,"no"]],1],
 "nose":[[["noun","จมูก, นัตถุ์, นาสิก","protuberance on the face"]],0],
 "nose candy":[[["noun","สโนว์, โค้ก","street names for cocaine"]],2],
-"nose flute":[[["noun","โนสฟลุต","a flute that is played by blowing through the nostrils (used in some Asian countries)"]],2]
+"nose flute":[[["noun","โนสฟลุต","a flute that is played by blowing through the nostrils (used in some Asian countries)"]],2],
+"nose job":[[["noun","ศัลยกรรมตบแต่งจมูก","cosmetic surgery to improve the appearance of your nose"]],2],
+"nose ring":[[["noun","ห่วงจมูก","a ring worn on the nose as an ornament or on the nose of an animal to control it"]],2],
+"nosebag":[[["noun","ถุงใส่อาหารม้า","a canvas bag that is used to feed an animal (such as a horse)"]],2]
 }

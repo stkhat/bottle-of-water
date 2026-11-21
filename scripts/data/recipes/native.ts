@@ -46,7 +46,11 @@ import {
   type TermKey,
 } from "./recipe.ts";
 import { RECIPES, recipeTags, TABLES_TAG, type Recipe } from "./recipes.ts";
-import { fitsEnglishPos, readReverseGlosses } from "./reverse-glosses.ts";
+import {
+  fitsEnglishPos,
+  readReverseGlosses,
+  withoutOffensiveWords,
+} from "./reverse-glosses.ts";
 import { readReversedTables, type TableWords } from "./reversed-tables.ts";
 import {
   acronymNative,
@@ -63,15 +67,27 @@ import { readFrequencyWords } from "../frequency-words.ts";
 /**
  * A native word's rank in the language's FrequencyWords 2018 list (the forms as
  * subtitles write them), for ordering a term's reverse glosses; words the list lacks
- * come after every ranked one.
+ * come after every ranked one. A word the list writes in another spelling has that
+ * spelling's rank (`NativeLanguage.spelling`: Hindi subtitles mostly drop the nukta,
+ * खबर for ख़बर), and a native phrase its rarest word's (पता करना: करना's or पता's).
  */
 async function frequencyRank(native: string) {
+  const spelling = nativeLanguage(native)?.spelling ?? ((word: string) => word);
   const ranks = new Map<string, number>();
   for (const [i, form] of (
     await readFrequencyWords(native, Number.POSITIVE_INFINITY)
   ).entries())
-    if (!ranks.has(form)) ranks.set(form, i + 1);
-  return (word: string) => ranks.get(word) ?? Number.MAX_SAFE_INTEGER;
+    for (const written of [form, spelling(form)])
+      if (!ranks.has(written)) ranks.set(written, i + 1);
+  const rankOf = (word: string) =>
+    ranks.get(word) ?? ranks.get(spelling(word)) ?? Number.MAX_SAFE_INTEGER;
+  return (word: string) =>
+    Math.max(
+      ...word
+        .split(/[\s-]+/u)
+        .filter(Boolean)
+        .map(rankOf),
+    );
 }
 
 /**
@@ -168,6 +184,7 @@ export async function buildPairDictionary(
   // A native word of another part of speech than the English word's is no meaning of
   // it, in the sources read backwards (round 4's main senses).
   const fits = fitsEnglishPos(pos);
+  let offensiveLeft = 0;
   if (recipe.reversedTables) {
     if (!edition)
       throw new Error(`en-${native}: reversed tables need an edition`);
@@ -186,19 +203,31 @@ export async function buildPairDictionary(
       ),
     );
   }
-  if (recipe.reverseGlosses)
-    read.set(
-      recipe.reverseGlosses.tag,
-      await readReverseGlosses(join(rawDir, recipe.reverseGlosses.file), {
+  if (recipe.reverseGlosses) {
+    const reverse = await readReverseGlosses(
+      join(rawDir, recipe.reverseGlosses.file),
+      {
         native,
         termKey,
         fits,
+        // A capitalised headword beside a lowercase one is another word (May, may).
+        capitalised: (written) =>
+          tableTerms.capitalised.has(written) &&
+          tableTerms.lowercase.has(written.toLowerCase()),
+        verbOnly: (word) => {
+          const classes = pos[word] ?? [];
+          return classes.includes("verb") && !classes.includes("adjective");
+        },
         ...(letter && { letter }),
         ...(recipe.reverseGlosses.frequency && {
           rank: await frequencyRank(native),
         }),
-      }),
+      },
     );
+    read.set(recipe.reverseGlosses.tag, reverse);
+    // The native language's own entries say which table words are offensive.
+    offensiveLeft = withoutOffensiveWords(tableTerms.terms, reverse.offensive);
+  }
   const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
   // The capitalised headwords, from the same sources in the same order (so a term's
   // source index is the same), kept apart.
@@ -341,6 +370,8 @@ export async function buildPairDictionary(
       unparsable:
         (editionTerms?.stats.unparsable ?? 0) + tableTerms.stats.unparsable,
       terms: Object.keys(dict).length,
+      /** Table words left out as offensive in a marked sense (`withoutOffensiveWords`). */
+      offensiveLeft,
       pointers: editionTerms?.stats.pointers ?? 0,
       templates: editionTerms?.stats.templates ?? 0,
       /** Of the templates, those learned from senses the edition does not mark as forms. */
@@ -501,7 +532,7 @@ async function main() {
     console.log(
       `  ${stats.lacking.length} terms taken from a later source for their main part of speech: ${stats.lacking.slice(0, 30).join(", ")}; ` +
         `${stats.pointing.length} pointing terms kept beside another word: ${stats.pointing.slice(0, 30).join(", ")}; ` +
-        `${stats.uncased.length} lowercase terms of words English writes capitalised left out: ${stats.uncased.slice(0, 20).join(", ")}; ${stats.capitals.personSenses} person senses left out`,
+        `${stats.uncased.length} lowercase terms of words English writes capitalised left out: ${stats.uncased.slice(0, 20).join(", ")}; ${stats.capitals.personSenses} person senses left out; ${stats.offensiveLeft} offensive table words left out`,
     );
     console.log(
       `  ${stats.unmarkedTemplates} templates learned from unmarked senses; ${stats.placeheld} placeholder glosses left out (${stats.placeholders.slice(0, 5).join(" | ")}); ` +
