@@ -75,9 +75,25 @@ Other natives over the same corpus (main → tr-2, hover tokens changed): th 1,0
 - **A light verb against a plain verb**: how much rarer a phrase is than its rarest word has no measure in a word list; one step a word put January → "büyük ay" first, two put respect → saymak and text → yazmak before saygı duymak and mesaj atmak (blind, 36 / 32). A phrase list with counts (OpenSubtitles n-grams) would rank phrases themselves.
 - **Edition prose split at its commas**: the frequency order reads a sentence with commas as a list (the's third line: "bugün, şu an, hâlihazırda anlamı verir"; admin: "Bir forum" first).
 
-## Real-site check
+## Real-site check (2026-11-22)
 
-Left to tr-3. Items to hover: down ("calm down", "sit down"), own ("my own"), private, decay, particular, then, need / needed, never, mean / means, sorry, phone (verb), an abbreviation (FAO, ATM), absolutely, extra, mr, best, a capitalised Vikisözlük gloss (across: "Bir taraftan öbürüne doğru").
+Check build from main (en-tr 2026.1121.4, en-defs 2026.1121.9, both served by the first mirror, jsDelivr, after one purge of en-tr's files), in the developer's Chrome, learning English and native Turkish through the settings channel. Sites: the English Wikipedia article "Alan Turing" (the test words were added as two paragraphs of the page, so they run through the article analysis), the YouTube Ken Robinson TED talk and Netflix Friends (watch/70274124). Videos muted. Hovers were real mouse moves.
+
+Passed:
+- Turkish letters (ı İ ş ğ ç ö ü) render correctly in the hover card, the phrase card, the dictionary window (article panel and the in-video window) and the dual-subtitle Turkish line on YouTube and Netflix. No clipping or overlap: the hover card, the dictionary panel and the Turkish subtitle line sit as in the mock; long lines wrap inside the card.
+- Hover lines (Turkish, one per line): calm down → "sakinleşmek / sakinleştirmek"; sit down → "oturmak"; own → "kendi"; decay (noun context) → "parçalanma / bozunum" (the window lists çürümek first: the card follows the sentence's part of speech, the window the dictionary order); particular → "belli, belirli / değişik / özel, özgü"; then → "o zaman / sonra / ondan sonra"; need and needed (with "needed → need") → "gereksinim duymak / lazım olmak"; mean and means → "anlamına gelmek / demek istemek / tasarlamak"; sorry → "pardon / efendim / üzgün"; phone → "aramak"; ATM → "bankamatik"; absolutely → "kesinlikle"; extra → "ekstra"; Mr → "bay, sayın, efendi." with two longer rows; Dr → "doktor"; Mrs → "sayın, hanımefendi."; best → "en iyi"; January → "ocak"; great → "büyük"; across → "öbür tarafına / karşısında / Bir taraftan öbürüne doğru" (the capitalised edition gloss keeps its capital); Mongolia → "Moğolistan"; laughter → "kahkaha" (window: "kahkaha, gülüş"); know → "bilmek / tanımak / haberi olmak". A capitalised name with no entry (Smith, Paris, Turing, a made-up word) gets no card.
+- A word without a Turkish meaning (inquest, morphogenesis): the first hover shows the English definition, the next (after Chrome's Translator has run) "genellikle jüri önünde" with the "Machine translation" mark. The first hover of such a word stays English by design (the translation is asked on the first hover).
+- Phrase card: a selection ("and sit down. This is my") shows "ve otur" with the "Machine translation" mark and the word row "down — aşağı, aşağıya".
+- Dual subtitles: YouTube "Aman tanrım,… (Kahkaha)" and Netflix "bilmiyorum.", "Neden? Bunu neden yapasın ki?". The Turkish line is the sentence's translation, so it can span two English cues.
+
+Found, not fixed (data or ranking, larger than a small fix):
+- **private** shows "er" (the soldier) before "özel, kişisel, hususi" in "my own private house": the noun row of a table leads although the sentence needs the adjective, unlike decay. Worth a look at how the hover picks the part of speech for a word that has a noun and an adjective sense.
+- **never** shows only "hiç"; "asla" is the common equivalent.
+- **FAO** is a card titled "fao" (lowercased) with the English expansion "Food and Agriculture Organization" and no Turkish; ATM has a Turkish word and keeps its capitals. Abbreviations lose their case in the card title.
+- **mr** (all lowercase) is "millirem: One thousandth of a rem" in English; "Mr" is correct. Lowercase "mr" is rare in running text.
+- Sorry lists the interjection rows ("pardon", "efendim") before "üzgün" (the adjective); fine for the exclamation, weak for "I am sorry".
+
+Error log: 16 entries, all `info` (the pack mirrors of en-defs, each served by jsDelivr, 163 to 964 ms per 2 MB file); no warnings or errors, including no mirror failures. Cleared and read back empty. Settings restored to the saved object and read back equal (learning en, native ja, videoOn.youtube false again).
 
 ## Measuring
 
