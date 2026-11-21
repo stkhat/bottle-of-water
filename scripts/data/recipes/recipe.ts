@@ -1360,6 +1360,61 @@ export function tableCoverage(entry: KaikkiEntry, entryHint?: string): number {
 }
 
 /**
+ * A gender, number or aspect label a row's text may keep inline (`rowWords`). Not the
+ * dual's "du", a word in French and German.
+ */
+const ROW_LABEL = /^(?:m|f|n|c|sg|pl|impf|pf)$/u;
+
+/**
+ * The words of a translation row's text. A row may hold two words the table's template
+ * did not split: joined by "or" ("بريستول or برستول", "دُكْتُور m or دُكْتُورَة",
+ * "погнать or загнать") or after an inline label of gender, number or aspect ("amie f
+ * copine", "هُجُوم m هَجْمَة", "odrzucać impf odrzucić"). Labels are dropped. The parts
+ * a label alone parts are two words when they are alike in length, as two words of one
+ * slot are; else the label sits inside one word, after its noun ("unter Eid m
+ * aussagen", "point m de débat"), and the parts are that word. In a native script
+ * (`letter`), a part with none of its letters is an English note and is dropped
+ * ("стражник m old use"). Latin letters inside a word stay (zh "圈a", the @ sign).
+ */
+export function rowWords(text: string, letter?: RegExp): string[] {
+  const words: string[] = [];
+  let parts: string[][] = [];
+  let current: string[] = [];
+  const endPart = () => {
+    if (current.length > 0) parts.push(current);
+    current = [];
+  };
+  const endWord = () => {
+    endPart();
+    // A part with no letter of the native script beside one with is an English note
+    // after a label ("стражник m old use", "суперобложка f for a book").
+    const native = letter && parts.filter((part) => letter.test(part.join("")));
+    if (native && native.length > 0) parts = native;
+    const alike = parts.every((part) => part.length === parts[0]!.length);
+    if (alike) words.push(...parts.map((part) => part.join(" ")));
+    else if (parts.length > 0) words.push(parts.flat().join(" "));
+    parts = [];
+  };
+  const tokens = text.trim().split(/\s+/u);
+  // "or" joins two words where it cannot be one: in a native script, or beside a label
+  // (French writes "or", gold).
+  const joins = letter !== undefined || tokens.some((t) => ROW_LABEL.test(t));
+  tokens.forEach((token, i) => {
+    const between =
+      token === "or" &&
+      joins &&
+      (current.length > 0 || parts.length > 0 || words.length > 0) &&
+      i + 1 < tokens.length &&
+      (!ROW_LABEL.test(tokens[i + 1]!) || ROW_LABEL.test(tokens[i - 1]!));
+    if (between) endWord();
+    else if (ROW_LABEL.test(token)) endPart();
+    else current.push(token);
+  });
+  endWord();
+  return words;
+}
+
+/**
  * Whether a translation table's note gives an example of the headword and its
  * translation ("We would sit by the hole on the frozen lake… - Winters saßen wir…"):
  * English that writes the headword, then " - ".
@@ -1528,12 +1583,14 @@ export async function readTranslationTables(
             group.noted = true;
           continue;
         }
-        const written = rewrite(withoutStressMarks(translation.word.trim()));
-        // A template the extraction left unexpanded ("{{t+|1=it|2=francese}}") is no word.
-        if (!written || /\{\{|\}\}/.test(written)) continue;
-        const { words } = group;
-        if (words.length < MAX_WORDS && !words.includes(written))
-          words.push(written);
+        for (const part of rowWords(translation.word, letter)) {
+          const written = rewrite(withoutStressMarks(part));
+          // A template the extraction left unexpanded ("{{t+|1=it|2=francese}}") is no word.
+          if (!written || /\{\{|\}\}/.test(written)) continue;
+          const { words } = group;
+          if (words.length < MAX_WORDS && !words.includes(written))
+            words.push(written);
+        }
       }
     };
     // A learning language's own edition may leave a table untitled (Wiktionnaire's
@@ -2098,8 +2155,8 @@ export const lastScriptForm = (word: string) => word.split(" /").at(-1)!.trim();
 
 /**
  * A source's terms with their native text rewritten by `convert` (traditional
- * Chinese characters → simplified ones), the English hints as they are: each word of a
- * sense once, each sense once.
+ * Chinese characters → simplified ones, a spelling → its main one), the English hints
+ * as they are: each word of a sense once, each sense of a part of speech once.
  */
 export function convertTerms(
   terms: Map<string, SourceTerm>,
@@ -2109,7 +2166,10 @@ export function convertTerms(
     const senses: PairSense[] = [];
     for (const [pos, text, hint, target] of item.senses) {
       const converted = [...new Set(convert(text).split(", "))].join(", ");
-      if (senses.some(([, other]) => other === converted)) continue;
+      // Spellings that convert alike may make two senses one; another part of
+      // speech's stays (one: the numeral and the noun एक).
+      if (senses.some(([p, other]) => p === pos && other === converted))
+        continue;
       senses.push(
         target !== undefined
           ? [pos, converted, null, target]
