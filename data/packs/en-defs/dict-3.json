@@ -1,6 +1,4 @@
 {
-"debt collector":[["noun","A company used by creditors or lenders to recover funds that are past due or from accounts that have defaulted."]],
-"debt instrument":[["noun","A document evidencing a debt; the debt so evidenced."]],
 "debt obligation":[["noun","A duty by which a party to an agreement is legally bound to pay the maturity of a debt at a time and in a manner as is stipulated within a given contract or promissory note."]],
 "debt of nature":[["noun","Death, seen as an obligation that all living creatures must eventually pay."]],
 "debt relief":[["noun","The partial or total forgiveness of debt."]],
@@ -370,7 +368,6 @@
 "degas":[["verb","To remove the gas from."]],
 "degauss":[["verb","To reduce or eliminate the magnetic field from (the hull of a ship, or a computer monitor, etc.)."],["noun","The act by which something is degaussed."]],
 "degeneracy":[["noun","The state of being degenerate (in all senses)."],["noun","The ability of one part of the brain to take over another's function without being overexerted."],["noun","A limiting case of a class of objects which appears to be qualitatively different from (and usually simpler than) the rest of the class."]],
-"degeneration":[["noun","The process or state of growing worse, or the state of having become worse."],["noun","That condition of a tissue or an organ in which its vitality has become either diminished or perverted; a substitution of a lower for a higher form of structure."],["noun","Gradual deterioration, from natural causes, of any class of animals or plants or any particular organ or organs; hereditary degradation of type."],["noun","A thing that has degenerated."]],
 "degenerative joint disease":[["noun","A form of arthritis, affecting mainly older people, caused by chronic degeneration of the cartilage and synovial membrane of the joints, leading to pain and stiffness."]],
 "deglaze":[["verb","To remove glaze from."],["verb","To abrade the cylinders of an engine to ensure a tight seal."],["verb","To detach small pieces of cooked food from a pan by adding liquid, so that they can be used in further cooking."]],
 "degradable":[["adjective","Able to be chemically or biologically degraded."],["adjective","Having a complementary qubit channel and some third noise channel, such that adding the noise to the original channel replicates the complementary channel."],["noun","Any material that can be degraded or decomposed."]],
@@ -12249,7 +12246,6 @@
 "foolhardiness":[["noun","The quality of being foolhardy."]],
 "foolhardy":[["adjective","Marked by unthinking recklessness with disregard for danger; boldly rash; hotheaded."],["noun","A person who is foolhardy."]],
 "foolishly":[["adverb","In a foolish manner."],["adverb","Without good judgment."]],
-"foolishness":[["noun","The state of being foolish."],["noun","A thing or event that is foolish, or an absurdity."]],
 "foolproof":[["adjective","Of a device: protected against, or designed to be proof against, misuse or error."],["adjective","Of an idea or plan: certain to succeed in all eventualities, or claimed to be so; infallible."],["verb","To render (something) foolproof."]],
 "fools rush in where angels fear to tread":[["proverb","A person who does not plan ahead and think matters through becomes involved in risky or unfavorable situations which prudent people avoid."]],
 "foolscap":[["noun","Writing paper sheets measuring 13.25 × 16.5 inches."],["noun","Such a sheet folded or cut in half, thus approximately 8 × 13.25 inches."],["noun","Printing paper measuring 13.5 × 17 inches."],["noun","A cap, usually brightly colored with bells and tassels, as worn by a court jester or fool."]],
@@ -13030,5 +13026,10 @@
 "fprrd":[["proper noun","Rodrigo Duterte: President of the Philippines from 2016 to 2022 (born 1945)."]],
 "fpry":[["proper noun","Federal People's Republic of Yugoslavia: The official name of Yugoslavia in the period of 1945-1963."]],
 "fps":[["noun","Initialism of frames per second."],["noun","Initialism of feet per second."]],
-"fpso":[["proper noun","floating production storage and offloading: Floating vessel used by offshore oil/gas industry for hydrocarbon production/processing/storage."]]
+"fpso":[["proper noun","floating production storage and offloading: Floating vessel used by offshore oil/gas industry for hydrocarbon production/processing/storage."]],
+"fptp":[["proper noun","first-past-the-post voting: Electoral system in which voters indicate the candidate of their choice, and the candidate who receives the most votes wins."]],
+"fpu":[["proper noun","floating-point unit: Coprocessor for floating point arithmetic."]],
+"fpv":[["proper noun","Front for Victory: Argentine electoral alliance."],["proper noun","first person view: Method used to control a radio-controlled vehicle from the driver or pilot's view point."],["proper noun","floating solar installation: Systems of solar cell panels installed on a structure that floats on a body of water."],["proper noun","Ford Performance Vehicles: Company."]],
+"fpvt":[["proper noun","catecholaminergic polymorphic ventricular tachycardia: Disorder characterized by an abnormal heart rhythm (arrhythmia)."]],
+"fpö":[["proper noun","Austrian Freedom Party: Austrian political party."]]
 }

@@ -1,11 +1,4 @@
 {
-"mess with the bull and you get the horns":[["proverb","Synonym of when you mess with the bull, you get the horns."]],
-"message board":[["noun","A board on which messages may be posted, especially one in a public space."],["noun","A communication board."],["noun","A system by which users may send, read and reply to public messages; an electronic bulletin board or forum."]],
-"message control":[["noun","The management of an organization’s communicating its own agenda to the public, particularly as shaped by news media, customers or others."]],
-"message fiction":[["noun","Fiction that attempts to convey a sociopolitical message, as opposed to mere escapism."]],
-"message in a bottle":[["noun","A message written on a scrap of paper, rolled up and put in an empty bottle and set adrift on the ocean; traditionally, a method used by castaways to advertise their distress to the outside world."],["noun","An analogous message sent off into the world or universe without knowledge of who the recipient will be: plaques on craft launched into outer space, interstellar radio messages, stationary time capsules, balloon mail, and so on."]],
-"message queue":[["noun","A queue onto which messages may be placed for delivery between components as part of interprocess communication."]],
-"message unit":[["noun","An individual broadcasting slot, such as a single televised advertisement."]],
 "messed up":[["adjective","Morally reprehensible; clearly and grossly objectionable."],["adjective","In disorder."],["adjective","Intoxicated, drunk."],["adjective","Damaged."]],
 "messenger bag":[["noun","A sack worn over one shoulder with a strap winding around the chest, traditionally used by bicycle messengers."]],
 "messenger rna":[["noun","RNA that encodes and carries information from DNA during transcription to sites of protein synthesis to undergo translation in order to yield a protein."]],
@@ -6994,6 +6987,7 @@
 "obediently":[["adverb","In an obedient manner."]],
 "obeisance":[["noun","Demonstration of an obedient attitude, especially by bowing deeply; a deep bow which demonstrates such an attitude."],["noun","An obedient attitude."]],
 "obelisk":[["noun","A tall, square, tapered, stone monolith topped with a pyramidal point, frequently used as a monument."],["noun","A dagger symbol (†), which is used in printed matter as a reference mark to refer the reader to a footnote, marginal note, etc.; beside a person's name to indicate that the person is deceased; or beside a date to indicate that it is a person's death date."],["noun","An RNA structure similar to a viroid, with a rod-like secondary structure, which comprises its own phylogenetic group."],["verb","To adopt the obelisk posture; to point the tip of the abdomen towards the sun."]],
+"obese":[["adjective","Extremely overweight, especially: weighing more than 20% (for men) or 25% (for women) over their conventionally ideal weight determined by height and build; or, having a body mass index over 30 kg/m²."],["noun","A person who is obese."]],
 "obesity hypoventilation syndrome":[["noun","A condition in which a severely overweight person fails to breathe rapidly or deeply enough, resulting in low blood oxygen levels and high blood carbon dioxide levels."]],
 "obesogenic":[["adjective","Causing obesity."]],
 "obex":[["proper noun","OBject EXchange: Communications protocol."]],
@@ -11200,6 +11194,7 @@
 "parfait":[["noun","A French parfait (parfait glacé), an iced dessert made with egg yolks, sugar, cream, and flavouring (usually fruit), sometimes with the addition of a liqueur."],["noun","An American parfait, a layered dessert often consisting of fruit, ice cream, pastries, whipped topping, etc. and served in a glass, often a parfait glass."],["noun","A smooth pâté, usually made from liver and flavoured with liqueurs."]],
 "parhelion":[["noun","An image or reflection."],["noun","Synonym of sun dog (“a bright spot in the sky, usually one of two on the parhelic circle on both sides of the sun (or occasionally above and below it), caused by the refraction of the sun's image through ice crystals”)."]],
 "pari-mutuel":[["noun","Any betting system in which all bets of a particular type are placed together in a pool; taxes and a house take are removed, and payoff odds are calculated by sharing the pool among all placed bets."],["noun","A booth used to place such bets, or a machine used to record bets and calculate payoffs."]],
+"pariah":[["noun","Synonym of outcast: A person despised and excluded by their family, community, or society, especially a member of the untouchable castes in Indian society."],["noun","A similarly despised group of people or species of animal."],["noun","pariah dog: Synonym of pye-dog: a half-wild stray dog, particularly in Indian contexts."]],
 "paribas":[["proper noun","French investment bank (1872-2000)."]],
 "parietal":[["adjective","Of or relating to the wall of a body part, organ or cavity."],["adjective","Of or relating to the parietal bones."],["adjective","Of or relating to college living and, especially, its regulation."],["adjective","Attached to the main wall of the ovary, and not to the axis; said of a placenta."]],
 "parietal bone":[["noun","Either of two bones that together form the sides and top of the skull."]],
@@ -13025,5 +13020,9 @@
 "petulant":[["adjective","Childishly irritable."]],
 "peva":[["proper noun","ethylene-vinyl acetate: Copolymer."]],
 "pew":[["noun","One of the long benches in a church, seating several persons, usually fixed to the floor and facing the chancel."],["noun","The congregation of a church."],["noun","An enclosed compartment in a church which provides seating for a group of people, often a prominent family."],["noun","Any structure shaped like a church pew, such as a stall, formerly used by money lenders, etc.; a box in a theatre; or a pen or sheepfold."]],
-"pewee":[["noun","Any of various tyrant flycatchers of the genus Contopus."],["noun","An American version of the children's game gilli-danda."],["noun","A woodcock."]]
+"pewee":[["noun","Any of various tyrant flycatchers of the genus Contopus."],["noun","An American version of the children's game gilli-danda."],["noun","A woodcock."]],
+"pewit":[["noun","northern lapwing (Vanellus vanellus)"]],
+"pewsey":[["proper noun","Village in Wiltshire, England, UK."],["proper noun","A village and civil parish in Wiltshire, England (OS grid ref SU1660)."],["proper noun","A habitational surname from Old English."]],
+"pex":[["proper noun","cross-linked polyethylene: Strong polymeric material."],["proper noun","Palestine Stock Exchange: Stock exchange located in Nablus, State of Palestine."]],
+"peyote":[["noun","A small, spineless cactus (Lophophora williamsii) found from southwest United States to central Mexico that produces buttonlike tubercles that can be chewed for their psychedelic effect, primarily from the drug mescaline."],["noun","A mescal button produced by the plant."]]
 }

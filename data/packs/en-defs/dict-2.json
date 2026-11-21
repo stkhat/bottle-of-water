@@ -12036,7 +12036,6 @@
 "dampish":[["adjective","Moderately damp or moist."]],
 "dampness":[["noun","Moderate humidity; moisture; moistness; the state or quality of being damp."],["noun","The degree to which something is damp or moist."]],
 "dampproof":[["adjective","Resistant to the effects of damp."],["verb","To make resistant to the effects of damp."]],
-"damsel":[["noun","A young woman (of noble birth)."],["noun","A girl; a maiden (without sexual experience)."],["noun","A young woman who is not married."],["noun","An unmarried lady-in-waiting."]],
 "damsel bug":[["noun","Any insect in the family Nabidae"]],
 "damson":[["noun","A subspecies of plum tree, Prunus domestica subsp. insititia, native to Eurasia."],["noun","The edible fruit of this tree."],["adjective","The color of the fruit of this tree, a very deep purple."]],
 "dan":[["noun","A small truck or sledge used in coal mines."],["noun","A rank of black belt in martial arts."],["noun","Someone who has achieved a level of black belt."],["noun","Synonym of picul: a traditional unit of weight and mass, chiefly used as a dry measure of grains."]],
@@ -12799,5 +12798,7 @@
 "debt bondage":[["noun","A condition similar to slavery where people are unable to control their lives or their work due to unpaid debts."]],
 "debt burden":[["noun","The debt of a country or subdivision, when large enough that servicing it has become difficult."]],
 "debt ceiling":[["noun","The limit up to which an entity (usually a government) is legally allowed to borrow."]],
-"debt collection":[["noun","The process of pursuing payments of debts owed by individuals or businesses."]]
+"debt collection":[["noun","The process of pursuing payments of debts owed by individuals or businesses."]],
+"debt collector":[["noun","A company used by creditors or lenders to recover funds that are past due or from accounts that have defaulted."]],
+"debt instrument":[["noun","A document evidencing a debt; the debt so evidenced."]]
 }

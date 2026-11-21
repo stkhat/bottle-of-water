@@ -1,13 +1,4 @@
 {
-"in the closet":[["prepositional phrase","Not open about some feature of one's life; often construed with about."],["prepositional phrase","Not open about one's sexual orientation, romantic orientation, or gender identity."]],
-"in the clouds":[["prepositional phrase","In a state of deep thought that makes the thinker appear disconnected from reality."]],
-"in the club":[["prepositional phrase","Pregnant."]],
-"in the cold light of day":[["prepositional phrase","Viewed calmly and dispassionately after allowing emotions to cool or after having sobered up."]],
-"in the course of time":[["prepositional phrase","After a period of time; as time goes by."]],
-"in the crosshairs":[["prepositional phrase","Targeted at the point of intersection of the two perpendicular lines in a gunsight or scope."],["prepositional phrase","Subject to close scrutiny."],["prepositional phrase","Singled out for blame, harassment, or other unwanted attention."]],
-"in the dark":[["prepositional phrase","Without information."],["prepositional phrase","Without looking at one's hole cards, thus not knowing what they are."]],
-"in the distance":[["adverb","Far away; a long distance away."]],
-"in the dock":[["prepositional phrase","Under accusation, scrutiny; subject to critical inspection."]],
 "in the doghouse":[["prepositional phrase","In a situation of being the object of someone's anger or disapproval, especially one's spouse."]],
 "in the drink":[["prepositional phrase","In or into a body of water."],["prepositional phrase","Under the influence of an intoxicating beverage."]],
 "in the driver's seat":[["prepositional phrase","In control of an entity or situation."],["prepositional phrase","Having the most important role in a storyline or recognition; of primary importance."]],
@@ -901,7 +892,6 @@
 "infinity pool":[["noun","A swimming pool that produces a visual effect of water extending to the horizon or vanishing into a lake, bay, etc."]],
 "infinity scarf":[["noun","A neckwarmer resembling a scarf, but forming a loop with no ends."]],
 "infinity shot":[["noun","A photograph with the focus in the far distance."]],
-"infirm":[["adjective","Weak or ill, not in good health."],["adjective","Irresolute; weak of mind or will."],["adjective","Frail; unstable; insecure."],["verb","To contradict, to provide proof that something is not."]],
 "infirmity":[["noun","Feebleness, frailty or ailment, especially due to old age."],["noun","A moral weakness or defect."]],
 "infl.":[["noun","inflation: An act, instance of, or state of expansion or increase in size, especially by injection of a gas or liquid."],["noun","inflection: The linguistic phenomenon of morphological variation, whereby words take a number of distinct forms in order to express different grammatical features."]],
 "inflame":[["verb","To set (someone or something) on fire; to cause (someone or something) to burn, flame, or glow; to kindle."],["verb","To cause (something) to appear bright or red, as if on fire; to brighten, to redden."],["verb","To cause (the body or a body part) to feel abnormally or unusually hot; specifically (medicine), to cause inflammation, including abnormal heat, pain, redness, swelling, etc., in (the body or a body part)."],["verb","To cause (someone, or their heart, mind, etc.) to feel strong desire or other feelings; to excite (someone) to great passion; specifically, to cause (someone) to feel anger or rage; to anger, to enrage, to incense."]],
@@ -13297,5 +13287,12 @@
 "mess over":[["verb","To mistreat, abuse, oppress or bother (someone)."]],
 "mess tin":[["noun","A portable container for cooking or serving food, originally for military use, and generally of a rounded rectangular form."]],
 "mess up":[["verb","To make a mess of; to untidy, disorder, soil, or muss."],["verb","To cause a problem with; to introduce an error or mistake in; to make muddled or confused; spoil; ruin."],["verb","To botch, bungle; to perform poorly on."],["verb","To make a mistake; to do something incorrectly; to perform poorly."]],
-"mess with":[["verb","To interfere with."],["verb","To joke around with or dupe someone, in either a friendly or unfriendly manner."],["verb","To diss; to put down."],["verb","To admire, enjoy, or approve of."]]
+"mess with":[["verb","To interfere with."],["verb","To joke around with or dupe someone, in either a friendly or unfriendly manner."],["verb","To diss; to put down."],["verb","To admire, enjoy, or approve of."]],
+"mess with the bull and you get the horns":[["proverb","Synonym of when you mess with the bull, you get the horns."]],
+"message board":[["noun","A board on which messages may be posted, especially one in a public space."],["noun","A communication board."],["noun","A system by which users may send, read and reply to public messages; an electronic bulletin board or forum."]],
+"message control":[["noun","The management of an organization’s communicating its own agenda to the public, particularly as shaped by news media, customers or others."]],
+"message fiction":[["noun","Fiction that attempts to convey a sociopolitical message, as opposed to mere escapism."]],
+"message in a bottle":[["noun","A message written on a scrap of paper, rolled up and put in an empty bottle and set adrift on the ocean; traditionally, a method used by castaways to advertise their distress to the outside world."],["noun","An analogous message sent off into the world or universe without knowledge of who the recipient will be: plaques on craft launched into outer space, interstellar radio messages, stationary time capsules, balloon mail, and so on."]],
+"message queue":[["noun","A queue onto which messages may be placed for delivery between components as part of interprocess communication."]],
+"message unit":[["noun","An individual broadcasting slot, such as a single televised advertisement."]]
 }

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"emotionalism"},{"file":"dict-2.json","first":"emotionality","last":"nostril"},{"file":"dict-3.json","first":"nostrum","last":"tranquillize"},{"file":"dict-4.json","first":"tranquillizer","last":"zzz"}],
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"emolument"},{"file":"dict-2.json","first":"emote","last":"nose flute"},{"file":"dict-3.json","first":"nose job","last":"tramline"},{"file":"dict-4.json","first":"trammel","last":"zzz"}],
 "sources":["enwiktionary-translations","thwiktionary","omw-th","thwiktionary-translations","enwiktionary-th","wikidata"]
 }

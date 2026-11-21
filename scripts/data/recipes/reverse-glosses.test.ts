@@ -134,6 +134,7 @@ describe("readReverseGlosses", () => {
       ["noun", "หมา"],
     ]);
     expect(terms.get("hound")?.senses).toEqual([["noun", "หมา"]]);
+    expect(terms.get("dog")?.senses).not.toContainEqual(["noun", "ส้นตีน"]);
     expect(terms.get("run")?.senses).toEqual([["verb", "วิ่ง"]]);
     expect(terms.get("love")?.senses).toEqual([["noun", "ความรัก"]]);
     expect(terms.has("lovely")).toBe(false);
@@ -167,7 +168,7 @@ describe("readReverseGlosses", () => {
     ]);
   });
 
-  it("leaves out a register or extended sense of a native word that has other senses", async () => {
+  it("leaves out a register or extended sense of a native word that has a plain sense", async () => {
     const path = file([
       // ร้อน is hot; its figurative "big" is no meaning of big.
       {
@@ -179,13 +180,16 @@ describe("readReverseGlosses", () => {
           { glosses: ["big"], tags: ["figuratively"] },
         ],
       },
-      // A word with only a marked sense keeps it, and so does a word glossed with the
+      // A word with only marked senses keeps them, and so does a word glossed with the
       // term in a plain sense too.
       {
         word: "เจ๋ง",
         lang_code: "th",
         pos: "adj",
-        senses: [{ glosses: ["big"], tags: ["literary"] }],
+        senses: [
+          { glosses: ["big"], tags: ["literary"] },
+          { glosses: ["side"], tags: ["formal", "poetic"] },
+        ],
       },
       {
         word: "หมา",
@@ -196,6 +200,13 @@ describe("readReverseGlosses", () => {
           { glosses: ["hound"], tags: ["formal"] },
           { glosses: ["hound"] },
         ],
+      },
+      // An offensive sense is never a line, even a word's only one.
+      {
+        word: "ส้นตีน",
+        lang_code: "th",
+        pos: "noun",
+        senses: [{ glosses: ["dog"], tags: ["vulgar"] }],
       },
       // Everyday speech is no register here: แบบ's colloquial sense stays.
       {
@@ -217,6 +228,7 @@ describe("readReverseGlosses", () => {
       ["adverb", "แบบ"],
     ]);
     expect(terms.get("hound")?.senses).toEqual([["noun", "หมา"]]);
+    expect(terms.get("dog")?.senses).not.toContainEqual(["noun", "ส้นตีน"]);
     expect(stats.marked).toBe(1);
   });
 });
