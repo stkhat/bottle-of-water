@@ -15,6 +15,7 @@ import { StatusButtons } from "../../ui/lookup/StatusButtons";
 import { BookmarkIcon } from "../../ui/icons";
 import { aiTag, color, iconButton, sectionHeading } from "../../ui/styles";
 import { SponsorSpot } from "./SponsorSpot";
+import { langAttrs } from "../../ui/text-direction";
 
 /** The selected word: its row, its status now, and what `lookup` gave. */
 export interface Details {
@@ -207,7 +208,9 @@ function GroupHeading(props: {
     >
       {meaning && <BookmarkIcon label={t("dict.yourMeaning")} />}
       <span
-        lang={meaning ? (meaning.lineLang ?? props.nativeLang) : undefined}
+        {...langAttrs(
+          meaning ? (meaning.lineLang ?? props.nativeLang) : undefined,
+        )}
         style={
           meaning
             ? { fontSize: "14px", fontWeight: 600, color: color.ink }

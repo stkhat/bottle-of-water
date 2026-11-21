@@ -61,8 +61,16 @@ export interface Recipe {
    * "enwiktionary-<native>". `frequency`: a term's native words are ordered by the
    * language's FrequencyWords 2018 list (subtitle counts; read at build time only,
    * nothing from it ships), where the list is usable (Thai's is segmented badly).
+   * `beforeWordnets`: before the wordnets, for a wordnet whose words lost to them in a
+   * blind sample of the terms both have (Arabic WordNet, ar-1: its synsets give a
+   * term the words of a neighbouring sense, waste → خضع).
    */
-  reverseGlosses?: { tag: string; file: string; frequency?: boolean };
+  reverseGlosses?: {
+    tag: string;
+    file: string;
+    frequency?: boolean;
+    beforeWordnets?: boolean;
+  };
 }
 
 /**
@@ -146,19 +154,35 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
       frequency: true,
     },
   },
+  // No Arabic edition on kaikki: the tables (Modern Standard Arabic rows), English
+  // Wiktionary's Arabic entries read the other way, ordered by subtitle frequency, then
+  // Arabic WordNet (judged blind below them, ar-1).
+  ar: {
+    tables: { langCodes: ["ar"] },
+    wordnets: ["omw-arb"],
+    reverseGlosses: {
+      tag: "enwiktionary-ar",
+      file: "kaikki-ar.jsonl",
+      frequency: true,
+      beforeWordnets: true,
+    },
+  },
 };
 
 /** A recipe's source tags, in order. */
 export function recipeTags(recipe: Recipe): string[] {
-  const { edition } = recipe;
+  const { edition, reverseGlosses } = recipe;
   const first = edition && !edition.afterTables;
+  const glosses = reverseGlosses ? [reverseGlosses.tag] : [];
+  const early = reverseGlosses?.beforeWordnets === true;
   return [
     ...(first ? [edition.tag] : []),
     TABLES_TAG,
     ...(edition?.afterTables ? [edition.tag] : []),
+    ...(early ? glosses : []),
     ...(recipe.wordnets ?? []),
     ...(recipe.reversedTables ? [recipe.reversedTables.tag] : []),
-    ...(recipe.reverseGlosses ? [recipe.reverseGlosses.tag] : []),
+    ...(early ? [] : glosses),
   ];
 }
 

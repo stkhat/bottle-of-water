@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, onTestFinished, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { Span } from "../../core/classify";
+import { expectRightToLeft } from "../../testing/bidi";
 import { wordRuns } from "../../core/phrases/key";
 import {
   drag,
@@ -547,5 +548,23 @@ describe("SubtitleOverlay", () => {
       expect(onWordClick).toHaveBeenCalledWith(2);
       expect(selectedOffsets(line(screen))).toBeUndefined();
     });
+  });
+});
+
+describe("SubtitleOverlay in a language written right to left", () => {
+  test("sets the Arabic line right to left, isolated, its stop at its end", async () => {
+    const screen = await mountInShadowRoot(
+      <SubtitleOverlay
+        {...base}
+        nativeLang="ar"
+        translation="اليوم سنكتشف كيف نصنع الخبز من الصفر."
+      />,
+    );
+    const line = screen
+      .getByText("اليوم سنكتشف كيف نصنع الخبز من الصفر.")
+      .element();
+    expect(line.getAttribute("lang")).toBe("ar");
+    expect(line.getAttribute("dir")).toBe("rtl");
+    expectRightToLeft(line);
   });
 });

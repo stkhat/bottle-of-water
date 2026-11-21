@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { HoverCard, type HoverCardProps } from "./HoverCard";
+import { charX, expectRightToLeft } from "../../testing/bidi";
 import {
   addPageStyle,
   cleanUpMounts,
@@ -274,5 +275,38 @@ describe("HoverCard", () => {
     const head = screen.getByText("figure out").element();
     expect(getComputedStyle(head).color).toBe("rgb(20, 24, 43)");
     expect(getComputedStyle(head).fontSize).toBe("17px");
+  });
+});
+
+describe("HoverCard in a language written right to left", () => {
+  test("sets Arabic lines right to left, isolated, where the mock puts the lines", async () => {
+    const screen = await mountInShadowRoot(
+      <HoverCard
+        {...figureOut}
+        nativeLang="ar"
+        meanings={["اكتشف، فهم (حلا أو طريقة)!", "حل (مشكلة)…"]}
+        sub={`figure — ${"⁧"}رقم، شكل…${"⁩"}`}
+        machineTranslated
+      />,
+    );
+    const first = screen.getByText("اكتشف، فهم (حلا أو طريقة)!").element();
+    expect(first.getAttribute("lang")).toBe("ar");
+    expect(first.getAttribute("dir")).toBe("rtl");
+    expectRightToLeft(first);
+    expectRightToLeft(screen.getByText("حل (مشكلة)…").element());
+    // The line starts at the card's left edge, as the English lines of the mock do.
+    const head = screen.getByText("figure out").element();
+    expect(
+      Math.abs(
+        first.getBoundingClientRect().left - head.getBoundingClientRect().left,
+      ),
+    ).toBeLessThan(1);
+    // The card's word line: "figure — " then the Arabic, its ellipsis at its end.
+    const sub = screen.getByText(/^figure — /).element();
+    const text = sub.textContent!;
+    expect(charX(sub, 0)).toBeLessThan(charX(sub, text.indexOf("…")));
+    expect(charX(sub, text.indexOf("…"))).toBeLessThan(
+      charX(sub, text.indexOf("ر")),
+    );
   });
 });

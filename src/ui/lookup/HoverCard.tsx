@@ -5,6 +5,7 @@ import { onlyFromUser } from "../from-user";
 import { BookmarkIcon } from "../icons";
 import { IPA_FONT, color, root, statusButton } from "../styles";
 import { MachineTranslationMark } from "./MachineTranslationMark";
+import { langAttrs } from "../text-direction";
 
 export interface HoverCardProps {
   /** Over a video (mock Main) or an article (mock Article); they differ slightly. */
@@ -149,7 +150,7 @@ export function HoverCard(props: HoverCardProps) {
           }}
         >
           <BookmarkIcon label={t("dict.yourMeaning")} />
-          <span lang={mine.lang ?? props.nativeLang}>{mine.text}</span>
+          <span {...langAttrs(mine.lang ?? props.nativeLang)}>{mine.text}</span>
         </div>
       ))}
       {meanings.map((meaning, i) => (
@@ -165,7 +166,9 @@ export function HoverCard(props: HoverCardProps) {
             marginTop: "2px",
           }}
         >
-          <span lang={props.shortLang ?? props.nativeLang}>{meaning}</span>
+          <span {...langAttrs(props.shortLang ?? props.nativeLang)}>
+            {meaning}
+          </span>
           {props.machineTranslated && i === meanings.length - 1 && (
             <MachineTranslationMark />
           )}

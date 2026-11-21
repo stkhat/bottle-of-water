@@ -5,6 +5,7 @@ import {
   type DictionaryWindowProps,
 } from "./DictionaryWindow";
 import type { ExplainView } from "./InThisSentence";
+import { expectRightToLeft } from "../../testing/bidi";
 import {
   addPageStyle,
   cleanUpMounts,
@@ -1261,5 +1262,35 @@ describe("DictionaryWindow: in this sentence", () => {
     const screen = await mountInShadowRoot(<DictionaryWindow {...figureOut} />);
     await expect.element(screen.getByText("Meanings")).toBeVisible();
     expect(screen.getByText("In this sentence").query()).toBeNull();
+  });
+});
+
+describe("DictionaryWindow in a language written right to left", () => {
+  test("sets the Arabic meaning and senses right to left, isolated", async () => {
+    const screen = await mountInShadowRoot(
+      <DictionaryWindow
+        {...figureOut}
+        nativeLang="ar"
+        entry={{
+          ...figureOut.entry!,
+          sub: `figure — ${"⁧"}رقم، شكل${"⁩"}`,
+          short: "اكتشف، فهم!",
+          senses: [
+            { pos: "phrasal verb", text: "اكتشف؛ فهم؛ حل (مشكلة)." },
+            { pos: "phrasal verb", text: "To come to understand", lang: "en" },
+          ],
+        }}
+      />,
+    );
+    const short = screen.getByText("اكتشف، فهم!").element();
+    expect(short.getAttribute("dir")).toBe("rtl");
+    expectRightToLeft(short);
+    const sense = screen.getByText("اكتشف؛ فهم؛ حل (مشكلة).").element();
+    expect(sense.getAttribute("dir")).toBe("rtl");
+    expectRightToLeft(sense);
+    // An English sense stays left to right.
+    const english = screen.getByText("To come to understand").element();
+    expect(english.getAttribute("dir")).toBeNull();
+    expect(getComputedStyle(english).direction).toBe("ltr");
   });
 });

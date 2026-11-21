@@ -12,6 +12,7 @@ import type {
   Written,
 } from "../../core/lexicon/dictionary";
 import { lacksSenseOf } from "../../core/lexicon/sense-order";
+import { bidiIsolated } from "../../core/natives";
 import {
   MAX_SHORT_LINES,
   translatedLine,
@@ -280,11 +281,12 @@ export function mainWord(
 function wordLine(
   word: string,
   entry: DictionaryEntry | undefined,
+  nativeLang: string,
   pos?: string,
 ): string | undefined {
   if (!entry || (pos !== undefined && lacksSenseOf(entry.senses, pos)))
     return undefined;
-  return `${word} — ${entry.lines[0] ?? entry.short}`;
+  return `${word} — ${bidiIsolated(entry.lines[0] ?? entry.short, entry.glossLang ?? nativeLang)}`;
 }
 
 const startsCapital = (text: string) => /^\p{Lu}/u.test(text);
@@ -553,7 +555,7 @@ export async function describeTerm(
   const expansion = entry?.expansion ?? found.expansion;
   const sub =
     main !== undefined
-      ? wordLine(main, word?.entry, mainPos)
+      ? wordLine(main, word?.entry, nativeLang, mainPos)
       : expansion !== undefined
         ? contractionNote(term.surface, expansion, entry?.head)
         : inflectionNote(term.surface, term.key, entry?.head);

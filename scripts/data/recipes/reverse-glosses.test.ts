@@ -441,4 +441,18 @@ describe("recipeTags", () => {
       }),
     ).toEqual(["eswiktionary", TABLES_TAG]);
   });
+
+  it("puts reverse glosses before the wordnets where the recipe says so (ar)", () => {
+    expect(
+      recipeTags({
+        tables: { langCodes: ["ar"] },
+        wordnets: ["omw-arb"],
+        reverseGlosses: {
+          tag: "enwiktionary-ar",
+          file: "kaikki-ar.jsonl",
+          beforeWordnets: true,
+        },
+      }),
+    ).toEqual([TABLES_TAG, "enwiktionary-ar", "omw-arb"]);
+  });
 });

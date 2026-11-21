@@ -695,6 +695,16 @@ describe.each([
     sources: ["enwiktionary-translations", "enwiktionary-hi", "wikidata"],
     bread: "रोटी",
   },
+  {
+    pack: "en-ar",
+    sources: [
+      "enwiktionary-translations",
+      "enwiktionary-ar",
+      "omw-arb",
+      "wikidata",
+    ],
+    bread: "خبز",
+  },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
   const index = read(`packs/${pack}/index.json`) as ShardIndex;
   const load = loadPack(pack).then(({ dict }) => ({
@@ -834,6 +844,7 @@ const FIRST_LINES: Readonly<
   pl: { english: "angielski", january: "styczeń", be: "być", better: "lepszy" },
   th: { english: "อังกฤษ", january: "มกราคม", be: "เป็น", better: "ดีกว่า" },
   hi: { english: "अंग्रेज़ी", january: "जनवरी", be: "होना", better: "बेहतर" },
+  ar: { english: "إنكليزي", january: "يناير", be: "كان", better: "أفضل" },
 };
 
 describe.each(recipeNatives())("generated en-%s first lines", (native) => {

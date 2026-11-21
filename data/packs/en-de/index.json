@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"NAVA"},{"file":"capital-2.json","first":"NAVAID","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'s","last":"gemology"},{"file":"dict-2.json","first":"gemstone","last":"retrace"},{"file":"dict-3.json","first":"retractable","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"NAVAID"},{"file":"capital-2.json","first":"NAVEUR","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'s","last":"gender dysphoria"},{"file":"dict-2.json","first":"gender gap","last":"retrieve"},{"file":"dict-3.json","first":"retriever","last":"élan"}],
 "sources":["enwiktionary-translations","dewiktionary","wikidata"]
 }

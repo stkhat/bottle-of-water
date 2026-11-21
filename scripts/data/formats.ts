@@ -183,6 +183,13 @@ const SOURCES = {
     by: WIKTIONARY_AUTHORS,
     license: LICENSES.ccBySa4,
   },
+  wiktionaryAr: {
+    title: "English Wiktionary, Arabic entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/Arabic/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
   wiktionaryFr: {
     title: "English Wiktionary, French entries",
     via: KAIKKI,
@@ -391,6 +398,13 @@ const SOURCES = {
     by: "the National Institute of Information and Communications Technology (NICT): Sareewan Thoongsup, Thatsanee Charoenporn, Kergrit Robkop, Tan Sinthurahat, Chumpol Mokarat, Virach Sornlertlamvanich, Hitoshi Isahara",
     license: LICENSES.thaiWordnet,
   },
+  wordnetArb: {
+    title: "Arabic WordNet (AWN 2)",
+    via: OMW,
+    url: "https://github.com/omwn/omw-data",
+    by: "Musa Alkhalifa and Sabri Elkateb (UPC and the University of Manchester, 2007); extended by Lahsen Abouenour, Karim Bouzoubaa and Paolo Rosso (Mohammed V University in Rabat and Universitat Politècnica de València, 2015)",
+    license: LICENSES.ccBySa3,
+  },
 } as const satisfies Readonly<Record<string, Source>>;
 
 /** The source behind each recipe tag (scripts/data/recipes/native.ts) a recipe may name. */
@@ -407,12 +421,14 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   "thwiktionary-translations": SOURCES.wiktionaryThEditionTables,
   "enwiktionary-th": SOURCES.wiktionaryTh,
   "enwiktionary-hi": SOURCES.wiktionaryHi,
+  "enwiktionary-ar": SOURCES.wiktionaryAr,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,
   "omw-cmn": SOURCES.wordnetCmn,
   "omw-pl": SOURCES.wordnetPl,
   "omw-th": SOURCES.wordnetTh,
+  "omw-arb": SOURCES.wordnetArb,
 };
 
 const pack = (

@@ -4,6 +4,7 @@ import { t } from "../../i18n/t";
 import { SpeakerIcon } from "../icons";
 import { color, IPA_FONT } from "../styles";
 import { MachineTranslationMark } from "./MachineTranslationMark";
+import { langAttrs } from "../text-direction";
 
 /** An entry's headword, kind, speak button, IPA, notes and short meaning (dictionary window, word list). */
 export function EntryHeader(props: {
@@ -23,7 +24,7 @@ export function EntryHeader(props: {
 }) {
   const short = props.short && (
     <p
-      lang={props.shortLang}
+      {...langAttrs(props.shortLang)}
       style={{ margin: 0, fontSize: "17px", lineHeight: 1.5 }}
     >
       {props.short}

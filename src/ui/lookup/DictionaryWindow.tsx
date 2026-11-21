@@ -19,6 +19,7 @@ import { EntryHeader } from "./EntryHeader";
 import { InThisSentence, type InThisSentenceProps } from "./InThisSentence";
 import { MachineTranslationMark } from "./MachineTranslationMark";
 import { StatusButtons } from "./StatusButtons";
+import { langAttrs } from "../text-direction";
 
 /**
  * A row of Meanings. `translated`: the browser translator's translation of the sense,
@@ -474,7 +475,7 @@ function SenseRow(props: {
         }}
       >
         {chosen > 0 && <BookmarkIcon label={t("dict.yourMeaning")} />}
-        <span lang={sense.translated ? props.nativeLang : props.lang}>
+        <span {...langAttrs(sense.translated ? props.nativeLang : props.lang)}>
           {shown}
         </span>
       </span>
@@ -550,7 +551,10 @@ function SenseRow(props: {
         )}
         {main}
         {sense.translated && (
-          <span lang={props.lang} style={{ ...SMALL_TEXT, color: color.muted }}>
+          <span
+            {...langAttrs(props.lang)}
+            style={{ ...SMALL_TEXT, color: color.muted }}
+          >
             {sense.text}
           </span>
         )}
@@ -696,7 +700,7 @@ function HereRow(props: {
   const children = (
     <>
       {item.time && <span style={HERE_TIME}>{item.time}</span>}
-      <span lang={props.lang}>{marked(item)}</span>
+      <span {...langAttrs(props.lang)}>{marked(item)}</span>
     </>
   );
   return item.onClick ? (

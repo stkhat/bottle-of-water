@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"capital.json","first":"AAAD","last":"Paiwan"},{"file":"capital-2.json","first":"Pakistan","last":"ŽSR"},{"file":"dict-1.json","first":"a","last":"stapler"},{"file":"dict-2.json","first":"star","last":"éclair"}],
+"sources":["enwiktionary-translations","enwiktionary-ar","omw-arb","wikidata"]
+}
