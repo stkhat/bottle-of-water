@@ -1,0 +1,6 @@
+{
+  "en": { "corpus": "2026-11/corpus", "native": "ja" },
+  "es": { "corpus": "2026-11-es/corpus", "native": "en" },
+  "fr": { "corpus": "2026-11-fr/corpus", "native": "en" },
+  "de": { "corpus": "2026-11-de/corpus", "native": "en" }
+}
