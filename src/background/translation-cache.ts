@@ -29,7 +29,8 @@ export interface TranslationCacheOptions {
   now?: () => number;
 }
 
-const TRANSLATION_CACHE_LIMIT = 20_000;
+/** The default `limit`. */
+export const TRANSLATION_CACHE_LIMIT = 20_000;
 
 const keyOf = (pair: string, text: string) => `${pair}:${text}`;
 
