@@ -2,23 +2,46 @@ import { defineConfig } from "wxt";
 import preact from "@preact/preset-vite";
 import pkg from "./package.json" with { type: "json" };
 import { noticesPlugin } from "./scripts/notices.ts";
+import {
+  DEVELOPMENT_EXTENSION_KEY,
+  GOOGLE_DRIVE_SCOPE,
+  googleClients,
+} from "./src/background/sync/google-clients.ts";
 
 export default defineConfig({
   srcDir: "src",
   manifestVersion: 3,
   // The data sources and licenses page's data (`virtual:langle-notices`).
   vite: () => ({ plugins: [preact(), noticesPlugin()] }),
-  manifest: ({ browser }) => ({
-    name: "Langle",
-    version: pkg.version,
-    description: "Learn languages on the videos and articles you already read.",
-    // alarms: retries of language data downloads (src/background/pack-downloads.ts);
-    // it shows no warning at install in Chrome or Firefox.
-    permissions: ["storage", "alarms"],
-    ...(browser === "firefox" && {
-      browser_specific_settings: { gecko: { id: "langle@stkhat" } },
-    }),
-  }),
+  manifest: ({ browser, mode }) => {
+    const google = googleClients(mode);
+    return {
+      name: "Langle",
+      version: pkg.version,
+      description:
+        "Learn languages on the videos and articles you already read.",
+      // alarms: retries of language data downloads (src/background/pack-downloads.ts);
+      // it shows no warning at install in Chrome or Firefox. identity: signing in to
+      // the user's own cloud storage (src/background/sync/google-auth.ts); no warning in
+      // Chrome either.
+      permissions: ["storage", "alarms", "identity"],
+      ...(browser === "firefox" && {
+        browser_specific_settings: { gecko: { id: "langle@stkhat" } },
+      }),
+      // Chromium only: development and check builds keep one id, the one Google's
+      // Chrome-extension client is registered for (src/background/sync/google-clients.ts).
+      ...(browser !== "firefox" &&
+        mode !== "production" && { key: DEVELOPMENT_EXTENSION_KEY }),
+      // For identity.getAuthToken, which Firefox does not have.
+      ...(browser !== "firefox" &&
+        google && {
+          oauth2: {
+            client_id: google.chromeExtension,
+            scopes: [GOOGLE_DRIVE_SCOPE],
+          },
+        }),
+    };
+  },
   hooks: {
     // The language packs are not part of the build: the extension downloads them from
     // the mirrors in src/core/packs/packs.lock.json (src/core/packs/lock.ts).

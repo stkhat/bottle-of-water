@@ -24,6 +24,13 @@ import {
   cloudConnected,
   createCloudSyncBackend,
 } from "../background/sync/cloud-sync-backend";
+import { createGoogleAuth } from "../background/sync/google-auth";
+import {
+  DEVELOPMENT_GOOGLE_CLIENTS,
+  PRODUCTION_GOOGLE_CLIENTS,
+} from "../background/sync/google-clients";
+import { createDriveFiles } from "../core/cloud/google-drive";
+import type { CloudProvider, CloudProviderId } from "../core/cloud/provider";
 import { createTermStore } from "../background/term-store";
 import { followToolbarIcon } from "../background/toolbar-icon";
 import { createTranslationCache } from "../background/translation-cache";
@@ -55,14 +62,13 @@ export default defineBackground(() => {
     store,
     termsInCloud: () => cloudConnected(),
   });
-  // No provider is built in yet (Google Drive comes next): nothing can connect.
   const cloud = createCloudSyncBackend({
     db,
     store,
     history,
     settings: cloudSettings(),
     deviceId: device,
-    providers: {},
+    providers: cloudProviders(),
     browserSync: sync,
   });
 
@@ -129,3 +135,24 @@ export default defineBackground(() => {
   if (import.meta.env.MODE === "check")
     watchBuild().catch((error: unknown) => console.error(error));
 });
+
+/**
+ * The cloud providers this build can connect to. Google Drive needs the build's Google
+ * clients: production has none until the store item's client is registered, so nothing
+ * can connect there yet. The mode is a constant at build time, so production builds
+ * leave the development clients out.
+ */
+function cloudProviders(): Partial<Record<CloudProviderId, CloudProvider>> {
+  const google =
+    import.meta.env.MODE === "production"
+      ? PRODUCTION_GOOGLE_CLIENTS
+      : DEVELOPMENT_GOOGLE_CLIENTS;
+  if (!google) return {};
+  return {
+    googleDrive: {
+      id: "googleDrive",
+      files: createDriveFiles(),
+      auth: createGoogleAuth({ webClientId: google.web }),
+    },
+  };
+}
