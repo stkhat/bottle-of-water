@@ -78,20 +78,38 @@ function describePatterns(patterns: PhrasePatterns) {
 
 const percent = (share: number) => `${(share * 100).toFixed(1)}%`;
 
-/** One line per pair: coverage of the top content words and phrases, by source. */
+/** What a pair's rule says, for its first line. */
+const RULE_TEXT = {
+  type: "passes the gate by (a), its top content words",
+  tokens: "passes the gate by (b), its corpus tokens with the translator",
+} as const;
+
+/**
+ * One line per pair: the rule it passes by, then its coverage of the top content
+ * words (by source), of its corpus's tokens and of its phrases.
+ */
 export function describeGate(report: readonly PairReport[]) {
-  return report.flatMap(({ pair, tops, phrases, passes }) => [
-    `${pair}: ${passes ? "passes" : "under"} the gate (needs ${percent(GATE.share)} of the top ${GATE.top} content words)`,
-    ...[...Object.entries(tops), ["phrases", phrases] as const].map(
-      ([top, c]) =>
-        `  ${top === "phrases" ? "phrases" : `top ${top}`}: ${c.covered}/${c.terms} (${percent(c.share)})` +
-        (Object.keys(c.bySource).length > 0
-          ? `; ${Object.entries(c.bySource)
-              .map(([source, n]) => `${source} ${n}`)
-              .join(", ")}`
-          : ""),
-    ),
+  const needs =
+    `needs (a) ${percent(GATE.share)} of the top ${GATE.top} content words, or ` +
+    `(b) ${percent(GATE.tokenShare)} of the corpus tokens and the translator`;
+  return report.flatMap(({ pair, tops, phrases, tokens, translator, rule }) => [
+    `${pair}: ${rule ? RULE_TEXT[rule] : `under the gate (${needs})`}`,
+    ...Object.entries(tops).map(([top, c]) => countLine(`top ${top}`, c)),
+    tokens
+      ? `  tokens: ${tokens.covered}/${tokens.tokens} (${percent(tokens.share)}); translator ${translator ? "yes" : "no"}`
+      : `  tokens: no corpus counted; translator ${translator ? "yes" : "no"}`,
+    countLine("phrases", phrases),
   ]);
+}
+
+function countLine(
+  name: string,
+  { covered, terms, share, bySource }: PairReport["phrases"],
+) {
+  const sources = Object.entries(bySource)
+    .map(([source, n]) => `${source} ${n}`)
+    .join(", ");
+  return `  ${name}: ${covered}/${terms} (${percent(share)})${sources ? `; ${sources}` : ""}`;
 }
 
 /** The pairs `offered` (the lock's `pairs`) that the report puts under the gate. */

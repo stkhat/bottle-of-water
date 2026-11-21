@@ -71,26 +71,52 @@ describe("failingOffered", () => {
 });
 
 describe("describeGate", () => {
-  it("gives each pair's coverage by source", () => {
-    const c = (covered: number, bySource: Record<string, number>) => ({
-      terms: 4,
-      covered,
-      share: covered / 4,
-      bySource,
-    });
+  const c = (covered: number, bySource: Record<string, number>) => ({
+    terms: 4,
+    covered,
+    share: covered / 4,
+    bySource,
+  });
+  const tops = { 2000: c(4, { a: 3, b: 1 }), 5000: c(3, { a: 3 }) };
+
+  it("gives each pair's rule and coverage by source", () => {
     expect(
       describeGate([
         {
           pair: "en-es",
           passes: true,
-          tops: { 2000: c(4, { a: 3, b: 1 }), 5000: c(3, { a: 3 }) },
+          rule: "type",
+          translator: true,
+          tops,
+          tokens: { tokens: 10, covered: 9, share: 0.9 },
           phrases: c(0, {}),
         },
       ]),
     ).toEqual([
-      "en-es: passes the gate (needs 95.0% of the top 5000 content words)",
+      "en-es: passes the gate by (a), its top content words",
       "  top 2000: 4/4 (100.0%); a 3, b 1",
       "  top 5000: 3/4 (75.0%); a 3",
+      "  tokens: 9/10 (90.0%); translator yes",
+      "  phrases: 0/4 (0.0%)",
+    ]);
+  });
+  it("names the token rule, and both conditions under the gate", () => {
+    const pair = (rule: "tokens" | null) => ({
+      pair: "en-hi",
+      passes: rule !== null,
+      rule,
+      translator: rule !== null,
+      tops,
+      phrases: c(0, {}),
+    });
+    expect(describeGate([pair("tokens")])[0]).toBe(
+      "en-hi: passes the gate by (b), its corpus tokens with the translator",
+    );
+    expect(describeGate([pair(null)])).toEqual([
+      "en-hi: under the gate (needs (a) 90.0% of the top 5000 content words, or (b) 90.0% of the corpus tokens and the translator)",
+      "  top 2000: 4/4 (100.0%); a 3, b 1",
+      "  top 5000: 3/4 (75.0%); a 3",
+      "  tokens: no corpus counted; translator no",
       "  phrases: 0/4 (0.0%)",
     ]);
   });
