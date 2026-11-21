@@ -52,7 +52,25 @@ export interface NativeLanguage {
    * not listed (fa, ur), or English.
    */
   readonly translator?: true;
+  /**
+   * A word in the spelling that stands for its variants: two spellings a reader takes
+   * for one word fold to the same one (Hindi: with or without the nukta, ख़बर and
+   * खबर; a candrabindu or an anusvara, चाँद and चांद). Absent: none.
+   */
+  readonly spelling?: (word: string) => string;
 }
+
+/**
+ * Devanagari as Hindi writes it in variants (`NativeLanguage.spelling`): without the
+ * nukta (U+093C, ज़ → ज; precomposed क़ … य़ decompose to it) and with an anusvara for a
+ * candrabindu (U+0901 → U+0902).
+ */
+export const devanagariSpelling = (word: string) =>
+  word
+    .normalize("NFD")
+    .replace(/\u093c/gu, "")
+    .replace(/\u0901/gu, "\u0902")
+    .normalize("NFC");
 
 /**
  * The native languages, the default first. A pair is offered only once its dictionary
@@ -205,6 +223,7 @@ export const NATIVE_LANGUAGES = {
       mind: "फ़ैसला करना",
     },
     englishPair: { format: 4 },
+    spelling: devanagariSpelling,
   },
   en: {
     option: "languageName.en",

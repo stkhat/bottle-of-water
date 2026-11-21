@@ -1376,6 +1376,8 @@ export async function readTranslationTables(
   const found: Ranked = new Map();
   const capitalFound: Ranked = new Map();
   const lowercase = new Set<string>();
+  /** English headwords written with a capital (May, beside may) */
+  const capitalised = new Set<string>();
   /** term key ("french", "French") → the most languages one sense's table translates */
   const coverage = new Map<string, number>();
   /** term key → the tags of its English form-of senses ("past", "participle", "plural") */
@@ -1387,6 +1389,7 @@ export async function readTranslationTables(
     if (entry.lang_code === learning || entry.lang_code === "mul") {
       const headword = entry.word.trim();
       if (headword === headword.toLowerCase()) lowercase.add(headword);
+      else capitalised.add(headword);
     }
     if (entry.lang_code !== learning) return;
     // A capitalised headword ("Japan", "Thursday") is kept apart (`capitalTermOf`).
@@ -1547,6 +1550,7 @@ export async function readTranslationTables(
     terms: finish(lower.terms, firstWord),
     capital: finish(capital.terms, firstWord),
     lowercase,
+    capitalised,
     coverage,
     formTags,
     rowCase,

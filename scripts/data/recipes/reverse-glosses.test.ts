@@ -2,13 +2,14 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { termKeyOf } from "./recipe.ts";
+import { termKeyOf, type PairSense } from "./recipe.ts";
 import { recipeTags, TABLES_TAG } from "./recipes.ts";
 import {
   fitsEnglishPos,
   namedTerm,
   readReverseGlosses,
   unbracketed,
+  withoutOffensiveWords,
 } from "./reverse-glosses.ts";
 import { readReversedTables } from "./reversed-tables.ts";
 
@@ -230,6 +231,138 @@ describe("readReverseGlosses", () => {
     expect(terms.get("hound")?.senses).toEqual([["noun", "หมา"]]);
     expect(terms.get("dog")?.senses).not.toContainEqual(["noun", "ส้นตีน"]);
     expect(stats.marked).toBe(1);
+  });
+});
+
+describe("readReverseGlosses: Hindi's lesser senses (hi-2)", () => {
+  const hiKey = termKeyOf({
+    vocab: new Set(["may", "visible", "put", "down", "related", "bound"]),
+    lemmas: {},
+    phrases: new Set(["put down"]),
+  });
+  const hiPos = {
+    may: ["verb"],
+    visible: ["adjective"],
+    put: ["verb"],
+    related: ["adjective", "verb"],
+  };
+  const HINDI = /\p{Script=Devanagari}/u;
+
+  it("gives a capitalised item that is another word to the capitalised headword", async () => {
+    const path = file([
+      {
+        word: "मई",
+        lang_code: "hi",
+        pos: "noun",
+        senses: [{ glosses: ["May"] }],
+      },
+      {
+        word: "सकना",
+        lang_code: "hi",
+        pos: "verb",
+        senses: [{ glosses: ["may"] }],
+      },
+    ]);
+    const { terms, capital } = await readReverseGlosses(path, {
+      native: "hi",
+      termKey: hiKey,
+      letter: HINDI,
+      capitalised: (written) => written === "May",
+    });
+    expect(terms.get("may")?.senses).toEqual([["verb", "सकना"]]);
+    expect([...capital.values()][0]?.senses).toEqual([["noun", "मई"]]);
+  });
+
+  it("reads no verb's passive from a gloss that goes on from 'to be'", async () => {
+    const path = file([
+      {
+        word: "चढ़ना",
+        lang_code: "hi",
+        pos: "verb",
+        senses: [
+          { glosses: ["to climb"] },
+          { glosses: ["to be entered, put down"] },
+        ],
+      },
+      {
+        word: "जुड़ना",
+        lang_code: "hi",
+        pos: "verb",
+        senses: [{ glosses: ["to be bound, related"] }],
+      },
+    ]);
+    const { terms } = await readReverseGlosses(path, {
+      native: "hi",
+      termKey: hiKey,
+      letter: HINDI,
+      verbOnly: (word) => word === "put",
+    });
+    expect(terms.has("put down")).toBe(false);
+    expect(terms.get("related")?.senses).toEqual([["verb", "जुड़ना"]]);
+  });
+
+  it("reads a word whose later sense names the term as rarer in that sense", async () => {
+    const path = file([
+      // लक्ष्य is mainly "aim"; its adjective's later sense is "visible".
+      {
+        word: "लक्ष्य",
+        lang_code: "hi",
+        pos: "noun",
+        senses: [{ glosses: ["aim"] }],
+      },
+      {
+        word: "लक्ष्य",
+        lang_code: "hi",
+        pos: "adj",
+        senses: [{ glosses: ["aimed at"] }, { glosses: ["visible"] }],
+      },
+      {
+        word: "दृश्य",
+        lang_code: "hi",
+        pos: "adj",
+        senses: [{ glosses: ["visible"] }],
+      },
+    ]);
+    const rank = (word: string) => (word === "लक्ष्य" ? 100 : 300);
+    const { terms } = await readReverseGlosses(path, {
+      native: "hi",
+      termKey: hiKey,
+      letter: HINDI,
+      fits: fitsEnglishPos(hiPos),
+      rank,
+    });
+    expect(terms.get("visible")?.senses.map(([, word]) => word)).toEqual([
+      "दृश्य",
+      "लक्ष्य",
+    ]);
+  });
+});
+
+describe("withoutOffensiveWords", () => {
+  it("leaves out a word the native entries call offensive from a marked sense", () => {
+    const terms = new Map([
+      [
+        "do",
+        {
+          short: "",
+          senses: [
+            ["verb", "करना"],
+            ["verb", "चोदना", "(slang) to have sex with"],
+          ] as PairSense[],
+        },
+      ],
+      [
+        "bullshit",
+        {
+          short: "",
+          senses: [["noun", "चोदना", "(vulgar) nonsense"]] as PairSense[],
+        },
+      ],
+    ]);
+    expect(withoutOffensiveWords(terms, new Set(["चोदना"]))).toBe(1);
+    expect(terms.get("do")?.senses).toEqual([["verb", "करना"]]);
+    // A term whose every sense is so keeps them.
+    expect(terms.get("bullshit")?.senses).toHaveLength(1);
   });
 });
 

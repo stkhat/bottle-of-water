@@ -260,6 +260,12 @@ export interface ShortLineOptions {
    * included.
    */
   aside?: (line: string) => boolean;
+  /**
+   * The native language's spelling of a word for its variants
+   * (`NativeLanguage.spelling`): lines that differ only so say the same (Hindi ख़बर and
+   * खबर, चाँद and चांद).
+   */
+  spelling?: (text: string) => string;
 }
 
 /**
@@ -267,15 +273,21 @@ export interface ShortLineOptions {
  * ("davvero" and "davvero?", "Gracias" and "¡Gracias!", "的" and "...的" say the same).
  * Case counts (German "Morgen", morning, and "morgen", tomorrow; Russian "Бог", God,
  * and "бог", a god), and so do brackets: "(…を)研究する" says more than "…を研究する".
+ * A native language's spelling variants say the same (`ShortLineOptions.spelling`).
  */
-const sayingOf = (line: string) =>
-  line.replace(/[\s.,;:!?¡¿…"“”«»。、，；：！？]+/gu, "") || line;
+const sayingOf = (line: string, spelling: (text: string) => string) =>
+  spelling(line.replace(/[\s.,;:!?¡¿…"“”«»。、，；：！？]+/gu, "") || line);
+
+const asWritten = (text: string) => text;
 
 /** Each line once: the first of those that say the same (`sayingOf`). */
-function onceEach(lines: readonly string[]): string[] {
+function onceEach(
+  lines: readonly string[],
+  spelling: (text: string) => string,
+): string[] {
   const seen = new Set<string>();
   return lines.filter((line) => {
-    const saying = sayingOf(line);
+    const saying = sayingOf(line, spelling);
     if (seen.has(saying)) return false;
     seen.add(saying);
     return true;
@@ -290,13 +302,16 @@ function onceEach(lines: readonly string[]): string[] {
  * takes its place: the card is shorter (R3, judged blind against keeping the line and
  * against counting notes, in es, fr, de and en with Japanese and Spanish lines).
  */
-function sayingMore(lines: readonly string[]): string[] {
+function sayingMore(
+  lines: readonly string[],
+  spelling: (text: string) => string,
+): string[] {
   const given = new Set<string>();
   return lines.filter((line) => {
     const items: string[] = [];
     let from = 0;
     for (const at of [...indicesOutside(line, isComma), line.length]) {
-      const item = sayingOf(withoutParentheses(line.slice(from, at)));
+      const item = sayingOf(withoutParentheses(line.slice(from, at)), spelling);
       if (item !== "") items.push(item);
       from = at + 1;
     }
@@ -342,10 +357,11 @@ export function shortLines(
     quiet = () => false,
     second = () => false,
     aside = () => false,
+    spelling = asWritten,
   }: ShortLineOptions = {},
 ): string[] {
   const nonEmpty = lines.filter((line) => line !== "");
-  const kept = onceEach(nonEmpty.length > 0 ? nonEmpty : [fallback]);
+  const kept = onceEach(nonEmpty.length > 0 ? nonEmpty : [fallback], spelling);
   const pointers = kept.map(pointer);
   const isMeaning = (line: string) =>
     line !== "" && pointer(line) === undefined;
@@ -374,10 +390,11 @@ export function shortLines(
           ...[...own, ...targets].filter((line) => !aside(line)),
           ...[...own, ...targets].filter(aside),
         ];
-  const all = onceEach([...leading, ...meanings]);
+  const all = onceEach([...leading, ...meanings], spelling);
   const heard = all.filter((line) => !quiet(line));
   const shown = sayingMore(
     (heard.some(isMeaning) ? heard : all).slice(0, MAX_SHORT_LINES),
+    spelling,
   );
   return shown.some(isMeaning) ? shown : kept.slice(0, MAX_SHORT_LINES);
 }

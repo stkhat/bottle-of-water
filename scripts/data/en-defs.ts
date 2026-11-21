@@ -229,7 +229,6 @@ export async function buildEnDefs(
             : `${sense.abbreviates}: ${best.gloss}`,
       };
     });
-    const out: [string, string][] = [];
     // A dotted abbreviation's own senses, then those of its spelling without periods
     // (H.R.: House of Representatives, then HR's human resources). Not first: the
     // spelling without periods is another distribution of meanings (PM: Prime
@@ -249,18 +248,43 @@ export async function buildEnDefs(
         ];
     // A contraction's own senses first: that's → "That is.", not the dialectal
     // determiner "whose, of which".
-    for (const sense of writtenAsContraction(key)
-      ? [
-          ...ranked.filter((s) => s.contraction),
-          ...ranked.filter((s) => !s.contraction),
-        ]
-      : ranked) {
-      if (out.some(([, text]) => text === sense.gloss)) continue;
+    const best = (
+      writtenAsContraction(key)
+        ? [
+            ...ranked.filter((s) => s.contraction),
+            ...ranked.filter((s) => !s.contraction),
+          ]
+        : ranked
+    ).filter(
+      (sense, i, all) => all.findIndex((s) => s.gloss === sense.gloss) === i,
+    );
+    // Each part of speech's best sense is kept (smash: the verb's, after four nouns),
+    // as the card shows the one the word's tag reads (rule A2); then the best others.
+    // Not a part of speech the source marks as marginal: its best sense has a label
+    // (chewy's noun, a pointer to chewie, "chewing gum") or none of its senses is translated
+    // (handy's noun, "the hand"), where a tagger's slip would show it.
+    const translated = new Set(
+      best.filter((s) => s.tables > 0).map((s) => posLabel(s.pos)),
+    );
+    const kept = new Set(
+      best
+        .filter(
+          (sense, i) =>
+            best.findIndex((s) => posLabel(s.pos) === posLabel(sense.pos)) ===
+              i &&
+            (i < MAX_SENSES ||
+              (sense.labels === 0 && translated.has(posLabel(sense.pos)))),
+        )
+        .slice(0, MAX_SENSES),
+    );
+    for (const sense of best) if (kept.size < MAX_SENSES) kept.add(sense);
+    const out: [string, string][] = [];
+    for (const sense of best) {
       // A capital-only word keeps every abbreviation sense, one line each: text means
       // one of them, and its document may spell it out (ANC: active noise
       // cancellation, the third of five).
       if (
-        out.length >= MAX_SENSES &&
+        !kept.has(sense) &&
         !(capitalKeys.has(key) && sense.abbreviates !== undefined)
       )
         continue;

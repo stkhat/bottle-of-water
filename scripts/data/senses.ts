@@ -113,11 +113,27 @@ function abbreviatedTerm(
     : undefined;
 }
 
+/** Leading or closing dots of a gloss written in parts ("…identifiable..."). */
+const PART_DOTS = /^(?:\.\.\.|…)|(?:\.\.\.|…)$/gu;
+
+/**
+ * A sense's own gloss, its last; where it goes on from its parent's ("...because it has
+ * already been mentioned" under "The definite grammatical article … identifiable..."),
+ * the two read as one, as the page shows them.
+ */
 const lastGloss = (sense: KaikkiSense) => {
-  const last: unknown = Array.isArray(sense.glosses)
-    ? sense.glosses.at(-1)
-    : undefined;
-  return typeof last === "string" ? last.trim() : "";
+  const glosses = Array.isArray(sense.glosses) ? sense.glosses : [];
+  const last: unknown = glosses.at(-1);
+  if (typeof last !== "string") return "";
+  const parent: unknown = glosses.at(-2);
+  const text = last.trim();
+  if (
+    typeof parent !== "string" ||
+    !/^(?:\.\.\.|…)/u.test(text) ||
+    !/(?:\.\.\.|…)$/u.test(parent.trim())
+  )
+    return text;
+  return `${parent.trim().replace(PART_DOTS, "")} ${text.replace(PART_DOTS, "")}`;
 };
 
 const targetOf = (pointers: unknown) => {

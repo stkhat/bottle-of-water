@@ -965,6 +965,8 @@ export function createPairDictionary({
   pos?: PosPack;
 }): DictionaryProvider {
   const dense = native !== undefined && nativeLanguage(native)?.dense === true;
+  const spelling =
+    native === undefined ? undefined : nativeLanguage(native)?.spelling;
   /** Whether the pair writes most of its nouns capitalised (`nounsCapitalised`), read once. */
   let nounCased: boolean | undefined;
   const nounCase = () => (nounCased ??= nounsCapitalised(dict));
@@ -1172,6 +1174,7 @@ export function createPairDictionary({
         short,
         lines: shortLines(inOrder(lines, order), short, {
           head,
+          ...(spelling && { spelling }),
           pointer: (line) => pointers.get(line),
           follow: (target) => {
             const along = pointerPos.get(target) ?? pos;
