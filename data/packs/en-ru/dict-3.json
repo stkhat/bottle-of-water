@@ -3430,7 +3430,7 @@
 "reproof":[[["noun","отповедь, замечание, выговор","act or instance of reproving; a rebuke"]],0],
 "reprove":[[["verb","порицать"]],1],
 "reproving":[[["adjective","укоризненный"]],1],
-"reptile":[[["noun","includes reptiles, amphibians, molluscs","a cold-blooded vertebrate"]],0],
+"reptile":[[["noun","(зоол.) пресмыкающееся, рептилия"]],1],
 "reptilian":[[["noun","рептилия"],["noun","рептилоид"],["adjective","змеиный; рептильный"],["adjective","(перен.) подлый, низкий, презренный"]],1],
 "republic":[[["noun","республика","a type of state"]],0],
 "republic of albania":[[["proper noun","Республика Албания","Official name of Albania"]],0],
@@ -10015,7 +10015,6 @@
 "that one":[[["pronoun","вон тот, вон та, вон то","specified object"]],0],
 "that said":[[["phrase","и всё-таки, и всё же, при этом","even so"]],0],
 "that ship has sailed":[[["phrase","поздно пить боржоми","that opportunity has passed"]],0],
-"that's":[[["unknown","that is"],["unknown","that has"]],1],
 "that's a relief":[[["phrase","слава Богу, гора с плеч","that's a relief"]],0],
 "that's all":[[["phrase","вот и всё","that's all"]],0],
 "that's it":[[["phrase","вот и всё","There is nothing more to the issue"],["phrase","вот оно, именно","Yes!, exactly!"]],0],
@@ -14571,5 +14570,6 @@
 "xylem":[[["noun","ксилема","botany: vascular tissue in land plants"]],0],
 "xylophone":[[["noun","ксилофон","musical instrument"]],0],
 "xylose":[[["noun","ксилоза","wood sugar"]],0],
-"y":[[["noun","25-я буква английского алфавита"],["noun","(матем.) игрек"],["noun","сокр. от year (год)",null,"year"],["noun","сокр. от yes (да)",null,"yes"]],1]
+"y":[[["noun","25-я буква английского алфавита"],["noun","(матем.) игрек"],["noun","сокр. от year (год)",null,"year"],["noun","сокр. от yes (да)",null,"yes"]],1],
+"y chromosome":[[["phrase","(биол.) Y-хромосома"]],1]
 }

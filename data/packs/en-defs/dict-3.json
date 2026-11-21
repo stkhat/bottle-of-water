@@ -1,4 +1,9 @@
 {
+"debt obligation":[["noun","A duty by which a party to an agreement is legally bound to pay the maturity of a debt at a time and in a manner as is stipulated within a given contract or promissory note."]],
+"debt of nature":[["noun","Death, seen as an obligation that all living creatures must eventually pay."]],
+"debt relief":[["noun","The partial or total forgiveness of debt."]],
+"debt trap":[["noun","A situation in which a borrower's debt obligations exceed their repayment capabilities, compelling to them to incur new debt to repay existing ones."]],
+"debt trap diplomacy":[["noun","A nation's use of predatory loans in order to gain leverage in relations with the recipient country or to seize assets within the indebted country."]],
 "debug":[["verb","To search for and eliminate malfunctioning elements or errors in something, especially a computer program or machinery."],["verb","To remove a hidden electronic surveillance device from (somewhere)."],["verb","To remove insects from (somewhere), especially lice."],["noun","The action, or a session, of reviewing source code to find and eliminate errors."]],
 "debug mode":[["noun","The mode of a compiler or IDE that allows for debugging, with the availability of information such as variable names and line numbers from the source code."],["noun","A (usually hidden) tool or set of tools in a video game used in its development and testing, the use of which typically enables players to cheat, modify the game's behaviour, or perform diagnostics."]],
 "debunk":[["verb","To discredit, or expose to ridicule the falsehood or the exaggerated claims of something; to refute."],["noun","A debunking; the act by which something is debunked."]],
@@ -941,6 +946,7 @@
 "destruct":[["verb","To invoke the destructor of."],["verb","To self-destruct."],["verb","To intentionally cause the destruction of."]],
 "destructible":[["adjective","Liable to destruction; capable of being destroyed."]],
 "destruction permit":[["noun","A government license to kill or remove fauna that would otherwise be protected."]],
+"destructive":[["adjective","Causing destruction; damaging."],["adjective","Causing breakdown or disassembly."],["adjective","Lossy; causing irreversible change."]],
 "destructive criticism":[["noun","Any type of criticism that is intended to harm someone, to derogate and destroy someone’s creation, prestige, reputation and self-esteem."]],
 "destructiveness":[["noun","The state or quality of being destructive."]],
 "destructor":[["noun","One who destructs."],["noun","A furnace or oven for the burning or carbonizing of refuse."],["noun","A function that runs when an object is no longer required, used to release any resources that it was using."]],
@@ -7246,6 +7252,7 @@
 "er":[["verb","To utter the word er when hesitating in speech."],["interjection","Said when hesitating in speech."],["noun","An occurrence of the interjection \"er\"."],["noun","The name of the Cyrillic script letter Р / р."]],
 "er diagram":[["noun","An entity-relationship diagram; a specialized (usually dynamic) chart that illustrates the relationships between entities in a database, using a specific set of database-specific symbols."]],
 "era name":[["noun","The regnal year, reign period, or regnal title used when traditionally numbering years in an emperor's reign and naming certain Sinospheric rulers."]],
+"eradication":[["noun","The act of plucking up by the roots; an uprooting or rooting out; extirpation; utter destruction."],["noun","The state of being plucked up by the roots."]],
 "eradicator":[["noun","A person who, or thing that eradicates."]],
 "erap":[["proper noun","Joseph Estrada: Actor and President of the Philippines from 1998 to 2001."]],
 "eraser dust":[["noun","The small curls of rubber that are left behind after using an eraser."],["noun","A finely powdered plastic that is used to clean smudges from pencil drawings."],["noun","A font that simulates wide hand-drawn letters with a slightly mottled appearance and irregular edges."]],
@@ -10004,6 +10011,7 @@
 "fet":[["proper noun","field-effect transistor: Transistor that uses an electric field to control its electrical behaviour."],["proper noun","Further-Eastern European Time."],["proper noun","Far EasTone: Telecommunication company in Taiwan."]],
 "feta":[["noun","A variety of curd cheese made from sheep’s or goat’s milk and originating from Greece."]],
 "feta cheese":[["noun","feta"],["noun","Alternative letter-case form of feta cheese."]],
+"fetal":[["adjective","Pertaining to, or connected with, a fetus."],["adjective","In the fetal position."]],
 "fetal alcohol spectrum disorder":[["noun","Any of a spectrum of birth defects and developmental disorders, including fetal alcohol syndrome, occurring in a person exposed to alcohol during pregnancy."]],
 "fetal alcohol syndrome":[["noun","Any of a spectrum of birth defects that result from excessive alcohol consumption by the mother during pregnancy."]],
 "fetal position":[["noun","A posture in which the head and knees are brought close to the abdomen, usually while sitting or lying on one side."],["noun","The location of the fetus inside a womb."]],
@@ -13023,11 +13031,5 @@
 "fpu":[["proper noun","floating-point unit: Coprocessor for floating point arithmetic."]],
 "fpv":[["proper noun","Front for Victory: Argentine electoral alliance."],["proper noun","first person view: Method used to control a radio-controlled vehicle from the driver or pilot's view point."],["proper noun","floating solar installation: Systems of solar cell panels installed on a structure that floats on a body of water."],["proper noun","Ford Performance Vehicles: Company."]],
 "fpvt":[["proper noun","catecholaminergic polymorphic ventricular tachycardia: Disorder characterized by an abnormal heart rhythm (arrhythmia)."]],
-"fpö":[["proper noun","Austrian Freedom Party: Austrian political party."]],
-"fqdn":[["proper noun","Fully qualified domain name: Domain name that specifies its exact location in the tree hierarchy of the Domain Name System."]],
-"fqhe":[["proper noun","fractional quantum Hall effect: Physical phenomenon in which the Hall conductance of 2D electrons shows precisely quantized plateaus at fractional values of e²/h."]],
-"fr":[["adjective","flush right: Alignment of the text aligned along the right margin or gutter."],["adjective","for real: Genuine, true; serious, earnest."],["noun","Alternative letter-case form of FR (“friend request”)."]],
-"fr.":[["noun","fragment: A part broken off; a small, detached portion; an imperfect part, either physically or not."]],
-"fra":[["proper noun","European Union Agency for Fundamental Rights: Agency of the European Union."],["proper noun","wireless local loop: Use of a wireless communications link as the last/first connection for delivering telephone or Internet service to telecom customers."],["proper noun","National Defence Radio Establishment: Swedish signals intelligence agency."]],
-"fraa":[["proper noun","Frankfurt Stock Exchange: Stock exchange located in Frankfurt, Germany."]]
+"fpö":[["proper noun","Austrian Freedom Party: Austrian political party."]]
 }

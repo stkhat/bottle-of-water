@@ -134,6 +134,7 @@ describe("readReverseGlosses", () => {
       ["noun", "หมา"],
     ]);
     expect(terms.get("hound")?.senses).toEqual([["noun", "หมา"]]);
+    expect(terms.get("dog")?.senses).not.toContainEqual(["noun", "ส้นตีน"]);
     expect(terms.get("run")?.senses).toEqual([["verb", "วิ่ง"]]);
     expect(terms.get("love")?.senses).toEqual([["noun", "ความรัก"]]);
     expect(terms.has("lovely")).toBe(false);
@@ -165,6 +166,70 @@ describe("readReverseGlosses", () => {
       "สุนัข",
       "หมา",
     ]);
+  });
+
+  it("leaves out a register or extended sense of a native word that has a plain sense", async () => {
+    const path = file([
+      // ร้อน is hot; its figurative "big" is no meaning of big.
+      {
+        word: "ร้อน",
+        lang_code: "th",
+        pos: "adj",
+        senses: [
+          { glosses: ["hot"] },
+          { glosses: ["big"], tags: ["figuratively"] },
+        ],
+      },
+      // A word with only marked senses keeps them, and so does a word glossed with the
+      // term in a plain sense too.
+      {
+        word: "เจ๋ง",
+        lang_code: "th",
+        pos: "adj",
+        senses: [
+          { glosses: ["big"], tags: ["literary"] },
+          { glosses: ["side"], tags: ["formal", "poetic"] },
+        ],
+      },
+      {
+        word: "หมา",
+        lang_code: "th",
+        pos: "noun",
+        senses: [
+          { glosses: ["dog"] },
+          { glosses: ["hound"], tags: ["formal"] },
+          { glosses: ["hound"] },
+        ],
+      },
+      // An offensive sense is never a line, even a word's only one.
+      {
+        word: "ส้นตีน",
+        lang_code: "th",
+        pos: "noun",
+        senses: [{ glosses: ["dog"], tags: ["vulgar"] }],
+      },
+      // Everyday speech is no register here: แบบ's colloquial sense stays.
+      {
+        word: "แบบ",
+        lang_code: "th",
+        pos: "adv",
+        senses: [
+          { glosses: ["pattern"] },
+          { glosses: ["big"], tags: ["colloquial"] },
+        ],
+      },
+    ]);
+    const { terms, stats } = await readReverseGlosses(path, {
+      native: "th",
+      termKey,
+    });
+    expect(terms.get("big")?.senses).toEqual([
+      ["adjective", "เจ๋ง"],
+      ["adverb", "แบบ"],
+    ]);
+    expect(terms.get("hound")?.senses).toEqual([["noun", "หมา"]]);
+    expect(terms.get("dog")?.senses).not.toContainEqual(["noun", "ส้นตีน"]);
+    expect(stats.marked).toBe(1);
   });
 });
 

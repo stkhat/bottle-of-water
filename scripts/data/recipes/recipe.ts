@@ -664,13 +664,16 @@ export const nativeLetterOf = (scripts: readonly string[]) =>
 
 /**
  * A source's terms with only their meanings in the native script (`letter`, from
- * `nativeLetterOf`), where a term has such meanings: beside them, an edition's gloss or
- * a translation table's word with no letter of the script is no meaning (en-zh be: "or
- * implied", a parse artifact, beside 是; ru would: "We sat on the bench, опоздает ли
- * автобус" keeps its Russian part). A word that is the headword itself stays (zh "DNA",
- * a loanword written alike), and so do pointers. A term with no meaning in the script
- * keeps what it has (ru, zh "that's": "that is", "that has", the English it stands
- * for). Gives how many glosses and words were left out.
+ * `nativeLetterOf`): an edition's gloss or a translation table's word with no letter
+ * of the script is no meaning (en-zh be: "or implied", a parse artifact, beside 是; ru
+ * would: "We sat on the bench, опоздает ли автобус" keeps its Russian part; en-th
+ * isn't: "Something or someone that is defined by the lack…", an English definition;
+ * ru gone: "gun"). A word that is the headword itself stays (zh "DNA", a loanword
+ * written alike), and so do pointers; text with no letters at all stays only in a term
+ * with no word in the script (zh period: "。" goes beside 句号; th LOL keeps ถถถ, not
+ * "๕๕๕"). A term left with nothing is no term of the source; a contraction then shows what it
+ * is short for (ru, zh "that's": "that is", `expansionLine`). Gives how many glosses
+ * and words were left out.
  */
 function keepNativeScript(
   terms: Map<string, SourceTerm>,
@@ -679,12 +682,13 @@ function keepNativeScript(
   if (letter === undefined) return 0;
   let left = 0;
   for (const [key, item] of terms) {
+    const lettered = item.senses.some(
+      (sense) => !isPointerSense(sense) && letter.test(sense[1]),
+    );
     const native = (text: string) =>
-      letter.test(text) || keyOf(text) === key.toLowerCase();
-    if (
-      !item.senses.some((sense) => !isPointerSense(sense) && native(sense[1]))
-    )
-      continue;
+      letter.test(text) ||
+      (!lettered && !/\p{L}/u.test(text)) ||
+      keyOf(text) === key.toLowerCase();
     item.senses = item.senses.flatMap((sense): PairSense[] => {
       if (isPointerSense(sense)) return [sense];
       if (!native(sense[1])) {
@@ -1734,10 +1738,22 @@ function shapeKind(item: string): CapitalMeaning | undefined {
 /**
  * In a script without case, where the native edition does not say: a sense of a common
  * word's part of speech is a word (English, an adjective: 英国人的, "English
- * person's"); a proper noun's says nothing.
+ * person's"), and a proper noun's is the name written in the native script (th Texas:
+ * เท็กซัส, as the Thai edition, a small one, has no entry for it to say so) when the
+ * headword is no common word too (`lowercase`): a capitalised common word is as often
+ * some other bearer of the name, and the edition's proper noun one of them (zh Oh:
+ * "源自朝鲜语的姓氏", a surname, for the interjection; City: 伦敦城). A person's name
+ * stays a name the reader ignores (`keptOrName`).
  */
-const commonKind = ([pos]: PairSense): CapitalMeaning | undefined =>
-  pos !== "" && pos !== "proper noun" ? "word" : undefined;
+const commonKind = (
+  [pos]: PairSense,
+  common: boolean,
+): CapitalMeaning | undefined =>
+  pos === "" || (pos === "proper noun" && common)
+    ? undefined
+    : pos === "proper noun"
+      ? "name"
+      : "word";
 
 /**
  * A translation table's sense whose English sense is about a person's name ("An
@@ -1808,12 +1824,15 @@ export function capitalDictionary(
     rowsSayWord = () => false,
     personFirst,
     defined = () => false,
+    lowercase = () => false,
   }: {
     nativeKind: (item: string) => CapitalMeaning | undefined;
     /** The languages with case write the headword as a common word (`writtenAsWord`). */
     rowsSayWord?: (key: string) => boolean;
     personFirst: (term: string) => boolean;
     defined?: (term: string) => boolean;
+    /** The term is a common word too: the pair has a lowercase entry for it as its own base. */
+    lowercase?: (term: string) => boolean;
   },
 ) {
   // A gloss that is only a note ("(английская фамилия)") is compared whole.
@@ -1850,10 +1869,13 @@ export function capitalDictionary(
     let meaning: CapitalMeaning | undefined =
       item && bare(item) !== bare(key)
         ? /[\p{Lu}\p{Ll}]/u.test(item)
-          ? (nativeKind(item) ?? shapeKind(item) ?? commonKind(meaningSense!))
+          ? (nativeKind(item) ??
+            shapeKind(item) ??
+            commonKind(meaningSense!, lowercase(key.toLowerCase())))
           : rowsSayWord(key)
             ? "word"
-            : (nativeKind(item) ?? commonKind(meaningSense!))
+            : (nativeKind(item) ??
+              commonKind(meaningSense!, lowercase(key.toLowerCase())))
         : undefined;
     if (meaning === "word" && personFirst(key.toLowerCase()))
       meaning = undefined;

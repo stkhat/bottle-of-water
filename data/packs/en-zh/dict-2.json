@@ -1,5 +1,4 @@
 {
-"gillnet":[[["noun","流刺网","a vertical net, often resting on the sea floor, which entangles fish in the netting, frequently by the gills"]],0],
 "gilly":[[["unknown","侍从"],["unknown","仆役"]],1],
 "gilt":[[["noun","青年母猪","A young female pig, at or nearing the age of first breeding."]],0],
 "gilt-edged":[[["unknown","金边的"],["unknown","最上等的"]],1],
@@ -13679,7 +13678,6 @@
 "padre":[[["noun","军队牧师"],["noun","罗马天主教或英国圣公会牧师"]],1],
 "paean":[[["noun","欢乐歌"],["noun","赞美歌"]],1],
 "paediatric":[[["adjective","儿科的, 小儿科的","of or relating to the medical care of children"]],2],
-"paedo":[[["noun","ltp","paedophile"]],0],
 "paedophilia":[[["noun","pedophilia在英国的标准拼写",null,"pedophilia"]],1],
 "pagan":[[["noun","异教徒","person not adhering to a main world religion"],["adjective","异教的","relating to non-main world religions"],["adjective","野蛮的","immoral, uncivilized, savage"]],0],
 "paganism":[[["noun","异教","local religions practiced before the introduction of Christianity"]],0],
@@ -13963,7 +13961,7 @@
 "parasitism":[[["noun","寄生","interaction between two organisms"]],0],
 "parasitize":[[["verb","寄生","live off a host"]],0],
 "parasitoid wasp":[[["noun","寄生蜂","parasitoid wasp"]],0],
-"parasocial":[[["adjective","gachi","Translations"]],0],
+"parasocial":[[["adjective","单方面的，一厢情愿的； 准社会的 （尤其指代名人和他们的观众或粉丝之间的关系）"]],1],
 "parasol":[[["noun","遮阳伞, 太阳伞, 阳伞","umbrella used as protection from the sun"]],0],
 "parasol mushroom":[[["noun","高大环柄菇（Macrolepiota procera 或 Lepiota procera），一种担子菌门的真菌，其子实体大而突出，像一把阳伞"]],1],
 "parasol tree":[[["noun","梧桐","Firmiana simplex"]],0],
@@ -20534,5 +20532,7 @@
 "sea grape":[[["noun","海葡萄","Coccoloba uvifera"]],0],
 "sea hare":[[["noun","海兔","naked marine gastropod having a soft body with reduced internal shell and two pairs of ear-like tentacles"]],2],
 "sea hibiscus":[[["noun","黄槿","Translations"]],0],
-"sea holly":[[["noun","海斌刺芹","European evergreen eryngo with twisted spiny leaves naturalized on United States east coast"],["noun","虾膜花","widely cultivated southern European acanthus with whitish purple-veined flowers"]],2]
+"sea holly":[[["noun","海斌刺芹","European evergreen eryngo with twisted spiny leaves naturalized on United States east coast"],["noun","虾膜花","widely cultivated southern European acanthus with whitish purple-veined flowers"]],2],
+"sea horse":[[["noun","海马","fish"]],0],
+"sea ice":[[["noun","海冰","frozen seawater"]],0]
 }

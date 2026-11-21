@@ -277,9 +277,9 @@ describe("readEdition: native case and script", () => {
       ["verb", "расстроить"],
       ["verb", "upset"],
     ]);
-    // No gloss of "light" is in the script: it keeps them.
-    expect(terms.get("light")?.senses).toHaveLength(4);
-    expect(stats.foreign).toBe(1);
+    // No gloss of "light" is in the script: it is no term of the edition.
+    expect(terms.has("light")).toBe(false);
+    expect(stats.foreign).toBe(7);
   });
 });
 
@@ -656,11 +656,9 @@ describe("readTranslationTables", () => {
       ["noun", "свет", "electromagnetic radiation"],
       ["noun", "лампа, light", "source of illumination"],
     ]);
-    // A term with no word in the script keeps what it has.
-    expect(terms.get("upset")?.senses).toEqual([
-      ["verb", "or implied", "to make unhappy"],
-    ]);
-    expect(stats.foreign).toBe(1);
+    // A term with no word in the script is no term of the tables.
+    expect(terms.has("upset")).toBe(false);
+    expect(stats.foreign).toBe(2);
   });
   it("rewrites or drops a translated word with `word`", async () => {
     const { terms } = await readTranslationTables(
@@ -1414,14 +1412,31 @@ describe("capitalDictionary", () => {
   });
   it("finds no kind by shape in a script without case", () => {
     const { capital } = capitalDictionary(
-      { Oh: ["源自朝鲜语的姓氏", [sense("源自朝鲜语的姓氏")], 0] },
+      { Oh: ["源自朝鲜语的姓氏", [["", "源自朝鲜语的姓氏"]], 0] },
       { nativeKind: () => undefined, personFirst: () => false },
     );
     expect(capital["Oh"]).toEqual([
       "源自朝鲜语的姓氏",
-      [sense("源自朝鲜语的姓氏")],
+      [["", "源自朝鲜语的姓氏"]],
       0,
     ]);
+  });
+  it("reads a proper noun's sense as the name in a script without case, where the edition does not say", () => {
+    const { capital } = capitalDictionary(
+      { Texas: ["เท็กซัส", [["proper noun", "เท็กซัส", "a state"]], 0] },
+      { nativeKind: () => undefined, personFirst: () => false },
+    );
+    expect(capital["Texas"]?.[3]).toBe("name");
+    // A common word's capital is some bearer of the name: no meaning of its own.
+    const common = capitalDictionary(
+      { Court: ["考特", [["proper noun", "考特", "surname"]], 0] },
+      {
+        nativeKind: () => undefined,
+        personFirst: () => false,
+        lowercase: (term) => term === "court",
+      },
+    );
+    expect(common.capital["Court"]?.[3]).toBeUndefined();
   });
   it("reads a common word's sense as a word in a script without case, where the edition does not say", () => {
     const { capital } = capitalDictionary(

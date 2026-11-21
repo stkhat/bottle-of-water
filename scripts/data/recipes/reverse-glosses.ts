@@ -52,6 +52,49 @@ const NO_MEANING_TAGS: ReadonlySet<string> = new Set([
   "initialism",
 ]);
 
+/**
+ * Labels of an offensive sense (kaikki's tags): never a line, as a learner would take
+ * it for the plain word (frustration: ส้นตีน, a vulgar curse).
+ */
+const OFFENSIVE_TAGS: ReadonlySet<string> = new Set([
+  "derogatory",
+  "offensive",
+  "vulgar",
+  "slur",
+  "ethnic",
+]);
+
+/**
+ * Labels of a sense away from everyday speech or the word's plain meaning (kaikki's
+ * tags): formal, literary and dated words, figurative and idiomatic uses, euphemistic
+ * ones, a form used only inside compounds. A native word with such a
+ * sense and a plain one is read in its plain, main sense: สวัสดี is hello (its
+ * "wellness" is formal), ทาย to guess (its "given" formal, in compounds), ร้อน hot
+ * (its "disturbed" figurative). Not slang, colloquial or humorous speech: the videos
+ * learners watch speak so, and such a sense says the English word as they hear it
+ * (แบบ, แอบ for the hedge "kind of"; ปัง for "awesome"). A word whose every sense is
+ * marked has no other sense to be read in and keeps them all (ตราบ, a formal word: "as
+ * long as").
+ */
+const REGISTER_TAGS: ReadonlySet<string> = new Set([
+  "childish",
+  "sarcastic",
+  "euphemistic",
+  "figuratively",
+  "idiomatic",
+  "formal",
+  "humble",
+  "poetic",
+  "literary",
+  "dated",
+  "rare",
+  "nonstandard",
+  "proscribed",
+  "dialectal",
+  "in-compounds",
+  "morpheme",
+]);
+
 /** The class of a part of speech: noun, verb, or adjective-or-adverb. */
 const CLASS: Readonly<Record<string, string>> = {
   noun: "n",
@@ -133,7 +176,10 @@ function meaningGloss(sense: KaikkiSense): string | undefined {
  * split at commas and semicolons; an item counts when it is a term exactly
  * (`namedTerm`). Left out: entries that are no words (`NOT_WORDS`), headwords with no
  * letter of the native script (`letter`), senses that are forms or no meaning to show
- * (`NO_MEANING_TAGS`), and native words whose part of speech does not `fit` the term's.
+ * (`NO_MEANING_TAGS`), senses in a register or an extended use of a native word that
+ * has a plain sense (`REGISTER_TAGS`: it reads as its main sense), offensive senses
+ * (`OFFENSIVE_TAGS`), and native words
+ * whose part of speech does not `fit` the term's.
  * A term's native words are ordered by whether the term is its gloss's first item, then
  * by `rank` (the native word's frequency rank, where the language has a usable list),
  * then by file order; one sense per native word and part of speech, at most MAX_SENSES.
@@ -159,8 +205,12 @@ export async function readReverseGlosses(
     first: boolean;
     rank: number;
     order: number;
+    /** The sense is in a register or an extended use (`REGISTER_TAGS`). */
+    marked: boolean;
   }
   const found = new Map<string, Link[]>();
+  // The native words with a plain sense (no register) to show, over all their entries.
+  const plain = new Set<string>();
   let order = 0;
   let senses = 0;
   const stats = await eachEntry(path, (entry) => {
@@ -172,6 +222,9 @@ export async function readReverseGlosses(
       const gloss = meaningGloss(sense);
       if (gloss === undefined) continue;
       senses++;
+      if ((sense.tags ?? []).some((tag) => OFFENSIVE_TAGS.has(tag))) continue;
+      const marked = (sense.tags ?? []).some((tag) => REGISTER_TAGS.has(tag));
+      if (!marked) plain.add(head);
       const seen = new Set<string>();
       unbracketed(gloss)
         .split(/[,;]/u)
@@ -181,19 +234,32 @@ export async function readReverseGlosses(
           seen.add(key);
           let links = found.get(key);
           if (!links) found.set(key, (links = []));
-          if (links.some(({ sense: [p, w] }) => w === head && p === pos))
+          const same = links.find(
+            ({ sense: [p, w] }) => w === head && p === pos,
+          );
+          // A native word glossed with the term in a plain sense too is unmarked.
+          if (same) {
+            same.marked &&= marked;
             return;
+          }
           links.push({
             sense: [pos, head],
             first: i === 0,
             rank: rank(head),
             order: order++,
+            marked,
           });
         });
     }
   });
   const terms = new Map<string, SourceTerm>();
-  for (const [key, links] of found) {
+  let marked = 0;
+  for (const [key, all] of found) {
+    const links = all.filter(
+      ({ marked, sense: [, head] }) => !marked || !plain.has(head),
+    );
+    marked += all.length - links.length;
+    if (links.length === 0) continue;
     const item: SourceTerm = { short: "", senses: [] };
     terms.set(key, item);
     for (const { sense } of [...links].sort(
@@ -206,6 +272,6 @@ export async function readReverseGlosses(
   }
   return {
     terms: finish(terms, (text) => text),
-    stats: { ...stats, senses },
+    stats: { ...stats, senses, marked },
   };
 }

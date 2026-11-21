@@ -111,6 +111,22 @@ describe("capLine", () => {
       "การประชุมสภาผู้แทน…",
     );
   });
+  it("cuts a text whose words touch at a space between phrases, as at a comma", () => {
+    const the =
+      "คำใช้บ่งบอกเน้นคำนาม เพื่อให้รู้ว่าเป็นคำนามนี้โดยเฉพาะ ไม่ใช่อื่นใด";
+    expect(capLine(the, 50)).toBe(
+      "คำใช้บ่งบอกเน้นคำนาม เพื่อให้รู้ว่าเป็นคำนามนี้โดยเฉพาะ",
+    );
+    // The space after a comma cuts at the comma.
+    expect(
+      capLine("อาหารมื้อเย็น, งานเลี้ยงอาหารค่ำ, มื้อใหญ่ของวัน", 32),
+    ).toBe("อาหารมื้อเย็น, งานเลี้ยงอาหารค่ำ");
+    // Spaces between words are no phrase ends, in a line of touching words too.
+    expect(capLine("A person who studies languages", 20)).toBe("A person who…");
+    expect(capLine("アメリカ航空宇宙局 The National Aeronautics", 30)).toBe(
+      "アメリカ航空宇宙局 The Nation…",
+    );
+  });
 });
 
 describe("shortOfSenses", () => {

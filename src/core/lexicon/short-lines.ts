@@ -69,7 +69,35 @@ function wordEnds(text: string): number[] {
   return ends;
 }
 
+/**
+ * Whether a text writes words without spaces between them (Thai, Chinese): the
+ * browser's word segmentation finds two words that touch.
+ */
+function wordsTouch(text: string): boolean {
+  let afterWord = false;
+  for (const { isWordLike } of WORDS.segment(text)) {
+    if (afterWord && isWordLike) return true;
+    afterWord = isWordLike === true;
+  }
+  return false;
+}
+
 /** Indices of the characters outside brackets for which `test` holds. */
+/**
+ * A space between phrases, as a comma is elsewhere: one with words that touch on both
+ * sides of it (`wordsTouch`), as Thai writes its phrases; not one between the words
+ * of an English text inside a Japanese line ("The National Aeronautics and Space…").
+ */
+function phraseSpace(text: string, i: number): boolean {
+  if (text[i] !== " " || isComma(text, i - 1)) return false;
+  const from = text.lastIndexOf(" ", i - 1) + 1;
+  const to = text.indexOf(" ", i + 1);
+  return (
+    wordsTouch(text.slice(from, i)) &&
+    wordsTouch(text.slice(i + 1, to === -1 ? undefined : to))
+  );
+}
+
 function indicesOutside(
   text: string,
   test: (text: string, i: number) => boolean,
@@ -139,17 +167,21 @@ function withoutParentheses(text: string): string {
 /**
  * A line within `cap` display width. A longer one first loses its parenthesized
  * notes, which qualify the meaning outside them ("(…が生れつき備えている)能力,力" →
- * "能力,力"); then it is cut at the last comma outside brackets that fits, else cut
- * hard with "…" (text of narrow characters at the end of a word in its second half:
- * at a space, or between two words of a script without spaces).
+ * "能力,力"); then it is cut at the last comma outside brackets that fits, or at a
+ * space between phrases (`phraseSpace`: Thai "คำใช้บ่งบอกเน้นคำนาม
+ * เพื่อให้รู้ว่าเป็นคำนามนี้โดยเฉพาะ ไม่ใช่อื่นใด" ends at "โดยเฉพาะ", not at "ไม่ใช่…",
+ * "not…"), else cut hard with "…" (text of narrow characters at the end of
+ * a word in its second half: at a space, or between two words of a script without
+ * spaces).
  */
 export function capLine(text: string, cap: number): string {
   if (displayWidth(text) <= cap) return text;
   const bare = withoutRepeatedItems(withoutParentheses(text));
   if (bare !== "" && bare !== text) return capLine(bare, cap);
-  const commas = indicesOutside(text, isComma).filter(
-    (i) => i > 0 && displayWidth(text.slice(0, i)) <= cap,
-  );
+  const commas = indicesOutside(
+    text,
+    (t, i) => isComma(t, i) || phraseSpace(t, i),
+  ).filter((i) => i > 0 && displayWidth(text.slice(0, i)) <= cap);
   if (commas.length > 0) return text.slice(0, commas.at(-1)).trimEnd();
   let head = "";
   // Display width adds up character by character.
