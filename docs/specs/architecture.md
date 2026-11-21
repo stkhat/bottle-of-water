@@ -424,7 +424,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 
 - The sync name ("Chrome sync", "Firefox Sync") comes from `BrowserEnv`. Saving and merging do not differ by browser
 
-## Sync to the user's own cloud storage (designed 2026-11-15; file format, merge, data model and backend built 2026-11-21)
+## Sync to the user's own cloud storage (designed 2026-11-15; file format, merge, data model, backend and Google Drive built 2026-11-21)
 Google Drive, Dropbox and OneDrive, with no developer server. Built later; the steps before building are under "Checks before building". The mobile app ([notes](../notes/mobile.md)) cannot read browser sync, so this is also how it gets data and settings: the file format is a contract, and the mobile app reads and writes the same files. Reviewed by an independent agent on 2026-11-15; its findings are folded in. Build order: [plans/cloud-sync.md](../plans/cloud-sync.md).
 
 ### What is synced
@@ -486,18 +486,27 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
   - **Files**: `list(token)`, `read(token, path)`, `write(token, path, bytes)`, `remove(token, path)` over `fetch`, shared by the extension and the mobile app. Taking the token as an argument keeps the files half free of sign-in, so the mobile app can pass its own. `list` and `write` return each file's path, modified time and size
   - **Auth**: only returns an access token: `token({interactive, refused?})` (`refused`: a token that just got a 401, so it is not handed out again) and `forget()`. Desktop: `identity.launchWebAuthFlow`; for Google, `identity.getAuthToken` where it exists (Chromium; detected, not by browser name: Chrome renews the token itself, but only for the Google account signed in to the browser). Mobile: the system sign-in (`ASWebAuthenticationSession` / Custom Tabs) through the app's bridge
 - Errors are typed (`CloudError`): `unauthorized` (401), `retry` (network, 429, 5xx; with `retryAfterMs` when the provider says), `full`, `notFound`. Anything else counts as `retry`
-- Code: `src/core/cloud/provider.ts` (interface, ids `CLOUD_PROVIDERS`, errors)
+- Code: `src/core/cloud/provider.ts` (interface, ids `CLOUD_PROVIDERS`, errors); Google Drive: `core/cloud/google-drive.ts` (files), `background/sync/google-auth.ts` (auth), `background/sync/google-clients.ts` (clients and the manifest `key` per build mode)
 - Tokens live in `storage.local`, never synced
 - Permissions: `identity` shows no install warning in Chrome. Google Drive needs no host permissions (checked 2026-11-21: its API answers extension pages' cross-origin requests); whether Firefox accepts `identity` as an optional permission is checked before the Firefox version
-- Extension ids (Google's Chrome-extension client is tied to one): development and check builds carry a fixed manifest `key` (id `dgabnakfehpeammboohlkafhhdegbffe`); production builds carry none, and the store item's id gets a client of its own in the same Cloud project before publishing, so both see the same `appDataFolder` ([notes](../notes/cloud-sync.md) "Extension ids")
+- Extension ids (Google's Chrome-extension client is tied to one): development and check builds (every mode but production) carry a fixed manifest `key` in Chromium (id `dgabnakfehpeammboohlkafhhdegbffe`, also in E2E, which reads it from the service worker URL) and the development clients; production builds carry no `key`, and the store item's id gets a client of its own in the same Cloud project before publishing, so both see the same `appDataFolder` ([notes](../notes/cloud-sync.md) "Extension ids"). Until `PRODUCTION_GOOGLE_CLIENTS` is filled, production has no `oauth2` and no provider (docs/status.md "Before publishing")
 - One app registration per provider, reused by the mobile app (adding its redirect URIs / client types): the app-only space belongs to the registration (Drive: to the Cloud project, which also holds the Chrome-extension client for `getAuthToken`)
 
 ### Providers (researched 2026-11-15, to confirm by the checks below)
 | | Dropbox | Google Drive | OneDrive |
 |---|---|---|---|
-| Space | app folder | `drive.appdata` (listed as non-sensitive) | app folder, `Files.ReadWrite.AppFolder`: **personal accounts only** (the registration's audience is consumer accounts; work or school accounts cannot connect, and Settings says so) |
+| Space | app folder | `drive.appdata` (listed as non-sensitive), the only scope | app folder, `Files.ReadWrite.AppFolder`: **personal accounts only** (the registration's audience is consumer accounts; work or school accounts cannot connect, and Settings says so) |
 | Desktop sign-in | PKCE, no secret, offline refresh token | Chromium: `getAuthToken` (checked in Chrome 2026-11-21: interactive and silent both work). Elsewhere: no refresh token without a secret, so 1-hour tokens renewed by a non-interactive `launchWebAuthFlow`, which needs the user signed in to Google in that browser (expect "Reconnect needed" in Firefox) | an extension redirect counts as a single-page app: refresh tokens last 24 h, then a non-interactive `launchWebAuthFlow`. Token requests from an extension origin may be refused (AADSTS9002326 / 9002327) |
+| Built | | 2026-11-21: files and auth ("Google Drive" below) | |
 | Review | production approval within 2 weeks of the 51st linked user | possibly none for non-sensitive scopes | Entra app registration; unverified publisher may show a warning |
+
+### Google Drive (built 2026-11-21)
+- **Files**: `appDataFolder` is flat, so a file's path is its `appProperties.path` (its `name` is the path too). `list` pages through `GET /drive/v3/files?spaces=appDataFolder` (1,000 a page) and keeps a path → id map; files without a path are not Langle's and are left out. A `write` or `read` before this worker has listed lists first, so a restart never creates a second copy. `write`: a listed path is replaced in place (`PATCH /upload/drive/v3/files/<id>?uploadType=media`), a new one is created with a multipart upload (metadata `{name, parents: ["appDataFolder"], appProperties: {path}}`); a listed file removed since is created again. `read`: `alt=media`. `remove`: `DELETE` (a file gone already is no error)
+- Two files with the same path (two creates that raced): the newest is the file (equal times: the smaller id); the others go when the path is next written or removed, which only its own device does. One that cannot go then goes at the next write
+- Errors: 401 → `unauthorized`; 403 with `storageQuotaExceeded` → `full`; 403 with `insufficientPermissions` (the scope was not granted) → `unauthorized`, so it ends as "Reconnect needed"; other 403s (`rateLimitExceeded`, `userRateLimitExceeded`), 429, 5xx and network failures → `retry`, with `Retry-After` (seconds or a date) when given; 404 → `notFound`. Reasons are read from both `error.errors[]` and `error.details[]`
+- **Auth**: where `identity.getAuthToken` exists (detected), it is asked for `drive.appdata` (the manifest's `oauth2` names the Chrome-extension client); a refused token is removed with `removeCachedAuthToken` first; a token without the scope is refused. Elsewhere, `launchWebAuthFlow` runs the implicit flow with the Web client (`response_type=token`, `redirect_uri = identity.getRedirectURL()`, a random `state` checked on return, `prompt=none` without a window); the token and its end (`expires_in`, about an hour) are kept in `storage.local` (`googleDriveToken`) and renewed a minute before. Any failure (a closed window, `interaction_required`, another `state`) is `unauthorized`. `login_hint` would help the silent renewal but needs the account's address, which Langle does not ask for. `forget()` drops this device's tokens (`clearAllCachedAuthTokens`, the kept token); the grant at Google is not revoked, since that would sign out the user's other devices
+- Known limits: Firefox's redirect (`*.extensions.allizom.org`) is not registered in the Web client yet (C7), so connecting there fails until it is; Edge has `getAuthToken` but does not support it, so it needs its own check before an Edge version
+- Tests: `google-drive.test.ts` against recorded Drive responses through a fake `fetch` (paging, create vs replace, duplicates, read, remove, every error), `google-auth.test.ts` with a fake `identity` (both paths)
 
 ### Timing
 - Write 30 s after the last local change. Pending writes are remembered in `storage.local` and done at the next start
@@ -519,7 +528,7 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 - Retry: 15 s doubled per failure, `retryAfterMs` when given, at most 10 min; the retry checks, then saves if the check worked. A 401 asks for a new token without a window once, then sets "reconnect". Storage full stops writing until the next local change
 - Status (`cloudStatus` message, and the `cloudSync` key for a storage watch): provider, last saved, last checked, total bytes, number of device folders, and the error (reconnect > full > update > retrying). `cloudCheck` asks for a read now (the popup and Word list send it when they open, from C6); requests while one runs are merged
 - Connect: an interactive token, then (first connection only) browser sync's terms are pulled in, the state starts fresh, `cloudProvider` is set, the 5-minute alarm is created, and it checks, then saves. Connecting again to the same provider only clears the error; another provider starts fresh without pulling browser sync. Disconnect: timers and the alarm go, the state and the token are forgotten, browser sync pulls everything in
-- No provider is wired in yet (C5); the backend runs with an empty provider list
+- Providers: `src/entrypoints/background.ts` passes Google Drive in builds that have Google clients (every mode but production for now)
 
 ### UI (details mock-first when building)
 - Settings "Your own cloud storage": provider choice, Connect / Disconnect, status
@@ -529,7 +538,7 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 ### Tests
 - Unit (`core/`): file encoding (other `v`, broken, newer), every merge rule, `clearedAt`, `historyClearedAt` and `historyForgotten`, settings field times, the history limit, and a **property test** (`sync.property.test.ts`, seeded): random devices with skewed clocks, changes, writes and partial reads in random orders reach the same final state, and reading again changes nothing; with no limit reached, with the trim and history limit reached, and with them reached on almost every change. `CLOUD_SYNC_SEEDS` runs more seeds (1500 per case pass)
 - Browser: `CloudSyncBackend` against an in-memory fake `CloudProvider`, two devices or more (`src/testing/cloud-provider.ts`): merge, the 30 s write and `main` only after a local change, list then download only changed files, pending writes at the next start, reading month files before their `main`, a copied browser profile, connect / disconnect with browser sync, 401 → "Reconnect needed", 429 → backoff, storage full, a newer `v` → "update", the history switch. Switching provider is tested once a second provider exists
-- Providers' files halves: recorded HTTP responses, no live API in tests
+- Providers' files halves: recorded HTTP responses, no live API in tests (Google Drive: "Google Drive" above)
 - Last: in the user's Chrome and Firefox with real accounts, per provider: connect, sync two devices, disconnect. The user signs in
 
 ### Checks before building

@@ -15,6 +15,6 @@ Design: [architecture](../specs/architecture.md) "Sync to the user's own cloud s
 | C2 | Core merge and file format (`src/core/cloud/`): file types and codec, every merge rule, the in-memory reference merge, unit tests and the property test | built |
 | C3 | Dexie v7 data model (`deviceId`, `addedAt`, `clearedAt`; tombstones are never pruned locally, so no "connected" switch), settings field times (`settingsTimes`), `importJson` on the new rules (export version 3) | built |
 | C4 | `CloudSyncBackend` against an in-memory fake provider: read/merge/write, timing, status and errors, browser sync while connected | built |
-| C5 | Google Drive provider: files half over `fetch` (recorded responses in tests), auth half (`getAuthToken` / `launchWebAuthFlow`) | |
+| C5 | Google Drive provider: files half over `fetch` (recorded responses in tests), auth half (`getAuthToken` / `launchWebAuthFlow`) | built (development and check builds; production waits for the store item's client) |
 | C6 | UI per the mock | |
 | C7 | Real check in the user's Chrome and Firefox with a real account; release docs (store listing, privacy) | |
