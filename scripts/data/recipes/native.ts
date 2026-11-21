@@ -221,6 +221,10 @@ export async function buildPairDictionary(
       Object.hasOwn(names, term) && /^[gs]/.test(names[term]!),
     // A capital-only word has its English definition (en-defs) to show instead.
     defined: (term) => termKey.capitalOnly?.(term) === true,
+    // A common word of its own: not another word's form (mars, of mar: Mars).
+    lowercase: (term) =>
+      Object.hasOwn(merged.dict, term) &&
+      (!Object.hasOwn(lemmas, term) || [lemmas[term]!].flat().includes(term)),
   });
   // A word English writes only capitalised (no lowercase headword in English
   // Wiktionary: January, Monday) is its capitalised headword: an edition's lowercase

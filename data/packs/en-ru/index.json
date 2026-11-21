@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"NOSIII"},{"file":"capital-2.json","first":"NOSPR","last":"ɅTLɅS"},{"file":"dict-1.json","first":"a","last":"feebly"},{"file":"dict-2.json","first":"feed","last":"phthisis"},{"file":"dict-3.json","first":"phylactery","last":"y"},{"file":"dict-4.json","first":"y chromosome","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A","last":"NOSIII"},{"file":"capital-2.json","first":"NOSPR","last":"ɅTLɅS"},{"file":"dict-1.json","first":"a","last":"feebly"},{"file":"dict-2.json","first":"feed","last":"phthisis"},{"file":"dict-3.json","first":"phylactery","last":"y chromosome"},{"file":"dict-4.json","first":"y-axis","last":"éclair"}],
 "sources":["enwiktionary-translations","ruwiktionary","wikidata"]
 }

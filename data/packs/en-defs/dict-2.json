@@ -1,4 +1,9 @@
 {
+"brow":[["noun","The bony ridge over the eyes, upon which the eyebrows are located."],["noun","The eyebrow."],["noun","The forehead."],["noun","Aspect; appearance; facial expression."]],
+"brow job":[["noun","A plastic surgical procedure to alter the appearance of the browline or eyebrow(s), especially for cosmetic reasons."],["noun","A nonsurgical modification of the eyebrow(s), namely through threading, tweezing, makeup, etc."]],
+"brow ridge":[["noun","a bony projection in humans and other primates located above eye sockets delimiting the bottom of the forehead"]],
+"browbeat":[["verb","To bully in an intimidating, bossy, or supercilious way."]],
+"brown ale":[["noun","A type of beer characterised by its brown colour and rich malty, hoppy flavour with hints of caramel."]],
 "brown alga":[["noun","Any of many seaweeds of the class Phaeophyceae."]],
 "brown anole":[["noun","Anolis sagrei, a species of anole endemic to Cuba and invasive to the United States."]],
 "brown argus":[["noun","A brown butterfly (Aricia agestis) of the family Lycaenidae"]],
@@ -7950,6 +7955,7 @@
 "company union":[["noun","A trade union that is dominated or influenced by an employer and thus not properly independent."]],
 "compaq":[["proper noun","American information technology company."]],
 "comparability":[["noun","The quality of being comparable."]],
+"comparable":[["adjective","Able to be compared (to)."],["adjective","Similar (to); like."],["adjective","Constituting a pair in a particular partial order."],["adjective","Having comparative and superlative forms."]],
 "comparably":[["adverb","In a comparable manner; by comparison"]],
 "comparative advantage":[["noun","The ability to produce a particular good at a lower relative opportunity cost than another producer."]],
 "comparative anatomy":[["noun","the study of similarities and differences in the anatomy of organisms"]],
@@ -12030,6 +12036,7 @@
 "dampish":[["adjective","Moderately damp or moist."]],
 "dampness":[["noun","Moderate humidity; moisture; moistness; the state or quality of being damp."],["noun","The degree to which something is damp or moist."]],
 "dampproof":[["adjective","Resistant to the effects of damp."],["verb","To make resistant to the effects of damp."]],
+"damsel":[["noun","A young woman (of noble birth)."],["noun","A girl; a maiden (without sexual experience)."],["noun","A young woman who is not married."],["noun","An unmarried lady-in-waiting."]],
 "damsel bug":[["noun","Any insect in the family Nabidae"]],
 "damson":[["noun","A subspecies of plum tree, Prunus domestica subsp. insititia, native to Eurasia."],["noun","The edible fruit of this tree."],["adjective","The color of the fruit of this tree, a very deep purple."]],
 "dan":[["noun","A small truck or sledge used in coal mines."],["noun","A rank of black belt in martial arts."],["noun","Someone who has achieved a level of black belt."],["noun","Synonym of picul: a traditional unit of weight and mass, chiefly used as a dry measure of grains."]],
@@ -12792,12 +12799,5 @@
 "debt bondage":[["noun","A condition similar to slavery where people are unable to control their lives or their work due to unpaid debts."]],
 "debt burden":[["noun","The debt of a country or subdivision, when large enough that servicing it has become difficult."]],
 "debt ceiling":[["noun","The limit up to which an entity (usually a government) is legally allowed to borrow."]],
-"debt collection":[["noun","The process of pursuing payments of debts owed by individuals or businesses."]],
-"debt collector":[["noun","A company used by creditors or lenders to recover funds that are past due or from accounts that have defaulted."]],
-"debt instrument":[["noun","A document evidencing a debt; the debt so evidenced."]],
-"debt obligation":[["noun","A duty by which a party to an agreement is legally bound to pay the maturity of a debt at a time and in a manner as is stipulated within a given contract or promissory note."]],
-"debt of nature":[["noun","Death, seen as an obligation that all living creatures must eventually pay."]],
-"debt relief":[["noun","The partial or total forgiveness of debt."]],
-"debt trap":[["noun","A situation in which a borrower's debt obligations exceed their repayment capabilities, compelling to them to incur new debt to repay existing ones."]],
-"debt trap diplomacy":[["noun","A nation's use of predatory loans in order to gain leverage in relations with the recipient country or to seize assets within the indebted country."]]
+"debt collection":[["noun","The process of pursuing payments of debts owed by individuals or businesses."]]
 }
