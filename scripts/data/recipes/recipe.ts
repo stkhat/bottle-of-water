@@ -1134,6 +1134,30 @@ export async function readEdition(
   let foreign = 0;
   let placeheld = 0;
   let reshaped = 0;
+  let english = 0;
+  /** A gloss in English (`englishOf` gives each of its words, and it has two or more). */
+  const inEnglish = (gloss: string, head: string) => {
+    const words = gloss.replace(NOTES, " ").match(/[\p{L}\p{M}'’-]+/gu) ?? [];
+    if (words.length < 2 || englishOf(words.join(" ")).length !== words.length)
+      return false;
+    // Not one that spells the headword out: an abbreviation's expansion (BBC: "British
+    // Broadcasting Corporation", MO: "money order"), the headword itself (es "Hot
+    // dog") or a name around it ("William Shakespeare", "Mount Everest"); an example
+    // that holds the headword is no meaning ("… at the outside").
+    const lower = words.map((word) => word.toLowerCase());
+    const letters = head.toLowerCase().replace(/[^\p{L}]/gu, "");
+    const initials = (of: string[]) => of.map((word) => word[0]).join("");
+    const capitals = words.filter((word) => /^\p{Lu}/u.test(word));
+    const parts = head.toLowerCase().split(/\s+/u);
+    const spelled =
+      initials(lower) === letters ||
+      initials(capitals).toLowerCase() === letters ||
+      (parts.every((part) => lower.includes(part)) &&
+        words.every(
+          (word, at) => parts.includes(lower[at]!) || /^\p{Lu}/u.test(word),
+        ));
+    return !spelled;
+  };
   // The edition writes most of its common nouns capitalised (German).
   const capitalNouns = capitalisedNouns > nouns / 2;
   // The edition opens most of its glosses with a capital, as a sentence (es, fr): only
@@ -1178,6 +1202,15 @@ export async function readEdition(
           (found.gloss !== written && found.gloss.toLowerCase() === head)
         )
           continue;
+        // Nor is one written in English, its notes aside: two words or more, each an
+        // English term and none a word of the edition's language (tr guerdon: "A
+        // reward, prize or recompense for a service; an accolade"; outside: "It may
+        // last a week at the outside", an example left as a gloss). Not a
+        // contraction's, whose English expansion is its meaning (pl that's: "that is").
+        if (!head.includes("'") && inEnglish(found.gloss, head)) {
+          english++;
+          continue;
+        }
         // Nor is one that points to the headword itself, another spelling of it
         // (pt "you’re": "grafia alternativa de you're", filed under you're).
         if (pointerTemplates(found.gloss, key).some(isFrame)) continue;
@@ -1254,6 +1287,8 @@ export async function readEdition(
       sentenceCase,
       /** Lowercase terms' glosses left out as placeholders. */
       placeheld,
+      /** Glosses left out as written in English. */
+      english,
       /** Glosses with labels put in brackets, a closing reference cut, or the translation first. */
       reshaped,
       labels: [...labels],
@@ -1563,6 +1598,11 @@ export async function readTranslationTables(
   const capitalised = new Set<string>();
   /** term key ("french", "French") → the most languages one sense's table translates */
   const coverage = new Map<string, number>();
+  /**
+   * term key → the part of speech of its most translated sense, by the languages its
+   * table translates it into (down: the adverb's 78, not the feathers' 51)
+   */
+  const mostTranslated = new Map<string, { pos: string; langs: number }>();
   /** term key → the tags of its English form-of senses ("past", "participle", "plural") */
   const formTags = new Map<string, Set<string>>();
   /** capitalised headword → its table words in every language, by case (`writtenAsWord`) */
@@ -1701,6 +1741,10 @@ export async function readTranslationTables(
         ),
       );
     }
+    for (const { langs } of groups.values()) {
+      if (langs.size > (mostTranslated.get(key)?.langs ?? 0))
+        mostTranslated.set(key, { pos, langs: langs.size });
+    }
     for (const [hint, { words, langs, marked, example, noted }] of groups) {
       // A row that gives an example ("We would sit by the hole… - Winters saßen
       // wir…") has the example's pieces as its words ("In the winters", "er sei sofort
@@ -1771,6 +1815,8 @@ export async function readTranslationTables(
     lowercase,
     capitalised,
     coverage,
+    /** term key → the part of speech of its most translated sense, in every language */
+    mainPos: new Map([...mostTranslated].map(([key, { pos }]) => [key, pos])),
     formTags,
     formOf: new Map(
       [...formOnly].filter((pair): pair is [string, FormOf] => !!pair[1]),
@@ -2375,7 +2421,8 @@ export function mergeSources(
     otherWord = () => false,
     expansionsOf = () => [],
   }: {
-    mainPos?: (key: string) => string | undefined;
+    /** `from`: the tag of the source the term was taken from. */
+    mainPos?: (key: string, from: string) => string | undefined;
     /** A sense that is an unmarked degree of another word (`degreeOf`). */
     degree?: (key: string, sense: PairSense) => boolean;
     /**
@@ -2410,6 +2457,7 @@ export function mergeSources(
     key: string,
     taken: readonly PairSense[],
     later: readonly PairSense[],
+    from: string,
   ): "points" | "describes" | "lacks" | "expands" | false => {
     if (!means(taken)) {
       if (!means(later)) return false;
@@ -2447,7 +2495,7 @@ export function mergeSources(
       )
     )
       return "describes";
-    const main = mainPos(key);
+    const main = mainPos(key, from);
     return (
       main !== undefined &&
       OPEN_CLASSES.includes(main) &&
@@ -2468,7 +2516,7 @@ export function mergeSources(
     for (const [key, { short, senses }] of terms) {
       if (Object.hasOwn(dict, key)) {
         const [, taken, from] = dict[key]!;
-        const why = yields(key, taken, senses);
+        const why = yields(key, taken, senses, sources[from]!.tag);
         if (!why) continue;
         counts[sources[from]!.tag]!--;
         if (why === "describes") described.push(key);

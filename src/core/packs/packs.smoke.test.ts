@@ -918,6 +918,21 @@ describe.each(recipeNatives())("generated en-%s first lines", (native) => {
   });
 });
 
+describe("generated en-th dictionary", () => {
+  it("gives great its rows' meaning said alone, not adjectives glossed great (tr-2)", async () => {
+    const { dict } = await loadPack("en-th");
+    const dictionary = createPairDictionary({
+      dict,
+      defs,
+      ipa,
+      native: "th",
+      lemmas,
+      pos,
+    });
+    expect(dictionary.entry("great")?.lines[0]).toContain("ยอดเยี่ยม");
+  });
+});
+
 describe("generated en-zh dictionary", () => {
   it("is written in simplified characters", async () => {
     const { dict } = await loadPack("en-zh");

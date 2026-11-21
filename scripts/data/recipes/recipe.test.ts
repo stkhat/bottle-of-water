@@ -256,6 +256,7 @@ describe("readEdition", () => {
       templates: 0,
       unmarkedTemplates: 0,
       cased: 0,
+      english: 0,
       foreign: 0,
       // Its glosses open in lower case.
       sentenceCase: false,
@@ -472,7 +473,7 @@ describe("readEdition: unmarked pointers, placeholders, labels (U1-7)", () => {
         "bedbug bug ramekin ramequin wore wear doge duke cardinal squeeze stem pression " +
         "absorber binder cocky stub easter rabbit dong dork gun jack prick rod tool wang willy " +
         "schlong abbey baron castle earl knight lord manor squire vassal liege britain soonest " +
-        "soon prismatical prismatic shes she has acetanilide"
+        "soon prismatical prismatic shes she has acetanilide guerdon recompense for service mo money order"
       ).split(" "),
     ),
     lemmas: {},
@@ -502,6 +503,14 @@ describe("readEdition: unmarked pointers, placeholders, labels (U1-7)", () => {
     expect(terms.get("wore")?.senses).toEqual([
       ["verb", "variante de prétérit de wear", null, "wear"],
     ]);
+  });
+
+  it("leaves out a gloss written in English (tr-2)", async () => {
+    const { terms, stats } = await read();
+    expect(terms.get("guerdon")?.senses).toEqual([["noun", "Récompense"]]);
+    expect(stats.english).toBe(1);
+    // An abbreviation's English expansion spells the headword out: kept.
+    expect(terms.get("mo")?.senses).toEqual([["noun", "Money order"]]);
   });
 
   it("cuts a reference that closes a gloss after an arrow", async () => {
@@ -1135,6 +1144,33 @@ describe("mergeSources", () => {
     expect(dict["yesterday"]?.[2]).toBe(0);
     expect(dict["seven"]?.[2]).toBe(0);
     expect(lacking).toEqual(["better", "worse"]);
+  });
+
+  it("tells the main part of speech which source the term was taken from (tr-2)", () => {
+    const tables = new Map<string, SourceTerm>([
+      [
+        "down",
+        { short: "kuş tüyü", senses: [["noun", "kuş tüyü", "feathers"]] },
+      ],
+    ]);
+    const edition = new Map<string, SourceTerm>([
+      ["down", { short: "aşağı", senses: [["adverb", "aşağı, aşağıya"]] }],
+    ]);
+    const froms: string[] = [];
+    const { dict } = mergeSources(
+      [
+        { tag: "enwiktionary-translations", terms: tables },
+        { tag: "trwiktionary", terms: edition },
+      ],
+      {
+        mainPos: (_, from) => {
+          froms.push(from);
+          return from === "enwiktionary-translations" ? "adverb" : undefined;
+        },
+      },
+    );
+    expect(froms).toEqual(["enwiktionary-translations"]);
+    expect(dict["down"]?.[0]).toBe("aşağı");
   });
 });
 

@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"NAVAID"},{"file":"capital-2.json","first":"NAVEUR","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'re","last":"gee"},{"file":"dict-2.json","first":"geek","last":"retell"},{"file":"dict-3.json","first":"retention","last":"élan"}],
+"shards":[{"file":"capital.json","first":"A","last":"NAVEUR"},{"file":"capital-2.json","first":"NAVSPECWARCOM","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'re","last":"gee"},{"file":"dict-2.json","first":"geek","last":"retell"},{"file":"dict-3.json","first":"retention","last":"élan"}],
 "sources":["enwiktionary-translations","dewiktionary","wikidata"]
 }
