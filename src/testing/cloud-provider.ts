@@ -29,6 +29,8 @@ export interface FakeAccount extends CloudAuth {
   expire(): void;
   /** What `files.account` gives for this account's tokens. */
   address: string | undefined;
+  /** Whether the sign-in window is closed or declined (an interactive token fails). */
+  declines: boolean;
 }
 
 export interface FakeCloud {
@@ -128,7 +130,13 @@ export function createFakeCloud({
       const account: FakeAccount = {
         silent: true,
         address,
+        declines: false,
         async token({ interactive, refused }) {
+          if (interactive && account.declines)
+            throw new CloudError(
+              "unauthorized",
+              "The user did not approve access",
+            );
           if (refused !== undefined && refused === current) current = undefined;
           if (!interactive && (!signedIn || !account.silent))
             throw new CloudError("unauthorized", "No token without a window");

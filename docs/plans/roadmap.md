@@ -11,7 +11,7 @@ Phases 1–2 and M9 are done (git history; [status](../status.md)). What is left
 - New screens go into the mock first and are built after the user reviews them
 
 ## Sync to the user's own cloud storage
-Designed in [architecture](../specs/architecture.md) "Sync to the user's own cloud storage"; built in milestones C0–C7 ([plan](cloud-sync.md)), Google Drive first. Built: C2 (file format and merge).
+Google Drive built and checked in the user's Chrome (C0–C7, 2026-11-21; [architecture](../specs/architecture.md) "Sync to the user's own cloud storage", [notes](../notes/cloud-sync.md)). Left: the store item's Google client and consent screen ([status](../status.md) "Before publishing"), Firefox's sign-in checks before the Firefox version, then Dropbox and OneDrive (a `CloudProvider` each).
 
 ## Store release
 See [status](../status.md) "Before publishing".

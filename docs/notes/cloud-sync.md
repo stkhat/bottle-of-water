@@ -1,6 +1,6 @@
-# Cloud sync: spike results (C0)
+# Cloud sync: spike results (C0) and the real check (C7)
 
-The milestone C0 of [plans/cloud-sync.md](../plans/cloud-sync.md): a throwaway extension (not in the repo) that signs in to Google and reads and writes one gzipped file in Drive's `appDataFolder`, run in the user's Chrome on 2026-11-21. The design it checks: [architecture](../specs/architecture.md) "Sync to the user's own cloud storage".
+The milestone C0 of the cloud sync build (C0–C7, done 2026-11-21): a throwaway extension (not in the repo) that signs in to Google and reads and writes one gzipped file in Drive's `appDataFolder`, run in the user's Chrome on 2026-11-21. The design it checks: [architecture](../specs/architecture.md) "Sync to the user's own cloud storage".
 
 ## Google Cloud project
 - One project registered by the user with their own account: Drive API on, consent screen External in Testing (the user as test user), scope `https://www.googleapis.com/auth/drive.appdata` only
@@ -40,7 +40,18 @@ The milestone C0 of [plans/cloud-sync.md](../plans/cloud-sync.md): a throwaway e
 ## Sizes on the user's data
 - The user's last JSON export (2026-11-18): 337 terms, no occurrences or meanings; `main` would be 5.9 KB gzipped, about 18 bytes per term, so 10,000 terms ≈ 175 KB. Occurrences were not in that export, so month-file sizes stay the architecture's estimate until C7 measures them
 
+## Real check in the user's Chrome (C7, 2026-11-21)
+Check build of `ad8349e` plus the declined sign-in fix, two Chrome profiles (each signed in to Chrome with a different Google account), both connected to the same Google account through the account chooser, an English Wikipedia article (Honey bee).
+- Connect: Google's chooser, then the consent screen; Settings showed "Google Drive (<address>)" and 2 devices. The first try, before the chooser existed, connected each profile to its own Chrome account: nothing synced, which is how "Account choice" (above) was found
+- Profile 2 → profile 1: a term saved as Learning, a meaning chosen with "Use here" and its sentence all arrived (dictionary window: Learning, "Used here", "1 sentence")
+- Profile 1 → profile 2: a status change (Learning → Known) and a new Learning term arrived between 2.5 and 4.5 minutes later, within the 5-minute check
+- Disconnect, then Connect: the chooser again, another account could be picked
+- Reconnect needed: the user removed Langle's access in their Google account; the popup then showed "Reconnect needed", and Reconnect (chooser, consent) brought back "Last saved to Google Drive …"
+- Consent screen in Testing: accounts not listed as test users get Google's "Access blocked … has not completed the Google verification process" (Error 403 `access_denied`); test users saw no unverified-app warning
+- Error log: only the two declined sign-ins (the 403 above) were logged as errors; since then a closed or declined sign-in window changes nothing and logs nothing. Read and cleared in both profiles
+- Not checked: sentence history across devices (browser tests cover it), storage full, a newer file version, month-file sizes on real data
+
 ## Not checked yet
 - Firefox (not installed on the user's Mac; the Chrome version ships first): `launchWebAuthFlow` there, its silent renewal (`login_hint` with the account's address and `prompt=none`, which works in Chrome), and whether Firefox takes `identity` as an optional permission. Done before the Firefox version
-- What publishing needs: whether `drive.appdata` is listed as non-sensitive in the project's Data access page (then only brand verification) and the unverified-app screen users see while the project is in Testing
+- What publishing needs: whether `drive.appdata` is listed as non-sensitive in the project's Data access page (then only brand verification) when the consent screen goes to In production. In Testing only test users can sign in (above)
 - Mobile client types (iOS / Android) in the same project: checked with the mobile app
