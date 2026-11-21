@@ -6,6 +6,7 @@ import { shortDate } from "../../ui/format/format";
 import { BookmarkIcon } from "../../ui/icons";
 import { useShownRows } from "../../ui/rows-in-view";
 import { color } from "../../ui/styles";
+import { langAttrs } from "../../ui/text-direction";
 
 type Style = CSSProperties;
 
@@ -146,7 +147,7 @@ function Row(props: {
           <BookmarkIcon label={t("wordlist.yourMeanings")} size={13} />
         )}
         <span
-          lang={meaning.lang}
+          {...langAttrs(meaning.lang)}
           style={{ overflow: "hidden", textOverflow: "ellipsis" }}
         >
           {meaning.text}

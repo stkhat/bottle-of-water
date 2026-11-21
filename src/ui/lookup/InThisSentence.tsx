@@ -5,6 +5,7 @@ import { t } from "../../i18n/t";
 import { PencilIcon, SparkleIcon } from "../icons";
 import { Meter } from "../Meter";
 import { color, sectionHeading } from "../styles";
+import { langAttrs } from "../text-direction";
 
 /**
  * What "In this sentence" shows (mock ContextMeaning): the button, the model to
@@ -267,7 +268,7 @@ function AnswerCard(
   return (
     <div style={CARD}>
       <p
-        lang={props.nativeLang}
+        {...langAttrs(props.nativeLang)}
         style={{
           margin: 0,
           fontSize: "16px",

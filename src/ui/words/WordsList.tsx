@@ -8,6 +8,7 @@ import { keepOpen } from "../keep-open";
 import { useShownRows } from "../rows-in-view";
 import { color, toggleChip } from "../styles";
 import { termStyle } from "../video/terms";
+import { langAttrs } from "../text-direction";
 
 type Style = CSSProperties;
 
@@ -399,7 +400,7 @@ function RowBody<R extends WordRow>(props: RowProps<R>) {
         style={ROW_BUTTON}
       >
         <span
-          lang={props.learningLang}
+          {...langAttrs(props.learningLang)}
           onPointerEnter={onlyFromUser((event) =>
             handlers.onWordEnter(row, event.currentTarget as HTMLElement),
           )}
@@ -438,7 +439,7 @@ function RowBody<R extends WordRow>(props: RowProps<R>) {
             <BookmarkIcon label={t("dict.yourMeaning")} size={12} />
           )}
           <span
-            lang={!row.groups && row.short ? row.shortLang : undefined}
+            {...langAttrs(!row.groups && row.short ? row.shortLang : undefined)}
             style={ELLIPSIS}
           >
             {row.groups ? "" : row.short}
@@ -515,7 +516,10 @@ function GroupLine<R extends WordRow>(
         }}
       >
         {meaning && <BookmarkIcon label={t("dict.yourMeaning")} size={12} />}
-        <span lang={meaning ? meaning.lang : row.shortLang} style={ELLIPSIS}>
+        <span
+          {...langAttrs(meaning ? meaning.lang : row.shortLang)}
+          style={ELLIPSIS}
+        >
           {text}
         </span>
       </span>

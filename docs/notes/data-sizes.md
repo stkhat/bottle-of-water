@@ -63,3 +63,4 @@ Measured on 2026-11-09 with `npm run data:stats` after `npm run data:build` (kai
 - Sync capacity: 12,402 English terms fit in 102,400 bytes (`src/core/sync/codec.capacity.test.ts`); alternatives measured: up to ~16,300 with a column format (not adopted)
 - Raw downloads in `data/raw/` (git-ignored): kaikki English (3.4 GB), kaikki Spanish (1.1 GB, for phase 2), EJDict, Wiktionary TV/2006 frequency pages
 - English → Hindi (hi-1, 2026-11-21): `en-hi` 17,924 terms (tables 12,288, English Wiktionary's Hindi entries 5,757), 3.40 MB raw (`dict-1.json` 1.86, `capital.json` 1.54); `en-defs` 18.37 → 19.80 MB, as it keeps the terms some pair lacks and en-hi lacks many (its gate passes by tokens, rule (b))
+- English → Arabic (ar-1, 2026-11-21): `en-ar` 26,500 terms (tables 16,689, English Wiktionary's Arabic entries 6,025, Arabic WordNet 3,914), 5.24 MB raw (`dict-1.json` 2.00, `dict-2.json` 0.36, `capital.json` 2.00, `capital-2.json` 0.88); `en-defs` 19.85 → 20.03 MB

@@ -58,6 +58,18 @@ export interface NativeLanguage {
    * खबर; a candrabindu or an anusvara, चाँद and चांद). Absent: none.
    */
   readonly spelling?: (word: string) => string;
+  /**
+   * Its meanings as Langle writes them, from the sources' text (the pair pack's build):
+   * Arabic without tatweel and without the short-vowel marks the sources write on some
+   * words and not others. Absent: as the sources write them.
+   */
+  readonly written?: (text: string) => string;
+  /**
+   * Written right to left (Arabic; Persian and Urdu too): its text is set right to left
+   * and isolated from the English around it (`dir`, bidi isolation), so its punctuation
+   * and the Latin labels inside it stay in place.
+   */
+  readonly rtl?: true;
 }
 
 /**
@@ -71,6 +83,28 @@ export const devanagariSpelling = (word: string) =>
     .replace(/\u093c/gu, "")
     .replace(/\u0901/gu, "\u0902")
     .normalize("NFC");
+
+/**
+ * Arabic's harakat and other marks a reader may leave out (U+064B–U+065F: tanwin, the
+ * short vowels, shadda, sukun …; U+0670, the dagger alef), and the tatweel (U+0640), a
+ * stretch of the line between letters.
+ */
+const ARABIC_MARKS = /[\u064b-\u065f\u0670\u0640]/gu;
+
+/**
+ * Arabic as Langle writes it (`NativeLanguage.written`): without harakat and tatweel
+ * (كَلْب → كلب; precomposed letters with a hamza or madda stay, أ, آ).
+ */
+export const arabicWritten = (text: string) =>
+  text.normalize("NFC").replace(ARABIC_MARKS, "");
+
+/**
+ * Arabic in the spelling that stands for its variants (`NativeLanguage.spelling`): as
+ * written (`arabicWritten`), with an alef that carries a hamza or a madda, or a wasla,
+ * as a bare alef (أ إ آ ٱ → ا): writers leave the hamza off.
+ */
+export const arabicSpelling = (word: string) =>
+  arabicWritten(word).replace(/[\u0622\u0623\u0625\u0671]/gu, "\u0627");
 
 /**
  * The native languages, the default first. A pair is offered only once its dictionary
@@ -225,6 +259,27 @@ export const NATIVE_LANGUAGES = {
     englishPair: { format: 4 },
     spelling: devanagariSpelling,
   },
+  // Arabic (Modern Standard Arabic, as the sources write it) writes spaces between
+  // words, right to left. Its letters join but are about as wide as Latin ones, so not
+  // dense. Chrome's Prompt API decides by itself whether it answers in Arabic
+  // (`availability`); the examples are there for when it does.
+  ar: {
+    option: "language.ar",
+    name: "languageName.ar",
+    spaces: true,
+    dense: false,
+    scripts: ["Arabic"],
+    translator: true,
+    examples: {
+      bank: "ضفة (النهر)",
+      beans: "أفشى السر",
+      mind: "قرر",
+    },
+    englishPair: { format: 4 },
+    spelling: arabicSpelling,
+    written: arabicWritten,
+    rtl: true,
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",
@@ -254,6 +309,19 @@ export const nativeLanguage = (code: string): NativeLanguage | undefined =>
   Object.hasOwn(NATIVE_LANGUAGES, code)
     ? NATIVE_LANGUAGES[code as keyof Natives]
     : undefined;
+
+/** `lang` (a code, "ar" or "ar-EG") is written right to left (`NativeLanguage.rtl`). */
+export const writtenRightToLeft = (lang: string) =>
+  nativeLanguage(lang.split("-")[0]!)?.rtl === true;
+
+/**
+ * `text` in `lang` set inside a line of English (the card's "figure — …"): a language
+ * written right to left (`NativeLanguage.rtl`) between a right-to-left isolate (U+2067)
+ * and its end (U+2069), so its punctuation and an ellipsis stay at its own end. Text
+ * in other languages as it is.
+ */
+export const bidiIsolated = (text: string, lang: string) =>
+  writtenRightToLeft(lang) ? `\u2067${text}\u2069` : text;
 
 /** The native languages whose English pair pack a recipe builds, in registry order. */
 export const recipeNatives = () =>

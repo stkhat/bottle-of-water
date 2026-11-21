@@ -6,6 +6,7 @@ import { color, root } from "../styles";
 import { renderTerms, termStyle } from "./terms";
 import { TermSpan } from "./TermSpan";
 import { useTextSelection, type TextSelectionProps } from "./text-selection";
+import { langAttrs } from "../text-direction";
 
 export interface SubtitleOverlayProps extends TextSelectionProps {
   /**
@@ -248,7 +249,7 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
     >
       <p
         ref={selection.ref}
-        lang={props.learningLang}
+        {...langAttrs(props.learningLang)}
         onPointerDown={selection.onPointerDown}
         // Explicitly: the player's `user-select: none` would carry down.
         style={{ ...adjust(look.line, scale, alpha), userSelect: "text" }}
@@ -257,7 +258,7 @@ export function SubtitleOverlay(props: SubtitleOverlayProps) {
       </p>
       {props.showTranslation && props.translation !== "" && (
         <p
-          lang={props.nativeLang}
+          {...langAttrs(props.nativeLang)}
           style={adjust(
             look.translation,
             scale,

@@ -1,6 +1,7 @@
 import { t } from "../../i18n/t";
 import { SourceIcon } from "../icons";
 import { color } from "../styles";
+import { langAttrs } from "../text-direction";
 
 /** An occurrence in another source. */
 export interface ElsewhereItem {
@@ -50,7 +51,7 @@ export function ElsewhereRow(props: {
           {item.meta}
         </span>
         <span
-          lang={props.lang}
+          {...langAttrs(props.lang)}
           style={{ fontSize: "13px", lineHeight: 1.5, color: color.ink3 }}
         >
           {item.text}

@@ -17,6 +17,7 @@ import {
   type Anchor,
   type SelectedText,
 } from "./text-selection";
+import { langAttrs } from "../text-direction";
 
 export interface TranscriptControlsProps {
   showTranslation: boolean;
@@ -406,7 +407,7 @@ function CardBody(props: CardProps) {
       )}
       <span
         ref={selection.ref}
-        lang={props.learningLang}
+        {...langAttrs(props.learningLang)}
         onPointerDown={selection.onPointerDown}
         style={{ fontSize: "14px", lineHeight: 1.5, userSelect: "text" }}
       >
@@ -414,7 +415,7 @@ function CardBody(props: CardProps) {
       </span>
       {props.showTranslation && translation !== "" && (
         <span
-          lang={props.nativeLang}
+          {...langAttrs(props.nativeLang)}
           style={{
             fontSize: "13px",
             lineHeight: 1.5,

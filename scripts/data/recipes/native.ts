@@ -214,7 +214,14 @@ export async function buildPairDictionary(
 ) {
   if (!recipe) throw new Error(`No recipe for en-${native}`);
   const { edition, tables, wordnets = [], simplified } = recipe;
-  const toSimplified = simplified ? simplifiedConverter() : undefined;
+  // The native text as the pack writes it: Chinese in simplified characters, Arabic
+  // without harakat and tatweel (`NativeLanguage.written`).
+  const simplify = simplified ? simplifiedConverter() : undefined;
+  const written = nativeLanguage(native)?.written;
+  const toNative =
+    simplify && written
+      ? (text: string) => written(simplify(text))
+      : (simplify ?? written);
   const scripts = nativeLanguage(native)?.scripts;
   const letter = scripts && nativeLetterOf(scripts);
   const [editionTerms, tableTerms] = await Promise.all([
@@ -224,7 +231,7 @@ export async function buildPairDictionary(
           native,
           // Entries on pages of an undocumented bot import are left out.
           leftOut: await undocumentedPages(native, rawDir),
-          ...(toSimplified && { nativeForm: toSimplified }),
+          ...(toNative && { nativeForm: toNative }),
           ...(letter && { letter }),
         })
       : undefined,
@@ -232,6 +239,7 @@ export async function buildPairDictionary(
       ...tables,
       termKey,
       ...(simplified && { word: lastScriptForm }),
+      ...(written && { word: written }),
       ...(letter && { letter }),
     }),
   ]);
@@ -268,7 +276,7 @@ export async function buildPairDictionary(
           native,
           leftOut: await undocumentedPages(native, rawDir),
           fits,
-          ...(toSimplified && { nativeForm: toSimplified }),
+          ...(toNative && { nativeForm: toNative }),
           ...(letter && { letter }),
         },
       ),
@@ -311,9 +319,9 @@ export async function buildPairDictionary(
     sources.push({ tag, terms });
     capitalSources.push({ tag, terms: capital });
   }
-  if (toSimplified) {
+  if (toNative) {
     for (const { terms } of [...sources, ...capitalSources])
-      convertTerms(terms, toSimplified);
+      convertTerms(terms, toNative);
   }
   const merged = mergeSources(sources, {
     // A term's main part of speech: that of its most translated sense, when English
@@ -394,7 +402,7 @@ export async function buildPairDictionary(
     const read = entityNative(written, entity, native);
     const senses = read.map(([text, hint]): PairSense => [
       "proper noun",
-      toSimplified ? toSimplified(text) : text,
+      toNative ? toNative(text) : text,
       hint,
     ]);
     if (senses.length === 0) continue;
@@ -413,8 +421,8 @@ export async function buildPairDictionary(
     const senses = acronymNative(written, items, native).map(
       ([text, hint]): PairSense => [
         "proper noun",
-        toSimplified
-          ? toSimplified(withoutStressMarks(text))
+        toNative
+          ? toNative(withoutStressMarks(text))
           : withoutStressMarks(text),
         hint,
       ],

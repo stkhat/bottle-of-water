@@ -1511,6 +1511,15 @@ export async function readTranslationTables(
         }
         if (!codes.has(translation.lang_code as string)) continue;
         if (names && !names.has(translation.lang)) continue;
+        // A row of a variety kaikki nests under the language ("Egyptian-Arabic",
+        // "Alemannic-German" under Arabic and German) is not the standard language its
+        // readers read and write.
+        if (
+          (translation.tags ?? []).some((tag) =>
+            String(tag).endsWith(`-${String(translation.lang)}`),
+          )
+        )
+          continue;
         if (isExampleNote(translation.note, entry.word)) group.example = true;
         if (typeof translation.word !== "string") {
           // "not used in Mandarin", "Use the future perfective…": a row with a note

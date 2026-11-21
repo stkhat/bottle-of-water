@@ -3,7 +3,14 @@ import { instructions, meaningLength } from "./explain/prompt";
 import { languageName, languageOption } from "../i18n/languages";
 import { translatedLine } from "./lexicon/short-lines";
 import { DICTIONARY_PACKS, PACK_FORMATS } from "./packs/formats";
-import { nativeLanguage, recipeNatives } from "./natives";
+import {
+  arabicSpelling,
+  arabicWritten,
+  bidiIsolated,
+  nativeLanguage,
+  recipeNatives,
+  writtenRightToLeft,
+} from "./natives";
 import { joinerFor } from "./subtitles/translation";
 
 describe("the native-language registry", () => {
@@ -19,6 +26,7 @@ describe("the native-language registry", () => {
       "pl",
       "th",
       "hi",
+      "ar",
     ]);
     expect(PACK_FORMATS["en-es"]).toBe(4);
     expect(PACK_FORMATS["en-ru"]).toBe(4);
@@ -34,6 +42,7 @@ describe("the native-language registry", () => {
       "en-pl",
       "en-th",
       "en-hi",
+      "en-ar",
       "es-en",
       "fr-en",
       "de-en",
@@ -103,9 +112,46 @@ describe("the native-language registry", () => {
     expect(instructions({ learning: "en", native: "hi" })).toContain(
       "राज़ खोल देना",
     );
+    // Arabic: spaces between joined lines, letters as wide as Latin ones, right to left.
+    expect(languageOption("ar")).toBe("Arabic (العربية)");
+    expect(languageName("ar")).toBe("Arabic");
+    expect(joinerFor("ar-EG")).toBe(" ");
+    expect(meaningLength("ar")).toBe(40);
+    expect(instructions({ learning: "en", native: "ar" })).toContain(
+      "أفشى السر",
+    );
+    expect(writtenRightToLeft("ar")).toBe(true);
+    expect(writtenRightToLeft("ar-SA")).toBe(true);
+    expect(writtenRightToLeft("hi")).toBe(false);
+    expect(writtenRightToLeft("en")).toBe(false);
     // The prompt does not ask a Chinese answer to avoid Chinese.
     expect(instructions({ learning: "en", native: "zh" })).toContain(
       'Write "meaning" in Chinese only, never in English or any other language.',
     );
+  });
+});
+
+describe("Arabic text", () => {
+  it("is written without harakat and tatweel, its hamza and madda letters kept", () => {
+    expect(arabicWritten("كَلْب")).toBe("كلب");
+    expect(arabicWritten("اِنْتِقَاد")).toBe("انتقاد");
+    expect(arabicWritten("قَاسٍ")).toBe("قاس");
+    expect(arabicWritten("هٰذا")).toBe("هذا");
+    expect(arabicWritten("جـمـيل")).toBe("جميل");
+    expect(arabicWritten("أَسْقَى، آخِر، إِلَى")).toBe("أسقى، آخر، إلى");
+    // Decomposed hamza and madda compose first, so they stay.
+    expect(arabicWritten("ا\u0653خر")).toBe("آخر");
+  });
+
+  it("spells an alef with a hamza or a madda as a bare one, for dedupe and ranking", () => {
+    expect(arabicSpelling("أَسْقَى")).toBe("اسقى");
+    expect(arabicSpelling("إلى")).toBe(arabicSpelling("الى"));
+    expect(arabicSpelling("آخِر")).toBe("اخر");
+    expect(arabicSpelling("ٱلْكِتَاب")).toBe("الكتاب");
+  });
+
+  it("is isolated right to left inside a line of English", () => {
+    expect(bidiIsolated("رقم، شكل…", "ar")).toBe("\u2067رقم، شكل…\u2069");
+    expect(bidiIsolated("数字", "ja")).toBe("数字");
   });
 });

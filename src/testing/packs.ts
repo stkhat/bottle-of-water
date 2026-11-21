@@ -213,6 +213,10 @@ const TEST_PACKS: PackFiles = {
   "en-hi": {
     dict: { loaf: [[["noun", "पाव"]], 0] },
   },
+  // The translation tables first, Arabic WordNet, then English Wiktionary's Arabic entries.
+  "en-ar": {
+    dict: { loaf: [[["noun", "رغيف"]], 0] },
+  },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
@@ -362,6 +366,11 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     sources: ["enwiktionary-translations", "enwiktionary-hi"],
   },
   "/packs/en-hi/dict-1.json": TEST_PACKS["en-hi"].dict,
+  "/packs/en-ar/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["enwiktionary-translations", "enwiktionary-ar", "omw-arb"],
+  },
+  "/packs/en-ar/dict-1.json": TEST_PACKS["en-ar"].dict,
   "/packs/de-fr/index.json": {
     shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
     sources: [

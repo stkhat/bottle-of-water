@@ -192,6 +192,8 @@ export interface KaikkiTranslation {
   note?: unknown;
   /** The senses a row is for, in an edition that numbers them ("1", "1, 2"). */
   sense_index?: unknown;
+  /** Its labels: gender, register, the variety a row is in ("Egyptian-Arabic"). */
+  tags?: unknown[];
 }
 type Categories = (string | { name?: unknown } | null)[];
 export interface KaikkiSense {
