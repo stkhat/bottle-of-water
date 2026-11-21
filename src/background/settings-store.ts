@@ -1,9 +1,11 @@
 import { browser } from "wxt/browser";
+import { stampSettings, type TimedSettings } from "../core/cloud/settings";
 import { firstPair } from "../core/languages";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
   SETTINGS_KEY,
+  SETTINGS_TIMES_KEY,
   type Settings,
   type SettingsPatch,
 } from "../core/settings";
@@ -17,12 +19,68 @@ export async function getSettings(): Promise<Settings> {
 // Writes from this context run one after another so patches never overwrite each other.
 const writes = serial();
 
-/** Applies a patch on top of the stored settings, stores the result and returns it. */
-export function setSettings(patch: SettingsPatch): Promise<Settings> {
+const isDict = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The stored field times, cleaned up; none when missing or damaged. */
+function timesOf(raw: unknown): TimedSettings | undefined {
+  if (!isDict(raw) || !isDict(raw.times)) return undefined;
+  const times: Record<string, number> = {};
+  for (const [field, time] of Object.entries(raw.times))
+    if (typeof time === "number" && Number.isFinite(time) && time > 0)
+      times[field] = time;
+  return { values: mergeSettings(raw.values), times };
+}
+
+/**
+ * The stored settings with their field times. A field whose value is not the one the
+ * times describe was changed without them (by an older version, through browser sync)
+ * and counts as changed at `at`; so do the non-default fields of settings stored before
+ * field times existed.
+ */
+async function readTimed(
+  at: number,
+): Promise<{ timed: TimedSettings; stored: unknown }> {
+  const stored = await browser.storage.sync.get([
+    SETTINGS_KEY,
+    SETTINGS_TIMES_KEY,
+  ]);
+  const values = mergeSettings(stored[SETTINGS_KEY]);
+  const timed = stampSettings(values, at, timesOf(stored[SETTINGS_TIMES_KEY]));
+  return { timed, stored: stored[SETTINGS_TIMES_KEY] };
+}
+
+/**
+ * The settings with the time each field last changed, for cloud sync. Times it had to
+ * give (see `readTimed`) are stored, so reading again gives the same ones.
+ */
+export function getTimedSettings(now = Date.now): Promise<TimedSettings> {
   return writes.run(async () => {
-    const settings = mergeSettings(patch, await getSettings());
-    await browser.storage.sync.set({ [SETTINGS_KEY]: settings });
-    return settings;
+    const { timed, stored } = await readTimed(now());
+    if (JSON.stringify(timed) !== JSON.stringify(stored))
+      await browser.storage.sync.set({ [SETTINGS_TIMES_KEY]: timed });
+    return timed;
+  });
+}
+
+/**
+ * Applies a patch on top of the stored settings, stores the result and returns it. The
+ * fields it changed get the time of the change (after their previous time), stored in
+ * the same write.
+ */
+export function setSettings(
+  patch: SettingsPatch,
+  now = Date.now,
+): Promise<Settings> {
+  return writes.run(async () => {
+    const at = now();
+    const { timed } = await readTimed(at);
+    const next = stampSettings(mergeSettings(patch, timed.values), at, timed);
+    await browser.storage.sync.set({
+      [SETTINGS_KEY]: next.values,
+      [SETTINGS_TIMES_KEY]: next,
+    });
+    return next.values;
   });
 }
 
@@ -36,7 +94,8 @@ export async function settingsStored(): Promise<boolean> {
  * Stores the language pair to start with when no settings are stored (`onInstalled`):
  * on a new install the pair the browser's UI language suggests (`firstPair`), after an
  * update the default pair, the one used so far. Stored settings win: those of this
- * device, or those browser sync brought from another one.
+ * device, or those browser sync brought from another one. The pair counts as never
+ * changed (time 0), so any device's choice wins over it in cloud sync.
  */
 export function storeStartingPair(
   reason: string,
@@ -51,8 +110,11 @@ export function storeStartingPair(
             learningLang: DEFAULT_SETTINGS.learningLang,
             nativeLang: DEFAULT_SETTINGS.nativeLang,
           };
+    const settings = mergeSettings(pair);
+    const timed: TimedSettings = { values: settings, times: {} };
     await browser.storage.sync.set({
-      [SETTINGS_KEY]: mergeSettings(pair),
+      [SETTINGS_KEY]: settings,
+      [SETTINGS_TIMES_KEY]: timed,
     });
   });
 }

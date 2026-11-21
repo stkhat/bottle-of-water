@@ -35,6 +35,12 @@ export interface TermRecord {
   note?: string;
   createdAt: number;
   updatedAt: number;
+  /**
+   * The last time the term was removed; saving it again keeps it, so its occurrences
+   * and choices from before never come back. A tombstone without one (made before it
+   * existed) counts as cleared at its `updatedAt` (`clearedAtOf`).
+   */
+  clearedAt?: number;
 }
 
 export type Origin = "saved" | "encountered";

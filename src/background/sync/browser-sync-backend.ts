@@ -4,10 +4,12 @@
  * device only, which needs no special case here.
  */
 import { browser } from "wxt/browser";
+import { SETTINGS_FIELDS } from "../../core/cloud/settings";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
   SETTINGS_KEY,
+  SETTINGS_TIMES_KEY,
 } from "../../core/settings";
 import {
   CHUNK_CHARS,
@@ -187,8 +189,17 @@ export function createBrowserSyncBackend({
     typeof area.QUOTA_BYTES_PER_ITEM === "number"
       ? area.QUOTA_BYTES_PER_ITEM
       : DEFAULT_QUOTA_BYTES_PER_ITEM;
-  /** Settings may not be stored yet; keep room for them anyway. */
-  const settingsReserve = itemBytes(SETTINGS_KEY, DEFAULT_SETTINGS);
+  /** Settings and their field times may not be stored yet; keep room for them anyway. */
+  const reserves = new Map([
+    [SETTINGS_KEY, itemBytes(SETTINGS_KEY, DEFAULT_SETTINGS)],
+    [
+      SETTINGS_TIMES_KEY,
+      itemBytes(SETTINGS_TIMES_KEY, {
+        values: DEFAULT_SETTINGS,
+        times: Object.fromEntries(SETTINGS_FIELDS.map((f) => [f, Date.now()])),
+      }),
+    ],
+  ]);
 
   const written = new Map<string, string>();
   const pushTimers = new Map<string, unknown>();
@@ -213,12 +224,9 @@ export function createBrowserSyncBackend({
     for (const [key, value] of Object.entries(all)) {
       if (key === metaKey(lang) || chunkIndexOf(lang, key) !== undefined)
         continue;
-      others +=
-        key === SETTINGS_KEY
-          ? Math.max(itemBytes(key, value), settingsReserve)
-          : itemBytes(key, value);
+      others += Math.max(itemBytes(key, value), reserves.get(key) ?? 0);
     }
-    if (!(SETTINGS_KEY in all)) others += settingsReserve;
+    for (const [key, reserve] of reserves) if (!(key in all)) others += reserve;
     return quotaBytes - others;
   }
 

@@ -930,6 +930,8 @@ const OCCURRENCE_BASE: Omit<OccurrenceRecord, "sourceId" | "sentence" | "pos"> =
     termId: "en:loaf",
     seenAt: 0,
     origin: "encountered",
+    deviceId: "d",
+    addedAt: 0,
   };
 
 function occurrence(

@@ -19,13 +19,37 @@ import { ARTICLE as BREAD, VIDEO } from "../testing/sources";
 
 const ARTICLE: SourceInput = { ...BREAD, url: "https://example.com/bread#top" };
 
-/** A file of export version 1: no meanings and no meaning choices. */
-type ExportV1 = Omit<
-  LangleExport,
-  "version" | "meanings" | "meaningChoices"
-> & {
+/** A file of export version 2: occurrences without `deviceId` and `addedAt`. */
+type ExportV2 = Omit<LangleExport, "version" | "occurrences"> & {
+  version: 2;
+  occurrences: Omit<
+    LangleExport["occurrences"][number],
+    "deviceId" | "addedAt"
+  >[];
+};
+
+/** A file of export version 1: no meanings and no meaning choices either. */
+type ExportV1 = Omit<ExportV2, "version" | "meanings" | "meaningChoices"> & {
   version: 1;
 };
+
+/** `data` as an older version wrote it. */
+function asVersion(data: LangleExport, version: 1): ExportV1;
+function asVersion(data: LangleExport, version: 2): ExportV2;
+function asVersion(data: LangleExport, version: 1 | 2): ExportV1 | ExportV2 {
+  const occurrences = data.occurrences.map((o) =>
+    omit(o, "deviceId", "addedAt"),
+  );
+  const terms = data.terms.map((t) => omit(t, "clearedAt"));
+  return version === 2
+    ? { ...data, version, terms, occurrences }
+    : {
+        ...omit(data, "meanings", "meaningChoices"),
+        version,
+        terms,
+        occurrences,
+      };
+}
 
 const dough = (overrides: Partial<SaveTermInput> = {}): SaveTermInput => ({
   lang: "en",
@@ -60,12 +84,18 @@ beforeEach(() => {
   store = createTermStore(db, {
     now: clock.now,
     newBatchId: () => `batch-${++batch}`,
+    deviceId: () => Promise.resolve("this-device"),
   });
 });
 
 /** A second store on its own database, for import tests. */
 async function withOtherStore(fn: (other: TermStore) => Promise<void>) {
-  await fn(createTermStore(freshDb(), { now: clock.now }));
+  await fn(
+    createTermStore(freshDb(), {
+      now: clock.now,
+      deviceId: () => Promise.resolve("other-device"),
+    }),
+  );
 }
 
 describe("saveTerm", () => {
@@ -186,6 +216,7 @@ describe("learnedAt", () => {
 
   it("stays when a learned term is saved as known again", async () => {
     await store.saveTerm(dough());
+    clock.tick();
     await store.setStatus("en:dough", "known");
     const learned = clock.time;
     clock.tick();
@@ -839,6 +870,8 @@ describe("applySynced", () => {
         status: "learning",
         createdAt: 103 * MIN,
         updatedAt: 103 * MIN,
+        // The removal in between: its occurrences never come back.
+        clearedAt: 101 * MIN,
       },
     ]);
     expect(await store.occurrencesOf("en:dough")).toEqual([]);
@@ -852,8 +885,9 @@ describe("applySynced", () => {
   });
 
   it("keeps the local learned time when the term is learned here already", async () => {
-    clock.time = 100 * MIN;
+    clock.time = 99 * MIN;
     await store.saveTerm(dough());
+    clock.time = 100 * MIN;
     await store.setStatus("en:dough", "known");
     await store.applySynced("en", [
       { ...synced("dough", "known", 105), learned: true },
@@ -905,7 +939,7 @@ describe("exportJson", () => {
     const data = JSON.parse(await store.exportJson()) as LangleExport;
     expect(data).toMatchObject({
       format: "langle-export",
-      version: 2,
+      version: 3,
       exportedAt: clock.time,
       meanings: [],
       meaningChoices: [],
@@ -915,16 +949,25 @@ describe("exportJson", () => {
       "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     ]);
     expect(data.occurrences).toEqual([
-      expect.objectContaining({ termId: "en:dough", origin: "saved" }),
+      expect.objectContaining({
+        termId: "en:dough",
+        origin: "saved",
+        deviceId: "this-device",
+        addedAt: expect.any(Number),
+      }),
     ]);
   });
 
-  it("includes tombstones", async () => {
+  it("includes tombstones with the time they were cleared", async () => {
     await store.saveTerm(dough());
     await store.removeTerm("en:dough");
     const data = JSON.parse(await store.exportJson()) as LangleExport;
     expect(data.terms).toEqual([
-      expect.objectContaining({ id: "en:dough", status: "removed" }),
+      expect.objectContaining({
+        id: "en:dough",
+        status: "removed",
+        clearedAt: expect.any(Number),
+      }),
     ]);
   });
 
@@ -1196,7 +1239,7 @@ describe("importJson", () => {
   it("rejects a newer export version", async () => {
     const json = JSON.stringify({
       format: "langle-export",
-      version: 3,
+      version: 4,
       exportedAt: 0,
       terms: [],
       sources: [],
@@ -1572,8 +1615,7 @@ describe("export and import of your meanings", () => {
   it("reads a version 1 file: no meanings", async () => {
     await store.saveTerm(dough());
     const data = JSON.parse(await store.exportJson()) as LangleExport;
-    const rest = omit(data, "meanings", "meaningChoices");
-    const v1: ExportV1 = { ...rest, version: 1 };
+    const v1 = asVersion(data, 1);
     await withOtherStore(async (other) => {
       expect(await other.importJson(JSON.stringify(v1))).toEqual({
         terms: 1,
@@ -1706,6 +1748,175 @@ describe("export and import of your meanings", () => {
       );
       expect(sentences).toHaveLength(50);
       expect(sentences).toContain("Sentence 2.");
+    });
+  });
+});
+describe("the times cloud files merge by", () => {
+  const MIN = 60_000;
+  const brief = async () =>
+    (await store.occurrencesOf("en:dough")).map(
+      (o) => `${o.sentence}|${o.deviceId}|${o.addedAt}`,
+    );
+
+  it("marks each new row with this device and the time it was added", async () => {
+    const start = clock.time;
+    await store.saveTerm(dough());
+    clock.tick();
+    await store.recordEncounters(ARTICLE, [
+      {
+        termId: "en:dough",
+        sentence: "The dough rises.",
+        pos: { textQuote: "dough rises" },
+      },
+    ]);
+    clock.tick();
+    await store.importOccurrences("en:dough", [
+      {
+        source: ARTICLE,
+        sentence: "Old dough.",
+        pos: { textQuote: "Old dough." },
+        seenAt: 5,
+      },
+    ]);
+    // A row brought in from the history is added now, whenever it was seen.
+    expect(await brief()).toEqual([
+      `The dough rises.|this-device|${start + 1000}`,
+      `Knead the dough.|this-device|${start}`,
+      `Old dough.|this-device|${start + 2000}`,
+    ]);
+  });
+
+  it("times a change after the one it replaces, even with the clock behind", async () => {
+    const start = clock.time;
+    await store.saveTerm(dough());
+    clock.time -= 5000;
+    await store.setStatus("en:dough", "known");
+    expect(await db.terms.get("en:dough")).toMatchObject({
+      status: "known",
+      updatedAt: start + 1,
+    });
+    await store.saveTerm(dough({ status: "learning" }));
+    expect((await db.terms.get("en:dough"))?.updatedAt).toBe(start + 2);
+  });
+
+  it("clears a removed term after its rows, and keeps the time when it is saved again", async () => {
+    const start = clock.time;
+    await store.saveTerm(dough());
+    await store.removeTerm("en:dough");
+    expect(await db.terms.get("en:dough")).toMatchObject({
+      status: "removed",
+      updatedAt: start + 1,
+      clearedAt: start + 1,
+    });
+    await store.saveTerm(dough({ sentence: "Fresh dough." }));
+    expect(await db.terms.get("en:dough")).toMatchObject({
+      status: "learning",
+      updatedAt: start + 2,
+      clearedAt: start + 1,
+    });
+    // A new row is never older than the removal, so a copy elsewhere keeps it.
+    expect(await brief()).toEqual([`Fresh dough.|this-device|${start + 2}`]);
+  });
+
+  it("keeps the cleared time when a bulk save brings the term back", async () => {
+    await store.saveTerm(dough());
+    clock.tick();
+    await store.removeTerm("en:dough");
+    const { clearedAt } = (await db.terms.get("en:dough"))!;
+    clock.tick();
+    await store.saveAll("en", ["dough"], "known", ARTICLE);
+    expect(await db.terms.get("en:dough")).toMatchObject({
+      status: "known",
+      clearedAt,
+    });
+  });
+
+  it("records the time of a removal browser sync brings, and keeps it after", async () => {
+    const synced = (status: SyncRecord["status"], updatedMinutes: number) => ({
+      key: "dough",
+      status,
+      updatedMinutes,
+    });
+    await store.applySynced("en", [synced("learning", 100)]);
+    await store.applySynced("en", [synced("removed", 101)]);
+    expect(await db.terms.get("en:dough")).toMatchObject({
+      status: "removed",
+      clearedAt: 101 * MIN,
+    });
+    await store.applySynced("en", [synced("known", 102)]);
+    expect(await db.terms.get("en:dough")).toMatchObject({
+      status: "known",
+      clearedAt: 101 * MIN,
+    });
+  });
+
+  describe("importJson", () => {
+    it("reads a version 2 file: its rows become this device's, added when seen", async () => {
+      await store.saveTerm(dough());
+      const seenAt = clock.time;
+      clock.tick();
+      const data = JSON.parse(await store.exportJson()) as LangleExport;
+      await withOtherStore(async (other) => {
+        await other.importJson(JSON.stringify(asVersion(data, 2)));
+        expect(
+          (await other.occurrencesOf("en:dough")).map(
+            (o) => `${o.deviceId}|${o.addedAt}|${o.seenAt}`,
+          ),
+        ).toEqual([`other-device|${seenAt}|${seenAt}`]);
+      });
+    });
+
+    it("rejects a version 3 row without its device or added time", async () => {
+      await store.saveTerm(dough());
+      const data = JSON.parse(await store.exportJson()) as LangleExport;
+      for (const field of ["deviceId", "addedAt"] as const) {
+        const damaged = {
+          ...data,
+          occurrences: data.occurrences.map((o) => omit(o, field)),
+        };
+        await expect(store.importJson(JSON.stringify(damaged))).rejects.toThrow(
+          /damaged/,
+        );
+      }
+    });
+
+    it.each([2, 3] as const)(
+      "leaves out a version %i file's rows from before a removal here",
+      async (version) => {
+        await store.saveTerm(dough());
+        const data = JSON.parse(await store.exportJson()) as LangleExport;
+        clock.tick();
+        await store.removeTerm("en:dough");
+        clock.tick();
+        await store.saveTerm(dough({ sentence: "Fresh dough." }));
+        const file = version === 2 ? asVersion(data, 2) : data;
+        await store.importJson(JSON.stringify(file));
+        expect(
+          (await store.occurrencesOf("en:dough")).map((o) => o.sentence),
+        ).toEqual(["Fresh dough."]);
+      },
+    );
+
+    it("takes a removal from the file and drops the rows here from before it", async () => {
+      await store.saveTerm(dough());
+      const json = await store.exportJson();
+      let clearedAt = 0;
+      await withOtherStore(async (other) => {
+        await other.importJson(json);
+        clock.tick();
+        await other.removeTerm("en:dough");
+        clearedAt = clock.time;
+        clock.tick();
+        await other.saveTerm(dough({ sentence: "Fresh dough." }));
+        await store.importJson(await other.exportJson());
+      });
+      expect(await db.terms.get("en:dough")).toMatchObject({
+        status: "learning",
+        clearedAt,
+      });
+      expect(
+        (await store.occurrencesOf("en:dough")).map((o) => o.sentence),
+      ).toEqual(["Fresh dough."]);
     });
   });
 });
