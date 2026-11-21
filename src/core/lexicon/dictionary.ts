@@ -100,6 +100,11 @@ export interface EntryOutline {
   formOf?: string;
   /** Its first sense means something: no pointer, or a form with a meaning after it (better). */
   firstMeaning: boolean;
+  /**
+   * The entry is only a capitalised headword's (Numbers, the book, for "numbers"): no
+   * entry of the word as a lowercase or sentence-start word reads it (rule A1).
+   */
+  capital?: true;
   /** Some sense means something (not every sense is a pointer). */
   meaning: boolean;
   /** The parts of speech its senses are labelled with (not those taken from neighbours). */
@@ -116,8 +121,10 @@ export interface DictionaryProvider {
    * leaves the capitalised senses out when they mean nothing; for a
    * word in lower case, the lowercase headword's senses alone; and when the page does
    * not say, the lowercase senses, then the capitalised ones (en-ja), or the lowercase
-   * ones alone (a recipe pair). In a recipe pair, a word with only capitalised
-   * headwords (Thursday, I'm) takes them however it is written.
+   * ones alone (a recipe pair). A word with only capitalised headwords (Thursday, I'm)
+   * takes them however it is written, except one in lower case that is a word of its
+   * own in English, whose English definitions show (`lowercaseDefined`: "which may be
+   * related" is no May).
    *
    * `pos` is the part of speech the word's tag gives it on the page (`Span.pos`): the
    * hover card's lines then show the senses of that part of speech first when the
@@ -181,7 +188,29 @@ export interface EnJaDictionaryData {
   defs: DefsPack;
   pos: PosPack;
   ipa: IpaPack;
+  /** A word English writes only capitalised (`lowercaseDefined`). */
+  capitalOnly?: (key: string) => boolean;
 }
+
+/**
+ * Whether a word written in lower case that the dictionary has no lowercase entry for
+ * reads as its English definitions rather than its capitalised headword: when en-defs
+ * has the lowercase word (a word of its own: may, swat, eve, beside May, Swat, Eve) and
+ * English does not write it only capitalised (`capitalOnly`: AI, Tokyo, iPhone, whose
+ * lowercase spelling is the same word). Not when en-defs marks its senses "capital":
+ * the capitalised headword's (internet, a letter-case form of Internet; french, a
+ * lesser headword beside French). A word with none of these (thursday, i'm) takes its
+ * capitalised headword however it is written.
+ */
+const lowercaseDefined = (
+  head: string,
+  defs: DefsPack,
+  capitalOnly: ((key: string) => boolean) | undefined,
+) => {
+  if (capitalOnly?.(head) === true) return false;
+  const senses = own(defs, head);
+  return senses !== undefined && senses[0]?.[2] !== "capital";
+};
 
 const NO_POS: PosPack = {};
 
@@ -338,7 +367,11 @@ export function createEnJaDictionary(
   /** The entry as the word was written (`DictionaryProvider.entry`). */
   const asWritten = (head: string, written: Written | undefined) => {
     const lower = japanese(head, data.pos);
-    if (written === "lower") return lower;
+    if (
+      written === "lower" &&
+      (lower || lowercaseDefined(head, data.defs, data.capitalOnly))
+    )
+      return lower;
     const title = capitalOf(head);
     const upper = capitalOf(head, true);
     // A capitalised word EJDict has no lower-case entry for: its abbreviation comes
@@ -954,10 +987,13 @@ export function createPairDictionary({
   native,
   lemmas = {},
   pos: learningPos = {},
+  capitalOnly,
 }: {
   dict: PairPack | LearningPairPack;
   defs: DefsPack;
   ipa: IpaPack;
+  /** A word English writes only capitalised (`lowercaseDefined`). */
+  capitalOnly?: (key: string) => boolean;
   /** The native language (`NATIVE_LANGUAGES`); without one, a spaced script. */
   native?: string;
   /** The learning language's base forms and parts of speech, to read unmarked degrees. */
@@ -1071,7 +1107,9 @@ export function createPairDictionary({
    * a capitalised "And" or "It's" is not ET or IT. Where the page does not say (a
    * sentence start, a caseless document), the lowercase entry alone: "Who" is not the
    * WHO. A word with no lowercase entry takes its capitalised one however it is
-   * written: no lowercase copies are kept (Thursday, I'm). A word read as its
+   * written: no lowercase copies are kept (Thursday, I'm); but not one written in
+   * lower case that is a word of its own in English (`lowercaseDefined`: "which may
+   * be related" is no May), which shows its English definitions. A word read as its
    * capitalised headword is that word alone, and the card writes it so (`head`).
    */
   const asWritten = (
@@ -1082,7 +1120,10 @@ export function createPairDictionary({
     const title = capitalOf(head);
     const acronym = written === "upper" && capitalOf(head, true) !== undefined;
     const capital = acronym ? capitalOf(head, true) : title;
-    if (!lower) return { found: capital ?? title ?? capitalOf(head, true) };
+    if (!lower)
+      return written === "lower" && lowercaseDefined(head, defs, capitalOnly)
+        ? {}
+        : { found: capital ?? title ?? capitalOf(head, true) };
     if (!capital || written === "lower" || written === undefined)
       return { found: lower };
     if (capital[2] == null) return { found: lower };
@@ -1198,16 +1239,18 @@ export function createPairDictionary({
       };
     },
     (head) => {
-      const found = entryOf(head) ?? capitalOf(head) ?? capitalOf(head, true);
+      const lower = entryOf(head);
+      const found = lower ?? capitalOf(head) ?? capitalOf(head, true);
       if (!found) return definitionOutline(head, defs);
       const raw = found[0];
-      return outlineOf(sensesOf(raw), (text, i) => {
+      const outline = outlineOf(sensesOf(raw), (text, i) => {
         const target = raw[i]?.[3];
         // An unmarked degree after the first sense is a meaning, as in the lines.
         return target === undefined || (i > 0 && degrees.has(raw[i]!))
           ? englishSense(text)
           : { formOf: target, meaning: false };
       });
+      return outline && !lower ? { ...outline, capital: true } : outline;
     },
     (sense, glossLang) =>
       glossLang === undefined

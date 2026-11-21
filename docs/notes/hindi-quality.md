@@ -74,11 +74,11 @@ Other natives over the same corpus (main → hi-2, hover tokens changed): th 26 
 
 - **US, UK, PA read as "us", "uk"**: the hi and th tables lack the acronym (zh has it), so the lowercase en-defs line shows.
 - **Clippings in en-defs**: Mr / Dr without an S1 or table line show en-defs' lowercase senses ("millirem").
-- **S1's narrow senses**: case → मुक़दमा first, fundamental / constitutional → ज़ाती first (a folded rank: ज़ाती ranks as जाती, "goes"), cool → झकास, set → अथाना. A rank list that keeps the nukta would fix the collision; none is free.
+- **S1's narrow senses**: case → मुक़दमा first, cool → झकास, set → अथाना. (The folded rank of ज़ाती as जाती: fixed in hi-4.)
 - **S1 phrases** fit poorly (3 of 15 in the baseline); hi-2 did not change them.
 - **Tagger slips** still pick a marginal part of speech's sense where the source labels nothing (deadly, um, install, leveraged).
 - One A/B sample only, with Netflix in it rather than held out; a fresh sample would confirm the S1 order.
-- **may (lowercase) has no en-hi entry**: see "Real-site check (2026-11-21)".
+- **may (lowercase) has no en-hi entry**: en-defs defines it since hi-4.
 
 ## Real-site check (2026-11-21)
 
@@ -87,6 +87,41 @@ Check build of main (en-hi 2026.1121.1, en-defs 2026.1121.4, both on npm and jsD
 - **Passed**: Devanagari renders correctly in the hover card, the phrase card and the dictionary window (conjuncts in चन्द्रमा / अलावा / उपग्रह, matras, nukta in ख़बर / दौड़ना, no clipping). moon shows one line per sense (चन्द्रमा, चांद, मास) and news one line (ख़बर). do shows करना / क्या (no चोदना); did shows "did → do" and no meaning, as for any auxiliary form. the shows no Hindi entry, so its en-defs definition is machine-translated and marked "Machine translation". smash and boost show verb senses (the sentence decides). Dual subtitles show the Hindi line on YouTube and Netflix; the transcript lines are translated too. The error log had no `error` or `warning` entries, only 33 `info` mirror records (all served by jsDelivr).
 - **Found, not fixed**: lowercase "may" has no entry in en-hi (dict-1 has "can" with सकना, but no "may"), and en-defs has none either. A word with no lowercase entry takes its capitalised one (`dictionary.ts`), so the hover card for "which may be related" shows मई (the month). The unit test (`reverse-glosses.test.ts`) produces may → सकना from the Hindi source, so the real build drops it somewhere (cause not found); the fix is a data rebuild and a new en-hi version.
 - A sentence without an en-hi or en-defs line for a word falls to the machine translation of its first en-defs definition; the card clamps it to two lines.
+
+## hi-4: lowercase words and capitalised headwords (2026-11-21)
+
+The real-site check found "which may be related" showing मई. Study folder `data/raw/quality/r4-hi/cap/` (git-ignored: `run.sh`, `probe.py`, `diff.py`, judge packets and results).
+
+### Root causes
+
+- **No lowercase may anywhere**: the Hindi source never glosses "may" (सकना is "to be able", "can"), and the tables give no Hindi for the modal, so en-hi has only the capitalised May (मई). en-defs left "may" out as a term "every pair has": `pairTerms` counted a pair's capitalised headwords as its lowercase terms, so May stood for may.
+- **The lookup** (`dictionary.ts`): a word with no lowercase entry took its capitalised headword however it was written, so may, swat, eve, ad mid-sentence showed the month, the valley, the era, Eve. Rule A1 treated a capitalised headword's entry as the form's own ("numbers" → Numbers, the book).
+- **Rank collision** (hi-2): `devanagariSpelling` drops the nukta, so ज़ाती ("inherent") took the rank of जाती ("goes"), and ज़ीना (staircase) that of जीना (to live).
+
+### Fixes
+
+| Layer     | Rule                                                                                                                                                                                                                                                                                                                                                                       | Where                                                            |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| CORE data | A pair's capitalised headword covers a lowercase term only where it answers it: a capital-only word, a letter-case form (internet → Internet) or a lesser headword (`lesserLowercase`, moved to `recipe.ts` with `tableCoverage`). en-defs defines those by the capitalised headword's senses, marked "capital". It now keeps may, swat, eve, ad, rip, numbers and 92 more | `en-defs.ts` `everyPair`, `answeredBy`                           |
+| CORE      | A lowercase word mid-sentence with no lowercase pair entry shows its English definitions when en-defs has it unmarked and English does not write it only capitalised; else the capitalised headword (thursday, i'm, internet, shinkansen)                                                                                                                                  | `dictionary.ts` `lowercaseDefined`, both dictionaries             |
+| CORE      | Rule A1: a form whose only entry is a capitalised headword's goes to its base (numbers → number, kings → king)                                                                                                                                                                                                                                                              | `word-sense.ts` `chooseKey`                                       |
+| PAIR      | A word takes a folded spelling's rank only when it is the same word: the entries link the two, or the list's spelling has no entry of its own (मुकदमा for मुक़दमा). Not ज़ाती by जाती                                                                                                                                                                                       | `native.ts` `frequencyRank`, `spellingsOf`                        |
+
+### Measured
+
+Lowercase tokens with no lowercase pair entry but a capitalised one, before → still taking the capitalised headword: hi 156 → 52, th 66 → 54, ja 34 → 27, zh 116 → 59. What stays is right (i'm, shinkansen, internet, t-shirt, japan, x-ray). Hover tokens changed over the corpus: hi 181 (36 keys, rank reorders included), th 41 (18), ja 20 (6), zh 66 (19). The rank fix reorders 6 en-hi terms (original, fundamental, constitutional lose ज़ाती first; stair → सीढ़ी; stake; reciter), 58 tokens. A first try that required a link for every variant reordered 35 terms (मुक़दमा, नज़ारा, फँसाना, टेढ़ा lost their ranks): Wiktionary has no entry for most nukta-less spellings.
+
+Judged blind (`judge` subagents, one packet per native with every changed key, up to 2 examples, X/Y at random), preferred after : before : same, weighted by tokens: hi 127 : 3 : 51, th 30 : 5 : 6, ja 14 : 5 : 1, zh 44 : 1 : 21. Verdicts hi before good 4, wrong or misleading 25 of 43; after good 20, wrong or misleading 12. Losses: reddit in every pair (the tagger reads it as a verb, and Reddit's verb sense now shows), google in th (en-defs ranks the cricket verb first), latino, jersey, wa, mornings (one token each), internet in ja ("internet cafe": access, not the network; 4 tokens).
+
+### Packs
+
+`en-hi` 2026.1121.2, `en-defs` 2026.1121.5 (19.85 MB). en-th unchanged (2026.1121.3). Both pairs still pass the gate.
+
+### Still open
+
+- A sentence start or a caseless document still takes the capitalised headword where the pair has no lowercase entry ("May I…" shows मई): the case says nothing there.
+- en-defs' sense ranking: google → the cricket googly, yay → cocaine, dis → minor deities; twitter (13 against Twitter's 39) is no lesser headword, so it shows birdsong.
+- de, la, le, al, un in English text are mostly foreign words or names: neither the capitalised headword (दे, Louisiana, Alabama) nor en-defs (the Cyrillic letter) fits.
 
 ## Measuring
 

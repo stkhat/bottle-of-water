@@ -11,10 +11,12 @@
 // you + are."), which keeps its own; a contraction's own senses come first (U1-5).
 // Inflections ("Plural of X") are left out: the extension follows them.
 // A term every English pair dictionary has is left out: no lookup reaches it (a recipe
-// pair's capitalised headword counts for its lowercase lookup: thursday).
+// pair's capitalised headword counts for a capital-only word's lowercase lookup: tokyo;
+// not for a word of its own in lower case, which shows its English definitions: may).
 // Usage: node scripts/data/en-defs.ts [path]   (default data/raw/kaikki-en.jsonl; run
 // ejdict.ts, kaikki.ts, phrases.ts and the pair recipes, recipes/native.ts, first)
 import { definitionPointer } from "../../src/core/lexicon/definitions.ts";
+import { capitalKey } from "../../src/core/lexicon/short-lines.ts";
 import { CONTRACTION, VERB_TO } from "../../src/core/tagging/en-clitics.ts";
 import type { DefsPack, LemmaPack } from "../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../src/core/phrases/pattern.ts";
@@ -33,6 +35,7 @@ import {
 } from "./common.ts";
 import { PACKS } from "./formats.ts";
 import { isNonConstituent, patternKey } from "./phrases.ts";
+import { lesserLowercase, tableCoverage } from "./recipes/recipe.ts";
 import {
   entityDefinition,
   joinedAcronyms,
@@ -82,7 +85,13 @@ const writtenAsContraction = (key: string) =>
  * text], with the first one's text up to its first `;` as the short meaning. A pointer
  * sense takes the best definition of the term it names, when the source has one.
  * A term every English pair dictionary has (`everyPair`) is left out: en-defs is their
- * fallback, so no hover or dictionary window would reach its definitions.
+ * fallback, so no hover or dictionary window would reach its definitions. A pair's
+ * capitalised headword answers the lookup of a word written in lower case (`everyPair`'s
+ * `capital`) only where that is the capitalised word: a capital-only word ("tokyo"), a
+ * lowercase headword used far less than the capitalised one (`lesserLowercase`:
+ * english), or one whose main sense is the capitalised word's letter-case form
+ * (internet, dna). Elsewhere a word in lower case that a pair has no lowercase entry for
+ * shows its English definitions (`lowercaseDefined` in the dictionary: "may" is no May).
  */
 export async function buildEnDefs(
   path: string,
@@ -111,7 +120,7 @@ export async function buildEnDefs(
     entities?: Entities;
     /** The acronyms known only by what they stand for (`joinedAcronyms`). */
     acronyms?: Acronyms;
-    everyPair?: (key: string) => boolean;
+    everyPair?: (key: string, capital: boolean) => boolean;
   },
 ) {
   const words = new Set(vocab);
@@ -151,7 +160,7 @@ export async function buildEnDefs(
           ? word.toLowerCase()
           : dotted.get(word)?.key
       : patternKey(word, isWord);
-    if (key === undefined || everyPair(key)) return undefined;
+    if (key === undefined) return undefined;
     return key.includes(" ") && !patterns.has(key) ? undefined : key;
   };
   /**
@@ -170,8 +179,42 @@ export async function buildEnDefs(
 
   const terms = new Map<string, SourceSense[]>();
   const targets = new Set<string>();
+  /** Each headword as written → its most translated sense's languages (`tableCoverage`). */
+  const coverage = new Map<string, number>();
+  /**
+   * Lowercase headwords whose first sense is a letter-case form of the word capitalised
+   * → that word (internet → Internet).
+   */
+  const caseForms = new Map<string, string>();
+  /** Capitalised one-word headwords whose lowercase is an English word → their senses. */
+  const capitalSenses = new Map<string, SourceSense[]>();
+  const firstSeen = new Set<string>();
   const stats = await eachEntry(path, (entry) => {
-    if (entry.lang_code !== "en" || isNonConstituent(entry)) return;
+    if (entry.lang_code !== "en") return;
+    const word = entry.word.trim();
+    coverage.set(word, Math.max(coverage.get(word) ?? 0, tableCoverage(entry)));
+    if (word === word.toLowerCase() && !firstSeen.has(word)) {
+      firstSeen.add(word);
+      const target = entrySenses(entry).senses[0]?.target;
+      if (
+        target !== undefined &&
+        target !== word &&
+        target.toLowerCase() === word
+      )
+        caseForms.set(word, target);
+    } else if (
+      !/\s/.test(word) &&
+      word !== word.toLowerCase() &&
+      words.has(word.toLowerCase())
+    ) {
+      let list = capitalSenses.get(word);
+      for (const sense of entrySenses(entry).senses) {
+        if (sense.inflection) continue;
+        if (!list) capitalSenses.set(word, (list = []));
+        list.push({ ...sense, order: list.length });
+      }
+    }
+    if (isNonConstituent(entry)) return;
     const key = termKey(entry.word);
     if (!key) return;
     let list = terms.get(key);
@@ -204,9 +247,35 @@ export async function buildEnDefs(
     return list && rankSenses(list, term.includes(" "), SHOWN)[0];
   };
 
+  /**
+   * The capitalised headword that answers a lowercase word's lookup, when its own entry
+   * is a lesser one: a letter-case form of it (internet → Internet), or translated into
+   * a fifteenth as many languages (french → French; `lesserLowercase`). Not may, swat,
+   * eve: words of their own beside May, Swat, Eve. Not a phrase, which is looked up as
+   * written.
+   */
+  const answeredBy = (key: string) =>
+    capitalKeys.has(key) || key.includes(" ")
+      ? undefined
+      : (caseForms.get(key) ??
+        (lesserLowercase(key, coverage, lemmas)
+          ? capitalKey(key, false)
+          : undefined));
+  /** Whether a pair's capitalised headword answers the key's lookup in lower case. */
+  const capitalAnswers = (key: string) =>
+    capitalKeys.has(key) || answeredBy(key) !== undefined;
+  const left = (key: string) => everyPair(key, capitalAnswers(key));
   const defs: Record<string, DefsPack[string]> = {};
   let resolved = 0;
-  for (const [key, list] of terms) {
+  let capitalised = 0;
+  for (const [key, own] of terms) {
+    if (left(key)) continue;
+    // A lowercase word a capitalised headword answers means that headword's senses,
+    // marked "capital": a pair's capitalised entry answers before them
+    // (`lowercaseDefined`), and they show where no pair has one.
+    const capital = answeredBy(key);
+    const list = (capital !== undefined && capitalSenses.get(capital)) || own;
+    if (capital !== undefined) capitalised++;
     const senses = list.map((sense) => {
       if (!isPointer(sense) || ownGloss(sense))
         return sense.abbreviates === undefined
@@ -233,19 +302,20 @@ export async function buildEnDefs(
     // (H.R.: House of Representatives, then HR's human resources). Not first: the
     // spelling without periods is another distribution of meanings (PM: Prime
     // Minister, post mortem; "p.m." is post meridiem).
-    const ranked = capitalKeys.has(key)
-      ? rankCapitalSenses(senses, SHOWN)
-      : [
-          ...rankSenses(
-            senses.filter((_, i) => !bareSenses.has(list[i]!)),
-            key.includes(" "),
-            SHOWN,
-          ),
-          ...rankCapitalSenses(
-            senses.filter((_, i) => bareSenses.has(list[i]!)),
-            SHOWN,
-          ),
-        ];
+    const ranked =
+      capitalKeys.has(key) || list !== own
+        ? rankCapitalSenses(senses, SHOWN)
+        : [
+            ...rankSenses(
+              senses.filter((_, i) => !bareSenses.has(list[i]!)),
+              key.includes(" "),
+              SHOWN,
+            ),
+            ...rankCapitalSenses(
+              senses.filter((_, i) => bareSenses.has(list[i]!)),
+              SHOWN,
+            ),
+          ];
     // A contraction's own senses first: that's → "That is.", not the dialectal
     // determiner "whose, of which".
     const best = (
@@ -278,7 +348,7 @@ export async function buildEnDefs(
         .slice(0, MAX_SENSES),
     );
     for (const sense of best) if (kept.size < MAX_SENSES) kept.add(sense);
-    const out: [string, string][] = [];
+    const out: [string, string, "capital"?][] = [];
     for (const sense of best) {
       // A capital-only word keeps every abbreviation sense, one line each: text means
       // one of them, and its document may spell it out (ANC: active noise
@@ -288,7 +358,11 @@ export async function buildEnDefs(
         !(capitalKeys.has(key) && sense.abbreviates !== undefined)
       )
         continue;
-      out.push([posLabel(sense.pos), sense.gloss]);
+      out.push(
+        capital === undefined
+          ? [posLabel(sense.pos), sense.gloss]
+          : [posLabel(sense.pos), sense.gloss, "capital"],
+      );
     }
     if (out.length > 0) defs[key] = out;
   }
@@ -297,7 +371,7 @@ export async function buildEnDefs(
   let fromEntities = 0;
   for (const [written, entity] of Object.entries(entities)) {
     const key = written.toLowerCase();
-    if (!capitalOnly.has(written) || everyPair(key)) continue;
+    if (!capitalOnly.has(written) || everyPair(key, true)) continue;
     const text = entityDefinition(written, entity);
     if (text === undefined) continue;
     const own = (defs[key] ?? []).filter(([, other]) => other !== text);
@@ -321,7 +395,7 @@ export async function buildEnDefs(
   const phraseCount = Object.keys(defs).filter((key) =>
     key.includes(" "),
   ).length;
-  const left = [...words, ...patterns].filter(everyPair).length;
+  const leftOut = [...words, ...patterns].filter(left).length;
   return {
     defs,
     stats: {
@@ -329,36 +403,41 @@ export async function buildEnDefs(
       words: Object.keys(defs).length - phraseCount,
       phrases: phraseCount,
       resolved,
+      /** Lowercase words a capitalised headword answers, defined by its senses. */
+      capitalised,
       /** Capital-only words defined by Wikidata. */
       fromEntities,
       /** Acronyms known only by what they stand for. */
       fromAcronyms,
       /** Terms every pair dictionary has. */
-      left,
+      left: leftOut,
     },
   };
 }
 
 /**
  * The terms each English pair dictionary has meanings of in its own pack (en-ja: EJDict
- * and the translation tables' phrases; en-es, en-pt: their recipes' sources).
+ * and the translation tables' phrases; en-es, en-pt: their recipes' sources), and,
+ * apart, the lowercase keys of its capitalised headwords (a recipe pair's capital.json
+ * shard), which answer the lookup of a capital-only word written in lower case.
  */
-function pairTerms(): ReadonlySet<string>[] {
+function pairTerms(): {
+  terms: ReadonlySet<string>;
+  capital: ReadonlySet<string>;
+}[] {
   return Object.entries(DICTIONARY_PACKS)
     .filter(([pair]) => pair.startsWith("en-"))
     .map(([pair]) => {
       const { dir } = PACKS[pair as keyof typeof PACKS];
       const terms = new Set<string>();
-      // A recipe pair's capitalised headwords (its capital.json shard) answer the
-      // lowercase lookup too where it has no lowercase entry: Thursday, January.
-      for (const key of Object.keys(readDictPacks(dir))) {
-        terms.add(key);
-        if (key !== key.toLowerCase()) terms.add(key.toLowerCase());
-      }
+      const capital = new Set<string>();
+      for (const key of Object.keys(readDictPacks(dir)))
+        if (key === key.toLowerCase()) terms.add(key);
+        else capital.add(key.toLowerCase());
       if (existsSync(join(dir, "phrases.json")))
         for (const key of Object.keys(readPack<object>("phrases.json", dir)))
           terms.add(key);
-      return terms;
+      return { terms, capital };
     });
 }
 
@@ -372,7 +451,11 @@ async function main() {
     capitals: readPack("en/capitals.json"),
     entities: joinedEntities(),
     acronyms: joinedAcronyms(),
-    everyPair: (key) => pairs.every((terms) => terms.has(key)),
+    everyPair: (key, capitalised) =>
+      pairs.every(
+        ({ terms, capital }) =>
+          terms.has(key) || (capitalised && capital.has(key)),
+      ),
   });
   const index = writeShards("en-defs", defs, PACKS_DIR);
   console.log(

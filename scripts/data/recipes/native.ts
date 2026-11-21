@@ -17,6 +17,7 @@ import type {
 } from "../../../src/core/packs/types.ts";
 import type { PhrasePatterns } from "../../../src/core/phrases/pattern.ts";
 import {
+  eachEntry,
   PACKS_DIR,
   KAIKKI_PATH,
   RAW_DIR,
@@ -34,6 +35,7 @@ import {
   isOtherWord,
   lastScriptForm,
   withAuxiliarySenses,
+  lesserLowercase,
   mergeSources,
   nativeLetterOf,
   packedEntry,
@@ -69,18 +71,43 @@ import { readFrequencyWords } from "../frequency-words.ts";
  * subtitles write them), for ordering a term's reverse glosses; words the list lacks
  * come after every ranked one. A word the list writes in another spelling has that
  * spelling's rank (`NativeLanguage.spelling`: Hindi subtitles mostly drop the nukta,
- * खबर for ख़बर), and a native phrase its rarest word's (पता करना: करना's or पता's).
+ * खबर for ख़बर) when it is the same word (`spellingsOf`, by the language's entries at
+ * `path`): the entries link the two, or the list's spelling has no entry of its own
+ * (मुकदमा for मुक़दमा). Not ज़ाती, "inherent", by जाती, "goes", an entry of its own. A
+ * native phrase has its rarest word's rank (पता करना: करना's or पता's).
  */
-async function frequencyRank(native: string) {
-  const spelling = nativeLanguage(native)?.spelling ?? ((word: string) => word);
+async function frequencyRank(native: string, path: string) {
+  const spelling = nativeLanguage(native)?.spelling;
   const ranks = new Map<string, number>();
+  /** Folded spelling → the list's forms so spelled, by rank. */
+  const variants = new Map<string, string[]>();
   for (const [i, form] of (
     await readFrequencyWords(native, Number.POSITIVE_INFINITY)
-  ).entries())
-    for (const written of [form, spelling(form)])
-      if (!ranks.has(written)) ranks.set(written, i + 1);
-  const rankOf = (word: string) =>
-    ranks.get(word) ?? ranks.get(spelling(word)) ?? Number.MAX_SAFE_INTEGER;
+  ).entries()) {
+    if (ranks.has(form)) continue;
+    ranks.set(form, i + 1);
+    if (!spelling) continue;
+    const folded = spelling(form);
+    let forms = variants.get(folded);
+    if (!forms) variants.set(folded, (forms = []));
+    forms.push(form);
+  }
+  const entries = spelling
+    ? await spellingsOf(path, native, spelling)
+    : undefined;
+  const rankOf = (word: string) => {
+    const own = ranks.get(word);
+    if (own !== undefined || !spelling) return own ?? Number.MAX_SAFE_INTEGER;
+    const variant = variants
+      .get(spelling(word))
+      ?.find(
+        (form) =>
+          entries!.same.has(pairKey(word, form)) || !entries!.heads.has(form),
+      );
+    return variant === undefined
+      ? Number.MAX_SAFE_INTEGER
+      : ranks.get(variant)!;
+  };
   return (word: string) =>
     Math.max(
       ...word
@@ -88,6 +115,50 @@ async function frequencyRank(native: string) {
         .filter(Boolean)
         .map(rankOf),
     );
+}
+
+const pairKey = (a: string, b: string) => (a < b ? `${a}\t${b}` : `${b}\t${a}`);
+
+/**
+ * NATIVE: the language's headwords, and the pairs of spellings its entries say are one
+ * word among those `spelling` folds together: one's entry names the other in a sense
+ * (खबर: "nuqtaless form of ख़बर"; an alternative form's alt-of) or among its forms
+ * (ज़रूर: जरूर, alternative). The pairs as `pairKey`s.
+ */
+export async function spellingsOf(
+  path: string,
+  native: string,
+  spelling: (word: string) => string,
+): Promise<{ heads: ReadonlySet<string>; same: ReadonlySet<string> }> {
+  const heads = new Set<string>();
+  const same = new Set<string>();
+  await eachEntry(path, (entry) => {
+    if (entry.lang_code !== native) return;
+    const head = entry.word.trim();
+    heads.add(head);
+    const folded = spelling(head);
+    const named = [
+      ...(entry.forms ?? []).map((form) => form.form),
+      ...(entry.senses ?? []).flatMap((sense) => [
+        ...[sense.alt_of, sense.form_of].flatMap((list: unknown) =>
+          Array.isArray(list)
+            ? list.map((item: { word?: unknown }) => item?.word)
+            : [],
+        ),
+        ...(sense.glosses ?? []).flatMap((gloss) =>
+          typeof gloss === "string" ? gloss.split(/[\s,;:()“”"]+/u) : [],
+        ),
+      ]),
+    ];
+    for (const word of named)
+      if (
+        typeof word === "string" &&
+        word !== head &&
+        spelling(word) === folded
+      )
+        same.add(pairKey(head, word));
+  });
+  return { heads, same };
 }
 
 /**
@@ -220,7 +291,10 @@ export async function buildPairDictionary(
         },
         ...(letter && { letter }),
         ...(recipe.reverseGlosses.frequency && {
-          rank: await frequencyRank(native),
+          rank: await frequencyRank(
+            native,
+            join(rawDir, recipe.reverseGlosses.file),
+          ),
         }),
       },
     );
@@ -437,35 +511,6 @@ export function withPointerPos(
     });
   }
   return set;
-}
-
-/** A capitalised headword's tables translate into at least this many languages… */
-const CAPITAL_COVERAGE = 50;
-/** …and this many times the languages its lowercase headword's do. */
-const LESSER_RATIO = 15;
-
-/**
- * LEARNING: a lowercase headword English uses far less than the same word capitalised:
- * English Wiktionary's tables translate the capitalised one's main sense into
- * CAPITAL_COVERAGE languages or more, LESSER_RATIO times as many as any sense of the
- * lowercase one (French 180 against french, to cut in strips, 4; English 227 against
- * the billiards spin 8; Japan 217 against the lacquer 8). Not an inflected form, whose
- * tables are its base's ("numbers", not Numbers), nor a word with a use of its own
- * (china 17 against China 224; turkey, may, polish). A capitalised word at a
- * sentence start then reads as the capitalised one, as written mid-sentence.
- */
-export function lesserLowercase(
-  key: string,
-  coverage: ReadonlyMap<string, number>,
-  lemmas: LemmaPack,
-): boolean {
-  const bases = [lemmas[key] ?? []].flat();
-  if (bases.some((base) => base !== key)) return false;
-  const capital = coverage.get(capitalKey(key, false)) ?? 0;
-  return (
-    capital >= CAPITAL_COVERAGE &&
-    (coverage.get(key) ?? 0) * LESSER_RATIO <= capital
-  );
 }
 
 /** The term keys English packs file meanings under: vocabulary words and phrase patterns. */

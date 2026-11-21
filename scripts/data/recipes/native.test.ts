@@ -3,13 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeShards } from "../common.ts";
-import {
-  buildPairDictionary,
-  lesserLowercase,
-  withPointerPos,
-} from "./native.ts";
+import { devanagariSpelling } from "../../../src/core/natives.ts";
+import { buildPairDictionary, spellingsOf, withPointerPos } from "./native.ts";
 import { TABLES_TAG } from "./recipes.ts";
-import { termKeyOf } from "./recipe.ts";
+import { lesserLowercase, tableCoverage, termKeyOf } from "./recipe.ts";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const termKey = termKeyOf({
@@ -250,5 +247,50 @@ describe("writeShards", () => {
       sources: ["eswiktionary"],
     });
     expect(read("capital.json")).toEqual({ Japan: japan });
+  });
+});
+
+describe("spellingsOf (hi-4)", () => {
+  it("pairs the spellings an entry links, and lists the headwords", async () => {
+    const { heads, same } = await spellingsOf(
+      join(FIXTURES, "kaikki-hi-spellings.jsonl"),
+      "hi",
+      devanagariSpelling,
+    );
+    // खबर: "nuqtaless form of ख़बर".
+    expect(same.has("ख़बर\tखबर") || same.has("खबर\tख़बर")).toBe(true);
+    // ज़ाती, "inherent", is not जाती, "goes": no entry links them.
+    expect(same.size).toBe(1);
+    expect(heads.has("जाती")).toBe(true);
+    // मुकदमा has no entry: it is only मुक़दमा spelled without the nukta.
+    expect(heads.has("मुकदमा")).toBe(false);
+  });
+});
+
+describe("tableCoverage", () => {
+  it("counts the languages of an entry's most translated sense", () => {
+    const row = (lang_code: string, sense?: string) => ({
+      lang_code,
+      word: "x",
+      ...(sense && { sense }),
+    });
+    expect(
+      tableCoverage({
+        word: "may",
+        pos: "verb",
+        lang_code: "en",
+        senses: [
+          {
+            glosses: ["To have permission to."],
+            translations: [row("fr"), row("de")],
+          },
+        ],
+        translations: [
+          row("fr", "month"),
+          row("de", "month"),
+          row("es", "month"),
+        ],
+      } as Parameters<typeof tableCoverage>[0]),
+    ).toBe(3);
   });
 });
