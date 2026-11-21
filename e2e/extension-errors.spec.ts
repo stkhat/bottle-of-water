@@ -742,20 +742,26 @@ for (const build of ["production", "check"] as const)
       await expect(videoCard(page, NF_LINE)).toBeVisible();
     }
 
+    // The extension pages' flows are three tests, not one: each has its own time limit,
+    // and together they took over 30 s on a loaded machine.
     if (checkBuildOnly)
-      test("extension pages: the popup without a content script, settings, word list", async ({
+      test("extension pages: the popup without a content script", async ({
         context,
         extensionId,
-      }, testInfo) => {
-        // The popup where no content script answers.
+      }) => {
         const blank = await context.newPage();
         await blank.goto("about:blank");
         await usePopup(context, extensionId, blank, { toggleSite: false });
         const data = await context.newPage();
         await data.goto("data:text/html,<p>Hello</p>");
         await usePopup(context, extensionId, data, { toggleSite: false });
+      });
 
-        // Settings: every control there is.
+    if (checkBuildOnly)
+      test("extension pages: every control in Settings", async ({
+        context,
+        extensionId,
+      }) => {
         const options = await context.newPage();
         await options.goto(`chrome-extension://${extensionId}/options.html`);
         await expect(options.getByRole("switch").first()).toBeVisible();
@@ -814,8 +820,16 @@ for (const build of ["production", "check"] as const)
         await expect(
           history.getByText(en["settings.history.empty"]),
         ).toBeVisible();
+      });
 
+    if (checkBuildOnly)
+      test("extension pages: backup in Settings, and the word list", async ({
+        context,
+        extensionId,
+      }, testInfo) => {
         // Backup: export, import it back, and a file that is not a backup.
+        const options = await context.newPage();
+        await options.goto(`chrome-extension://${extensionId}/options.html`);
         await saveTerm(context, extensionId, "knead", "learning");
         await saveTerm(context, extensionId, "tedious", "learning");
         await saveTerm(context, extensionId, "honestly", "known");
