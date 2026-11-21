@@ -4307,7 +4307,7 @@
 "greaseproof paper":[[["noun","กระดาษกันไข","paper that is impermeable to oil or grease"]],2],
 "greaser":[[["noun","กรีเซอร์","(ethnic slur) offensive term for a person of Mexican descent"]],2],
 "greasy":[[["adjective","ที่อมน้ำมัน","containing an unusual amount of grease or oil"]],2],
-"great":[[["adjective","ช้าง"],["adjective","หลวง"],["adjective","ปัง"],["adjective","โอฬารึก"]],4],
+"great":[[["interjection","ยอดเยี่ยม","great!"]],0],
 "great ape":[[["noun","เกรตเอป","any of the large anthropoid apes of the family Pongidae"]],2],
 "great auk":[[["noun","นกเกรทอ็อก","large flightless auk of rocky islands off northern Atlantic coasts"]],2],
 "great australian bight":[[["noun","อ่าวเกรตออสเตรเลียน","a wide bay of the Indian Ocean in southern Australia"]],2],
@@ -13483,5 +13483,6 @@
 "northern ireland":[[["proper noun","ไอร์แลนด์เหนือ, นอร์เทิร์นไอร์แลนด์","a constituent country and province of the United Kingdom, situated in the northeastern part of the island of Ireland"]],0],
 "northern lights":[[["noun","แสงเหนือ","the aurora of the northern hemisphere"]],0],
 "northern pike":[[["noun","ปลานอร์เทิร์นไพค์","voracious piscivorous pike of waters of northern hemisphere"]],2],
-"northern rhodesia":[[["noun","สาธารณรัฐแซมเบีย","a republic in central Africa"]],2]
+"northern rhodesia":[[["noun","สาธารณรัฐแซมเบีย","a republic in central Africa"]],2],
+"northern shoveler":[[["noun","เป็ดปากพลั่ว","Spatula clypeata"]],0]
 }

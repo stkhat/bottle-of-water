@@ -640,13 +640,13 @@
         },
         {
           "path": "dict-2.json",
-          "sha256": "17a2d6fc01306b361b91749a1c74db8c2e8a9fd36d59c98538fc311b4735c507",
-          "size": 1999908
+          "sha256": "1631ec99a7b69c64a3865fc5140fefa4c544527d17e07a603339b9b6565dd586",
+          "size": 1999936
         },
         {
           "path": "dict-3.json",
-          "sha256": "e404c2e603c73ed08da5a0057a9b7f999f23beb605b269255c25ab68674bc1e4",
-          "size": 1999982
+          "sha256": "b024d51c8351003c2db815f1c533e3e1cc13d691d2290aad3b76bec8846aecd1",
+          "size": 1999888
         },
         {
           "path": "dict-4.json",
@@ -655,13 +655,13 @@
         },
         {
           "path": "index.json",
-          "sha256": "55aa55f75664fdb7f06a295741535af6840ac8c396c7baed185f8354631d3eb4",
-          "size": 437
+          "sha256": "67cddf59f580e5d803372e8922e4d43c3e7e95d434a24d1dad04663dc259e604",
+          "size": 435
         }
       ],
       "format": 4,
       "package": "@langle/en-th",
-      "version": "2026.1121.6"
+      "version": "2026.1121.7"
     },
     "en-tr": {
       "files": [
@@ -672,23 +672,23 @@
         },
         {
           "path": "dict-1.json",
-          "sha256": "f59333373c412428417e932774e80cb926c25800d6096e1b4e4a254a3bcb160f",
-          "size": 1999862
+          "sha256": "cc7cd0ea3143045c3feb4ed8561bee1b34c0b5e2656b55c5110500b9d9b0649d",
+          "size": 1999959
         },
         {
           "path": "dict-2.json",
-          "sha256": "8e7d64a448a64d567d8ee88f4dd6a33fd8c358ca89a79f966b170e47c4759bd7",
-          "size": 464769
+          "sha256": "035c06f80af8345d48ea09cfb19c16a064db713f9702faff5299a51c44e59544",
+          "size": 464510
         },
         {
           "path": "index.json",
-          "sha256": "0aaa669ecae5b2d185cf05aaf6f53e6ee5ef78c44436c27f91083e54bde70310",
-          "size": 284
+          "sha256": "071ca025c28f622bb4dd344e9fde22a164ee66a6b8131e0c521001484eed754b",
+          "size": 290
         }
       ],
       "format": 4,
       "package": "@langle/en-tr",
-      "version": "2026.1121.3"
+      "version": "2026.1121.4"
     },
     "en-zh": {
       "files": [

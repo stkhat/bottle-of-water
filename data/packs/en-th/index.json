@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"emigration"},{"file":"dict-2.json","first":"emigre","last":"northern rhodesia"},{"file":"dict-3.json","first":"northern shoveler","last":"trail"},{"file":"dict-4.json","first":"trail bike","last":"zzz"}],
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"emigration"},{"file":"dict-2.json","first":"emigre","last":"northern shoveler"},{"file":"dict-3.json","first":"northern shrike","last":"trail"},{"file":"dict-4.json","first":"trail bike","last":"zzz"}],
 "sources":["enwiktionary-translations","thwiktionary","omw-th","thwiktionary-translations","enwiktionary-th","wikidata"]
 }

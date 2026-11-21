@@ -477,11 +477,22 @@ export async function buildPairDictionary(
     // a lesser sense, the part of speech of the sense the tables translate into the
     // most languages (down: the adverb, 78 languages, where Turkish rows give only the
     // feathers).
+    // Not an adjective or adverb whose rows translate only its interjection: that is
+    // the word said alone (great!, absolutely!), its everyday meaning, not a lesser
+    // one (th great: the rows' ยอดเยี่ยม, not the slang and formal adjectives English
+    // Wiktionary glosses "great"). A noun's or a verb's interjection is a command or a
+    // sound (attention!, get out!, timber!), another meaning.
     mainPos: (key, from) => {
-      const main = tableTerms.terms.get(key)?.senses[0]?.[0];
+      const senses = tableTerms.terms.get(key)?.senses ?? [];
+      const main = senses[0]?.[0];
       if (main === undefined) return undefined;
       if (pos[key]?.[0] === main) return main;
-      return from === TABLES_TAG ? tableTerms.mainPos.get(key) : undefined;
+      if (from !== TABLES_TAG) return undefined;
+      const most = tableTerms.mainPos.get(key);
+      const alone =
+        (most === "adjective" || most === "adverb") &&
+        senses.every(([of]) => of === "interjection");
+      return alone ? undefined : most;
     },
     degree: (key, sense) =>
       degreeOf(sense, key, [lemmas[key] ?? []].flat(), pos) !== undefined,

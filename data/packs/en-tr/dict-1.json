@@ -152,7 +152,7 @@
 "absolute temperature":[[["noun","mutlak sıcaklık, salt sıcaklık, saltık sıcaklık","thermodynamic temperature"]],0],
 "absolute value":[[["noun","mutlak değer, salt değer"]],1],
 "absolute zero":[[["noun","mutlak sıfır","coldest possible temperature"]],0],
-"absolutely":[[["adverb","mutlak, sınırsız, koşulsuz, kayıtsız şartsız, tam bir şekilde"],["adverb","hiçbir, katiyetle, kesinlikle (genellikle olumsuz kullanılır)"],["adverb","tabii ki, mutlaka (onay belirtir)"]],1],
+"absolutely":[[["interjection","kesinlikle","yes; certainly"]],0],
 "absolution":[[["noun","bağışlama, mağfiret, yarlıgama","absolving or setting free from guilt, sin or penalty; forgiveness of an offense"],["noun","itiraf","exercise of priestly jurisdiction in the sacrament of penance, by which Catholics believe the sins of the truly penitent are forgiven"],["noun","beraat, aklanma","acquittal, or sentence of a judge declaring an accused person innocent"]],0],
 "absolutism":[[["noun","mutlakiyet"]],1],
 "absolve":[[["verb","bağışlamak, yarlıgamak","theology: to pronounce free or give absolution from sin"],["verb","bağışlamak, aklamak, yarlıgamak","to pronounce free or give absolution"],["verb","özgür etmek, özgürleştirmek, özgür kılmak","to set free"],["verb","aklamak, bağışlamak","law: to pronounce not guilty; to grant a pardon for"]],0],
@@ -22937,5 +22937,6 @@
 "sleazy":[[["adjective","çıkarcı; ahlaksız; bayağı; şerefsiz; saygısız"]],1],
 "sled dog":[[["noun","kızak köpeği","dog"]],0],
 "sledgehammer":[[["noun","balyoz, madırga","kind of hammer"]],0],
-"sleek":[[["adjective","şık","smooth"]],0]
+"sleek":[[["adjective","şık","smooth"]],0],
+"sleep":[[["verb","uyumak","to rest in state of reduced consciousness"],["noun","uyku","state of reduced consciousness"],["noun","çapak","substance found in the corner of the eyes, sometimes as a figurative objectification of sleep — see also rheum"]],0]
 }
