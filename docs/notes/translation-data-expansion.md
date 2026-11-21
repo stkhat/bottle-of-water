@@ -463,6 +463,15 @@ User decisions (2026-11-21): S1 allowed as the last source only, S2 allowed, the
 - Found on the way, fixed for every pair: unexpanded template links in edition glosses (":แม่แบบ:สกรรม สละ, ละทิ้ง"; th 165 English entries, zh 270, ru 12, fr 9, es 8, de 2, pt, it, pl 1), now a bracketed label; the Thai edition files month names as proper nouns, which made January a name that a given-name reading would hide, now decided by the tables' cased languages for scripts without case (`writtenAsWord`).
 - `en-th` 2026.1121.0: 43,622 terms (tables 10,367, edition 2,668, wordnet 28,801, S2 67, S1 1,800), 7.54 MB raw in 4 shards and `capital.json` (with main's acronyms, 3,506).
 
+### G: the gate rule as built (2026-11-21)
+
+User decision (2026-11-21, after M0b): a pair passes by **(a)** ≥ 90% of the top 5,000 content words, or **(b)** ≥ 90% of the corpus's word tokens when Chrome's translator translates English into N (architecture "Quality gate").
+
+- **Token counts**: `data/gate/en-tokens.json` (7,803 keys, 143,211 tokens) from M0a's `r4/runs/base-ja/rows.jsonl` (`scripts/data/gate-tokens.ts`); the gate looks each key up as M0a did and reproduces its figures (`data:stats`, type / tokens): ja 100 / 99.4 (M0a 99.0: the gate counts en-ja's table words too), pl 99.5 / 99.7, it 98.1 / 99.3, ru 97.7 / 99.0, fr 97.5 / 99.0, es 96.9 / 99.0, de 96.2 / 98.6, th 95.2 / 98.6, pt 95.2 / 98.3, zh 95.1 / 98.1. Every shipped pair passes by (a); so do es-en, fr-en, de-en (100) and de-fr (96.7, no token counts for German).
+- **Candidates** with M0a's best sources, tokens by the gate's code: hi 91.3, ar 97.0, id 97.5, tr 98.0, ko 98.4, fa 92.0, ur 87.8, bn 87.7, ta 84.4, te 82.4, mr 77.6. So ar, id, ko, tr pass by (a); hi by (b) (83.7% type, translator listed); fa (92.0) and ur have no translator; bn, ta, te, mr pass neither.
+- **Translator**: `NativeLanguage.translator`, from Chrome's documented list (developer.chrome.com/docs/ai/translator-api, "Supported languages", updated 2025-05-20: ar, bg, bn, cs, da, de, el, en, es, fi, fr, he, hi, hr, hu, id, it, ja, kn, ko, lt, mr, nl, no, pl, pt, ro, ru, sk, sl, sv, ta, te, th, tr, uk, vi, zh, zh-Hant), as M0b found it (fa and ur unavailable).
+- **L3 re-measured** (`learning-pairs.ts --measure`, top 5,000): de→fr 96.7 (as shipped), de→ru 94.7, de→pl 94.6, de→zh 93.4, fr→de 92.2, fr→ru 90.6 now reach (a) and could be built; fr→pl 89.8, fr→es 88.0, de→es 87.9 and the rest stay under. (b) is not applied to French and German: their corpora exist (2026-11-fr, 2026-11-de), but the names rule ("capitalised headword") takes in German's nouns, and the key rule has not been checked against those hovers. New since L3: fr→th 23.7, de→th 25.6 (the th edition and reversed tables; the French and German tables gave no Thai terms, not looked into: under any rule either way).
+
 ## Other learning languages (estimated)
 Rows other than English in the matrix are estimated from source sizes (kaikki sense counts, 2026-11-13), not measured. Rules:
 - T1~: a bilingual dictionary with a confirmed license (zh → en, ja → en).

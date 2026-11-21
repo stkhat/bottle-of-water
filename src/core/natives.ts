@@ -43,6 +43,15 @@ export interface NativeLanguage {
    * where it is not its senses' (`shortOfPairSenses`, 2026-11-21).
    */
   readonly englishPair?: { readonly format: number };
+  /**
+   * The browser's translator translates English into it, so a word without a
+   * human-made meaning shows its English definition translated: Chrome's Translator API
+   * lists the language (developer.chrome.com/docs/ai/translator-api, "Supported
+   * languages", 2025-05-20). Data about the feature, for the quality gate's token rule
+   * (`scripts/data/gate.ts`); the extension detects the translator itself. Absent:
+   * not listed (fa, ur), or English.
+   */
+  readonly translator?: true;
 }
 
 /**
@@ -56,6 +65,7 @@ export const NATIVE_LANGUAGES = {
     spaces: false,
     dense: true,
     scripts: ["Han", "Hiragana", "Katakana"],
+    translator: true,
     examples: { bank: "川岸、土手", beans: "秘密をばらす", mind: "決心する" },
   },
   es: {
@@ -64,6 +74,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
+    translator: true,
     examples: {
       bank: "orilla (de un río)",
       beans: "revelar el secreto",
@@ -77,6 +88,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
+    translator: true,
     examples: {
       bank: "margem (de um rio)",
       beans: "revelar o segredo",
@@ -92,6 +104,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Cyrillic"],
+    translator: true,
     examples: null,
     englishPair: { format: 4 },
   },
@@ -101,6 +114,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
+    translator: true,
     examples: {
       bank: "rive (d'une rivière)",
       beans: "révéler le secret",
@@ -114,6 +128,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
+    translator: true,
     examples: {
       bank: "Ufer (eines Flusses)",
       beans: "das Geheimnis verraten",
@@ -130,6 +145,7 @@ export const NATIVE_LANGUAGES = {
     spaces: false,
     dense: true,
     scripts: ["Han"],
+    translator: true,
     examples: null,
     englishPair: { format: 4 },
   },
@@ -139,6 +155,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
+    translator: true,
     examples: null,
     englishPair: { format: 4 },
   },
@@ -148,6 +165,7 @@ export const NATIVE_LANGUAGES = {
     spaces: true,
     dense: false,
     scripts: ["Latin"],
+    translator: true,
     examples: null,
     englishPair: { format: 4 },
   },
@@ -162,6 +180,7 @@ export const NATIVE_LANGUAGES = {
     spaces: false,
     dense: false,
     scripts: ["Thai"],
+    translator: true,
     examples: {
       bank: "ตลิ่ง (ริมแม่น้ำ)",
       beans: "เปิดเผยความลับ",
