@@ -170,7 +170,10 @@ export function readWords(
  *    to nothing; its lookup shows the base's auxiliary senses where the source has
  *    some, else no meaning beside the card's "has → have" (`sensePos`, AUXILIARY_BASE).
  * 1. A written form that is not a headword, or a headword the dictionary has no entry
- *    for (en-es "told", "says": only some sources have inflected forms): the base
+ *    for (en-es "told", "says": only some sources have inflected forms) or only a
+ *    capitalised headword's entry for (`EntryOutline.capital`: "numbers" is no
+ *    Numbers, the book, where its capital says nothing; one where it does is not
+ *    looked up by its tag): the base
  *    whose part of speech fits the tag, then the most frequent ("arises" → arise), or
  *    the first where the pack lists the likeliest first (Spanish "creo" → creer).
  *    So too a word without a tag whose entry is only pointers, the first to a word
@@ -217,13 +220,15 @@ export function chooseKey(
     pack.partsOfSpeech(base).some((pos) => accepts(tag.label, pos));
   /**
    * Rule 1: the base the tag fits, then the likeliest (the first, where the pack lists
-   * them so) or the most frequent, among those with an entry.
+   * them so) or the most frequent, among those with an entry (not a capitalised
+   * headword's alone).
    */
   const likeliest = () => {
     const fitting = bases.filter(fits);
-    const pool = (fitting.length > 0 ? fitting : bases).filter((base) =>
-      outline(base),
-    );
+    const pool = (fitting.length > 0 ? fitting : bases).filter((base) => {
+      const found = outline(base);
+      return found !== undefined && !found.capital;
+    });
     const best = pack.basesInOrder
       ? pool[0]
       : pool.reduce<string | undefined>(
@@ -243,7 +248,7 @@ export function chooseKey(
   // A headword this dictionary has no entry for is, to it, a form that is not one,
   // an auxiliary too (en-ru "has been" → have): its lookup's `pos` is AUXILIARY_BASE, so
   // the base's senses its source calls auxiliary show, else none (`sensePos`).
-  if (!own) return likeliest();
+  if (!own || own.capital) return likeliest();
   if (auxiliary) {
     // An auxiliary is a verb: an entry whose first sense is a form of a word that is
     // not mainly one ("does": plural of doe), or of a word that is none of its bases

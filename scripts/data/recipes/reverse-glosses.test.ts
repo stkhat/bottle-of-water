@@ -256,6 +256,8 @@ describe("readReverseGlosses: Hindi's lesser senses (hi-2)", () => {
         pos: "noun",
         senses: [{ glosses: ["May"] }],
       },
+      // Invented: the real entry glosses "to be able", "can", never "may", so en-hi has
+      // no lowercase "may" and en-defs defines it (hi-4).
       {
         word: "सकना",
         lang_code: "hi",

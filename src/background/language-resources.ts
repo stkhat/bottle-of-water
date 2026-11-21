@@ -162,18 +162,8 @@ function withEnglishContractions(
   dictionary: DictionaryProvider,
   en: PackFiles["en"],
   defs: DefsPack,
+  { english, headOf }: EnglishWords,
 ): DictionaryProvider {
-  // The vocabulary as a set, made on the first contraction or head looked up.
-  let vocab: ReadonlySet<string> | undefined;
-  const english = (word: string) => (vocab ??= new Set(en.vocab)).has(word);
-  let heads: ReadonlyMap<string, string> | undefined;
-  const headOf = (key: string) =>
-    (heads ??= new Map(
-      [...en.capitals, ...Object.keys(en.acronyms), ...(en.phrases.names ?? [])]
-        .reverse()
-        .map((written) => [written.toLowerCase(), written] as const)
-        .filter(([lower]) => !english(lower)),
-    )).get(key);
   let acronyms: ReadonlyMap<string, readonly string[]> | undefined;
   const acronymExpansions = (key: string) =>
     (acronyms ??= new Map(
@@ -197,13 +187,39 @@ function withEnglishContractions(
   );
 }
 
+interface EnglishWords {
+  /** Whether a word is in the English vocabulary. */
+  english: (word: string) => boolean;
+  /**
+   * A capital-only word's, acronym's or name's head as written, by its key (AI, NYPD,
+   * New Zealand): a word English writes only capitalised.
+   */
+  headOf: (key: string) => string | undefined;
+}
+
+/** The English pack's words, read once each on the first lookup that needs them. */
+function englishWords(en: PackFiles["en"]): EnglishWords {
+  let vocab: ReadonlySet<string> | undefined;
+  const english = (word: string) => (vocab ??= new Set(en.vocab)).has(word);
+  let heads: ReadonlyMap<string, string> | undefined;
+  const headOf = (key: string) =>
+    (heads ??= new Map(
+      [...en.capitals, ...Object.keys(en.acronyms), ...(en.phrases.names ?? [])]
+        .reverse()
+        .map((written) => [written.toLowerCase(), written] as const)
+        .filter(([lower]) => !english(lower)),
+    )).get(key);
+  return { english, headOf };
+}
+
 /** A recipe pair (en-es): the recipe's meanings, then English Wiktionary's definitions. */
 const pairRecipe = (pair: RecipePairPack) =>
   dictionaryRecipe<"en" | RecipePairPack | "en-defs">(
     pair,
     DICTIONARY_PACKS[pair],
-    (files) =>
-      withEnglishContractions(
+    (files) => {
+      const words = englishWords(files.en);
+      return withEnglishContractions(
         createPairDictionary({
           dict: files[pair].dict,
           defs: files["en-defs"].defs,
@@ -211,10 +227,13 @@ const pairRecipe = (pair: RecipePairPack) =>
           native: pair.slice("en-".length),
           lemmas: files.en.lemmas,
           pos: files.en.pos,
+          capitalOnly: (key) => words.headOf(key) !== undefined,
         }),
         files.en,
         files["en-defs"].defs,
-      ),
+        words,
+      );
+    },
   );
 
 /**
@@ -239,18 +258,21 @@ function learningPairRecipe(pair: LearningPairName) {
 
 const DICTIONARY_RECIPES: Readonly<Record<string, Recipe<DictionaryProvider>>> =
   {
-    "en-ja": dictionaryRecipe("en-ja", DICTIONARY_PACKS["en-ja"], (files) =>
-      withEnglishContractions(
+    "en-ja": dictionaryRecipe("en-ja", DICTIONARY_PACKS["en-ja"], (files) => {
+      const words = englishWords(files.en);
+      return withEnglishContractions(
         createEnJaDictionary({
           ...files["en-ja"],
           defs: files["en-defs"].defs,
           pos: files.en.pos,
           ipa: files.en.ipa,
+          capitalOnly: (key) => words.headOf(key) !== undefined,
         }),
         files.en,
         files["en-defs"].defs,
-      ),
-    ),
+        words,
+      );
+    }),
     "es-en": dictionaryRecipe("es-en", DICTIONARY_PACKS["es-en"], (files) =>
       createDefsDictionary({ defs: files["es-en"].defs, ipa: files.es.ipa }),
     ),

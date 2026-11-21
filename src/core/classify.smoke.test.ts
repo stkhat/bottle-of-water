@@ -301,7 +301,9 @@ describe("names over the generated packs (rule D)", () => {
     expect(dictionary.entry("nov", "capital")?.lines[0]).toMatch(/^11月/);
     expect(dictionary.entry("mon", "capital")?.lines[0]).toMatch(/^月曜日/);
     expect(dictionary.entry("dec", "capital")?.lines[0]).toMatch(/^12月/);
-    expect(dictionary.entry("nov", "lower")?.glossLang).toBe("en");
+    // Written in lower case too: the clipping is a lesser headword beside Nov
+    // (`lesserLowercase`), whose senses en-defs gives it, marked "capital".
+    expect(dictionary.entry("nov", "lower")?.lines[0]).toMatch(/^11月/);
     // A word EJDict has keeps its own meaning: "the Sun" is no Sunday.
     expect(dictionary.entry("sun", "capital")?.lines[0]).toMatch(/太陽/);
   });

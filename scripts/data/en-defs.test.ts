@@ -298,3 +298,38 @@ describe("buildEnDefs: every part of speech (hi-2)", () => {
     ]);
   });
 });
+
+describe("buildEnDefs: a lowercase word beside a capitalised one (hi-4)", () => {
+  const fixture = join(
+    import.meta.dirname,
+    "fixtures",
+    "kaikki-capitals.jsonl",
+  );
+  const packs = {
+    vocab: ["may", "french", "internet"],
+    lemmas: {},
+    phrases: { detect: [], more: [], gap: [] },
+  };
+
+  it("keeps a word of its own that every pair has only capitalised (may: May)", async () => {
+    const { defs } = await buildEnDefs(fixture, {
+      ...packs,
+      everyPair: (_key, capitalised) => capitalised,
+    });
+    expect(defs.may).toEqual([["verb", "To have permission to."]]);
+    // A lesser headword (french) and a letter-case form (internet) are the
+    // capitalised word's: the pairs' capitalised headwords answer them.
+    expect(defs).not.toHaveProperty("french");
+    expect(defs).not.toHaveProperty("internet");
+  });
+  it("defines a lesser lowercase word or a letter-case form by the capitalised headword's senses, marked", async () => {
+    const { defs, stats } = await buildEnDefs(fixture, packs);
+    expect(defs.french).toEqual([
+      ["adjective", "Of or relating to France.", "capital"],
+    ]);
+    expect(defs.internet).toEqual([
+      ["proper noun", "The global network of computers.", "capital"],
+    ]);
+    expect(stats.capitalised).toBe(2);
+  });
+});

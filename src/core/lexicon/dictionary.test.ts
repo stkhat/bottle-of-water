@@ -1216,7 +1216,39 @@ describe("createPairDictionary", () => {
     it("takes the capitalised entry for a word with no lowercase one, however written", () => {
       for (const written of ["capital", "lower", undefined] as const)
         expect(capitals.entry("thursday", written)?.lines).toEqual(["jueves"]);
-      expect(capitals.outline("thursday")).toMatchObject({ meaning: true });
+      expect(capitals.outline("thursday")).toMatchObject({
+        meaning: true,
+        capital: true,
+      });
+    });
+    describe("a word in lower case that is a word of its own (hi-4)", () => {
+      const may = createPairDictionary({
+        dict: {
+          May: [[["proper noun", "mayo"]], 0, "word"],
+          Tokyo: [[["proper noun", "Tokio"]], 0, "name"],
+          Internet: [[["proper noun", "Internet"]], 0, "word"],
+        } as unknown as PairPack,
+        defs: {
+          may: [["verb", "To have permission to."]],
+          tokyo: [["proper noun", "The capital city of Japan."]],
+          internet: [["proper noun", "The global network.", "capital"]],
+        },
+        ipa: {},
+        capitalOnly: (key) => key === "tokyo",
+      });
+      it("shows its English definitions, not the capitalised headword's", () => {
+        expect(may.entry("may", "lower")).toMatchObject({
+          glossLang: "en",
+          short: "To have permission to",
+        });
+        expect(may.entry("may", "capital")?.lines).toEqual(["mayo"]);
+        // A sentence start keeps the capitalised headword.
+        expect(may.entry("may")?.lines).toEqual(["mayo"]);
+      });
+      it("takes the capitalised headword for a word English writes only so, or that en-defs marks as the headword's", () => {
+        expect(may.entry("tokyo", "lower")?.lines).toEqual(["Tokio"]);
+        expect(may.entry("internet", "lower")?.lines).toEqual(["Internet"]);
+      });
     });
     it("says what a capitalised headword means, as the data build found", () => {
       expect(capitals.capitalMeaning("Japan")).toBe("name");

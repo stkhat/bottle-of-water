@@ -119,6 +119,27 @@ describe("chooseKey (rule A1)", () => {
       ),
     ).toBe("decided");
   });
+  it("takes the base of a form whose only entry is a capitalised headword's (numbers: Numbers)", () => {
+    const capital = (word: string) =>
+      word === "numbers"
+        ? {
+            firstMeaning: true,
+            meaning: true,
+            pos: ["proper noun"],
+            capital: true as const,
+          }
+        : word === "number"
+          ? { firstMeaning: true, meaning: true, pos: ["noun"] }
+          : undefined;
+    const numbers = {
+      partsOfSpeech: (word: string) => (word === "number" ? ["noun"] : []),
+      rank: () => 1,
+    };
+    for (const r of [reading(tag("noun", "NNS")), reading(undefined)])
+      expect(
+        chooseKey("numbers", ["numbers", "number"], r, capital, numbers),
+      ).toBe("number");
+  });
   it("keeps an auxiliary's pointer, and takes the base of one whose entry means something else", () => {
     const aux = { auxiliary: true };
     expect(key("has", ["has", "have"], reading(tag("verb", "VBZ"), aux))).toBe(

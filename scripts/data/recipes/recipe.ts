@@ -16,6 +16,7 @@ import {
   GIVEN_NAME,
   posLabel,
   SURNAME,
+  type KaikkiEntry,
   type KaikkiSense,
   type KaikkiTranslation,
 } from "../common.ts";
@@ -1293,8 +1294,70 @@ export function nativeKindOf(
   return name ? "name" : undefined;
 }
 
+/** A capitalised headword's tables translate into at least this many languages… */
+const CAPITAL_COVERAGE = 50;
+/** …and this many times the languages its lowercase headword's do. */
+const LESSER_RATIO = 15;
+
+/**
+ * LEARNING: a lowercase headword English uses far less than the same word capitalised:
+ * English Wiktionary's tables translate the capitalised one's main sense into
+ * CAPITAL_COVERAGE languages or more, LESSER_RATIO times as many as any sense of the
+ * lowercase one (French 180 against french, to cut in strips, 4; English 227 against
+ * the billiards spin 8; Japan 217 against the lacquer 8). Not an inflected form, whose
+ * tables are its base's ("numbers", not Numbers), nor a word with a use of its own
+ * (china 17 against China 224; turkey, may, polish). A capitalised word at a
+ * sentence start then reads as the capitalised one, as written mid-sentence.
+ */
+export function lesserLowercase(
+  key: string,
+  coverage: ReadonlyMap<string, number>,
+  lemmas: LemmaPack,
+): boolean {
+  const bases = [lemmas[key] ?? []].flat();
+  if (bases.some((base) => base !== key)) return false;
+  const capital = coverage.get(capitalKey(key, false)) ?? 0;
+  return (
+    capital >= CAPITAL_COVERAGE &&
+    (coverage.get(key) ?? 0) * LESSER_RATIO <= capital
+  );
+}
+
 const senseLabel = (text: unknown) =>
   typeof text === "string" && text.trim() ? text.trim() : undefined;
+
+/**
+ * How many languages an entry's most translated sense's table translates it into: its
+ * rows grouped by their sense label, else by the sense's gloss (`entryHint` for rows
+ * outside a sense, which English Wiktionary does not leave untitled). The measure
+ * `lesserLowercase` compares a capitalised headword and its lowercase one by.
+ */
+export function tableCoverage(entry: KaikkiEntry, entryHint?: string): number {
+  const groups = new Map<string, Set<string>>();
+  const add = (
+    translations: KaikkiTranslation[] | undefined,
+    fallback: string | undefined,
+  ) => {
+    for (const translation of translations ?? []) {
+      const hint = senseLabel(translation?.sense) ?? fallback;
+      if (!hint || typeof translation.lang_code !== "string") continue;
+      let langs = groups.get(hint);
+      if (!langs) groups.set(hint, (langs = new Set()));
+      langs.add(translation.lang_code);
+    }
+  };
+  add(entry.translations, entryHint);
+  for (const sense of entry.senses ?? []) {
+    const gloss: unknown = Array.isArray(sense.glosses)
+      ? sense.glosses.at(-1)
+      : undefined;
+    add(
+      sense.translations,
+      typeof gloss === "string" ? shortOfDefinition(gloss.trim()) : undefined,
+    );
+  }
+  return Math.max(0, ...[...groups.values()].map((langs) => langs.size));
+}
 
 /**
  * Whether a translation table's note gives an example of the headword and its
@@ -1491,9 +1554,7 @@ export async function readTranslationTables(
         ),
       );
     }
-    let most = 0;
     for (const [hint, { words, langs, marked, example, noted }] of groups) {
-      most = Math.max(most, langs.size);
       // A row that gives an example ("We would sit by the hole… - Winters saßen
       // wir…") has the example's pieces as its words ("In the winters", "er sei sofort
       // wieder da."), not translations.
@@ -1507,7 +1568,18 @@ export async function readTranslationTables(
         ...(words.length === 0 && { wordless: true }),
       });
     }
-    coverage.set(key, Math.max(coverage.get(key) ?? 0, most));
+    coverage.set(
+      key,
+      Math.max(
+        coverage.get(key) ?? 0,
+        tableCoverage(
+          entry,
+          typeof firstGloss === "string"
+            ? shortOfDefinition(firstGloss.trim())
+            : undefined,
+        ),
+      ),
+    );
   });
   let wordless = 0;
   const termsOf = (ranked: Ranked, max: number, capital: boolean) => {
