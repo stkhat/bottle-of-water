@@ -15,6 +15,7 @@ import {
   tryNormalizeUrl,
   type Platform,
 } from "../core/url";
+import { listeners } from "../core/util";
 import { watchSettings } from "../messaging/storage";
 import type {
   HistorySentenceInput,
@@ -52,6 +53,11 @@ export interface HistoryStore {
    * added to "Never run on". Returns how many pages.
    */
   forgetHost(host: string): Promise<number>;
+  /**
+   * Called after each local change that was committed: `"rows"` when pages or sentences
+   * were kept, `"forgotten"` after a "Clear" or a forgotten host (what `main` carries).
+   */
+  onChange(listener: (kind: "rows" | "forgotten") => void): () => void;
 }
 
 export interface HistoryStoreOptions {
@@ -139,6 +145,7 @@ export function createHistoryStore(
     capBytes = HISTORY_CAP_BYTES,
   }: HistoryStoreOptions = {},
 ): HistoryStore {
+  const changed = listeners<["rows" | "forgotten"]>();
   const tables = [
     db.historyPages,
     db.historySentences,
@@ -189,7 +196,7 @@ export function createHistoryStore(
       if (keyed.length === 0) return 0;
       // Read before the transaction: only database work may be waited for inside it.
       const device = await deviceId();
-      return db.transaction("rw", tables, async () => {
+      const count = await db.transaction("rw", tables, async () => {
         const url = normalizeUrl(source.url);
         const host = hostnameOf(url)!.toLowerCase();
         const at = Math.max(now(), await clearedAt(), await forgottenAt(host));
@@ -245,6 +252,8 @@ export function createHistoryStore(
         await setTotalBytes(await evict(id, (await totalBytes()) + added));
         return count;
       });
+      changed.emit("rows");
+      return count;
     },
 
     async find(termId, { excludeUrl, limit = 50 } = {}) {
@@ -296,8 +305,8 @@ export function createHistoryStore(
       return { bytes, cap: capBytes, pages };
     },
 
-    clear() {
-      return db.transaction("rw", tables, async () => {
+    async clear() {
+      await db.transaction("rw", tables, async () => {
         const newest = await db.historyPages.orderBy("lastSeen").last();
         const at = Math.max(
           now(),
@@ -309,11 +318,12 @@ export function createHistoryStore(
         await db.historyPages.clear();
         await setTotalBytes(0);
       });
+      changed.emit("forgotten");
     },
 
-    forgetHost(entry) {
+    async forgetHost(entry) {
       const host = entry.trim().toLowerCase();
-      return db.transaction("rw", tables, async () => {
+      const count = await db.transaction("rw", tables, async () => {
         // Reads the host index only, then just the matching pages.
         const hosts = (await db.historyPages
           .orderBy("host")
@@ -332,6 +342,10 @@ export function createHistoryStore(
         if (removed > 0) await setTotalBytes((await totalBytes()) - removed);
         return pages.length;
       });
+      changed.emit("forgotten");
+      return count;
     },
+
+    onChange: changed.add,
   };
 }

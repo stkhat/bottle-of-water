@@ -59,6 +59,7 @@ import {
   type ResponseOf,
   type MeaningLine,
   type ShortMeaning,
+  type CloudStatus,
   type SyncStatus,
   type TermBrief,
   type TranslationItem,
@@ -94,6 +95,7 @@ export interface HandlerDeps {
     retry(): void;
   };
   sync: { status(): Promise<SyncStatus> };
+  cloud: { status(): Promise<CloudStatus>; requestCheck(): void };
   openOptionsPage(): Promise<void>;
 }
 
@@ -208,6 +210,7 @@ export function createHandlers({
   resources,
   packs,
   sync,
+  cloud,
   openOptionsPage,
 }: HandlerDeps): Handle {
   /** Cached translations of `texts`; best effort: none when the cache cannot be read. */
@@ -568,6 +571,11 @@ export function createHandlers({
     undoSaveAll: ({ batchId }) => store.undoSaveAll(batchId),
     counts: ({ lang }) => store.counts(lang),
     syncStatus: () => sync.status(),
+    cloudStatus: () => cloud.status(),
+    cloudCheck: async () => {
+      cloud.requestCheck();
+      return null;
+    },
     exportJson: () => store.exportJson(),
     importJson: ({ json }) => store.importJson(json),
     lastExport: async () => (await store.getMeta("lastExportAt")) ?? null,

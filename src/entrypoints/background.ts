@@ -12,10 +12,18 @@ import {
   startPackDownloads,
 } from "../background/pack-downloads";
 import { createPackSource, createPackStore } from "../background/pack-store";
-import { getSettings, setSettings } from "../background/settings-store";
+import {
+  cloudSettings,
+  getSettings,
+  setSettings,
+} from "../background/settings-store";
 import { watchBuild } from "../background/self-reload";
 import { isCheckLogMessage, startWorkerErrorLog } from "../check/start";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
+import {
+  cloudConnected,
+  createCloudSyncBackend,
+} from "../background/sync/cloud-sync-backend";
 import { createTermStore } from "../background/term-store";
 import { followToolbarIcon } from "../background/toolbar-icon";
 import { createTranslationCache } from "../background/translation-cache";
@@ -43,7 +51,20 @@ export default defineBackground(() => {
   const db = openLangleDb("langle", { deviceId: device });
   const store = createTermStore(db, { deviceId: device });
   const history = createHistoryStore(db, { deviceId: device });
-  const sync = createBrowserSyncBackend({ store });
+  const sync = createBrowserSyncBackend({
+    store,
+    termsInCloud: () => cloudConnected(),
+  });
+  // No provider is built in yet (Google Drive comes next): nothing can connect.
+  const cloud = createCloudSyncBackend({
+    db,
+    store,
+    history,
+    settings: cloudSettings(),
+    deviceId: device,
+    providers: {},
+    browserSync: sync,
+  });
 
   const lock = readLock();
   const packStore = createPackStore({
@@ -75,6 +96,7 @@ export default defineBackground(() => {
     resources,
     packs: { lock, store: packStore, retry: retryPacks },
     sync,
+    cloud,
     openOptionsPage: () => browser.runtime.openOptionsPage(),
   });
 
@@ -99,6 +121,8 @@ export default defineBackground(() => {
   });
 
   sync.start().catch((error: unknown) => console.error(error));
+  // Registers its alarm listener synchronously, so the alarm that woke the worker is heard.
+  cloud.start().catch((error: unknown) => console.error(error));
 
   // `npm run build:check` only: reload when a new build is copied in. The mode is a
   // constant at build time, so other builds leave this (and self-reload.ts) out.

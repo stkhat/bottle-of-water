@@ -1,5 +1,11 @@
 import { browser } from "wxt/browser";
-import { stampSettings, type TimedSettings } from "../core/cloud/settings";
+import type { CloudProviderId } from "../core/cloud/provider";
+import {
+  mergeTimedSettings,
+  stampSettings,
+  type FileSettings,
+  type TimedSettings,
+} from "../core/cloud/settings";
 import { firstPair } from "../core/languages";
 import {
   DEFAULT_SETTINGS,
@@ -10,6 +16,8 @@ import {
   type SettingsPatch,
 } from "../core/settings";
 import { serial } from "../core/util";
+import { watchStorage, type StorageChangedEvent } from "../messaging/storage";
+import type { CloudSettings } from "./sync/cloud-sync-backend";
 
 export async function getSettings(): Promise<Settings> {
   const stored = await browser.storage.sync.get(SETTINGS_KEY);
@@ -82,6 +90,59 @@ export function setSettings(
     });
     return next.values;
   });
+}
+
+/**
+ * Merges settings from another device's cloud file into the stored ones, field by
+ * field (`mergeTimedSettings`). Returns what was stored, or undefined when nothing
+ * changed.
+ */
+function takeTimedSettings(
+  incoming: FileSettings,
+  now = Date.now,
+): Promise<TimedSettings | undefined> {
+  return writes.run(async () => {
+    const { timed } = await readTimed(now());
+    const merged = mergeTimedSettings(timed, incoming);
+    if (JSON.stringify(merged) === JSON.stringify(timed)) return undefined;
+    await browser.storage.sync.set({
+      [SETTINGS_KEY]: merged.values,
+      [SETTINGS_TIMES_KEY]: merged,
+    });
+    return merged;
+  });
+}
+
+/**
+ * The settings as cloud sync uses them. `watch` hears every change of the field times
+ * but those `take` stored: a change made here, or one browser sync brought.
+ */
+export function cloudSettings(
+  onChanged: StorageChangedEvent = browser.storage.onChanged,
+): CloudSettings {
+  const taken = new Set<string>();
+  return {
+    get: () => getTimedSettings(),
+    async take(incoming) {
+      const stored = await takeTimedSettings(incoming);
+      if (stored) taken.add(JSON.stringify(stored));
+    },
+    async choose(provider: CloudProviderId) {
+      await setSettings({ cloudProvider: provider });
+    },
+    watch(listener) {
+      return watchStorage(
+        "sync",
+        (changes) => {
+          const change = changes[SETTINGS_TIMES_KEY];
+          if (!change) return;
+          if (taken.delete(JSON.stringify(change.newValue))) return;
+          listener();
+        },
+        onChanged,
+      );
+    },
+  };
 }
 
 /** Whether settings are stored: written on this device, or brought by browser sync. */

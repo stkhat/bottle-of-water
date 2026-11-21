@@ -1,4 +1,4 @@
-import { Dexie } from "dexie";
+import { Dexie, type Table } from "dexie";
 import type {
   StoredStatus,
   TermIndex,
@@ -185,6 +185,14 @@ export interface TermStore {
   languages(): Promise<string[]>;
   getMeta(key: MetaKey): Promise<number | undefined>;
   setMeta(key: MetaKey, value: number): Promise<void>;
+  /**
+   * Runs `apply` in one read-write transaction over every table cloud sync merges (the
+   * sentence history's and `meta` too), then tells listeners the changes it reported,
+   * as taken in from other devices (`"sync"`).
+   */
+  applyCloud(
+    apply: (changed: (lang: string, kind: ChangeKind) => void) => Promise<void>,
+  ): Promise<void>;
   /** Called after every committed change, once per language. */
   onChange(
     listener: (lang: string, kind: ChangeKind, origin: ChangeOrigin) => void,
@@ -346,9 +354,10 @@ export function createTermStore(
   async function mutate<T>(
     fn: (changes: Changes) => Promise<T>,
     origin: ChangeOrigin = "local",
+    over: readonly Table[] = tables,
   ): Promise<T> {
     const changes = new Changes();
-    const result = await db.transaction("rw", tables, () => fn(changes));
+    const result = await db.transaction("rw", over, () => fn(changes));
     for (const [lang, kind] of changes.entries()) {
       if (kind === "terms") indexes.delete(lang);
       changed.emit(lang, kind, origin);
@@ -1092,6 +1101,20 @@ export function createTermStore(
 
     async setMeta(key, value) {
       await db.meta.put({ key, value });
+    },
+
+    applyCloud(apply) {
+      return mutate(
+        (changes) => apply((lang, kind) => changes.add(lang, kind)),
+        "sync",
+        [
+          ...tables,
+          db.historyPages,
+          db.historySentences,
+          db.historyForgotten,
+          db.meta,
+        ],
+      );
     },
 
     onChange: changed.add,

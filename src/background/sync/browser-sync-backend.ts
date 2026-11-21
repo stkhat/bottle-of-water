@@ -61,6 +61,11 @@ export interface BrowserSyncBackendOptions {
   onChanged?: StorageChangedEvent;
   now?: () => number;
   timers?: Timers;
+  /**
+   * Whether the terms sync through the user's own cloud storage instead: then nothing
+   * is pushed or pulled (settings stay in `storage.sync` all the same).
+   */
+  termsInCloud?: () => Promise<boolean>;
 }
 
 export interface BrowserSyncBackend {
@@ -69,6 +74,8 @@ export interface BrowserSyncBackend {
   /** Reads the synced copy of `lang` and applies the versions newer than this device's. */
   pull(lang: string): Promise<void>;
   status(): Promise<SyncStatus>;
+  /** Pulls every language on this device or in the synced data, and waits for it. */
+  pullAll(): Promise<void>;
   /** Pulls every language, then follows local changes (push) and other devices' (pull). */
   start(): Promise<void>;
   stop(): void;
@@ -197,6 +204,7 @@ export function createBrowserSyncBackend({
   onChanged = browser.storage.onChanged,
   now = Date.now,
   timers = globalThis,
+  termsInCloud = () => Promise.resolve(false),
 }: BrowserSyncBackendOptions): BrowserSyncBackend {
   const quotaBytes =
     typeof area.QUOTA_BYTES === "number"
@@ -344,10 +352,13 @@ export function createBrowserSyncBackend({
     if (stale.length > 0) await area.remove(stale);
   }
 
-  /** Everything in `storage.sync` and the synced copy of `lang`; none while sync is off. */
+  /**
+   * Everything in `storage.sync` and the synced copy of `lang`; none while sync is off
+   * or the terms sync through the user's own cloud storage.
+   */
   async function readSynced(lang: string) {
     const all = await area.get(null);
-    if (!isEnabled(all)) return undefined;
+    if (!isEnabled(all) || (await termsInCloud())) return undefined;
     return { all, remote: await readRemote(lang, all, decodeChunks) };
   }
 
@@ -532,6 +543,11 @@ export function createBrowserSyncBackend({
     push,
     pull,
 
+    async pullAll() {
+      await pullAll();
+      await this.whenIdle();
+    },
+
     async status() {
       const all = await area.get(null);
       let syncedCount = 0;
@@ -551,6 +567,7 @@ export function createBrowserSyncBackend({
       }
       const status: SyncStatus = {
         enabled: isEnabled(all),
+        termsInCloud: await termsInCloud(),
         bytesUsed: await bytesInUse(all),
         quotaBytes,
         syncedCount,

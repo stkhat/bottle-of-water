@@ -22,6 +22,7 @@ import {
 import { createFakeSyncArea, type FakeSyncArea } from "../../testing/sync-area";
 import { freshDb } from "../../testing/db";
 import { ARTICLE } from "../../testing/sources";
+import { manualTimers } from "../../testing/timers";
 
 const MIN = 60_000;
 const DAY = 24 * 60 * MIN;
@@ -38,32 +39,6 @@ beforeEach(() => {
 afterEach(() => {
   for (const backend of backends) backend.stop();
 });
-
-/** setTimeout/clearTimeout driven by `advance`, so debounce and backoff run on demand. */
-function manualTimers() {
-  let clock = 0;
-  let nextId = 0;
-  const pending = new Map<number, { at: number; run: () => void }>();
-  return {
-    setTimeout(run: () => void, ms: number) {
-      pending.set(++nextId, { at: clock + ms, run });
-      return nextId;
-    },
-    clearTimeout(id: unknown) {
-      pending.delete(id as number);
-    },
-    advance(ms: number) {
-      clock += ms;
-      const due = [...pending]
-        .filter(([, t]) => t.at <= clock)
-        .sort((a, b) => a[1].at - b[1].at);
-      for (const [id, t] of due) {
-        pending.delete(id);
-        t.run();
-      }
-    },
-  };
-}
 
 interface Device {
   store: TermStore;
@@ -528,6 +503,7 @@ describe("status", () => {
     await a.backend.push("en");
     expect(await a.backend.status()).toEqual({
       enabled: true,
+      termsInCloud: false,
       bytesUsed: await area.getBytesInUse!(null),
       quotaBytes: 102_400,
       lastSavedAt: time,

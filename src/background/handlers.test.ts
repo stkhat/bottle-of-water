@@ -12,6 +12,7 @@ import type {
   Reply,
   Request,
   SourceInput,
+  CloudStatus,
   SyncStatus,
   TermRecord,
   TermSummary,
@@ -62,6 +63,7 @@ function fakeStore(): FakeStore {
     getMeta: vi.fn(fail("getMeta")),
     setMeta: vi.fn(fail("setMeta")),
     onChange: vi.fn(() => () => {}),
+    applyCloud: vi.fn(fail("applyCloud")),
     importOccurrences: vi.fn(fail("importOccurrences")),
   };
 }
@@ -79,6 +81,7 @@ function fakeHistory(): FakeHistory {
     status: vi.fn(fail("status")),
     clear: vi.fn(fail("clear")),
     forgetHost: vi.fn(fail("forgetHost")),
+    onChange: vi.fn(() => () => {}),
   };
 }
 
@@ -155,11 +158,19 @@ function fakePacks(): FakePacks {
 
 const SYNC_STATUS: SyncStatus = {
   enabled: true,
+  termsInCloud: false,
   bytesUsed: 120,
   quotaBytes: 102_400,
   syncedCount: 3,
   localOnlyCount: 0,
   droppedKnownCount: 0,
+};
+
+const CLOUD_STATUS: CloudStatus = {
+  provider: "googleDrive",
+  bytes: 2_048,
+  devices: 2,
+  lastSavedAt: 5_000,
 };
 
 const LOAF: TermRecord = {
@@ -180,6 +191,10 @@ let history: FakeHistory;
 let translations: FakeTranslations;
 let explanations: FakeExplanations;
 let sync: { status: Mock<() => Promise<SyncStatus>> };
+let cloud: {
+  status: Mock<() => Promise<CloudStatus>>;
+  requestCheck: Mock<() => void>;
+};
 let deps: HandlerDeps;
 let handle: Handle;
 let openOptionsPage: Mock<() => Promise<void>>;
@@ -193,6 +208,10 @@ beforeEach(() => {
   translations = fakeTranslations();
   explanations = fakeExplanations();
   sync = { status: vi.fn(async () => SYNC_STATUS) };
+  cloud = {
+    status: vi.fn(async () => CLOUD_STATUS),
+    requestCheck: vi.fn(),
+  };
   loadPack = stubPackLoader();
   packs = fakePacks();
   openOptionsPage = vi.fn(async () => {});
@@ -205,6 +224,7 @@ beforeEach(() => {
     resources: createLanguageResources(loadPack),
     packs,
     sync,
+    cloud,
     openOptionsPage,
   };
   handle = createHandlers(deps);
@@ -230,6 +250,12 @@ describe("handlers: routing", () => {
 
   it("answers syncStatus from the sync backend", async () => {
     expect(await value({ type: "syncStatus" })).toEqual(SYNC_STATUS);
+  });
+
+  it("answers cloudStatus from the cloud backend, and asks it to check for cloudCheck", async () => {
+    expect(await value({ type: "cloudStatus" })).toEqual(CLOUD_STATUS);
+    expect(await value({ type: "cloudCheck" })).toBeNull();
+    expect(cloud.requestCheck).toHaveBeenCalledTimes(1);
   });
 
   it("answers lastExport with when the data was last exported, or null", async () => {
