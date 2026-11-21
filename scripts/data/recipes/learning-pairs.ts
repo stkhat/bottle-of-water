@@ -29,11 +29,9 @@ import {
   PACKS_DIR,
   RAW_DIR,
   eachEntry,
-  posLabel,
   readDictPacks,
   readPack,
   writeShards,
-  type KaikkiTranslation,
 } from "../common.ts";
 import { germanPhraseBuild, GERMAN_BUILD } from "../de-kaikki.ts";
 import { frenchPhraseBuild, FRENCH_BUILD } from "../fr-kaikki.ts";
@@ -46,8 +44,13 @@ import {
 import { learningSlimPath, LEARNING_PAIR_LANGS } from "./learning-slim.ts";
 import { undocumentedPages } from "./undocumented.ts";
 import {
+  readReversedTables,
+  REFLEXIVE_POS,
+  tableWord,
+  type TableWords,
+} from "./reversed-tables.ts";
+import {
   addSense,
-  capitalTermOf,
   convertTerms,
   finish,
   lastScriptForm,
@@ -58,7 +61,6 @@ import {
   readEdition,
   readTranslationTables,
   termKeyOf,
-  withoutStressMarks,
   type LearningText,
   type PairSense,
   type SourceTerm,
@@ -107,13 +109,11 @@ const LEARNING: Readonly<
   },
 };
 
-/** The part of speech the learning packs give a verb's reflexive senses (de-en's label). */
-const REFLEXIVE_POS = "reflexive";
 /** kaikki's tags of a reflexive or pronominal sense. */
 const REFLEXIVE_TAGS: readonly string[] = ["reflexive", "pronominal"];
 
 /** What a recipe reads of the learning language's built pack. */
-export interface LearningWords {
+export interface LearningWords extends TableWords {
   lang: LearningLang;
   termKey: TermKey;
   vocab: ReadonlySet<string>;
@@ -152,65 +152,9 @@ function learningWords(
         .filter(([, list]) => list.includes("article"))
         .map(([word]) => word),
     ),
+    reflexive: LEARNING[lang].reflexive,
     english: readDictPacks(join(packsDir, `${lang}-en`)),
   };
-}
-
-/**
- * A word a translation table writes, as a word: notes in brackets dropped ("plier (
- * tente )" → plier, "(ganz) sicher" → sicher), none when a bracket is left open
- * ("démonter ( camp", "Drang)"), spaces closed up. A row may list several words
- * between commas; they are written "a, b", without the space a dropped note or the
- * source leaves before a comma and the items a dropped note empties ("relayer
- * (quelqu'un), prendre le relais" → "relayer, prendre le relais"; "casse-pattes , (
- * casse-patte ), tord-boyaux" → "casse-pattes, tord-boyaux"; "cliqueter , ( cliquer ),"
- * → "cliqueter"): a short cut at the comma ended in a space.
- */
-export function tableWord(written: string): string | undefined {
-  let text = written;
-  for (let before = ""; before !== text;) {
-    before = text;
-    text = text.replace(/\s*\([^()]*\)\s*/gu, " ");
-  }
-  text = text
-    .replace(/\s+/gu, " ")
-    .split(/\s*,(?=\s|,|$)\s*/u)
-    .filter((item) => item.trim() !== "")
-    .join(", ")
-    .trim();
-  if (!text || /[()]/u.test(text)) return undefined;
-  return text;
-}
-
-/**
- * Where a learning-language word a table writes is filed: its term (lower case), or its
- * capitalised headword's (`capital`, "Hund"); a pronominal verb written with its
- * reflexive pronoun ("sich befinden") is the verb, `reflexive`; a noun written with its
- * article ("der Hund") the noun.
- */
-export function learningKeyOf(
-  written: string,
-  {
-    termKey,
-    articles,
-    lang,
-  }: Pick<LearningWords, "termKey" | "articles" | "lang">,
-): { key: string; capital: boolean; reflexive: boolean } | undefined {
-  const word = tableWord(written);
-  if (!word) return undefined;
-  const direct = termKey(word);
-  if (direct) return { key: direct, capital: false, reflexive: false };
-  const capital = capitalTermOf(word, termKey);
-  if (capital)
-    return { key: capital.toLowerCase(), capital: true, reflexive: false };
-  const [first = "", ...rest] = word.split(" ");
-  if (rest.length === 0) return undefined;
-  const after = rest.join(" ");
-  const reflexive = LEARNING[lang].reflexive.includes(first.toLowerCase());
-  if (!reflexive && !articles.has(first.toLowerCase())) return undefined;
-  const found = learningKeyOf(after, { termKey, articles, lang });
-  if (!found || found.reflexive) return undefined;
-  return { ...found, reflexive };
 }
 
 /** A sense whose source calls it a reflexive or pronominal use. */
@@ -243,106 +187,6 @@ async function reflexiveGlosses(path: string, words: LearningWords) {
     (line) => !line.includes('"pos":"verb"'),
   );
   return found;
-}
-
-/**
- * Reversed tables: the native edition's own words whose translation tables list a
- * learning-language word give that word their headword as a meaning (fr chien lists
- * Hund: Hund → chien), one sense per native word, of its part of speech (a pronominal
- * verb's row, "sich befinden", the verb's reflexive sense). A word's senses are ordered
- * as the tables order their own: by how many of the offered languages the native
- * word's sense is translated into (a common word's table is wide), file order among
- * equals; at most MAX_SENSES. Native proper nouns are names, left out, as are the
- * pages `leftOut` names and the links to them.
- */
-export async function readReversedTables(
-  path: string,
-  words: LearningWords,
-  {
-    native,
-    nativeForm = (word) => word,
-    letter,
-    leftOut = new Set(),
-  }: {
-    native: string;
-    nativeForm?: (word: string) => string;
-    letter?: RegExp;
-    /** Native pages left out (`undocumentedPages`). */
-    leftOut?: ReadonlySet<string>;
-  },
-) {
-  interface Link {
-    sense: PairSense;
-    coverage: number;
-    order: number;
-  }
-  const found = new Map<string, Link[]>();
-  const capitalFound = new Map<string, Link[]>();
-  let order = 0;
-  const stats = await eachEntry(path, (entry) => {
-    if (
-      entry.lang_code !== native ||
-      entry.pos === "name" ||
-      leftOut.has(entry.word.trim())
-    )
-      return;
-    const head = nativeForm(withoutStressMarks(entry.word.trim()));
-    if (!head || (letter && !letter.test(head))) return;
-    const pos = posLabel(entry.pos ?? "");
-    const rows: [KaikkiTranslation, string][] = [];
-    for (const row of entry.translations ?? [])
-      rows.push([row, typeof row.sense === "string" ? row.sense : ""]);
-    (entry.senses ?? []).forEach((sense, i) => {
-      for (const row of sense.translations ?? [])
-        rows.push([row, typeof row.sense === "string" ? row.sense : `#${i}`]);
-    });
-    const languages = new Map<string, Set<unknown>>();
-    for (const [row, label] of rows) {
-      let set = languages.get(label);
-      if (!set) languages.set(label, (set = new Set()));
-      set.add(row.lang_code);
-    }
-    const seen = new Set<string>();
-    for (const [row, label] of rows) {
-      if (row.lang_code !== words.lang || typeof row.word !== "string")
-        continue;
-      for (const part of row.word.split(/[,;]/u)) {
-        const at = learningKeyOf(part.trim(), words);
-        if (!at) continue;
-        // A link to a page `leftOut` names is left out too: a bot may have filled
-        // its tables from the pages it imported (PiedBot's "Mise à jour des
-        // traductions", 2006).
-        const page = at.capital
-          ? at.key.charAt(0).toUpperCase() + at.key.slice(1)
-          : at.key;
-        if (leftOut.has(page)) continue;
-        const id = `${at.capital}\n${at.key}`;
-        if (seen.has(id)) continue;
-        seen.add(id);
-        const into = at.capital ? capitalFound : found;
-        let links = into.get(at.key);
-        if (!links) into.set(at.key, (links = []));
-        links.push({
-          sense: [at.reflexive ? REFLEXIVE_POS : pos, head],
-          coverage: languages.get(label)?.size ?? 0,
-          order: order++,
-        });
-      }
-    }
-  });
-  const termsOf = (links: Map<string, Link[]>) => {
-    const terms = new Map<string, SourceTerm>();
-    for (const [key, list] of links) {
-      const item: SourceTerm = { short: "", senses: [] };
-      terms.set(key, item);
-      for (const { sense } of [...list].sort(
-        (a, b) => b.coverage - a.coverage || a.order - b.order,
-      ))
-        addSense(item, sense, MAX_SENSES);
-    }
-    return finish(terms, (text) => text);
-  };
-  return { terms: termsOf(found), capital: termsOf(capitalFound), stats };
 }
 
 /** A source's terms: lower-case headwords, and capitalised ones (lower-case keys). */

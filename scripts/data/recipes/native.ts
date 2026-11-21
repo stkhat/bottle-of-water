@@ -27,6 +27,7 @@ import { readWordnet, readWordnetMeanings } from "./omw.ts";
 import { simplifiedConverter } from "./simplified.ts";
 import {
   capitalDictionary,
+  writtenAsWord,
   convertTerms,
   inCapitalCase,
   inTablesCase,
@@ -44,7 +45,9 @@ import {
   type SourceTerm,
   type TermKey,
 } from "./recipe.ts";
-import { RECIPES, TABLES_TAG, type Recipe } from "./recipes.ts";
+import { RECIPES, recipeTags, TABLES_TAG, type Recipe } from "./recipes.ts";
+import { fitsEnglishPos, readReverseGlosses } from "./reverse-glosses.ts";
+import { readReversedTables, type TableWords } from "./reversed-tables.ts";
 import {
   acronymNative,
   entityNative,
@@ -55,6 +58,17 @@ import {
   type Entities,
 } from "../wikidata.ts";
 import { undocumentedPages } from "./undocumented.ts";
+
+/**
+ * How an edition's tables write English words: a noun after an article ("the dog"), a
+ * verb after "to" ("to run"); English writes no reflexive pronoun before a verb.
+ */
+const ENGLISH_ROWS = (termKey: TermKey): TableWords => ({
+  lang: "en",
+  termKey,
+  articles: new Set(["a", "an", "the", "to"]),
+  reflexive: [],
+});
 
 /** The English wordnet, which links the pack's terms to the other wordnets' synsets. */
 const ENGLISH_WORDNET = "omw-en";
@@ -119,31 +133,62 @@ export async function buildPairDictionary(
       ...(letter && { letter }),
     }),
   ]);
-  const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
-  // The capitalised headwords, from the same sources in the same order (so a term's
-  // source index is the same), kept apart.
-  const capitalSources: typeof sources = [];
-  if (edition && editionTerms && !edition.afterTables) {
-    sources.push({ tag: edition.tag, terms: editionTerms.terms });
-    capitalSources.push({ tag: edition.tag, terms: editionTerms.capital });
-  }
-  sources.push({ tag: TABLES_TAG, terms: tableTerms.terms });
-  capitalSources.push({ tag: TABLES_TAG, terms: tableTerms.capital });
-  if (edition && editionTerms && edition.afterTables) {
-    sources.push({ tag: edition.tag, terms: editionTerms.terms });
-    capitalSources.push({ tag: edition.tag, terms: editionTerms.capital });
-  }
+  // Every source's terms by tag, then in the recipe's order (`recipeTags`).
+  const read = new Map<
+    string,
+    { terms: Map<string, SourceTerm>; capital?: Map<string, SourceTerm> }
+  >([[TABLES_TAG, tableTerms]]);
+  if (edition && editionTerms) read.set(edition.tag, editionTerms);
   if (wordnets.length > 0) {
     const english = readWordnet(wordnetPath(rawDir, ENGLISH_WORDNET));
     for (const id of wordnets)
-      sources.push({
-        tag: id,
+      read.set(id, {
         terms: readWordnetMeanings({
           english,
           native: readWordnet(wordnetPath(rawDir, id)),
           termKey,
         }),
       });
+  }
+  // A native word of another part of speech than the English word's is no meaning of
+  // it, in the sources read backwards (round 4's main senses).
+  const fits = fitsEnglishPos(pos);
+  if (recipe.reversedTables) {
+    if (!edition)
+      throw new Error(`en-${native}: reversed tables need an edition`);
+    read.set(
+      recipe.reversedTables.tag,
+      await readReversedTables(
+        join(rawDir, edition.file),
+        ENGLISH_ROWS(termKey),
+        {
+          native,
+          leftOut: await undocumentedPages(native, rawDir),
+          fits,
+          ...(toSimplified && { nativeForm: toSimplified }),
+          ...(letter && { letter }),
+        },
+      ),
+    );
+  }
+  if (recipe.reverseGlosses)
+    read.set(
+      recipe.reverseGlosses.tag,
+      await readReverseGlosses(join(rawDir, recipe.reverseGlosses.file), {
+        native,
+        termKey,
+        fits,
+        ...(letter && { letter }),
+      }),
+    );
+  const sources: { tag: string; terms: Map<string, SourceTerm> }[] = [];
+  // The capitalised headwords, from the same sources in the same order (so a term's
+  // source index is the same), kept apart.
+  const capitalSources: typeof sources = [];
+  for (const tag of recipeTags(recipe)) {
+    const { terms, capital = new Map() } = read.get(tag)!;
+    sources.push({ tag, terms });
+    capitalSources.push({ tag, terms: capital });
   }
   if (toSimplified) {
     for (const { terms } of [...sources, ...capitalSources])
@@ -170,6 +215,7 @@ export async function buildPairDictionary(
     classes,
   } = capitalDictionary(mergeSources(capitalSources).dict, {
     nativeKind: (item) => editionTerms?.nativeKind(item),
+    rowsSayWord: (key) => writtenAsWord(tableTerms.rowCase.get(key)),
     // A person's name first: the names lexicon's main kind.
     personFirst: (term) =>
       Object.hasOwn(names, term) && /^[gs]/.test(names[term]!),

@@ -5113,7 +5113,6 @@
 "GCSE":[[["proper noun","Certificado General de Educación Secundaria (GCSE) (Reino Unido)","General Certificate of Secondary Education"]],2,"word"],
 "GCSI":[[["proper noun","Orden de la Estrella de la India","Order of the Star of India"],["proper noun","la quinta más alta orden británica de caballería","Order of the Star of India"]],2,"word"],
 "GCT":[[["proper noun","impuesto al valor agregado","value-added tax"],["proper noun","carga fiscal sobre el consumo","value-added tax"],["proper noun","AMX MK F3","AMX-30 AuF1"]],2,"word"],
-"GCTE":[[["proper noun","Orden de la Torre y de la Espada","Military Order of the Tower and Sword"],["proper noun","orden militar portuguesa","Military Order of the Tower and Sword"]],2,"word"],
 "GCVS":[[["proper noun","General Catalogue of Variable Stars","General Catalogue of Variable Stars"],["proper noun","catálogo de estrellas variables","General Catalogue of Variable Stars"]],2,"word"],
 "GD":[[["proper noun","disforia de género","gender dysphoria"],["proper noun","malestar significativo asociado a una discordancia entre la identidad de género y el sexo asignado","gender dysphoria"],["proper noun","General Dynamics","General Dynamics"],["proper noun","conglomerado de empresas de defensa","General Dynamics"],["proper noun","Geometry Dash","Elias top 1 free level"],["proper noun","videojuego de 2013","Elias top 1 free level"]],2,"word"],
 "GDB":[[["proper noun","base de datos orientada a grafos","graph database"],["proper noun","base de datos que utiliza la estructura de gráficos matemáticos discretos para almacenar y buscar datos","graph database"]],2,"word"],
@@ -6555,7 +6554,7 @@
 "IMBH":[[["proper noun","Agujero negro de masa intermedia","intermediate-mass black hole"]],2,"word"],
 "IMCTC":[[["proper noun","Alianza Militar Islámica","Islamic Military Counter Terrorism Coalition"],["proper noun","alianza anti-terrorista","Islamic Military Counter Terrorism Coalition"]],2,"word"],
 "IMCWP":[[["proper noun","Encuentro Internacional de Partidos Comunistas y Obreros","International Meeting of Communist and Workers' Parties"],["proper noun","agrupación internacional de partidos comunistas","International Meeting of Communist and Workers' Parties"]],2,"word"],
-"IMD":[[["proper noun","Día Internacional del Hombre","International Men's Day"],["proper noun","fecha conmemorativa mundial para reconocer las contribuciones positivas de los hombres en la sociedad","International Men's Day"],["proper noun","Día Internacional de los Museos","International Museum Day"],["proper noun","evento coordinado por el Consejo Internacional de Museos que tiene lugar cada año alrededor del 18 de mayo","International Museum Day"],["proper noun","Departamento Meteorológico de la India","India Meteorological Department"],["proper noun","International Institute for Management Development","International Institute for Management Development"]],2,"word"],
+"IMD":[[["proper noun","Día Internacional del Hombre","International Men's Day"],["proper noun","fecha conmemorativa mundial","International Men's Day"],["proper noun","Día Internacional de los Museos","International Museum Day"],["proper noun","evento coordinado por el Consejo Internacional de Museos que tiene lugar cada año alrededor del 18 de mayo","International Museum Day"],["proper noun","Departamento Meteorológico de la India","India Meteorological Department"],["proper noun","International Institute for Management Development","International Institute for Management Development"]],2,"word"],
 "IMDB":[[["proper noun","base de datos en memoria","in-memory database system"],["proper noun","base de datos cuyos datos están almacenados en la memoria principal","in-memory database system"]],2,"word"],
 "IME":[[["proper noun","Input Method Editor","input method"]],2,"word"],
 "IMEC":[[["proper noun","Interuniversity Microelectronics Centre","Interuniversity Microelectronics Centre"]],2,"word"],
@@ -11177,5 +11176,7 @@
 "Pakistan":[[["proper noun","Pakistán"]],0],
 "Pakistani":[[["adjective","pakistaní","of, from, or pertaining to Pakistan, or its people"],["noun","pakistaní, paquistaní","a person from Pakistan or of Pakistani descent"]],1],
 "Palau":[[["proper noun","Palaos","island sovereign state in Oceania"],["proper noun","país insular de Oceanía","island sovereign state in Oceania"]],2,"name"],
-"Paleogene":[[["proper noun","Paleógeno","first period of the Cenozoic Era"],["proper noun","primer periodo y sistema de la era y eratema Cenozoico","first period of the Cenozoic Era"]],2,"name"]
+"Paleogene":[[["proper noun","Paleógeno","first period of the Cenozoic Era"],["proper noun","primer periodo y sistema de la era y eratema Cenozoico","first period of the Cenozoic Era"]],2,"name"],
+"Paleolithic":[[["proper noun","Paleolítico","Old Stone Age"],["adjective","paleolítico","of or referring to the Old Stone Age"]],1,"word"],
+"Palestine":[[["proper noun","Palestina","West Bank and Gaza Strip collectively"]],1,"word"]
 }

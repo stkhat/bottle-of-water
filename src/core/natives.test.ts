@@ -17,6 +17,7 @@ describe("the native-language registry", () => {
       "zh",
       "it",
       "pl",
+      "th",
     ]);
     expect(PACK_FORMATS["en-es"]).toBe(4);
     expect(PACK_FORMATS["en-ru"]).toBe(4);
@@ -30,6 +31,7 @@ describe("the native-language registry", () => {
       "en-zh",
       "en-it",
       "en-pl",
+      "en-th",
       "es-en",
       "fr-en",
       "de-en",
@@ -83,6 +85,14 @@ describe("the native-language registry", () => {
     expect(languageOption("pl")).toBe("Polish (Polski)");
     for (const code of ["zh", "it", "pl"])
       expect(nativeLanguage(code)?.examples).toBeNull();
+    // Thai: no spaces between joined lines, letters as wide as Latin ones.
+    expect(languageOption("th")).toBe("Thai (ภาษาไทย)");
+    expect(languageName("th")).toBe("Thai");
+    expect(joinerFor("th-TH")).toBe("");
+    expect(meaningLength("th")).toBe(40);
+    expect(instructions({ learning: "en", native: "th" })).toContain(
+      "เปิดเผยความลับ",
+    );
     // The prompt does not ask a Chinese answer to avoid Chinese.
     expect(instructions({ learning: "en", native: "zh" })).toContain(
       'Write "meaning" in Chinese only, never in English or any other language.',

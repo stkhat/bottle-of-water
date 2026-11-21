@@ -22,7 +22,11 @@ export interface Recipe {
    * carry its own labels and markup, where the tables' words read better (judged
    * blind per language: docs/notes/translation-data-expansion.md).
    */
-  edition?: { tag: string; file: string; afterTables?: boolean };
+  edition?: {
+    tag: string;
+    file: string;
+    afterTables?: boolean;
+  };
   /**
    * English Wiktionary's translation tables: the codes kaikki gives the language's
    * translations, and for a language whose tables nest varieties under it, the
@@ -42,6 +46,21 @@ export interface Recipe {
    * traditional characters.
    */
   simplified?: boolean;
+  /**
+   * Reversed tables (round 4's S2, `reversed-tables.ts`): the edition's own words whose
+   * translation tables list the English term (the Thai edition's "สุนัข" lists dog),
+   * after the wordnets. Read from the edition's file; its tag is
+   * "<native>wiktionary-translations".
+   */
+  reversedTables?: { tag: string };
+  /**
+   * Reverse glosses (round 4's S1, `reverse-glosses.ts`): English Wiktionary's entries
+   * of the language's words whose gloss names the English term exactly, the last
+   * source (user, 2026-11-21: they lost blind to the tables, so they only fill what no
+   * other source has). kaikki's extract of the language (kaikki-<native>.jsonl); tag
+   * "enwiktionary-<native>".
+   */
+  reverseGlosses?: { tag: string; file: string };
 }
 
 /**
@@ -104,32 +123,53 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
     tables: { langCodes: ["pl"] },
     wordnets: ["omw-pl"],
   },
+  th: {
+    edition: {
+      tag: "thwiktionary",
+      file: "kaikki-th-edition.jsonl",
+      afterTables: true,
+    },
+    tables: { langCodes: ["th"] },
+    wordnets: ["omw-th"],
+    reversedTables: { tag: "thwiktionary-translations" },
+    reverseGlosses: { tag: "enwiktionary-th", file: "kaikki-th.jsonl" },
+  },
 };
 
 /** A recipe's source tags, in order. */
-export const recipeTags = (recipe: Recipe) => [
-  ...(recipe.edition && !recipe.edition.afterTables
-    ? [recipe.edition.tag]
-    : []),
-  TABLES_TAG,
-  ...(recipe.edition?.afterTables ? [recipe.edition.tag] : []),
-  ...(recipe.wordnets ?? []),
-];
+export function recipeTags(recipe: Recipe): string[] {
+  const { edition } = recipe;
+  const first = edition && !edition.afterTables;
+  return [
+    ...(first ? [edition.tag] : []),
+    TABLES_TAG,
+    ...(edition?.afterTables ? [edition.tag] : []),
+    ...(recipe.wordnets ?? []),
+    ...(recipe.reversedTables ? [recipe.reversedTables.tag] : []),
+    ...(recipe.reverseGlosses ? [recipe.reverseGlosses.tag] : []),
+  ];
+}
 
 /**
- * Each Wiktionary edition's undocumented bot imports, by edition code: the pages a bot
- * created without saying where their text came from. Every build that reads the
- * edition leaves their entries out (provenance; `undocumentedPages`): the English
- * pair's edition source (en-fr), a learning pair's edition and reversed tables
- * (de-fr), and the learning pack's own-edition examples and pronunciations (fr).
+ * Each Wiktionary edition's bot imports whose text Langle cannot use, by edition code:
+ * the pages a bot created without saying where their text came from (no edit summary),
+ * or with a summary naming a source whose license is unknown (`comment`). Every build
+ * that reads the edition leaves their entries out (provenance; `undocumentedPages`):
+ * the English pair's edition source and reversed tables (en-fr, en-th), a learning
+ * pair's edition and reversed tables (de-fr), and the learning pack's own-edition
+ * examples and pronunciations (fr).
  * Wiktionnaire: PiedBot's 2005–2006 batches, 76,335 pages (L3: of its German entries,
  * about half of the French glosses are not in de.wiktionary's rows of the time; its
  * English batches of January and May 2006 gave a quarter of en-fr's Wiktionnaire
- * terms). Read from Wikimedia's MediaWiki history dump of the edition
- * (data/raw/mediawiki-history/, a file per year: `files`).
+ * terms). The Thai edition: ZilentBot's 2018 import of NECTEC's LEXiTRON ("นำเข้าคำจาก
+ * Lexitron", 1,542 pages, the {{lexitronimport}} notice), whose license terms could
+ * not be found (D5). Read from Wikimedia's MediaWiki history dump of the edition
+ * (data/raw/mediawiki-history/, a file per year or one for all time: `files`).
  */
 export const UNDOCUMENTED_IMPORTS: Readonly<
-  Partial<Record<string, { files: readonly string[]; user: string }>>
+  Partial<
+    Record<string, { files: readonly string[]; user: string; comment?: string }>
+  >
 > = {
   fr: {
     files: [
@@ -137,6 +177,11 @@ export const UNDOCUMENTED_IMPORTS: Readonly<
       "2026-10.frwiktionary.2006.tsv.bz2",
     ],
     user: "PiedBot",
+  },
+  th: {
+    files: ["2026-10.thwiktionary.all-time.tsv.bz2"],
+    user: "ZilentBot",
+    comment: "นำเข้าคำจาก Lexitron",
   },
 };
 

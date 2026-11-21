@@ -507,7 +507,7 @@ describe("createEnJaDictionary", () => {
       },
     });
     expect(long.entry("hold out")?.lines).toEqual([
-      "To keep resisting an attack or a…",
+      "To keep resisting an attack or a demand…",
     ]);
   });
 

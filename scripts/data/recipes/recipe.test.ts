@@ -4,6 +4,7 @@ import {
   CLASS_HEADWORDS,
   beforeReference,
   capitalDictionary,
+  writtenAsWord,
   grammarFrame,
   isExampleNote,
   isOtherWord,
@@ -51,6 +52,17 @@ describe("withoutPageMarkup", () => {
       "顶峰，顶点",
     );
     expect(withoutPageMarkup("adoring\n====翻译====\n翻译")).toBe("adoring");
+    expect(withoutPageMarkup(":แม่แบบ:สกรรม สละ, ละทิ้ง")).toBe(
+      "(สกรรม) สละ, ละทิ้ง",
+    );
+    expect(withoutPageMarkup("ตาย :แม่แบบ:rfquote-sense")).toBe(
+      "ตาย (rfquote-sense)",
+    );
+    expect(withoutPageMarkup("Oroxylum indicum (:แม่แบบ:sa-a)")).toBe(
+      "Oroxylum indicum (sa-a)",
+    );
+    expect(withoutPageMarkup(":Template:可數 頭，首")).toBe("(可數) 頭，首");
+    expect(withoutPageMarkup("ratio 3:2:1")).toBe("ratio 3:2:1");
     expect(withoutPageMarkup("1) бумага\n2) простая бумага")).toBe(
       "1) бумага\n2) простая бумага",
     );
@@ -1258,6 +1270,37 @@ describe("nativeKindOf", () => {
     const ru = entries([], ["Япония", "январь"]);
     expect(nativeKindOf("Япония", ru)).toBe("name");
     expect(nativeKindOf("январь", ru)).toBe("word");
+  });
+});
+
+describe("capitalDictionary in a script without case", () => {
+  it("makes a headword the languages with case write in lower case a word, else asks the edition", () => {
+    const { capital } = capitalDictionary(
+      {
+        January: ["มกราคม", [["proper noun", "มกราคม"]], 0],
+        Germany: ["เยอรมนี", [["proper noun", "เยอรมนี"]], 0],
+        Bangkok: ["กรุงเทพ", [["proper noun", "กรุงเทพ"]], 0],
+      },
+      {
+        // The Thai edition files month names as proper nouns.
+        nativeKind: () => "name",
+        rowsSayWord: (key) => key === "January",
+        personFirst: () => false,
+      },
+    );
+    expect(capital["January"]?.[3]).toBe("word");
+    expect(capital["Germany"]?.[3]).toBe("name");
+    expect(capital["Bangkok"]?.[3]).toBe("name");
+  });
+});
+
+describe("writtenAsWord", () => {
+  it("is where most languages with case write the headword in lower case", () => {
+    expect(writtenAsWord({ lower: 9, upper: 2 })).toBe(true);
+    expect(writtenAsWord({ lower: 1, upper: 12 })).toBe(false);
+    expect(writtenAsWord({ lower: 2, upper: 2 })).toBe(false);
+    expect(writtenAsWord({ lower: 2, upper: 0 })).toBe(false);
+    expect(writtenAsWord(undefined)).toBe(false);
   });
 });
 

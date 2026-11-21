@@ -104,6 +104,13 @@ describe("capLine", () => {
     expect(capLine("A person who studies languages", 20)).toBe("A person who…");
     expect(capLine("ab日本語の言葉です", 9)).toBe("ab日本語…");
   });
+  it("gives marks over a letter no width, and cuts Thai between words", () => {
+    // ผู้ is one letter with two marks over it.
+    expect(displayWidth("ผู้แทน")).toBe(4);
+    expect(capLine("การประชุมสภาผู้แทนราษฎรครั้งที่สองของปีนี้", 20)).toBe(
+      "การประชุมสภาผู้แทน…",
+    );
+  });
 });
 
 describe("shortOfSenses", () => {

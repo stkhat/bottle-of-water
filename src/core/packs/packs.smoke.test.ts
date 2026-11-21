@@ -677,6 +677,18 @@ describe.each([
     ],
     bread: "chleb",
   },
+  {
+    pack: "en-th",
+    sources: [
+      "enwiktionary-translations",
+      "thwiktionary",
+      "omw-th",
+      "thwiktionary-translations",
+      "enwiktionary-th",
+      "wikidata",
+    ],
+    bread: "ขนมปัง",
+  },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
   const index = read(`packs/${pack}/index.json`) as ShardIndex;
   const load = loadPack(pack).then(({ dict }) => ({
@@ -689,7 +701,13 @@ describe.each([
     const { dict } = await load;
     const bySource = sources.map(() => 0);
     for (const [, source] of Object.values(dict)) bySource[source]!++;
-    expect(bySource.every((n) => n > 500)).toBe(true);
+    // The Thai edition's tables read the other way fill few terms (the sources before
+    // them have most).
+    expect(
+      bySource.every(
+        (n, i) => n > (sources[i] === "thwiktionary-translations" ? 50 : 500),
+      ),
+    ).toBe(true);
   });
 
   it("has native meanings within the cap for common words", async () => {
@@ -804,6 +822,7 @@ const FIRST_LINES: Readonly<
     better: "migliore",
   },
   pl: { english: "angielski", january: "styczeń", be: "być", better: "lepszy" },
+  th: { english: "อังกฤษ", january: "มกราคม", be: "เป็น", better: "ดีกว่า" },
 };
 
 describe.each(recipeNatives())("generated en-%s first lines", (native) => {

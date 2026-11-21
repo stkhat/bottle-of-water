@@ -1,0 +1,4 @@
+{
+"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'em","last":"emissary"},{"file":"dict-2.json","first":"emission","last":"northern"},{"file":"dict-3.json","first":"northern cross","last":"trafalgar square"},{"file":"dict-4.json","first":"traffic","last":"zzz"}],
+"sources":["enwiktionary-translations","thwiktionary","omw-th","thwiktionary-translations","enwiktionary-th","wikidata"]
+}

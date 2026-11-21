@@ -151,6 +151,24 @@ export const NATIVE_LANGUAGES = {
     examples: null,
     englishPair: { format: 4 },
   },
+  // Thai writes no spaces between words (a space ends a phrase or a sentence), so two
+  // subtitle lines join without one. Its letters are about as wide as Latin ones and a
+  // word takes several (with vowel and tone marks above and below), so not dense.
+  // Chrome's Prompt API decides by itself whether it answers in Thai (`availability`);
+  // the examples are there for when it does.
+  th: {
+    option: "language.th",
+    name: "languageName.th",
+    spaces: false,
+    dense: false,
+    scripts: ["Thai"],
+    examples: {
+      bank: "ตลิ่ง (ริมแม่น้ำ)",
+      beans: "เปิดเผยความลับ",
+      mind: "ตัดสินใจ",
+    },
+    englishPair: { format: 4 },
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",

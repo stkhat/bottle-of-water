@@ -205,6 +205,10 @@ const TEST_PACKS: PackFiles = {
   "en-pl": {
     dict: { loaf: [[["noun", "bochenek"]], 0] },
   },
+  // The translation tables first, then the Thai edition.
+  "en-th": {
+    dict: { loaf: [[["noun", "ก้อนขนมปัง"]], 0] },
+  },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
@@ -338,6 +342,17 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     sources: ["plwiktionary", "enwiktionary-translations", "omw-pl"],
   },
   "/packs/en-pl/dict-1.json": TEST_PACKS["en-pl"].dict,
+  "/packs/en-th/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: [
+      "enwiktionary-translations",
+      "thwiktionary",
+      "omw-th",
+      "thwiktionary-translations",
+      "enwiktionary-th",
+    ],
+  },
+  "/packs/en-th/dict-1.json": TEST_PACKS["en-th"].dict,
   "/packs/de-fr/index.json": {
     shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
     sources: [

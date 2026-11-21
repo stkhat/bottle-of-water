@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A-bomb","last":"Paleogene"},{"file":"capital-2.json","first":"Paleolithic","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'em","last":"isoprene"},{"file":"dict-2.json","first":"isosceles","last":"vocative case"},{"file":"dict-3.json","first":"vociferate","last":"éclair"}],
+"shards":[{"file":"capital.json","first":"A-bomb","last":"Palestine"},{"file":"capital-2.json","first":"Palestinian","last":"ɅTLɅS"},{"file":"dict-1.json","first":"'em","last":"isoprene"},{"file":"dict-2.json","first":"isosceles","last":"vocative case"},{"file":"dict-3.json","first":"vociferate","last":"éclair"}],
 "sources":["eswiktionary","enwiktionary-translations","wikidata"]
 }

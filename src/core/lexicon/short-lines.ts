@@ -38,11 +38,35 @@ const CLOSING = ")）〉]］」";
 const WIDE =
   /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/;
 
-/** Display width: wide characters count 2, others 1. */
+/**
+ * Marks written above or below the letter before them (Thai vowel and tone marks,
+ * combining accents): no width of their own.
+ */
+const ZERO_WIDTH = /[\p{Mn}\p{Me}]/u;
+
+/** Display width: wide characters count 2, marks over a letter 0, others 1. */
 export function displayWidth(text: string): number {
   let width = 0;
-  for (const ch of text) width += WIDE.test(ch) ? 2 : 1;
+  for (const ch of text)
+    width += WIDE.test(ch) ? 2 : ZERO_WIDTH.test(ch) ? 0 : 1;
   return width;
+}
+
+const WORDS = new Intl.Segmenter(undefined, { granularity: "word" });
+
+/**
+ * Where a text may be cut between words: after a word that a space or another word
+ * follows (a script written without spaces: Thai "การ|ประชุม", by the browser's word
+ * segmentation), not inside a hyphenated word.
+ */
+function wordEnds(text: string): number[] {
+  const ends: number[] = [];
+  let afterWord = false;
+  for (const { segment, index, isWordLike } of WORDS.segment(text)) {
+    if (afterWord && (isWordLike || /^\s/u.test(segment))) ends.push(index);
+    afterWord = isWordLike === true;
+  }
+  return ends;
 }
 
 /** Indices of the characters outside brackets for which `test` holds. */
@@ -116,7 +140,8 @@ function withoutParentheses(text: string): string {
  * A line within `cap` display width. A longer one first loses its parenthesized
  * notes, which qualify the meaning outside them ("(…が生れつき備えている)能力,力" →
  * "能力,力"); then it is cut at the last comma outside brackets that fits, else cut
- * hard with "…" (text of narrow characters at a space in its second half).
+ * hard with "…" (text of narrow characters at the end of a word in its second half:
+ * at a space, or between two words of a script without spaces).
  */
 export function capLine(text: string, cap: number): string {
   if (displayWidth(text) <= cap) return text;
@@ -134,9 +159,11 @@ export function capLine(text: string, cap: number): string {
     if (width > cap - 1) break;
     head += ch;
   }
-  const space = head.lastIndexOf(" ");
-  if (displayWidth(text) === [...text].length && space > head.length / 2)
-    head = head.slice(0, space);
+  const end = wordEnds(text)
+    .filter((i) => i <= head.length)
+    .at(-1);
+  if (!WIDE.test(text) && end !== undefined && end > head.length / 2)
+    head = head.slice(0, end);
   return `${head.trimEnd()}…`;
 }
 

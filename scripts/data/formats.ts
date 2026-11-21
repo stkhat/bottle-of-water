@@ -90,6 +90,11 @@ const LICENSES = {
     url: "https://plwordnet.pwr.wroc.pl/wordnet/",
     notice: "plwordnet.txt",
   },
+  thaiWordnet: {
+    name: "Thai WordNet license (WordNet-style)",
+    url: "https://github.com/omwn/omw-data",
+    notice: "thai-wordnet.txt",
+  },
 } as const satisfies Readonly<Record<string, SourceLicense>>;
 
 interface Source {
@@ -161,6 +166,13 @@ const SOURCES = {
     title: "English Wiktionary, Spanish entries",
     via: KAIKKI,
     url: "https://kaikki.org/dictionary/Spanish/",
+    by: WIKTIONARY_AUTHORS,
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryTh: {
+    title: "English Wiktionary, Thai entries",
+    via: KAIKKI,
+    url: "https://kaikki.org/dictionary/Thai/",
     by: WIKTIONARY_AUTHORS,
     license: LICENSES.ccBySa4,
   },
@@ -253,6 +265,20 @@ const SOURCES = {
     via: KAIKKI,
     url: "https://pl.wiktionary.org/",
     by: "the contributors to Wikisłownik, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryThEdition: {
+    title: "Thai Wiktionary (วิกิพจนานุกรม), English entries",
+    via: KAIKKI,
+    url: "https://th.wiktionary.org/",
+    by: "the contributors to the Thai Wiktionary, listed in each page's history",
+    license: LICENSES.ccBySa4,
+  },
+  wiktionaryThEditionTables: {
+    title: "Thai Wiktionary (วิกิพจนานุกรม), Thai entries' translation tables",
+    via: KAIKKI,
+    url: "https://th.wiktionary.org/",
+    by: "the contributors to the Thai Wiktionary, listed in each page's history",
     license: LICENSES.ccBySa4,
   },
   opencc: {
@@ -351,6 +377,13 @@ const SOURCES = {
     by: "Wrocław University of Technology (Maciej Piasecki, Stan Szpakowicz, Bartosz Broda, Marek Maziarz, Ewa Rudnicka)",
     license: LICENSES.plWordNet,
   },
+  wordnetTh: {
+    title: "Thai WordNet",
+    via: OMW,
+    url: "https://github.com/omwn/omw-data",
+    by: "the National Institute of Information and Communications Technology (NICT): Sareewan Thoongsup, Thatsanee Charoenporn, Kergrit Robkop, Tan Sinthurahat, Chumpol Mokarat, Virach Sornlertlamvanich, Hitoshi Isahara",
+    license: LICENSES.thaiWordnet,
+  },
 } as const satisfies Readonly<Record<string, Source>>;
 
 /** The source behind each recipe tag (scripts/data/recipes/native.ts) a recipe may name. */
@@ -363,11 +396,15 @@ const RECIPE_SOURCES: Readonly<Record<string, Source>> = {
   zhwiktionary: SOURCES.wiktionaryZhEdition,
   itwiktionary: SOURCES.wiktionaryItEdition,
   plwiktionary: SOURCES.wiktionaryPlEdition,
+  thwiktionary: SOURCES.wiktionaryThEdition,
+  "thwiktionary-translations": SOURCES.wiktionaryThEditionTables,
+  "enwiktionary-th": SOURCES.wiktionaryTh,
   [TABLES_TAG]: SOURCES.wiktionaryEn,
   "omw-it": SOURCES.wordnetIt,
   "omw-iwn": SOURCES.wordnetIwn,
   "omw-cmn": SOURCES.wordnetCmn,
   "omw-pl": SOURCES.wordnetPl,
+  "omw-th": SOURCES.wordnetTh,
 };
 
 const pack = (
@@ -410,7 +447,11 @@ export function recipePack(
           : `${name} definitions`
         : tag === TABLES_TAG
           ? `${name} translations (translation tables)`
-          : `${name} words of WordNet's synsets`;
+          : tag === recipe.reversedTables?.tag
+            ? `${name} words whose translation tables list the English word, for the terms the sources before lack`
+            : tag === recipe.reverseGlosses?.tag
+              ? `${name} words whose English gloss is the English word, for the terms no other source has`
+              : `${name} words of WordNet's synsets`;
     return { ...source, used };
   });
   if (recipe.wordnets?.length)
