@@ -97,10 +97,11 @@ async function testLock(
       "en-it": unused("en-it"),
       "en-pl": unused("en-pl"),
       "en-th": unused("en-th"),
+      "en-hi": unused("en-hi"),
       "de-fr": unused("de-fr"),
     },
     pairs: {
-      en: ["ja", "es", "pt", "ru", "fr", "de", "zh", "it", "pl", "th"],
+      en: ["ja", "es", "pt", "ru", "fr", "de", "zh", "it", "pl", "th", "hi"],
       es: ["en"],
       fr: ["en"],
       de: ["en"],

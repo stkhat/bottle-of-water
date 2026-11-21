@@ -188,6 +188,24 @@ export const NATIVE_LANGUAGES = {
     },
     englishPair: { format: 4 },
   },
+  // Hindi, in Devanagari, writes spaces between words, so two subtitle lines join with
+  // one. A word takes several letters (conjuncts, vowel signs above and below), about as
+  // wide as Latin ones, so not dense. Chrome's Prompt API decides by itself whether it
+  // answers in Hindi (`availability`); the examples are there for when it does.
+  hi: {
+    option: "language.hi",
+    name: "languageName.hi",
+    spaces: true,
+    dense: false,
+    scripts: ["Devanagari"],
+    translator: true,
+    examples: {
+      bank: "किनारा (नदी का)",
+      beans: "राज़ खोल देना",
+      mind: "फ़ैसला करना",
+    },
+    englishPair: { format: 4 },
+  },
   en: {
     option: "languageName.en",
     name: "languageName.en",

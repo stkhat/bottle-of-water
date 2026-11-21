@@ -53,6 +53,7 @@ export function displayWidth(text: string): number {
 }
 
 const WORDS = new Intl.Segmenter(undefined, { granularity: "word" });
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 /**
  * Where a text may be cut between words: after a word that a space or another word
@@ -184,9 +185,10 @@ export function capLine(text: string, cap: number): string {
   ).filter((i) => i > 0 && displayWidth(text.slice(0, i)) <= cap);
   if (commas.length > 0) return text.slice(0, commas.at(-1)).trimEnd();
   let head = "";
-  // Display width adds up character by character.
+  // Display width adds up letter by letter: a grapheme cluster whole, so a cut never
+  // parts a letter from its marks or a conjunct's halves (Devanagari "स्त्री").
   let width = 0;
-  for (const ch of text) {
+  for (const { segment: ch } of GRAPHEMES.segment(text)) {
     width += displayWidth(ch);
     if (width > cap - 1) break;
     head += ch;
@@ -596,9 +598,12 @@ function japaneseTranslation(line: string): string {
   return displayWidth(tail) >= displayWidth(head) ? tail : head;
 }
 
-/** A translated sentence as a short meaning: without its final period (。 or .). */
+/**
+ * A translated sentence as a short meaning: without its final period (。 or ., and
+ * Devanagari's danda । or double danda ॥, Hindi's full stop).
+ */
 export const withoutFinalStop = (text: string) =>
-  text.trim().replace(/[。．.]+$/, "");
+  text.trim().replace(/[。．.।॥]+$/u, "");
 
 /**
  * A meaning the browser's translator gave (an English definition translated into
@@ -607,13 +612,14 @@ export const withoutFinalStop = (text: string) =>
  * (NATIVE_CAP: 25 wide characters, 50 Latin or Cyrillic ones). A Japanese line keeps
  * its main verb, which comes last: a long line loses its notes in brackets, then is cut
  * after a clause that does not depend on what follows, else keeps its last clauses.
- * Another language's line is its first sentence (up to "。" or `firstSentence`), cut
- * at its end (`capLine`). The dictionary window shows the whole translation.
+ * Another language's line is its first sentence (up to a full stop that ends one
+ * whatever follows, "。" or the danda "।", or else `firstSentence`), cut at its end
+ * (`capLine`). The dictionary window shows the whole translation.
  */
 export function translatedLine(text: string, lang: string): string {
   const line = withoutRepeatedItems(withoutFinalStop(text));
   if (lang === "ja") return japaneseTranslation(line);
-  return capLine(firstSentence(line.split("。")[0]!), NATIVE_CAP);
+  return capLine(firstSentence(line.split(/[。।॥]/u)[0]!.trim()), NATIVE_CAP);
 }
 
 // Native glosses in other languages (a recipe pair's edition)

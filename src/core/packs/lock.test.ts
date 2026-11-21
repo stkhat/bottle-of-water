@@ -32,10 +32,11 @@ const lock = {
     "en-it": entry("en-it"),
     "en-pl": entry("en-pl"),
     "en-th": entry("en-th"),
+    "en-hi": entry("en-hi"),
     "de-fr": entry("de-fr"),
   },
   pairs: {
-    en: ["ja", "es", "pt", "ru", "fr", "de", "zh", "it", "pl", "th"],
+    en: ["ja", "es", "pt", "ru", "fr", "de", "zh", "it", "pl", "th", "hi"],
     es: ["en"],
     fr: ["en"],
     de: ["en"],

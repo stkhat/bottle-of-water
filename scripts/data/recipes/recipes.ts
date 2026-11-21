@@ -58,9 +58,11 @@ export interface Recipe {
    * of the language's words whose gloss names the English term exactly, the last
    * source (user, 2026-11-21: they lost blind to the tables, so they only fill what no
    * other source has). kaikki's extract of the language (kaikki-<native>.jsonl); tag
-   * "enwiktionary-<native>".
+   * "enwiktionary-<native>". `frequency`: a term's native words are ordered by the
+   * language's FrequencyWords 2018 list (subtitle counts; read at build time only,
+   * nothing from it ships), where the list is usable (Thai's is segmented badly).
    */
-  reverseGlosses?: { tag: string; file: string };
+  reverseGlosses?: { tag: string; file: string; frequency?: boolean };
 }
 
 /**
@@ -133,6 +135,16 @@ export const RECIPES: Readonly<Record<RecipeNative, Recipe>> = {
     wordnets: ["omw-th"],
     reversedTables: { tag: "thwiktionary-translations" },
     reverseGlosses: { tag: "enwiktionary-th", file: "kaikki-th.jsonl" },
+  },
+  // No Hindi edition on kaikki and no Hindi wordnet in OMW: the tables, then English
+  // Wiktionary's Hindi entries read the other way, ordered by subtitle frequency.
+  hi: {
+    tables: { langCodes: ["hi"] },
+    reverseGlosses: {
+      tag: "enwiktionary-hi",
+      file: "kaikki-hi.jsonl",
+      frequency: true,
+    },
   },
 };
 

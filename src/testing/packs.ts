@@ -209,6 +209,10 @@ const TEST_PACKS: PackFiles = {
   "en-th": {
     dict: { loaf: [[["noun", "ก้อนขนมปัง"]], 0] },
   },
+  // The translation tables first, then English Wiktionary's Hindi entries.
+  "en-hi": {
+    dict: { loaf: [[["noun", "पाव"]], 0] },
+  },
   // German → French (L3): de.wiktionary's tables first; Essen's capitalised sense marked.
   "de-fr": {
     dict: {
@@ -353,6 +357,11 @@ const TEST_FILES: Readonly<Record<string, unknown>> = {
     ],
   },
   "/packs/en-th/dict-1.json": TEST_PACKS["en-th"].dict,
+  "/packs/en-hi/index.json": {
+    shards: [{ file: "dict-1.json", first: "loaf", last: "loaf" }],
+    sources: ["enwiktionary-translations", "enwiktionary-hi"],
+  },
+  "/packs/en-hi/dict-1.json": TEST_PACKS["en-hi"].dict,
   "/packs/de-fr/index.json": {
     shards: [{ file: "dict-1.json", first: "essen", last: "haus" }],
     sources: [

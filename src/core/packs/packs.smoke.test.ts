@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { byCodeUnit } from "../../../scripts/data/common.ts";
 import { packSourcePath } from "../../../scripts/data/formats.ts";
+import { RECIPES } from "../../../scripts/data/recipes/recipes.ts";
 import { simplifiedConverter } from "../../../scripts/data/recipes/simplified.ts";
 import {
   createDefsDictionary,
@@ -689,6 +690,11 @@ describe.each([
     ],
     bread: "ขนมปัง",
   },
+  {
+    pack: "en-hi",
+    sources: ["enwiktionary-translations", "enwiktionary-hi", "wikidata"],
+    bread: "रोटी",
+  },
 ] as const)("generated $pack dictionary", ({ pack, sources, bread }) => {
   const index = read(`packs/${pack}/index.json`) as ShardIndex;
   const load = loadPack(pack).then(({ dict }) => ({
@@ -729,33 +735,37 @@ describe.each([
   });
 });
 
-// Every recipe pair keeps its edition's forms as pointers (format 2).
-describe.each(recipeNatives())("generated en-%s pointers", (native) => {
-  const load = loadPack(`en-${native}`).then(({ dict }) => ({
-    dict,
-    dictionary: createPairDictionary({ dict, defs, ipa }),
-  }));
+// Every recipe pair with an edition keeps its forms as pointers (format 2); the tables
+// and reverse glosses give none (en-hi has no edition).
+describe.each(recipeNatives().filter((native) => RECIPES[native].edition))(
+  "generated en-%s pointers",
+  (native) => {
+    const load = loadPack(`en-${native}`).then(({ dict }) => ({
+      dict,
+      dictionary: createPairDictionary({ dict, defs, ipa }),
+    }));
 
-  it("name a term as their target and are no meaning of their own", async () => {
-    const { dict, dictionary } = await load;
-    const pointers = Object.entries(dict).flatMap(([term, [senses]]) =>
-      senses.flatMap(([, , hint, target]) =>
-        target === undefined ? [] : [{ term, hint, target }],
-      ),
-    );
-    expect(pointers.length).toBeGreaterThan(40);
-    for (const { term, hint, target } of pointers) {
-      expect(hint, term).toBeNull();
-      expect(target, term).toMatch(/^[a-z][a-z'-]*$/);
-      expect(target, term).not.toBe(term);
-    }
-    const { term, target } = pointers.find(({ target }) =>
-      Object.hasOwn(dict, target),
-    )!;
-    expect(dictionary.outline(term)?.pos).toBeDefined();
-    expect(Object.hasOwn(dict, target)).toBe(true);
-  });
-});
+    it("name a term as their target and are no meaning of their own", async () => {
+      const { dict, dictionary } = await load;
+      const pointers = Object.entries(dict).flatMap(([term, [senses]]) =>
+        senses.flatMap(([, , hint, target]) =>
+          target === undefined ? [] : [{ term, hint, target }],
+        ),
+      );
+      expect(pointers.length).toBeGreaterThan(40);
+      for (const { term, hint, target } of pointers) {
+        expect(hint, term).toBeNull();
+        expect(target, term).toMatch(/^[a-z][a-z'-]*$/);
+        expect(target, term).not.toBe(term);
+      }
+      const { term, target } = pointers.find(({ target }) =>
+        Object.hasOwn(dict, target),
+      )!;
+      expect(dictionary.outline(term)?.pos).toBeDefined();
+      expect(Object.hasOwn(dict, target)).toBe(true);
+    });
+  },
+);
 
 // Every recipe pair keeps its capitalised headwords apart, with what they mean (format 3).
 describe.each(recipeNatives())(
@@ -823,6 +833,7 @@ const FIRST_LINES: Readonly<
   },
   pl: { english: "angielski", january: "styczeń", be: "być", better: "lepszy" },
   th: { english: "อังกฤษ", january: "มกราคม", be: "เป็น", better: "ดีกว่า" },
+  hi: { english: "अंग्रेज़ी", january: "जनवरी", be: "होना", better: "बेहतर" },
 };
 
 describe.each(recipeNatives())("generated en-%s first lines", (native) => {

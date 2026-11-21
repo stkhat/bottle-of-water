@@ -111,6 +111,11 @@ describe("capLine", () => {
       "การประชุมสภาผู้แทน…",
     );
   });
+  it("cuts hard between letters, never inside a conjunct or before a vowel sign", () => {
+    // स्त्री is one letter: स, a virama, त, a virama, र and the vowel sign ी.
+    expect(capLine("स्त्रीत्वपूर्णताविहीनता", 6)).toBe("स्त्री…");
+    expect(capLine("महत्त्वपूर्णविद्यार्थी", 10)).toBe("महत्त्वपूर्ण…");
+  });
   it("cuts a text whose words touch at a space between phrases, as at a comma", () => {
     const the =
       "คำใช้บ่งบอกเน้นคำนาม เพื่อให้รู้ว่าเป็นคำนามนี้โดยเฉพาะ ไม่ใช่อื่นใด";
@@ -689,6 +694,17 @@ describe("translatedLine", () => {
       "組み立て、構築、または定式化",
     );
     expect(translatedLine("明らかに、明らかに", "ja")).toBe("明らかに");
+    // Hindi's full stop is the danda.
+    expect(translatedLine("देखा जा सकता है।", "hi")).toBe("देखा जा सकता है");
+  });
+
+  it("keeps the first sentence of a line whose sentences end with a danda", () => {
+    expect(
+      translatedLine(
+        "सबसे ज्यादा पसंद किया जाने वाला। (दूसरे शब्दों में, सबसे प्रिय)",
+        "hi",
+      ),
+    ).toBe("सबसे ज्यादा पसंद किया जाने वाला");
   });
 
   it("keeps the first sentence of a long Japanese line, without notes in brackets", () => {
