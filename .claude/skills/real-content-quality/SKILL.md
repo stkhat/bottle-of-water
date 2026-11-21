@@ -9,6 +9,8 @@ This is the loop used for the 2026-11 translation-quality work ([docs/notes/tran
 
 Read the parts of the spec the work touches first (CLAUDE.md "Read first"). Chat with the user in Japanese; everything committed is in English.
 
+The recurring work over every pair (weekly sweep, learner simulation, fixes, tidy-up of per-language rules) is the [language-cycle](../language-cycle/SKILL.md) skill, which calls this skill's phases. Use this skill directly for a one-off study: a new pair, a new site, or a question the cycle's queue does not cover.
+
 ## Ground rules
 
 - **Real content, not fixtures.** Fixtures show what the code was written for. Real captions (ASR, ALL-CAPS, condensed Netflix cues, speaker dashes, `[sighs]`) and articles show what learners meet. Mix sites, genres, accents and caption kinds.
