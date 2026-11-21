@@ -136,12 +136,13 @@ export function writeShards(
   const packDir = join(dir, pack);
   if (existsSync(packDir))
     for (const file of readdirSync(packDir))
-      if (/^(dict-\d+|index)\.json$/.test(file)) rmSync(join(packDir, file));
+      if (/^(dict-\d+|capital(-\d+)?|index)\.json$/.test(file))
+        rmSync(join(packDir, file));
   const { index, shards } = shardDict(dict);
   for (const shard of shards)
     writePack(`${pack}/${shard.file}`, shard.dict, dir);
   const written: ShardIndex = capital
-    ? { shards: [capitalShard(pack, capital, dir), ...index.shards] }
+    ? { shards: [...capitalShards(pack, capital, dir), ...index.shards] }
     : index;
   writePack(`${pack}/index.json`, { ...written, ...extra }, dir);
   return written;
@@ -149,27 +150,29 @@ export function writeShards(
 
 /**
  * A recipe pair's capitalised headwords (keys with a capital first letter, which sort
- * before the lowercase ones) in capital.json, one shard listed first in index.json, so
- * they load with the rest. Like en-ja's capital.json, they are kept apart.
+ * before the lowercase ones) in capital.json, then capital-2.json… when they need more
+ * than one shard (the acronyms known only by what they stand for), listed first in
+ * index.json, so they load with the rest. Like en-ja's capital.json, they are kept
+ * apart.
  */
-function capitalShard(
+function capitalShards(
   pack: string,
   capital: Readonly<Record<string, unknown>>,
   dir: string,
-): ShardIndex["shards"][number] {
+): ShardIndex["shards"] {
   const { index, shards } = shardDict(capital);
-  if (shards.length > 1)
-    throw new Error(`${pack}/capital.json is over ${SHARD_MAX_BYTES} bytes`);
-  writePack(`${pack}/capital.json`, shards[0]?.dict ?? {}, dir);
-  const [shard] = index.shards;
-  return {
-    file: "capital.json",
-    first: shard?.first ?? "",
-    last: shard?.last ?? "",
-  };
+  const file = (i: number) =>
+    i === 0 ? "capital.json" : `capital-${i + 1}.json`;
+  if (shards.length === 0) {
+    writePack(`${pack}/capital.json`, {}, dir);
+    return [{ file: "capital.json", first: "", last: "" }];
+  }
+  shards.forEach((shard, i) =>
+    writePack(`${pack}/${file(i)}`, shard.dict, dir),
+  );
+  return index.shards.map((shard, i) => ({ ...shard, file: file(i) }));
 }
 
-/** A sharded dictionary in `packDir` (as writeShards wrote it), as one object. */
 export function readDictPacks<V>(packDir: string): Record<string, V> {
   const { shards } = readPack<ShardIndex>("index.json", packDir);
   return Object.fromEntries(

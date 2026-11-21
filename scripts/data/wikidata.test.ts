@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  acronymItems,
+  acronymJapanese,
+  acronymNative,
+  acronymWords,
   chooseEntity,
   entityDefinition,
   entityJapanese,
@@ -7,6 +11,7 @@ import {
   entityWords,
   tsvValue,
   writtenCount,
+  type AcronymItem,
   type Candidate,
   type Entity,
   type Kind,
@@ -246,6 +251,107 @@ describe("the entities' meanings", () => {
     ]);
     expect(entityNative("Nvidia", nvidia, "zh")).toEqual([
       ["英伟达", "American multinational technology company", "label"],
+    ]);
+  });
+});
+
+describe("acronymItems", () => {
+  const alias = (
+    id: string,
+    sitelinks: number,
+    label: string,
+    options: { kinds?: Kind[]; codes?: string[] } = {},
+  ) => item(id, sitelinks, { via: "alias", label, ...options });
+  it("keeps every thing an acronym may stand for, the most notable first", () => {
+    expect(
+      acronymItems("ECHR", [
+        alias("Q183191", 76, "European Convention on Human Rights"),
+        alias("Q122880", 88, "European Court of Human Rights"),
+      ]).map((row) => row.label),
+    ).toEqual([
+      "European Court of Human Rights",
+      "European Convention on Human Rights",
+    ]);
+  });
+  it("leaves out an item whose code it is, a project page, and labels that spell nothing out", () => {
+    expect(
+      acronymItems("AED", [
+        alias("Q200294", 65, "United Arab Emirates dirham", { codes: ["AED"] }),
+        alias("Q787407", 34, "automated external defibrillator"),
+        alias("Q1", 50, "AED (disambiguation page)", { kinds: ["internal"] }),
+      ]).map((row) => row.id),
+    ).toEqual(["Q787407"]);
+    expect(acronymItems("III", [alias("Q19636", 151, "3")])).toEqual([]);
+    expect(acronymItems("HYBE", [alias("Q16161254", 30, "Hybe")])).toEqual([]);
+    expect(acronymItems("III", [alias("Q2", 30, "Gulfstream III")])).toEqual(
+      [],
+    );
+  });
+  it("keeps one item per label, only when it is far more notable than the others", () => {
+    expect(
+      acronymItems("DPP", [
+        alias("Q903822", 46, "Democratic Progressive Party"),
+        alias("Q1185876", 15, "Democratic Progressive Party"),
+      ]).map((row) => row.id),
+    ).toEqual(["Q903822"]);
+    expect(
+      acronymItems("PSD", [
+        alias("Q595575", 39, "Social Democratic Party"),
+        alias("Q752435", 39, "Social Democratic Party"),
+        alias("Q570730", 30, "platform screen door"),
+      ]).map((row) => row.id),
+    ).toEqual(["Q570730"]);
+  });
+});
+
+describe("the acronyms' meanings", () => {
+  const nypd: AcronymItem = {
+    id: "Q328473",
+    sitelinks: 44,
+    label: {
+      en: "New York City Police Department",
+      ja: "ニューヨーク市警察",
+      es: "Departamento de Policía de Nueva York",
+    },
+    description: {
+      en: "police force of New York City",
+      ja: "ニューヨーク市の警察組織",
+    },
+  };
+  const other: AcronymItem = {
+    id: "Q2",
+    sitelinks: 20,
+    label: { en: "Nippon Yusen Police Department", es: "NYPD" },
+    description: { es: "policía naviera" },
+  };
+  it("joins the pack when the language has no word so written", () => {
+    expect(
+      acronymWords({ NYPD: [nypd, other], AI: [other] }, (key) => key === "ai"),
+    ).toEqual({
+      NYPD: [
+        "New York City Police Department",
+        "Nippon Yusen Police Department",
+      ],
+    });
+  });
+  it("gives each thing's Japanese, hinted by its English name", () => {
+    expect(acronymJapanese([nypd, other])).toEqual([
+      "ニューヨーク市警察",
+      [
+        "《New York City Police Department》ニューヨーク市警察",
+        "《New York City Police Department》ニューヨーク市の警察組織",
+      ],
+      "n n",
+    ]);
+    expect(acronymJapanese([other])).toBeUndefined();
+  });
+  it("gives each thing's label and description in a recipe pair's language, hinted by its English name", () => {
+    expect(acronymNative("NYPD", [nypd, other], "es")).toEqual([
+      [
+        "Departamento de Policía de Nueva York",
+        "New York City Police Department",
+      ],
+      ["policía naviera", "Nippon Yusen Police Department"],
     ]);
   });
 });

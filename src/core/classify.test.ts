@@ -9,6 +9,7 @@ import {
   type TermStatus,
 } from "./classify";
 import type { CapitalMeaning, EntryOutline } from "./lexicon/dictionary";
+import { spelledOutIn } from "./lexicon/expansions";
 import { createLanguagePack } from "./lexicon/language-pack";
 import { blockCasing, documentCasing } from "./text/casing";
 
@@ -1568,5 +1569,61 @@ describe("capital-only words", () => {
     expect(capital("(DEA) We saw it in Tokyo.", "DEA")).toBe(false);
     expect(capital("We saw it in Tokyo. (DEA) We saw it.", "DEA")).toBe(false);
     expect(capital("(LAUGHTER) We saw it in Tokyo.", "LAUGHTER")).toBe(false);
+  });
+});
+
+describe("acronyms known only by what they stand for", () => {
+  const acronyms = createLanguagePack("en", {
+    lemmas: {},
+    freq: ["the", "said", "it"],
+    ipa: {},
+    vocab: new Set(["the", "said", "it", "new", "york", "city", "police"]),
+    patterns: { detect: [], more: [], gap: [] },
+    names: {},
+    acronyms: {
+      NYPD: [
+        "New York City Police Department",
+        "Nippon Yusen Police Department",
+      ],
+    },
+  });
+  const run = (blocks: string[], mode?: "upper") => {
+    const text = blocks.join("\n");
+    const casing =
+      mode === "upper"
+        ? { mode, words: {} }
+        : documentCasing(
+            blocks.map((b) => blockCasing(acronyms.tokenize(b), "en")),
+          );
+    return blocks.flatMap((block) =>
+      createClassifier(acronyms)
+        .classify(acronyms.tokenize(block), {
+          terms: terms(),
+          knownLevel: 3,
+          casing,
+          spelledOut: spelledOutIn(text),
+        })
+        .filter((s) => /^NYPD/i.test(block.slice(s.start, s.end)))
+        .map((s) => `${block.slice(s.start, s.end)}:${s.category}:${s.key}`),
+    );
+  };
+
+  it("are words where the document spells one of them out", () => {
+    expect(
+      run([
+        "The New York City Police Department (NYPD) said it.",
+        "The NYPD's officers said it. The NYPDs said it.",
+      ]),
+    ).toEqual(["NYPD:new:nypd", "NYPD's:new:nypd", "NYPDs:new:nypd"]);
+  });
+
+  it("stay unknown where it spells none out, written otherwise, or in capitals throughout", () => {
+    expect(run(["The NYPD said it."])).toEqual(["NYPD:ignored:nypd"]);
+    expect(
+      run(["The New York City Police Department said it.", "Nypd said it."]),
+    ).toEqual(["Nypd:ignored:nypd"]);
+    expect(
+      run(["THE NEW YORK CITY POLICE DEPARTMENT (NYPD) SAID IT."], "upper"),
+    ).toEqual(["NYPD:ignored:nypd"]);
   });
 });

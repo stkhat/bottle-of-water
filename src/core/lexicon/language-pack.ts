@@ -1,4 +1,5 @@
 import type {
+  AcronymsPack,
   CapitalsPack,
   ContractionPack,
   FreqPack,
@@ -161,6 +162,14 @@ export interface LanguagePack {
    * because its case matters (U.S.).
    */
   capitalOnly(key: string): boolean;
+  /**
+   * An acronym known only by what it stands for (`LanguagePackData.acronyms`: NYPD, AGI,
+   * from Wikidata's aliases): the names of the things it may stand for, most notable
+   * first ("New York City Police Department"). It is a capital-only word, but a word only
+   * where its document spells one of those out (`spelledOutExpansion`), which says which
+   * thing it is; [] for any other word.
+   */
+  acronymExpansions(key: string): readonly string[];
   /** IPA of a word, or of a phrase's words inside one pair of slashes. */
   ipa(term: string): string | undefined;
   /** The dictionary's phrase patterns, keyed like saved phrases ("figure out"). */
@@ -256,6 +265,8 @@ export interface LanguagePackData {
    * where the text writes them so (`lemmatize`).
    */
   capitals?: CapitalsPack;
+  /** Acronyms known only by what they stand for, as written → those names (`acronymExpansions`). */
+  acronyms?: AcronymsPack;
 }
 
 /** The capital-only words by key: "ai" → ["AI"] (`CapitalWords`). */
@@ -276,7 +287,19 @@ export function createLanguagePack(
 ): LanguagePack {
   const ranks = new Map(data.freq.map((word, i) => [word, i + 1]));
   const rules = rulesFor(lang);
-  const capitals = data.capitals && capitalWords(data.capitals);
+  const acronyms = new Map(
+    Object.entries(data.acronyms ?? {}).map(
+      ([written, expansions]) => [normalizeWord(written), expansions] as const,
+    ),
+  );
+  // An acronym is a capital-only word: one only where the text writes it so.
+  const capitals =
+    data.capitals || data.acronyms
+      ? capitalWords([
+          ...(data.capitals ?? []),
+          ...Object.keys(data.acronyms ?? {}),
+        ])
+      : undefined;
   const expansions = (word: string) =>
     data.contractions ? (own(data.contractions, word) ?? []) : [];
   const isName = (word: string) =>
@@ -322,6 +345,15 @@ export function createLanguagePack(
     if (!found) {
       if (lemmaCache.size >= LEMMA_CACHE_SIZE) lemmaCache.clear();
       found = lemmatize(word, data.lemmas, data.vocab, capitals);
+      // An acronym known only by what it stands for, in the plural (AEDs, NYPDs): no
+      // lemma table lists its forms.
+      if (found.length === 0 && acronyms.size > 0 && /\p{Lu}s$/u.test(word))
+        found = lemmatize(
+          word.slice(0, -1),
+          data.lemmas,
+          data.vocab,
+          capitals,
+        ).filter((base) => acronyms.has(base));
       // A contraction of vocabulary words is a word ("what'd", "how'd": what did).
       if (found.length === 0) {
         const key = normalizeWord(word);
@@ -388,6 +420,7 @@ export function createLanguagePack(
     basesInOrder: BASES_IN_ORDER.has(lang),
     rank,
     capitalOnly: (key) => capitals?.has(key) === true && !data.vocab.has(key),
+    acronymExpansions: (key) => acronyms.get(key) ?? [],
     // English -s forms ("beans") take their base's IPA with the English ending.
     ipa: (term) => ipaFor(term, data.ipa, lang === "en" ? lemmas : undefined),
     patterns: data.patterns,

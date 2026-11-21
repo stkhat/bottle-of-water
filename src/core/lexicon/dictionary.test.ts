@@ -5,12 +5,14 @@ import {
   createPairDictionary,
   withCompounds,
   withPhraseCase,
+  withSpelledOutAcronyms,
   withWrittenHeads,
+  type EnJaDictionaryData,
 } from "./dictionary";
 import type { PairPack } from "../packs/types";
 import { writesPhrase } from "./expansions";
 
-const dictionary = createEnJaDictionary({
+const data: EnJaDictionaryData = {
   dict: {
     dough: [
       "練り粉,こね粉,生パン",
@@ -138,7 +140,8 @@ const dictionary = createEnJaDictionary({
     from: "/fɹʌm/",
     scratch: "/skɹætʃ/",
   },
-});
+};
+const dictionary = createEnJaDictionary(data);
 
 describe("createEnJaDictionary", () => {
   it("makes one sense's line as the hover card's lines do: an EJDict sense or an English definition", () => {
@@ -543,6 +546,78 @@ describe("withWrittenHeads", () => {
     expect(heads.entry("ai")?.lines).toEqual(["人工知能"]);
     expect(heads.entry("dough")?.head).toBe("dough");
     expect(heads.entry("zzyzx")).toBeUndefined();
+  });
+});
+
+describe("withSpelledOutAcronyms", () => {
+  const nypd = "New York City Police Department";
+  const other = "Nippon Yusen Police Department";
+  const defs = {
+    nypd: [
+      ["proper noun", `${nypd}: Police force of New York City.`],
+      ["proper noun", `${other}.`],
+    ] as const,
+  };
+  const english = createDefsDictionary({ defs, ipa: {} });
+  const acronyms = withSpelledOutAcronyms(
+    createEnJaDictionary({
+      ...data,
+      capital: {
+        ...data.capital,
+        NYPD: [
+          "ニューヨーク市警察",
+          [`《${nypd}》ニューヨーク市警察`, `《${nypd}》ニューヨーク市の警察`],
+        ],
+      },
+      defs,
+    }),
+    (key) => (key === "nypd" ? [nypd, other] : []),
+    { dictionary: english, glossLang: "en" },
+  );
+  const writes = (text: string) => (phrase: string) =>
+    writesPhrase(text, phrase);
+
+  it("means the thing the document spells out, that thing's senses alone", () => {
+    const entry = acronyms.entry(
+      "nypd",
+      "upper",
+      undefined,
+      undefined,
+      writes(`The ${nypd} (NYPD) said`),
+    );
+    expect(entry?.lines).toEqual([
+      "ニューヨーク市警察",
+      "ニューヨーク市の警察",
+    ]);
+    expect(entry?.short).toBe("ニューヨーク市警察");
+    expect(entry?.senses).toHaveLength(2);
+  });
+
+  it("takes the English definition where the pair has no text of the thing", () => {
+    const entry = acronyms.entry(
+      "nypd",
+      "upper",
+      undefined,
+      undefined,
+      writes(`The ${other} (NYPD) said`),
+    );
+    expect(entry?.glossLang).toBe("en");
+    expect(entry?.short).toBe(other);
+    expect(entry?.senses.map((sense) => sense.text)).toEqual([`${other}.`]);
+  });
+
+  it("means nothing where the document spells none out or it is not in capitals", () => {
+    expect(
+      acronyms.entry("nypd", "upper", undefined, undefined, writes("NYPD")),
+    ).toBeUndefined();
+    expect(acronyms.entry("nypd")).toBeUndefined();
+    expect(
+      acronyms.entry("nypd", "capital", undefined, undefined, writes(nypd)),
+    ).toBeUndefined();
+    // Any other word as before.
+    expect(acronyms.entry("dough")?.lines).toEqual(
+      dictionary.entry("dough")?.lines,
+    );
   });
 });
 

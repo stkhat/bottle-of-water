@@ -1,4 +1,4 @@
 {
-"shards":[{"file":"capital.json","first":"A","last":"Łódź"},{"file":"dict-1.json","first":"'s","last":"gill slit"},{"file":"dict-2.json","first":"gillnet","last":"sea holly"},{"file":"dict-3.json","first":"sea horse","last":"ē"}],
+"shards":[{"file":"capital.json","first":"A","last":"SNU"},{"file":"capital-2.json","first":"SNV","last":"ŽSR"},{"file":"dict-1.json","first":"'s","last":"gill slit"},{"file":"dict-2.json","first":"gillnet","last":"sea holly"},{"file":"dict-3.json","first":"sea horse","last":"ē"}],
 "sources":["enwiktionary-translations","zhwiktionary","omw-cmn","wikidata"]
 }

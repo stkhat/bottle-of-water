@@ -23,7 +23,12 @@ import {
   type KaikkiEntry,
 } from "./common.ts";
 import { parseEjdict, readEjdictText } from "./ejdict.ts";
-import { entityJapanese, joinedEntities } from "./wikidata.ts";
+import {
+  acronymJapanese,
+  entityJapanese,
+  joinedAcronyms,
+  joinedEntities,
+} from "./wikidata.ts";
 import { japaneseSenses } from "./phrases.ts";
 import {
   entrySenses,
@@ -210,6 +215,16 @@ async function main() {
       fromEntities++;
     } else Reflect.deleteProperty(capitalWords, key);
   }
+  // Acronyms known only by what they stand for (NYPD): each thing's Japanese, hinted by
+  // its English name, which the card chooses by; a thing with none is defined in
+  // English (en-defs).
+  let fromAcronyms = 0;
+  for (const [written, items] of Object.entries(joinedAcronyms())) {
+    const entry = acronymJapanese(items);
+    if (!entry || Object.hasOwn(capital, written)) continue;
+    capitalWords[written] = entry;
+    fromAcronyms++;
+  }
   for (const key of Object.keys(capitalWords))
     if (Object.hasOwn(capital, key))
       throw new Error(`en-ja/capital.json has ${key} from EJDict`);
@@ -226,7 +241,8 @@ async function main() {
   writePack("en-ja/phrases.json", { ...phrases, ...words });
   console.log(
     `en-ja/capital.json: ${Object.keys(capital).length} EJDict capitalised headwords, ` +
-      `${Object.keys(capitalWords).length} of ${capitals.length} capital-only words with Japanese meanings (${fromEntities} from Wikidata); ` +
+      `${Object.keys(capitalWords).length - fromAcronyms} of ${capitals.length} capital-only words with Japanese meanings (${fromEntities} from Wikidata), ` +
+      `${fromAcronyms} acronyms known by what they stand for; ` +
       `en-ja/phrases.json: ${Object.keys(words).length} of ${added.length} rule E words with Japanese meanings`,
   );
 }
