@@ -2,11 +2,7 @@ import { defineConfig } from "wxt";
 import preact from "@preact/preset-vite";
 import pkg from "./package.json" with { type: "json" };
 import { noticesPlugin } from "./scripts/notices.ts";
-import {
-  DEVELOPMENT_EXTENSION_KEY,
-  GOOGLE_DRIVE_SCOPE,
-  googleClients,
-} from "./src/background/sync/google-clients.ts";
+import { DEVELOPMENT_EXTENSION_KEY } from "./src/background/sync/google-clients.ts";
 
 export default defineConfig({
   srcDir: "src",
@@ -14,7 +10,6 @@ export default defineConfig({
   // The data sources and licenses page's data (`virtual:langle-notices`).
   vite: () => ({ plugins: [preact(), noticesPlugin()] }),
   manifest: ({ browser, mode }) => {
-    const google = googleClients(mode);
     return {
       name: "Langle",
       version: pkg.version,
@@ -28,18 +23,11 @@ export default defineConfig({
       ...(browser === "firefox" && {
         browser_specific_settings: { gecko: { id: "langle@stkhat" } },
       }),
-      // Chromium only: development and check builds keep one id, the one Google's
-      // Chrome-extension client is registered for (src/background/sync/google-clients.ts).
+      // Chromium only: development and check builds keep one id, so the sign-in
+      // redirect (https://<id>.chromiumapp.org/) Google's Web client lists stays theirs
+      // (src/background/sync/google-clients.ts).
       ...(browser !== "firefox" &&
         mode !== "production" && { key: DEVELOPMENT_EXTENSION_KEY }),
-      // For identity.getAuthToken, which Firefox does not have.
-      ...(browser !== "firefox" &&
-        google && {
-          oauth2: {
-            client_id: google.chromeExtension,
-            scopes: [GOOGLE_DRIVE_SCOPE],
-          },
-        }),
     };
   },
   hooks: {

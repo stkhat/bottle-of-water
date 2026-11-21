@@ -21,6 +21,7 @@ import { watchBuild } from "../background/self-reload";
 import { isCheckLogMessage, startWorkerErrorLog } from "../check/start";
 import { createBrowserSyncBackend } from "../background/sync/browser-sync-backend";
 import {
+  cloudAccount,
   cloudConnected,
   createCloudSyncBackend,
 } from "../background/sync/cloud-sync-backend";
@@ -152,7 +153,10 @@ function cloudProviders(): Partial<Record<CloudProviderId, CloudProvider>> {
     googleDrive: {
       id: "googleDrive",
       files: createDriveFiles(),
-      auth: createGoogleAuth({ webClientId: google.web }),
+      auth: createGoogleAuth({
+        webClientId: google.web,
+        account: () => cloudAccount(),
+      }),
     },
   };
 }

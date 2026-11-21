@@ -132,7 +132,7 @@ const scriptsOf = (dir: string) =>
     .map((file) => readFileSync(join(file.parentPath, file.name), "utf8"))
     .join("\n");
 
-// Google's Chrome-extension client is tied to one extension id
+// Google's Web client lists the sign-in redirect of one extension id
 // (src/background/sync/google-clients.ts).
 describe("Google sign-in", () => {
   test("development and check builds keep the id dgabnakfehpeammboohlkafhhdegbffe", async () => {
@@ -154,12 +154,13 @@ describe("Google sign-in", () => {
     }
   });
 
-  test("the check build names the development Chrome-extension client and drive.appdata only", () => {
-    expect(readManifest("chrome-mv3-check").oauth2).toEqual({
-      client_id:
-        "191564468385-nmn8mdj6shonud18lkkhsjm0nvrpi8jm.apps.googleusercontent.com",
-      scopes: ["https://www.googleapis.com/auth/drive.appdata"],
-    });
+  // Every browser signs in through launchWebAuthFlow, so no build names a client for
+  // getAuthToken, which would sign in only the browser profile's own account.
+  test("the check build has no oauth2 and the development Web client", () => {
+    expect(readManifest("chrome-mv3-check").oauth2).toBeUndefined();
+    expect(scriptsOf("chrome-mv3-check")).toContain(
+      "191564468385-i9mvko6iu5qpq1o8pkhtufudvu72nc36.apps.googleusercontent.com",
+    );
   });
 
   // Until the store item's client is registered, production has no Google client.
