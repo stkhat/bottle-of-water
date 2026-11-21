@@ -23,6 +23,7 @@ const DAY = 24 * 60 * MINUTE;
 
 const SYNC: SyncStatus = {
   enabled: true,
+  termsInCloud: false,
   bytesUsed: 41 * 1024,
   quotaBytes: 102_400,
   lastSavedAt: NOW - 2 * MINUTE,

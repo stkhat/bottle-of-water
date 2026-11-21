@@ -59,6 +59,10 @@ beforeEach(() => {
     resources: createLanguageResources(stubPackLoader()),
     packs: packsOnDevice(),
     sync: { status: () => Promise.reject(new Error("not used")) },
+    cloud: {
+      status: () => Promise.reject(new Error("not used")),
+      requestCheck: () => {},
+    },
     openOptionsPage: async () => {},
   });
 });

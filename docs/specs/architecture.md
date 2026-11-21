@@ -392,7 +392,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 - JSON export (`langle-export`, version 3): terms with tombstones (`clearedAt`), sources, occurrences with `deviceId` and `addedAt`, meanings and meaning choices. Import reads versions 1 to 3 and merges by the cloud rules ("Merge"). The rows of a version 1 or 2 file become the importing device's, added when seen (`addedAt = seenAt`), so a removal here that the file does not know of still keeps them out; a version 1 file has no meanings
 
 ## Sync (browser `storage.sync`; limits: ~100 KB total, 512 items, ~8 KB per item)
-- `BrowserSyncBackend` (background) owns it. `CloudSyncBackend` (designed, not built: "Sync to the user's own cloud storage") takes over terms while connected; no shared interface is kept until it is built
+- `BrowserSyncBackend` (background) owns it. While a cloud provider is connected, `CloudSyncBackend` ("Sync to the user's own cloud storage") takes over terms: browser sync's `termsInCloud` check (`cloudConnected()`) makes it neither read nor write terms, and its `pullAll()` brings `storage.sync` in on connect and after disconnect. Settings stay with browser sync. The two share no interface
 - The limits are the same in Chrome and Firefox. Use the `storage.sync` constants (`QUOTA_BYTES` etc.) when readable at runtime, otherwise the values above
 - Per language, sort `term key → status code + updated time (minutes in base36)`, concatenate, gzip (CompressionStream) + base64, and store in chunks of ~7 KB
   - Status codes: `l` learning, `k` known, `g` known and learned (`learnedAt` set), `x` removed. A device that takes in `g` keeps its own `learnedAt` when its copy is already learned, else uses the record's update time
@@ -424,7 +424,7 @@ Use the site's translation when it has one; fall back to the browser's built-in 
 
 - The sync name ("Chrome sync", "Firefox Sync") comes from `BrowserEnv`. Saving and merging do not differ by browser
 
-## Sync to the user's own cloud storage (designed 2026-11-15; file format, merge and data model built 2026-11-21)
+## Sync to the user's own cloud storage (designed 2026-11-15; file format, merge, data model and backend built 2026-11-21)
 Google Drive, Dropbox and OneDrive, with no developer server. Built later; the steps before building are under "Checks before building". The mobile app ([notes](../notes/mobile.md)) cannot read browser sync, so this is also how it gets data and settings: the file format is a contract, and the mobile app reads and writes the same files. Reviewed by an independent agent on 2026-11-15; its findings are folded in. Build order: [plans/cloud-sync.md](../plans/cloud-sync.md).
 
 ### What is synced
@@ -483,8 +483,10 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 ### Parts
 - `CloudSyncBackend` (background): reads, merges and writes the files; knows no provider
 - `CloudProvider`, in two halves
-  - **Files**: `list()`, `read(path)`, `write(path, bytes)`, `remove(path)` over `fetch`, shared by the extension and the mobile app
-  - **Auth**: only returns an access token. Desktop: `identity.launchWebAuthFlow`; for Google, `identity.getAuthToken` where it exists (Chromium; detected, not by browser name: Chrome renews the token itself, but only for the Google account signed in to the browser). Mobile: the system sign-in (`ASWebAuthenticationSession` / Custom Tabs) through the app's bridge
+  - **Files**: `list(token)`, `read(token, path)`, `write(token, path, bytes)`, `remove(token, path)` over `fetch`, shared by the extension and the mobile app. Taking the token as an argument keeps the files half free of sign-in, so the mobile app can pass its own. `list` and `write` return each file's path, modified time and size
+  - **Auth**: only returns an access token: `token({interactive, refused?})` (`refused`: a token that just got a 401, so it is not handed out again) and `forget()`. Desktop: `identity.launchWebAuthFlow`; for Google, `identity.getAuthToken` where it exists (Chromium; detected, not by browser name: Chrome renews the token itself, but only for the Google account signed in to the browser). Mobile: the system sign-in (`ASWebAuthenticationSession` / Custom Tabs) through the app's bridge
+- Errors are typed (`CloudError`): `unauthorized` (401), `retry` (network, 429, 5xx; with `retryAfterMs` when the provider says), `full`, `notFound`. Anything else counts as `retry`
+- Code: `src/core/cloud/provider.ts` (interface, ids `CLOUD_PROVIDERS`, errors)
 - Tokens live in `storage.local`, never synced
 - Permissions: `identity` shows no install warning in Chrome. Google Drive needs no host permissions (checked 2026-11-21: its API answers extension pages' cross-origin requests); whether Firefox accepts `identity` as an optional permission is checked before the Firefox version
 - Extension ids (Google's Chrome-extension client is tied to one): development and check builds carry a fixed manifest `key` (id `dgabnakfehpeammboohlkafhhdegbffe`); production builds carry none, and the store item's id gets a client of its own in the same Cloud project before publishing, so both see the same `appDataFolder` ([notes](../notes/cloud-sync.md) "Extension ids")
@@ -508,6 +510,17 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 - Storage full: shown in the status, writing stops, nothing is lost on the device
 - Another device's file unreadable or of a newer `v`: skip that file and show "Update Langle on this device"
 
+### Backend (built 2026-11-21)
+- `src/background/sync/cloud-sync-backend.ts`; `cloud-copy.ts` reads IndexedDB into the reference merge's in-memory copy and stores the difference back. A merge reads the whole copy, applies `takeMain` / `takeMonth` / `applyLimits` from `core/cloud/state.ts`, and writes the changed rows in one transaction through the term store's `applyCloud`, so listeners hear them with origin `sync`. Known limit: the whole copy is in memory while merging; per-table merging can follow if C7's measurements need it
+- State in `storage.local` (`cloudSync`): provider, the modified time each other device's file was last taken in at (`seen`), files to read again (rows waiting for an unknown term), unreadable files, the hash of each own file last sent, pending flags for `main` and months, the history switch it last wrote with, this device's own `main` time and `writtenAt`, the size of every file, last saved / last checked, the error. Connected = that key exists (`cloudConnected()`); tokens are the auth half's
+- Settings: `cloudProvider` (`"none"` or a provider id, synced, set on connect; disconnecting leaves it for the UI to decide) and `cloudHistory` ("Also save to", default on). Settings in `main` merge through `settingsStore.cloudSettings()`, which stores the merged field times in `storage.sync` and tells local changes apart from its own
+- What is pending: every local term-store change marks `main` and months (saving a term records its sentence too); a recorded history sentence marks months; "Clear" and "Never run on" mark both; a local settings change marks `main`. A month file is written when the hash of its content (with `writtenAt` left out) differs from the one last sent; that comparison runs only while months are pending, or after the history switch changed. Own rows a merge changed (trim, history limit) mark months
+- Copied profile: when this device's own `main` has a modified time other than the one recorded at its last write, it is read; if it is unreadable or its `writtenAt` is not this device's, the device makes a new id (`deviceId.renew()`), forgets what it sent and writes everything into the new folder. The old folder then counts as another device's. Known limit: rows the copy recorded before the check may be lost
+- Retry: 15 s doubled per failure, `retryAfterMs` when given, at most 10 min; the retry checks, then saves if the check worked. A 401 asks for a new token without a window once, then sets "reconnect". Storage full stops writing until the next local change
+- Status (`cloudStatus` message, and the `cloudSync` key for a storage watch): provider, last saved, last checked, total bytes, number of device folders, and the error (reconnect > full > update > retrying). `cloudCheck` asks for a read now (the popup and Word list send it when they open, from C6); requests while one runs are merged
+- Connect: an interactive token, then (first connection only) browser sync's terms are pulled in, the state starts fresh, `cloudProvider` is set, the 5-minute alarm is created, and it checks, then saves. Connecting again to the same provider only clears the error; another provider starts fresh without pulling browser sync. Disconnect: timers and the alarm go, the state and the token are forgotten, browser sync pulls everything in
+- No provider is wired in yet (C5); the backend runs with an empty provider list
+
 ### UI (details mock-first when building)
 - Settings "Your own cloud storage": provider choice, Connect / Disconnect, status
 - Settings "Sentence history": "Also save to <provider>" (shown only while connected, on by default, synced). Off stops sending and receiving history on every device; each device removes its own `history-*` files (nobody removes another device's). Turning it back on sends each device's whole kept history again
@@ -515,7 +528,7 @@ Google Drive, Dropbox and OneDrive, with no developer server. Built later; the s
 
 ### Tests
 - Unit (`core/`): file encoding (other `v`, broken, newer), every merge rule, `clearedAt`, `historyClearedAt` and `historyForgotten`, settings field times, the history limit, and a **property test** (`sync.property.test.ts`, seeded): random devices with skewed clocks, changes, writes and partial reads in random orders reach the same final state, and reading again changes nothing; with no limit reached, with the trim and history limit reached, and with them reached on almost every change. `CLOUD_SYNC_SEEDS` runs more seeds (1500 per case pass)
-- Browser: `CloudSyncBackend` against an in-memory fake `CloudProvider`, two devices: merge, reading month files before their `main`, a copied device id, disconnect back to browser sync, switching provider, 401 → "Reconnect needed", 429 → retry
+- Browser: `CloudSyncBackend` against an in-memory fake `CloudProvider`, two devices or more (`src/testing/cloud-provider.ts`): merge, the 30 s write and `main` only after a local change, list then download only changed files, pending writes at the next start, reading month files before their `main`, a copied browser profile, connect / disconnect with browser sync, 401 → "Reconnect needed", 429 → backoff, storage full, a newer `v` → "update", the history switch. Switching provider is tested once a second provider exists
 - Providers' files halves: recorded HTTP responses, no live API in tests
 - Last: in the user's Chrome and Firefox with real accounts, per provider: connect, sync two devices, disconnect. The user signs in
 

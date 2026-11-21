@@ -44,6 +44,9 @@ const REPEATABLE: Record<RequestType, boolean> = {
   undoSaveAll: false,
   counts: true,
   syncStatus: true,
+  cloudStatus: true,
+  // A second check while one is queued joins it.
+  cloudCheck: true,
   exportJson: true,
   importJson: true,
   lastExport: true,
