@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "vitest-browser-preact";
 import type {
+  CloudStatus,
   Counts,
   PackStatus,
   Request,
@@ -35,12 +36,24 @@ const SYNC: SyncStatus = {
   droppedKnownCount: 0,
 };
 
+/** Connected to Google Drive, saved 2 minutes ago. */
+const CONNECTED: CloudStatus = {
+  available: ["googleDrive"],
+  provider: "googleDrive",
+  lastSavedAt: NOW - 2 * MINUTE,
+  lastCheckedAt: NOW - MINUTE,
+  bytes: 1.4 * 1024 * 1024,
+  devices: 3,
+};
+
 interface FakeOptions {
   settings?: Partial<Settings>;
   /** What the active tab answers; undefined when nothing answers. */
   page?: PageSummary;
   counts?: Counts;
   sync?: SyncStatus;
+  /** What `cloudStatus` answers first (default: a build with no provider). */
+  cloud?: CloudStatus;
   refreshMs?: number;
   /** What `packStatus` answers for the settings (default: `JAPANESE`). */
   packStatus?: (settings: Settings) => PackStatus;
@@ -79,6 +92,11 @@ function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let page = options.page;
   let counts = options.counts ?? { learning: 128, known: 2341, phrases: 37 };
+  let cloud: CloudStatus = options.cloud ?? {
+    available: [],
+    bytes: 0,
+    devices: 0,
+  };
   const settingsWatchers = settingsListeners(settings);
   const packWatchers = listeners<PackStates>();
   const sent: Request[] = [];
@@ -97,6 +115,13 @@ function fake(options: FakeOptions = {}) {
           return counts;
         case "syncStatus":
           return options.sync ?? SYNC;
+        case "cloudStatus":
+          return cloud;
+        case "cloudCheck":
+          return null;
+        case "cloudConnect":
+          cloud = { ...CONNECTED, provider: request.provider };
+          return null;
         case "packStatus":
           return options.packStatus?.(settings) ?? JAPANESE;
         case "retryPacks":
@@ -460,6 +485,117 @@ describe("Popup", () => {
       await expect.element(screen.getByText("Sync is off")).toBeVisible();
       expect(screen.getByText(/Sync space/).query()).toBeNull();
       expect(screen.getByText(/Saved to/).query()).toBeNull();
+    });
+  });
+
+  describe("your own cloud storage", () => {
+    const connected = { cloudProvider: "googleDrive" } as const;
+
+    it("asks the background to read the other devices' changes when it opens", async () => {
+      const f = fake();
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect
+        .element(screen.getByText("Saved to Chrome sync · 2 minutes ago"))
+        .toBeVisible();
+      expect(f.sent.filter((r) => r.type === "cloudCheck")).toHaveLength(1);
+      expect(screen.getByText(/Google Drive/).query()).toBeNull();
+    });
+
+    it("shows the last save, the size and the devices instead of browser sync", async () => {
+      const f = fake({ cloud: CONNECTED, settings: connected });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect
+        .element(screen.getByText("Saved to Google Drive · 2 minutes ago"))
+        .toBeVisible();
+      await expect
+        .element(screen.getByText("1.4 MB · 3 devices"))
+        .toBeVisible();
+      expect(screen.getByText(/Chrome sync/).query()).toBeNull();
+      expect(screen.getByText(/Sync space/).query()).toBeNull();
+      expect(screen.getByText(/Last checked/).query()).toBeNull();
+    });
+
+    it("asks to connect on this device too, above the counts, and Connect connects", async () => {
+      const f = fake({
+        cloud: { available: ["googleDrive"], bytes: 0, devices: 0 },
+        settings: connected,
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      const note = screen.getByText("Connect Google Drive on this device too");
+      await expect.element(note).toBeVisible();
+      await expect
+        .element(screen.getByText("Saved to Chrome sync · 2 minutes ago"))
+        .toBeVisible();
+      const counts = screen.getByText("Phrases", { exact: true });
+      expect(
+        note.element().compareDocumentPosition(counts.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      await screen.getByRole("button", { name: "Connect" }).click();
+      await expect
+        .element(screen.getByText("Saved to Google Drive · 2 minutes ago"))
+        .toBeVisible();
+      expect(f.sent).toContainEqual({
+        type: "cloudConnect",
+        provider: "googleDrive",
+      });
+    });
+
+    it("does not offer Google Drive when no device chose it", async () => {
+      const f = fake({
+        cloud: { available: ["googleDrive"], bytes: 0, devices: 0 },
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      await expect
+        .element(screen.getByText("Saved to Chrome sync · 2 minutes ago"))
+        .toBeVisible();
+      expect(screen.getByText(/Google Drive/).query()).toBeNull();
+    });
+
+    it("says Reconnect needed in red, and Reconnect connects again", async () => {
+      const f = fake({
+        cloud: {
+          ...CONNECTED,
+          error: "reconnect",
+          lastSavedAt: NOW - 3 * 60 * MINUTE,
+        },
+        settings: connected,
+      });
+      const screen = await render(<Popup deps={f.deps} />);
+      const line = screen.getByText("Reconnect needed");
+      await expect.element(line).toBeVisible();
+      expect(getComputedStyle(line.element()).color).toBe("rgb(180, 35, 24)");
+      await expect
+        .element(screen.getByText("Last saved to Google Drive 3 hours ago"))
+        .toBeVisible();
+      await screen.getByRole("button", { name: "Reconnect" }).click();
+      await expect
+        .element(screen.getByText("Saved to Google Drive · 2 minutes ago"))
+        .toBeVisible();
+      expect(f.sent).toContainEqual({
+        type: "cloudConnect",
+        provider: "googleDrive",
+      });
+    });
+
+    it("says the storage is full or an update is needed in the same red line, without a button", async () => {
+      for (const [error, text] of [
+        ["full", "Google Drive storage is full"],
+        ["update", "Update Langle on this device"],
+      ] as const) {
+        const f = fake({ cloud: { ...CONNECTED, error }, settings: connected });
+        const screen = await render(<Popup deps={f.deps} />);
+        const line = screen.getByText(text);
+        await expect.element(line).toBeVisible();
+        expect(getComputedStyle(line.element()).color).toBe("rgb(180, 35, 24)");
+        await expect
+          .element(screen.getByText("Last saved to Google Drive 2 minutes ago"))
+          .toBeVisible();
+        expect(
+          screen.getByRole("button", { name: /Connect/ }).query(),
+        ).toBeNull();
+        cleanup();
+      }
     });
   });
 

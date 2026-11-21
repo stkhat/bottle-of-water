@@ -1,5 +1,6 @@
 import { t } from "../../../i18n/t";
 import type { HistoryStatus } from "../../../messaging/protocol";
+import type { CloudView } from "../../../ui/format/cloud";
 import { fmt, megabytes } from "../../../ui/format/format";
 import { Meter } from "../../../ui/Meter";
 import { RowLabel } from "../../../ui/RowLabel";
@@ -16,10 +17,13 @@ function pagesLine(pages: number): string {
 export function HistorySection(
   props: SectionProps & {
     history: HistoryStatus | undefined;
+    /** "Also save to <provider>" shows only while connected. */
+    cloud: CloudView | undefined;
     onClear: () => void;
   },
 ) {
-  const { settings, history } = props;
+  const { settings, history, cloud } = props;
+  const connected = cloud?.kind === "connected" ? cloud : undefined;
   // Any history at all shows on the meter.
   const share =
     history && history.cap > 0 && history.bytes > 0
@@ -33,12 +37,26 @@ export function HistorySection(
     >
       <SwitchRow
         title={t("settings.history.switch")}
-        desc={t("settings.history.switchDesc")}
+        desc={
+          connected
+            ? t("settings.history.switchDescCloud")
+            : t("settings.history.switchDesc")
+        }
         checked={settings.sentenceHistory}
         onToggle={() =>
           props.change({ sentenceHistory: !settings.sentenceHistory })
         }
       />
+      {connected && (
+        <SwitchRow
+          title={t("settings.history.alsoSave", { provider: connected.name })}
+          desc={t("settings.history.alsoSaveDesc")}
+          checked={settings.cloudHistory}
+          onToggle={() =>
+            props.change({ cloudHistory: !settings.cloudHistory })
+          }
+        />
+      )}
       <div
         class="row"
         style={{ flexDirection: "column", alignItems: "stretch", gap: "8px" }}

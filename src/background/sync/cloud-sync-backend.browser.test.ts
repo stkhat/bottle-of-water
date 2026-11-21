@@ -484,7 +484,12 @@ describe("CloudSyncBackend: browser sync", () => {
     await a.after(5_000);
     expect(await syncedKeys(area)).toEqual(["knead", "loaf"]);
     expect(await a.state()).toBeUndefined();
-    expect(await a.backend.status()).toEqual({ bytes: 0, devices: 0 });
+    expect(await a.backend.status()).toEqual({
+      available: ["googleDrive"],
+      bytes: 0,
+      devices: 0,
+    });
+    expect(a.settings.values().cloudProvider).toBe("none");
     expect(a.alarms.set.has(CLOUD_CHECK_ALARM)).toBe(false);
     expect((await a.browserSync.status()).termsInCloud).toBe(false);
   });

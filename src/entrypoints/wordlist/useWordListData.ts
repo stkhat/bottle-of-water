@@ -114,6 +114,8 @@ export function useWordListData(deps: WordListDeps) {
   );
 
   useEffect(() => {
+    // The other devices' changes are read now, not at the next 5-minute check.
+    deps.send({ type: "cloudCheck" }).catch(warn);
     deps.send({ type: "getSettings" }).then((settings) => {
       setLangs({
         learning: settings.learningLang,

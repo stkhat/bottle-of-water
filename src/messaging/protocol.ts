@@ -247,6 +247,13 @@ export type Request =
   | { type: "cloudStatus" }
   /** Reads the other devices' changed cloud files soon; answers at once. */
   | { type: "cloudCheck" }
+  /**
+   * Signs in with a window and connects this device (again, after "Reconnect needed");
+   * answers once the first check and save are done, or with the sign-in's error.
+   */
+  | { type: "cloudConnect"; provider: CloudProviderId }
+  /** Disconnects this device; the synced `cloudProvider` goes back to `"none"`. */
+  | { type: "cloudDisconnect" }
   | { type: "exportJson" }
   | { type: "importJson"; json: string }
   | { type: "lastExport" }
@@ -447,6 +454,8 @@ export interface SyncStatus {
  * `provider` the device is not connected.
  */
 export interface CloudStatus {
+  /** The providers this build can connect to (none in production for now). */
+  available: CloudProviderId[];
   provider?: CloudProviderId;
   /** When this device last wrote its files. */
   lastSavedAt?: number;
@@ -519,6 +528,8 @@ interface ResponseMap {
   syncStatus: SyncStatus;
   cloudStatus: CloudStatus;
   cloudCheck: null;
+  cloudConnect: null;
+  cloudDisconnect: null;
   exportJson: string;
   importJson: ImportResult;
   /** Null when the data was never exported. */

@@ -15,12 +15,14 @@ import {
   type PackStatusFollower,
 } from "../../messaging/pack-status";
 import type {
+  CloudStatus,
   HistoryStatus,
   PackStatus,
   SyncStatus,
 } from "../../messaging/protocol";
 import type { BackupDeps } from "../../ui/backup/BackupButtons";
 import { BrandHeader } from "../../ui/BrandHeader";
+import { cloudView } from "../../ui/format/cloud";
 import { color, FONT, PAGE_BUTTON_CSS } from "../../ui/styles";
 import { AboutSection } from "./sections/About";
 import { AppearanceSection } from "./sections/Appearance";
@@ -31,7 +33,7 @@ import { LanguagesSection } from "./sections/Languages";
 import { LevelSection } from "./sections/Level";
 import { SitesSection } from "./sections/Sites";
 import { SupportBox } from "./sections/Support";
-import { SyncSection } from "./sections/Sync";
+import { SyncSection, type CloudRequest } from "./sections/Sync";
 import { VideoSection } from "./sections/Video";
 
 /** What the settings page works with; `main.tsx` passes the browser's, tests pass fakes. */
@@ -46,7 +48,7 @@ export interface SettingsDeps extends BackupDeps, PackStatusDeps {
   noticesUrl: string;
   /** Where the Support Langle box's links lead; an empty one is left out. */
   links: SupportLinks;
-  /** How often the sync and history status and the relative times are refreshed. */
+  /** How often the sync, cloud and history status and the relative times are refreshed. */
   refreshMs: number;
 }
 
@@ -120,6 +122,7 @@ function useSectionInView(): SectionId {
 export function SettingsPage({ deps }: { deps: SettingsDeps }) {
   const [settings, setSettings] = useState<Settings>();
   const [sync, setSync] = useState<SyncStatus>();
+  const [cloud, setCloud] = useState<CloudStatus>();
   const [history, setHistory] = useState<HistoryStatus>();
   const [packs, setPacks] = useState<PackStatus>();
   const [now, setNow] = useState(deps.now);
@@ -128,7 +131,10 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
 
   const warn = (error: unknown) => console.warn("Langle:", error);
   const refreshSync = () =>
-    deps.send({ type: "syncStatus" }).then(setSync, warn);
+    Promise.all([
+      deps.send({ type: "syncStatus" }).then(setSync, warn),
+      deps.send({ type: "cloudStatus" }).then(setCloud, warn),
+    ]);
   const refreshHistory = () =>
     deps.send({ type: "historyStatus" }).then(setHistory, warn);
 
@@ -163,6 +169,15 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
     }, warn);
   }
   const section = { settings, change };
+  const view = cloudView(cloud, settings);
+
+  /** Connects or disconnects (a sign-in window may open), then shows where it stands. */
+  function cloudRequest(request: CloudRequest) {
+    return deps
+      .send(request)
+      .catch(warn)
+      .finally(() => void refreshSync());
+  }
 
   return (
     <div
@@ -263,6 +278,7 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
         <HistorySection
           {...section}
           history={history}
+          cloud={view}
           onClear={() =>
             void deps.send({ type: "clearHistory" }).then(refreshHistory, warn)
           }
@@ -272,6 +288,8 @@ export function SettingsPage({ deps }: { deps: SettingsDeps }) {
           deps={deps}
           env={deps.env}
           sync={sync}
+          cloud={view}
+          onCloud={cloudRequest}
           now={now}
           onExported={() => setNow(deps.now())}
         />

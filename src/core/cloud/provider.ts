@@ -10,6 +10,11 @@
 export const CLOUD_PROVIDERS = ["googleDrive"] as const;
 export type CloudProviderId = (typeof CLOUD_PROVIDERS)[number];
 
+/** Each provider's name as the UI shows it ("Saved to Google Drive"); a product name, not translated. */
+export const CLOUD_PROVIDER_NAMES: Record<CloudProviderId, string> = {
+  googleDrive: "Google Drive",
+};
+
 /** A file in the app's space. */
 export interface CloudFileInfo {
   /** As `filePath` makes it. */
