@@ -1,4 +1,5 @@
 import { MAX_OCCURRENCES } from "../core/cloud/merge";
+import type { CloudSyncBackend } from "./sync/cloud-sync-backend";
 import {
   unsavedKeys,
   type ClassifyOptions,
@@ -59,7 +60,6 @@ import {
   type ResponseOf,
   type MeaningLine,
   type ShortMeaning,
-  type CloudStatus,
   type SyncStatus,
   type TermBrief,
   type TranslationItem,
@@ -95,7 +95,10 @@ export interface HandlerDeps {
     retry(): void;
   };
   sync: { status(): Promise<SyncStatus> };
-  cloud: { status(): Promise<CloudStatus>; requestCheck(): void };
+  cloud: Pick<
+    CloudSyncBackend,
+    "status" | "requestCheck" | "connect" | "disconnect"
+  >;
   openOptionsPage(): Promise<void>;
 }
 
@@ -574,6 +577,14 @@ export function createHandlers({
     cloudStatus: () => cloud.status(),
     cloudCheck: async () => {
       cloud.requestCheck();
+      return null;
+    },
+    cloudConnect: async ({ provider }) => {
+      await cloud.connect(provider);
+      return null;
+    },
+    cloudDisconnect: async () => {
+      await cloud.disconnect();
       return null;
     },
     exportJson: () => store.exportJson(),

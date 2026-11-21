@@ -319,8 +319,10 @@ export function testBackground(
       }),
     },
     cloud: {
-      status: async () => ({ bytes: 0, devices: 0 }),
+      status: async () => ({ available: [], bytes: 0, devices: 0 }),
       requestCheck: () => {},
+      connect: async () => {},
+      disconnect: async () => {},
     },
     openOptionsPage: async () => {
       optionsOpened++;

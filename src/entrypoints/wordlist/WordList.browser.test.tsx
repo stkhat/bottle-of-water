@@ -196,6 +196,8 @@ function fake(options: FakeOptions = {}) {
       switch (request.type) {
         case "getSettings":
           return mergeSettings(options.settings ?? {});
+        case "cloudCheck":
+          return null;
         case "listTermsWithStats":
           if (request.meanings === false)
             return terms.map((t) => {

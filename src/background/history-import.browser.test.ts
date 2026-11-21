@@ -62,6 +62,8 @@ beforeEach(() => {
     cloud: {
       status: () => Promise.reject(new Error("not used")),
       requestCheck: () => {},
+      connect: () => Promise.reject(new Error("not used")),
+      disconnect: () => Promise.reject(new Error("not used")),
     },
     openOptionsPage: async () => {},
   });

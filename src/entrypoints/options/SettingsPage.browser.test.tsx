@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-preact";
 import type {
+  CloudStatus,
   HistoryStatus,
   ImportResult,
   PackStatus,
@@ -19,7 +20,8 @@ import { listeners, settingsListeners } from "../../testing/stubs";
 
 const NOW = new Date(2026, 10, 10, 12, 0, 0).getTime();
 const MINUTE = 60_000;
-const DAY = 24 * 60 * MINUTE;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
 const SYNC: SyncStatus = {
   enabled: true,
@@ -32,8 +34,26 @@ const SYNC: SyncStatus = {
   droppedKnownCount: 0,
 };
 
+/** Connected to Google Drive, saved 2 minutes ago, checked 1 minute ago. */
+const CONNECTED: CloudStatus = {
+  available: ["googleDrive"],
+  provider: "googleDrive",
+  lastSavedAt: NOW - 2 * MINUTE,
+  lastCheckedAt: NOW - MINUTE,
+  bytes: 1.4 * 1024 * 1024,
+  devices: 3,
+};
+/** Not connected, in a build that can connect to Google Drive. */
+const CAN_CONNECT: CloudStatus = {
+  available: ["googleDrive"],
+  bytes: 0,
+  devices: 0,
+};
+
 interface FakeOptions {
   settings?: Partial<Settings>;
+  /** What `cloudStatus` answers first (default: a build with no provider). */
+  cloud?: CloudStatus;
   /** The on-device AI (default: none, as in Firefox). */
   explainProvider?: ExplanationProvider;
   lastExport?: number | null;
@@ -52,6 +72,11 @@ function fake(options: FakeOptions = {}) {
   let settings = mergeSettings(options.settings ?? {});
   let lastExport = options.lastExport ?? null;
   let history = options.history ?? HISTORY;
+  let cloud: CloudStatus = options.cloud ?? {
+    available: [],
+    bytes: 0,
+    devices: 0,
+  };
   const settingsWatchers = settingsListeners(settings);
   const packWatchers = listeners<PackStates>();
   const removed = new Set<string>();
@@ -69,6 +94,21 @@ function fake(options: FakeOptions = {}) {
           return settings;
         case "syncStatus":
           return { ...SYNC, enabled: settings.syncEnabled };
+        case "cloudStatus":
+          return cloud;
+        case "cloudConnect":
+          cloud = { ...CONNECTED, provider: request.provider };
+          settings = mergeSettings(
+            { cloudProvider: request.provider },
+            settings,
+          );
+          settingsWatchers.emit(settings);
+          return null;
+        case "cloudDisconnect":
+          cloud = { available: cloud.available, bytes: 0, devices: 0 };
+          settings = mergeSettings({ cloudProvider: "none" }, settings);
+          settingsWatchers.emit(settings);
+          return null;
         case "lastExport":
           return lastExport;
         case "exportJson":
@@ -993,13 +1033,257 @@ describe("SettingsPage", () => {
         .toBeVisible();
     });
 
-    it("lists your own cloud storage as coming later", async () => {
+    it("lists your own cloud storage as coming later in a build that cannot connect", async () => {
       const f = await open();
       const sync = section(f.screen, "Sync and backup");
       await expect
         .element(sync.getByText("Your own cloud storage"))
         .toBeVisible();
       await expect.element(sync.getByText("Coming later")).toBeVisible();
+      expect(sync.getByRole("button", { name: /Connect/ }).query()).toBeNull();
+      await expect
+        .element(
+          f.screen.getByText(
+            "Langle has no server. Your words are kept in this browser and, if you like, synced through Chrome sync.",
+          ),
+        )
+        .toBeVisible();
+    });
+  });
+
+  describe("your own cloud storage", () => {
+    const LEAD =
+      "Langle has no server. Your words are kept in this browser and, if you like, synced through Chrome sync or your own Google Drive.";
+    const DESC =
+      "Google Drive. Everything is saved there, in a folder only Langle can open.";
+    const syncSwitch = (sync: ReturnType<typeof section>) =>
+      sync.getByRole("switch", { name: "Sync word status with Chrome sync" });
+
+    it("offers Google Drive after the backup file, and Connect connects", async () => {
+      const f = await open({ cloud: CAN_CONNECT });
+      const sync = section(f.screen, "Sync and backup");
+      await expect.element(sync.getByText(LEAD)).toBeVisible();
+      await expect
+        .element(
+          sync.getByText(
+            "Save everything, including sources and sentences, to your Google Drive, for when Chrome sync space runs out.",
+          ),
+        )
+        .toBeVisible();
+      const rows = [...sync.element().querySelectorAll(".row")].map(
+        (row) => row.textContent ?? "",
+      );
+      expect(rows.at(-2)).toMatch(/^Backup file/);
+      expect(rows.at(-1)).toMatch(/^Your own cloud storage/);
+      expect(sync.getByText("Coming later").query()).toBeNull();
+
+      await sync.getByRole("button", { name: "Connect Google Drive" }).click();
+      await expect.element(sync.getByText(DESC)).toBeVisible();
+      expect(f.sent).toContainEqual({
+        type: "cloudConnect",
+        provider: "googleDrive",
+      });
+    });
+
+    it("shows where it stands while connected, without browser sync's switch and space", async () => {
+      const f = await open({
+        cloud: CONNECTED,
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      await expect.element(sync.getByText(LEAD)).toBeVisible();
+      await expect
+        .element(sync.getByText("Your own cloud storage"))
+        .toBeVisible();
+      await expect.element(sync.getByText(DESC)).toBeVisible();
+      await expect
+        .element(sync.getByText("Saved to Google Drive · 2 minutes ago"))
+        .toBeVisible();
+      await expect.element(sync.getByText("1.4 MB · 3 devices")).toBeVisible();
+      await expect
+        .element(sync.getByText("Last checked other devices: 1 minute ago"))
+        .toBeVisible();
+      expect(syncSwitch(sync).query()).toBeNull();
+      expect(sync.getByText("Sync space").query()).toBeNull();
+      expect(
+        sync.getByRole("button", { name: "Reconnect" }).query(),
+      ).toBeNull();
+      await expect
+        .element(sync.getByRole("button", { name: "Export" }))
+        .toBeVisible();
+      expect(f.screen.getByText(/Synced/).query()).toBeNull();
+    });
+
+    it("disconnects, and browser sync's switch comes back", async () => {
+      const f = await open({
+        cloud: CONNECTED,
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      await sync.getByRole("button", { name: "Disconnect" }).click();
+      await expect.element(syncSwitch(sync)).toBeVisible();
+      await expect
+        .element(sync.getByRole("button", { name: "Connect Google Drive" }))
+        .toBeVisible();
+      expect(f.sent).toContainEqual({ type: "cloudDisconnect" });
+    });
+
+    it("asks to reconnect, with Reconnect and Disconnect", async () => {
+      const f = await open({
+        cloud: {
+          ...CONNECTED,
+          error: "reconnect",
+          lastSavedAt: NOW - 3 * HOUR,
+        },
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      const line = sync.getByText("Reconnect needed");
+      await expect.element(line).toBeVisible();
+      expect(getComputedStyle(line.element()).color).toBe("rgb(180, 35, 24)");
+      await expect.element(sync.getByText("1.4 MB · 3 devices")).toBeVisible();
+      await expect
+        .element(
+          sync.getByText(
+            "Last saved 3 hours ago. New changes wait on this device until you reconnect.",
+          ),
+        )
+        .toBeVisible();
+      expect(sync.getByText(/Last checked/).query()).toBeNull();
+      await expect
+        .element(sync.getByRole("button", { name: "Disconnect" }))
+        .toBeVisible();
+      await sync.getByRole("button", { name: "Reconnect" }).click();
+      await expect
+        .element(sync.getByText("Saved to Google Drive · 2 minutes ago"))
+        .toBeVisible();
+      expect(f.sent).toContainEqual({
+        type: "cloudConnect",
+        provider: "googleDrive",
+      });
+    });
+
+    it("says the storage is full, with Disconnect only", async () => {
+      const f = await open({
+        cloud: { ...CONNECTED, error: "full", lastSavedAt: NOW - 2 * DAY },
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      await expect
+        .element(sync.getByText("Google Drive storage is full"))
+        .toBeVisible();
+      await expect
+        .element(
+          sync.getByText(
+            "Last saved 2 days ago. Langle saves again when there is space; nothing is lost on this device.",
+          ),
+        )
+        .toBeVisible();
+      expect(
+        sync.getByRole("button", { name: "Reconnect" }).query(),
+      ).toBeNull();
+      await expect
+        .element(sync.getByRole("button", { name: "Disconnect" }))
+        .toBeVisible();
+    });
+
+    it("asks for an update when another device saved with a newer Langle", async () => {
+      const f = await open({
+        cloud: { ...CONNECTED, error: "update" },
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      await expect
+        .element(sync.getByText("Update Langle on this device"))
+        .toBeVisible();
+      await expect
+        .element(
+          sync.getByText(
+            "Another device saved with a newer Langle, so its changes are not read here yet. Last saved 2 minutes ago.",
+          ),
+        )
+        .toBeVisible();
+      expect(
+        sync.getByRole("button", { name: "Reconnect" }).query(),
+      ).toBeNull();
+    });
+
+    it("shows a retry as saved: it goes on by itself", async () => {
+      const f = await open({
+        cloud: { ...CONNECTED, error: "retrying" },
+        settings: { cloudProvider: "googleDrive" },
+      });
+      await expect
+        .element(
+          section(f.screen, "Sync and backup").getByText(
+            "Saved to Google Drive · 2 minutes ago",
+          ),
+        )
+        .toBeVisible();
+    });
+
+    it("asks to connect on this device too when another device chose Google Drive", async () => {
+      const f = await open({
+        cloud: CAN_CONNECT,
+        settings: { cloudProvider: "googleDrive" },
+      });
+      const sync = section(f.screen, "Sync and backup");
+      await expect.element(syncSwitch(sync)).toBeVisible();
+      await expect
+        .element(sync.getByText("Connect Google Drive on this device too"))
+        .toBeVisible();
+      await expect
+        .element(
+          sync.getByText(
+            "Your other devices save to Google Drive. Each device signs in once.",
+          ),
+        )
+        .toBeVisible();
+      await sync.getByRole("button", { name: "Connect", exact: true }).click();
+      await expect.element(sync.getByText(DESC)).toBeVisible();
+      expect(f.sent).toContainEqual({
+        type: "cloudConnect",
+        provider: "googleDrive",
+      });
+    });
+
+    it("offers Also save to Google Drive in Sentence history only while connected", async () => {
+      const f = await open({ cloud: CAN_CONNECT });
+      const history = section(f.screen, "Sentence history");
+      await expect
+        .element(
+          history.getByText(
+            "Never synced. Pages on your Never run on list are not kept.",
+          ),
+        )
+        .toBeVisible();
+      expect(history.getByText(/Also save to/).query()).toBeNull();
+
+      await section(f.screen, "Sync and backup")
+        .getByRole("button", { name: "Connect Google Drive" })
+        .click();
+      const also = history.getByRole("switch", {
+        name: "Also save to Google Drive",
+      });
+      await expect.element(also).toBeChecked();
+      await expect
+        .element(
+          history.getByText(
+            "Your other devices can show these sentences too. Applies to all your devices.",
+          ),
+        )
+        .toBeVisible();
+      await expect
+        .element(
+          history.getByText("Pages on your Never run on list are not kept.", {
+            exact: true,
+          }),
+        )
+        .toBeVisible();
+      await also.click();
+      await expect.element(also).not.toBeChecked();
+      expect(f.settings().cloudHistory).toBe(false);
+      expect(setSettingsPatches(f.sent)).toEqual([{ cloudHistory: false }]);
     });
   });
 

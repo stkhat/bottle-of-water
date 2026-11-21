@@ -127,7 +127,7 @@ export function cloudSettings(
       const stored = await takeTimedSettings(incoming);
       if (stored) taken.add(JSON.stringify(stored));
     },
-    async choose(provider: CloudProviderId) {
+    async choose(provider: CloudProviderId | "none") {
       await setSettings({ cloudProvider: provider });
     },
     watch(listener) {

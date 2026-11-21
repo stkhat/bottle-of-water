@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import type { TermIndex } from "../core/classify";
+import type { CloudProviderId } from "../core/cloud/provider";
 import type { PackName } from "../core/packs/load";
 import { readLock, type PackLock } from "../core/packs/lock";
 import type { PackState } from "../core/packs/state";
@@ -167,6 +168,7 @@ const SYNC_STATUS: SyncStatus = {
 };
 
 const CLOUD_STATUS: CloudStatus = {
+  available: ["googleDrive"],
   provider: "googleDrive",
   bytes: 2_048,
   devices: 2,
@@ -194,6 +196,8 @@ let sync: { status: Mock<() => Promise<SyncStatus>> };
 let cloud: {
   status: Mock<() => Promise<CloudStatus>>;
   requestCheck: Mock<() => void>;
+  connect: Mock<(provider: CloudProviderId) => Promise<void>>;
+  disconnect: Mock<() => Promise<void>>;
 };
 let deps: HandlerDeps;
 let handle: Handle;
@@ -211,6 +215,8 @@ beforeEach(() => {
   cloud = {
     status: vi.fn(async () => CLOUD_STATUS),
     requestCheck: vi.fn(),
+    connect: vi.fn(async () => {}),
+    disconnect: vi.fn(async () => {}),
   };
   loadPack = stubPackLoader();
   packs = fakePacks();
@@ -256,6 +262,15 @@ describe("handlers: routing", () => {
     expect(await value({ type: "cloudStatus" })).toEqual(CLOUD_STATUS);
     expect(await value({ type: "cloudCheck" })).toBeNull();
     expect(cloud.requestCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("connects and disconnects through the cloud backend", async () => {
+    expect(
+      await value({ type: "cloudConnect", provider: "googleDrive" }),
+    ).toBeNull();
+    expect(cloud.connect).toHaveBeenCalledWith("googleDrive");
+    expect(await value({ type: "cloudDisconnect" })).toBeNull();
+    expect(cloud.disconnect).toHaveBeenCalledTimes(1);
   });
 
   it("answers lastExport with when the data was last exported, or null", async () => {

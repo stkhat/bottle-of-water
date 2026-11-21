@@ -6,8 +6,8 @@ import { color } from "../styles";
 
 type Style = CSSProperties;
 
-/** Mock LanguageData `.note`. */
-const NOTE: Style = {
+/** Mock LanguageData `.note` (also the popup's "Connect … on this device too"). */
+export const NOTE: Style = {
   display: "flex",
   alignItems: "center",
   gap: "10px",
@@ -19,8 +19,8 @@ const NOTE: Style = {
   lineHeight: 1.4,
 };
 
-/** Mock LanguageData `.rb`: the small Retry button. */
-const RETRY: Style = {
+/** Mock LanguageData `.rb`: the small Retry button (and the popup's Connect, Reconnect). */
+export const NOTE_BUTTON: Style = {
   flex: "none",
   height: "32px",
   margin: 0,
@@ -53,7 +53,7 @@ export function LanguageDataNote(props: {
         <span style={{ flex: 1, minWidth: 0 }}>
           {t("data.failed", { language })}
         </span>
-        <button type="button" onClick={props.onRetry} style={RETRY}>
+        <button type="button" onClick={props.onRetry} style={NOTE_BUTTON}>
           {t("action.retry")}
         </button>
       </div>

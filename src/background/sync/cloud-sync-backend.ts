@@ -20,6 +20,7 @@ import {
 } from "../../core/cloud/format";
 import { sameRecord } from "../../core/cloud/merge";
 import {
+  CLOUD_PROVIDERS,
   CloudError,
   cloudErrorKind,
   type CloudProvider,
@@ -86,8 +87,8 @@ export interface CloudSettings {
   get(): Promise<TimedSettings>;
   /** Merges another device's settings into the stored ones (`mergeTimedSettings`). */
   take(incoming: FileSettings): Promise<void>;
-  /** Sets the synced `cloudProvider` setting. */
-  choose(provider: CloudProviderId): Promise<void>;
+  /** Sets the synced `cloudProvider` setting (`"none"` on disconnect). */
+  choose(provider: CloudProviderId | "none"): Promise<void>;
   /** Calls `listener` after each change of the stored settings that `take` did not make. */
   watch(listener: () => void): () => void;
 }
@@ -135,7 +136,12 @@ export interface CloudSyncBackend {
    * "Reconnect needed") keeps what was read and written.
    */
   connect(provider: CloudProviderId): Promise<void>;
-  /** Forgets the connection and the token; browser sync takes the terms back. */
+  /**
+   * Forgets the connection and the token; browser sync takes the terms back. The synced
+   * `cloudProvider` goes back to `"none"`, so devices not connected stop offering
+   * "Connect … on this device too"; devices still connected keep syncing until they
+   * disconnect themselves.
+   */
   disconnect(): Promise<void>;
   /** Reads the other devices' changed files soon (the popup or the Word list opened). */
   requestCheck(): void;
@@ -586,16 +592,17 @@ export function createCloudSyncBackend({
       return enqueue(async () => {
         await provider.auth.token({ interactive: true });
         await load();
-        const historyOn = (await settings.get()).values.cloudHistory;
+        const { values } = await settings.get();
         if (state?.provider === id) delete state.error;
         else {
           // From browser sync: its terms come into IndexedDB first. Switching from
           // another provider: the whole copy goes to the new one.
           if (!state) await browserSync.pullAll();
-          state = fresh(id, historyOn);
+          state = fresh(id, values.cloudHistory);
           await persist();
-          await settings.choose(id);
         }
+        // Also when reconnecting: another device's disconnect may have cleared it.
+        if (values.cloudProvider !== id) await settings.choose(id);
         await alarms.create(CLOUD_CHECK_ALARM, {
           periodInMinutes: CHECK_PERIOD_MINUTES,
         });
@@ -614,6 +621,7 @@ export function createCloudSyncBackend({
         state = undefined;
         await persist();
         await providers[s.provider]?.auth.forget();
+        await settings.choose("none");
         await browserSync.pullAll();
       });
     },
@@ -623,9 +631,11 @@ export function createCloudSyncBackend({
     async status() {
       await load();
       const s = state;
-      if (!s) return { bytes: 0, devices: 0 };
+      const available = CLOUD_PROVIDERS.filter((id) => providers[id]);
+      if (!s) return { available, bytes: 0, devices: 0 };
       const paths = Object.keys(s.sizes);
       const status: CloudStatus = {
+        available,
         provider: s.provider,
         bytes: Object.values(s.sizes).reduce((sum, size) => sum + size, 0),
         devices: new Set(paths.map((path) => parseFilePath(path)?.deviceId))

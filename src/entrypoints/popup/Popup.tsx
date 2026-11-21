@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import type { Counts, SyncStatus } from "../../messaging/protocol";
+import type { CloudProviderId } from "../../core/cloud/provider";
+import type { CloudStatus, Counts, SyncStatus } from "../../messaging/protocol";
 import { onHost } from "../../core/url";
 import type { DataNote } from "../../core/packs/state";
 import type { SupportLinks } from "../../core/links";
@@ -13,12 +14,22 @@ import {
 } from "../../messaging/pack-status";
 import type { PageRequest, PageSummary } from "../../messaging/page-protocol";
 import { BrandHeader } from "../../ui/BrandHeader";
+import {
+  cloudErrorLine,
+  cloudSizeLine,
+  cloudView,
+  type CloudView,
+} from "../../ui/format/cloud";
 import { fmt, relativeTime } from "../../ui/format/format";
 import { syncSavedLine, syncSpace } from "../../ui/format/sync";
 import { CheckIcon, GearIcon, WordListIcon } from "../../ui/icons";
 import { HighlightChips } from "../../ui/lookup/HighlightChips";
 import { Meter } from "../../ui/Meter";
-import { LanguageDataNote } from "../../ui/packs/LanguageDataNote";
+import {
+  LanguageDataNote,
+  NOTE,
+  NOTE_BUTTON,
+} from "../../ui/packs/LanguageDataNote";
 import { color, FONT } from "../../ui/styles";
 import { Switch } from "../../ui/Switch";
 import { SaveAll } from "./SaveAll";
@@ -39,7 +50,7 @@ export interface PopupDeps extends PackStatusDeps {
   /** Closes the popup. */
   close(): void;
   now(): number;
-  /** How often the tab, the counts and the sync status are asked again while open. */
+  /** How often the tab, the counts and the sync and cloud status are asked again while open. */
   refreshMs: number;
 }
 
@@ -104,6 +115,80 @@ function SyncLine(props: {
   );
 }
 
+/**
+ * The sync block while this device saves to its own cloud storage (mock CloudSync):
+ * "Saved to Google Drive · 2 min ago" over the size and devices, or the red line of
+ * what stopped it (Reconnect needed, with Reconnect; storage full or update needed,
+ * without a button) over when it last saved.
+ */
+function CloudLine(props: {
+  view: Extract<CloudView, { kind: "connected" }>;
+  now: number;
+  onReconnect: () => void;
+}) {
+  const { view, now } = props;
+  const { status } = view;
+  const error = cloudErrorLine(status, view.name);
+  const when =
+    status.lastSavedAt === undefined
+      ? undefined
+      : relativeTime(status.lastSavedAt, now);
+  if (error)
+    return (
+      <>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "13px",
+          }}
+        >
+          <span style={{ flex: 1, fontWeight: 600, color: color.danger }}>
+            {error}
+          </span>
+          {status.error === "reconnect" && (
+            <button
+              type="button"
+              onClick={props.onReconnect}
+              style={NOTE_BUTTON}
+            >
+              {t("cloud.reconnect")}
+            </button>
+          )}
+        </div>
+        <span style={{ fontSize: "12px", color: color.muted }}>
+          {when === undefined
+            ? t("sync.notSaved")
+            : t("popup.cloud.lastSaved", { provider: view.name, when })}
+        </span>
+      </>
+    );
+  const size = cloudSizeLine(status);
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontSize: "13px",
+        }}
+      >
+        {when !== undefined && <CheckIcon />}
+        <span>
+          {when === undefined
+            ? t("sync.notSaved")
+            : t("cloud.saved", { provider: view.name, when })}
+        </span>
+      </div>
+      {size && (
+        <span style={{ fontSize: "12px", color: color.muted }}>{size}</span>
+      )}
+    </>
+  );
+}
+
 /** The header's icon buttons (word list, settings). */
 const headerButton = {
   flex: "none",
@@ -123,8 +208,9 @@ const headerButton = {
 /**
  * The toolbar popup (mock Toolbar): the header's switch for Langle as a whole, the
  * language data while it is missing (mock LanguageData), this site, this page,
- * highlights, counts, sync, the rating nudge and the Support Langle footer. While Langle
- * is switched off, only the header, sync and the footer.
+ * highlights, counts, sync (browser sync, or the user's own cloud storage), the rating
+ * nudge and the Support Langle footer. While Langle is switched off, only the header,
+ * sync and the footer.
  */
 export function Popup({ deps }: { deps: PopupDeps }) {
   const [settings, setSettings] = useState<Settings>();
@@ -132,6 +218,7 @@ export function Popup({ deps }: { deps: PopupDeps }) {
   /** The active tab's summary; none while asking, or when nothing there answers. */
   const [summary, setSummary] = useState<PageSummary>();
   const [sync, setSync] = useState<SyncStatus>();
+  const [cloud, setCloud] = useState<CloudStatus>();
   const [data, setData] = useState<DataNote | null>(null);
   const [now, setNow] = useState(deps.now);
 
@@ -139,6 +226,18 @@ export function Popup({ deps }: { deps: PopupDeps }) {
 
   function refreshCounts(lang: string) {
     deps.send({ type: "counts", lang }).then(setCounts, warn);
+  }
+
+  function refreshCloud() {
+    deps.send({ type: "cloudStatus" }).then(setCloud, warn);
+  }
+
+  /** Signs in (a window opens, which may close the popup) and connects this device. */
+  function connect(provider: CloudProviderId) {
+    void deps
+      .send({ type: "cloudConnect", provider })
+      .catch(warn)
+      .finally(refreshCloud);
   }
 
   function askPage(request: PageRequest) {
@@ -151,8 +250,11 @@ export function Popup({ deps }: { deps: PopupDeps }) {
       setNow(deps.now());
       void askPage({ type: "pageSummary" });
       deps.send({ type: "syncStatus" }).then(setSync, warn);
+      refreshCloud();
       if (lang) refreshCounts(lang);
     };
+    // The other devices' changes are read now, not at the next 5-minute check.
+    deps.send({ type: "cloudCheck" }).catch(warn);
     deps.send({ type: "getSettings" }).then((s) => {
       lang = s.learningLang;
       setSettings(s);
@@ -191,6 +293,8 @@ export function Popup({ deps }: { deps: PopupDeps }) {
     const enabled = !settings.enabled;
     update({ enabled }, { enabled });
   }
+
+  const view = cloudView(cloud, settings);
 
   const siteOn =
     settings && summary
@@ -309,6 +413,21 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           />
         )}
 
+        {view?.kind === "too" && (
+          <div style={NOTE}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {t("cloud.connectToo", { provider: view.name })}
+            </span>
+            <button
+              type="button"
+              onClick={() => connect(view.provider)}
+              style={NOTE_BUTTON}
+            >
+              {t("cloud.connect")}
+            </button>
+          </div>
+        )}
+
         {langleOn && summary && (
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div
@@ -399,10 +518,22 @@ export function Popup({ deps }: { deps: PopupDeps }) {
           </div>
         )}
 
-        {sync && (
+        {view?.kind === "connected" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <SyncLine status={sync} syncName={deps.syncName} now={now} />
+            <CloudLine
+              view={view}
+              now={now}
+              onReconnect={() => connect(view.provider)}
+            />
           </div>
+        ) : (
+          sync && (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+            >
+              <SyncLine status={sync} syncName={deps.syncName} now={now} />
+            </div>
+          )
         )}
 
         {nudging && <RateNudge onDismiss={() => void nudgeDone()} />}

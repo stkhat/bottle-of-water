@@ -47,6 +47,10 @@ const REPEATABLE: Record<RequestType, boolean> = {
   cloudStatus: true,
   // A second check while one is queued joins it.
   cloudCheck: true,
+  // Would open a second sign-in window.
+  cloudConnect: false,
+  // A second disconnect finds nothing to disconnect.
+  cloudDisconnect: true,
   exportJson: true,
   importJson: true,
   lastExport: true,
